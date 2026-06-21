@@ -9,7 +9,7 @@ OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop t
 Working foundation:
 
 - Photoshop UXP panel scaffold for Photoshop 2024+
-- Dark, minimal React UI
+- Dark, minimal UXP-friendly TypeScript UI
 - Configurable local ComfyUI server URL
 - ComfyUI connection check
 - `txt2img-basic` workflow generation
@@ -50,7 +50,7 @@ For fast UI iteration outside Photoshop, you can run:
 npm run dev
 ```
 
-The dev server is useful for React layout work, but the Photoshop-specific APIs only run inside Photoshop through UXP.
+The dev server is useful for panel layout work, but the Photoshop-specific APIs only run inside Photoshop through UXP.
 
 ## Package
 
@@ -138,7 +138,7 @@ If you export a different workflow from ComfyUI, update the node IDs in `src/com
 |   |-- utils/
 |   |-- workflows/
 |   |-- index.html
-|   |-- main.tsx
+|   |-- main.ts
 |   |-- manifest.json
 |   `-- styles.css
 |-- package.json

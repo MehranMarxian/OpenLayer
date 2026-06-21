@@ -1,4 +1,4 @@
-import { cp, mkdir } from "node:fs/promises";
+import { cp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -15,5 +15,15 @@ for (const [from, to] of assets) {
   await mkdir(dirname(target), { recursive: true });
   await cp(source, target, { recursive: true, force: true });
 }
+
+const indexPath = resolve(root, "dist/index.html");
+const indexHtml = await readFile(indexPath, "utf8");
+await writeFile(
+  indexPath,
+  indexHtml
+    .replace('<script type="module" crossorigin src=', "<script defer src=")
+    .replace('<link rel="stylesheet" crossorigin href=', '<link rel="stylesheet" href='),
+  "utf8"
+);
 
 console.log("Copied UXP assets to dist.");

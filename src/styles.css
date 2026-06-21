@@ -25,27 +25,37 @@ textarea {
   font: inherit;
 }
 
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+a:hover {
+  color: #d7dde6;
+}
+
 .app-shell {
   display: flex;
   min-height: 100vh;
   flex-direction: column;
-  gap: 18px;
-  padding: 20px;
+  gap: 14px;
+  padding: 18px 18px 12px;
   background:
-    linear-gradient(180deg, rgba(38, 44, 52, 0.74), rgba(17, 19, 22, 0) 220px),
+    linear-gradient(180deg, rgba(34, 40, 48, 0.82), rgba(17, 19, 22, 0) 210px),
     #111316;
 }
 
 .app-header {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
 }
 
 .app-title {
   margin: 0;
   color: #ffffff;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
   letter-spacing: 0;
 }
@@ -56,16 +66,34 @@ textarea {
   font-size: 13px;
 }
 
+.version-badge {
+  flex: 0 0 auto;
+  border: 1px solid #303744;
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: #15191f;
+  color: #9ba6b5;
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .panel-section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 6px;
+}
+
+.connection-panel {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: end;
 }
 
 .field-row {
@@ -98,15 +126,20 @@ textarea {
 
 .input,
 .select {
-  min-height: 36px;
-  padding: 8px 10px;
+  min-height: 34px;
+  padding: 7px 10px;
 }
 
 .textarea {
-  min-height: 96px;
+  min-height: 76px;
   resize: vertical;
-  padding: 10px;
+  padding: 9px 10px;
   line-height: 1.45;
+}
+
+.input-compact {
+  min-height: 32px;
+  padding: 6px 8px;
 }
 
 .input:focus,
@@ -118,10 +151,10 @@ textarea {
 }
 
 .button {
-  min-height: 36px;
+  min-height: 34px;
   border: 1px solid #3c4654;
   border-radius: 8px;
-  padding: 8px 12px;
+  padding: 7px 12px;
   background: #252b34;
   color: #f6f8fb;
   cursor: pointer;
@@ -144,7 +177,10 @@ textarea {
 
 .button:disabled {
   cursor: not-allowed;
-  opacity: 0.55;
+  border-color: #2b323c;
+  background: #1a1f26;
+  color: #778191;
+  opacity: 1;
 }
 
 .button-primary {
@@ -160,15 +196,25 @@ textarea {
   width: 100%;
 }
 
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.settings-seed {
+  grid-column: 1 / -1;
+}
+
 .status-bar {
   display: flex;
-  min-height: 42px;
+  min-height: 38px;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   border: 1px solid #2b323d;
   border-radius: 8px;
-  padding: 10px 12px;
+  padding: 9px 12px;
   background: #15191f;
 }
 
@@ -198,9 +244,22 @@ textarea {
   color: #ff9a9a;
 }
 
+.section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.muted-label {
+  color: #778191;
+  font-size: 11px;
+}
+
 .preview-panel {
   display: grid;
-  min-height: 220px;
+  min-height: 160px;
+  max-height: 260px;
   place-items: center;
   overflow: hidden;
   border: 1px solid #2b323d;
@@ -216,7 +275,7 @@ textarea {
   display: block;
   width: 100%;
   height: auto;
-  max-height: 420px;
+  max-height: 260px;
   object-fit: contain;
 }
 
@@ -233,4 +292,35 @@ textarea {
   color: #ffb5b5;
   font-size: 13px;
   line-height: 1.4;
+}
+
+.app-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-top: auto;
+  border-top: 1px solid #20262e;
+  padding-top: 10px;
+  color: #596271;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.app-footer a {
+  color: #6f7b8e;
+}
+
+@media (max-width: 380px) {
+  .app-shell {
+    padding: 14px 14px 10px;
+  }
+
+  .connection-panel,
+  .field-row {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
