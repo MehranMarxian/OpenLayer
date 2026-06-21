@@ -8,6 +8,26 @@ Local AI layers for Photoshop.
 
 OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop to a locally running ComfyUI server. The v0.1 prototype focuses on one stable path: text-to-image generation, previewing the result, and importing that result into the active Photoshop document as a new editable layer.
 
+## Alpha Release
+
+`v0.1.8-alpha` is the first public MVP preview. It is intended for testing the core local workflow, not for production work yet.
+
+Included in this alpha:
+
+- Local ComfyUI connection from Photoshop UXP
+- Checkpoint loading from ComfyUI
+- Text-to-image generation with the `txt2img-basic` preset
+- Result preview inside the OpenLayer panel
+- Import generated output into the active Photoshop document as a new layer
+- Official OpenLayer icon and GitHub Pages landing page
+
+Known v0.1.8-alpha boundaries:
+
+- Only text-to-image is supported.
+- Workflow node IDs may need adjustment for custom ComfyUI workflows.
+- Image-to-image, inpainting, masks, selected layer export, ControlNet-style workflows, and upscaling are not included yet.
+- The UI is functional but still early and will keep improving.
+
 ## Project Page
 
 The static landing page is in:
@@ -73,7 +93,11 @@ The dev server is useful for panel layout work, but the Photoshop-specific APIs 
 npm run package
 ```
 
-This creates a zip package from `dist` in the `packages` folder.
+This creates a zip package from `dist` in the `packages` folder. For the current alpha, the expected package name is:
+
+```text
+packages/openlayer-v0.1.8-alpha.zip
+```
 
 ## Loading In UXP Developer Tool
 
@@ -97,7 +121,7 @@ In OpenLayer, keep the default server URL or enter your own:
 http://127.0.0.1:8190
 ```
 
-OpenLayer uses port `8190` by default so it does not interfere with another plugin that may already be using ComfyUI on port `8188`. To keep that separation strong, the UXP manifest only permits OpenLayer to access `8190`.
+OpenLayer uses port `8190` by default so it does not interfere with another plugin that may already be using ComfyUI on port `8188`.
 
 If your other plugin is already using ComfyUI on `8188`, start a second ComfyUI instance for OpenLayer on `8190`, for example:
 
@@ -141,6 +165,60 @@ The workflow builder injects:
 - cfg
 
 If you export a different workflow from ComfyUI, update the node IDs in `src/comfy/workflowBuilder.ts`.
+
+## Troubleshooting
+
+### GitHub Pages shows 404
+
+Make sure GitHub Pages is configured to publish from:
+
+```text
+main / docs
+```
+
+The landing page entry file is `docs/index.html`.
+
+### Plugin does not appear in Photoshop
+
+Run `npm run build`, then load:
+
+```text
+dist/manifest.json
+```
+
+in Adobe UXP Developer Tool. After loading, open Photoshop and use the Plugins menu to open OpenLayer.
+
+### The panel opens but ComfyUI does not connect
+
+Confirm ComfyUI is running on:
+
+```text
+http://127.0.0.1:8190
+```
+
+You can test it in a browser or terminal:
+
+```bash
+curl http://127.0.0.1:8190/system_stats
+```
+
+If another local tool is already using `8188`, keep OpenLayer on `8190` and start a separate ComfyUI instance for OpenLayer.
+
+### Checkpoint list is empty
+
+Click `Check ComfyUI` after ComfyUI is fully started. If it is still empty, confirm your models are installed in ComfyUI and that the server URL in OpenLayer matches the running ComfyUI port.
+
+### Generate fails
+
+Check that the selected checkpoint exists in ComfyUI and that the `txt2img-basic` workflow node IDs still match the starter workflow. Custom workflows may need edits in:
+
+```text
+src/comfy/workflowBuilder.ts
+```
+
+### Import Result as New Layer fails
+
+Open a Photoshop document before importing. OpenLayer imports into the active document and will show an error if no document is open.
 
 ## Project Structure
 

@@ -35,7 +35,7 @@ Start ComfyUI using your normal Windows launch command. The default OpenLayer UR
 http://127.0.0.1:8190
 ```
 
-OpenLayer uses `8190` by default so it does not interfere with another plugin that may already be using ComfyUI on `8188`. To keep that separation strong, the UXP manifest only permits OpenLayer to access `8190`.
+OpenLayer uses `8190` by default so it does not interfere with another plugin that may already be using ComfyUI on `8188`.
 
 If your other plugin is already using ComfyUI on `8188`, start a second ComfyUI instance for OpenLayer on `8190`, for example:
 
