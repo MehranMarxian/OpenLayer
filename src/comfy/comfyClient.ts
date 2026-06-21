@@ -1,4 +1,5 @@
 import {
+  ComfyCheckpointInfoResponse,
   ComfyHistoryItem,
   ComfyHistoryResponse,
   ComfyImageOutput,
@@ -40,6 +41,19 @@ export class ComfyClient {
     } catch (caughtError) {
       throw new Error(`ComfyUI is offline or unreachable at ${this.serverUrl}. ${getNestedErrorMessage(caughtError)}`);
     }
+  }
+
+  async getCheckpointNames(): Promise<string[]> {
+    const response = await fetch(`${this.serverUrl}/object_info/CheckpointLoaderSimple`);
+
+    if (!response.ok) {
+      throw new Error(`Could not read ComfyUI checkpoint list. HTTP ${response.status}.`);
+    }
+
+    const data = (await response.json()) as ComfyCheckpointInfoResponse;
+    const names = data.CheckpointLoaderSimple?.input?.required?.ckpt_name?.[0] ?? [];
+
+    return names.filter((name) => typeof name === "string");
   }
 
   async submitPrompt(workflow: ComfyWorkflow): Promise<string> {

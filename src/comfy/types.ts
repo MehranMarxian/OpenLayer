@@ -13,6 +13,7 @@ export type ComfyWorkflowNode = {
 export type BuildWorkflowOptions = {
   prompt: string;
   negativePrompt?: string;
+  checkpointName?: string;
   width: number;
   height: number;
   steps: number;
@@ -48,4 +49,14 @@ export type GeneratedImageResult = {
   blob: Blob;
   filename: string;
   mimeType: string;
+};
+
+export type ComfyCheckpointInfoResponse = {
+  CheckpointLoaderSimple?: {
+    input?: {
+      required?: {
+        ckpt_name?: [string[], unknown];
+      };
+    };
+  };
 };

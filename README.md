@@ -12,6 +12,7 @@ Working foundation:
 - Dark, minimal UXP-friendly TypeScript UI
 - Configurable local ComfyUI server URL
 - ComfyUI connection check
+- Checkpoint/model selector loaded from ComfyUI
 - `txt2img-basic` workflow generation
 - `/prompt` submission
 - `/history/{prompt_id}` polling
@@ -96,12 +97,14 @@ Click `Check ComfyUI` before generating.
 
 1. Open a Photoshop document.
 2. Open the OpenLayer panel.
-3. Enter a prompt.
-4. Optionally enter a negative prompt.
-5. Keep the workflow preset set to `txt2img-basic`.
-6. Click `Generate`.
-7. Wait for the preview.
-8. Click `Import Result as New Layer`.
+3. Click `Check ComfyUI` to load the available checkpoints.
+4. Choose a checkpoint.
+5. Enter a prompt.
+6. Optionally enter a negative prompt.
+7. Keep the workflow preset set to `txt2img-basic`.
+8. Click `Generate`.
+9. Wait for the preview.
+10. Click `Import Result as New Layer`.
 
 The imported layer is named like:
 

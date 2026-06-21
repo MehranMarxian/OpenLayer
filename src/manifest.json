@@ -2,7 +2,7 @@
   "manifestVersion": 5,
   "id": "com.openlayer.photoshop",
   "name": "OpenLayer",
-  "version": "0.1.0",
+  "version": "0.1.6",
   "main": "index.html",
   "host": [
     {
@@ -13,10 +13,7 @@
   "requiredPermissions": {
     "localFileSystem": "fullAccess",
     "network": {
-      "domains": [
-        "http://127.0.0.1:8190",
-        "ws://127.0.0.1:8190"
-      ]
+      "domains": "all"
     }
   },
   "entrypoints": [

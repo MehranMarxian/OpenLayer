@@ -2,6 +2,7 @@ import txt2imgBasicWorkflow from "../workflows/txt2img-basic.json";
 import { BuildWorkflowOptions, ComfyWorkflow } from "./types";
 
 const NODE_IDS = {
+  checkpointLoader: "4",
   positivePrompt: "6",
   negativePrompt: "7",
   sampler: "3",
@@ -14,6 +15,10 @@ export async function buildTxt2ImgWorkflow(options: BuildWorkflowOptions): Promi
 
   // These node IDs match src/workflows/txt2img-basic.json. If users export a
   // different ComfyUI workflow, adjust this map to the matching node IDs.
+  if (options.checkpointName) {
+    setInput(workflow, NODE_IDS.checkpointLoader, "ckpt_name", options.checkpointName);
+  }
+
   setInput(workflow, NODE_IDS.positivePrompt, "text", options.prompt);
   setInput(workflow, NODE_IDS.negativePrompt, "text", options.negativePrompt ?? "");
   setInput(workflow, NODE_IDS.latentImage, "width", options.width);
