@@ -7,7 +7,7 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 const root = fileURLToPath(new URL("..", import.meta.url));
 const packagesDir = resolve(root, "packages");
-const zipPath = resolve(packagesDir, "openlayer-v0.1.7.zip");
+const zipPath = resolve(packagesDir, "openlayer-v0.1.8.zip");
 
 await mkdir(packagesDir, { recursive: true });
 await rm(zipPath, { force: true });

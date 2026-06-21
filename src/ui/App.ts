@@ -6,7 +6,7 @@ import { getErrorMessage } from "../utils/errors";
 import { createLayerName } from "../utils/fileUtils";
 
 const DEFAULT_SERVER_URL = "http://127.0.0.1:8190";
-const APP_VERSION = "0.1.7";
+const APP_VERSION = "0.1.8";
 const DEVELOPER_WEBSITE = "https://mehran-ahmadi.com/";
 const DEVELOPER_GITHUB = "https://github.com/MehranMarxian";
 const FALLBACK_CHECKPOINTS = [

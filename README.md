@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="src/icons/openlayer.png" alt="OpenLayer icon" width="96" height="96">
+</p>
+
 # OpenLayer
 
 Local AI layers for Photoshop.
