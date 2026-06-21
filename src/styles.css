@@ -1,8 +1,8 @@
 :root {
   color-scheme: dark;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: #111316;
-  color: #f1f4f8;
+  background: #2b2b2b;
+  color: #eeeeee;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -15,7 +15,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: #111316;
+  background: #2b2b2b;
 }
 
 button,
@@ -40,9 +40,7 @@ a:hover {
   flex-direction: column;
   gap: 14px;
   padding: 18px 18px 12px;
-  background:
-    linear-gradient(180deg, rgba(34, 40, 48, 0.82), rgba(17, 19, 22, 0) 210px),
-    #111316;
+  background: #2b2b2b;
 }
 
 .app-header {
@@ -54,7 +52,7 @@ a:hover {
 
 .app-title {
   margin: 0;
-  color: #ffffff;
+  color: #f2f2f2;
   font-size: 22px;
   font-weight: 700;
   letter-spacing: 0;
@@ -62,17 +60,17 @@ a:hover {
 
 .app-subtitle {
   margin: 0;
-  color: #a7b0bd;
+  color: #b7b7b7;
   font-size: 13px;
 }
 
 .version-badge {
   flex: 0 0 auto;
-  border: 1px solid #303744;
+  border: 1px solid #555555;
   border-radius: 999px;
   padding: 4px 8px;
-  background: #15191f;
-  color: #9ba6b5;
+  background: #353535;
+  color: #c8c8c8;
   font-size: 11px;
   font-weight: 700;
 }
@@ -102,7 +100,7 @@ a:hover {
 }
 
 .label {
-  color: #d7dde6;
+  color: #dedede;
   font-size: 12px;
   font-weight: 650;
 }
@@ -111,11 +109,11 @@ a:hover {
 .select,
 .textarea {
   width: 100%;
-  border: 1px solid #343b46;
+  border: 1px solid #5a5a5a;
   border-radius: 8px;
   outline: none;
-  background: #191d23;
-  color: #f1f4f8;
+  background: #242424;
+  color: #f1f1f1;
   transition:
     border-color 140ms ease,
     background 140ms ease,
@@ -143,9 +141,9 @@ a:hover {
 .input:focus,
 .select:focus,
 .textarea:focus {
-  border-color: #70a7ff;
-  background: #1d222a;
-  box-shadow: 0 0 0 2px rgba(112, 167, 255, 0.18);
+  border-color: #7d9ed8;
+  background: #202020;
+  box-shadow: 0 0 0 2px rgba(125, 158, 216, 0.2);
 }
 
 .button {
@@ -153,11 +151,11 @@ a:hover {
   align-items: center;
   justify-content: center;
   min-height: 34px;
-  border: 1px solid #3c4654;
+  border: 1px solid #5a5a5a;
   border-radius: 8px;
   padding: 7px 12px;
-  background: #252b34;
-  color: #f6f8fb;
+  background: #3a3a3a;
+  color: #f1f1f1;
   cursor: pointer;
   font-weight: 650;
   text-align: center;
@@ -170,8 +168,8 @@ a:hover {
 }
 
 .button:hover:not(:disabled):not(.is-disabled) {
-  border-color: #5f7088;
-  background: #2d3540;
+  border-color: #727272;
+  background: #444444;
 }
 
 .button:active:not(:disabled):not(.is-disabled) {
@@ -181,19 +179,19 @@ a:hover {
 .button:disabled,
 .button.is-disabled {
   cursor: not-allowed;
-  border-color: #2b323c;
-  background: #1a1f26;
-  color: #778191;
+  border-color: #444444;
+  background: #303030;
+  color: #8c8c8c;
   opacity: 1;
 }
 
 .button-primary {
-  border-color: #6b8fce;
-  background: #3969bd;
+  border-color: #6f8fc5;
+  background: #4f76b8;
 }
 
 .button-primary:hover:not(:disabled):not(.is-disabled) {
-  background: #4377d3;
+  background: #5b84ca;
 }
 
 .button-wide {
@@ -221,14 +219,14 @@ a:hover {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  border: 1px solid #2b323d;
+  border: 1px solid #4c4c4c;
   border-radius: 8px;
   padding: 9px 12px;
-  background: #15191f;
+  background: #303030;
 }
 
 .status-text {
-  color: #d6dde7;
+  color: #e4e4e4;
   font-size: 13px;
   line-height: 1.35;
 }
@@ -237,25 +235,25 @@ a:hover {
   flex: 0 0 auto;
   border-radius: 999px;
   padding: 4px 8px;
-  background: #28313d;
-  color: #aeb9c8;
+  background: #414141;
+  color: #c7c7c7;
   font-size: 11px;
   font-weight: 700;
 }
 
 .status-pill.ready {
-  background: rgba(48, 166, 113, 0.18);
-  color: #7ee2aa;
+  background: rgba(58, 148, 94, 0.28);
+  color: #9fe0b5;
 }
 
 .status-pill.error {
-  background: rgba(224, 83, 83, 0.18);
-  color: #ff9a9a;
+  background: rgba(181, 72, 72, 0.28);
+  color: #ffb0b0;
 }
 
 .diagnostics-line {
   margin-top: -6px;
-  color: #6f7b8d;
+  color: #9a9a9a;
   font-size: 11px;
   line-height: 1.35;
 }
@@ -268,7 +266,7 @@ a:hover {
 }
 
 .muted-label {
-  color: #778191;
+  color: #9d9d9d;
   font-size: 11px;
 }
 
@@ -279,12 +277,12 @@ a:hover {
   min-height: 160px;
   max-height: 260px;
   overflow: hidden;
-  border: 1px solid #2b323d;
+  border: 1px solid #4c4c4c;
   border-radius: 8px;
   background:
     linear-gradient(45deg, rgba(255, 255, 255, 0.035) 25%, transparent 25%),
     linear-gradient(-45deg, rgba(255, 255, 255, 0.035) 25%, transparent 25%),
-    #15191f;
+    #303030;
   background-size: 20px 20px;
 }
 
@@ -297,16 +295,16 @@ a:hover {
 }
 
 .preview-empty {
-  color: #8f9aab;
+  color: #aaaaaa;
   font-size: 13px;
 }
 
 .error-message {
-  border: 1px solid rgba(231, 92, 92, 0.45);
+  border: 1px solid rgba(218, 98, 98, 0.52);
   border-radius: 8px;
   padding: 10px 12px;
-  background: rgba(231, 92, 92, 0.1);
-  color: #ffb5b5;
+  background: rgba(120, 46, 46, 0.28);
+  color: #ffc2c2;
   font-size: 13px;
   line-height: 1.4;
 }
@@ -316,15 +314,15 @@ a:hover {
   flex-wrap: wrap;
   gap: 6px 10px;
   margin-top: auto;
-  border-top: 1px solid #20262e;
+  border-top: 1px solid #424242;
   padding-top: 10px;
-  color: #596271;
+  color: #8f8f8f;
   font-size: 10px;
   line-height: 1.4;
 }
 
 .app-footer a {
-  color: #6f7b8e;
+  color: #adadad;
 }
 
 @media (max-width: 380px) {

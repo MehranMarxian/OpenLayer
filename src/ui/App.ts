@@ -6,7 +6,7 @@ import { getErrorMessage } from "../utils/errors";
 import { createLayerName } from "../utils/fileUtils";
 
 const DEFAULT_SERVER_URL = "http://127.0.0.1:8190";
-const APP_VERSION = "0.1.6";
+const APP_VERSION = "0.1.7";
 const DEVELOPER_WEBSITE = "https://mehran-ahmadi.com/";
 const DEVELOPER_GITHUB = "https://github.com/MehranMarxian";
 const FALLBACK_CHECKPOINTS = [
@@ -176,11 +176,16 @@ export function renderApp(rootElement: HTMLElement) {
     setStatus(elements, "Importing image into Photoshop...", "idle");
 
     try {
-      await getActiveDocumentInfo();
+      const documentInfo = await getActiveDocumentInfo();
       const layerName = createLayerName("OpenLayer_Generated");
 
-      await importGeneratedImageAsLayer(result.blob, layerName);
-      setStatus(elements, `Imported layer: ${layerName}`, "ready");
+      setDiagnostics(elements, `Importing into ${documentInfo.name || "active document"}...`);
+      const importedLayerName = await importGeneratedImageAsLayer(result.blob, layerName, (message) => {
+        setStatus(elements, message, "idle");
+        setDiagnostics(elements, message);
+      });
+      setStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
+      setDiagnostics(elements, `Layer created: ${importedLayerName}`);
     } catch (caughtError) {
       setStatus(elements, "Import failed.", "error");
       setError(elements, getErrorMessage(caughtError));

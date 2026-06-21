@@ -26,6 +26,10 @@ type PhotoshopLayer = {
   name?: string;
 };
 
+type ImportProgress = (message: string) => void;
+
+type BatchPlayCommand = Record<string, unknown>;
+
 export type ActiveDocumentInfo = {
   name: string;
   width: number;
@@ -47,73 +51,37 @@ export async function getActiveDocumentInfo(): Promise<ActiveDocumentInfo> {
   };
 }
 
-export async function importGeneratedImageAsLayer(blob: Blob, layerName = createLayerName("OpenLayer_Generated")) {
+export async function importGeneratedImageAsLayer(
+  blob: Blob,
+  layerName = createLayerName("OpenLayer_Generated"),
+  onProgress?: ImportProgress
+) {
   const photoshop = getPhotoshop();
   getActiveDocument();
 
   try {
+    if (!blob || blob.size === 0) {
+      throw new Error("The generated image blob is empty.");
+    }
+
+    onProgress?.("Saving generated image to a temporary PNG...");
     const file = await saveBlobToTemporaryFile(blob, `${layerName}.png`);
     const uxp = getUxp();
+    onProgress?.("Creating Photoshop file token...");
     const token = await uxp.storage.localFileSystem.createSessionToken(file);
 
+    onProgress?.("Placing image into the active document...");
     await photoshop.core.executeAsModal(
       async () => {
-        await photoshop.action.batchPlay(
-          [
-            {
-              _obj: "placeEvent",
-              null: {
-                _path: token,
-                _kind: "local"
-              },
-              freeTransformCenterState: {
-                _enum: "quadCenterState",
-                _value: "QCSAverage"
-              },
-              offset: {
-                _obj: "offset",
-                horizontal: {
-                  _unit: "pixelsUnit",
-                  _value: 0
-                },
-                vertical: {
-                  _unit: "pixelsUnit",
-                  _value: 0
-                }
-              },
-              _options: {
-                dialogOptions: "dontDisplay"
-              }
-            }
-          ],
-          {}
-        );
-
-        await photoshop.action.batchPlay(
-          [
-            {
-              _obj: "set",
-              _target: [
-                {
-                  _ref: "layer",
-                  _enum: "ordinal",
-                  _value: "targetEnum"
-                }
-              ],
-              to: {
-                _obj: "layer",
-                name: layerName
-              },
-              _options: {
-                dialogOptions: "dontDisplay"
-              }
-            }
-          ],
-          {}
-        );
+        await placeFileAsLayer(photoshop, token);
+        onProgress?.("Renaming imported layer...");
+        await renameActiveLayer(photoshop, layerName);
       },
       { commandName: "Import OpenLayer Result" }
     );
+
+    onProgress?.(`Imported ${layerName}.`);
+    return layerName;
   } catch (caughtError) {
     throw new Error(`Could not import the generated image as a Photoshop layer. ${getErrorMessage(caughtError)}`);
   }
@@ -153,6 +121,99 @@ function getActiveDocument() {
   }
 
   return document;
+}
+
+async function placeFileAsLayer(photoshop: PhotoshopModule, token: string) {
+  const placeCommands = createPlaceCommands(token);
+  const failures: string[] = [];
+
+  for (const command of placeCommands) {
+    try {
+      await photoshop.action.batchPlay([command], {});
+      return;
+    } catch (caughtError) {
+      failures.push(getErrorMessage(caughtError));
+    }
+  }
+
+  throw new Error(`Photoshop rejected the place command. ${failures.filter(Boolean).join(" | ")}`);
+}
+
+function createPlaceCommands(token: string): BatchPlayCommand[] {
+  const localFile = {
+    _path: token,
+    _kind: "local"
+  };
+
+  return [
+    {
+      _obj: "placeEvent",
+      null: localFile,
+      linked: false,
+      freeTransformCenterState: {
+        _enum: "quadCenterState",
+        _value: "QCSAverage"
+      },
+      offset: {
+        _obj: "offset",
+        horizontal: {
+          _unit: "pixelsUnit",
+          _value: 0
+        },
+        vertical: {
+          _unit: "pixelsUnit",
+          _value: 0
+        }
+      },
+      _options: {
+        dialogOptions: "dontDisplay"
+      }
+    },
+    {
+      _obj: "placeEvent",
+      null: localFile,
+      linked: false,
+      _options: {
+        dialogOptions: "dontDisplay"
+      }
+    }
+  ];
+}
+
+async function renameActiveLayer(photoshop: PhotoshopModule, layerName: string) {
+  const activeLayer = photoshop.app.activeDocument?.activeLayers?.[0];
+
+  if (activeLayer) {
+    try {
+      activeLayer.name = layerName;
+      return;
+    } catch {
+      // Fall through to the action descriptor below.
+    }
+  }
+
+  await photoshop.action.batchPlay(
+    [
+      {
+        _obj: "set",
+        _target: [
+          {
+            _ref: "layer",
+            _enum: "ordinal",
+            _value: "targetEnum"
+          }
+        ],
+        to: {
+          _obj: "layer",
+          name: layerName
+        },
+        _options: {
+          dialogOptions: "dontDisplay"
+        }
+      }
+    ],
+    {}
+  );
 }
 
 function getPhotoshop(): PhotoshopModule {
