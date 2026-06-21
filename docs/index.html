@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>OpenLayer | Local AI layers for Photoshop</title>
+    <meta
+      name="description"
+      content="OpenLayer is an open-source Photoshop UXP plugin that connects Photoshop to a local ComfyUI server for text-to-image generation, preview, and layer import."
+    >
+    <meta name="theme-color" content="#2b2b2b">
+    <meta property="og:title" content="OpenLayer">
+    <meta property="og:description" content="Local AI layers for Photoshop. Open-source, local-first, and artist-first.">
+    <meta property="og:image" content="assets/openlayer-photoshop-mvp.png">
+    <meta property="og:type" content="website">
+    <link rel="icon" href="assets/openlayer-icon.png">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="site-header" aria-label="Primary navigation">
+      <a class="brand" href="#top" aria-label="OpenLayer home">
+        <img src="assets/openlayer-icon.png" alt="" width="36" height="36">
+        <span>OpenLayer</span>
+      </a>
+      <nav>
+        <a href="#features">Features</a>
+        <a href="#setup">Setup</a>
+        <a href="#roadmap">Roadmap</a>
+        <a href="https://github.com/MehranMarxian/OpenLayer">GitHub</a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-image" aria-hidden="true"></div>
+        <div class="hero-content">
+          <div class="hero-mark">
+            <img src="assets/openlayer-icon.png" alt="" width="72" height="72">
+            <span>MVP v0.1.8</span>
+          </div>
+          <h1 id="hero-title">OpenLayer</h1>
+          <p class="hero-lede">
+            Local AI layers for Photoshop. Generate with your own ComfyUI server,
+            preview inside the panel, and import the result back as an editable
+            Photoshop layer.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="https://github.com/MehranMarxian/OpenLayer">View on GitHub</a>
+            <a class="button button-secondary" href="#setup">Setup MVP</a>
+          </div>
+          <ul class="signal-list" aria-label="Project signals">
+            <li>Open source</li>
+            <li>Local first</li>
+            <li>No cloud dependency</li>
+            <li>Photoshop UXP</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="intro band" aria-labelledby="intro-title">
+        <div class="section-inner intro-grid">
+          <div>
+            <p class="eyebrow">Artist-first foundation</p>
+            <h2 id="intro-title">A focused first step for local image generation inside Photoshop.</h2>
+          </div>
+          <p>
+            OpenLayer starts with one dependable workflow: text-to-image generation
+            from Photoshop to ComfyUI, a panel preview, and import into the active
+            document. The goal is a clean base that can grow into deeper layer,
+            mask, and selection workflows without rushing fake features.
+          </p>
+        </div>
+      </section>
+
+      <section id="features" class="section" aria-labelledby="features-title">
+        <div class="section-inner">
+          <div class="section-heading">
+            <p class="eyebrow">MVP features</p>
+            <h2 id="features-title">What works now</h2>
+          </div>
+          <div class="feature-grid">
+            <article class="feature-card">
+              <h3>ComfyUI connection</h3>
+              <p>Set a local server URL, check availability, and load available checkpoints from ComfyUI.</p>
+            </article>
+            <article class="feature-card">
+              <h3>Text-to-image workflow</h3>
+              <p>Send prompt, negative prompt, size, steps, CFG, seed, and checkpoint into a starter workflow.</p>
+            </article>
+            <article class="feature-card">
+              <h3>Panel preview</h3>
+              <p>Retrieve generated output through ComfyUI history and view endpoints, then show it in the panel.</p>
+            </article>
+            <article class="feature-card">
+              <h3>Photoshop layer import</h3>
+              <p>Place the generated image into the active document and rename it with an OpenLayer timestamp.</p>
+            </article>
+            <article class="feature-card">
+              <h3>UXP-safe interface</h3>
+              <p>Built with vanilla TypeScript and static UI code that avoids browser APIs missing in Photoshop UXP.</p>
+            </article>
+            <article class="feature-card">
+              <h3>Future-ready structure</h3>
+              <p>ComfyUI, Photoshop, UI, workflow, and utility modules are separated for careful next steps.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="showcase band" aria-labelledby="showcase-title">
+        <div class="section-inner">
+          <div class="section-heading">
+            <p class="eyebrow">Current build</p>
+            <h2 id="showcase-title">The MVP loop in Photoshop</h2>
+          </div>
+          <div class="screenshot-grid">
+            <figure>
+              <img src="assets/openlayer-preview-panel.png" alt="OpenLayer panel showing a generated preview inside Photoshop.">
+              <figcaption>Generate and preview inside the OpenLayer panel.</figcaption>
+            </figure>
+            <figure>
+              <img src="assets/openlayer-photoshop-mvp.png" alt="Photoshop showing an OpenLayer generated image imported as a new layer.">
+              <figcaption>Import the generated result into the active Photoshop document.</figcaption>
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="flow-title">
+        <div class="section-inner flow-layout">
+          <div class="section-heading">
+            <p class="eyebrow">Workflow</p>
+            <h2 id="flow-title">How it works</h2>
+          </div>
+          <ol class="flow-list">
+            <li>Open Photoshop and load the OpenLayer UXP panel.</li>
+            <li>Run ComfyUI locally on the OpenLayer server port.</li>
+            <li>Choose a checkpoint and enter a prompt.</li>
+            <li>Generate through the ComfyUI prompt API.</li>
+            <li>Preview the output image in the panel.</li>
+            <li>Import the result as a new named Photoshop layer.</li>
+          </ol>
+        </div>
+      </section>
+
+      <section id="setup" class="setup band" aria-labelledby="setup-title">
+        <div class="section-inner">
+          <div class="section-heading">
+            <p class="eyebrow">Setup</p>
+            <h2 id="setup-title">Run the MVP locally</h2>
+          </div>
+          <div class="setup-grid">
+            <article class="setup-step">
+              <span>1</span>
+              <h3>Install and build</h3>
+              <pre><code>npm install
+npm run build</code></pre>
+            </article>
+            <article class="setup-step">
+              <span>2</span>
+              <h3>Load in UXP Developer Tool</h3>
+              <p>Select the generated <code>dist/manifest.json</code>, click Load, then open the OpenLayer panel in Photoshop.</p>
+            </article>
+            <article class="setup-step">
+              <span>3</span>
+              <h3>Start ComfyUI</h3>
+              <pre><code>python main.py --listen 127.0.0.1 --port 8190</code></pre>
+            </article>
+            <article class="setup-step">
+              <span>4</span>
+              <h3>Create the first layer</h3>
+              <p>Click Check ComfyUI, choose a checkpoint, generate, preview, and import the result into the active document.</p>
+            </article>
+          </div>
+          <p class="setup-note">
+            OpenLayer defaults to <code>http://127.0.0.1:8190</code> so it can run beside other local tools that may already use port 8188.
+          </p>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="limits-title">
+        <div class="section-inner split-layout">
+          <div>
+            <p class="eyebrow">Known limitations</p>
+            <h2 id="limits-title">Honest v0.1 boundaries</h2>
+          </div>
+          <ul class="check-list">
+            <li>Only the <code>txt2img-basic</code> workflow is supported right now.</li>
+            <li>Custom ComfyUI workflows may need node ID updates in the workflow builder.</li>
+            <li>Generated images are placed as Photoshop layers; advanced alignment is future work.</li>
+            <li>No selected layer export, image-to-image, inpainting, masks, or ControlNet-style tools yet.</li>
+            <li>The browser dev server is only for UI preview. Photoshop APIs run inside UXP.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="roadmap" class="roadmap band" aria-labelledby="roadmap-title">
+        <div class="section-inner">
+          <div class="section-heading">
+            <p class="eyebrow">Roadmap</p>
+            <h2 id="roadmap-title">Where OpenLayer goes next</h2>
+          </div>
+          <div class="roadmap-grid">
+            <article>
+              <h3>v0.1 foundation</h3>
+              <p>Stable text-to-image, preview, import, checkpoint selection, and setup docs.</p>
+            </article>
+            <article>
+              <h3>Near term</h3>
+              <p>Better workflow presets, saved settings, progress details, cleaner UI states, and packaged releases.</p>
+            </article>
+            <article>
+              <h3>Future artist tools</h3>
+              <p>Image-to-image, inpainting, layer export, selection masks, upscaling, and guided generation workflows.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="closing" aria-labelledby="closing-title">
+        <div class="section-inner closing-inner">
+          <img src="assets/openlayer-icon.png" alt="" width="76" height="76">
+          <h2 id="closing-title">Build local AI layers, one careful step at a time.</h2>
+          <p>
+            OpenLayer is early, practical, and open for contributors who care about
+            artists, local workflows, and clean Photoshop integration.
+          </p>
+          <a class="button button-primary" href="https://github.com/MehranMarxian/OpenLayer">Explore the repository</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>OpenLayer v0.1.8. Developed by Mehran Ahmadi, 2026.</p>
+      <p>
+        <a href="https://mehran-ahmadi.com/">Website</a>
+        <span aria-hidden="true">/</span>
+        <a href="https://github.com/MehranMarxian">GitHub</a>
+      </p>
+    </footer>
+  </body>
+</html>

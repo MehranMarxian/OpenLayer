@@ -8,6 +8,16 @@ Local AI layers for Photoshop.
 
 OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop to a locally running ComfyUI server. The v0.1 prototype focuses on one stable path: text-to-image generation, previewing the result, and importing that result into the active Photoshop document as a new editable layer.
 
+## Project Page
+
+The static landing page is in:
+
+```text
+docs/index.html
+```
+
+For GitHub Pages, publish from the `docs` folder on the main branch.
+
 ## MVP Status
 
 Working foundation:
