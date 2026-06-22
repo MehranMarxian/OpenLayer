@@ -492,9 +492,15 @@ function createAppMarkup() {
       </section>
 
       <section class="generator-view" id="generator-view" aria-label="Text to Image" hidden>
-        <button class="back-button" type="button" data-openlayer-view="home">${createToolIconMarkup("image")}<span>Tools</span></button>
+        <div class="screen-nav">
+          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
+          <div class="screen-title-block">
+            <span class="screen-kicker">TXT</span>
+            <span class="screen-title">Text to Image</span>
+          </div>
+        </div>
 
-        <section class="panel-section" aria-label="Prompt">
+        <section class="panel-section generator-panel" aria-label="Prompt">
           <label class="field">
             <span class="label">Prompt</span>
             <textarea class="textarea" id="prompt" placeholder="Describe the image you want to generate..."></textarea>
@@ -537,17 +543,19 @@ function createAppMarkup() {
               <input class="input input-compact" id="seed" type="number" min="0" placeholder="Random" />
             </label>
           </div>
-          <button class="button button-primary button-wide action-control" id="generate" data-openlayer-action="generate" type="button">Generate</button>
+          <button class="button button-primary button-generate button-wide action-control" id="generate" data-openlayer-action="generate" type="button">Generate</button>
         </section>
 
-        <div class="status-bar" role="status">
-          <span class="status-text" id="status-text">Ready.</span>
-          <span class="status-pill idle" id="status-pill">Status</span>
-        </div>
-        <div class="diagnostics-line" id="diagnostics-text">Click test ready for v${APP_VERSION}.</div>
-        <div class="error-message" id="error-message" hidden></div>
+        <section class="generation-status-panel" aria-label="Generation status">
+          <div class="status-bar" role="status">
+            <span class="status-text" id="status-text">Ready.</span>
+            <span class="status-pill idle" id="status-pill">Status</span>
+          </div>
+          <div class="diagnostics-line" id="diagnostics-text">Click test ready for v${APP_VERSION}.</div>
+          <div class="error-message" id="error-message" hidden></div>
+        </section>
 
-        <section class="panel-section" aria-label="Result">
+        <section class="panel-section result-panel" aria-label="Result">
           <div class="section-heading">
             <span class="label">Preview</span>
             <span class="muted-label">Result appears here after generation</span>
@@ -555,7 +563,14 @@ function createAppMarkup() {
           <div class="preview-panel" id="preview-panel">
             <span class="preview-empty">No result yet</span>
           </div>
-          <button class="button button-wide action-control is-disabled" id="import-result" data-openlayer-action="import" type="button" tabindex="-1" aria-disabled="true">Import Result as New Layer</button>
+          <button class="button button-wide button-import action-control is-disabled" id="import-result" data-openlayer-action="import" type="button" tabindex="-1" aria-disabled="true">Import Result as New Layer</button>
+        </section>
+
+        <section class="text-image-shortcuts" aria-label="Shortcuts">
+          <div class="settings-shortcut" role="button" tabindex="0" data-openlayer-view="settings">
+            <span class="shortcut-label">Settings</span>
+            <span class="shortcut-note">ComfyUI URL, status, and diagnostics</span>
+          </div>
         </section>
       </section>
 

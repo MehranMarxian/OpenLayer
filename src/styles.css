@@ -94,6 +94,10 @@ a:hover {
   overflow-x: hidden;
 }
 
+.generator-view {
+  gap: 12px;
+}
+
 .home-status-row {
   display: flex;
   min-width: 0;
@@ -269,9 +273,51 @@ a:hover {
   color: #24df4f;
 }
 
+.screen-nav {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid #424242;
+  padding-bottom: 10px;
+}
+
+.screen-title-block {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.screen-kicker {
+  display: inline-block;
+  width: 27px;
+  height: 22px;
+  flex: 0 0 auto;
+  border: 1px solid #f0c83f;
+  border-radius: 6px;
+  background: #5b4b18;
+  color: #ffd95c;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 20px;
+  text-align: center;
+}
+
+.screen-title {
+  overflow: hidden;
+  color: #f3f3f3;
+  font-size: 13px;
+  font-weight: 760;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .back-button {
   display: inline-flex;
-  width: fit-content;
+  width: auto;
   align-items: center;
   gap: 6px;
   border: 1px solid #555555;
@@ -282,6 +328,10 @@ a:hover {
   cursor: pointer;
   font-size: 12px;
   font-weight: 700;
+}
+
+.screen-back-control {
+  flex: 0 0 auto;
 }
 
 .back-button:hover {
@@ -352,6 +402,24 @@ a:hover {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.generator-panel,
+.result-panel,
+.generation-status-panel {
+  border: 1px solid #4f4f4f;
+  border-radius: 12px;
+  padding: 12px;
+  background: #333333;
+}
+
+.generator-panel {
+  gap: 12px;
+}
+
+.generation-status-panel {
+  gap: 8px;
+  padding: 10px;
 }
 
 .field {
@@ -467,6 +535,44 @@ a:hover {
   background: #5b84ca;
 }
 
+.button-generate {
+  min-height: 38px;
+  border-color: #d28a25;
+  background: #c97920;
+  color: #ffffff;
+  font-weight: 760;
+}
+
+.button-generate:hover:not(:disabled):not(.is-disabled) {
+  border-color: #efa947;
+  background: #df8724;
+}
+
+.button-generate:active:not(:disabled):not(.is-disabled) {
+  background: #b96b1d;
+}
+
+.button-import {
+  min-height: 38px;
+  border-color: #6d6d6d;
+  background: #3d3d3d;
+  color: #f1f1f1;
+}
+
+.button-import:hover:not(:disabled):not(.is-disabled) {
+  border-color: #d7b64b;
+  background: #464646;
+}
+
+.button-generate.is-disabled,
+.button-import.is-disabled {
+  cursor: not-allowed;
+  border-color: #444444;
+  background: #303030;
+  color: #8c8c8c;
+  opacity: 1;
+}
+
 .button-wide {
   width: 100%;
 }
@@ -488,14 +594,14 @@ a:hover {
 
 .status-bar {
   display: flex;
-  min-height: 38px;
+  min-height: 36px;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  border: 1px solid #4c4c4c;
+  border: 1px solid #565656;
   border-radius: 8px;
-  padding: 9px 12px;
-  background: #303030;
+  padding: 8px 10px;
+  background: #2d2d2d;
 }
 
 .status-text {
@@ -525,7 +631,6 @@ a:hover {
 }
 
 .diagnostics-line {
-  margin-top: -6px;
   color: #9a9a9a;
   font-size: 11px;
   line-height: 1.35;
@@ -547,8 +652,8 @@ a:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 160px;
-  max-height: 260px;
+  min-height: 220px;
+  max-height: 340px;
   overflow: hidden;
   border: 1px solid #4c4c4c;
   border-radius: 8px;
@@ -563,7 +668,7 @@ a:hover {
   display: block;
   width: 100%;
   height: auto;
-  max-height: 260px;
+  max-height: 340px;
   object-fit: contain;
 }
 
@@ -580,6 +685,50 @@ a:hover {
   color: #ffc2c2;
   font-size: 13px;
   line-height: 1.4;
+}
+
+.text-image-shortcuts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-shortcut {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid #6b5b2f;
+  border-radius: 10px;
+  padding: 9px 12px;
+  background: #3b3b3b;
+  color: #f1f1f1;
+  cursor: pointer;
+  user-select: none;
+}
+
+.settings-shortcut:hover {
+  border-color: #d7b64b;
+  background: #454545;
+}
+
+.settings-shortcut:active {
+  transform: translateY(1px);
+}
+
+.shortcut-label {
+  display: block;
+  color: #fff4c7;
+  font-size: 13px;
+  font-weight: 760;
+  line-height: 1.25;
+}
+
+.shortcut-note {
+  display: block;
+  margin-top: 3px;
+  color: #c4c4c4;
+  font-size: 11px;
+  line-height: 1.3;
 }
 
 .app-footer {
