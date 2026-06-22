@@ -4,14 +4,26 @@ import {
   ComfyHistoryResponse,
   ComfyImageOutput,
   ComfyPromptResponse,
+  ComfyQueueResponse,
   ComfyWorkflow,
   GeneratedImageResult
 } from "./types";
+import { createOpenLayerError, getNestedErrorMessage } from "../utils/errors";
 
 type PollOptions = {
   intervalMs?: number;
   timeoutMs?: number;
   onTick?: (message: string) => void;
+};
+
+type ProgressWatcherOptions = {
+  onStatus?: (message: string) => void;
+  onPreviewBlob?: (blob: Blob) => void;
+  onError?: (message: string) => void;
+};
+
+type ProgressWatcher = {
+  close: () => void;
 };
 
 export class ComfyClient {
@@ -36,10 +48,14 @@ export class ComfyClient {
       const response = await fetch(`${this.serverUrl}/system_stats`);
 
       if (!response.ok) {
-        throw new Error(`ComfyUI responded with HTTP ${response.status}.`);
+        throw createOpenLayerError("COMFY_HTTP", `ComfyUI responded with HTTP ${response.status}.`);
       }
     } catch (caughtError) {
-      throw new Error(`ComfyUI is offline or unreachable at ${this.serverUrl}. ${getNestedErrorMessage(caughtError)}`);
+      throw createOpenLayerError(
+        "COMFY_OFFLINE",
+        `ComfyUI is offline or unreachable at ${this.serverUrl}.`,
+        getNestedErrorMessage(caughtError)
+      );
     }
   }
 
@@ -47,13 +63,21 @@ export class ComfyClient {
     const response = await fetch(`${this.serverUrl}/object_info/CheckpointLoaderSimple`);
 
     if (!response.ok) {
-      throw new Error(`Could not read ComfyUI checkpoint list. HTTP ${response.status}.`);
+      throw createOpenLayerError(
+        "COMFY_HTTP",
+        `Could not read the ComfyUI checkpoint list. HTTP ${response.status}.`
+      );
     }
 
     const data = (await response.json()) as ComfyCheckpointInfoResponse;
     const names = data.CheckpointLoaderSimple?.input?.required?.ckpt_name?.[0] ?? [];
 
     return names.filter((name) => typeof name === "string");
+  }
+
+  async hasCheckpoint(checkpointName: string) {
+    const checkpoints = await this.getCheckpointNames();
+    return checkpoints.includes(checkpointName);
   }
 
   async submitPrompt(workflow: ComfyWorkflow): Promise<string> {
@@ -70,17 +94,25 @@ export class ComfyClient {
 
     if (!response.ok) {
       const message = await readResponseText(response);
-      throw new Error(`ComfyUI rejected the workflow with HTTP ${response.status}. ${message}`);
+      throw createOpenLayerError(
+        "COMFY_REJECTED_WORKFLOW",
+        `ComfyUI rejected the workflow with HTTP ${response.status}.`,
+        message
+      );
     }
 
     const data = (await response.json()) as ComfyPromptResponse;
 
     if (data.node_errors && Object.keys(data.node_errors).length > 0) {
-      throw new Error(`The workflow JSON contains node errors: ${JSON.stringify(data.node_errors)}`);
+      throw createOpenLayerError(
+        "COMFY_REJECTED_WORKFLOW",
+        "ComfyUI found node errors in the workflow JSON.",
+        JSON.stringify(data.node_errors)
+      );
     }
 
     if (!data.prompt_id) {
-      throw new Error("ComfyUI did not return a prompt_id.");
+      throw createOpenLayerError("COMFY_REJECTED_WORKFLOW", "ComfyUI did not return a prompt ID.");
     }
 
     return data.prompt_id;
@@ -96,38 +128,45 @@ export class ComfyClient {
       const item = history[promptId];
 
       if (item?.status?.status_str === "error") {
-        throw new Error("ComfyUI reported a generation failure.");
+        throw createOpenLayerError(
+          "COMFY_GENERATION_FAILED",
+          "ComfyUI reported a generation failure.",
+          JSON.stringify(item.status)
+        );
       }
 
       if (item?.outputs && hasImageOutput(item)) {
         return item;
       }
 
-      options.onTick?.("Waiting for ComfyUI output...");
+      options.onTick?.(await this.createPollingStatusMessage(promptId));
       await delay(intervalMs);
     }
 
-    throw new Error("Timed out while waiting for ComfyUI to finish generation.");
+    throw createOpenLayerError("COMFY_TIMEOUT", "Timed out while waiting for ComfyUI to finish generation.");
   }
 
   async retrieveFirstOutputImage(promptId: string, historyItem?: ComfyHistoryItem): Promise<GeneratedImageResult> {
     const history = historyItem ?? (await this.getHistory(promptId))[promptId];
 
     if (!history) {
-      throw new Error(`No ComfyUI history was found for prompt ${promptId}.`);
+      throw createOpenLayerError("COMFY_NO_IMAGE", `No ComfyUI history was found for prompt ${promptId}.`);
     }
 
     const image = findFirstImage(history);
 
     if (!image) {
-      throw new Error("No output image was found in the ComfyUI history.");
+      throw createOpenLayerError("COMFY_NO_IMAGE", "No output image was found in the ComfyUI history.");
     }
 
     const imageUrl = this.createViewUrl(image);
     const response = await fetch(imageUrl);
 
     if (!response.ok) {
-      throw new Error(`Could not retrieve output image from ComfyUI. HTTP ${response.status}.`);
+      throw createOpenLayerError(
+        "COMFY_HTTP",
+        `Could not retrieve the output image from ComfyUI. HTTP ${response.status}.`
+      );
     }
 
     const blob = await response.blob();
@@ -140,14 +179,90 @@ export class ComfyClient {
     };
   }
 
+  watchProgress(promptId: string, options: ProgressWatcherOptions = {}): ProgressWatcher | null {
+    if (typeof WebSocket !== "function") {
+      options.onStatus?.("WebSocket progress is unavailable in this UXP environment.");
+      return null;
+    }
+
+    let socket: WebSocket;
+
+    try {
+      socket = new WebSocket(this.createWebSocketUrl());
+      socket.binaryType = "blob";
+    } catch (caughtError) {
+      options.onError?.(
+        `Could not open ComfyUI progress stream. Continuing with history polling. ${getNestedErrorMessage(caughtError)}`
+      );
+      return null;
+    }
+
+    let isClosed = false;
+
+    socket.onopen = () => {
+      options.onStatus?.("Connected to ComfyUI progress stream...");
+    };
+
+    socket.onmessage = (event) => {
+      void this.handleProgressMessage(promptId, event.data, options);
+    };
+
+    socket.onerror = () => {
+      options.onError?.("ComfyUI progress stream disconnected. Continuing with history polling...");
+    };
+
+    socket.onclose = () => {
+      if (!isClosed) {
+        options.onStatus?.("ComfyUI progress stream closed. Continuing with polling...");
+      }
+    };
+
+    return {
+      close: () => {
+        isClosed = true;
+        socket.close();
+      }
+    };
+  }
+
   private async getHistory(promptId: string): Promise<ComfyHistoryResponse> {
     const response = await fetch(`${this.serverUrl}/history/${encodeURIComponent(promptId)}`);
 
     if (!response.ok) {
-      throw new Error(`Could not read ComfyUI history. HTTP ${response.status}.`);
+      throw createOpenLayerError("COMFY_HTTP", `Could not read ComfyUI history. HTTP ${response.status}.`);
     }
 
     return (await response.json()) as ComfyHistoryResponse;
+  }
+
+  private async getQueue(): Promise<ComfyQueueResponse> {
+    const response = await fetch(`${this.serverUrl}/queue`);
+
+    if (!response.ok) {
+      throw createOpenLayerError("COMFY_HTTP", `Could not read ComfyUI queue. HTTP ${response.status}.`);
+    }
+
+    return (await response.json()) as ComfyQueueResponse;
+  }
+
+  private async createPollingStatusMessage(promptId: string) {
+    try {
+      const queue = await this.getQueue();
+      const pendingIndex = findPromptIndex(queue.queue_pending, promptId);
+      const runningIndex = findPromptIndex(queue.queue_running, promptId);
+
+      if (runningIndex >= 0) {
+        return "ComfyUI is running this prompt...";
+      }
+
+      if (pendingIndex >= 0) {
+        return `Queued in ComfyUI. Position ${pendingIndex + 1}.`;
+      }
+    } catch {
+      // Queue polling is helpful but not required for generation.
+    }
+
+    return "Waiting for ComfyUI output...";
   }
 
   private createViewUrl(image: ComfyImageOutput) {
@@ -161,6 +276,68 @@ export class ComfyClient {
     }
 
     return `${this.serverUrl}/view?${params.toString()}`;
+  }
+
+  private createWebSocketUrl() {
+    const url = new URL(this.serverUrl);
+    url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+    url.pathname = `${url.pathname.replace(/\/+$/, "")}/ws`.replace(/^\/\//, "/");
+    url.search = new URLSearchParams({
+      clientId: this.clientId
+    }).toString();
+
+    return url.toString();
+  }
+
+  private async handleProgressMessage(
+    promptId: string,
+    data: unknown,
+    options: ProgressWatcherOptions
+  ) {
+    if (data instanceof Blob || data instanceof ArrayBuffer) {
+      const previewBlob = await decodeComfyPreviewBlob(data);
+
+      if (previewBlob) {
+        options.onPreviewBlob?.(previewBlob);
+      }
+
+      return;
+    }
+
+    if (typeof data !== "string") {
+      return;
+    }
+
+    const message = parseProgressJson(data);
+
+    if (!message || !message.type) {
+      return;
+    }
+
+    const messagePromptId = readString(message.data?.prompt_id);
+
+    if (messagePromptId && messagePromptId !== promptId) {
+      return;
+    }
+
+    if (message.type === "progress") {
+      const value = readNumber(message.data?.value);
+      const max = readNumber(message.data?.max);
+
+      if (value !== null && max !== null && max > 0) {
+        options.onStatus?.(`Generating step ${value} of ${max}...`);
+      }
+    } else if (message.type === "executing") {
+      const node = readString(message.data?.node);
+
+      if (node) {
+        options.onStatus?.(`Executing ComfyUI node ${node}...`);
+      }
+    } else if (message.type === "execution_cached") {
+      options.onStatus?.("ComfyUI is using cached workflow nodes...");
+    } else if (message.type === "execution_error") {
+      options.onError?.("ComfyUI reported an execution error. Waiting for final history...");
+    }
   }
 }
 
@@ -212,6 +389,53 @@ async function readResponseText(response: Response) {
   }
 }
 
-function getNestedErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : String(error);
+function findPromptIndex(entries: unknown[] | undefined, promptId: string) {
+  if (!Array.isArray(entries)) {
+    return -1;
+  }
+
+  return entries.findIndex((entry) => JSON.stringify(entry).includes(promptId));
+}
+
+type ProgressJsonMessage = {
+  type?: string;
+  data?: Record<string, unknown>;
+};
+
+function parseProgressJson(data: string): ProgressJsonMessage | null {
+  try {
+    return JSON.parse(data) as ProgressJsonMessage;
+  } catch {
+    return null;
+  }
+}
+
+function readString(value: unknown) {
+  return typeof value === "string" ? value : "";
+}
+
+function readNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+async function decodeComfyPreviewBlob(blob: Blob | ArrayBuffer) {
+  const arrayBuffer = blob instanceof Blob ? await blob.arrayBuffer() : blob;
+
+  if (arrayBuffer.byteLength <= 8) {
+    return null;
+  }
+
+  const view = new DataView(arrayBuffer);
+  const eventType = view.getUint32(0);
+
+  if (eventType !== 1) {
+    return null;
+  }
+
+  const imageType = view.getUint32(4);
+  const mimeType = imageType === 1 ? "image/jpeg" : "image/png";
+
+  return new Blob([arrayBuffer.slice(8)], {
+    type: mimeType
+  });
 }

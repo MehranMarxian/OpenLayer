@@ -11,17 +11,23 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
   background: #2b2b2b;
+  overflow-x: hidden;
 }
 
 button,
 input,
 select,
 textarea {
+  appearance: none;
   font: inherit;
 }
 
@@ -36,18 +42,37 @@ a:hover {
 
 .app-shell {
   display: flex;
+  width: 100%;
+  min-width: 0;
   min-height: 100vh;
   flex-direction: column;
   gap: 14px;
+  overflow-x: hidden;
   padding: 18px 18px 12px;
   background: #2b2b2b;
 }
 
 .app-header {
   display: flex;
-  align-items: flex-start;
+  min-width: 0;
+  align-items: center;
   justify-content: space-between;
   gap: 14px;
+}
+
+.brand-lockup {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+}
+
+.brand-icon {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  border-radius: 7px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
 }
 
 .app-title {
@@ -56,6 +81,254 @@ a:hover {
   font-size: 22px;
   font-weight: 700;
   letter-spacing: 0;
+}
+
+.home-view,
+.generator-view,
+.settings-view {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+  flex-direction: column;
+  gap: 14px;
+  overflow-x: hidden;
+}
+
+.home-status-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  min-height: 30px;
+  color: #bdbdbd;
+  font-size: 12px;
+}
+
+.home-status-row strong {
+  max-width: 170px;
+  overflow: hidden;
+  color: #35e05f;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-status-dot {
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  border-radius: 999px;
+  background: #9f9f9f;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+
+.home-status-dot.ready {
+  background: #21c842;
+  box-shadow: 0 0 0 1px rgba(33, 200, 66, 0.45), 0 0 12px rgba(33, 200, 66, 0.28);
+}
+
+.home-status-dot.error {
+  background: #de5959;
+  box-shadow: 0 0 0 1px rgba(222, 89, 89, 0.45), 0 0 12px rgba(222, 89, 89, 0.24);
+}
+
+.tool-grid {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.tool-card {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 72px;
+  margin: 0 0 10px;
+  overflow: hidden;
+  border: 1px solid #707070;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #454545;
+  color: #f1f1f1;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease,
+    transform 120ms ease,
+    opacity 120ms ease;
+}
+
+.tool-card.is-available:hover {
+  border-color: #d7b64b;
+  background: #4d4d4d;
+}
+
+.tool-card.is-available:active {
+  transform: translateY(1px);
+}
+
+.tool-card.is-coming-soon {
+  cursor: default;
+  opacity: 0.86;
+}
+
+.tool-card.is-available {
+  border-color: #8c7840;
+}
+
+.tool-card.is-available .icon-glyph {
+  border-color: #f0c83f;
+  background: #5b4b18;
+  color: #ffd95c;
+}
+
+.tool-card.is-coming-soon .icon-glyph {
+  border-color: #787878;
+  background: #3b3b3b;
+  color: #dedede;
+}
+
+.tool-card-header {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.tool-icon {
+  display: inline-block;
+  width: 30px;
+  height: 24px;
+  flex: 0 0 auto;
+  color: #f1f1f1;
+  vertical-align: top;
+}
+
+.icon-glyph {
+  display: inline-block;
+  width: 27px;
+  height: 24px;
+  border: 1px solid #8a8a8a;
+  border-radius: 6px;
+  color: #f0f0f0;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 22px;
+  text-align: center;
+}
+
+.tool-card-body {
+  display: block;
+  min-width: 0;
+  padding-left: 38px;
+}
+
+.tool-title {
+  display: block;
+  overflow: hidden;
+  color: #f3f3f3;
+  font-size: 13px;
+  font-weight: 760;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-card.is-available .tool-title {
+  color: #fff4c7;
+}
+
+.tool-subtitle {
+  display: block;
+  margin-top: 3px;
+  color: #cacaca;
+  font-size: 11px;
+  line-height: 1.25;
+  max-height: 28px;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.tool-status {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+  font-weight: 760;
+  line-height: 1.1;
+}
+
+.tool-status.available {
+  color: #ffd95c;
+}
+
+.tool-status.coming-soon {
+  color: #24df4f;
+}
+
+.back-button {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #555555;
+  border-radius: 8px;
+  padding: 6px 9px;
+  background: #353535;
+  color: #e6e6e6;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.back-button:hover {
+  border-color: #707070;
+  background: #404040;
+}
+
+.back-button .icon-glyph {
+  width: 22px;
+  height: 18px;
+  border-radius: 5px;
+  font-size: 8px;
+}
+
+.settings-panel {
+  border: 1px solid #4f4f4f;
+  border-radius: 10px;
+  padding: 12px;
+  background: #333333;
+}
+
+.settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-list div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid #444444;
+  padding-bottom: 8px;
+  color: #bdbdbd;
+  font-size: 12px;
+}
+
+.settings-list div:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.settings-list strong {
+  color: #e7e7e7;
+  font-weight: 700;
+  text-align: right;
 }
 
 .app-subtitle {
@@ -328,6 +601,11 @@ a:hover {
 @media (max-width: 380px) {
   .app-shell {
     padding: 14px 14px 10px;
+  }
+
+  .tool-card {
+    min-height: 72px;
+    padding: 9px;
   }
 
   .settings-grid .field {

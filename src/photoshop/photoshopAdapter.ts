@@ -1,5 +1,5 @@
 import { createLayerName, saveBlobToTemporaryFile } from "../utils/fileUtils";
-import { getErrorMessage } from "../utils/errors";
+import { createOpenLayerError, getErrorMessage } from "../utils/errors";
 
 type PhotoshopModule = {
   app: {
@@ -83,7 +83,10 @@ export async function importGeneratedImageAsLayer(
     onProgress?.(`Imported ${layerName}.`);
     return layerName;
   } catch (caughtError) {
-    throw new Error(`Could not import the generated image as a Photoshop layer. ${getErrorMessage(caughtError)}`);
+    throw createOpenLayerError(
+      "PHOTOSHOP_IMPORT_FAILED",
+      `Could not import the generated image as a Photoshop layer. ${getErrorMessage(caughtError)}`
+    );
   }
 }
 
@@ -117,7 +120,10 @@ function getActiveDocument() {
   const document = photoshop.app.activeDocument;
 
   if (!document) {
-    throw new Error("No Photoshop document is open. Open a document before importing a result.");
+    throw createOpenLayerError(
+      "PHOTOSHOP_NO_DOCUMENT",
+      "No Photoshop document is open. Open a document before importing a result."
+    );
   }
 
   return document;

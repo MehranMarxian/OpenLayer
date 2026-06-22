@@ -10,7 +10,7 @@ OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop t
 
 ## Alpha Release
 
-`v0.1.8-alpha` is the first public MVP preview. It is intended for testing the core local workflow, not for production work yet.
+`v0.1.9-alpha` is the current public MVP preview. It is intended for testing the core local workflow, not for production work yet.
 
 Included in this alpha:
 
@@ -21,7 +21,7 @@ Included in this alpha:
 - Import generated output into the active Photoshop document as a new layer
 - Official OpenLayer icon and GitHub Pages landing page
 
-Known v0.1.8-alpha boundaries:
+Known v0.1.9-alpha boundaries:
 
 - Only text-to-image is supported.
 - Workflow node IDs may need adjustment for custom ComfyUI workflows.
@@ -96,7 +96,7 @@ npm run package
 This creates a zip package from `dist` in the `packages` folder. For the current alpha, the expected package name is:
 
 ```text
-packages/openlayer-v0.1.8-alpha.zip
+packages/openlayer-v0.1.9-alpha.zip
 ```
 
 ## Loading In UXP Developer Tool
@@ -148,6 +148,14 @@ The imported layer is named like:
 
 ```text
 OpenLayer_Generated_YYYYMMDD_HHMM
+```
+
+## Testing Checklist
+
+For a step-by-step beginner smoke test, see:
+
+```text
+docs/testing-v0.1-alpha.md
 ```
 
 ## Workflow Notes

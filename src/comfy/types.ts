@@ -18,7 +18,35 @@ export type BuildWorkflowOptions = {
   height: number;
   steps: number;
   cfg: number;
-  seed?: number;
+  seed: number;
+};
+
+export type BuildWorkflowResult = {
+  workflow: ComfyWorkflow;
+  seed: number;
+  preset: WorkflowPresetDefinition;
+};
+
+export type WorkflowNodeRequirement = {
+  id: string;
+  classType: string;
+  requiredInputs: string[];
+};
+
+export type WorkflowPresetDefinition = {
+  id: WorkflowPreset;
+  label: string;
+  description: string;
+  workflowFile: string;
+  nodeIds: {
+    checkpointLoader: string;
+    positivePrompt: string;
+    negativePrompt: string;
+    sampler: string;
+    latentImage: string;
+    saveImage: string;
+  };
+  requiredNodes: WorkflowNodeRequirement[];
 };
 
 export type ComfyPromptResponse = {
@@ -51,6 +79,27 @@ export type GeneratedImageResult = {
   mimeType: string;
 };
 
+export type GenerationSettings = {
+  width: number;
+  height: number;
+  steps: number;
+  cfg: number;
+  seed: number;
+};
+
+export type GenerationSettingsInput = {
+  width: string;
+  height: string;
+  steps: string;
+  cfg: string;
+  seed: string;
+};
+
+export type GenerationSettingsValidation = {
+  settings: GenerationSettings;
+  warnings: string[];
+};
+
 export type ComfyCheckpointInfoResponse = {
   CheckpointLoaderSimple?: {
     input?: {
@@ -59,4 +108,9 @@ export type ComfyCheckpointInfoResponse = {
       };
     };
   };
+};
+
+export type ComfyQueueResponse = {
+  queue_running?: unknown[];
+  queue_pending?: unknown[];
 };
