@@ -14,7 +14,7 @@ import {
 } from "../utils/preferences";
 
 const DEFAULT_SERVER_URL = "http://127.0.0.1:8190";
-const APP_VERSION = "0.1.9";
+const APP_VERSION = "0.1.10";
 const DEVELOPER_WEBSITE = "https://mehran-ahmadi.com/";
 const DEVELOPER_GITHUB = "https://github.com/MehranMarxian";
 const HISTORY_LIMIT = 5;

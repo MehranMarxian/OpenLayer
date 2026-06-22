@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.1.10-alpha - 2026-06-22
+
+Text-to-image usability and pre-release polish.
+
+### Added
+
+- Settings persistence for ComfyUI URL, workflow, checkpoint, and generation defaults.
+- Passive local ComfyUI port finder for common local ports, including `8190` and `8188`.
+- Session History view for the last five generated images with preview and import actions.
+- Optional auto-import toggle after generation completes.
+- Collapsible negative prompt section on the Text to Image screen.
+
+### Changed
+
+- Text to Image screen now uses the new launcher flow more consistently.
+- Generate and import actions use the OpenLayer orange action color.
+- Settings page now includes clearer diagnostics for server URL, checkpoint count, selected checkpoint, and Photoshop document state.
+- Panel spacing and scrolling were refined for Photoshop UXP, with remaining narrow-panel polish planned for a later UI pass.
+
 ## v0.1.9-alpha - 2026-06-22
 
 Reliability sprint for the MVP engine.

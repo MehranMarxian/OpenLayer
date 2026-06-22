@@ -36,7 +36,7 @@
         <div class="hero-content">
           <div class="hero-mark">
             <img src="assets/openlayer-icon.png" alt="" width="72" height="72">
-            <span>MVP v0.1.9</span>
+            <span>MVP v0.1.10-alpha</span>
           </div>
           <h1 id="hero-title">OpenLayer</h1>
           <p class="hero-lede">
@@ -81,7 +81,7 @@
           <div class="feature-grid">
             <article class="feature-card">
               <h3>ComfyUI connection</h3>
-              <p>Set a local server URL, check availability, and load available checkpoints from ComfyUI.</p>
+              <p>Set a local server URL, find common active local ports, check availability, and load checkpoints from ComfyUI.</p>
             </article>
             <article class="feature-card">
               <h3>Text-to-image workflow</h3>
@@ -93,7 +93,11 @@
             </article>
             <article class="feature-card">
               <h3>Photoshop layer import</h3>
-              <p>Place the generated image into the active document and rename it with an OpenLayer timestamp.</p>
+              <p>Place the generated image into the active document manually, or enable optional auto-import after generation.</p>
+            </article>
+            <article class="feature-card">
+              <h3>Settings and history</h3>
+              <p>Remember local defaults and review recent generated previews during the current panel session.</p>
             </article>
             <article class="feature-card">
               <h3>UXP-safe interface</h3>
@@ -169,7 +173,7 @@ npm run build</code></pre>
             <article class="setup-step">
               <span>4</span>
               <h3>Create the first layer</h3>
-              <p>Click Check ComfyUI, choose a checkpoint, generate, preview, and import the result into the active document.</p>
+              <p>Find or check ComfyUI, choose a checkpoint, generate, preview, and import the result into the active document.</p>
             </article>
           </div>
           <p class="setup-note">
@@ -190,6 +194,7 @@ npm run build</code></pre>
             <li>Generated images are placed as Photoshop layers; advanced alignment is future work.</li>
             <li>No selected layer export, image-to-image, inpainting, masks, or ControlNet-style tools yet.</li>
             <li>The browser dev server is only for UI preview. Photoshop APIs run inside UXP.</li>
+            <li>Very narrow Photoshop panels are usable, but final layout polish is still in progress.</li>
           </ul>
         </div>
       </section>
@@ -207,7 +212,7 @@ npm run build</code></pre>
             </article>
             <article>
               <h3>Near term</h3>
-              <p>Better workflow presets, saved settings, progress details, cleaner UI states, and packaged releases.</p>
+              <p>Image-to-image foundation, better workflow presets, cleaner UI states, and packaged releases.</p>
             </article>
             <article>
               <h3>Future artist tools</h3>
@@ -231,7 +236,7 @@ npm run build</code></pre>
     </main>
 
     <footer class="site-footer">
-      <p>OpenLayer v0.1.9. Developed by Mehran Ahmadi, 2026.</p>
+      <p>OpenLayer v0.1.10-alpha. Developed by Mehran Ahmadi, 2026.</p>
       <p>
         <a href="https://mehran-ahmadi.com/">Website</a>
         <span aria-hidden="true">/</span>

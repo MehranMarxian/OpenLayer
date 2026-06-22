@@ -6,11 +6,11 @@
 
 Local AI layers for Photoshop.
 
-OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop to a locally running ComfyUI server. The v0.1 prototype focuses on one stable path: text-to-image generation, previewing the result, and importing that result into the active Photoshop document as a new editable layer.
+OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop to a locally running ComfyUI server. The v0.1 alpha focuses on one stable path: text-to-image generation, previewing the result, and importing that result into the active Photoshop document as a new editable layer.
 
 ## Alpha Release
 
-`v0.1.9-alpha` is the current public MVP preview. It is intended for testing the core local workflow, not for production work yet.
+`v0.1.10-alpha` is the current public MVP preview. It is intended for testing the core local workflow, not for production work yet.
 
 Included in this alpha:
 
@@ -19,14 +19,18 @@ Included in this alpha:
 - Text-to-image generation with the `txt2img-basic` preset
 - Result preview inside the OpenLayer panel
 - Import generated output into the active Photoshop document as a new layer
+- Settings persistence for ComfyUI URL, selected checkpoint, and generation defaults
+- Passive local ComfyUI active port finder
+- Session history for recent generated previews
+- Optional auto-import after generation
 - Official OpenLayer icon and GitHub Pages landing page
 
-Known v0.1.9-alpha boundaries:
+Known v0.1.10-alpha boundaries:
 
 - Only text-to-image is supported.
 - Workflow node IDs may need adjustment for custom ComfyUI workflows.
 - Image-to-image, inpainting, masks, selected layer export, ControlNet-style workflows, and upscaling are not included yet.
-- The UI is functional but still early and will keep improving.
+- The UI is functional but still early. Narrow Photoshop panel layout polish will continue in later releases.
 
 ## Project Page
 
@@ -47,6 +51,8 @@ Working foundation:
 - Configurable local ComfyUI server URL
 - ComfyUI connection check
 - Checkpoint/model selector loaded from ComfyUI
+- Settings page with saved local defaults and diagnostics
+- Session history for recent generated images
 - `txt2img-basic` workflow generation
 - `/prompt` submission
 - `/history/{prompt_id}` polling
@@ -96,7 +102,7 @@ npm run package
 This creates a zip package from `dist` in the `packages` folder. For the current alpha, the expected package name is:
 
 ```text
-packages/openlayer-v0.1.9-alpha.zip
+packages/openlayer-v0.1.10-alpha.zip
 ```
 
 ## Loading In UXP Developer Tool
@@ -135,14 +141,14 @@ Click `Check ComfyUI` before generating.
 
 1. Open a Photoshop document.
 2. Open the OpenLayer panel.
-3. Click `Check ComfyUI` to load the available checkpoints.
+3. Open Settings and click `Find ComfyUI Active Port` or `Check ComfyUI` to load the available checkpoints.
 4. Choose a checkpoint.
 5. Enter a prompt.
 6. Optionally enter a negative prompt.
 7. Keep the workflow preset set to `txt2img-basic`.
 8. Click `Generate`.
 9. Wait for the preview.
-10. Click `Import Result as New Layer`.
+10. Click `Import Result as New Layer`, or enable `Import Result Automatically` before generating.
 
 The imported layer is named like:
 
