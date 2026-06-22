@@ -1,4 +1,5 @@
-export type WorkflowPreset = "txt2img-basic";
+export type WorkflowPreset = "txt2img-basic" | "img2img-basic";
+export type WorkflowMode = "txt2img" | "img2img";
 
 export type ComfyWorkflow = Record<string, ComfyWorkflowNode>;
 
@@ -21,6 +22,17 @@ export type BuildWorkflowOptions = {
   seed: number;
 };
 
+export type BuildImageToImageWorkflowOptions = {
+  prompt: string;
+  negativePrompt?: string;
+  checkpointName?: string;
+  sourceImageName: string;
+  steps: number;
+  cfg: number;
+  seed: number;
+  denoise: number;
+};
+
 export type BuildWorkflowResult = {
   workflow: ComfyWorkflow;
   seed: number;
@@ -36,6 +48,7 @@ export type WorkflowNodeRequirement = {
 export type WorkflowPresetDefinition = {
   id: WorkflowPreset;
   label: string;
+  mode: WorkflowMode;
   description: string;
   workflowFile: string;
   nodeIds: {
@@ -43,8 +56,10 @@ export type WorkflowPresetDefinition = {
     positivePrompt: string;
     negativePrompt: string;
     sampler: string;
-    latentImage: string;
     saveImage: string;
+    latentImage?: string;
+    loadImage?: string;
+    vaeEncode?: string;
   };
   requiredNodes: WorkflowNodeRequirement[];
 };
@@ -79,12 +94,25 @@ export type GeneratedImageResult = {
   mimeType: string;
 };
 
+export type ComfyUploadImageResponse = {
+  name?: string;
+  subfolder?: string;
+  type?: string;
+};
+
 export type GenerationSettings = {
   width: number;
   height: number;
   steps: number;
   cfg: number;
   seed: number;
+};
+
+export type ImageToImageSettings = {
+  steps: number;
+  cfg: number;
+  seed: number;
+  denoise: number;
 };
 
 export type GenerationSettingsInput = {
@@ -95,8 +123,20 @@ export type GenerationSettingsInput = {
   seed: string;
 };
 
+export type ImageToImageSettingsInput = {
+  steps: string;
+  cfg: string;
+  seed: string;
+  denoise: string;
+};
+
 export type GenerationSettingsValidation = {
   settings: GenerationSettings;
+  warnings: string[];
+};
+
+export type ImageToImageSettingsValidation = {
+  settings: ImageToImageSettings;
   warnings: string[];
 };
 

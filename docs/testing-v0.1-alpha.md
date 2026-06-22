@@ -1,4 +1,4 @@
-# OpenLayer v0.1 Alpha Testing Checklist
+# OpenLayer Alpha Testing Checklist
 
 Use this checklist after building a new alpha package or changing generation/import code.
 
@@ -31,7 +31,7 @@ npm run package
 Expected result:
 
 - A package is created in `packages`.
-- For this version, the package should be named `openlayer-v0.1.10-alpha.zip`.
+- For this version, the package should be named `openlayer-v0.2.0-alpha.zip`.
 
 If this fails:
 
@@ -152,7 +152,30 @@ If this fails:
 - Confirm a generated preview exists before importing.
 - Check UXP Developer Tool logs for Photoshop import errors.
 
-## 9. Final Smoke Test Result
+## 9. Test Image To Image
+
+1. Select a visible Photoshop layer.
+2. Open the OpenLayer launcher and choose `Image to Image`.
+3. Click `Capture Active Layer`.
+4. Confirm a source preview appears.
+5. Enter a short prompt.
+6. Keep the workflow set to `img2img-basic`.
+7. Click `Generate Image to Image`.
+8. Click `Import Image to Image Result`.
+
+Expected result:
+
+- A source preview appears before generation.
+- The generated Image to Image result appears in the result preview.
+- A new layer appears in Photoshop with a name starting with `OpenLayer_Img2Img_`.
+
+If this fails:
+
+- Confirm the selected layer is visible and has pixels Photoshop can capture.
+- Confirm Photoshop exposes the UXP Imaging API in the current version.
+- Check the ComfyUI terminal for upload or workflow errors.
+
+## 10. Final Smoke Test Result
 
 The alpha smoke test passes when:
 
@@ -160,3 +183,4 @@ The alpha smoke test passes when:
 - Checkpoints load.
 - A prompt generates a preview.
 - The preview imports as a new Photoshop layer.
+- Image to Image can capture an active layer, generate, preview, and import.

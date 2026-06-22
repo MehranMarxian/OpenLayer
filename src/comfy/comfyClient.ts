@@ -5,6 +5,7 @@ import {
   ComfyImageOutput,
   ComfyPromptResponse,
   ComfyQueueResponse,
+  ComfyUploadImageResponse,
   ComfyWorkflow,
   GeneratedImageResult
 } from "./types";
@@ -78,6 +79,40 @@ export class ComfyClient {
   async hasCheckpoint(checkpointName: string) {
     const checkpoints = await this.getCheckpointNames();
     return checkpoints.includes(checkpointName);
+  }
+
+  async uploadImage(blob: Blob, fileName = "openlayer-source.png") {
+    if (!blob || blob.size === 0) {
+      throw createOpenLayerError("COMFY_UPLOAD_FAILED", "The source image is empty.");
+    }
+
+    const formData = new FormData();
+    formData.append("image", blob, fileName);
+    formData.append("type", "input");
+    formData.append("overwrite", "true");
+
+    const response = await fetch(`${this.serverUrl}/upload/image`, {
+      method: "POST",
+      body: formData
+    });
+
+    if (!response.ok) {
+      const message = await readResponseText(response);
+      throw createOpenLayerError(
+        "COMFY_UPLOAD_FAILED",
+        `Could not upload the source image to ComfyUI. HTTP ${response.status}.`,
+        message
+      );
+    }
+
+    const data = (await response.json()) as ComfyUploadImageResponse;
+    const uploadedName = data.name || fileName;
+
+    if (!uploadedName) {
+      throw createOpenLayerError("COMFY_UPLOAD_FAILED", "ComfyUI did not return an uploaded image name.");
+    }
+
+    return uploadedName;
   }
 
   async submitPrompt(workflow: ComfyWorkflow): Promise<string> {

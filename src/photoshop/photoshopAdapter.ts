@@ -12,9 +12,14 @@ type PhotoshopModule = {
   core: {
     executeAsModal: <T>(command: () => Promise<T>, options: { commandName: string }) => Promise<T>;
   };
+  imaging?: {
+    getPixels: (options: Record<string, unknown>) => Promise<PhotoshopPixelResult>;
+    encodeImageData: (options: Record<string, unknown>) => Promise<ArrayBuffer | Uint8Array | number[] | string>;
+  };
 };
 
 type PhotoshopDocument = {
+  id?: number;
   title?: string;
   name?: string;
   width?: number;
@@ -23,7 +28,18 @@ type PhotoshopDocument = {
 };
 
 type PhotoshopLayer = {
+  id?: number;
   name?: string;
+};
+
+type PhotoshopImageData = {
+  width?: number;
+  height?: number;
+  dispose?: () => void;
+};
+
+type PhotoshopPixelResult = {
+  imageData?: PhotoshopImageData;
 };
 
 type ImportProgress = (message: string) => void;
@@ -34,6 +50,15 @@ export type ActiveDocumentInfo = {
   name: string;
   width: number;
   height: number;
+};
+
+export type ExportedSourceImage = {
+  blob: Blob;
+  filename: string;
+  mimeType: string;
+  width: number;
+  height: number;
+  sourceName: string;
 };
 
 export async function hasOpenDocument(): Promise<boolean> {
@@ -90,9 +115,102 @@ export async function importGeneratedImageAsLayer(
   }
 }
 
+export async function exportActiveLayerForImageToImage(): Promise<ExportedSourceImage> {
+  const photoshop = getPhotoshop();
+  const imaging = photoshop.imaging;
+
+  if (!imaging?.getPixels || !imaging.encodeImageData) {
+    throw createOpenLayerError(
+      "PHOTOSHOP_EXPORT_FAILED",
+      "This Photoshop UXP environment does not expose the Imaging API needed to capture the active layer.",
+      "OpenLayer v0.2.0-alpha uses photoshop.imaging.getPixels() and encodeImageData() for image-to-image source capture."
+    );
+  }
+
+  try {
+    const capturedSource = await photoshop.core.executeAsModal(
+      async () => {
+        const document = getActiveDocument();
+        const activeLayer = document.activeLayers?.[0];
+
+        if (!activeLayer) {
+          throw createOpenLayerError(
+            "PHOTOSHOP_EXPORT_FAILED",
+            "No active Photoshop layer was found. Select a pixel or smart object layer before using Image to Image."
+          );
+        }
+
+        if (typeof document.id !== "number" || typeof activeLayer.id !== "number") {
+          throw createOpenLayerError(
+            "PHOTOSHOP_EXPORT_FAILED",
+            "Photoshop did not expose a stable document or layer ID for the active layer.",
+            "Image-to-image source capture needs document.id and activeLayer.id."
+          );
+        }
+
+        let imageData: PhotoshopImageData | undefined;
+
+        try {
+          const pixelResult = await imaging.getPixels({
+            documentID: document.id,
+            layerID: activeLayer.id,
+            componentSize: 8,
+            colorSpace: "RGB",
+            applyAlpha: true
+          });
+
+          imageData = pixelResult.imageData;
+
+          if (!imageData) {
+            throw new Error("Photoshop returned no image data for the active layer.");
+          }
+
+          const encoded = await imaging.encodeImageData({
+            imageData,
+            base64: false
+          });
+          const bytes = toUint8Array(encoded);
+
+          if (bytes.byteLength === 0) {
+            throw new Error("Photoshop encoded an empty source image.");
+          }
+
+          return {
+            data: toArrayBuffer(bytes),
+            filename: `${createLayerName("OpenLayer_Source")}.jpg`,
+            width: Number(imageData.width ?? 0),
+            height: Number(imageData.height ?? 0),
+            sourceName: activeLayer.name || "Active layer"
+          };
+        } finally {
+          imageData?.dispose?.();
+        }
+      },
+      { commandName: "Capture OpenLayer Source" }
+    );
+
+    return {
+      blob: new Blob([capturedSource.data], { type: "image/jpeg" }),
+      filename: capturedSource.filename,
+      mimeType: "image/jpeg",
+      width: capturedSource.width,
+      height: capturedSource.height,
+      sourceName: capturedSource.sourceName
+    };
+  } catch (caughtError) {
+    throw createOpenLayerError(
+      "PHOTOSHOP_EXPORT_FAILED",
+      `Could not capture the active Photoshop layer for image-to-image. ${getErrorMessage(caughtError)}`
+    );
+  }
+}
+
 export async function exportActiveLayerAsPNG(): Promise<Blob> {
-  // TODO(v0.2): Export the selected Photoshop layer to a PNG for image-to-image workflows.
-  throw new Error("exportActiveLayerAsPNG is planned for a future OpenLayer version.");
+  // TODO(v0.2+): Add a true PNG export path if Photoshop UXP exposes one safely for selected layers.
+  throw createOpenLayerError(
+    "PHOTOSHOP_EXPORT_FAILED",
+    "PNG active-layer export is planned for a future OpenLayer version. v0.2.0-alpha captures a JPEG source through Photoshop's Imaging API for Image to Image."
+  );
 }
 
 export async function exportSelectionAsPNG(): Promise<Blob> {
@@ -220,6 +338,38 @@ async function renameActiveLayer(photoshop: PhotoshopModule, layerName: string) 
     ],
     {}
   );
+}
+
+function toUint8Array(data: ArrayBuffer | Uint8Array | number[] | string) {
+  if (data instanceof Uint8Array) {
+    return data;
+  }
+
+  if (data instanceof ArrayBuffer) {
+    return new Uint8Array(data);
+  }
+
+  if (Array.isArray(data)) {
+    return new Uint8Array(data);
+  }
+
+  return decodeBase64(data);
+}
+
+function toArrayBuffer(bytes: Uint8Array) {
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
+function decodeBase64(base64Value: string) {
+  const normalized = base64Value.includes(",") ? base64Value.split(",").pop() ?? "" : base64Value;
+  const binary = atob(normalized);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+
+  return bytes;
 }
 
 function getPhotoshop(): PhotoshopModule {

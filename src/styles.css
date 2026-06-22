@@ -97,6 +97,7 @@ a:hover {
 
 .home-view,
 .generator-view,
+.image-to-image-view,
 .settings-view,
 .history-view {
   display: flex;
@@ -113,6 +114,7 @@ a:hover {
 
 .home-view > *,
 .generator-view > *,
+.image-to-image-view > *,
 .settings-view > *,
 .history-view > * {
   margin-bottom: 18px;
@@ -120,6 +122,7 @@ a:hover {
 
 .home-view > *:last-child,
 .generator-view > *:last-child,
+.image-to-image-view > *:last-child,
 .settings-view > *:last-child,
 .history-view > *:last-child {
   margin-bottom: 0;
@@ -465,6 +468,45 @@ a:hover {
   gap: 15px;
 }
 
+.source-panel,
+.img2img-form-panel,
+.img2img-status-panel,
+.img2img-result-panel {
+  margin-bottom: 14px;
+}
+
+.image-to-image-view .generator-panel {
+  gap: 10px;
+  padding: 10px;
+}
+
+.image-to-image-view .section-heading {
+  align-items: center;
+}
+
+.img2img-form-panel > .field,
+.img2img-form-panel > .settings-grid,
+.img2img-form-panel > .button {
+  margin-bottom: 12px;
+}
+
+.img2img-form-panel > *:last-child {
+  margin-bottom: 0;
+}
+
+.img2img-field {
+  display: block;
+  clear: both;
+}
+
+.img2img-field > .label,
+.img2img-settings-grid .label {
+  display: block;
+  min-height: 14px;
+  margin-bottom: 6px;
+  line-height: 1.2;
+}
+
 .result-panel {
   padding-bottom: 10px;
 }
@@ -571,6 +613,12 @@ a:hover {
   resize: vertical;
   padding: 9px 10px;
   line-height: 1.45;
+}
+
+.compact-textarea {
+  min-height: 56px;
+  max-height: 96px;
+  resize: vertical;
 }
 
 .input-compact {
@@ -714,6 +762,14 @@ a:hover {
   min-width: 0;
 }
 
+.img2img-settings-grid {
+  gap: 8px;
+}
+
+.img2img-settings-grid .field {
+  flex: 1 1 74px;
+}
+
 .settings-seed {
   flex-basis: 100%;
 }
@@ -798,6 +854,31 @@ a:hover {
   object-fit: contain;
 }
 
+.source-preview-panel {
+  align-items: stretch;
+  min-height: 112px;
+  max-height: 156px;
+  flex-direction: column;
+}
+
+.source-preview-panel img {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 118px;
+  object-fit: contain;
+}
+
+.source-meta {
+  flex: 0 0 auto;
+  overflow: hidden;
+  border-top: 1px solid #454545;
+  padding: 7px 9px;
+  color: #bfbfbf;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .preview-empty {
   color: #aaaaaa;
   font-size: 13px;
@@ -811,6 +892,15 @@ a:hover {
   color: #ffc2c2;
   font-size: 13px;
   line-height: 1.4;
+}
+
+.img2img-result-panel .preview-panel {
+  min-height: 150px;
+  max-height: 220px;
+}
+
+.img2img-result-panel .preview-panel img {
+  max-height: 220px;
 }
 
 .text-image-shortcuts {

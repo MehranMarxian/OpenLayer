@@ -10,10 +10,21 @@ const TXT2IMG_BASIC_NODES = {
   saveImage: "9"
 } as const;
 
+const IMG2IMG_BASIC_NODES = {
+  checkpointLoader: "4",
+  loadImage: "10",
+  positivePrompt: "6",
+  negativePrompt: "7",
+  vaeEncode: "11",
+  sampler: "3",
+  saveImage: "9"
+} as const;
+
 export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
   {
     id: "txt2img-basic",
     label: "txt2img-basic",
+    mode: "txt2img",
     description: "Basic local text-to-image generation through ComfyUI.",
     workflowFile: "workflows/txt2img-basic.json",
     nodeIds: TXT2IMG_BASIC_NODES,
@@ -41,7 +52,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
       {
         id: TXT2IMG_BASIC_NODES.sampler,
         classType: "KSampler",
-        requiredInputs: ["seed", "steps", "cfg", "model", "positive", "negative", "latent_image"]
+        requiredInputs: ["seed", "steps", "cfg", "denoise", "model", "positive", "negative", "latent_image"]
       },
       {
         id: TXT2IMG_BASIC_NODES.saveImage,
@@ -49,11 +60,56 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
         requiredInputs: ["images"]
       }
     ]
+  },
+  {
+    id: "img2img-basic",
+    label: "img2img-basic",
+    mode: "img2img",
+    description: "Basic local image-to-image generation using an uploaded source image.",
+    workflowFile: "workflows/img2img-basic.json",
+    nodeIds: IMG2IMG_BASIC_NODES,
+    requiredNodes: [
+      {
+        id: IMG2IMG_BASIC_NODES.checkpointLoader,
+        classType: "CheckpointLoaderSimple",
+        requiredInputs: ["ckpt_name"]
+      },
+      {
+        id: IMG2IMG_BASIC_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: IMG2IMG_BASIC_NODES.positivePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: IMG2IMG_BASIC_NODES.negativePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: IMG2IMG_BASIC_NODES.vaeEncode,
+        classType: "VAEEncode",
+        requiredInputs: ["pixels", "vae"]
+      },
+      {
+        id: IMG2IMG_BASIC_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["seed", "steps", "cfg", "denoise", "model", "positive", "negative", "latent_image"]
+      },
+      {
+        id: IMG2IMG_BASIC_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images"]
+      }
+    ]
   }
 ];
 
-export function listWorkflowPresets() {
-  return WORKFLOW_PRESETS;
+export function listWorkflowPresets(mode?: WorkflowPresetDefinition["mode"]) {
+  return mode ? WORKFLOW_PRESETS.filter((preset) => preset.mode === mode) : WORKFLOW_PRESETS;
 }
 
 export function getWorkflowPreset(presetId: string): WorkflowPresetDefinition {

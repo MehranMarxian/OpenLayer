@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.2.0-alpha - 2026-06-22
+
+Image-to-image foundation for the next OpenLayer workflow family.
+
+### Added
+
+- Available Image to Image launcher card and tool screen.
+- Experimental active Photoshop layer capture using Photoshop UXP Imaging API.
+- Source image preview before upload so users can confirm what will be sent to ComfyUI.
+- ComfyUI `/upload/image` support for local source images.
+- `img2img-basic` workflow preset using built-in ComfyUI nodes.
+- Workflow registry and validation coverage for `img2img-basic`.
+- Image to Image generation status, result preview, and import as a new Photoshop layer.
+
+### Known Limitations
+
+- Active-layer capture is currently encoded as JPEG through Photoshop's Imaging API.
+- True PNG selected-layer export, mask export, selection preservation, and aligned regional workflows remain planned future work.
+- The Image to Image workflow is a starter preset and may need node ID/checkpoint adjustments for custom ComfyUI setups.
+- The panel design was not redesigned in this release.
+
 ## v0.1.10-alpha - 2026-06-22
 
 Text-to-image usability and pre-release polish.

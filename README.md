@@ -6,17 +6,20 @@
 
 Local AI layers for Photoshop.
 
-OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop to a locally running ComfyUI server. The v0.1 alpha focuses on one stable path: text-to-image generation, previewing the result, and importing that result into the active Photoshop document as a new editable layer.
+OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop to a locally running ComfyUI server. The alpha builds a local-first foundation for generating AI images, previewing results, and importing them into the active Photoshop document as editable layers.
 
 ## Alpha Release
 
-`v0.1.10-alpha` is the current public MVP preview. It is intended for testing the core local workflow, not for production work yet.
+`v0.2.0-alpha` is the current public preview. It is intended for testing the core local workflow, not for production work yet.
 
 Included in this alpha:
 
 - Local ComfyUI connection from Photoshop UXP
 - Checkpoint loading from ComfyUI
 - Text-to-image generation with the `txt2img-basic` preset
+- Experimental image-to-image generation with the `img2img-basic` preset
+- Active Photoshop layer capture for Image to Image using Photoshop UXP Imaging API
+- Source image preview before upload to ComfyUI
 - Result preview inside the OpenLayer panel
 - Import generated output into the active Photoshop document as a new layer
 - Settings persistence for ComfyUI URL, selected checkpoint, and generation defaults
@@ -25,11 +28,12 @@ Included in this alpha:
 - Optional auto-import after generation
 - Official OpenLayer icon and GitHub Pages landing page
 
-Known v0.1.10-alpha boundaries:
+Known v0.2.0-alpha boundaries:
 
-- Only text-to-image is supported.
+- Image to Image is an early foundation path, not a full production workflow yet.
+- Active-layer capture is currently encoded as JPEG through Photoshop's Imaging API.
 - Workflow node IDs may need adjustment for custom ComfyUI workflows.
-- Image-to-image, inpainting, masks, selected layer export, ControlNet-style workflows, and upscaling are not included yet.
+- True PNG selected-layer export, inpainting, masks, selection preservation, aligned regional workflows, ControlNet-style workflows, and upscaling are not included yet.
 - The UI is functional but still early. Narrow Photoshop panel layout polish will continue in later releases.
 
 ## Project Page
@@ -54,13 +58,15 @@ Working foundation:
 - Settings page with saved local defaults and diagnostics
 - Session history for recent generated images
 - `txt2img-basic` workflow generation
+- `img2img-basic` workflow generation foundation
+- Active-layer source capture and ComfyUI image upload
 - `/prompt` submission
 - `/history/{prompt_id}` polling
 - `/view` image retrieval
 - Result preview in the panel
 - Import result into the active Photoshop document as a new layer
 
-Future placeholders are included for layer export, selection export, masks, selection alignment, and selection preservation.
+Future placeholders are included for PNG layer export, selection export, masks, selection alignment, and selection preservation.
 
 ## Requirements
 
@@ -102,7 +108,7 @@ npm run package
 This creates a zip package from `dist` in the `packages` folder. For the current alpha, the expected package name is:
 
 ```text
-packages/openlayer-v0.1.10-alpha.zip
+packages/openlayer-v0.2.0-alpha.zip
 ```
 
 ## Loading In UXP Developer Tool
@@ -156,6 +162,25 @@ The imported layer is named like:
 OpenLayer_Generated_YYYYMMDD_HHMM
 ```
 
+## First Image To Image Test
+
+1. Open a Photoshop document.
+2. Select the layer you want to use as the source.
+3. Open the OpenLayer panel and choose `Image to Image`.
+4. Click `Capture Active Layer`.
+5. Confirm the source preview appears.
+6. Enter a prompt describing how to reinterpret the source.
+7. Choose a checkpoint and keep the workflow set to `img2img-basic`.
+8. Click `Generate Image to Image`.
+9. Wait for the result preview.
+10. Click `Import Image to Image Result`.
+
+The imported layer is named like:
+
+```text
+OpenLayer_Img2Img_YYYYMMDD_HHMM
+```
+
 ## Testing Checklist
 
 For a step-by-step beginner smoke test, see:
@@ -166,7 +191,12 @@ docs/testing-v0.1-alpha.md
 
 ## Workflow Notes
 
-The included workflow at `src/workflows/txt2img-basic.json` is a realistic starter ComfyUI workflow using common built-in nodes. You may need to replace the checkpoint name and node IDs for your own ComfyUI setup.
+The included workflows are realistic starter ComfyUI workflows using common built-in nodes:
+
+- `src/workflows/txt2img-basic.json`
+- `src/workflows/img2img-basic.json`
+
+You may need to replace the checkpoint name and node IDs for your own ComfyUI setup.
 
 The workflow builder injects:
 
@@ -178,7 +208,9 @@ The workflow builder injects:
 - steps
 - cfg
 
-If you export a different workflow from ComfyUI, update the node IDs in `src/comfy/workflowBuilder.ts`.
+Image to Image uses Photoshop's UXP Imaging API to capture the active layer and sends the source image to ComfyUI using `/upload/image`. In `v0.2.0-alpha`, that source capture is encoded as JPEG. True PNG layer export, mask export, and selection-aligned workflows are planned future work.
+
+If you export a different workflow from ComfyUI, update the node IDs in `src/comfy/presetRegistry.ts`.
 
 ## Troubleshooting
 

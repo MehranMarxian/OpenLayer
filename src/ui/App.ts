@@ -1,9 +1,14 @@
 import { ComfyClient } from "../comfy/comfyClient";
 import { getWorkflowPreset, listWorkflowPresets } from "../comfy/presetRegistry";
-import { validateGenerationSettings } from "../comfy/settings";
-import { buildTxt2ImgWorkflow } from "../comfy/workflowBuilder";
+import { validateGenerationSettings, validateImageToImageSettings } from "../comfy/settings";
+import { buildImg2ImgWorkflow, buildTxt2ImgWorkflow } from "../comfy/workflowBuilder";
 import { GeneratedImageResult } from "../comfy/types";
-import { getActiveDocumentInfo, importGeneratedImageAsLayer } from "../photoshop/photoshopAdapter";
+import {
+  ExportedSourceImage,
+  exportActiveLayerForImageToImage,
+  getActiveDocumentInfo,
+  importGeneratedImageAsLayer
+} from "../photoshop/photoshopAdapter";
 import { createOpenLayerError, getErrorMessage, getTechnicalErrorDetails } from "../utils/errors";
 import { createLayerName } from "../utils/fileUtils";
 import {
@@ -14,16 +19,19 @@ import {
 } from "../utils/preferences";
 
 const DEFAULT_SERVER_URL = "http://127.0.0.1:8190";
-const APP_VERSION = "0.1.10";
+const APP_VERSION = "0.2.0";
 const DEVELOPER_WEBSITE = "https://mehran-ahmadi.com/";
 const DEVELOPER_GITHUB = "https://github.com/MehranMarxian";
 const HISTORY_LIMIT = 5;
 const COMFY_PORT_CANDIDATES = [8190, 8188, 8189, 8191, 8192, 8193, 7860];
 const DEFAULT_WORKFLOW = "txt2img-basic";
+const DEFAULT_IMAGE_WORKFLOW = "img2img-basic";
 const DEFAULT_WIDTH = "512";
 const DEFAULT_HEIGHT = "512";
 const DEFAULT_STEPS = "4";
 const DEFAULT_CFG = "7";
+const DEFAULT_IMG2IMG_STEPS = "12";
+const DEFAULT_IMG2IMG_DENOISE = "0.55";
 const FALLBACK_CHECKPOINTS = [
   "epicrealism_naturalSinRC1VAE.safetensors",
   "epicrealism_pureEvolutionV5-inpainting.safetensors",
@@ -36,7 +44,7 @@ const FALLBACK_CHECKPOINTS = [
 ];
 
 type StatusTone = "idle" | "ready" | "error";
-type AppView = "home" | "text-to-image" | "settings" | "history";
+type AppView = "home" | "text-to-image" | "image-to-image" | "settings" | "history";
 type ToolCardStatus = "available" | "coming-soon";
 
 type ToolCard = {
@@ -75,7 +83,8 @@ const TOOL_CARDS: ToolCard[] = [
     title: "Image to Image",
     subtitle: "Use the active layer as visual input",
     icon: "image",
-    status: "coming-soon"
+    status: "available",
+    view: "image-to-image"
   },
   {
     id: "inpaint",
@@ -147,6 +156,7 @@ const TOOL_CARDS: ToolCard[] = [
 type AppElements = {
   homeView: HTMLElement;
   generatorView: HTMLElement;
+  imageToImageView: HTMLElement;
   settingsView: HTMLElement;
   historyView: HTMLElement;
   homeStatusText: HTMLElement;
@@ -168,18 +178,35 @@ type AppElements = {
   generateButton: HTMLElement;
   importButton: HTMLElement;
   autoImportToggle: HTMLElement;
+  imgPrompt: HTMLTextAreaElement;
+  imgNegativePrompt: HTMLTextAreaElement;
+  imgWorkflow: HTMLSelectElement;
+  imgCheckpoint: HTMLSelectElement;
+  imgSteps: HTMLInputElement;
+  imgCfg: HTMLInputElement;
+  imgSeed: HTMLInputElement;
+  imgDenoise: HTMLInputElement;
+  captureLayerButton: HTMLElement;
+  generateImg2ImgButton: HTMLElement;
+  importImg2ImgButton: HTMLElement;
   negativePromptToggle: HTMLElement;
   negativePromptField: HTMLElement;
   clearHistoryButton: HTMLElement;
   statusText: HTMLElement;
   statusPill: HTMLElement;
+  imgStatusText: HTMLElement;
+  imgStatusPill: HTMLElement;
   settingsStatusText: HTMLElement;
   settingsStatusPill: HTMLElement;
   diagnosticsText: HTMLElement;
+  imgDiagnosticsText: HTMLElement;
   settingsDiagnosticsText: HTMLElement;
   errorMessage: HTMLElement;
+  imgErrorMessage: HTMLElement;
   settingsErrorMessage: HTMLElement;
   previewPanel: HTMLElement;
+  imageSourcePreviewPanel: HTMLElement;
+  imageResultPreviewPanel: HTMLElement;
   historyList: HTMLElement;
   settingsUrlValue: HTMLElement;
   settingsCheckpointCount: HTMLElement;
@@ -198,12 +225,21 @@ type HistoryEntry = {
   createdAt: string;
 };
 
+type ImageSourceState = ExportedSourceImage & {
+  previewUrl: string;
+};
+
 export function renderApp(rootElement: HTMLElement) {
   let currentView: AppView = "home";
   let isBusy = false;
   let result: GeneratedImageResult | null = null;
   let previewUrl = "";
   let livePreviewUrl = "";
+  let imageSource: ImageSourceState | null = null;
+  let imageResult: GeneratedImageResult | null = null;
+  let imageSourcePreviewUrl = "";
+  let imageResultPreviewUrl = "";
+  let imageLivePreviewUrl = "";
   let importAutomatically = false;
   let isNegativePromptOpen = false;
   const historyEntries: HistoryEntry[] = [];
@@ -224,6 +260,9 @@ export function renderApp(rootElement: HTMLElement) {
     toggleAutoImport: createActionRunner(elements, "toggleAutoImport", handleToggleAutoImport),
     generate: createActionRunner(elements, "generate", handleGenerate),
     import: createActionRunner(elements, "import", handleImport),
+    captureImageSource: createActionRunner(elements, "captureImageSource", handleCaptureImageSource),
+    generateImg2Img: createActionRunner(elements, "generateImg2Img", handleGenerateImg2Img),
+    importImg2Img: createActionRunner(elements, "importImg2Img", handleImportImg2Img),
     clearHistory: createActionRunner(elements, "clearHistory", handleClearHistory)
   };
 
@@ -235,6 +274,9 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.autoImportToggle, actionHandlers.toggleAutoImport);
   bindActionControl(elements.generateButton, actionHandlers.generate);
   bindActionControl(elements.importButton, actionHandlers.import);
+  bindActionControl(elements.captureLayerButton, actionHandlers.captureImageSource);
+  bindActionControl(elements.generateImg2ImgButton, actionHandlers.generateImg2Img);
+  bindActionControl(elements.importImg2ImgButton, actionHandlers.importImg2Img);
   bindActionControl(elements.clearHistoryButton, actionHandlers.clearHistory);
   bindDelegatedActions(rootElement, actionHandlers);
   bindDocumentActions(rootElement, actionHandlers);
@@ -244,9 +286,11 @@ export function renderApp(rootElement: HTMLElement) {
   setStatus(elements, "Ready.", "idle");
   setView(currentView);
   setError(elements, "");
-  setBusy(elements, isBusy, result);
+  setBusy(elements, isBusy, result, imageResult, imageSource);
   updateNegativePromptDisclosure(elements, isNegativePromptOpen);
   updateAutoImportToggle(elements, importAutomatically);
+  setImageSource(null);
+  setImageResult(null);
   updateSettingsReport(elements);
   renderHistory(elements, historyEntries);
   void loadInitialCheckpoints();
@@ -364,7 +408,7 @@ export function renderApp(rootElement: HTMLElement) {
     setError(elements, "");
     setResult(null);
     isBusy = true;
-    setBusy(elements, isBusy, result);
+    setBusy(elements, isBusy, result, imageResult, imageSource);
     setStatus(elements, "Preparing workflow...", "idle");
     setProgressPreview(elements, "Preparing workflow...");
     let progressWatcher: ReturnType<ComfyClient["watchProgress"]> | null = null;
@@ -482,7 +526,7 @@ export function renderApp(rootElement: HTMLElement) {
     } finally {
       progressWatcher?.close();
       isBusy = false;
-      setBusy(elements, isBusy, result);
+      setBusy(elements, isBusy, result, imageResult, imageSource);
     }
   }
 
@@ -530,7 +574,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     setError(elements, "");
     isBusy = true;
-    setBusy(elements, isBusy, result);
+    setBusy(elements, isBusy, result, imageResult, imageSource);
     setStatus(elements, "Importing image into Photoshop...", "idle");
 
     try {
@@ -549,7 +593,200 @@ export function renderApp(rootElement: HTMLElement) {
       setError(elements, getErrorMessage(caughtError));
     } finally {
       isBusy = false;
-      setBusy(elements, isBusy, result);
+      setBusy(elements, isBusy, result, imageResult, imageSource);
+    }
+  }
+
+  async function handleCaptureImageSource() {
+    setImageDiagnostics(elements, "Capturing active Photoshop layer...");
+    setImageError(elements, "");
+    setImageStatus(elements, "Capturing active layer...", "idle");
+    isBusy = true;
+    setBusy(elements, isBusy, result, imageResult, imageSource);
+
+    try {
+      const exportedSource = await exportActiveLayerForImageToImage();
+      const sourcePreview = URL.createObjectURL(exportedSource.blob);
+      setImageSource({
+        ...exportedSource,
+        previewUrl: sourcePreview
+      });
+      setImageStatus(elements, "Source layer captured.", "ready");
+      setImageDiagnostics(
+        elements,
+        `Captured ${exportedSource.sourceName} (${Math.round(exportedSource.width)} x ${Math.round(exportedSource.height)}) as JPEG source.`
+      );
+    } catch (caughtError) {
+      setImageStatus(elements, "Source capture failed.", "error");
+      setImageError(elements, getErrorMessage(caughtError));
+      setImageDiagnostics(elements, getTechnicalErrorDetails(caughtError));
+    } finally {
+      isBusy = false;
+      setBusy(elements, isBusy, result, imageResult, imageSource);
+    }
+  }
+
+  async function handleGenerateImg2Img() {
+    setImageDiagnostics(elements, `Image to Image generate pressed at ${new Date().toLocaleTimeString()}.`);
+
+    if (!imageSource) {
+      setImageError(elements, "Capture the active Photoshop layer before generating Image to Image.");
+      setImageStatus(elements, "Source required.", "error");
+      return;
+    }
+
+    if (!elements.imgPrompt.value.trim()) {
+      setImageError(elements, getErrorMessage(createOpenLayerError("PROMPT_REQUIRED", "Enter a prompt before generating.")));
+      setImageStatus(elements, "Prompt required.", "error");
+      return;
+    }
+
+    setImageError(elements, "");
+    setImageResult(null);
+    isBusy = true;
+    setBusy(elements, isBusy, result, imageResult, imageSource);
+    setImageStatus(elements, "Preparing Image to Image workflow...", "idle");
+    setImageProgressPreview(elements, "Preparing Image to Image workflow...");
+    let progressWatcher: ReturnType<ComfyClient["watchProgress"]> | null = null;
+
+    try {
+      const workflowPreset = readSelectValue(elements.imgWorkflow, DEFAULT_IMAGE_WORKFLOW);
+      const preset = getWorkflowPreset(workflowPreset);
+      const checkpointName = readSelectValue(elements.imgCheckpoint);
+      const { settings, warnings } = validateImageToImageSettings({
+        steps: elements.imgSteps.value,
+        cfg: elements.imgCfg.value,
+        seed: elements.imgSeed.value,
+        denoise: elements.imgDenoise.value
+      });
+      const client = new ComfyClient(elements.serverUrl.value);
+
+      applyValidatedImageToImageSettings(elements, settings);
+      setImageDiagnostics(
+        elements,
+        warnings.length > 0
+          ? warnings.join(" ")
+          : `Using workflow ${preset.id}, checkpoint: ${checkpointName || "none"}`
+      );
+      await client.checkOnline();
+
+      if (!checkpointName) {
+        throw createOpenLayerError("CHECKPOINT_REQUIRED", "Choose a ComfyUI checkpoint before generating.");
+      }
+
+      setImageStatus(elements, "Checking selected checkpoint...", "idle");
+      setImageProgressPreview(elements, "Checking selected checkpoint...");
+
+      if (!(await client.hasCheckpoint(checkpointName))) {
+        throw createOpenLayerError(
+          "CHECKPOINT_REQUIRED",
+          `The checkpoint "${checkpointName}" was not found in ComfyUI. Click Check ComfyUI and choose an available checkpoint.`
+        );
+      }
+
+      setImageStatus(elements, "Uploading source image to ComfyUI...", "idle");
+      setImageProgressPreview(elements, "Uploading source image...");
+      const sourceImageName = await client.uploadImage(imageSource.blob, imageSource.filename);
+      const buildResult = await buildImg2ImgWorkflow({
+        prompt: elements.imgPrompt.value,
+        negativePrompt: elements.imgNegativePrompt.value,
+        checkpointName,
+        sourceImageName,
+        steps: settings.steps,
+        cfg: settings.cfg,
+        seed: settings.seed,
+        denoise: settings.denoise
+      });
+
+      setImageStatus(elements, "Submitting Image to Image prompt...", "idle");
+      setImageProgressPreview(elements, "Submitting prompt to ComfyUI...");
+      const promptId = await client.submitPrompt(buildResult.workflow);
+      let hasLivePreview = false;
+      progressWatcher = client.watchProgress(promptId, {
+        onStatus: (message) => {
+          setImageStatus(elements, message, "idle");
+
+          if (!hasLivePreview) {
+            setImageProgressPreview(elements, message);
+          }
+        },
+        onPreviewBlob: (blob) => {
+          hasLivePreview = true;
+          setImageProgressPreview(elements, "Live ComfyUI preview...", blob);
+        },
+        onError: (message) => setImageDiagnostics(elements, message)
+      });
+
+      setImageStatus(elements, "Generating Image to Image result...", "idle");
+      setImageProgressPreview(elements, "Generating image...");
+      const history = await client.pollUntilComplete(promptId, {
+        onTick: (message) => {
+          setImageStatus(elements, message, "idle");
+
+          if (!hasLivePreview) {
+            setImageProgressPreview(elements, message);
+          }
+        }
+      });
+      progressWatcher?.close();
+      progressWatcher = null;
+
+      setImageStatus(elements, "Retrieving Image to Image result...", "idle");
+      setImageProgressPreview(elements, "Retrieving final image...");
+      const generatedResult = await client.retrieveFirstOutputImage(promptId, history);
+      setImageResult(generatedResult);
+      addHistoryEntry(elements, historyEntries, generatedResult, {
+        prompt: elements.imgPrompt.value,
+        checkpointName,
+        seed: buildResult.seed,
+        sizeLabel: "Image to Image"
+      });
+      setImageStatus(elements, "Image to Image generation complete.", "ready");
+      setImageDiagnostics(
+        elements,
+        `Seed used: ${buildResult.seed}. Source uploaded as ${sourceImageName}. Workflow: ${buildResult.preset.id}.`
+      );
+    } catch (caughtError) {
+      setImageStatus(elements, "Image to Image generation failed.", "error");
+      setImageError(elements, getErrorMessage(caughtError));
+      setImageDiagnostics(elements, getTechnicalErrorDetails(caughtError));
+    } finally {
+      progressWatcher?.close();
+      isBusy = false;
+      setBusy(elements, isBusy, result, imageResult, imageSource);
+    }
+  }
+
+  async function handleImportImg2Img() {
+    setImageDiagnostics(elements, "Image to Image import pressed.");
+
+    if (!imageResult) {
+      setImageError(elements, "Generate an Image to Image result before importing.");
+      return;
+    }
+
+    setImageError(elements, "");
+    isBusy = true;
+    setBusy(elements, isBusy, result, imageResult, imageSource);
+    setImageStatus(elements, "Importing Image to Image result into Photoshop...", "idle");
+
+    try {
+      const documentInfo = await getActiveDocumentInfo();
+      const layerName = createLayerName("OpenLayer_Img2Img");
+
+      setImageDiagnostics(elements, `Importing into ${documentInfo.name || "active document"}...`);
+      const importedLayerName = await importGeneratedImageAsLayer(imageResult.blob, layerName, (message) => {
+        setImageStatus(elements, message, "idle");
+        setImageDiagnostics(elements, message);
+      });
+      setImageStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
+      setImageDiagnostics(elements, `Layer created: ${importedLayerName}`);
+    } catch (caughtError) {
+      setImageStatus(elements, "Import failed.", "error");
+      setImageError(elements, getErrorMessage(caughtError));
+    } finally {
+      isBusy = false;
+      setBusy(elements, isBusy, result, imageResult, imageSource);
     }
   }
 
@@ -572,7 +809,7 @@ export function renderApp(rootElement: HTMLElement) {
       empty.className = "preview-empty";
       empty.textContent = "No result yet";
       elements.previewPanel.append(empty);
-      setBusy(elements, isBusy, result);
+      setBusy(elements, isBusy, result, imageResult, imageSource);
       return;
     }
 
@@ -581,7 +818,7 @@ export function renderApp(rootElement: HTMLElement) {
     image.src = previewUrl;
     image.alt = "Generated OpenLayer preview";
     elements.previewPanel.append(image);
-    setBusy(elements, isBusy, result);
+    setBusy(elements, isBusy, result, imageResult, imageSource);
   }
 
   function setProgressPreview(elements: AppElements, message: string, blob?: Blob) {
@@ -610,10 +847,99 @@ export function renderApp(rootElement: HTMLElement) {
     elements.previewPanel.append(progress);
   }
 
+  function setImageSource(nextSource: ImageSourceState | null) {
+    if (imageSourcePreviewUrl) {
+      URL.revokeObjectURL(imageSourcePreviewUrl);
+      imageSourcePreviewUrl = "";
+    }
+
+    imageSource = nextSource;
+    elements.imageSourcePreviewPanel.innerHTML = "";
+
+    if (!imageSource) {
+      const empty = document.createElement("span");
+      empty.className = "preview-empty";
+      empty.textContent = "No source captured yet";
+      elements.imageSourcePreviewPanel.append(empty);
+      setBusy(elements, isBusy, result, imageResult, imageSource);
+      return;
+    }
+
+    imageSourcePreviewUrl = imageSource.previewUrl;
+    const image = document.createElement("img");
+    image.src = imageSourcePreviewUrl;
+    image.alt = "Captured active Photoshop layer";
+    elements.imageSourcePreviewPanel.append(image);
+
+    const meta = document.createElement("div");
+    meta.className = "source-meta";
+    meta.textContent = `${imageSource.sourceName} | ${Math.round(imageSource.width)} x ${Math.round(imageSource.height)}`;
+    elements.imageSourcePreviewPanel.append(meta);
+    setBusy(elements, isBusy, result, imageResult, imageSource);
+  }
+
+  function setImageResult(nextResult: GeneratedImageResult | null) {
+    if (imageResultPreviewUrl) {
+      URL.revokeObjectURL(imageResultPreviewUrl);
+      imageResultPreviewUrl = "";
+    }
+
+    if (imageLivePreviewUrl) {
+      URL.revokeObjectURL(imageLivePreviewUrl);
+      imageLivePreviewUrl = "";
+    }
+
+    imageResult = nextResult;
+    elements.imageResultPreviewPanel.innerHTML = "";
+
+    if (!imageResult) {
+      const empty = document.createElement("span");
+      empty.className = "preview-empty";
+      empty.textContent = "No Image to Image result yet";
+      elements.imageResultPreviewPanel.append(empty);
+      setBusy(elements, isBusy, result, imageResult, imageSource);
+      return;
+    }
+
+    imageResultPreviewUrl = URL.createObjectURL(imageResult.blob);
+    const image = document.createElement("img");
+    image.src = imageResultPreviewUrl;
+    image.alt = "Generated Image to Image preview";
+    elements.imageResultPreviewPanel.append(image);
+    setBusy(elements, isBusy, result, imageResult, imageSource);
+  }
+
+  function setImageProgressPreview(elements: AppElements, message: string, blob?: Blob) {
+    if (imageResult) {
+      return;
+    }
+
+    elements.imageResultPreviewPanel.innerHTML = "";
+
+    if (blob) {
+      if (imageLivePreviewUrl) {
+        URL.revokeObjectURL(imageLivePreviewUrl);
+      }
+
+      imageLivePreviewUrl = URL.createObjectURL(blob);
+      const image = document.createElement("img");
+      image.src = imageLivePreviewUrl;
+      image.alt = "Live ComfyUI Image to Image preview";
+      elements.imageResultPreviewPanel.append(image);
+      return;
+    }
+
+    const progress = document.createElement("span");
+    progress.className = "preview-empty";
+    progress.textContent = message;
+    elements.imageResultPreviewPanel.append(progress);
+  }
+
   function setView(view: AppView) {
     currentView = view;
     elements.homeView.hidden = currentView !== "home";
     elements.generatorView.hidden = currentView !== "text-to-image";
+    elements.imageToImageView.hidden = currentView !== "image-to-image";
     elements.settingsView.hidden = currentView !== "settings";
     elements.historyView.hidden = currentView !== "history";
 
@@ -722,7 +1048,7 @@ function createAppMarkup() {
           <label class="field">
             <span class="label">Workflow</span>
             <select class="select" id="workflow">
-              ${listWorkflowPresets().map((preset) => `<option value="${preset.id}">${preset.label}</option>`).join("")}
+              ${listWorkflowPresets("txt2img").map((preset) => `<option value="${preset.id}">${preset.label}</option>`).join("")}
             </select>
           </label>
           <label class="field">
@@ -776,6 +1102,98 @@ function createAppMarkup() {
           <div class="import-actions">
             <button class="button button-import action-control is-disabled" id="import-result" data-openlayer-action="import" type="button" tabindex="-1" aria-disabled="true">Import Result as New Layer</button>
             <button class="button auto-import-toggle action-control" id="auto-import-toggle" data-openlayer-action="toggleAutoImport" type="button" aria-pressed="false">Import Result Automatically</button>
+          </div>
+        </section>
+
+        <section class="text-image-shortcuts" aria-label="Shortcuts">
+          <div class="settings-shortcut" role="button" tabindex="0" data-openlayer-view="settings">
+            <span class="shortcut-label">Settings</span>
+            <span class="shortcut-note">ComfyUI URL, status, and diagnostics</span>
+          </div>
+        </section>
+      </section>
+
+      <section class="image-to-image-view" id="image-to-image-view" aria-label="Image to Image" hidden>
+        <div class="screen-nav">
+          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
+          <div class="screen-title-block">
+            <span class="screen-kicker">IMG</span>
+            <span class="screen-title">Image to Image</span>
+          </div>
+        </div>
+
+        <section class="panel-section generator-panel source-panel" aria-label="Image source">
+          <div class="section-heading">
+            <span class="label">Source layer</span>
+            <span class="muted-label">Active Photoshop layer</span>
+          </div>
+          <button class="button action-control" id="capture-image-source" data-openlayer-action="captureImageSource" type="button">Capture Active Layer</button>
+          <div class="preview-panel source-preview-panel" id="image-source-preview-panel">
+            <span class="preview-empty">No source captured yet</span>
+          </div>
+        </section>
+
+        <section class="panel-section generator-panel img2img-form-panel" aria-label="Image to Image prompt">
+          <div class="field img2img-field">
+            <span class="label">Prompt</span>
+            <textarea class="textarea compact-textarea" id="img-prompt" placeholder="Describe how to reinterpret the active layer..."></textarea>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Negative prompt</span>
+            <textarea class="textarea compact-textarea" id="img-negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Workflow</span>
+            <select class="select" id="img-workflow">
+              ${listWorkflowPresets("img2img").map((preset) => `<option value="${preset.id}">${preset.label}</option>`).join("")}
+            </select>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Checkpoint</span>
+            <select class="select" id="img-checkpoint">
+              ${FALLBACK_CHECKPOINTS.map((checkpoint) => `<option value="${checkpoint}">${checkpoint}</option>`).join("")}
+            </select>
+          </div>
+          <div class="settings-grid img2img-settings-grid" aria-label="Image to Image settings">
+            <div class="field">
+              <span class="label">Steps</span>
+              <input class="input input-compact" id="img-steps" type="number" min="1" max="150" step="1" value="${DEFAULT_IMG2IMG_STEPS}" />
+            </div>
+            <div class="field">
+              <span class="label">CFG</span>
+              <input class="input input-compact" id="img-cfg" type="number" min="1" max="30" step="0.5" value="${DEFAULT_CFG}" />
+            </div>
+            <div class="field">
+              <span class="label">Denoise</span>
+              <input class="input input-compact" id="img-denoise" type="number" min="0.05" max="1" step="0.05" value="${DEFAULT_IMG2IMG_DENOISE}" />
+            </div>
+            <div class="field settings-seed">
+              <span class="label">Seed</span>
+              <input class="input input-compact" id="img-seed" type="number" min="0" placeholder="Random" />
+            </div>
+          </div>
+          <button class="button button-primary button-generate button-wide action-control" id="generate-img2img" data-openlayer-action="generateImg2Img" type="button">Generate Image to Image</button>
+        </section>
+
+        <section class="generation-status-panel img2img-status-panel" aria-label="Image to Image status">
+          <div class="status-bar" role="status">
+            <span class="status-text" id="img-status-text">Ready.</span>
+            <span class="status-pill idle" id="img-status-pill">Status</span>
+          </div>
+          <div class="diagnostics-line" id="img-diagnostics-text">Capture an active layer, then generate with img2img-basic.</div>
+          <div class="error-message" id="img-error-message" hidden></div>
+        </section>
+
+        <section class="panel-section result-panel img2img-result-panel" aria-label="Image to Image result">
+          <div class="section-heading">
+            <span class="label">Result preview</span>
+            <span class="muted-label">Generated result appears here</span>
+          </div>
+          <div class="preview-panel" id="image-result-preview-panel">
+            <span class="preview-empty">No Image to Image result yet</span>
+          </div>
+          <div class="import-actions">
+            <button class="button button-import action-control is-disabled" id="import-img2img-result" data-openlayer-action="importImg2Img" type="button" tabindex="-1" aria-disabled="true">Import Image to Image Result</button>
           </div>
         </section>
 
@@ -882,6 +1300,7 @@ function getAppElements(rootElement: HTMLElement): AppElements {
   return {
     homeView: getElement<HTMLElement>(rootElement, "home-view"),
     generatorView: getElement<HTMLElement>(rootElement, "generator-view"),
+    imageToImageView: getElement<HTMLElement>(rootElement, "image-to-image-view"),
     settingsView: getElement<HTMLElement>(rootElement, "settings-view"),
     historyView: getElement<HTMLElement>(rootElement, "history-view"),
     homeStatusText: getElement<HTMLElement>(rootElement, "home-status-text"),
@@ -903,18 +1322,35 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     generateButton: getElement<HTMLElement>(rootElement, "generate"),
     importButton: getElement<HTMLElement>(rootElement, "import-result"),
     autoImportToggle: getElement<HTMLElement>(rootElement, "auto-import-toggle"),
+    imgPrompt: getElement<HTMLTextAreaElement>(rootElement, "img-prompt"),
+    imgNegativePrompt: getElement<HTMLTextAreaElement>(rootElement, "img-negative-prompt"),
+    imgWorkflow: getElement<HTMLSelectElement>(rootElement, "img-workflow"),
+    imgCheckpoint: getElement<HTMLSelectElement>(rootElement, "img-checkpoint"),
+    imgSteps: getElement<HTMLInputElement>(rootElement, "img-steps"),
+    imgCfg: getElement<HTMLInputElement>(rootElement, "img-cfg"),
+    imgSeed: getElement<HTMLInputElement>(rootElement, "img-seed"),
+    imgDenoise: getElement<HTMLInputElement>(rootElement, "img-denoise"),
+    captureLayerButton: getElement<HTMLElement>(rootElement, "capture-image-source"),
+    generateImg2ImgButton: getElement<HTMLElement>(rootElement, "generate-img2img"),
+    importImg2ImgButton: getElement<HTMLElement>(rootElement, "import-img2img-result"),
     negativePromptToggle: getElement<HTMLElement>(rootElement, "negative-prompt-toggle"),
     negativePromptField: getElement<HTMLElement>(rootElement, "negative-prompt-field"),
     clearHistoryButton: getElement<HTMLElement>(rootElement, "clear-history"),
     statusText: getElement<HTMLElement>(rootElement, "status-text"),
     statusPill: getElement<HTMLElement>(rootElement, "status-pill"),
+    imgStatusText: getElement<HTMLElement>(rootElement, "img-status-text"),
+    imgStatusPill: getElement<HTMLElement>(rootElement, "img-status-pill"),
     settingsStatusText: getElement<HTMLElement>(rootElement, "settings-status-text"),
     settingsStatusPill: getElement<HTMLElement>(rootElement, "settings-status-pill"),
     diagnosticsText: getElement<HTMLElement>(rootElement, "diagnostics-text"),
+    imgDiagnosticsText: getElement<HTMLElement>(rootElement, "img-diagnostics-text"),
     settingsDiagnosticsText: getElement<HTMLElement>(rootElement, "settings-diagnostics-text"),
     errorMessage: getElement<HTMLElement>(rootElement, "error-message"),
+    imgErrorMessage: getElement<HTMLElement>(rootElement, "img-error-message"),
     settingsErrorMessage: getElement<HTMLElement>(rootElement, "settings-error-message"),
     previewPanel: getElement<HTMLElement>(rootElement, "preview-panel"),
+    imageSourcePreviewPanel: getElement<HTMLElement>(rootElement, "image-source-preview-panel"),
+    imageResultPreviewPanel: getElement<HTMLElement>(rootElement, "image-result-preview-panel"),
     historyList: getElement<HTMLElement>(rootElement, "history-list"),
     settingsUrlValue: getElement<HTMLElement>(rootElement, "settings-url-value"),
     settingsCheckpointCount: getElement<HTMLElement>(rootElement, "settings-checkpoint-count"),
@@ -933,7 +1369,13 @@ function getElement<T extends HTMLElement>(rootElement: HTMLElement, id: string)
   return element as T;
 }
 
-function setBusy(elements: AppElements, isBusy: boolean, result: GeneratedImageResult | null) {
+function setBusy(
+  elements: AppElements,
+  isBusy: boolean,
+  result: GeneratedImageResult | null,
+  imageResult: GeneratedImageResult | null = null,
+  imageSource: ImageSourceState | null = null
+) {
   elements.serverUrl.disabled = isBusy;
   elements.prompt.disabled = isBusy;
   elements.negativePrompt.disabled = isBusy;
@@ -944,6 +1386,14 @@ function setBusy(elements: AppElements, isBusy: boolean, result: GeneratedImageR
   elements.steps.disabled = isBusy;
   elements.cfg.disabled = isBusy;
   elements.seed.disabled = isBusy;
+  elements.imgPrompt.disabled = isBusy;
+  elements.imgNegativePrompt.disabled = isBusy;
+  elements.imgWorkflow.disabled = isBusy;
+  elements.imgCheckpoint.disabled = isBusy;
+  elements.imgSteps.disabled = isBusy;
+  elements.imgCfg.disabled = isBusy;
+  elements.imgSeed.disabled = isBusy;
+  elements.imgDenoise.disabled = isBusy;
   setActionDisabled(elements.checkButton, isBusy);
   setActionDisabled(elements.findPortButton, isBusy);
   setActionDisabled(elements.saveSettingsButton, isBusy);
@@ -952,6 +1402,9 @@ function setBusy(elements: AppElements, isBusy: boolean, result: GeneratedImageR
   setActionDisabled(elements.autoImportToggle, isBusy);
   setActionDisabled(elements.generateButton, isBusy);
   setActionDisabled(elements.importButton, isBusy || !result);
+  setActionDisabled(elements.captureLayerButton, isBusy);
+  setActionDisabled(elements.generateImg2ImgButton, isBusy || !imageSource);
+  setActionDisabled(elements.importImg2ImgButton, isBusy || !imageResult);
   setActionDisabled(elements.clearHistoryButton, isBusy);
 }
 
@@ -959,9 +1412,20 @@ function setStatus(elements: AppElements, status: string, tone: StatusTone) {
   elements.statusText.textContent = status;
   elements.statusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
   elements.statusPill.className = `status-pill ${tone}`;
+  elements.imgStatusText.textContent = status;
+  elements.imgStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
+  elements.imgStatusPill.className = `status-pill ${tone}`;
   elements.settingsStatusText.textContent = status;
   elements.settingsStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
   elements.settingsStatusPill.className = `status-pill ${tone}`;
+  elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
+  elements.homeStatusDot.className = `home-status-dot ${tone}`;
+}
+
+function setImageStatus(elements: AppElements, status: string, tone: StatusTone) {
+  elements.imgStatusText.textContent = status;
+  elements.imgStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
+  elements.imgStatusPill.className = `status-pill ${tone}`;
   elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
   elements.homeStatusDot.className = `home-status-dot ${tone}`;
 }
@@ -973,8 +1437,19 @@ function setError(elements: AppElements, message: string) {
   elements.settingsErrorMessage.hidden = !message;
 }
 
+function setImageError(elements: AppElements, message: string) {
+  elements.imgErrorMessage.textContent = message;
+  elements.imgErrorMessage.hidden = !message;
+}
+
 function setDiagnostics(elements: AppElements, message: string) {
   elements.diagnosticsText.textContent = message;
+  elements.imgDiagnosticsText.textContent = message;
+  elements.settingsDiagnosticsText.textContent = message;
+}
+
+function setImageDiagnostics(elements: AppElements, message: string) {
+  elements.imgDiagnosticsText.textContent = message;
   elements.settingsDiagnosticsText.textContent = message;
 }
 
@@ -1000,6 +1475,9 @@ type ActionName =
   | "toggleAutoImport"
   | "generate"
   | "import"
+  | "captureImageSource"
+  | "generateImg2Img"
+  | "importImg2Img"
   | "clearHistory";
 type HistoryActionName = "preview" | "import";
 type ActionRunner = (eventName: string) => void;
@@ -1267,19 +1745,24 @@ async function loadCheckpoints(client: ComfyClient, elements: AppElements, prefe
 }
 
 function fillCheckpointOptions(elements: AppElements, checkpoints: string[], preferredValue?: string) {
-  elements.checkpoint.innerHTML = "";
+  fillSingleCheckpointSelect(elements.checkpoint, checkpoints, preferredValue);
+  fillSingleCheckpointSelect(elements.imgCheckpoint, checkpoints, preferredValue);
+}
+
+function fillSingleCheckpointSelect(select: HTMLSelectElement, checkpoints: string[], preferredValue?: string) {
+  select.innerHTML = "";
 
   for (const checkpoint of checkpoints) {
     const option = document.createElement("option");
     option.value = checkpoint;
     option.textContent = checkpoint;
-    elements.checkpoint.append(option);
+    select.append(option);
   }
 
   if (preferredValue && checkpoints.includes(preferredValue)) {
-    elements.checkpoint.value = preferredValue;
+    select.value = preferredValue;
   } else {
-    elements.checkpoint.value = checkpoints[0] ?? "";
+    select.value = checkpoints[0] ?? "";
   }
 }
 
@@ -1310,6 +1793,18 @@ function applyValidatedSettings(elements: AppElements, settings: {
   elements.seed.value = String(settings.seed);
 }
 
+function applyValidatedImageToImageSettings(elements: AppElements, settings: {
+  steps: number;
+  cfg: number;
+  seed: number;
+  denoise: number;
+}) {
+  elements.imgSteps.value = String(settings.steps);
+  elements.imgCfg.value = String(settings.cfg);
+  elements.imgSeed.value = String(settings.seed);
+  elements.imgDenoise.value = String(settings.denoise);
+}
+
 function applyPreferences(elements: AppElements, preferences: Partial<OpenLayerPreferences>) {
   if (preferences.serverUrl) {
     elements.serverUrl.value = preferences.serverUrl;
@@ -1318,6 +1813,8 @@ function applyPreferences(elements: AppElements, preferences: Partial<OpenLayerP
   if (preferences.workflow) {
     elements.workflow.value = preferences.workflow;
   }
+
+  elements.imgWorkflow.value = DEFAULT_IMAGE_WORKFLOW;
 
   if (preferences.width) {
     elements.width.value = preferences.width;
@@ -1333,6 +1830,7 @@ function applyPreferences(elements: AppElements, preferences: Partial<OpenLayerP
 
   if (preferences.cfg) {
     elements.cfg.value = preferences.cfg;
+    elements.imgCfg.value = preferences.cfg;
   }
 
   if (preferences.seed) {
@@ -1343,11 +1841,16 @@ function applyPreferences(elements: AppElements, preferences: Partial<OpenLayerP
 function applyDefaultSettings(elements: AppElements) {
   elements.serverUrl.value = DEFAULT_SERVER_URL;
   elements.workflow.value = DEFAULT_WORKFLOW;
+  elements.imgWorkflow.value = DEFAULT_IMAGE_WORKFLOW;
   elements.width.value = DEFAULT_WIDTH;
   elements.height.value = DEFAULT_HEIGHT;
   elements.steps.value = DEFAULT_STEPS;
   elements.cfg.value = DEFAULT_CFG;
   elements.seed.value = "";
+  elements.imgSteps.value = DEFAULT_IMG2IMG_STEPS;
+  elements.imgCfg.value = DEFAULT_CFG;
+  elements.imgSeed.value = "";
+  elements.imgDenoise.value = DEFAULT_IMG2IMG_DENOISE;
 }
 
 function savePreferencesFromElements(

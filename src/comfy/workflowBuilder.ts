@@ -1,5 +1,11 @@
 import txt2imgBasicWorkflow from "../workflows/txt2img-basic.json";
-import { BuildWorkflowOptions, BuildWorkflowResult, ComfyWorkflow } from "./types";
+import img2imgBasicWorkflow from "../workflows/img2img-basic.json";
+import {
+  BuildImageToImageWorkflowOptions,
+  BuildWorkflowOptions,
+  BuildWorkflowResult,
+  ComfyWorkflow
+} from "./types";
 import { getWorkflowPreset, validateWorkflowForPreset } from "./presetRegistry";
 import { createOpenLayerError } from "../utils/errors";
 
@@ -18,11 +24,52 @@ export async function buildTxt2ImgWorkflow(options: BuildWorkflowOptions): Promi
 
   setInput(workflow, preset.nodeIds.positivePrompt, "text", options.prompt);
   setInput(workflow, preset.nodeIds.negativePrompt, "text", options.negativePrompt ?? "");
+
+  if (!preset.nodeIds.latentImage) {
+    throw createOpenLayerError("WORKFLOW_INVALID", "The txt2img preset is missing an EmptyLatentImage node ID.");
+  }
+
   setInput(workflow, preset.nodeIds.latentImage, "width", options.width);
   setInput(workflow, preset.nodeIds.latentImage, "height", options.height);
   setInput(workflow, preset.nodeIds.sampler, "seed", seed);
   setInput(workflow, preset.nodeIds.sampler, "steps", options.steps);
   setInput(workflow, preset.nodeIds.sampler, "cfg", options.cfg);
+
+  validateWorkflowForPreset(workflow, preset);
+
+  return {
+    workflow,
+    seed,
+    preset
+  };
+}
+
+export async function buildImg2ImgWorkflow(
+  options: BuildImageToImageWorkflowOptions
+): Promise<BuildWorkflowResult> {
+  const preset = getWorkflowPreset("img2img-basic");
+  const workflow = cloneWorkflow(img2imgBasicWorkflow as ComfyWorkflow);
+  const seed = options.seed;
+
+  // These node IDs match src/workflows/img2img-basic.json. If users export a
+  // different ComfyUI workflow, adjust the preset metadata in presetRegistry.ts.
+  validateWorkflowForPreset(workflow, preset);
+
+  if (options.checkpointName) {
+    setInput(workflow, preset.nodeIds.checkpointLoader, "ckpt_name", options.checkpointName);
+  }
+
+  if (!preset.nodeIds.loadImage) {
+    throw createOpenLayerError("WORKFLOW_INVALID", "The img2img preset is missing a LoadImage node ID.");
+  }
+
+  setInput(workflow, preset.nodeIds.loadImage, "image", options.sourceImageName);
+  setInput(workflow, preset.nodeIds.positivePrompt, "text", options.prompt);
+  setInput(workflow, preset.nodeIds.negativePrompt, "text", options.negativePrompt ?? "");
+  setInput(workflow, preset.nodeIds.sampler, "seed", seed);
+  setInput(workflow, preset.nodeIds.sampler, "steps", options.steps);
+  setInput(workflow, preset.nodeIds.sampler, "cfg", options.cfg);
+  setInput(workflow, preset.nodeIds.sampler, "denoise", options.denoise);
 
   validateWorkflowForPreset(workflow, preset);
 

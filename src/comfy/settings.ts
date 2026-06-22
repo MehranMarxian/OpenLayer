@@ -1,4 +1,9 @@
-import { GenerationSettingsInput, GenerationSettingsValidation } from "./types";
+import {
+  GenerationSettingsInput,
+  GenerationSettingsValidation,
+  ImageToImageSettingsInput,
+  ImageToImageSettingsValidation
+} from "./types";
 import { createOpenLayerError } from "../utils/errors";
 
 const MAX_SEED = Number.MAX_SAFE_INTEGER;
@@ -18,6 +23,24 @@ export function validateGenerationSettings(input: GenerationSettingsInput): Gene
       steps,
       cfg,
       seed
+    },
+    warnings
+  };
+}
+
+export function validateImageToImageSettings(input: ImageToImageSettingsInput): ImageToImageSettingsValidation {
+  const warnings: string[] = [];
+  const steps = readIntegerInRange(input.steps, "Steps", 1, 150, warnings);
+  const cfg = readNumberInRange(input.cfg, "CFG", 1, 30, warnings);
+  const seed = readSeed(input.seed, warnings);
+  const denoise = readNumberInRange(input.denoise, "Denoise", 0.05, 1, warnings);
+
+  return {
+    settings: {
+      steps,
+      cfg,
+      seed,
+      denoise
     },
     warnings
   };

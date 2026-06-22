@@ -6,7 +6,7 @@
     <title>OpenLayer | Local AI layers for Photoshop</title>
     <meta
       name="description"
-      content="OpenLayer is an open-source Photoshop UXP plugin that connects Photoshop to a local ComfyUI server for text-to-image generation, preview, and layer import."
+      content="OpenLayer is an open-source Photoshop UXP plugin that connects Photoshop to a local ComfyUI server for text-to-image, image-to-image foundation, preview, and layer import."
     >
     <meta name="theme-color" content="#2b2b2b">
     <meta property="og:title" content="OpenLayer">
@@ -36,13 +36,13 @@
         <div class="hero-content">
           <div class="hero-mark">
             <img src="assets/openlayer-icon.png" alt="" width="72" height="72">
-            <span>MVP v0.1.10-alpha</span>
+            <span>Alpha v0.2.0</span>
           </div>
           <h1 id="hero-title">OpenLayer</h1>
           <p class="hero-lede">
-            Local AI layers for Photoshop. Generate with your own ComfyUI server,
-            preview inside the panel, and import the result back as an editable
-            Photoshop layer.
+            Local AI layers for Photoshop. Generate or reinterpret an active layer
+            with your own ComfyUI server, preview inside the panel, and import the
+            result back as an editable Photoshop layer.
           </p>
           <div class="hero-actions">
             <a class="button button-primary" href="https://github.com/MehranMarxian/OpenLayer">View on GitHub</a>
@@ -64,9 +64,9 @@
             <h2 id="intro-title">A focused first step for local image generation inside Photoshop.</h2>
           </div>
           <p>
-            OpenLayer starts with one dependable workflow: text-to-image generation
-            from Photoshop to ComfyUI, a panel preview, and import into the active
-            document. The goal is a clean base that can grow into deeper layer,
+            OpenLayer starts with dependable local workflows: text-to-image generation,
+            an early image-to-image foundation, panel previews, and import into the
+            active document. The goal is a clean base that can grow into deeper layer,
             mask, and selection workflows without rushing fake features.
           </p>
         </div>
@@ -86,6 +86,10 @@
             <article class="feature-card">
               <h3>Text-to-image workflow</h3>
               <p>Send prompt, negative prompt, size, steps, CFG, seed, and checkpoint into a starter workflow.</p>
+            </article>
+            <article class="feature-card">
+              <h3>Image-to-image foundation</h3>
+              <p>Capture the active Photoshop layer, preview the source, upload it to ComfyUI, and generate through a starter img2img workflow.</p>
             </article>
             <article class="feature-card">
               <h3>Panel preview</h3>
@@ -186,13 +190,14 @@ npm run build</code></pre>
         <div class="section-inner split-layout">
           <div>
             <p class="eyebrow">Known limitations</p>
-            <h2 id="limits-title">Honest v0.1 boundaries</h2>
+            <h2 id="limits-title">Honest alpha boundaries</h2>
           </div>
           <ul class="check-list">
-            <li>Only the <code>txt2img-basic</code> workflow is supported right now.</li>
-            <li>Custom ComfyUI workflows may need node ID updates in the workflow builder.</li>
+            <li><code>txt2img-basic</code> and <code>img2img-basic</code> are starter workflows, not final production presets.</li>
+            <li>Image to Image source capture currently uses JPEG through Photoshop's Imaging API.</li>
+            <li>Custom ComfyUI workflows may need node ID updates in the preset registry.</li>
             <li>Generated images are placed as Photoshop layers; advanced alignment is future work.</li>
-            <li>No selected layer export, image-to-image, inpainting, masks, or ControlNet-style tools yet.</li>
+            <li>No true PNG selected-layer export, inpainting, masks, or ControlNet-style tools yet.</li>
             <li>The browser dev server is only for UI preview. Photoshop APIs run inside UXP.</li>
             <li>Very narrow Photoshop panels are usable, but final layout polish is still in progress.</li>
           </ul>
@@ -211,12 +216,12 @@ npm run build</code></pre>
               <p>Stable text-to-image, preview, import, checkpoint selection, and setup docs.</p>
             </article>
             <article>
-              <h3>Near term</h3>
-              <p>Image-to-image foundation, better workflow presets, cleaner UI states, and packaged releases.</p>
+              <h3>v0.2 foundation</h3>
+              <p>Image-to-image starter workflow, active-layer source preview, ComfyUI upload, and result import.</p>
             </article>
             <article>
               <h3>Future artist tools</h3>
-              <p>Image-to-image, inpainting, layer export, selection masks, upscaling, and guided generation workflows.</p>
+              <p>Better image-to-image controls, inpainting, layer export, selection masks, upscaling, and guided generation workflows.</p>
             </article>
           </div>
         </div>
@@ -236,7 +241,7 @@ npm run build</code></pre>
     </main>
 
     <footer class="site-footer">
-      <p>OpenLayer v0.1.10-alpha. Developed by Mehran Ahmadi, 2026.</p>
+      <p>OpenLayer v0.2.0-alpha. Developed by Mehran Ahmadi, 2026.</p>
       <p>
         <a href="https://mehran-ahmadi.com/">Website</a>
         <span aria-hidden="true">/</span>
