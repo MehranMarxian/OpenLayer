@@ -15,12 +15,21 @@
   display: none !important;
 }
 
+html,
+body,
+#root {
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
-  min-width: 320px;
+  min-width: 0;
   min-height: 100vh;
   background: #2b2b2b;
-  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 button,
@@ -44,11 +53,14 @@ a:hover {
   display: flex;
   width: 100%;
   min-width: 0;
+  height: auto;
   min-height: 100vh;
+  max-height: 100vh;
   flex-direction: column;
   gap: 14px;
   overflow-x: hidden;
-  padding: 18px 18px 12px;
+  overflow-y: auto;
+  padding: 18px 18px 28px;
   background: #2b2b2b;
 }
 
@@ -85,7 +97,8 @@ a:hover {
 
 .home-view,
 .generator-view,
-.settings-view {
+.settings-view,
+.history-view {
   display: flex;
   min-width: 0;
   max-width: 100%;
@@ -95,7 +108,21 @@ a:hover {
 }
 
 .generator-view {
-  gap: 12px;
+  gap: 18px;
+}
+
+.home-view > *,
+.generator-view > *,
+.settings-view > *,
+.history-view > * {
+  margin-bottom: 18px;
+}
+
+.home-view > *:last-child,
+.generator-view > *:last-child,
+.settings-view > *:last-child,
+.history-view > *:last-child {
+  margin-bottom: 0;
 }
 
 .home-status-row {
@@ -349,8 +376,19 @@ a:hover {
 .settings-panel {
   border: 1px solid #4f4f4f;
   border-radius: 10px;
+  margin-bottom: 18px;
   padding: 12px;
   background: #333333;
+}
+
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.settings-actions .button {
+  flex: 1 1 130px;
 }
 
 .settings-list {
@@ -404,28 +442,86 @@ a:hover {
   gap: 10px;
 }
 
+.panel-section > * {
+  margin-bottom: 12px;
+}
+
+.panel-section > *:last-child {
+  margin-bottom: 0;
+}
+
 .generator-panel,
 .result-panel,
-.generation-status-panel {
+.generation-status-panel,
+.history-panel {
   border: 1px solid #4f4f4f;
   border-radius: 12px;
+  margin-bottom: 18px;
   padding: 12px;
   background: #333333;
 }
 
 .generator-panel {
-  gap: 12px;
+  gap: 15px;
+}
+
+.result-panel {
+  padding-bottom: 10px;
+}
+
+.result-panel > * {
+  margin-bottom: 8px;
+}
+
+.result-panel > .preview-panel {
+  margin-bottom: 10px;
+}
+
+.result-panel > *:last-child {
+  margin-bottom: 0;
+}
+
+.generator-panel > .field,
+.generator-panel > .negative-prompt-section,
+.generator-panel > .settings-grid,
+.generator-panel > .button {
+  margin-bottom: 15px;
+}
+
+.generator-panel > *:last-child {
+  margin-bottom: 0;
 }
 
 .generation-status-panel {
   gap: 8px;
+  margin-bottom: 18px;
   padding: 10px;
 }
 
+.settings-panel > .section-heading,
+.settings-panel > .field,
+.settings-panel > .button,
+.settings-panel > .settings-actions,
+.settings-panel > .status-bar,
+.settings-panel > .diagnostics-line,
+.settings-panel > .error-message,
+.settings-panel > .settings-list {
+  margin-bottom: 13px;
+}
+
+.settings-panel > *:last-child {
+  margin-bottom: 0;
+}
+
 .field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+.field > .label {
+  display: block;
+  margin-bottom: 6px;
 }
 
 .connection-panel {
@@ -449,7 +545,10 @@ a:hover {
 .input,
 .select,
 .textarea {
+  display: block;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   border: 1px solid #5a5a5a;
   border-radius: 8px;
   outline: none;
@@ -554,14 +653,16 @@ a:hover {
 
 .button-import {
   min-height: 38px;
-  border-color: #6d6d6d;
-  background: #3d3d3d;
-  color: #f1f1f1;
+  flex: 1 1 190px;
+  border-color: #d28a25;
+  background: #c97920;
+  color: #ffffff;
+  font-weight: 760;
 }
 
 .button-import:hover:not(:disabled):not(.is-disabled) {
-  border-color: #d7b64b;
-  background: #464646;
+  border-color: #efa947;
+  background: #df8724;
 }
 
 .button-generate.is-disabled,
@@ -577,6 +678,31 @@ a:hover {
   width: 100%;
 }
 
+.negative-prompt-section {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.disclosure-button {
+  justify-content: space-between;
+  min-height: 32px;
+  border-color: #5c5c5c;
+  background: #3a3a3a;
+  color: #dddddd;
+  font-size: 12px;
+}
+
+.disclosure-button.is-active {
+  border-color: #8c7840;
+  background: #413a2a;
+  color: #fff4c7;
+}
+
+.negative-prompt-field {
+  margin-top: 1px;
+}
+
 .settings-grid {
   display: flex;
   flex-wrap: wrap;
@@ -584,8 +710,8 @@ a:hover {
 }
 
 .settings-grid .field {
-  flex: 1 1 70px;
-  min-width: 70px;
+  flex: 1 1 96px;
+  min-width: 0;
 }
 
 .settings-seed {
@@ -652,8 +778,8 @@ a:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 220px;
-  max-height: 340px;
+  min-height: 165px;
+  max-height: 280px;
   overflow: hidden;
   border: 1px solid #4c4c4c;
   border-radius: 8px;
@@ -668,7 +794,7 @@ a:hover {
   display: block;
   width: 100%;
   height: auto;
-  max-height: 340px;
+  max-height: 280px;
   object-fit: contain;
 }
 
@@ -690,16 +816,55 @@ a:hover {
 .text-image-shortcuts {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+}
+
+.import-actions {
+  display: block;
+  margin-top: 4px;
+}
+
+.auto-import-toggle {
+  min-height: 34px;
+  width: 100%;
+  border-color: #676767;
+  background: #3a3a3a;
+  color: #e6e6e6;
+  font-size: 11px;
+}
+
+.import-actions .button {
+  width: 100%;
+  min-height: 34px;
+  margin-bottom: 6px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.import-actions .button:last-child {
+  margin-bottom: 0;
+}
+
+.auto-import-toggle.is-active {
+  border-color: #f0c83f;
+  background: #5b4b18;
+  color: #ffd95c;
+}
+
+.auto-import-toggle.is-disabled {
+  cursor: not-allowed;
+  border-color: #444444;
+  background: #303030;
+  color: #8c8c8c;
 }
 
 .settings-shortcut {
   display: block;
   width: 100%;
-  min-height: 48px;
+  min-height: 42px;
   border: 1px solid #6b5b2f;
   border-radius: 10px;
-  padding: 9px 12px;
+  padding: 8px 11px;
   background: #3b3b3b;
   color: #f1f1f1;
   cursor: pointer;
@@ -720,15 +885,96 @@ a:hover {
   color: #fff4c7;
   font-size: 13px;
   font-weight: 760;
-  line-height: 1.25;
+  line-height: 1.18;
 }
 
 .shortcut-note {
   display: block;
-  margin-top: 3px;
+  margin-top: 2px;
   color: #c4c4c4;
   font-size: 11px;
-  line-height: 1.3;
+  line-height: 1.2;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.history-card {
+  display: flex;
+  min-width: 0;
+  gap: 10px;
+  overflow: hidden;
+  border: 1px solid #5c5c5c;
+  border-radius: 10px;
+  padding: 9px;
+  background: #3d3d3d;
+}
+
+.history-thumb {
+  width: 72px;
+  height: 72px;
+  flex: 0 0 auto;
+  border: 1px solid #565656;
+  border-radius: 8px;
+  background: #262626;
+  object-fit: cover;
+}
+
+.history-body {
+  display: block;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.history-title {
+  overflow: hidden;
+  color: #f2f2f2;
+  font-size: 12px;
+  font-weight: 760;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-meta,
+.history-time {
+  overflow: hidden;
+  color: #bfbfbf;
+  font-size: 10px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-time {
+  color: #929292;
+}
+
+.history-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 7px;
+}
+
+.history-button {
+  min-height: 28px;
+  flex: 1 1 70px;
+  padding: 5px 8px;
+  font-size: 11px;
+}
+
+.history-empty {
+  border: 1px solid #505050;
+  border-radius: 10px;
+  padding: 18px 12px;
+  background: #303030;
+  color: #a8a8a8;
+  font-size: 12px;
+  text-align: center;
 }
 
 .app-footer {
@@ -747,9 +993,44 @@ a:hover {
   color: #adadad;
 }
 
+@media (max-width: 520px) {
+  .app-shell {
+    padding: 16px 16px 34px;
+  }
+
+  .preview-panel {
+    min-height: 170px;
+    max-height: 280px;
+  }
+
+  .preview-panel img {
+    max-height: 280px;
+  }
+
+  .import-actions {
+    display: block;
+  }
+
+  .import-actions .button {
+    width: 100%;
+    min-height: 34px;
+    margin-bottom: 6px;
+  }
+
+  .import-actions .button:last-child {
+    margin-bottom: 0;
+  }
+
+  .button-import,
+  .auto-import-toggle {
+    min-height: 34px;
+    flex-basis: auto;
+  }
+}
+
 @media (max-width: 380px) {
   .app-shell {
-    padding: 14px 14px 10px;
+    padding: 14px 14px 36px;
   }
 
   .tool-card {

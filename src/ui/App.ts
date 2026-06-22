@@ -6,11 +6,24 @@ import { GeneratedImageResult } from "../comfy/types";
 import { getActiveDocumentInfo, importGeneratedImageAsLayer } from "../photoshop/photoshopAdapter";
 import { createOpenLayerError, getErrorMessage, getTechnicalErrorDetails } from "../utils/errors";
 import { createLayerName } from "../utils/fileUtils";
+import {
+  clearOpenLayerPreferences,
+  loadOpenLayerPreferences,
+  OpenLayerPreferences,
+  saveOpenLayerPreferences
+} from "../utils/preferences";
 
 const DEFAULT_SERVER_URL = "http://127.0.0.1:8190";
 const APP_VERSION = "0.1.9";
 const DEVELOPER_WEBSITE = "https://mehran-ahmadi.com/";
 const DEVELOPER_GITHUB = "https://github.com/MehranMarxian";
+const HISTORY_LIMIT = 5;
+const COMFY_PORT_CANDIDATES = [8190, 8188, 8189, 8191, 8192, 8193, 7860];
+const DEFAULT_WORKFLOW = "txt2img-basic";
+const DEFAULT_WIDTH = "512";
+const DEFAULT_HEIGHT = "512";
+const DEFAULT_STEPS = "4";
+const DEFAULT_CFG = "7";
 const FALLBACK_CHECKPOINTS = [
   "epicrealism_naturalSinRC1VAE.safetensors",
   "epicrealism_pureEvolutionV5-inpainting.safetensors",
@@ -23,7 +36,7 @@ const FALLBACK_CHECKPOINTS = [
 ];
 
 type StatusTone = "idle" | "ready" | "error";
-type AppView = "home" | "text-to-image" | "settings";
+type AppView = "home" | "text-to-image" | "settings" | "history";
 type ToolCardStatus = "available" | "coming-soon";
 
 type ToolCard = {
@@ -118,7 +131,8 @@ const TOOL_CARDS: ToolCard[] = [
     title: "History",
     subtitle: "Review recent generations",
     icon: "history",
-    status: "coming-soon"
+    status: "available",
+    view: "history"
   },
   {
     id: "settings",
@@ -134,6 +148,7 @@ type AppElements = {
   homeView: HTMLElement;
   generatorView: HTMLElement;
   settingsView: HTMLElement;
+  historyView: HTMLElement;
   homeStatusText: HTMLElement;
   homeStatusDot: HTMLElement;
   serverUrl: HTMLInputElement;
@@ -147,8 +162,15 @@ type AppElements = {
   cfg: HTMLInputElement;
   seed: HTMLInputElement;
   checkButton: HTMLElement;
+  findPortButton: HTMLElement;
+  saveSettingsButton: HTMLElement;
+  resetSettingsButton: HTMLElement;
   generateButton: HTMLElement;
   importButton: HTMLElement;
+  autoImportToggle: HTMLElement;
+  negativePromptToggle: HTMLElement;
+  negativePromptField: HTMLElement;
+  clearHistoryButton: HTMLElement;
   statusText: HTMLElement;
   statusPill: HTMLElement;
   settingsStatusText: HTMLElement;
@@ -158,6 +180,22 @@ type AppElements = {
   errorMessage: HTMLElement;
   settingsErrorMessage: HTMLElement;
   previewPanel: HTMLElement;
+  historyList: HTMLElement;
+  settingsUrlValue: HTMLElement;
+  settingsCheckpointCount: HTMLElement;
+  settingsLastCheckpoint: HTMLElement;
+  settingsDocumentStatus: HTMLElement;
+};
+
+type HistoryEntry = {
+  id: string;
+  result: GeneratedImageResult;
+  previewUrl: string;
+  prompt: string;
+  checkpointName: string;
+  seed: number;
+  sizeLabel: string;
+  createdAt: string;
 };
 
 export function renderApp(rootElement: HTMLElement) {
@@ -166,29 +204,51 @@ export function renderApp(rootElement: HTMLElement) {
   let result: GeneratedImageResult | null = null;
   let previewUrl = "";
   let livePreviewUrl = "";
+  let importAutomatically = false;
+  let isNegativePromptOpen = false;
+  const historyEntries: HistoryEntry[] = [];
 
   rootElement.innerHTML = createAppMarkup();
 
   const elements = getAppElements(rootElement);
-  fillCheckpointOptions(elements, FALLBACK_CHECKPOINTS, FALLBACK_CHECKPOINTS[0]);
+  const preferences = loadOpenLayerPreferences();
+  applyPreferences(elements, preferences);
+  fillCheckpointOptions(elements, FALLBACK_CHECKPOINTS, preferences.checkpointName || FALLBACK_CHECKPOINTS[0]);
 
   const actionHandlers: ActionHandlers = {
     check: createActionRunner(elements, "check", handleCheckComfy),
+    findPort: createActionRunner(elements, "findPort", handleFindComfyPort),
+    saveSettings: createActionRunner(elements, "saveSettings", handleSaveSettings),
+    resetSettings: createActionRunner(elements, "resetSettings", handleResetSettings),
+    toggleNegativePrompt: createActionRunner(elements, "toggleNegativePrompt", handleToggleNegativePrompt),
+    toggleAutoImport: createActionRunner(elements, "toggleAutoImport", handleToggleAutoImport),
     generate: createActionRunner(elements, "generate", handleGenerate),
-    import: createActionRunner(elements, "import", handleImport)
+    import: createActionRunner(elements, "import", handleImport),
+    clearHistory: createActionRunner(elements, "clearHistory", handleClearHistory)
   };
 
   bindActionControl(elements.checkButton, actionHandlers.check);
+  bindActionControl(elements.findPortButton, actionHandlers.findPort);
+  bindActionControl(elements.saveSettingsButton, actionHandlers.saveSettings);
+  bindActionControl(elements.resetSettingsButton, actionHandlers.resetSettings);
+  bindActionControl(elements.negativePromptToggle, actionHandlers.toggleNegativePrompt);
+  bindActionControl(elements.autoImportToggle, actionHandlers.toggleAutoImport);
   bindActionControl(elements.generateButton, actionHandlers.generate);
   bindActionControl(elements.importButton, actionHandlers.import);
+  bindActionControl(elements.clearHistoryButton, actionHandlers.clearHistory);
   bindDelegatedActions(rootElement, actionHandlers);
   bindDocumentActions(rootElement, actionHandlers);
   bindToolCards(rootElement, (view) => setView(view));
+  bindHistoryActions(rootElement, handleHistoryAction);
 
   setStatus(elements, "Ready.", "idle");
   setView(currentView);
   setError(elements, "");
   setBusy(elements, isBusy, result);
+  updateNegativePromptDisclosure(elements, isNegativePromptOpen);
+  updateAutoImportToggle(elements, importAutomatically);
+  updateSettingsReport(elements);
+  renderHistory(elements, historyEntries);
   void loadInitialCheckpoints();
 
   async function loadInitialCheckpoints() {
@@ -197,11 +257,14 @@ export function renderApp(rootElement: HTMLElement) {
     try {
       const client = new ComfyClient(elements.serverUrl.value);
       await client.checkOnline();
-      await loadCheckpoints(client, elements);
+      await loadCheckpoints(client, elements, preferences.checkpointName || readSelectValue(elements.checkpoint));
       setStatus(elements, "ComfyUI is online. Models loaded.", "ready");
+      savePreferencesFromElements(elements);
+      updateSettingsReport(elements);
     } catch (caughtError) {
       setStatus(elements, "Ready.", "idle");
       setError(elements, `Using fallback model list. ${getErrorMessage(caughtError)}`);
+      updateSettingsReport(elements);
     }
   }
 
@@ -215,10 +278,78 @@ export function renderApp(rootElement: HTMLElement) {
       await client.checkOnline();
       await loadCheckpoints(client, elements);
       setStatus(elements, "ComfyUI is online. Models loaded.", "ready");
+      savePreferencesFromElements(elements);
+      updateSettingsReport(elements);
     } catch (caughtError) {
       setStatus(elements, "ComfyUI check failed.", "error");
       setError(elements, getErrorMessage(caughtError));
+      updateSettingsReport(elements);
     }
+  }
+
+  async function handleFindComfyPort() {
+    setDiagnostics(elements, "Scanning common local ComfyUI ports...");
+    setError(elements, "");
+    setStatus(elements, "Looking for ComfyUI...", "idle");
+
+    const foundUrl = await findActiveComfyUrl(elements.serverUrl.value, (message) => {
+      setDiagnostics(elements, message);
+    });
+
+    if (!foundUrl) {
+      setStatus(elements, "No active ComfyUI port found.", "error");
+      setError(elements, "OpenLayer could not find ComfyUI on the common local ports. Start ComfyUI and try again.");
+      updateSettingsReport(elements);
+      return;
+    }
+
+    elements.serverUrl.value = foundUrl;
+
+    try {
+      const client = new ComfyClient(foundUrl);
+      await loadCheckpoints(client, elements);
+      savePreferencesFromElements(elements);
+      setStatus(elements, `Found ComfyUI at ${foundUrl}.`, "ready");
+      setDiagnostics(elements, `Active ComfyUI server selected: ${foundUrl}.`);
+    } catch (caughtError) {
+      setStatus(elements, `Found ${foundUrl}, but model loading failed.`, "error");
+      setError(elements, getErrorMessage(caughtError));
+    } finally {
+      updateSettingsReport(elements);
+    }
+  }
+
+  function handleSaveSettings() {
+    const wasSaved = savePreferencesFromElements(elements);
+    updateSettingsReport(elements);
+    setStatus(elements, wasSaved ? "Settings saved." : "Settings are active for this session.", "ready");
+    setDiagnostics(
+      elements,
+      wasSaved
+        ? "Saved ComfyUI URL, checkpoint, and generation defaults."
+        : "Local storage is unavailable, so settings will reset when the panel reloads."
+    );
+  }
+
+  function handleResetSettings() {
+    clearOpenLayerPreferences();
+    applyDefaultSettings(elements);
+    fillCheckpointOptions(elements, FALLBACK_CHECKPOINTS, FALLBACK_CHECKPOINTS[0]);
+    setError(elements, "");
+    setStatus(elements, "Settings reset to OpenLayer defaults.", "ready");
+    setDiagnostics(elements, "Defaults restored. Click Check ComfyUI to reload available models.");
+    updateSettingsReport(elements);
+  }
+
+  function handleToggleNegativePrompt() {
+    isNegativePromptOpen = !isNegativePromptOpen;
+    updateNegativePromptDisclosure(elements, isNegativePromptOpen);
+  }
+
+  function handleToggleAutoImport() {
+    importAutomatically = !importAutomatically;
+    updateAutoImportToggle(elements, importAutomatically);
+    setDiagnostics(elements, importAutomatically ? "Auto import is on." : "Auto import is off.");
   }
 
   async function handleGenerate() {
@@ -239,9 +370,10 @@ export function renderApp(rootElement: HTMLElement) {
     let progressWatcher: ReturnType<ComfyClient["watchProgress"]> | null = null;
 
     try {
-      const workflowPreset = readSelectValue(elements.workflow, "txt2img-basic");
+      const workflowPreset = readSelectValue(elements.workflow, DEFAULT_WORKFLOW);
       const preset = getWorkflowPreset(workflowPreset);
       const checkpointName = readSelectValue(elements.checkpoint);
+      const requestedSeed = elements.seed.value.trim();
       const { settings, warnings } = validateGenerationSettings({
         width: elements.width.value,
         height: elements.height.value,
@@ -323,9 +455,26 @@ export function renderApp(rootElement: HTMLElement) {
 
       setStatus(elements, "Retrieving image...", "idle");
       setProgressPreview(elements, "Retrieving final image...");
-      setResult(await client.retrieveFirstOutputImage(promptId, history));
-      setStatus(elements, "Generation complete.", "ready");
-      setDiagnostics(elements, `Seed used: ${buildResult.seed}. Workflow: ${buildResult.preset.id}.`);
+      const generatedResult = await client.retrieveFirstOutputImage(promptId, history);
+      setResult(generatedResult);
+      addHistoryEntry(elements, historyEntries, generatedResult, {
+        prompt: elements.prompt.value,
+        checkpointName,
+        seed: buildResult.seed,
+        sizeLabel: `${settings.width} x ${settings.height}`
+      });
+
+      if (importAutomatically) {
+        setStatus(elements, "Generation complete. Auto-importing...", "idle");
+        setDiagnostics(elements, `Seed used: ${buildResult.seed}. Auto import is on.`);
+        await handleImport("auto");
+      } else {
+        setStatus(elements, "Generation complete.", "ready");
+        setDiagnostics(elements, `Seed used: ${buildResult.seed}. Workflow: ${buildResult.preset.id}.`);
+      }
+
+      savePreferencesFromElements(elements, { seed: requestedSeed });
+      updateSettingsReport(elements);
     } catch (caughtError) {
       setStatus(elements, "Generation failed.", "error");
       setError(elements, getErrorMessage(caughtError));
@@ -337,8 +486,42 @@ export function renderApp(rootElement: HTMLElement) {
     }
   }
 
-  async function handleImport() {
-    setDiagnostics(elements, "Import pressed.");
+  function handleClearHistory() {
+    clearHistoryEntries(historyEntries);
+    renderHistory(elements, historyEntries);
+    setStatus(elements, "History cleared.", "ready");
+    setDiagnostics(elements, "Recent session history cleared.");
+  }
+
+  function handleHistoryAction(action: HistoryActionName, historyId: string) {
+    if (isBusy) {
+      setDiagnostics(elements, "Finish the current operation before using history.");
+      return;
+    }
+
+    const entry = historyEntries.find((item) => item.id === historyId);
+
+    if (!entry) {
+      setStatus(elements, "History item not found.", "error");
+      setError(elements, "That history item is no longer available in this session.");
+      return;
+    }
+
+    setResult(entry.result);
+    setError(elements, "");
+    setView("text-to-image");
+
+    if (action === "preview") {
+      setStatus(elements, "Loaded history item into preview.", "ready");
+      setDiagnostics(elements, `History item loaded: seed ${entry.seed}, ${entry.sizeLabel}.`);
+      return;
+    }
+
+    void handleImport();
+  }
+
+  async function handleImport(source: "manual" | "auto" = "manual") {
+    setDiagnostics(elements, source === "auto" ? "Auto import started." : "Import pressed.");
 
     if (!result) {
       setError(elements, "Generate an image before importing.");
@@ -389,6 +572,7 @@ export function renderApp(rootElement: HTMLElement) {
       empty.className = "preview-empty";
       empty.textContent = "No result yet";
       elements.previewPanel.append(empty);
+      setBusy(elements, isBusy, result);
       return;
     }
 
@@ -397,6 +581,7 @@ export function renderApp(rootElement: HTMLElement) {
     image.src = previewUrl;
     image.alt = "Generated OpenLayer preview";
     elements.previewPanel.append(image);
+    setBusy(elements, isBusy, result);
   }
 
   function setProgressPreview(elements: AppElements, message: string, blob?: Blob) {
@@ -430,6 +615,15 @@ export function renderApp(rootElement: HTMLElement) {
     elements.homeView.hidden = currentView !== "home";
     elements.generatorView.hidden = currentView !== "text-to-image";
     elements.settingsView.hidden = currentView !== "settings";
+    elements.historyView.hidden = currentView !== "history";
+
+    if (currentView === "settings") {
+      void refreshDocumentStatus(elements);
+    }
+
+    if (currentView === "history") {
+      renderHistory(elements, historyEntries);
+    }
   }
 }
 
@@ -450,7 +644,13 @@ function createAppMarkup() {
       </section>
 
       <section class="settings-view" id="settings-view" aria-label="Settings" hidden>
-        <button class="back-button" type="button" data-openlayer-view="home">${createToolIconMarkup("image")}<span>Tools</span></button>
+        <div class="screen-nav">
+          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
+          <div class="screen-title-block">
+            <span class="screen-kicker">SET</span>
+            <span class="screen-title">Settings</span>
+          </div>
+        </div>
 
         <section class="panel-section settings-panel" aria-label="ComfyUI settings">
           <div class="section-heading">
@@ -462,6 +662,11 @@ function createAppMarkup() {
             <input class="input" id="server-url" value="${DEFAULT_SERVER_URL}" placeholder="${DEFAULT_SERVER_URL}" />
           </label>
           <button class="button action-control" id="check-comfy" data-openlayer-action="check" type="button">Check ComfyUI</button>
+          <button class="button action-control" id="find-comfy-port" data-openlayer-action="findPort" type="button">Find ComfyUI Active Port</button>
+          <div class="settings-actions">
+            <button class="button action-control" id="save-settings" data-openlayer-action="saveSettings" type="button">Save Settings</button>
+            <button class="button action-control" id="reset-settings" data-openlayer-action="resetSettings" type="button">Reset Defaults</button>
+          </div>
         </section>
 
         <section class="panel-section settings-panel" aria-label="Status report">
@@ -485,8 +690,10 @@ function createAppMarkup() {
           <div class="settings-list">
             <div><span>Version</span><strong>v${APP_VERSION}</strong></div>
             <div><span>Default workflow</span><strong>txt2img-basic</strong></div>
-            <div><span>Default port</span><strong>8190</strong></div>
-            <div><span>Image import</span><strong>Active document layer</strong></div>
+            <div><span>Server URL</span><strong id="settings-url-value">${DEFAULT_SERVER_URL}</strong></div>
+            <div><span>Checkpoint count</span><strong id="settings-checkpoint-count">Fallback list</strong></div>
+            <div><span>Last checkpoint</span><strong id="settings-last-checkpoint">Not checked</strong></div>
+            <div><span>Photoshop document</span><strong id="settings-document-status">Not checked</strong></div>
           </div>
         </section>
       </section>
@@ -505,10 +712,13 @@ function createAppMarkup() {
             <span class="label">Prompt</span>
             <textarea class="textarea" id="prompt" placeholder="Describe the image you want to generate..."></textarea>
           </label>
-          <label class="field">
-            <span class="label">Negative prompt</span>
-            <textarea class="textarea" id="negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
-          </label>
+          <section class="negative-prompt-section" aria-label="Negative prompt">
+            <button class="button disclosure-button action-control" id="negative-prompt-toggle" data-openlayer-action="toggleNegativePrompt" type="button">Show Negative Prompt</button>
+            <label class="field negative-prompt-field" id="negative-prompt-field" hidden>
+              <span class="label">Negative prompt</span>
+              <textarea class="textarea" id="negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
+            </label>
+          </section>
           <label class="field">
             <span class="label">Workflow</span>
             <select class="select" id="workflow">
@@ -524,19 +734,19 @@ function createAppMarkup() {
           <div class="settings-grid" aria-label="Generation settings">
             <label class="field">
               <span class="label">Width</span>
-              <input class="input input-compact" id="width" type="number" min="64" step="64" value="512" />
+              <input class="input input-compact" id="width" type="number" min="64" step="64" value="${DEFAULT_WIDTH}" />
             </label>
             <label class="field">
               <span class="label">Height</span>
-              <input class="input input-compact" id="height" type="number" min="64" step="64" value="512" />
+              <input class="input input-compact" id="height" type="number" min="64" step="64" value="${DEFAULT_HEIGHT}" />
             </label>
             <label class="field">
               <span class="label">Steps</span>
-              <input class="input input-compact" id="steps" type="number" min="1" max="150" step="1" value="4" />
+              <input class="input input-compact" id="steps" type="number" min="1" max="150" step="1" value="${DEFAULT_STEPS}" />
             </label>
             <label class="field">
               <span class="label">CFG</span>
-              <input class="input input-compact" id="cfg" type="number" min="1" max="30" step="0.5" value="7" />
+              <input class="input input-compact" id="cfg" type="number" min="1" max="30" step="0.5" value="${DEFAULT_CFG}" />
             </label>
             <label class="field settings-seed">
               <span class="label">Seed</span>
@@ -563,7 +773,10 @@ function createAppMarkup() {
           <div class="preview-panel" id="preview-panel">
             <span class="preview-empty">No result yet</span>
           </div>
-          <button class="button button-wide button-import action-control is-disabled" id="import-result" data-openlayer-action="import" type="button" tabindex="-1" aria-disabled="true">Import Result as New Layer</button>
+          <div class="import-actions">
+            <button class="button button-import action-control is-disabled" id="import-result" data-openlayer-action="import" type="button" tabindex="-1" aria-disabled="true">Import Result as New Layer</button>
+            <button class="button auto-import-toggle action-control" id="auto-import-toggle" data-openlayer-action="toggleAutoImport" type="button" aria-pressed="false">Import Result Automatically</button>
+          </div>
         </section>
 
         <section class="text-image-shortcuts" aria-label="Shortcuts">
@@ -571,6 +784,25 @@ function createAppMarkup() {
             <span class="shortcut-label">Settings</span>
             <span class="shortcut-note">ComfyUI URL, status, and diagnostics</span>
           </div>
+        </section>
+      </section>
+
+      <section class="history-view" id="history-view" aria-label="History" hidden>
+        <div class="screen-nav">
+          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
+          <div class="screen-title-block">
+            <span class="screen-kicker">HI</span>
+            <span class="screen-title">History</span>
+          </div>
+        </div>
+
+        <section class="panel-section history-panel" aria-label="Recent generations">
+          <div class="section-heading">
+            <span class="label">Recent generations</span>
+            <span class="muted-label">Current session</span>
+          </div>
+          <div class="history-list" id="history-list"></div>
+          <button class="button action-control" id="clear-history" data-openlayer-action="clearHistory" type="button">Clear History</button>
         </section>
       </section>
 
@@ -651,6 +883,7 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     homeView: getElement<HTMLElement>(rootElement, "home-view"),
     generatorView: getElement<HTMLElement>(rootElement, "generator-view"),
     settingsView: getElement<HTMLElement>(rootElement, "settings-view"),
+    historyView: getElement<HTMLElement>(rootElement, "history-view"),
     homeStatusText: getElement<HTMLElement>(rootElement, "home-status-text"),
     homeStatusDot: getElement<HTMLElement>(rootElement, "home-status-dot"),
     serverUrl: getElement<HTMLInputElement>(rootElement, "server-url"),
@@ -664,8 +897,15 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     cfg: getElement<HTMLInputElement>(rootElement, "cfg"),
     seed: getElement<HTMLInputElement>(rootElement, "seed"),
     checkButton: getElement<HTMLElement>(rootElement, "check-comfy"),
+    findPortButton: getElement<HTMLElement>(rootElement, "find-comfy-port"),
+    saveSettingsButton: getElement<HTMLElement>(rootElement, "save-settings"),
+    resetSettingsButton: getElement<HTMLElement>(rootElement, "reset-settings"),
     generateButton: getElement<HTMLElement>(rootElement, "generate"),
     importButton: getElement<HTMLElement>(rootElement, "import-result"),
+    autoImportToggle: getElement<HTMLElement>(rootElement, "auto-import-toggle"),
+    negativePromptToggle: getElement<HTMLElement>(rootElement, "negative-prompt-toggle"),
+    negativePromptField: getElement<HTMLElement>(rootElement, "negative-prompt-field"),
+    clearHistoryButton: getElement<HTMLElement>(rootElement, "clear-history"),
     statusText: getElement<HTMLElement>(rootElement, "status-text"),
     statusPill: getElement<HTMLElement>(rootElement, "status-pill"),
     settingsStatusText: getElement<HTMLElement>(rootElement, "settings-status-text"),
@@ -674,7 +914,12 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     settingsDiagnosticsText: getElement<HTMLElement>(rootElement, "settings-diagnostics-text"),
     errorMessage: getElement<HTMLElement>(rootElement, "error-message"),
     settingsErrorMessage: getElement<HTMLElement>(rootElement, "settings-error-message"),
-    previewPanel: getElement<HTMLElement>(rootElement, "preview-panel")
+    previewPanel: getElement<HTMLElement>(rootElement, "preview-panel"),
+    historyList: getElement<HTMLElement>(rootElement, "history-list"),
+    settingsUrlValue: getElement<HTMLElement>(rootElement, "settings-url-value"),
+    settingsCheckpointCount: getElement<HTMLElement>(rootElement, "settings-checkpoint-count"),
+    settingsLastCheckpoint: getElement<HTMLElement>(rootElement, "settings-last-checkpoint"),
+    settingsDocumentStatus: getElement<HTMLElement>(rootElement, "settings-document-status")
   };
 }
 
@@ -700,8 +945,14 @@ function setBusy(elements: AppElements, isBusy: boolean, result: GeneratedImageR
   elements.cfg.disabled = isBusy;
   elements.seed.disabled = isBusy;
   setActionDisabled(elements.checkButton, isBusy);
+  setActionDisabled(elements.findPortButton, isBusy);
+  setActionDisabled(elements.saveSettingsButton, isBusy);
+  setActionDisabled(elements.resetSettingsButton, isBusy);
+  setActionDisabled(elements.negativePromptToggle, isBusy);
+  setActionDisabled(elements.autoImportToggle, isBusy);
   setActionDisabled(elements.generateButton, isBusy);
   setActionDisabled(elements.importButton, isBusy || !result);
+  setActionDisabled(elements.clearHistoryButton, isBusy);
 }
 
 function setStatus(elements: AppElements, status: string, tone: StatusTone) {
@@ -727,7 +978,30 @@ function setDiagnostics(elements: AppElements, message: string) {
   elements.settingsDiagnosticsText.textContent = message;
 }
 
-type ActionName = "check" | "generate" | "import";
+function updateNegativePromptDisclosure(elements: AppElements, isOpen: boolean) {
+  elements.negativePromptField.hidden = !isOpen;
+  elements.negativePromptToggle.textContent = isOpen ? "Hide Negative Prompt" : "Show Negative Prompt";
+  elements.negativePromptToggle.setAttribute("aria-expanded", String(isOpen));
+  elements.negativePromptToggle.classList.toggle("is-active", isOpen);
+}
+
+function updateAutoImportToggle(elements: AppElements, isEnabled: boolean) {
+  elements.autoImportToggle.textContent = isEnabled ? "Auto Import On" : "Import Result Automatically";
+  elements.autoImportToggle.setAttribute("aria-pressed", String(isEnabled));
+  elements.autoImportToggle.classList.toggle("is-active", isEnabled);
+}
+
+type ActionName =
+  | "check"
+  | "findPort"
+  | "saveSettings"
+  | "resetSettings"
+  | "toggleNegativePrompt"
+  | "toggleAutoImport"
+  | "generate"
+  | "import"
+  | "clearHistory";
+type HistoryActionName = "preview" | "import";
 type ActionRunner = (eventName: string) => void;
 type ActionHandlers = Record<ActionName, ActionRunner>;
 
@@ -870,6 +1144,50 @@ function bindToolCards(rootElement: HTMLElement, setView: (view: AppView) => voi
   });
 }
 
+function bindHistoryActions(
+  rootElement: HTMLElement,
+  handleHistoryAction: (action: HistoryActionName, historyId: string) => void
+) {
+  let lastRunAt = 0;
+
+  const runFromEvent = (eventName: string, event: Event) => {
+    const historyElement = findHistoryActionElement(event.target, rootElement);
+
+    if (!historyElement) {
+      return;
+    }
+
+    const action = historyElement.getAttribute("data-openlayer-history-action") as HistoryActionName | null;
+    const historyId = historyElement.getAttribute("data-openlayer-history-id") ?? "";
+
+    if (!action || !historyId) {
+      return;
+    }
+
+    const now = Date.now();
+
+    if (now - lastRunAt < 350) {
+      return;
+    }
+
+    lastRunAt = now;
+    event.preventDefault();
+    handleHistoryAction(action, historyId);
+  };
+
+  for (const eventName of ["click", "mousedown", "mouseup", "pointerup", "touchend"]) {
+    rootElement.addEventListener(eventName, (event) => runFromEvent(eventName, event), true);
+  }
+
+  rootElement.addEventListener("keydown", (event) => {
+    const key = (event as KeyboardEvent).key;
+
+    if (key === "Enter" || key === " ") {
+      runFromEvent(`keyboard:${key === " " ? "space" : key}`, event);
+    }
+  });
+}
+
 function findActionElement(target: EventTarget | null, rootElement: HTMLElement) {
   let element = getEventElement(target);
 
@@ -889,6 +1207,20 @@ function findViewElement(target: EventTarget | null, rootElement: HTMLElement) {
 
   while (element && element !== rootElement) {
     if (element.getAttribute("data-openlayer-view")) {
+      return element;
+    }
+
+    element = element.parentElement;
+  }
+
+  return null;
+}
+
+function findHistoryActionElement(target: EventTarget | null, rootElement: HTMLElement) {
+  let element = getEventElement(target);
+
+  while (element && element !== rootElement) {
+    if (element.getAttribute("data-openlayer-history-action")) {
       return element;
     }
 
@@ -924,14 +1256,14 @@ function setActionDisabled(element: HTMLElement, isDisabled: boolean) {
   element.setAttribute("tabindex", isDisabled ? "-1" : "0");
 }
 
-async function loadCheckpoints(client: ComfyClient, elements: AppElements) {
+async function loadCheckpoints(client: ComfyClient, elements: AppElements, preferredValue = readSelectValue(elements.checkpoint)) {
   const checkpoints = await client.getCheckpointNames();
 
   if (checkpoints.length === 0) {
     throw createOpenLayerError("COMFY_CHECKPOINTS_EMPTY", "No ComfyUI checkpoints were found.");
   }
 
-  fillCheckpointOptions(elements, checkpoints, readSelectValue(elements.checkpoint));
+  fillCheckpointOptions(elements, checkpoints, preferredValue);
 }
 
 function fillCheckpointOptions(elements: AppElements, checkpoints: string[], preferredValue?: string) {
@@ -976,4 +1308,246 @@ function applyValidatedSettings(elements: AppElements, settings: {
   elements.steps.value = String(settings.steps);
   elements.cfg.value = String(settings.cfg);
   elements.seed.value = String(settings.seed);
+}
+
+function applyPreferences(elements: AppElements, preferences: Partial<OpenLayerPreferences>) {
+  if (preferences.serverUrl) {
+    elements.serverUrl.value = preferences.serverUrl;
+  }
+
+  if (preferences.workflow) {
+    elements.workflow.value = preferences.workflow;
+  }
+
+  if (preferences.width) {
+    elements.width.value = preferences.width;
+  }
+
+  if (preferences.height) {
+    elements.height.value = preferences.height;
+  }
+
+  if (preferences.steps) {
+    elements.steps.value = preferences.steps;
+  }
+
+  if (preferences.cfg) {
+    elements.cfg.value = preferences.cfg;
+  }
+
+  if (preferences.seed) {
+    elements.seed.value = preferences.seed;
+  }
+}
+
+function applyDefaultSettings(elements: AppElements) {
+  elements.serverUrl.value = DEFAULT_SERVER_URL;
+  elements.workflow.value = DEFAULT_WORKFLOW;
+  elements.width.value = DEFAULT_WIDTH;
+  elements.height.value = DEFAULT_HEIGHT;
+  elements.steps.value = DEFAULT_STEPS;
+  elements.cfg.value = DEFAULT_CFG;
+  elements.seed.value = "";
+}
+
+function savePreferencesFromElements(
+  elements: AppElements,
+  overrides: Partial<OpenLayerPreferences> = {}
+) {
+  return saveOpenLayerPreferences({
+    serverUrl: elements.serverUrl.value.trim() || DEFAULT_SERVER_URL,
+    workflow: readSelectValue(elements.workflow, DEFAULT_WORKFLOW),
+    checkpointName: readSelectValue(elements.checkpoint),
+    width: elements.width.value,
+    height: elements.height.value,
+    steps: elements.steps.value,
+    cfg: elements.cfg.value,
+    seed: elements.seed.value,
+    ...overrides
+  });
+}
+
+function updateSettingsReport(elements: AppElements) {
+  const checkpointCount = elements.checkpoint.options.length;
+
+  elements.settingsUrlValue.textContent = elements.serverUrl.value.trim() || DEFAULT_SERVER_URL;
+  elements.settingsCheckpointCount.textContent = checkpointCount > 0 ? `${checkpointCount} listed` : "None";
+  elements.settingsLastCheckpoint.textContent = readSelectValue(elements.checkpoint) || "None";
+}
+
+async function refreshDocumentStatus(elements: AppElements) {
+  try {
+    const documentInfo = await getActiveDocumentInfo();
+    elements.settingsDocumentStatus.textContent = `${documentInfo.name} (${Math.round(documentInfo.width)} x ${Math.round(documentInfo.height)})`;
+  } catch {
+    elements.settingsDocumentStatus.textContent = "No document open";
+  }
+}
+
+function addHistoryEntry(
+  elements: AppElements,
+  historyEntries: HistoryEntry[],
+  result: GeneratedImageResult,
+  details: {
+    prompt: string;
+    checkpointName: string;
+    seed: number;
+    sizeLabel: string;
+  }
+) {
+  historyEntries.unshift({
+    id: createHistoryId(),
+    result,
+    previewUrl: URL.createObjectURL(result.blob),
+    prompt: details.prompt.trim() || "Untitled prompt",
+    checkpointName: details.checkpointName,
+    seed: details.seed,
+    sizeLabel: details.sizeLabel,
+    createdAt: new Date().toLocaleString()
+  });
+
+  while (historyEntries.length > HISTORY_LIMIT) {
+    const removedEntry = historyEntries.pop();
+
+    if (removedEntry) {
+      URL.revokeObjectURL(removedEntry.previewUrl);
+    }
+  }
+
+  renderHistory(elements, historyEntries);
+}
+
+function renderHistory(elements: AppElements, historyEntries: HistoryEntry[]) {
+  elements.historyList.innerHTML = "";
+
+  if (historyEntries.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "history-empty";
+    empty.textContent = "No recent generations yet.";
+    elements.historyList.append(empty);
+    return;
+  }
+
+  for (const entry of historyEntries) {
+    const card = document.createElement("div");
+    card.className = "history-card";
+
+    const image = document.createElement("img");
+    image.className = "history-thumb";
+    image.src = entry.previewUrl;
+    image.alt = "OpenLayer history preview";
+    card.append(image);
+
+    const body = document.createElement("div");
+    body.className = "history-body";
+
+    const title = document.createElement("div");
+    title.className = "history-title";
+    title.textContent = entry.prompt;
+    body.append(title);
+
+    const meta = document.createElement("div");
+    meta.className = "history-meta";
+    meta.textContent = `${entry.sizeLabel} | Seed ${entry.seed}`;
+    body.append(meta);
+
+    const checkpoint = document.createElement("div");
+    checkpoint.className = "history-meta";
+    checkpoint.textContent = entry.checkpointName;
+    body.append(checkpoint);
+
+    const createdAt = document.createElement("div");
+    createdAt.className = "history-time";
+    createdAt.textContent = entry.createdAt;
+    body.append(createdAt);
+
+    const actions = document.createElement("div");
+    actions.className = "history-actions";
+    actions.append(createHistoryButton("Preview", "preview", entry.id));
+    actions.append(createHistoryButton("Import", "import", entry.id));
+    body.append(actions);
+
+    card.append(body);
+    elements.historyList.append(card);
+  }
+}
+
+function createHistoryButton(label: string, action: HistoryActionName, historyId: string) {
+  const button = document.createElement("button");
+  button.className = "button history-button";
+  button.type = "button";
+  button.textContent = label;
+  button.setAttribute("data-openlayer-history-action", action);
+  button.setAttribute("data-openlayer-history-id", historyId);
+  return button;
+}
+
+function clearHistoryEntries(historyEntries: HistoryEntry[]) {
+  for (const entry of historyEntries) {
+    URL.revokeObjectURL(entry.previewUrl);
+  }
+
+  historyEntries.splice(0, historyEntries.length);
+}
+
+async function findActiveComfyUrl(currentUrl: string, onProgress: (message: string) => void) {
+  const candidates = buildComfyCandidateUrls(currentUrl);
+
+  for (const candidate of candidates) {
+    onProgress(`Checking ${candidate}...`);
+
+    if (await isComfyServerOnline(candidate)) {
+      return candidate;
+    }
+  }
+
+  return "";
+}
+
+function buildComfyCandidateUrls(currentUrl: string) {
+  const candidates = [
+    normalizeCandidateUrl(currentUrl),
+    ...COMFY_PORT_CANDIDATES.map((port) => `http://127.0.0.1:${port}`)
+  ].filter(Boolean);
+
+  return Array.from(new Set(candidates));
+}
+
+function normalizeCandidateUrl(url: string) {
+  const trimmed = url.trim();
+
+  if (!trimmed) {
+    return "";
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    parsed.pathname = parsed.pathname.replace(/\/+$/, "");
+    parsed.search = "";
+    parsed.hash = "";
+    return parsed.toString().replace(/\/+$/, "");
+  } catch {
+    return "";
+  }
+}
+
+async function isComfyServerOnline(serverUrl: string) {
+  const controller = typeof AbortController === "function" ? new AbortController() : null;
+  const timeoutId = window.setTimeout(() => {
+    controller?.abort();
+  }, 1200);
+
+  try {
+    const requestOptions: RequestInit = controller ? { signal: controller.signal } : {};
+    const response = await fetch(`${serverUrl}/system_stats`, requestOptions);
+    return response.ok;
+  } catch {
+    return false;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
+function createHistoryId() {
+  return `history-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
