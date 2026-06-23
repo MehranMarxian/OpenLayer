@@ -2,7 +2,9 @@ import {
   GenerationSettingsInput,
   GenerationSettingsValidation,
   ImageToImageSettingsInput,
-  ImageToImageSettingsValidation
+  ImageToImageSettingsValidation,
+  SketchToImageSettingsInput,
+  SketchToImageSettingsValidation
 } from "./types";
 import { createOpenLayerError } from "../utils/errors";
 
@@ -41,6 +43,19 @@ export function validateImageToImageSettings(input: ImageToImageSettingsInput): 
       cfg,
       seed,
       denoise
+    },
+    warnings
+  };
+}
+
+export function validateSketchToImageSettings(input: SketchToImageSettingsInput): SketchToImageSettingsValidation {
+  const { settings, warnings } = validateImageToImageSettings(input);
+  const controlStrength = readNumberInRange(input.controlStrength, "ControlNet strength", 0, 2, warnings);
+
+  return {
+    settings: {
+      ...settings,
+      controlStrength
     },
     warnings
   };

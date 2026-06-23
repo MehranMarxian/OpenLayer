@@ -330,6 +330,10 @@ h3 {
   align-items: start;
 }
 
+.screenshot-grid-three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 figure {
   margin: 0;
 }
@@ -506,7 +510,8 @@ figcaption {
   .intro-grid,
   .split-layout,
   .flow-layout,
-  .screenshot-grid {
+  .screenshot-grid,
+  .screenshot-grid-three {
     grid-template-columns: 1fr;
   }
 

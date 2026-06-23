@@ -1,8 +1,9 @@
 import { ComfyClient } from "../comfy/comfyClient";
+import { getCheckpointCompatibility, getPresetCompatibilityNote } from "../comfy/modelCompatibility";
 import { getWorkflowPreset, listWorkflowPresets } from "../comfy/presetRegistry";
-import { validateGenerationSettings, validateImageToImageSettings } from "../comfy/settings";
-import { buildImg2ImgWorkflow, buildTxt2ImgWorkflow } from "../comfy/workflowBuilder";
-import { GeneratedImageResult } from "../comfy/types";
+import { validateGenerationSettings, validateImageToImageSettings, validateSketchToImageSettings } from "../comfy/settings";
+import { buildImg2ImgWorkflow, buildSketchToImageWorkflow, buildTxt2ImgWorkflow } from "../comfy/workflowBuilder";
+import { GeneratedImageResult, WorkflowPresetDefinition } from "../comfy/types";
 import {
   ExportedSourceImage,
   exportActiveLayerForImageToImage,
@@ -20,30 +21,23 @@ import {
 } from "../utils/preferences";
 
 const DEFAULT_SERVER_URL = "http://127.0.0.1:8190";
-const APP_VERSION = "0.2.0";
+const APP_VERSION = "0.2.1";
 const DEVELOPER_GITHUB = "https://github.com/MehranMarxian";
 const HISTORY_LIMIT = 5;
 const COMFY_PORT_CANDIDATES = [8190, 8188, 8189, 8191, 8192, 8193, 7860];
 const DEFAULT_WORKFLOW = "txt2img-basic";
 const DEFAULT_IMAGE_WORKFLOW = "img2img-basic";
+const DEFAULT_SKETCH_WORKFLOW = "sketch2img-linecn-basic";
+const RECOMMENDED_SKETCH_CHECKPOINT = "epicrealism_naturalSinRC1VAE.safetensors";
 const DEFAULT_WIDTH = "512";
 const DEFAULT_HEIGHT = "512";
 const DEFAULT_STEPS = "4";
 const DEFAULT_CFG = "7";
 const DEFAULT_IMG2IMG_STEPS = "12";
 const DEFAULT_IMG2IMG_DENOISE = "0.55";
-const EXPERIMENTAL_IMG2IMG_CHECKPOINT_PATTERNS = [
-  "flux",
-  "sd3",
-  "sd_3",
-  "sd-3",
-  "stable-diffusion-3",
-  "stable_diffusion_3",
-  "hunyuan",
-  "auraflow",
-  "pixart",
-  "kolors"
-];
+const DEFAULT_SKETCH_STEPS = "16";
+const DEFAULT_SKETCH_DENOISE = "0.65";
+const DEFAULT_SKETCH_CONTROL_STRENGTH = "0.8";
 const FALLBACK_CHECKPOINTS = [
   "epicrealism_naturalSinRC1VAE.safetensors",
   "epicrealism_pureEvolutionV5-inpainting.safetensors",
@@ -56,17 +50,8 @@ const FALLBACK_CHECKPOINTS = [
 ];
 
 type StatusTone = "idle" | "ready" | "error";
-type AppView = "home" | "text-to-image" | "image-to-image" | "settings" | "history";
+type AppView = "home" | "text-to-image" | "image-to-image" | "sketch-to-image" | "settings" | "history";
 type ToolCardStatus = "available" | "coming-soon";
-type ModelFamily = "sd1" | "sdxl" | "sd3" | "flux" | "unknown";
-
-type ImageCheckpointCompatibility = {
-  family: ModelFamily;
-  isExperimental: boolean;
-  label: string;
-  warning: string;
-  experimentalNote: string;
-};
 
 type ToolCard = {
   id: string;
@@ -127,7 +112,8 @@ const TOOL_CARDS: ToolCard[] = [
     title: "Sketch to Image",
     subtitle: "Guide generation with lineart",
     icon: "lineart",
-    status: "coming-soon"
+    status: "available",
+    view: "sketch-to-image"
   },
   {
     id: "upscale",
@@ -186,6 +172,7 @@ type AppElements = {
   homeView: HTMLElement;
   generatorView: HTMLElement;
   imageToImageView: HTMLElement;
+  sketchToImageView: HTMLElement;
   settingsView: HTMLElement;
   historyView: HTMLElement;
   homeStatusText: HTMLElement;
@@ -219,6 +206,19 @@ type AppElements = {
   captureCanvasButton: HTMLElement;
   generateImg2ImgButton: HTMLElement;
   importImg2ImgButton: HTMLElement;
+  sketchPrompt: HTMLTextAreaElement;
+  sketchNegativePrompt: HTMLTextAreaElement;
+  sketchWorkflow: HTMLSelectElement;
+  sketchCheckpoint: HTMLSelectElement;
+  sketchSteps: HTMLInputElement;
+  sketchCfg: HTMLInputElement;
+  sketchSeed: HTMLInputElement;
+  sketchDenoise: HTMLInputElement;
+  sketchControlStrength: HTMLInputElement;
+  captureSketchLayerButton: HTMLElement;
+  captureSketchCanvasButton: HTMLElement;
+  generateSketchButton: HTMLElement;
+  importSketchButton: HTMLElement;
   experimentalCheckpointToggle: HTMLElement;
   negativePromptToggle: HTMLElement;
   negativePromptField: HTMLElement;
@@ -227,20 +227,29 @@ type AppElements = {
   statusPill: HTMLElement;
   imgStatusText: HTMLElement;
   imgStatusPill: HTMLElement;
+  sketchStatusText: HTMLElement;
+  sketchStatusPill: HTMLElement;
   settingsStatusText: HTMLElement;
   settingsStatusPill: HTMLElement;
   diagnosticsText: HTMLElement;
   imgDiagnosticsText: HTMLElement;
   imgCompatibilityNote: HTMLElement;
+  sketchDiagnosticsText: HTMLElement;
+  sketchCompatibilityNote: HTMLElement;
   settingsDiagnosticsText: HTMLElement;
   errorMessage: HTMLElement;
   imgErrorMessage: HTMLElement;
+  sketchErrorMessage: HTMLElement;
   settingsErrorMessage: HTMLElement;
   previewPanel: HTMLElement;
   imageSourcePreviewPanel: HTMLElement;
   imageSourceTitle: HTMLElement;
   imageSourceMeta: HTMLElement;
   imageResultPreviewPanel: HTMLElement;
+  sketchSourcePreviewPanel: HTMLElement;
+  sketchSourceTitle: HTMLElement;
+  sketchSourceMeta: HTMLElement;
+  sketchResultPreviewPanel: HTMLElement;
   historyList: HTMLElement;
   settingsUrlValue: HTMLElement;
   settingsCheckpointCount: HTMLElement;
@@ -274,6 +283,11 @@ export function renderApp(rootElement: HTMLElement) {
   let imageSourcePreviewUrl = "";
   let imageResultPreviewUrl = "";
   let imageLivePreviewUrl = "";
+  let sketchSource: ImageSourceState | null = null;
+  let sketchResult: GeneratedImageResult | null = null;
+  let sketchSourcePreviewUrl = "";
+  let sketchResultPreviewUrl = "";
+  let sketchLivePreviewUrl = "";
   let importAutomatically = false;
   let isNegativePromptOpen = false;
   let allowExperimentalCheckpoints = false;
@@ -304,6 +318,10 @@ export function renderApp(rootElement: HTMLElement) {
     ),
     generateImg2Img: createActionRunner(elements, "generateImg2Img", handleGenerateImg2Img),
     importImg2Img: createActionRunner(elements, "importImg2Img", handleImportImg2Img),
+    captureSketchSource: createActionRunner(elements, "captureSketchSource", handleCaptureSketchSource),
+    captureSketchCanvasSource: createActionRunner(elements, "captureSketchCanvasSource", handleCaptureSketchCanvasSource),
+    generateSketch: createActionRunner(elements, "generateSketch", handleGenerateSketch),
+    importSketch: createActionRunner(elements, "importSketch", handleImportSketch),
     clearHistory: createActionRunner(elements, "clearHistory", handleClearHistory)
   };
 
@@ -320,6 +338,10 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.experimentalCheckpointToggle, actionHandlers.toggleExperimentalCheckpoints);
   bindActionControl(elements.generateImg2ImgButton, actionHandlers.generateImg2Img);
   bindActionControl(elements.importImg2ImgButton, actionHandlers.importImg2Img);
+  bindActionControl(elements.captureSketchLayerButton, actionHandlers.captureSketchSource);
+  bindActionControl(elements.captureSketchCanvasButton, actionHandlers.captureSketchCanvasSource);
+  bindActionControl(elements.generateSketchButton, actionHandlers.generateSketch);
+  bindActionControl(elements.importSketchButton, actionHandlers.importSketch);
   bindActionControl(elements.clearHistoryButton, actionHandlers.clearHistory);
   bindDelegatedActions(rootElement, actionHandlers);
   bindDocumentActions(rootElement, actionHandlers);
@@ -330,19 +352,42 @@ export function renderApp(rootElement: HTMLElement) {
   setStatus(elements, "Ready.", "idle");
   setView(currentView);
   setError(elements, "");
-  setBusy(elements, isBusy, result, imageResult, imageSource);
+  setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
   updateNegativePromptDisclosure(elements, isNegativePromptOpen);
   updateAutoImportToggle(elements, importAutomatically);
   updateExperimentalCheckpointToggle(elements, allowExperimentalCheckpoints);
   updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints);
   setImageSource(null);
   setImageResult(null);
+  updateSketchCheckpointCompatibility(elements);
+  setSketchSource(null);
+  setSketchResult(null);
   updateSettingsReport(elements);
   renderHistory(elements, historyEntries);
   void loadInitialCheckpoints();
 
+  elements.workflow.addEventListener("change", () => {
+    updateTextCheckpointCompatibility(elements);
+  });
+
+  elements.checkpoint.addEventListener("change", () => {
+    updateTextCheckpointCompatibility(elements);
+  });
+
+  elements.imgWorkflow.addEventListener("change", () => {
+    updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints);
+  });
+
   elements.imgCheckpoint.addEventListener("change", () => {
     updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints);
+  });
+
+  elements.sketchWorkflow.addEventListener("change", () => {
+    updateSketchCheckpointCompatibility(elements);
+  });
+
+  elements.sketchCheckpoint.addEventListener("change", () => {
+    updateSketchCheckpointCompatibility(elements);
   });
 
   async function loadInitialCheckpoints() {
@@ -353,6 +398,7 @@ export function renderApp(rootElement: HTMLElement) {
       await client.checkOnline();
       await loadCheckpoints(client, elements, preferences.checkpointName || readSelectValue(elements.checkpoint));
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints);
+      updateSketchCheckpointCompatibility(elements);
       setStatus(elements, "ComfyUI is online. Models loaded.", "ready");
       savePreferencesFromElements(elements);
       updateSettingsReport(elements);
@@ -373,6 +419,7 @@ export function renderApp(rootElement: HTMLElement) {
       await client.checkOnline();
       await loadCheckpoints(client, elements);
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints);
+      updateSketchCheckpointCompatibility(elements);
       setStatus(elements, "ComfyUI is online. Models loaded.", "ready");
       savePreferencesFromElements(elements);
       updateSettingsReport(elements);
@@ -405,6 +452,7 @@ export function renderApp(rootElement: HTMLElement) {
       const client = new ComfyClient(foundUrl);
       await loadCheckpoints(client, elements);
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints);
+      updateSketchCheckpointCompatibility(elements);
       savePreferencesFromElements(elements);
       setStatus(elements, `Found ComfyUI at ${foundUrl}.`, "ready");
       setDiagnostics(elements, `Active ComfyUI server selected: ${foundUrl}.`);
@@ -433,6 +481,7 @@ export function renderApp(rootElement: HTMLElement) {
     applyDefaultSettings(elements);
     fillCheckpointOptions(elements, FALLBACK_CHECKPOINTS, FALLBACK_CHECKPOINTS[0]);
     updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints);
+    updateSketchCheckpointCompatibility(elements);
     setError(elements, "");
     setStatus(elements, "Settings reset to OpenLayer defaults.", "ready");
     setDiagnostics(elements, "Defaults restored. Click Check ComfyUI to reload available models.");
@@ -474,7 +523,7 @@ export function renderApp(rootElement: HTMLElement) {
     setError(elements, "");
     setResult(null);
     isBusy = true;
-    setBusy(elements, isBusy, result, imageResult, imageSource);
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
     setStatus(elements, "Preparing workflow...", "idle");
     setProgressPreview(elements, "Preparing workflow...");
     let progressWatcher: ReturnType<ComfyClient["watchProgress"]> | null = null;
@@ -494,29 +543,31 @@ export function renderApp(rootElement: HTMLElement) {
       const client = new ComfyClient(elements.serverUrl.value);
 
       applyValidatedSettings(elements, settings);
-      setDiagnostics(
-        elements,
-        warnings.length > 0
-          ? warnings.join(" ")
-          : `Using workflow ${preset.id}, checkpoint: ${checkpointName || "none"}`
-      );
+      setDiagnostics(elements, warnings.length > 0 ? warnings.join(" ") : createWorkflowDiagnostics(preset, checkpointName));
       await client.checkOnline();
 
       if (!checkpointName) {
         throw createOpenLayerError("CHECKPOINT_REQUIRED", "Choose a ComfyUI checkpoint before generating.");
       }
 
+      const compatibility = getCheckpointCompatibility(checkpointName, preset);
+
+      if (compatibility.isExperimental) {
+        setDiagnostics(elements, `${compatibility.label} ${compatibility.warning}`);
+      }
+
       setStatus(elements, "Checking selected checkpoint...", "idle");
       setProgressPreview(elements, "Checking selected checkpoint...");
 
-      if (!(await client.hasCheckpoint(checkpointName))) {
+      if (!(await client.hasModelForPreset(checkpointName, preset))) {
         throw createOpenLayerError(
           "CHECKPOINT_REQUIRED",
-          `The checkpoint "${checkpointName}" was not found in ComfyUI. Click Check ComfyUI and choose an available checkpoint.`
+          `The ${preset.modelSource.label.toLowerCase()} "${checkpointName}" was not found in ComfyUI. Click Check ComfyUI and choose an available model.`
         );
       }
 
       const buildResult = await buildTxt2ImgWorkflow({
+        presetId: preset.id,
         prompt: elements.prompt.value,
         negativePrompt: elements.negativePrompt.value,
         checkpointName,
@@ -592,7 +643,7 @@ export function renderApp(rootElement: HTMLElement) {
     } finally {
       progressWatcher?.close();
       isBusy = false;
-      setBusy(elements, isBusy, result, imageResult, imageSource);
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
     }
   }
 
@@ -640,7 +691,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     setError(elements, "");
     isBusy = true;
-    setBusy(elements, isBusy, result, imageResult, imageSource);
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
     setStatus(elements, "Importing image into Photoshop...", "idle");
 
     try {
@@ -659,7 +710,7 @@ export function renderApp(rootElement: HTMLElement) {
       setError(elements, getErrorMessage(caughtError));
     } finally {
       isBusy = false;
-      setBusy(elements, isBusy, result, imageResult, imageSource);
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
     }
   }
 
@@ -691,7 +742,7 @@ export function renderApp(rootElement: HTMLElement) {
     setImageError(elements, "");
     setImageStatus(elements, options.statusMessage, "idle");
     isBusy = true;
-    setBusy(elements, isBusy, result, imageResult, imageSource);
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
 
     try {
       const exportedSource = await options.capture();
@@ -711,7 +762,7 @@ export function renderApp(rootElement: HTMLElement) {
       setImageDiagnostics(elements, getTechnicalErrorDetails(caughtError));
     } finally {
       isBusy = false;
-      setBusy(elements, isBusy, result, imageResult, imageSource);
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
     }
   }
 
@@ -733,7 +784,7 @@ export function renderApp(rootElement: HTMLElement) {
     setImageError(elements, "");
     setImageResult(null);
     isBusy = true;
-    setBusy(elements, isBusy, result, imageResult, imageSource);
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
     setImageStatus(elements, "Preparing Image to Image workflow...", "idle");
     setImageProgressPreview(elements, "Preparing Image to Image workflow...");
     let progressWatcher: ReturnType<ComfyClient["watchProgress"]> | null = null;
@@ -755,7 +806,7 @@ export function renderApp(rootElement: HTMLElement) {
         elements,
         warnings.length > 0
           ? warnings.join(" ")
-          : `Using workflow ${preset.id}, checkpoint: ${checkpointName || "none"}`
+          : createWorkflowDiagnostics(preset, checkpointName)
       );
       await client.checkOnline();
 
@@ -763,12 +814,12 @@ export function renderApp(rootElement: HTMLElement) {
         throw createOpenLayerError("CHECKPOINT_REQUIRED", "Choose a ComfyUI checkpoint before generating.");
       }
 
-      const compatibility = getImageCheckpointCompatibility(checkpointName);
+      const compatibility = getCheckpointCompatibility(checkpointName, preset);
 
       if (compatibility.isExperimental && !allowExperimentalCheckpoints) {
         throw createOpenLayerError(
           "CHECKPOINT_UNSUPPORTED",
-          `${checkpointName} is marked experimental for img2img-basic.`,
+          `${checkpointName} is marked experimental for ${preset.id}.`,
           `${compatibility.warning} Enable Experimental checkpoints to try it anyway.`
         );
       } else if (compatibility.isExperimental) {
@@ -781,10 +832,10 @@ export function renderApp(rootElement: HTMLElement) {
       setImageStatus(elements, "Checking selected checkpoint...", "idle");
       setImageProgressPreview(elements, "Checking selected checkpoint...");
 
-      if (!(await client.hasCheckpoint(checkpointName))) {
+      if (!(await client.hasModelForPreset(checkpointName, preset))) {
         throw createOpenLayerError(
           "CHECKPOINT_REQUIRED",
-          `The checkpoint "${checkpointName}" was not found in ComfyUI. Click Check ComfyUI and choose an available checkpoint.`
+          `The ${preset.modelSource.label.toLowerCase()} "${checkpointName}" was not found in ComfyUI. Click Check ComfyUI and choose an available model.`
         );
       }
 
@@ -792,6 +843,7 @@ export function renderApp(rootElement: HTMLElement) {
       setImageProgressPreview(elements, "Uploading source image...");
       const sourceImageName = await client.uploadImage(imageSource.blob, imageSource.filename);
       const buildResult = await buildImg2ImgWorkflow({
+        presetId: preset.id,
         prompt: elements.imgPrompt.value,
         negativePrompt: elements.imgNegativePrompt.value,
         checkpointName,
@@ -858,7 +910,7 @@ export function renderApp(rootElement: HTMLElement) {
     } finally {
       progressWatcher?.close();
       isBusy = false;
-      setBusy(elements, isBusy, result, imageResult, imageSource);
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
     }
   }
 
@@ -872,7 +924,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     setImageError(elements, "");
     isBusy = true;
-    setBusy(elements, isBusy, result, imageResult, imageSource);
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
     setImageStatus(elements, "Importing Image to Image result into Photoshop...", "idle");
 
     try {
@@ -891,7 +943,244 @@ export function renderApp(rootElement: HTMLElement) {
       setImageError(elements, getErrorMessage(caughtError));
     } finally {
       isBusy = false;
-      setBusy(elements, isBusy, result, imageResult, imageSource);
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+    }
+  }
+
+  async function handleCaptureSketchSource() {
+    await captureSketchToImageSource({
+      progressMessage: "Capturing active Photoshop layer for Sketch to Image...",
+      statusMessage: "Capturing active layer...",
+      successMessage: "Sketch source captured.",
+      capture: exportActiveLayerForImageToImage
+    });
+  }
+
+  async function handleCaptureSketchCanvasSource() {
+    await captureSketchToImageSource({
+      progressMessage: "Capturing Photoshop canvas for Sketch to Image...",
+      statusMessage: "Capturing canvas...",
+      successMessage: "Sketch canvas captured.",
+      capture: exportCanvasForImageToImage
+    });
+  }
+
+  async function captureSketchToImageSource(options: {
+    progressMessage: string;
+    statusMessage: string;
+    successMessage: string;
+    capture: () => Promise<ExportedSourceImage>;
+  }) {
+    setSketchDiagnostics(elements, options.progressMessage);
+    setSketchError(elements, "");
+    setSketchStatus(elements, options.statusMessage, "idle");
+    isBusy = true;
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+
+    try {
+      const exportedSource = await options.capture();
+      const sourcePreview = URL.createObjectURL(exportedSource.blob);
+      setSketchSource({
+        ...exportedSource,
+        previewUrl: sourcePreview
+      });
+      setSketchStatus(elements, options.successMessage, "ready");
+      setSketchDiagnostics(
+        elements,
+        `Captured ${exportedSource.sourceName} (${Math.round(exportedSource.width)} x ${Math.round(exportedSource.height)}) for LINECN guidance.`
+      );
+    } catch (caughtError) {
+      setSketchStatus(elements, "Sketch source capture failed.", "error");
+      setSketchError(elements, getErrorMessage(caughtError));
+      setSketchDiagnostics(elements, getTechnicalErrorDetails(caughtError));
+    } finally {
+      isBusy = false;
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+    }
+  }
+
+  async function handleGenerateSketch() {
+    setSketchDiagnostics(elements, `Sketch to Image generate pressed at ${new Date().toLocaleTimeString()}.`);
+
+    if (!sketchSource) {
+      setSketchError(elements, "Capture the active Photoshop layer or canvas before generating Sketch to Image.");
+      setSketchStatus(elements, "Source required.", "error");
+      return;
+    }
+
+    if (!elements.sketchPrompt.value.trim()) {
+      setSketchError(
+        elements,
+        getErrorMessage(createOpenLayerError("PROMPT_REQUIRED", "Enter a prompt before generating Sketch to Image."))
+      );
+      setSketchStatus(elements, "Prompt required.", "error");
+      return;
+    }
+
+    setSketchError(elements, "");
+    setSketchResult(null);
+    isBusy = true;
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+    setSketchStatus(elements, "Preparing LINECN workflow...", "idle");
+    setSketchProgressPreview(elements, "Preparing LINECN workflow...");
+    let progressWatcher: ReturnType<ComfyClient["watchProgress"]> | null = null;
+
+    try {
+      const workflowPreset = readSelectValue(elements.sketchWorkflow, DEFAULT_SKETCH_WORKFLOW);
+      const preset = getWorkflowPreset(workflowPreset);
+      const checkpointName = readSelectValue(elements.sketchCheckpoint);
+      const { settings, warnings } = validateSketchToImageSettings({
+        steps: elements.sketchSteps.value,
+        cfg: elements.sketchCfg.value,
+        seed: elements.sketchSeed.value,
+        denoise: elements.sketchDenoise.value,
+        controlStrength: elements.sketchControlStrength.value
+      });
+      const client = new ComfyClient(elements.serverUrl.value);
+
+      applyValidatedSketchToImageSettings(elements, settings);
+      setSketchDiagnostics(
+        elements,
+        warnings.length > 0
+          ? warnings.join(" ")
+          : createWorkflowDiagnostics(preset, checkpointName)
+      );
+      await client.checkOnline();
+
+      if (!checkpointName) {
+        throw createOpenLayerError("CHECKPOINT_REQUIRED", "Choose a ComfyUI checkpoint before generating.");
+      }
+
+      const compatibility = getCheckpointCompatibility(checkpointName, preset);
+
+      if (compatibility.isExperimental) {
+        throw createOpenLayerError(
+          "CHECKPOINT_UNSUPPORTED",
+          "Sketch to Image LINECN basic is built for SD 1.x checkpoints.",
+          `${checkpointName}: ${compatibility.warning}`
+        );
+      }
+
+      setSketchStatus(elements, "Checking selected checkpoint...", "idle");
+      setSketchProgressPreview(elements, "Checking selected checkpoint...");
+
+      if (!(await client.hasModelForPreset(checkpointName, preset))) {
+        throw createOpenLayerError(
+          "CHECKPOINT_REQUIRED",
+          `The ${preset.modelSource.label.toLowerCase()} "${checkpointName}" was not found in ComfyUI. Click Check ComfyUI and choose an available model.`
+        );
+      }
+
+      setSketchStatus(elements, "Checking LINECN nodes and ControlNet model...", "idle");
+      setSketchProgressPreview(elements, "Checking LINECN setup...");
+      await client.validatePresetSetup(preset);
+
+      setSketchStatus(elements, "Uploading source image to ComfyUI...", "idle");
+      setSketchProgressPreview(elements, "Uploading source image...");
+      const sourceImageName = await client.uploadImage(sketchSource.blob, sketchSource.filename);
+      const buildResult = await buildSketchToImageWorkflow({
+        presetId: preset.id,
+        prompt: elements.sketchPrompt.value,
+        negativePrompt: elements.sketchNegativePrompt.value,
+        checkpointName,
+        sourceImageName,
+        steps: settings.steps,
+        cfg: settings.cfg,
+        seed: settings.seed,
+        denoise: settings.denoise,
+        controlStrength: settings.controlStrength
+      });
+
+      setSketchStatus(elements, "Submitting Sketch to Image prompt...", "idle");
+      setSketchProgressPreview(elements, "Submitting prompt to ComfyUI...");
+      const promptId = await client.submitPrompt(buildResult.workflow);
+      let hasLivePreview = false;
+      progressWatcher = client.watchProgress(promptId, {
+        onStatus: (message) => {
+          setSketchStatus(elements, message, "idle");
+
+          if (!hasLivePreview) {
+            setSketchProgressPreview(elements, message);
+          }
+        },
+        onPreviewBlob: (blob) => {
+          hasLivePreview = true;
+          setSketchProgressPreview(elements, "Live ComfyUI preview...", blob);
+        },
+        onError: (message) => setSketchDiagnostics(elements, message)
+      });
+
+      setSketchStatus(elements, "Generating Sketch to Image result...", "idle");
+      setSketchProgressPreview(elements, "Generating image...");
+      const history = await client.pollUntilComplete(promptId, {
+        onTick: (message) => {
+          setSketchStatus(elements, message, "idle");
+
+          if (!hasLivePreview) {
+            setSketchProgressPreview(elements, message);
+          }
+        }
+      });
+      progressWatcher?.close();
+      progressWatcher = null;
+
+      setSketchStatus(elements, "Retrieving Sketch to Image result...", "idle");
+      setSketchProgressPreview(elements, "Retrieving final image...");
+      const generatedResult = await client.retrieveFirstOutputImage(promptId, history);
+      setSketchResult(generatedResult);
+      addHistoryEntry(elements, historyEntries, generatedResult, {
+        prompt: elements.sketchPrompt.value,
+        checkpointName,
+        seed: buildResult.seed,
+        sizeLabel: "Sketch to Image"
+      });
+      setSketchStatus(elements, "Sketch to Image generation complete.", "ready");
+      setSketchDiagnostics(
+        elements,
+        `Seed used: ${buildResult.seed}. Source uploaded as ${sourceImageName}. Workflow: ${buildResult.preset.id}.`
+      );
+    } catch (caughtError) {
+      setSketchStatus(elements, "Sketch to Image generation failed.", "error");
+      setSketchError(elements, getFriendlySketchErrorMessage(caughtError));
+      console.error("[OpenLayer] Sketch to Image generation failed", getTechnicalErrorDetails(caughtError));
+      setSketchDiagnostics(elements, getSketchFailureHint(caughtError));
+    } finally {
+      progressWatcher?.close();
+      isBusy = false;
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+    }
+  }
+
+  async function handleImportSketch() {
+    setSketchDiagnostics(elements, "Sketch to Image import pressed.");
+
+    if (!sketchResult) {
+      setSketchError(elements, "Generate a Sketch to Image result before importing.");
+      return;
+    }
+
+    setSketchError(elements, "");
+    isBusy = true;
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+    setSketchStatus(elements, "Importing Sketch to Image result into Photoshop...", "idle");
+
+    try {
+      const documentInfo = await getActiveDocumentInfo();
+      const layerName = createLayerName("OpenLayer_Sketch");
+
+      setSketchDiagnostics(elements, `Importing into ${documentInfo.name || "active document"}...`);
+      const importedLayerName = await importGeneratedImageAsLayer(sketchResult.blob, layerName, (message) => {
+        setSketchStatus(elements, message, "idle");
+        setSketchDiagnostics(elements, message);
+      });
+      setSketchStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
+      setSketchDiagnostics(elements, `Layer created: ${importedLayerName}`);
+    } catch (caughtError) {
+      setSketchStatus(elements, "Import failed.", "error");
+      setSketchError(elements, getErrorMessage(caughtError));
+    } finally {
+      isBusy = false;
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
     }
   }
 
@@ -914,7 +1203,7 @@ export function renderApp(rootElement: HTMLElement) {
       empty.className = "preview-empty";
       empty.textContent = "No result yet";
       elements.previewPanel.append(empty);
-      setBusy(elements, isBusy, result, imageResult, imageSource);
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
       return;
     }
 
@@ -923,7 +1212,7 @@ export function renderApp(rootElement: HTMLElement) {
     image.src = previewUrl;
     image.alt = "Generated OpenLayer preview";
     elements.previewPanel.append(image);
-    setBusy(elements, isBusy, result, imageResult, imageSource);
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
   }
 
   function setProgressPreview(elements: AppElements, message: string, blob?: Blob) {
@@ -968,7 +1257,7 @@ export function renderApp(rootElement: HTMLElement) {
       elements.imageSourcePreviewPanel.append(empty);
       elements.imageSourceTitle.textContent = "No source captured";
       elements.imageSourceMeta.textContent = "Choose active layer or full canvas.";
-      setBusy(elements, isBusy, result, imageResult, imageSource);
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
       return;
     }
 
@@ -979,7 +1268,7 @@ export function renderApp(rootElement: HTMLElement) {
     elements.imageSourcePreviewPanel.append(image);
     elements.imageSourceTitle.textContent = imageSource.sourceName;
     elements.imageSourceMeta.textContent = `${Math.round(imageSource.width)} x ${Math.round(imageSource.height)} | JPEG source`;
-    setBusy(elements, isBusy, result, imageResult, imageSource);
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
   }
 
   function setImageResult(nextResult: GeneratedImageResult | null) {
@@ -1001,7 +1290,7 @@ export function renderApp(rootElement: HTMLElement) {
       empty.className = "preview-empty";
       empty.textContent = "No Image to Image result yet";
       elements.imageResultPreviewPanel.append(empty);
-      setBusy(elements, isBusy, result, imageResult, imageSource);
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
       return;
     }
 
@@ -1010,7 +1299,7 @@ export function renderApp(rootElement: HTMLElement) {
     image.src = imageResultPreviewUrl;
     image.alt = "Generated Image to Image preview";
     elements.imageResultPreviewPanel.append(image);
-    setBusy(elements, isBusy, result, imageResult, imageSource);
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
   }
 
   function setImageProgressPreview(elements: AppElements, message: string, blob?: Blob) {
@@ -1039,11 +1328,99 @@ export function renderApp(rootElement: HTMLElement) {
     elements.imageResultPreviewPanel.append(progress);
   }
 
+  function setSketchSource(nextSource: ImageSourceState | null) {
+    if (sketchSourcePreviewUrl) {
+      URL.revokeObjectURL(sketchSourcePreviewUrl);
+      sketchSourcePreviewUrl = "";
+    }
+
+    sketchSource = nextSource;
+    elements.sketchSourcePreviewPanel.innerHTML = "";
+
+    if (!sketchSource) {
+      const empty = document.createElement("span");
+      empty.className = "source-empty";
+      empty.textContent = "None";
+      elements.sketchSourcePreviewPanel.append(empty);
+      elements.sketchSourceTitle.textContent = "No source captured";
+      elements.sketchSourceMeta.textContent = "Choose active layer or full canvas.";
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+      return;
+    }
+
+    sketchSourcePreviewUrl = sketchSource.previewUrl;
+    const image = document.createElement("img");
+    image.src = sketchSourcePreviewUrl;
+    image.alt = "Captured Photoshop source for Sketch to Image";
+    elements.sketchSourcePreviewPanel.append(image);
+    elements.sketchSourceTitle.textContent = sketchSource.sourceName;
+    elements.sketchSourceMeta.textContent = `${Math.round(sketchSource.width)} x ${Math.round(sketchSource.height)} | LINECN source`;
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+  }
+
+  function setSketchResult(nextResult: GeneratedImageResult | null) {
+    if (sketchResultPreviewUrl) {
+      URL.revokeObjectURL(sketchResultPreviewUrl);
+      sketchResultPreviewUrl = "";
+    }
+
+    if (sketchLivePreviewUrl) {
+      URL.revokeObjectURL(sketchLivePreviewUrl);
+      sketchLivePreviewUrl = "";
+    }
+
+    sketchResult = nextResult;
+    elements.sketchResultPreviewPanel.innerHTML = "";
+
+    if (!sketchResult) {
+      const empty = document.createElement("span");
+      empty.className = "preview-empty";
+      empty.textContent = "No Sketch to Image result yet";
+      elements.sketchResultPreviewPanel.append(empty);
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+      return;
+    }
+
+    sketchResultPreviewUrl = URL.createObjectURL(sketchResult.blob);
+    const image = document.createElement("img");
+    image.src = sketchResultPreviewUrl;
+    image.alt = "Generated Sketch to Image preview";
+    elements.sketchResultPreviewPanel.append(image);
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+  }
+
+  function setSketchProgressPreview(elements: AppElements, message: string, blob?: Blob) {
+    if (sketchResult) {
+      return;
+    }
+
+    elements.sketchResultPreviewPanel.innerHTML = "";
+
+    if (blob) {
+      if (sketchLivePreviewUrl) {
+        URL.revokeObjectURL(sketchLivePreviewUrl);
+      }
+
+      sketchLivePreviewUrl = URL.createObjectURL(blob);
+      const image = document.createElement("img");
+      image.src = sketchLivePreviewUrl;
+      image.alt = "Live ComfyUI Sketch to Image preview";
+      elements.sketchResultPreviewPanel.append(image);
+      return;
+    }
+
+    const progress = document.createElement("span");
+    progress.className = "preview-empty";
+    progress.textContent = message;
+    elements.sketchResultPreviewPanel.append(progress);
+  }
+
   function setView(view: AppView) {
     currentView = view;
     elements.homeView.hidden = currentView !== "home";
     elements.generatorView.hidden = currentView !== "text-to-image";
     elements.imageToImageView.hidden = currentView !== "image-to-image";
+    elements.sketchToImageView.hidden = currentView !== "sketch-to-image";
     elements.settingsView.hidden = currentView !== "settings";
     elements.historyView.hidden = currentView !== "history";
 
@@ -1314,6 +1691,105 @@ function createAppMarkup() {
 
       </section>
 
+      <section class="sketch-to-image-view image-to-image-view" id="sketch-to-image-view" aria-label="Sketch to Image" hidden>
+        <div class="screen-nav">
+          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
+          <div class="screen-title-block">
+            <span class="screen-kicker">SK</span>
+            <span class="screen-title">Sketch to Image</span>
+          </div>
+        </div>
+
+        <section class="panel-section generator-panel source-panel" aria-label="Sketch source">
+          <div class="section-heading">
+            <span class="label">Source layer</span>
+            <span class="muted-label">LINECN input</span>
+          </div>
+          <div class="source-action-row" aria-label="Sketch source capture actions">
+            <button class="button source-action-button action-control" id="capture-sketch-source" data-openlayer-action="captureSketchSource" type="button">Capture Active Layer</button>
+            <button class="button source-action-button action-control" id="capture-sketch-canvas-source" data-openlayer-action="captureSketchCanvasSource" type="button">Capture Canvas</button>
+          </div>
+          <div class="source-card">
+            <div class="source-thumb-frame" id="sketch-source-preview-panel">
+              <span class="source-empty">None</span>
+            </div>
+            <div class="source-card-body">
+              <span class="source-title" id="sketch-source-title">No source captured</span>
+              <span class="source-card-meta" id="sketch-source-meta">ComfyUI LineArtPreprocessor creates the guide.</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel-section generator-panel img2img-form-panel" aria-label="Sketch to Image prompt">
+          <div class="field img2img-field">
+            <span class="label">Prompt</span>
+            <textarea class="textarea compact-textarea" id="sketch-prompt" placeholder="Describe the final image guided by the lineart..."></textarea>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Negative prompt</span>
+            <textarea class="textarea compact-textarea" id="sketch-negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Workflow</span>
+            <select class="select" id="sketch-workflow">
+              ${listWorkflowPresets("sketch2img").map((preset) => `<option value="${preset.id}">${preset.label}</option>`).join("")}
+            </select>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Checkpoint</span>
+            <select class="select" id="sketch-checkpoint">
+              ${FALLBACK_CHECKPOINTS.map((checkpoint) => `<option value="${checkpoint}">${checkpoint}</option>`).join("")}
+            </select>
+            <span class="compatibility-note" id="sketch-compatibility-note">Recommended: epicrealism_naturalSinRC1VAE.safetensors with an SD 1.5 LineArt ControlNet workflow.</span>
+          </div>
+          <div class="settings-grid img2img-settings-grid" aria-label="Sketch to Image settings">
+            <div class="field">
+              <span class="label">Steps</span>
+              <input class="input input-compact" id="sketch-steps" type="number" min="1" max="150" step="1" value="${DEFAULT_SKETCH_STEPS}" />
+            </div>
+            <div class="field">
+              <span class="label">CFG</span>
+              <input class="input input-compact" id="sketch-cfg" type="number" min="1" max="30" step="0.5" value="${DEFAULT_CFG}" />
+            </div>
+            <div class="field">
+              <span class="label">Denoise</span>
+              <input class="input input-compact" id="sketch-denoise" type="number" min="0.05" max="1" step="0.05" value="${DEFAULT_SKETCH_DENOISE}" />
+            </div>
+            <div class="field">
+              <span class="label">Strength</span>
+              <input class="input input-compact" id="sketch-control-strength" type="number" min="0" max="2" step="0.05" value="${DEFAULT_SKETCH_CONTROL_STRENGTH}" />
+            </div>
+            <div class="field settings-seed">
+              <span class="label">Seed</span>
+              <input class="input input-compact" id="sketch-seed" type="number" min="0" placeholder="Random" />
+            </div>
+          </div>
+          <button class="button button-primary button-generate button-wide action-control" id="generate-sketch" data-openlayer-action="generateSketch" type="button">Generate Sketch to Image</button>
+        </section>
+
+        <section class="generation-status-panel img2img-status-panel" aria-label="Sketch to Image status">
+          <div class="status-bar" role="status">
+            <span class="status-text" id="sketch-status-text">Ready.</span>
+            <span class="status-pill idle" id="sketch-status-pill">Status</span>
+          </div>
+          <div class="diagnostics-line" id="sketch-diagnostics-text">Capture a source, then use a LINECN workflow preset.</div>
+          <div class="error-message" id="sketch-error-message" hidden></div>
+        </section>
+
+        <section class="panel-section result-panel img2img-result-panel" aria-label="Sketch to Image result">
+          <div class="section-heading">
+            <span class="label">Result preview</span>
+            <span class="muted-label">Generated result appears here</span>
+          </div>
+          <div class="preview-panel" id="sketch-result-preview-panel">
+            <span class="preview-empty">No Sketch to Image result yet</span>
+          </div>
+          <div class="import-actions">
+            <button class="button button-import button-import-blue action-control is-disabled" id="import-sketch-result" data-openlayer-action="importSketch" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
+          </div>
+        </section>
+      </section>
+
       <section class="history-view" id="history-view" aria-label="History" hidden>
         <div class="screen-nav">
           <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
@@ -1410,6 +1886,7 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     homeView: getElement<HTMLElement>(rootElement, "home-view"),
     generatorView: getElement<HTMLElement>(rootElement, "generator-view"),
     imageToImageView: getElement<HTMLElement>(rootElement, "image-to-image-view"),
+    sketchToImageView: getElement<HTMLElement>(rootElement, "sketch-to-image-view"),
     settingsView: getElement<HTMLElement>(rootElement, "settings-view"),
     historyView: getElement<HTMLElement>(rootElement, "history-view"),
     homeStatusText: getElement<HTMLElement>(rootElement, "home-status-text"),
@@ -1443,6 +1920,19 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     captureCanvasButton: getElement<HTMLElement>(rootElement, "capture-canvas-source"),
     generateImg2ImgButton: getElement<HTMLElement>(rootElement, "generate-img2img"),
     importImg2ImgButton: getElement<HTMLElement>(rootElement, "import-img2img-result"),
+    sketchPrompt: getElement<HTMLTextAreaElement>(rootElement, "sketch-prompt"),
+    sketchNegativePrompt: getElement<HTMLTextAreaElement>(rootElement, "sketch-negative-prompt"),
+    sketchWorkflow: getElement<HTMLSelectElement>(rootElement, "sketch-workflow"),
+    sketchCheckpoint: getElement<HTMLSelectElement>(rootElement, "sketch-checkpoint"),
+    sketchSteps: getElement<HTMLInputElement>(rootElement, "sketch-steps"),
+    sketchCfg: getElement<HTMLInputElement>(rootElement, "sketch-cfg"),
+    sketchSeed: getElement<HTMLInputElement>(rootElement, "sketch-seed"),
+    sketchDenoise: getElement<HTMLInputElement>(rootElement, "sketch-denoise"),
+    sketchControlStrength: getElement<HTMLInputElement>(rootElement, "sketch-control-strength"),
+    captureSketchLayerButton: getElement<HTMLElement>(rootElement, "capture-sketch-source"),
+    captureSketchCanvasButton: getElement<HTMLElement>(rootElement, "capture-sketch-canvas-source"),
+    generateSketchButton: getElement<HTMLElement>(rootElement, "generate-sketch"),
+    importSketchButton: getElement<HTMLElement>(rootElement, "import-sketch-result"),
     experimentalCheckpointToggle: getElement<HTMLElement>(rootElement, "experimental-checkpoint-toggle"),
     negativePromptToggle: getElement<HTMLElement>(rootElement, "negative-prompt-toggle"),
     negativePromptField: getElement<HTMLElement>(rootElement, "negative-prompt-field"),
@@ -1451,20 +1941,29 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     statusPill: getElement<HTMLElement>(rootElement, "status-pill"),
     imgStatusText: getElement<HTMLElement>(rootElement, "img-status-text"),
     imgStatusPill: getElement<HTMLElement>(rootElement, "img-status-pill"),
+    sketchStatusText: getElement<HTMLElement>(rootElement, "sketch-status-text"),
+    sketchStatusPill: getElement<HTMLElement>(rootElement, "sketch-status-pill"),
     settingsStatusText: getElement<HTMLElement>(rootElement, "settings-status-text"),
     settingsStatusPill: getElement<HTMLElement>(rootElement, "settings-status-pill"),
     diagnosticsText: getElement<HTMLElement>(rootElement, "diagnostics-text"),
     imgDiagnosticsText: getElement<HTMLElement>(rootElement, "img-diagnostics-text"),
     imgCompatibilityNote: getElement<HTMLElement>(rootElement, "img-compatibility-note"),
+    sketchDiagnosticsText: getElement<HTMLElement>(rootElement, "sketch-diagnostics-text"),
+    sketchCompatibilityNote: getElement<HTMLElement>(rootElement, "sketch-compatibility-note"),
     settingsDiagnosticsText: getElement<HTMLElement>(rootElement, "settings-diagnostics-text"),
     errorMessage: getElement<HTMLElement>(rootElement, "error-message"),
     imgErrorMessage: getElement<HTMLElement>(rootElement, "img-error-message"),
+    sketchErrorMessage: getElement<HTMLElement>(rootElement, "sketch-error-message"),
     settingsErrorMessage: getElement<HTMLElement>(rootElement, "settings-error-message"),
     previewPanel: getElement<HTMLElement>(rootElement, "preview-panel"),
     imageSourcePreviewPanel: getElement<HTMLElement>(rootElement, "image-source-preview-panel"),
     imageSourceTitle: getElement<HTMLElement>(rootElement, "image-source-title"),
     imageSourceMeta: getElement<HTMLElement>(rootElement, "image-source-meta"),
     imageResultPreviewPanel: getElement<HTMLElement>(rootElement, "image-result-preview-panel"),
+    sketchSourcePreviewPanel: getElement<HTMLElement>(rootElement, "sketch-source-preview-panel"),
+    sketchSourceTitle: getElement<HTMLElement>(rootElement, "sketch-source-title"),
+    sketchSourceMeta: getElement<HTMLElement>(rootElement, "sketch-source-meta"),
+    sketchResultPreviewPanel: getElement<HTMLElement>(rootElement, "sketch-result-preview-panel"),
     historyList: getElement<HTMLElement>(rootElement, "history-list"),
     settingsUrlValue: getElement<HTMLElement>(rootElement, "settings-url-value"),
     settingsCheckpointCount: getElement<HTMLElement>(rootElement, "settings-checkpoint-count"),
@@ -1488,7 +1987,9 @@ function setBusy(
   isBusy: boolean,
   result: GeneratedImageResult | null,
   imageResult: GeneratedImageResult | null = null,
-  imageSource: ImageSourceState | null = null
+  imageSource: ImageSourceState | null = null,
+  sketchResult: GeneratedImageResult | null = null,
+  sketchSource: ImageSourceState | null = null
 ) {
   elements.serverUrl.disabled = isBusy;
   elements.prompt.disabled = isBusy;
@@ -1508,6 +2009,15 @@ function setBusy(
   elements.imgCfg.disabled = isBusy;
   elements.imgSeed.disabled = isBusy;
   elements.imgDenoise.disabled = isBusy;
+  elements.sketchPrompt.disabled = isBusy;
+  elements.sketchNegativePrompt.disabled = isBusy;
+  elements.sketchWorkflow.disabled = isBusy;
+  elements.sketchCheckpoint.disabled = isBusy;
+  elements.sketchSteps.disabled = isBusy;
+  elements.sketchCfg.disabled = isBusy;
+  elements.sketchSeed.disabled = isBusy;
+  elements.sketchDenoise.disabled = isBusy;
+  elements.sketchControlStrength.disabled = isBusy;
   setActionDisabled(elements.checkButton, isBusy);
   setActionDisabled(elements.findPortButton, isBusy);
   setActionDisabled(elements.saveSettingsButton, isBusy);
@@ -1521,6 +2031,10 @@ function setBusy(
   setActionDisabled(elements.experimentalCheckpointToggle, isBusy);
   setActionDisabled(elements.generateImg2ImgButton, isBusy || !imageSource);
   setActionDisabled(elements.importImg2ImgButton, isBusy || !imageResult);
+  setActionDisabled(elements.captureSketchLayerButton, isBusy);
+  setActionDisabled(elements.captureSketchCanvasButton, isBusy);
+  setActionDisabled(elements.generateSketchButton, isBusy || !sketchSource);
+  setActionDisabled(elements.importSketchButton, isBusy || !sketchResult);
   setActionDisabled(elements.clearHistoryButton, isBusy);
 }
 
@@ -1531,6 +2045,9 @@ function setStatus(elements: AppElements, status: string, tone: StatusTone) {
   elements.imgStatusText.textContent = status;
   elements.imgStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
   elements.imgStatusPill.className = `status-pill ${tone}`;
+  elements.sketchStatusText.textContent = status;
+  elements.sketchStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
+  elements.sketchStatusPill.className = `status-pill ${tone}`;
   elements.settingsStatusText.textContent = status;
   elements.settingsStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
   elements.settingsStatusPill.className = `status-pill ${tone}`;
@@ -1542,6 +2059,14 @@ function setImageStatus(elements: AppElements, status: string, tone: StatusTone)
   elements.imgStatusText.textContent = status;
   elements.imgStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
   elements.imgStatusPill.className = `status-pill ${tone}`;
+  elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
+  elements.homeStatusDot.className = `home-status-dot ${tone}`;
+}
+
+function setSketchStatus(elements: AppElements, status: string, tone: StatusTone) {
+  elements.sketchStatusText.textContent = status;
+  elements.sketchStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
+  elements.sketchStatusPill.className = `status-pill ${tone}`;
   elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
   elements.homeStatusDot.className = `home-status-dot ${tone}`;
 }
@@ -1558,14 +2083,25 @@ function setImageError(elements: AppElements, message: string) {
   elements.imgErrorMessage.hidden = !message;
 }
 
+function setSketchError(elements: AppElements, message: string) {
+  elements.sketchErrorMessage.textContent = message;
+  elements.sketchErrorMessage.hidden = !message;
+}
+
 function setDiagnostics(elements: AppElements, message: string) {
   elements.diagnosticsText.textContent = message;
   elements.imgDiagnosticsText.textContent = message;
+  elements.sketchDiagnosticsText.textContent = message;
   elements.settingsDiagnosticsText.textContent = message;
 }
 
 function setImageDiagnostics(elements: AppElements, message: string) {
   elements.imgDiagnosticsText.textContent = message;
+  elements.settingsDiagnosticsText.textContent = message;
+}
+
+function setSketchDiagnostics(elements: AppElements, message: string) {
+  elements.sketchDiagnosticsText.textContent = message;
   elements.settingsDiagnosticsText.textContent = message;
 }
 
@@ -1590,14 +2126,45 @@ function updateExperimentalCheckpointToggle(elements: AppElements, isEnabled: bo
   elements.experimentalCheckpointToggle.classList.toggle("is-active", isEnabled);
 }
 
+function updateTextCheckpointCompatibility(elements: AppElements) {
+  try {
+    const preset = getWorkflowPreset(readSelectValue(elements.workflow, DEFAULT_WORKFLOW));
+    const checkpointName = readSelectValue(elements.checkpoint);
+    const note = getPresetCompatibilityNote(checkpointName, preset);
+
+    if (note) {
+      setDiagnostics(elements, note);
+    }
+  } catch {
+    // Selection-change diagnostics should never break the panel.
+  }
+}
+
 function updateImageCheckpointCompatibility(elements: AppElements, allowExperimentalCheckpoints: boolean) {
   const checkpointName = readSelectValue(elements.imgCheckpoint);
-  const compatibility = getImageCheckpointCompatibility(checkpointName);
+  const preset = getWorkflowPreset(readSelectValue(elements.imgWorkflow, DEFAULT_IMAGE_WORKFLOW));
+  const compatibility = getCheckpointCompatibility(checkpointName, preset);
 
   elements.imgCompatibilityNote.textContent = allowExperimentalCheckpoints
     ? `${compatibility.label}. ${compatibility.experimentalNote}`
     : compatibility.label;
   elements.imgCompatibilityNote.classList.toggle("is-warning", compatibility.isExperimental);
+}
+
+function updateSketchCheckpointCompatibility(elements: AppElements) {
+  const checkpointName = readSelectValue(elements.sketchCheckpoint);
+  const preset = getWorkflowPreset(readSelectValue(elements.sketchWorkflow, DEFAULT_SKETCH_WORKFLOW));
+  const compatibility = getCheckpointCompatibility(checkpointName, preset);
+
+  elements.sketchCompatibilityNote.textContent =
+    checkpointName === RECOMMENDED_SKETCH_CHECKPOINT
+      ? "Recommended SD 1.x checkpoint selected for LINECN."
+      : `${compatibility.label} ${compatibility.warning || "Use an SD 1.x checkpoint for the first LINECN preset."}`;
+  elements.sketchCompatibilityNote.classList.toggle("is-warning", compatibility.isExperimental);
+}
+
+function createWorkflowDiagnostics(preset: WorkflowPresetDefinition, checkpointName: string) {
+  return getPresetCompatibilityNote(checkpointName, preset) || `Using workflow ${preset.id}, checkpoint: ${checkpointName || "none"}`;
 }
 
 type ActionName =
@@ -1614,6 +2181,10 @@ type ActionName =
   | "toggleExperimentalCheckpoints"
   | "generateImg2Img"
   | "importImg2Img"
+  | "captureSketchSource"
+  | "captureSketchCanvasSource"
+  | "generateSketch"
+  | "importSketch"
   | "clearHistory";
 type HistoryActionName = "preview" | "import";
 type ActionRunner = (eventName: string) => void;
@@ -1955,6 +2526,11 @@ async function loadCheckpoints(client: ComfyClient, elements: AppElements, prefe
 function fillCheckpointOptions(elements: AppElements, checkpoints: string[], preferredValue?: string) {
   fillSingleCheckpointSelect(elements.checkpoint, checkpoints, preferredValue);
   fillSingleCheckpointSelect(elements.imgCheckpoint, checkpoints, preferredValue);
+  fillSingleCheckpointSelect(
+    elements.sketchCheckpoint,
+    checkpoints,
+    checkpoints.includes(RECOMMENDED_SKETCH_CHECKPOINT) ? RECOMMENDED_SKETCH_CHECKPOINT : preferredValue
+  );
 }
 
 function fillSingleCheckpointSelect(select: HTMLSelectElement, checkpoints: string[], preferredValue?: string) {
@@ -1982,7 +2558,7 @@ function getImageToImageFailureHint(error: unknown) {
     details.includes("does not contain a valid clip") ||
     details.includes("text encoder")
   ) {
-    return "This looks like a workflow/model mismatch. img2img-basic is safest with SD 1.x and SDXL checkpoints; Flux and SD3 usually need dedicated loader nodes.";
+    return "This looks like a workflow/model mismatch. img2img-basic is safest with SD 1.x and SDXL checkpoints; SD3, Flux, and Z-Image usually need dedicated loader nodes.";
   }
 
   if (
@@ -2021,97 +2597,71 @@ function getFriendlyImageToImageErrorMessage(error: unknown) {
   return getErrorMessage(error);
 }
 
-function getImageCheckpointCompatibility(checkpointName: string): ImageCheckpointCompatibility {
-  const family = detectCheckpointFamily(checkpointName);
+function getSketchFailureHint(error: unknown) {
+  const details = getTechnicalErrorDetails(error).toLowerCase();
 
-  switch (family) {
-    case "sd1":
-      return {
-        family,
-        isExperimental: false,
-        label: "SD 1.x checkpoint: compatible with img2img-basic.",
-        warning: "",
-        experimentalNote: "This is a good default choice for Image to Image."
-      };
-    case "sdxl":
-      return {
-        family,
-        isExperimental: false,
-        label: "SDXL checkpoint: compatible with img2img-basic.",
-        warning: "",
-        experimentalNote: "This is a good default choice for Image to Image."
-      };
-    case "sd3":
-      return {
-        family,
-        isExperimental: true,
-        label: "SD3 checkpoint: experimental for img2img-basic.",
-        warning: "SD3 and SD3.5 checkpoints often need dedicated text encoder and VAE loader nodes.",
-        experimentalNote: "Enable Experimental checkpoints only if your workflow preset matches this model family."
-      };
-    case "flux":
-      return {
-        family,
-        isExperimental: true,
-        label: "Flux checkpoint: experimental for img2img-basic.",
-        warning: "Flux checkpoints usually need dedicated UNet, CLIP/T5, and VAE loader nodes.",
-        experimentalNote: "Enable Experimental checkpoints only if your workflow preset matches this model family."
-      };
-    default:
-      return {
-        family,
-        isExperimental: false,
-        label: "Unknown checkpoint family: allowed, but SD 1.x or SDXL are safest for img2img-basic.",
-        warning: "",
-        experimentalNote: "If generation fails, try an SD 1.x or SDXL checkpoint first."
-      };
+  if (details.includes("sketch2img-linecn-basic.json") || details.includes("linecn workflow json")) {
+    return "The bundled LINECN workflow file was not found in this build. Rebuild OpenLayer and reload the plugin.";
   }
+
+  if (details.includes("comfy_setup_missing") || details.includes("missing lineart controlnet")) {
+    return "Install the SD 1.5 LineArt ControlNet model and required LineArt preprocessor nodes, then click Check ComfyUI again.";
+  }
+
+  if (
+    details.includes("lineartpreprocessor") ||
+    details.includes("controlnet") ||
+    details.includes("aio aux preprocessor") ||
+    details.includes("missing node")
+  ) {
+    return "This LINECN workflow needs the matching LineArt preprocessor and ControlNet custom nodes installed in ComfyUI.";
+  }
+
+  if (
+    details.includes("clip input is invalid") ||
+    details.includes("does not contain a valid clip") ||
+    details.includes("text encoder")
+  ) {
+    return "This looks like a checkpoint/workflow mismatch. The first LINECN preset is intended for SD 1.x checkpoints such as epicrealism_naturalSinRC1VAE.safetensors.";
+  }
+
+  if (details.includes("vae") || details.includes("loader") || details.includes("invalid prompt")) {
+    return "ComfyUI rejected part of the LINECN workflow. Check that the preset node IDs match the exported API workflow.";
+  }
+
+  const message = getTechnicalErrorDetails(error);
+  return message.length > 160 ? `${message.slice(0, 160)}...` : message;
 }
 
-function detectCheckpointFamily(checkpointName: string): ModelFamily {
-  const normalized = checkpointName.toLowerCase();
+function getFriendlySketchErrorMessage(error: unknown) {
+  const details = getTechnicalErrorDetails(error).toLowerCase();
 
-  if (normalized.includes("flux")) {
-    return "flux";
+  if (details.includes("sketch2img-linecn-basic.json") || details.includes("linecn workflow json")) {
+    return "LINECN workflow file missing from this build.";
+  }
+
+  if (details.includes("comfy_setup_missing") || details.includes("missing lineart controlnet")) {
+    return "Required LINECN setup is missing in ComfyUI.";
   }
 
   if (
-    normalized.includes("sd3") ||
-    normalized.includes("sd_3") ||
-    normalized.includes("sd-3") ||
-    normalized.includes("stable-diffusion-3") ||
-    normalized.includes("stable_diffusion_3")
+    details.includes("lineartpreprocessor") ||
+    details.includes("controlnet") ||
+    details.includes("aio aux preprocessor") ||
+    details.includes("missing node")
   ) {
-    return "sd3";
+    return "The LINECN workflow needs matching ComfyUI LineArt/ControlNet nodes.";
   }
 
   if (
-    normalized.includes("sdxl") ||
-    normalized.includes("sd_xl") ||
-    normalized.includes("sd-xl") ||
-    normalized.includes("xl_base") ||
-    normalized.includes("_xl") ||
-    normalized.includes("refiner")
+    details.includes("clip input is invalid") ||
+    details.includes("does not contain a valid clip") ||
+    details.includes("text encoder")
   ) {
-    return "sdxl";
+    return "The selected checkpoint needs a matching SD 1.x LINECN workflow.";
   }
 
-  if (
-    normalized.includes("sd1") ||
-    normalized.includes("sd_1") ||
-    normalized.includes("sd-1") ||
-    normalized.includes("1.5") ||
-    normalized.includes("v1") ||
-    normalized.includes("epicrealism")
-  ) {
-    return "sd1";
-  }
-
-  if (EXPERIMENTAL_IMG2IMG_CHECKPOINT_PATTERNS.some((pattern) => normalized.includes(pattern))) {
-    return "unknown";
-  }
-
-  return "unknown";
+  return getErrorMessage(error);
 }
 
 function readSelectValue(select: HTMLSelectElement, fallback = "") {
@@ -2153,6 +2703,20 @@ function applyValidatedImageToImageSettings(elements: AppElements, settings: {
   elements.imgDenoise.value = String(settings.denoise);
 }
 
+function applyValidatedSketchToImageSettings(elements: AppElements, settings: {
+  steps: number;
+  cfg: number;
+  seed: number;
+  denoise: number;
+  controlStrength: number;
+}) {
+  elements.sketchSteps.value = String(settings.steps);
+  elements.sketchCfg.value = String(settings.cfg);
+  elements.sketchSeed.value = String(settings.seed);
+  elements.sketchDenoise.value = String(settings.denoise);
+  elements.sketchControlStrength.value = String(settings.controlStrength);
+}
+
 function applyPreferences(elements: AppElements, preferences: Partial<OpenLayerPreferences>) {
   if (preferences.serverUrl) {
     elements.serverUrl.value = preferences.serverUrl;
@@ -2163,6 +2727,7 @@ function applyPreferences(elements: AppElements, preferences: Partial<OpenLayerP
   }
 
   elements.imgWorkflow.value = DEFAULT_IMAGE_WORKFLOW;
+  elements.sketchWorkflow.value = DEFAULT_SKETCH_WORKFLOW;
 
   if (preferences.width) {
     elements.width.value = preferences.width;
@@ -2179,6 +2744,7 @@ function applyPreferences(elements: AppElements, preferences: Partial<OpenLayerP
   if (preferences.cfg) {
     elements.cfg.value = preferences.cfg;
     elements.imgCfg.value = preferences.cfg;
+    elements.sketchCfg.value = preferences.cfg;
   }
 
   if (preferences.seed) {
@@ -2199,6 +2765,12 @@ function applyDefaultSettings(elements: AppElements) {
   elements.imgCfg.value = DEFAULT_CFG;
   elements.imgSeed.value = "";
   elements.imgDenoise.value = DEFAULT_IMG2IMG_DENOISE;
+  elements.sketchWorkflow.value = DEFAULT_SKETCH_WORKFLOW;
+  elements.sketchSteps.value = DEFAULT_SKETCH_STEPS;
+  elements.sketchCfg.value = DEFAULT_CFG;
+  elements.sketchSeed.value = "";
+  elements.sketchDenoise.value = DEFAULT_SKETCH_DENOISE;
+  elements.sketchControlStrength.value = DEFAULT_SKETCH_CONTROL_STRENGTH;
 }
 
 function savePreferencesFromElements(

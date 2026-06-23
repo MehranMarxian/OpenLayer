@@ -1,5 +1,39 @@
 # Changelog
 
+## v0.2.1-alpha - 2026-06-23
+
+Sketch to Image LINECN foundation for pre-release testing.
+
+### Added
+
+- Available Sketch to Image launcher card and tool screen.
+- Photoshop active-layer and canvas capture reuse for Sketch to Image source input.
+- `sketch2img-linecn-basic` workflow preset for a simple SD 1.x LineArt ControlNet path.
+- Candidate ComfyUI API workflow at `src/workflows/sketch2img-linecn-basic.json`.
+- Required ComfyUI setup validation for the LINECN preset before generation.
+- Source preview, prompt, negative prompt, checkpoint selector, ControlNet strength, denoise, result preview, and `Import to Layers` action for Sketch to Image.
+- Friendly setup errors for missing LineArt preprocessor nodes or the SD 1.5 LineArt ControlNet model.
+- Workflow compatibility docs for SD/SDXL defaults, experimental model families, and the LINECN starter preset.
+
+### Changed
+
+- Bumped plugin/package metadata to `0.2.1`.
+- Updated alpha docs and landing page copy for Text to Image, Image to Image, Sketch to Image, Settings, History, and current limitations.
+- Added the current Home dashboard screenshot to release documentation.
+
+### Required For Sketch To Image LINECN
+
+- Recommended checkpoint: `epicrealism_naturalSinRC1VAE.safetensors`
+- Required ControlNet model: `control_v11p_sd15_lineart_fp16.safetensors`
+- Required ComfyUI node classes: `CheckpointLoaderSimple`, `LoadImage`, `CLIPTextEncode`, `LineArtPreprocessor`, `ControlNetLoader`, `ControlNetApplyAdvanced`, `VAEEncode`, `KSampler`, `VAEDecode`, and `SaveImage`.
+
+### Known Limitations
+
+- Sketch to Image currently targets one known-good SD 1.x LINECN workflow.
+- SDXL, SD3, Flux, and Z-Image Sketch to Image workflows need dedicated future presets.
+- The Sketch source capture uses the same JPEG Imaging API path as Image to Image.
+- Advanced sketch controls, separate guide previews, inpainting, masks, and selection-aware workflows remain future work.
+
 ## v0.2.0-alpha - 2026-06-22
 
 Image-to-image foundation for the next OpenLayer workflow family.

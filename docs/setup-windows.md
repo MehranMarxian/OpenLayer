@@ -52,3 +52,25 @@ python main.py --listen 127.0.0.1 --port 8190
 5. After the preview appears, click `Import Result as New Layer`.
 
 If generation fails, confirm the checkpoint name in `src/workflows/txt2img-basic.json` exists in your ComfyUI models folder.
+
+## Sketch To Image LINECN Test
+
+The first Sketch to Image preset is intentionally narrow and uses a SD 1.x LineArt ControlNet workflow.
+
+Required ComfyUI setup:
+
+- Checkpoint: `epicrealism_naturalSinRC1VAE.safetensors`
+- ControlNet model: `control_v11p_sd15_lineart_fp16.safetensors`
+- Node classes: `LineArtPreprocessor`, `ControlNetLoader`, and `ControlNetApplyAdvanced`
+
+Quick test:
+
+1. Open a Photoshop document with a visible layer or canvas.
+2. Open OpenLayer and choose `Sketch to Image`.
+3. Click `Capture Active Layer` or `Capture Canvas`.
+4. Keep the workflow set to `sketch2img-linecn-basic`.
+5. Choose `epicrealism_naturalSinRC1VAE.safetensors`.
+6. Enter a prompt and click `Generate Sketch to Image`.
+7. Click `Import to Layers`.
+
+If this fails with a setup message, install the required LineArt preprocessor/custom nodes or the SD 1.5 LineArt ControlNet model, then restart ComfyUI and click `Check ComfyUI` again.

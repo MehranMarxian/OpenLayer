@@ -10,7 +10,7 @@ OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop t
 
 ## Alpha Release
 
-`v0.2.0-alpha` is the current public preview. It is intended for testing the core local workflow, not for production work yet.
+`v0.2.1-alpha` is the current public preview. It is intended for testing the core local workflow, not for production work yet.
 
 Included in this alpha:
 
@@ -21,6 +21,9 @@ Included in this alpha:
 - Experimental image-to-image generation with the `img2img-basic` preset
 - Active Photoshop layer capture for Image to Image using Photoshop UXP Imaging API
 - Canvas capture option for Image to Image source input
+- Experimental Sketch to Image generation with the `sketch2img-linecn-basic` LINECN preset
+- Active Photoshop layer or canvas capture for Sketch to Image source input
+- ComfyUI setup validation for required LineArt/ControlNet nodes and models
 - Experimental checkpoint mode with SD 1.x, SDXL, SD3, and Flux compatibility warnings
 - Source image preview before upload to ComfyUI
 - Result preview inside the OpenLayer panel
@@ -32,13 +35,18 @@ Included in this alpha:
 - Responsive panel spacing fixes for narrow and wide Photoshop panels
 - Official OpenLayer icon and GitHub Pages landing page
 
-Known v0.2.0-alpha boundaries:
+![OpenLayer v0.2.1 Home dashboard](docs/assets/openlayer-v021-dashboard.png)
+
+Known v0.2.1-alpha boundaries:
 
 - Image to Image is an early foundation path, not a full production workflow yet.
-- Active-layer capture is currently encoded as JPEG through Photoshop's Imaging API.
+- Sketch to Image is limited to the first SD 1.x LINECN starter workflow.
+- Sketch to Image is currently tested with `epicrealism_naturalSinRC1VAE.safetensors` and `control_v11p_sd15_lineart_fp16.safetensors`.
+- Active-layer and canvas capture are currently encoded as JPEG through Photoshop's Imaging API.
 - `img2img-basic` is the default SD 1.x/SDXL preset. SD3, SD3.5, and Flux checkpoints remain visible but are marked experimental because they usually need dedicated future workflow presets.
+- SDXL, SD3, Flux, and Z-Image Sketch to Image workflows need dedicated future presets.
 - Workflow node IDs may need adjustment for custom ComfyUI workflows.
-- True PNG selected-layer export, inpainting, masks, selection preservation, aligned regional workflows, ControlNet-style workflows, and upscaling are not included yet.
+- True PNG selected-layer export, inpainting, masks, selection preservation, aligned regional workflows, advanced ControlNet-style workflows, and upscaling are not included yet.
 - The UI is functional and responsive enough for testing, but final visual polish will continue in later releases.
 
 ## Project Page
@@ -65,6 +73,7 @@ Working foundation:
 - Session history for recent generated images
 - `txt2img-basic` workflow generation
 - `img2img-basic` workflow generation foundation
+- `sketch2img-linecn-basic` Sketch to Image generation foundation
 - Active-layer or visible-canvas source capture and ComfyUI image upload
 - Experimental checkpoint mode for trying non-SD/SDXL model families with clear warnings
 - `/prompt` submission
@@ -115,7 +124,7 @@ npm run package
 This creates a zip package from `dist` in the `packages` folder. For the current alpha, the expected package name is:
 
 ```text
-packages/openlayer-v0.2.0-alpha.zip
+packages/openlayer-v0.2.1-alpha.zip
 ```
 
 ## Loading In UXP Developer Tool
@@ -188,9 +197,40 @@ The imported layer is named like:
 OpenLayer_Img2Img_YYYYMMDD_HHMM
 ```
 
+## First Sketch To Image LINECN Test
+
+1. Install or confirm this SD 1.x checkpoint is available in ComfyUI:
+
+```text
+epicrealism_naturalSinRC1VAE.safetensors
+```
+
+2. Install or confirm this SD 1.5 LineArt ControlNet model is available in ComfyUI:
+
+```text
+control_v11p_sd15_lineart_fp16.safetensors
+```
+
+3. Open a Photoshop document with a visible source layer or canvas.
+4. Open the OpenLayer panel and choose `Sketch to Image`.
+5. Click `Capture Active Layer`, or click `Capture Canvas`.
+6. Confirm the source preview appears.
+7. Enter a prompt describing the final image.
+8. Keep the workflow set to `sketch2img-linecn-basic`.
+9. Choose `epicrealism_naturalSinRC1VAE.safetensors`.
+10. Click `Generate Sketch to Image`.
+11. Wait for the result preview.
+12. Click `Import to Layers`.
+
+The imported layer is named like:
+
+```text
+OpenLayer_Sketch_YYYYMMDD_HHMM
+```
+
 ## Pre-release Tester Checklist
 
-Use this quick pass before reporting a v0.2.0-alpha test result:
+Use this quick pass before reporting a v0.2.1-alpha test result:
 
 1. Start ComfyUI on `http://127.0.0.1:8190`.
 2. Build OpenLayer and load `dist/manifest.json` in Adobe UXP Developer Tool.
@@ -198,7 +238,8 @@ Use this quick pass before reporting a v0.2.0-alpha test result:
 4. Open Settings and click `Check ComfyUI`; confirm checkpoints load.
 5. Generate one `txt2img-basic` image and import it as a new layer.
 6. Open `Image to Image`, capture either the active layer or canvas, generate with `img2img-basic`, and click `Import to Layers`.
-7. Resize the panel narrow and wide; confirm the header, footer, buttons, preview, and cards remain reachable.
+7. Open `Sketch to Image`, capture either the active layer or canvas, generate with `sketch2img-linecn-basic`, and click `Import to Layers`.
+8. Resize the panel narrow and wide; confirm the header, footer, buttons, preview, and cards remain reachable.
 
 ## Testing Checklist
 
@@ -227,9 +268,19 @@ The workflow builder injects:
 - steps
 - cfg
 
-Image to Image uses Photoshop's UXP Imaging API to capture the active layer and sends the source image to ComfyUI using `/upload/image`. In `v0.2.0-alpha`, that source capture is encoded as JPEG. True PNG layer export, mask export, and selection-aligned workflows are planned future work.
+Image to Image and Sketch to Image use Photoshop's UXP Imaging API to capture the active layer or canvas, then send the source image to ComfyUI using `/upload/image`. In `v0.2.1-alpha`, that source capture is encoded as JPEG. True PNG layer export, mask export, and selection-aligned workflows are planned future work.
 
 `img2img-basic` is intended for SD 1.x and SDXL-style checkpoints. SD3, SD3.5, and Flux checkpoints are shown in the selector for transparency, but OpenLayer warns before running them because those model families often need different loader, text encoder, and VAE nodes.
+
+Sketch to Image uses the same Photoshop capture and ComfyUI upload path, then runs `sketch2img-linecn-basic`. This preset requires:
+
+- `epicrealism_naturalSinRC1VAE.safetensors`
+- `control_v11p_sd15_lineart_fp16.safetensors`
+- `LineArtPreprocessor`
+- `ControlNetLoader`
+- `ControlNetApplyAdvanced`
+
+The first LINECN preset is intentionally narrow. It is a working SD 1.x foundation, not a universal sketch workflow for SDXL, SD3, Flux, or Z-Image.
 
 If you export a different workflow from ComfyUI, update the node IDs in `src/comfy/presetRegistry.ts`.
 

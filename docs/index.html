@@ -6,7 +6,7 @@
     <title>OpenLayer | Local AI layers for Photoshop</title>
     <meta
       name="description"
-      content="OpenLayer is an open-source Photoshop UXP plugin that connects Photoshop to a local ComfyUI server for text-to-image, image-to-image, preview, and layer import."
+      content="OpenLayer is an open-source Photoshop UXP plugin that connects Photoshop to a local ComfyUI server for text-to-image, image-to-image, Sketch to Image LINECN, preview, and layer import."
     >
     <meta name="theme-color" content="#2b2b2b">
     <meta property="og:title" content="OpenLayer">
@@ -36,13 +36,13 @@
         <div class="hero-content">
           <div class="hero-mark">
             <img src="assets/openlayer-icon.png" alt="" width="72" height="72">
-            <span>Alpha v0.2.0</span>
+            <span>Alpha v0.2.1</span>
           </div>
           <h1 id="hero-title">OpenLayer</h1>
           <p class="hero-lede">
-            Local AI layers for Photoshop. Generate or reinterpret an active layer
-            with your own ComfyUI server, preview inside the panel, and import the
-            result back as an editable Photoshop layer.
+            Local AI layers for Photoshop. Generate, reinterpret an active layer,
+            or guide a result with LineArt ControlNet using your own ComfyUI server,
+            then preview and import the result as an editable Photoshop layer.
           </p>
           <div class="hero-actions">
             <a class="button button-primary" href="https://github.com/MehranMarxian/OpenLayer">View on GitHub</a>
@@ -65,9 +65,9 @@
           </div>
           <p>
             OpenLayer starts with dependable local workflows: text-to-image generation,
-            an early image-to-image foundation, canvas capture, panel previews, and import
-            into the active document. The goal is a clean base that can grow into deeper layer,
-            mask, and selection workflows without rushing fake features.
+            image-to-image, a first Sketch to Image LINECN path, canvas capture, panel
+            previews, and import into the active document. The goal is a clean base that
+            can grow into deeper layer, mask, and selection workflows without rushing fake features.
           </p>
         </div>
       </section>
@@ -94,6 +94,10 @@
             <article class="feature-card">
               <h3>Image-to-image foundation</h3>
               <p>Capture the active Photoshop layer or visible canvas, preview the source, upload it to ComfyUI, and generate through a starter img2img workflow.</p>
+            </article>
+            <article class="feature-card">
+              <h3>Sketch to Image LINECN</h3>
+              <p>Capture a layer or canvas, run a starter SD 1.x LineArt ControlNet workflow, preview the result, and import it back to Photoshop.</p>
             </article>
             <article class="feature-card">
               <h3>Experimental checkpoint mode</h3>
@@ -129,7 +133,11 @@
             <p class="eyebrow">Current build</p>
             <h2 id="showcase-title">The MVP loop in Photoshop</h2>
           </div>
-          <div class="screenshot-grid">
+          <div class="screenshot-grid screenshot-grid-three">
+            <figure>
+              <img src="assets/openlayer-v021-dashboard.png" alt="OpenLayer v0.2.1 Home dashboard showing available Text to Image, Image to Image, Sketch to Image, History, and Settings tools.">
+              <figcaption>The v0.2.1 dashboard exposes current tools and future workflow areas.</figcaption>
+            </figure>
             <figure>
               <img src="assets/openlayer-preview-panel.png" alt="OpenLayer panel showing a generated preview inside Photoshop.">
               <figcaption>Generate and preview inside the OpenLayer panel.</figcaption>
@@ -151,7 +159,8 @@
           <ol class="flow-list">
             <li>Open Photoshop and load the OpenLayer UXP panel.</li>
             <li>Run ComfyUI locally on the OpenLayer server port.</li>
-            <li>Choose a checkpoint and enter a prompt.</li>
+            <li>Choose Text to Image, Image to Image, or Sketch to Image.</li>
+            <li>Choose a compatible checkpoint and enter a prompt.</li>
             <li>Generate through the ComfyUI prompt API.</li>
             <li>Preview the output image in the panel.</li>
             <li>Import the result as a new named Photoshop layer.</li>
@@ -201,11 +210,12 @@ npm run build</code></pre>
             <h2 id="limits-title">Honest alpha boundaries</h2>
           </div>
           <ul class="check-list">
-            <li><code>txt2img-basic</code> and <code>img2img-basic</code> are starter workflows, not final production presets.</li>
-            <li>Image to Image source capture currently uses JPEG through Photoshop's Imaging API.</li>
+            <li><code>txt2img-basic</code>, <code>img2img-basic</code>, and <code>sketch2img-linecn-basic</code> are starter workflows, not final production presets.</li>
+            <li>Image to Image and Sketch to Image source capture currently use JPEG through Photoshop's Imaging API.</li>
+            <li>Sketch to Image currently targets SD 1.x LINECN with <code>epicrealism_naturalSinRC1VAE.safetensors</code> and <code>control_v11p_sd15_lineart_fp16.safetensors</code>.</li>
             <li>Custom ComfyUI workflows may need node ID updates in the preset registry.</li>
             <li>Generated images are placed as Photoshop layers; advanced alignment is future work.</li>
-            <li>No true PNG selected-layer export, inpainting, masks, or ControlNet-style tools yet.</li>
+            <li>No true PNG selected-layer export, inpainting, masks, upscaling, or selection-aware workflows yet.</li>
             <li>The browser dev server is only for UI preview. Photoshop APIs run inside UXP.</li>
             <li>Responsive panel spacing has been improved for testing, but final visual polish is still in progress.</li>
           </ul>
@@ -224,6 +234,7 @@ npm run build</code></pre>
             <li>Open Photoshop, launch OpenLayer, and click <code>Check ComfyUI</code>.</li>
             <li>Generate one text-to-image result and import it as a new layer.</li>
             <li>Capture an active layer or canvas, run Image to Image, and import the result.</li>
+            <li>Capture an active layer or canvas, run Sketch to Image with <code>sketch2img-linecn-basic</code>, and import the result.</li>
             <li>Resize the panel narrow and wide; confirm cards, buttons, previews, header, and footer remain reachable.</li>
           </ol>
         </div>
@@ -242,7 +253,7 @@ npm run build</code></pre>
             </article>
             <article>
               <h3>v0.2 foundation</h3>
-              <p>Image-to-image starter workflow, active-layer and canvas source preview, ComfyUI upload, experimental checkpoint warnings, and result import.</p>
+              <p>Image-to-image starter workflow, Sketch to Image LINECN foundation, active-layer and canvas source preview, ComfyUI upload, experimental checkpoint warnings, and result import.</p>
             </article>
             <article>
               <h3>Future artist tools</h3>
@@ -266,10 +277,8 @@ npm run build</code></pre>
     </main>
 
     <footer class="site-footer">
-      <p>OpenLayer v0.2.0-alpha. Developed by Mehran Ahmadi, 2026.</p>
+      <p>OpenLayer v0.2.1-alpha. Developed by Mehran Ahmadi, 2026.</p>
       <p>
-        <a href="https://mehran-ahmadi.com/">Website</a>
-        <span aria-hidden="true">/</span>
         <a href="https://github.com/MehranMarxian">GitHub</a>
       </p>
     </footer>

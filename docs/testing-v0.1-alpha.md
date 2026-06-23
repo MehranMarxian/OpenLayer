@@ -31,7 +31,7 @@ npm run package
 Expected result:
 
 - A package is created in `packages`.
-- For this version, the package should be named `openlayer-v0.2.0-alpha.zip`.
+- For this version, the package should be named `openlayer-v0.2.1-alpha.zip`.
 
 If this fails:
 
@@ -179,9 +179,47 @@ If this fails:
 
 ## 10. Check Responsive Panel Layout
 
+## 10. Test Sketch To Image LINECN
+
+1. Confirm ComfyUI has this checkpoint:
+
+```text
+epicrealism_naturalSinRC1VAE.safetensors
+```
+
+2. Confirm ComfyUI has this ControlNet model:
+
+```text
+control_v11p_sd15_lineart_fp16.safetensors
+```
+
+3. Select a visible Photoshop layer or open a document with visible canvas content.
+4. Open the OpenLayer launcher and choose `Sketch to Image`.
+5. Click `Capture Active Layer`, or click `Capture Canvas`.
+6. Confirm the source preview appears.
+7. Enter a short prompt.
+8. Keep the workflow set to `sketch2img-linecn-basic`.
+9. Choose `epicrealism_naturalSinRC1VAE.safetensors`.
+10. Click `Generate Sketch to Image`.
+11. Click `Import to Layers`.
+
+Expected result:
+
+- A source preview appears before generation.
+- The generated Sketch to Image result appears in the result preview.
+- A new layer appears in Photoshop with a name starting with `OpenLayer_Sketch_`.
+
+If this fails:
+
+- Confirm `LineArtPreprocessor`, `ControlNetLoader`, and `ControlNetApplyAdvanced` are available in ComfyUI.
+- Confirm the SD 1.5 LineArt ControlNet model is installed.
+- Use the recommended SD 1.x checkpoint first. SDXL, SD3, Flux, and Z-Image need dedicated future Sketch presets.
+
+## 11. Check Responsive Panel Layout
+
 1. Resize the OpenLayer panel to a narrow Photoshop panel.
 2. Resize it wider if your workspace allows.
-3. Visit Home, Text to Image, Image to Image, Settings, and History.
+3. Visit Home, Text to Image, Image to Image, Sketch to Image, Settings, and History.
 
 Expected result:
 
@@ -191,7 +229,7 @@ Expected result:
 - Preview panels do not hide import buttons.
 - Settings and History content can be reached by scrolling.
 
-## 11. Final Smoke Test Result
+## 12. Final Smoke Test Result
 
 The alpha smoke test passes when:
 
@@ -200,4 +238,5 @@ The alpha smoke test passes when:
 - A prompt generates a preview.
 - The preview imports as a new Photoshop layer.
 - Image to Image can capture an active layer, generate, preview, and import.
+- Sketch to Image can capture an active layer or canvas, generate with the LINECN starter preset, preview, and import.
 - The panel stays usable at narrow and wide widths.

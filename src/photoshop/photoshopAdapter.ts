@@ -217,7 +217,7 @@ export async function exportActiveLayerAsPNG(): Promise<Blob> {
   // TODO(v0.2+): Add a true PNG export path if Photoshop UXP exposes one safely for selected layers.
   throw createOpenLayerError(
     "PHOTOSHOP_EXPORT_FAILED",
-    "PNG active-layer export is planned for a future OpenLayer version. v0.2.0-alpha captures a JPEG source through Photoshop's Imaging API for Image to Image."
+    "PNG active-layer export is planned for a future OpenLayer version. v0.2.1-alpha captures a JPEG source through Photoshop's Imaging API for Image to Image and Sketch to Image."
   );
 }
 
@@ -355,7 +355,7 @@ function getImagingApi(photoshop: PhotoshopModule) {
     throw createOpenLayerError(
       "PHOTOSHOP_EXPORT_FAILED",
       "This Photoshop UXP environment does not expose the Imaging API needed to capture a source image.",
-      "OpenLayer v0.2.0-alpha uses photoshop.imaging.getPixels() and encodeImageData() for image-to-image source capture."
+      "OpenLayer v0.2.1-alpha uses photoshop.imaging.getPixels() and encodeImageData() for image source capture."
     );
   }
 

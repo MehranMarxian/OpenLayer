@@ -1,5 +1,13 @@
-export type WorkflowPreset = "txt2img-basic" | "img2img-basic";
-export type WorkflowMode = "txt2img" | "img2img";
+export type WorkflowPreset =
+  | "txt2img-basic"
+  | "img2img-basic"
+  | "txt2img-flux1-dev"
+  | "img2img-flux1-dev"
+  | "txt2img-z-image-turbo"
+  | "img2img-z-image-turbo"
+  | "sketch2img-linecn-basic";
+export type WorkflowMode = "txt2img" | "img2img" | "sketch2img";
+export type ModelFamily = "sd1" | "sdxl" | "sd3" | "flux" | "zImage" | "unknown";
 
 export type ComfyWorkflow = Record<string, ComfyWorkflowNode>;
 
@@ -12,6 +20,7 @@ export type ComfyWorkflowNode = {
 };
 
 export type BuildWorkflowOptions = {
+  presetId?: string;
   prompt: string;
   negativePrompt?: string;
   checkpointName?: string;
@@ -23,6 +32,7 @@ export type BuildWorkflowOptions = {
 };
 
 export type BuildImageToImageWorkflowOptions = {
+  presetId?: string;
   prompt: string;
   negativePrompt?: string;
   checkpointName?: string;
@@ -31,6 +41,10 @@ export type BuildImageToImageWorkflowOptions = {
   cfg: number;
   seed: number;
   denoise: number;
+};
+
+export type BuildSketchToImageWorkflowOptions = BuildImageToImageWorkflowOptions & {
+  controlStrength: number;
 };
 
 export type BuildWorkflowResult = {
@@ -45,23 +59,51 @@ export type WorkflowNodeRequirement = {
   requiredInputs: string[];
 };
 
+export type WorkflowInputTarget = {
+  nodeId: string;
+  inputName: string;
+};
+
+export type WorkflowInjectionName =
+  | "checkpoint"
+  | "positivePrompt"
+  | "negativePrompt"
+  | "width"
+  | "height"
+  | "seed"
+  | "steps"
+  | "cfg"
+  | "denoise"
+  | "sourceImage"
+  | "controlStrength";
+
+export type WorkflowInjectionTargets = Partial<Record<WorkflowInjectionName, WorkflowInputTarget>>;
+
+export type WorkflowModelSource = {
+  objectInfoNode: string;
+  inputName: string;
+  label: string;
+};
+
+export type WorkflowRequiredModel = WorkflowModelSource & {
+  modelName: string;
+  setupHint?: string;
+};
+
 export type WorkflowPresetDefinition = {
   id: WorkflowPreset;
   label: string;
   mode: WorkflowMode;
   description: string;
   workflowFile: string;
-  nodeIds: {
-    checkpointLoader: string;
-    positivePrompt: string;
-    negativePrompt: string;
-    sampler: string;
-    saveImage: string;
-    latentImage?: string;
-    loadImage?: string;
-    vaeEncode?: string;
-  };
+  status: "stable" | "experimental" | "todo";
+  supportedModelFamilies: ModelFamily[];
+  experimentalModelFamilies: ModelFamily[];
+  modelSource: WorkflowModelSource;
+  injections: WorkflowInjectionTargets;
   requiredNodes: WorkflowNodeRequirement[];
+  requiredModels?: WorkflowRequiredModel[];
+  compatibilityNote?: string;
 };
 
 export type ComfyPromptResponse = {
@@ -115,6 +157,10 @@ export type ImageToImageSettings = {
   denoise: number;
 };
 
+export type SketchToImageSettings = ImageToImageSettings & {
+  controlStrength: number;
+};
+
 export type GenerationSettingsInput = {
   width: string;
   height: string;
@@ -130,6 +176,10 @@ export type ImageToImageSettingsInput = {
   denoise: string;
 };
 
+export type SketchToImageSettingsInput = ImageToImageSettingsInput & {
+  controlStrength: string;
+};
+
 export type GenerationSettingsValidation = {
   settings: GenerationSettings;
   warnings: string[];
@@ -140,15 +190,21 @@ export type ImageToImageSettingsValidation = {
   warnings: string[];
 };
 
-export type ComfyCheckpointInfoResponse = {
-  CheckpointLoaderSimple?: {
+export type SketchToImageSettingsValidation = {
+  settings: SketchToImageSettings;
+  warnings: string[];
+};
+
+export type ComfyObjectInfoResponse = Record<
+  string,
+  {
     input?: {
       required?: {
-        ckpt_name?: [string[], unknown];
+        [inputName: string]: unknown;
       };
     };
-  };
-};
+  }
+>;
 
 export type ComfyQueueResponse = {
   queue_running?: unknown[];

@@ -1,13 +1,14 @@
 import {
-  ComfyCheckpointInfoResponse,
   ComfyHistoryItem,
   ComfyHistoryResponse,
   ComfyImageOutput,
+  ComfyObjectInfoResponse,
   ComfyPromptResponse,
   ComfyQueueResponse,
   ComfyUploadImageResponse,
   ComfyWorkflow,
-  GeneratedImageResult
+  GeneratedImageResult,
+  WorkflowPresetDefinition
 } from "./types";
 import { createOpenLayerError, getNestedErrorMessage } from "../utils/errors";
 
@@ -61,24 +62,98 @@ export class ComfyClient {
   }
 
   async getCheckpointNames(): Promise<string[]> {
-    const response = await fetch(`${this.serverUrl}/object_info/CheckpointLoaderSimple`);
+    return this.getModelNamesFromObjectInfo("CheckpointLoaderSimple", "ckpt_name");
+  }
 
-    if (!response.ok) {
-      throw createOpenLayerError(
-        "COMFY_HTTP",
-        `Could not read the ComfyUI checkpoint list. HTTP ${response.status}.`
-      );
-    }
-
-    const data = (await response.json()) as ComfyCheckpointInfoResponse;
-    const names = data.CheckpointLoaderSimple?.input?.required?.ckpt_name?.[0] ?? [];
-
-    return names.filter((name) => typeof name === "string");
+  async getModelNamesForPreset(preset: WorkflowPresetDefinition): Promise<string[]> {
+    return this.getModelNamesFromObjectInfo(preset.modelSource.objectInfoNode, preset.modelSource.inputName);
   }
 
   async hasCheckpoint(checkpointName: string) {
     const checkpoints = await this.getCheckpointNames();
     return checkpoints.includes(checkpointName);
+  }
+
+  async hasModelForPreset(modelName: string, preset: WorkflowPresetDefinition) {
+    const modelNames = await this.getModelNamesForPreset(preset);
+    return modelNames.includes(modelName);
+  }
+
+  async validatePresetSetup(preset: WorkflowPresetDefinition) {
+    const problems: string[] = [];
+    const checkedNodeClasses = new Set<string>();
+
+    for (const requirement of preset.requiredNodes) {
+      if (checkedNodeClasses.has(requirement.classType)) {
+        continue;
+      }
+
+      checkedNodeClasses.add(requirement.classType);
+
+      try {
+        const objectInfo = await this.getObjectInfo(requirement.classType);
+        const schema = objectInfo[requirement.classType];
+        const requiredInputs = schema?.input?.required ?? {};
+        const missingInputs = requirement.requiredInputs.filter((inputName) => !(inputName in requiredInputs));
+
+        if (!schema) {
+          problems.push(`Missing ComfyUI node class "${requirement.classType}".`);
+        } else if (missingInputs.length > 0) {
+          problems.push(
+            `Node "${requirement.classType}" is missing expected input(s): ${missingInputs.join(", ")}.`
+          );
+        }
+      } catch (caughtError) {
+        problems.push(`Could not inspect ComfyUI node "${requirement.classType}". ${getNestedErrorMessage(caughtError)}`);
+      }
+    }
+
+    for (const requiredModel of preset.requiredModels ?? []) {
+      try {
+        const modelNames = await this.getModelNamesFromObjectInfo(
+          requiredModel.objectInfoNode,
+          requiredModel.inputName
+        );
+
+        if (!modelNames.includes(requiredModel.modelName)) {
+          problems.push(
+            `Missing ${requiredModel.label}: ${requiredModel.modelName}. ${requiredModel.setupHint ?? ""}`.trim()
+          );
+        }
+      } catch (caughtError) {
+        problems.push(
+          `Could not inspect ${requiredModel.label} models. ${getNestedErrorMessage(caughtError)}`
+        );
+      }
+    }
+
+    if (problems.length > 0) {
+      throw createOpenLayerError(
+        "COMFY_SETUP_MISSING",
+        `ComfyUI is missing setup required by ${preset.label}.`,
+        problems.join(" ")
+      );
+    }
+  }
+
+  private async getModelNamesFromObjectInfo(objectInfoNode: string, inputName: string): Promise<string[]> {
+    const data = await this.getObjectInfo(objectInfoNode);
+    const names = readComfyModelNameList(data, objectInfoNode, inputName);
+
+    return names.filter((name) => typeof name === "string");
+  }
+
+  private async getObjectInfo(objectInfoNode: string): Promise<ComfyObjectInfoResponse> {
+    const response = await fetch(`${this.serverUrl}/object_info/${encodeURIComponent(objectInfoNode)}`);
+
+    if (!response.ok) {
+      throw createOpenLayerError(
+        "COMFY_HTTP",
+        `Could not read the ComfyUI ${objectInfoNode} object info. HTTP ${response.status}.`
+      );
+    }
+
+    return (await response.json()) as ComfyObjectInfoResponse;
   }
 
   async uploadImage(blob: Blob, fileName = "openlayer-source.png") {
@@ -384,6 +459,16 @@ function normalizeServerUrl(serverUrl: string) {
   }
 
   return trimmed.replace(/\/+$/, "");
+}
+
+function readComfyModelNameList(data: ComfyObjectInfoResponse, objectInfoNode: string, inputName: string) {
+  const input = data[objectInfoNode]?.input?.required?.[inputName];
+
+  if (!Array.isArray(input) || !Array.isArray(input[0])) {
+    return [];
+  }
+
+  return input[0].filter((name): name is string => typeof name === "string");
 }
 
 function createClientId() {
