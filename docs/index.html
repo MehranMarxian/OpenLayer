@@ -6,7 +6,7 @@
     <title>OpenLayer | Local AI layers for Photoshop</title>
     <meta
       name="description"
-      content="OpenLayer is an open-source Photoshop UXP plugin that connects Photoshop to a local ComfyUI server for text-to-image, image-to-image foundation, preview, and layer import."
+      content="OpenLayer is an open-source Photoshop UXP plugin that connects Photoshop to a local ComfyUI server for text-to-image, image-to-image, preview, and layer import."
     >
     <meta name="theme-color" content="#2b2b2b">
     <meta property="og:title" content="OpenLayer">
@@ -65,8 +65,8 @@
           </div>
           <p>
             OpenLayer starts with dependable local workflows: text-to-image generation,
-            an early image-to-image foundation, panel previews, and import into the
-            active document. The goal is a clean base that can grow into deeper layer,
+            an early image-to-image foundation, canvas capture, panel previews, and import
+            into the active document. The goal is a clean base that can grow into deeper layer,
             mask, and selection workflows without rushing fake features.
           </p>
         </div>
@@ -80,6 +80,10 @@
           </div>
           <div class="feature-grid">
             <article class="feature-card">
+              <h3>Home dashboard</h3>
+              <p>Photoshop-dark tool cards expose Text to Image, Image to Image, History, Settings, and planned future tools without fake implementation.</p>
+            </article>
+            <article class="feature-card">
               <h3>ComfyUI connection</h3>
               <p>Set a local server URL, find common active local ports, check availability, and load checkpoints from ComfyUI.</p>
             </article>
@@ -89,7 +93,11 @@
             </article>
             <article class="feature-card">
               <h3>Image-to-image foundation</h3>
-              <p>Capture the active Photoshop layer, preview the source, upload it to ComfyUI, and generate through a starter img2img workflow.</p>
+              <p>Capture the active Photoshop layer or visible canvas, preview the source, upload it to ComfyUI, and generate through a starter img2img workflow.</p>
+            </article>
+            <article class="feature-card">
+              <h3>Experimental checkpoint mode</h3>
+              <p>Keep SD3 and Flux-style checkpoints visible with compatibility warnings while keeping <code>img2img-basic</code> focused on SD 1.x and SDXL.</p>
             </article>
             <article class="feature-card">
               <h3>Panel preview</h3>
@@ -105,7 +113,7 @@
             </article>
             <article class="feature-card">
               <h3>UXP-safe interface</h3>
-              <p>Built with vanilla TypeScript and static UI code that avoids browser APIs missing in Photoshop UXP.</p>
+              <p>Built with vanilla TypeScript and responsive spacing rules that avoid browser APIs and layout features that are fragile in Photoshop UXP.</p>
             </article>
             <article class="feature-card">
               <h3>Future-ready structure</h3>
@@ -199,8 +207,25 @@ npm run build</code></pre>
             <li>Generated images are placed as Photoshop layers; advanced alignment is future work.</li>
             <li>No true PNG selected-layer export, inpainting, masks, or ControlNet-style tools yet.</li>
             <li>The browser dev server is only for UI preview. Photoshop APIs run inside UXP.</li>
-            <li>Very narrow Photoshop panels are usable, but final layout polish is still in progress.</li>
+            <li>Responsive panel spacing has been improved for testing, but final visual polish is still in progress.</li>
           </ul>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="testing-title">
+        <div class="section-inner split-layout">
+          <div>
+            <p class="eyebrow">Tester checklist</p>
+            <h2 id="testing-title">Pre-release smoke test</h2>
+          </div>
+          <ol class="flow-list">
+            <li>Start ComfyUI on <code>http://127.0.0.1:8190</code>.</li>
+            <li>Load <code>dist/manifest.json</code> in Adobe UXP Developer Tool.</li>
+            <li>Open Photoshop, launch OpenLayer, and click <code>Check ComfyUI</code>.</li>
+            <li>Generate one text-to-image result and import it as a new layer.</li>
+            <li>Capture an active layer or canvas, run Image to Image, and import the result.</li>
+            <li>Resize the panel narrow and wide; confirm cards, buttons, previews, header, and footer remain reachable.</li>
+          </ol>
         </div>
       </section>
 
@@ -217,7 +242,7 @@ npm run build</code></pre>
             </article>
             <article>
               <h3>v0.2 foundation</h3>
-              <p>Image-to-image starter workflow, active-layer source preview, ComfyUI upload, and result import.</p>
+              <p>Image-to-image starter workflow, active-layer and canvas source preview, ComfyUI upload, experimental checkpoint warnings, and result import.</p>
             </article>
             <article>
               <h3>Future artist tools</h3>

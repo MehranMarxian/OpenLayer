@@ -82,6 +82,7 @@ If this fails:
 Expected result:
 
 - The OpenLayer panel appears.
+- The Home dashboard shows Text to Image, Image to Image, History, Settings, and Coming Soon tool cards.
 - The default ComfyUI server URL is `http://127.0.0.1:8190`.
 
 If this fails:
@@ -156,12 +157,12 @@ If this fails:
 
 1. Select a visible Photoshop layer.
 2. Open the OpenLayer launcher and choose `Image to Image`.
-3. Click `Capture Active Layer`.
+3. Click `Capture Active Layer`, or click `Capture Canvas` to use the visible document.
 4. Confirm a source preview appears.
 5. Enter a short prompt.
 6. Keep the workflow set to `img2img-basic`.
 7. Click `Generate Image to Image`.
-8. Click `Import Image to Image Result`.
+8. Click `Import to Layers`.
 
 Expected result:
 
@@ -172,10 +173,25 @@ Expected result:
 If this fails:
 
 - Confirm the selected layer is visible and has pixels Photoshop can capture.
+- Use an SD 1.x or SDXL-style checkpoint for `img2img-basic` first. Flux, SD3, and SD3.5 stay visible in the selector but are experimental for this preset.
 - Confirm Photoshop exposes the UXP Imaging API in the current version.
 - Check the ComfyUI terminal for upload or workflow errors.
 
-## 10. Final Smoke Test Result
+## 10. Check Responsive Panel Layout
+
+1. Resize the OpenLayer panel to a narrow Photoshop panel.
+2. Resize it wider if your workspace allows.
+3. Visit Home, Text to Image, Image to Image, Settings, and History.
+
+Expected result:
+
+- Tool cards have visible gutters and remain clickable.
+- Header, status row, and footer remain readable.
+- Buttons do not clip outside the panel.
+- Preview panels do not hide import buttons.
+- Settings and History content can be reached by scrolling.
+
+## 11. Final Smoke Test Result
 
 The alpha smoke test passes when:
 
@@ -184,3 +200,4 @@ The alpha smoke test passes when:
 - A prompt generates a preview.
 - The preview imports as a new Photoshop layer.
 - Image to Image can capture an active layer, generate, preview, and import.
+- The panel stays usable at narrow and wide widths.

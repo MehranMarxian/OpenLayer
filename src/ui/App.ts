@@ -6,6 +6,7 @@ import { GeneratedImageResult } from "../comfy/types";
 import {
   ExportedSourceImage,
   exportActiveLayerForImageToImage,
+  exportCanvasForImageToImage,
   getActiveDocumentInfo,
   importGeneratedImageAsLayer
 } from "../photoshop/photoshopAdapter";
@@ -20,7 +21,6 @@ import {
 
 const DEFAULT_SERVER_URL = "http://127.0.0.1:8190";
 const APP_VERSION = "0.2.0";
-const DEVELOPER_WEBSITE = "https://mehran-ahmadi.com/";
 const DEVELOPER_GITHUB = "https://github.com/MehranMarxian";
 const HISTORY_LIMIT = 5;
 const COMFY_PORT_CANDIDATES = [8190, 8188, 8189, 8191, 8192, 8193, 7860];
@@ -32,6 +32,18 @@ const DEFAULT_STEPS = "4";
 const DEFAULT_CFG = "7";
 const DEFAULT_IMG2IMG_STEPS = "12";
 const DEFAULT_IMG2IMG_DENOISE = "0.55";
+const EXPERIMENTAL_IMG2IMG_CHECKPOINT_PATTERNS = [
+  "flux",
+  "sd3",
+  "sd_3",
+  "sd-3",
+  "stable-diffusion-3",
+  "stable_diffusion_3",
+  "hunyuan",
+  "auraflow",
+  "pixart",
+  "kolors"
+];
 const FALLBACK_CHECKPOINTS = [
   "epicrealism_naturalSinRC1VAE.safetensors",
   "epicrealism_pureEvolutionV5-inpainting.safetensors",
@@ -46,6 +58,15 @@ const FALLBACK_CHECKPOINTS = [
 type StatusTone = "idle" | "ready" | "error";
 type AppView = "home" | "text-to-image" | "image-to-image" | "settings" | "history";
 type ToolCardStatus = "available" | "coming-soon";
+type ModelFamily = "sd1" | "sdxl" | "sd3" | "flux" | "unknown";
+
+type ImageCheckpointCompatibility = {
+  family: ModelFamily;
+  isExperimental: boolean;
+  label: string;
+  warning: string;
+  experimentalNote: string;
+};
 
 type ToolCard = {
   id: string;
@@ -65,6 +86,7 @@ type ToolIconName =
   | "upscale"
   | "style"
   | "control"
+  | "workflow"
   | "layers"
   | "history"
   | "settings";
@@ -129,6 +151,13 @@ const TOOL_CARDS: ToolCard[] = [
     status: "coming-soon"
   },
   {
+    id: "workflow",
+    title: "Workflow",
+    subtitle: "Build and test custom ComfyUI graphs",
+    icon: "workflow",
+    status: "coming-soon"
+  },
+  {
     id: "layer-tools",
     title: "Layer Tools",
     subtitle: "Export layers, selections, and masks",
@@ -187,8 +216,10 @@ type AppElements = {
   imgSeed: HTMLInputElement;
   imgDenoise: HTMLInputElement;
   captureLayerButton: HTMLElement;
+  captureCanvasButton: HTMLElement;
   generateImg2ImgButton: HTMLElement;
   importImg2ImgButton: HTMLElement;
+  experimentalCheckpointToggle: HTMLElement;
   negativePromptToggle: HTMLElement;
   negativePromptField: HTMLElement;
   clearHistoryButton: HTMLElement;
@@ -200,12 +231,15 @@ type AppElements = {
   settingsStatusPill: HTMLElement;
   diagnosticsText: HTMLElement;
   imgDiagnosticsText: HTMLElement;
+  imgCompatibilityNote: HTMLElement;
   settingsDiagnosticsText: HTMLElement;
   errorMessage: HTMLElement;
   imgErrorMessage: HTMLElement;
   settingsErrorMessage: HTMLElement;
   previewPanel: HTMLElement;
   imageSourcePreviewPanel: HTMLElement;
+  imageSourceTitle: HTMLElement;
+  imageSourceMeta: HTMLElement;
   imageResultPreviewPanel: HTMLElement;
   historyList: HTMLElement;
   settingsUrlValue: HTMLElement;
@@ -242,6 +276,7 @@ export function renderApp(rootElement: HTMLElement) {
   let imageLivePreviewUrl = "";
   let importAutomatically = false;
   let isNegativePromptOpen = false;
+  let allowExperimentalCheckpoints = false;
   const historyEntries: HistoryEntry[] = [];
 
   rootElement.innerHTML = createAppMarkup();
@@ -261,6 +296,12 @@ export function renderApp(rootElement: HTMLElement) {
     generate: createActionRunner(elements, "generate", handleGenerate),
     import: createActionRunner(elements, "import", handleImport),
     captureImageSource: createActionRunner(elements, "captureImageSource", handleCaptureImageSource),
+    captureCanvasSource: createActionRunner(elements, "captureCanvasSource", handleCaptureCanvasSource),
+    toggleExperimentalCheckpoints: createActionRunner(
+      elements,
+      "toggleExperimentalCheckpoints",
+      handleToggleExperimentalCheckpoints
+    ),
     generateImg2Img: createActionRunner(elements, "generateImg2Img", handleGenerateImg2Img),
     importImg2Img: createActionRunner(elements, "importImg2Img", handleImportImg2Img),
     clearHistory: createActionRunner(elements, "clearHistory", handleClearHistory)
@@ -275,6 +316,8 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.generateButton, actionHandlers.generate);
   bindActionControl(elements.importButton, actionHandlers.import);
   bindActionControl(elements.captureLayerButton, actionHandlers.captureImageSource);
+  bindActionControl(elements.captureCanvasButton, actionHandlers.captureCanvasSource);
+  bindActionControl(elements.experimentalCheckpointToggle, actionHandlers.toggleExperimentalCheckpoints);
   bindActionControl(elements.generateImg2ImgButton, actionHandlers.generateImg2Img);
   bindActionControl(elements.importImg2ImgButton, actionHandlers.importImg2Img);
   bindActionControl(elements.clearHistoryButton, actionHandlers.clearHistory);
@@ -282,6 +325,7 @@ export function renderApp(rootElement: HTMLElement) {
   bindDocumentActions(rootElement, actionHandlers);
   bindToolCards(rootElement, (view) => setView(view));
   bindHistoryActions(rootElement, handleHistoryAction);
+  bindExternalLinks(rootElement);
 
   setStatus(elements, "Ready.", "idle");
   setView(currentView);
@@ -289,11 +333,17 @@ export function renderApp(rootElement: HTMLElement) {
   setBusy(elements, isBusy, result, imageResult, imageSource);
   updateNegativePromptDisclosure(elements, isNegativePromptOpen);
   updateAutoImportToggle(elements, importAutomatically);
+  updateExperimentalCheckpointToggle(elements, allowExperimentalCheckpoints);
+  updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints);
   setImageSource(null);
   setImageResult(null);
   updateSettingsReport(elements);
   renderHistory(elements, historyEntries);
   void loadInitialCheckpoints();
+
+  elements.imgCheckpoint.addEventListener("change", () => {
+    updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints);
+  });
 
   async function loadInitialCheckpoints() {
     setStatus(elements, "Loading ComfyUI models...", "idle");
@@ -302,6 +352,7 @@ export function renderApp(rootElement: HTMLElement) {
       const client = new ComfyClient(elements.serverUrl.value);
       await client.checkOnline();
       await loadCheckpoints(client, elements, preferences.checkpointName || readSelectValue(elements.checkpoint));
+      updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints);
       setStatus(elements, "ComfyUI is online. Models loaded.", "ready");
       savePreferencesFromElements(elements);
       updateSettingsReport(elements);
@@ -321,6 +372,7 @@ export function renderApp(rootElement: HTMLElement) {
       const client = new ComfyClient(elements.serverUrl.value);
       await client.checkOnline();
       await loadCheckpoints(client, elements);
+      updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints);
       setStatus(elements, "ComfyUI is online. Models loaded.", "ready");
       savePreferencesFromElements(elements);
       updateSettingsReport(elements);
@@ -352,6 +404,7 @@ export function renderApp(rootElement: HTMLElement) {
     try {
       const client = new ComfyClient(foundUrl);
       await loadCheckpoints(client, elements);
+      updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints);
       savePreferencesFromElements(elements);
       setStatus(elements, `Found ComfyUI at ${foundUrl}.`, "ready");
       setDiagnostics(elements, `Active ComfyUI server selected: ${foundUrl}.`);
@@ -379,6 +432,7 @@ export function renderApp(rootElement: HTMLElement) {
     clearOpenLayerPreferences();
     applyDefaultSettings(elements);
     fillCheckpointOptions(elements, FALLBACK_CHECKPOINTS, FALLBACK_CHECKPOINTS[0]);
+    updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints);
     setError(elements, "");
     setStatus(elements, "Settings reset to OpenLayer defaults.", "ready");
     setDiagnostics(elements, "Defaults restored. Click Check ComfyUI to reload available models.");
@@ -394,6 +448,18 @@ export function renderApp(rootElement: HTMLElement) {
     importAutomatically = !importAutomatically;
     updateAutoImportToggle(elements, importAutomatically);
     setDiagnostics(elements, importAutomatically ? "Auto import is on." : "Auto import is off.");
+  }
+
+  function handleToggleExperimentalCheckpoints() {
+    allowExperimentalCheckpoints = !allowExperimentalCheckpoints;
+    updateExperimentalCheckpointToggle(elements, allowExperimentalCheckpoints);
+    updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints);
+    setImageDiagnostics(
+      elements,
+      allowExperimentalCheckpoints
+        ? "Experimental checkpoints are allowed for Image to Image. Some workflows may still fail."
+        : "Experimental checkpoints are protected. Use SD 1.x or SDXL for img2img-basic."
+    );
   }
 
   async function handleGenerate() {
@@ -598,20 +664,43 @@ export function renderApp(rootElement: HTMLElement) {
   }
 
   async function handleCaptureImageSource() {
-    setImageDiagnostics(elements, "Capturing active Photoshop layer...");
+    await captureImageToImageSource({
+      progressMessage: "Capturing active Photoshop layer...",
+      statusMessage: "Capturing active layer...",
+      successMessage: "Source layer captured.",
+      capture: exportActiveLayerForImageToImage
+    });
+  }
+
+  async function handleCaptureCanvasSource() {
+    await captureImageToImageSource({
+      progressMessage: "Capturing Photoshop canvas...",
+      statusMessage: "Capturing canvas...",
+      successMessage: "Canvas captured.",
+      capture: exportCanvasForImageToImage
+    });
+  }
+
+  async function captureImageToImageSource(options: {
+    progressMessage: string;
+    statusMessage: string;
+    successMessage: string;
+    capture: () => Promise<ExportedSourceImage>;
+  }) {
+    setImageDiagnostics(elements, options.progressMessage);
     setImageError(elements, "");
-    setImageStatus(elements, "Capturing active layer...", "idle");
+    setImageStatus(elements, options.statusMessage, "idle");
     isBusy = true;
     setBusy(elements, isBusy, result, imageResult, imageSource);
 
     try {
-      const exportedSource = await exportActiveLayerForImageToImage();
+      const exportedSource = await options.capture();
       const sourcePreview = URL.createObjectURL(exportedSource.blob);
       setImageSource({
         ...exportedSource,
         previewUrl: sourcePreview
       });
-      setImageStatus(elements, "Source layer captured.", "ready");
+      setImageStatus(elements, options.successMessage, "ready");
       setImageDiagnostics(
         elements,
         `Captured ${exportedSource.sourceName} (${Math.round(exportedSource.width)} x ${Math.round(exportedSource.height)}) as JPEG source.`
@@ -672,6 +761,21 @@ export function renderApp(rootElement: HTMLElement) {
 
       if (!checkpointName) {
         throw createOpenLayerError("CHECKPOINT_REQUIRED", "Choose a ComfyUI checkpoint before generating.");
+      }
+
+      const compatibility = getImageCheckpointCompatibility(checkpointName);
+
+      if (compatibility.isExperimental && !allowExperimentalCheckpoints) {
+        throw createOpenLayerError(
+          "CHECKPOINT_UNSUPPORTED",
+          `${checkpointName} is marked experimental for img2img-basic.`,
+          `${compatibility.warning} Enable Experimental checkpoints to try it anyway.`
+        );
+      } else if (compatibility.isExperimental) {
+        setImageDiagnostics(
+          elements,
+          `Experimental checkpoint: ${checkpointName}. ${compatibility.warning}`
+        );
       }
 
       setImageStatus(elements, "Checking selected checkpoint...", "idle");
@@ -748,8 +852,9 @@ export function renderApp(rootElement: HTMLElement) {
       );
     } catch (caughtError) {
       setImageStatus(elements, "Image to Image generation failed.", "error");
-      setImageError(elements, getErrorMessage(caughtError));
-      setImageDiagnostics(elements, getTechnicalErrorDetails(caughtError));
+      setImageError(elements, getFriendlyImageToImageErrorMessage(caughtError));
+      console.error("[OpenLayer] Image to Image generation failed", getTechnicalErrorDetails(caughtError));
+      setImageDiagnostics(elements, getImageToImageFailureHint(caughtError));
     } finally {
       progressWatcher?.close();
       isBusy = false;
@@ -858,9 +963,11 @@ export function renderApp(rootElement: HTMLElement) {
 
     if (!imageSource) {
       const empty = document.createElement("span");
-      empty.className = "preview-empty";
-      empty.textContent = "No source captured yet";
+      empty.className = "source-empty";
+      empty.textContent = "None";
       elements.imageSourcePreviewPanel.append(empty);
+      elements.imageSourceTitle.textContent = "No source captured";
+      elements.imageSourceMeta.textContent = "Choose active layer or full canvas.";
       setBusy(elements, isBusy, result, imageResult, imageSource);
       return;
     }
@@ -870,11 +977,8 @@ export function renderApp(rootElement: HTMLElement) {
     image.src = imageSourcePreviewUrl;
     image.alt = "Captured active Photoshop layer";
     elements.imageSourcePreviewPanel.append(image);
-
-    const meta = document.createElement("div");
-    meta.className = "source-meta";
-    meta.textContent = `${imageSource.sourceName} | ${Math.round(imageSource.width)} x ${Math.round(imageSource.height)}`;
-    elements.imageSourcePreviewPanel.append(meta);
+    elements.imageSourceTitle.textContent = imageSource.sourceName;
+    elements.imageSourceMeta.textContent = `${Math.round(imageSource.width)} x ${Math.round(imageSource.height)} | JPEG source`;
     setBusy(elements, isBusy, result, imageResult, imageSource);
   }
 
@@ -957,13 +1061,13 @@ function createAppMarkup() {
   return `
     <main class="app-shell">
       ${createBrandHeaderMarkup()}
+      <div class="home-status-row">
+        <span>Status:</span>
+        <strong id="home-status-text">Ready</strong>
+        <span class="home-status-dot idle" id="home-status-dot" aria-hidden="true"></span>
+      </div>
 
       <section class="home-view" id="home-view" aria-label="OpenLayer tools">
-        <div class="home-status-row">
-          <span>Status:</span>
-          <strong id="home-status-text">Ready</strong>
-          <span class="home-status-dot idle" id="home-status-dot" aria-hidden="true"></span>
-        </div>
         <div class="tool-grid">
           ${TOOL_CARDS.map(createToolCardMarkup).join("")}
         </div>
@@ -1125,11 +1229,20 @@ function createAppMarkup() {
         <section class="panel-section generator-panel source-panel" aria-label="Image source">
           <div class="section-heading">
             <span class="label">Source layer</span>
-            <span class="muted-label">Active Photoshop layer</span>
+            <span class="muted-label">Input image</span>
           </div>
-          <button class="button action-control" id="capture-image-source" data-openlayer-action="captureImageSource" type="button">Capture Active Layer</button>
-          <div class="preview-panel source-preview-panel" id="image-source-preview-panel">
-            <span class="preview-empty">No source captured yet</span>
+          <div class="source-action-row" aria-label="Source capture actions">
+            <button class="button source-action-button action-control" id="capture-image-source" data-openlayer-action="captureImageSource" type="button">Capture Active Layer</button>
+            <button class="button source-action-button action-control" id="capture-canvas-source" data-openlayer-action="captureCanvasSource" type="button">Capture Canvas</button>
+          </div>
+          <div class="source-card">
+            <div class="source-thumb-frame" id="image-source-preview-panel">
+              <span class="source-empty">None</span>
+            </div>
+            <div class="source-card-body">
+              <span class="source-title" id="image-source-title">No source captured</span>
+              <span class="source-card-meta" id="image-source-meta">Choose active layer or full canvas.</span>
+            </div>
           </div>
         </section>
 
@@ -1153,7 +1266,9 @@ function createAppMarkup() {
             <select class="select" id="img-checkpoint">
               ${FALLBACK_CHECKPOINTS.map((checkpoint) => `<option value="${checkpoint}">${checkpoint}</option>`).join("")}
             </select>
+            <span class="compatibility-note" id="img-compatibility-note">img2img-basic is safest with SD 1.x and SDXL checkpoints. SD3 and Flux are experimental.</span>
           </div>
+          <button class="button experimental-toggle action-control" id="experimental-checkpoint-toggle" data-openlayer-action="toggleExperimentalCheckpoints" type="button" aria-pressed="false">Experimental Checkpoints Off</button>
           <div class="settings-grid img2img-settings-grid" aria-label="Image to Image settings">
             <div class="field">
               <span class="label">Steps</span>
@@ -1193,16 +1308,10 @@ function createAppMarkup() {
             <span class="preview-empty">No Image to Image result yet</span>
           </div>
           <div class="import-actions">
-            <button class="button button-import action-control is-disabled" id="import-img2img-result" data-openlayer-action="importImg2Img" type="button" tabindex="-1" aria-disabled="true">Import Image to Image Result</button>
+            <button class="button button-import button-import-blue action-control is-disabled" id="import-img2img-result" data-openlayer-action="importImg2Img" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
           </div>
         </section>
 
-        <section class="text-image-shortcuts" aria-label="Shortcuts">
-          <div class="settings-shortcut" role="button" tabindex="0" data-openlayer-view="settings">
-            <span class="shortcut-label">Settings</span>
-            <span class="shortcut-note">ComfyUI URL, status, and diagnostics</span>
-          </div>
-        </section>
       </section>
 
       <section class="history-view" id="history-view" aria-label="History" hidden>
@@ -1227,8 +1336,7 @@ function createAppMarkup() {
       <footer class="app-footer">
         <span>OpenLayer v${APP_VERSION}</span>
         <span>Developer: Mehran Ahmadi 2026</span>
-        <a href="${DEVELOPER_WEBSITE}">Website</a>
-        <a href="${DEVELOPER_GITHUB}">GitHub</a>
+        <button class="footer-link" data-openlayer-external="${DEVELOPER_GITHUB}" type="button">GitHub</button>
       </footer>
     </main>
   `;
@@ -1238,7 +1346,7 @@ function createBrandHeaderMarkup() {
   return `
     <header class="app-header">
       <div class="brand-lockup">
-        <img class="brand-icon" src="icons/openlayer.png" alt="" width="32" height="32" />
+        <img class="brand-icon" src="icons/openlayer.png" alt="" width="48" height="48" />
         <div>
           <h1 class="app-title">OpenLayer</h1>
           <p class="app-subtitle">Local AI layers for Photoshop</p>
@@ -1287,7 +1395,8 @@ function createToolIconMarkup(icon: ToolIconName) {
     lineart: "SK",
     upscale: "UP",
     style: "ST",
-    control: "WF",
+    control: "WFP",
+    workflow: "WF",
     layers: "LY",
     history: "HI",
     settings: "SET"
@@ -1331,8 +1440,10 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     imgSeed: getElement<HTMLInputElement>(rootElement, "img-seed"),
     imgDenoise: getElement<HTMLInputElement>(rootElement, "img-denoise"),
     captureLayerButton: getElement<HTMLElement>(rootElement, "capture-image-source"),
+    captureCanvasButton: getElement<HTMLElement>(rootElement, "capture-canvas-source"),
     generateImg2ImgButton: getElement<HTMLElement>(rootElement, "generate-img2img"),
     importImg2ImgButton: getElement<HTMLElement>(rootElement, "import-img2img-result"),
+    experimentalCheckpointToggle: getElement<HTMLElement>(rootElement, "experimental-checkpoint-toggle"),
     negativePromptToggle: getElement<HTMLElement>(rootElement, "negative-prompt-toggle"),
     negativePromptField: getElement<HTMLElement>(rootElement, "negative-prompt-field"),
     clearHistoryButton: getElement<HTMLElement>(rootElement, "clear-history"),
@@ -1344,12 +1455,15 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     settingsStatusPill: getElement<HTMLElement>(rootElement, "settings-status-pill"),
     diagnosticsText: getElement<HTMLElement>(rootElement, "diagnostics-text"),
     imgDiagnosticsText: getElement<HTMLElement>(rootElement, "img-diagnostics-text"),
+    imgCompatibilityNote: getElement<HTMLElement>(rootElement, "img-compatibility-note"),
     settingsDiagnosticsText: getElement<HTMLElement>(rootElement, "settings-diagnostics-text"),
     errorMessage: getElement<HTMLElement>(rootElement, "error-message"),
     imgErrorMessage: getElement<HTMLElement>(rootElement, "img-error-message"),
     settingsErrorMessage: getElement<HTMLElement>(rootElement, "settings-error-message"),
     previewPanel: getElement<HTMLElement>(rootElement, "preview-panel"),
     imageSourcePreviewPanel: getElement<HTMLElement>(rootElement, "image-source-preview-panel"),
+    imageSourceTitle: getElement<HTMLElement>(rootElement, "image-source-title"),
+    imageSourceMeta: getElement<HTMLElement>(rootElement, "image-source-meta"),
     imageResultPreviewPanel: getElement<HTMLElement>(rootElement, "image-result-preview-panel"),
     historyList: getElement<HTMLElement>(rootElement, "history-list"),
     settingsUrlValue: getElement<HTMLElement>(rootElement, "settings-url-value"),
@@ -1403,6 +1517,8 @@ function setBusy(
   setActionDisabled(elements.generateButton, isBusy);
   setActionDisabled(elements.importButton, isBusy || !result);
   setActionDisabled(elements.captureLayerButton, isBusy);
+  setActionDisabled(elements.captureCanvasButton, isBusy);
+  setActionDisabled(elements.experimentalCheckpointToggle, isBusy);
   setActionDisabled(elements.generateImg2ImgButton, isBusy || !imageSource);
   setActionDisabled(elements.importImg2ImgButton, isBusy || !imageResult);
   setActionDisabled(elements.clearHistoryButton, isBusy);
@@ -1466,6 +1582,24 @@ function updateAutoImportToggle(elements: AppElements, isEnabled: boolean) {
   elements.autoImportToggle.classList.toggle("is-active", isEnabled);
 }
 
+function updateExperimentalCheckpointToggle(elements: AppElements, isEnabled: boolean) {
+  elements.experimentalCheckpointToggle.textContent = isEnabled
+    ? "Experimental Checkpoints On"
+    : "Experimental Checkpoints Off";
+  elements.experimentalCheckpointToggle.setAttribute("aria-pressed", String(isEnabled));
+  elements.experimentalCheckpointToggle.classList.toggle("is-active", isEnabled);
+}
+
+function updateImageCheckpointCompatibility(elements: AppElements, allowExperimentalCheckpoints: boolean) {
+  const checkpointName = readSelectValue(elements.imgCheckpoint);
+  const compatibility = getImageCheckpointCompatibility(checkpointName);
+
+  elements.imgCompatibilityNote.textContent = allowExperimentalCheckpoints
+    ? `${compatibility.label}. ${compatibility.experimentalNote}`
+    : compatibility.label;
+  elements.imgCompatibilityNote.classList.toggle("is-warning", compatibility.isExperimental);
+}
+
 type ActionName =
   | "check"
   | "findPort"
@@ -1476,6 +1610,8 @@ type ActionName =
   | "generate"
   | "import"
   | "captureImageSource"
+  | "captureCanvasSource"
+  | "toggleExperimentalCheckpoints"
   | "generateImg2Img"
   | "importImg2Img"
   | "clearHistory";
@@ -1666,6 +1802,47 @@ function bindHistoryActions(
   });
 }
 
+function bindExternalLinks(rootElement: HTMLElement) {
+  let lastRunAt = 0;
+
+  const runFromEvent = (eventName: string, event: Event) => {
+    const externalElement = findExternalLinkElement(event.target, rootElement);
+
+    if (!externalElement) {
+      return;
+    }
+
+    const url = externalElement.getAttribute("data-openlayer-external");
+
+    if (!url) {
+      return;
+    }
+
+    const now = Date.now();
+
+    if (now - lastRunAt < 350) {
+      return;
+    }
+
+    lastRunAt = now;
+    event.preventDefault();
+    openExternalUrl(url);
+    console.log(`[OpenLayer] external link opened from ${eventName}: ${url}`);
+  };
+
+  for (const eventName of ["click", "mousedown", "mouseup", "pointerup", "touchend"]) {
+    rootElement.addEventListener(eventName, (event) => runFromEvent(eventName, event), true);
+  }
+
+  rootElement.addEventListener("keydown", (event) => {
+    const key = (event as KeyboardEvent).key;
+
+    if (key === "Enter" || key === " ") {
+      runFromEvent(`keyboard:${key === " " ? "space" : key}`, event);
+    }
+  });
+}
+
 function findActionElement(target: EventTarget | null, rootElement: HTMLElement) {
   let element = getEventElement(target);
 
@@ -1694,6 +1871,20 @@ function findViewElement(target: EventTarget | null, rootElement: HTMLElement) {
   return null;
 }
 
+function findExternalLinkElement(target: EventTarget | null, rootElement: HTMLElement) {
+  let element = getEventElement(target);
+
+  while (element && element !== rootElement) {
+    if (element.getAttribute("data-openlayer-external")) {
+      return element;
+    }
+
+    element = element.parentElement;
+  }
+
+  return null;
+}
+
 function findHistoryActionElement(target: EventTarget | null, rootElement: HTMLElement) {
   let element = getEventElement(target);
 
@@ -1706,6 +1897,23 @@ function findHistoryActionElement(target: EventTarget | null, rootElement: HTMLE
   }
 
   return null;
+}
+
+function openExternalUrl(url: string) {
+  try {
+    const uxp = require("uxp") as UxpModule;
+
+    if (uxp.shell?.openExternal) {
+      void uxp.shell.openExternal(url);
+      return;
+    }
+  } catch {
+    // Browser preview builds do not expose UXP's shell module.
+  }
+
+  if (typeof window.open === "function") {
+    window.open(url, "_blank", "noopener");
+  }
 }
 
 function getEventElement(target: EventTarget | null) {
@@ -1764,6 +1972,146 @@ function fillSingleCheckpointSelect(select: HTMLSelectElement, checkpoints: stri
   } else {
     select.value = checkpoints[0] ?? "";
   }
+}
+
+function getImageToImageFailureHint(error: unknown) {
+  const details = getTechnicalErrorDetails(error).toLowerCase();
+
+  if (
+    details.includes("clip input is invalid") ||
+    details.includes("does not contain a valid clip") ||
+    details.includes("text encoder")
+  ) {
+    return "This looks like a workflow/model mismatch. img2img-basic is safest with SD 1.x and SDXL checkpoints; Flux and SD3 usually need dedicated loader nodes.";
+  }
+
+  if (
+    details.includes("vae") ||
+    details.includes("loader") ||
+    details.includes("missing node") ||
+    details.includes("invalid prompt")
+  ) {
+    return "ComfyUI rejected part of the workflow. Try an SD 1.x or SDXL checkpoint with img2img-basic, or use Experimental mode only with a matching custom workflow.";
+  }
+
+  const message = getTechnicalErrorDetails(error);
+  return message.length > 160 ? `${message.slice(0, 160)}...` : message;
+}
+
+function getFriendlyImageToImageErrorMessage(error: unknown) {
+  const details = getTechnicalErrorDetails(error).toLowerCase();
+
+  if (
+    details.includes("clip input is invalid") ||
+    details.includes("does not contain a valid clip") ||
+    details.includes("text encoder")
+  ) {
+    return "The selected checkpoint needs a different Image to Image workflow preset.";
+  }
+
+  if (
+    details.includes("vae") ||
+    details.includes("loader") ||
+    details.includes("missing node") ||
+    details.includes("invalid prompt")
+  ) {
+    return "ComfyUI rejected this workflow for the selected checkpoint.";
+  }
+
+  return getErrorMessage(error);
+}
+
+function getImageCheckpointCompatibility(checkpointName: string): ImageCheckpointCompatibility {
+  const family = detectCheckpointFamily(checkpointName);
+
+  switch (family) {
+    case "sd1":
+      return {
+        family,
+        isExperimental: false,
+        label: "SD 1.x checkpoint: compatible with img2img-basic.",
+        warning: "",
+        experimentalNote: "This is a good default choice for Image to Image."
+      };
+    case "sdxl":
+      return {
+        family,
+        isExperimental: false,
+        label: "SDXL checkpoint: compatible with img2img-basic.",
+        warning: "",
+        experimentalNote: "This is a good default choice for Image to Image."
+      };
+    case "sd3":
+      return {
+        family,
+        isExperimental: true,
+        label: "SD3 checkpoint: experimental for img2img-basic.",
+        warning: "SD3 and SD3.5 checkpoints often need dedicated text encoder and VAE loader nodes.",
+        experimentalNote: "Enable Experimental checkpoints only if your workflow preset matches this model family."
+      };
+    case "flux":
+      return {
+        family,
+        isExperimental: true,
+        label: "Flux checkpoint: experimental for img2img-basic.",
+        warning: "Flux checkpoints usually need dedicated UNet, CLIP/T5, and VAE loader nodes.",
+        experimentalNote: "Enable Experimental checkpoints only if your workflow preset matches this model family."
+      };
+    default:
+      return {
+        family,
+        isExperimental: false,
+        label: "Unknown checkpoint family: allowed, but SD 1.x or SDXL are safest for img2img-basic.",
+        warning: "",
+        experimentalNote: "If generation fails, try an SD 1.x or SDXL checkpoint first."
+      };
+  }
+}
+
+function detectCheckpointFamily(checkpointName: string): ModelFamily {
+  const normalized = checkpointName.toLowerCase();
+
+  if (normalized.includes("flux")) {
+    return "flux";
+  }
+
+  if (
+    normalized.includes("sd3") ||
+    normalized.includes("sd_3") ||
+    normalized.includes("sd-3") ||
+    normalized.includes("stable-diffusion-3") ||
+    normalized.includes("stable_diffusion_3")
+  ) {
+    return "sd3";
+  }
+
+  if (
+    normalized.includes("sdxl") ||
+    normalized.includes("sd_xl") ||
+    normalized.includes("sd-xl") ||
+    normalized.includes("xl_base") ||
+    normalized.includes("_xl") ||
+    normalized.includes("refiner")
+  ) {
+    return "sdxl";
+  }
+
+  if (
+    normalized.includes("sd1") ||
+    normalized.includes("sd_1") ||
+    normalized.includes("sd-1") ||
+    normalized.includes("1.5") ||
+    normalized.includes("v1") ||
+    normalized.includes("epicrealism")
+  ) {
+    return "sd1";
+  }
+
+  if (EXPERIMENTAL_IMG2IMG_CHECKPOINT_PATTERNS.some((pattern) => normalized.includes(pattern))) {
+    return "unknown";
+  }
+
+  return "unknown";
 }
 
 function readSelectValue(select: HTMLSelectElement, fallback = "") {

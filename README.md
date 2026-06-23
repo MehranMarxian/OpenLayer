@@ -16,9 +16,12 @@ Included in this alpha:
 
 - Local ComfyUI connection from Photoshop UXP
 - Checkpoint loading from ComfyUI
+- Photoshop-dark Home dashboard with tool cards for current and planned workflows
 - Text-to-image generation with the `txt2img-basic` preset
 - Experimental image-to-image generation with the `img2img-basic` preset
 - Active Photoshop layer capture for Image to Image using Photoshop UXP Imaging API
+- Canvas capture option for Image to Image source input
+- Experimental checkpoint mode with SD 1.x, SDXL, SD3, and Flux compatibility warnings
 - Source image preview before upload to ComfyUI
 - Result preview inside the OpenLayer panel
 - Import generated output into the active Photoshop document as a new layer
@@ -26,15 +29,17 @@ Included in this alpha:
 - Passive local ComfyUI active port finder
 - Session history for recent generated previews
 - Optional auto-import after generation
+- Responsive panel spacing fixes for narrow and wide Photoshop panels
 - Official OpenLayer icon and GitHub Pages landing page
 
 Known v0.2.0-alpha boundaries:
 
 - Image to Image is an early foundation path, not a full production workflow yet.
 - Active-layer capture is currently encoded as JPEG through Photoshop's Imaging API.
+- `img2img-basic` is the default SD 1.x/SDXL preset. SD3, SD3.5, and Flux checkpoints remain visible but are marked experimental because they usually need dedicated future workflow presets.
 - Workflow node IDs may need adjustment for custom ComfyUI workflows.
 - True PNG selected-layer export, inpainting, masks, selection preservation, aligned regional workflows, ControlNet-style workflows, and upscaling are not included yet.
-- The UI is functional but still early. Narrow Photoshop panel layout polish will continue in later releases.
+- The UI is functional and responsive enough for testing, but final visual polish will continue in later releases.
 
 ## Project Page
 
@@ -52,6 +57,7 @@ Working foundation:
 
 - Photoshop UXP panel scaffold for Photoshop 2024+
 - Dark, minimal UXP-friendly TypeScript UI
+- Photoshop-dark Home dashboard with Text to Image, Image to Image, Settings, History, and future workflow cards
 - Configurable local ComfyUI server URL
 - ComfyUI connection check
 - Checkpoint/model selector loaded from ComfyUI
@@ -59,7 +65,8 @@ Working foundation:
 - Session history for recent generated images
 - `txt2img-basic` workflow generation
 - `img2img-basic` workflow generation foundation
-- Active-layer source capture and ComfyUI image upload
+- Active-layer or visible-canvas source capture and ComfyUI image upload
+- Experimental checkpoint mode for trying non-SD/SDXL model families with clear warnings
 - `/prompt` submission
 - `/history/{prompt_id}` polling
 - `/view` image retrieval
@@ -167,19 +174,31 @@ OpenLayer_Generated_YYYYMMDD_HHMM
 1. Open a Photoshop document.
 2. Select the layer you want to use as the source.
 3. Open the OpenLayer panel and choose `Image to Image`.
-4. Click `Capture Active Layer`.
+4. Click `Capture Active Layer`, or click `Capture Canvas` to use the visible document.
 5. Confirm the source preview appears.
 6. Enter a prompt describing how to reinterpret the source.
 7. Choose a checkpoint and keep the workflow set to `img2img-basic`.
 8. Click `Generate Image to Image`.
 9. Wait for the result preview.
-10. Click `Import Image to Image Result`.
+10. Click `Import to Layers`.
 
 The imported layer is named like:
 
 ```text
 OpenLayer_Img2Img_YYYYMMDD_HHMM
 ```
+
+## Pre-release Tester Checklist
+
+Use this quick pass before reporting a v0.2.0-alpha test result:
+
+1. Start ComfyUI on `http://127.0.0.1:8190`.
+2. Build OpenLayer and load `dist/manifest.json` in Adobe UXP Developer Tool.
+3. Open Photoshop, create or open a document, and launch OpenLayer.
+4. Open Settings and click `Check ComfyUI`; confirm checkpoints load.
+5. Generate one `txt2img-basic` image and import it as a new layer.
+6. Open `Image to Image`, capture either the active layer or canvas, generate with `img2img-basic`, and click `Import to Layers`.
+7. Resize the panel narrow and wide; confirm the header, footer, buttons, preview, and cards remain reachable.
 
 ## Testing Checklist
 
@@ -209,6 +228,8 @@ The workflow builder injects:
 - cfg
 
 Image to Image uses Photoshop's UXP Imaging API to capture the active layer and sends the source image to ComfyUI using `/upload/image`. In `v0.2.0-alpha`, that source capture is encoded as JPEG. True PNG layer export, mask export, and selection-aligned workflows are planned future work.
+
+`img2img-basic` is intended for SD 1.x and SDXL-style checkpoints. SD3, SD3.5, and Flux checkpoints are shown in the selector for transparency, but OpenLayer warns before running them because those model families often need different loader, text encoder, and VAE nodes.
 
 If you export a different workflow from ComfyUI, update the node IDs in `src/comfy/presetRegistry.ts`.
 
@@ -261,6 +282,10 @@ Check that the selected checkpoint exists in ComfyUI and that the `txt2img-basic
 ```text
 src/comfy/workflowBuilder.ts
 ```
+
+### Image to Image fails with a model mismatch
+
+Use an SD 1.x or SDXL checkpoint with `img2img-basic` first. If you select SD3, SD3.5, Flux, or another newer model family, OpenLayer will keep it visible but warn that it is experimental for this preset. Those checkpoints usually need a dedicated workflow preset before they can run reliably.
 
 ### Import Result as New Layer fails
 

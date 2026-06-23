@@ -2,6 +2,9 @@ declare function require(moduleName: "photoshop"): unknown;
 declare function require(moduleName: "uxp"): UxpModule;
 
 type UxpModule = {
+  shell?: {
+    openExternal?: (url: string) => Promise<void> | void;
+  };
   storage: {
     formats: {
       binary: unknown;

@@ -6,19 +6,31 @@ Image-to-image foundation for the next OpenLayer workflow family.
 
 ### Added
 
+- Photoshop-dark Home dashboard with tool cards for active tools, history, settings, and future workflow areas.
 - Available Image to Image launcher card and tool screen.
 - Experimental active Photoshop layer capture using Photoshop UXP Imaging API.
 - Source image preview before upload so users can confirm what will be sent to ComfyUI.
+- Canvas capture option for using the visible document as the Image to Image source.
 - ComfyUI `/upload/image` support for local source images.
 - `img2img-basic` workflow preset using built-in ComfyUI nodes.
 - Workflow registry and validation coverage for `img2img-basic`.
 - Image to Image generation status, result preview, and import as a new Photoshop layer.
+- Full checkpoint visibility on Image to Image, with SD 1.x, SDXL, SD3, and Flux compatibility guidance.
+- Experimental checkpoint mode for trying SD3/Flux-style checkpoints without hiding them from the selector.
+- Short pre-release tester checklist for Photoshop and ComfyUI on port `8190`.
+
+### Changed
+
+- Refined shared header, status row, footer, and Home dashboard card spacing.
+- Improved responsive behavior for Home, Text to Image, Image to Image, Settings, and History in narrow and wide Photoshop panels.
+- Reduced long technical ComfyUI errors in the Image to Image panel while keeping details in logs.
 
 ### Known Limitations
 
 - Active-layer capture is currently encoded as JPEG through Photoshop's Imaging API.
 - True PNG selected-layer export, mask export, selection preservation, and aligned regional workflows remain planned future work.
 - The Image to Image workflow is a starter preset and may need node ID/checkpoint adjustments for custom ComfyUI setups.
+- `img2img-basic` is still the default SD 1.x/SDXL preset. Flux, SD3, and SD3.5 checkpoints usually need dedicated future workflow presets.
 - The panel design was not redesigned in this release.
 
 ## v0.1.10-alpha - 2026-06-22
