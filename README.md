@@ -30,6 +30,8 @@ Included in this alpha:
 - Import generated output into the active Photoshop document as a new layer
 - Settings persistence for ComfyUI URL, selected checkpoint, and generation defaults
 - Passive local ComfyUI active port finder
+- GPU-aware model recommendations in Settings using ComfyUI `/system_stats`
+- Beginner-friendly model family guidance for SD 1.x, SDXL, SD3, Flux, and Z_image_Turbo
 - Session history for recent generated previews
 - Optional auto-import after generation
 - Responsive panel spacing fixes for narrow and wide Photoshop panels
@@ -44,7 +46,7 @@ Known v0.2.1-alpha boundaries:
 - Sketch to Image is currently tested with `epicrealism_naturalSinRC1VAE.safetensors` and `control_v11p_sd15_lineart_fp16.safetensors`.
 - Active-layer and canvas capture are currently encoded as JPEG through Photoshop's Imaging API.
 - `img2img-basic` is the default SD 1.x/SDXL preset. SD3, SD3.5, and Flux checkpoints remain visible but are marked experimental because they usually need dedicated future workflow presets.
-- SDXL, SD3, Flux, and Z-Image Sketch to Image workflows need dedicated future presets.
+- SDXL, SD3, Flux, and Z_image_Turbo Sketch to Image workflows need dedicated future presets.
 - Workflow node IDs may need adjustment for custom ComfyUI workflows.
 - True PNG selected-layer export, inpainting, masks, selection preservation, aligned regional workflows, advanced ControlNet-style workflows, and upscaling are not included yet.
 - The UI is functional and responsive enough for testing, but final visual polish will continue in later releases.
@@ -59,6 +61,14 @@ docs/index.html
 
 For GitHub Pages, publish from the `docs` folder on the main branch.
 
+## Model And VRAM Guide
+
+OpenLayer includes a beginner-friendly guide for local model choices, VRAM tiers, and why diffusion model stacks such as `Z_image_Turbo` do not appear in the checkpoint selector:
+
+```text
+docs/model-guide.md
+```
+
 ## MVP Status
 
 Working foundation:
@@ -70,6 +80,7 @@ Working foundation:
 - ComfyUI connection check
 - Checkpoint/model selector loaded from ComfyUI
 - Settings page with saved local defaults and diagnostics
+- Settings hardware advisor for detecting ComfyUI GPU/VRAM and recommending safe model families
 - Session history for recent generated images
 - `txt2img-basic` workflow generation
 - `img2img-basic` workflow generation foundation
@@ -164,13 +175,14 @@ Click `Check ComfyUI` before generating.
 1. Open a Photoshop document.
 2. Open the OpenLayer panel.
 3. Open Settings and click `Find ComfyUI Active Port` or `Check ComfyUI` to load the available checkpoints.
-4. Choose a checkpoint.
-5. Enter a prompt.
-6. Optionally enter a negative prompt.
-7. Keep the workflow preset set to `txt2img-basic`.
-8. Click `Generate`.
-9. Wait for the preview.
-10. Click `Import Result as New Layer`, or enable `Import Result Automatically` before generating.
+4. Optional: click `Detect GPU & Recommend Models` to see hardware-aware model suggestions.
+5. Choose a checkpoint.
+6. Enter a prompt.
+7. Optionally enter a negative prompt.
+8. Keep the workflow preset set to `txt2img-basic`.
+9. Click `Generate`.
+10. Wait for the preview.
+11. Click `Import Result as New Layer`, or enable `Import Result Automatically` before generating.
 
 The imported layer is named like:
 
@@ -280,7 +292,7 @@ Sketch to Image uses the same Photoshop capture and ComfyUI upload path, then ru
 - `ControlNetLoader`
 - `ControlNetApplyAdvanced`
 
-The first LINECN preset is intentionally narrow. It is a working SD 1.x foundation, not a universal sketch workflow for SDXL, SD3, Flux, or Z-Image.
+The first LINECN preset is intentionally narrow. It is a working SD 1.x foundation, not a universal sketch workflow for SDXL, SD3, Flux, or Z_image_Turbo.
 
 If you export a different workflow from ComfyUI, update the node IDs in `src/comfy/presetRegistry.ts`.
 

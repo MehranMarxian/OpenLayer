@@ -1,4 +1,9 @@
 import { ComfyClient } from "../comfy/comfyClient";
+import {
+  createHardwareRecommendationReport,
+  formatHardwareReport,
+  HardwareRecommendationReport
+} from "../comfy/hardwareAdvisor";
 import { getCheckpointCompatibility, getPresetCompatibilityNote } from "../comfy/modelCompatibility";
 import { getWorkflowPreset, listWorkflowPresets } from "../comfy/presetRegistry";
 import { validateGenerationSettings, validateImageToImageSettings, validateSketchToImageSettings } from "../comfy/settings";
@@ -189,6 +194,7 @@ type AppElements = {
   seed: HTMLInputElement;
   checkButton: HTMLElement;
   findPortButton: HTMLElement;
+  detectHardwareButton: HTMLElement;
   saveSettingsButton: HTMLElement;
   resetSettingsButton: HTMLElement;
   generateButton: HTMLElement;
@@ -255,6 +261,13 @@ type AppElements = {
   settingsCheckpointCount: HTMLElement;
   settingsLastCheckpoint: HTMLElement;
   settingsDocumentStatus: HTMLElement;
+  settingsGpuName: HTMLElement;
+  settingsVramTotal: HTMLElement;
+  settingsVramFree: HTMLElement;
+  settingsVramTier: HTMLElement;
+  settingsModelFamilies: HTMLElement;
+  settingsZImageTurbo: HTMLElement;
+  settingsModelRecommendations: HTMLElement;
 };
 
 type HistoryEntry = {
@@ -291,6 +304,7 @@ export function renderApp(rootElement: HTMLElement) {
   let importAutomatically = false;
   let isNegativePromptOpen = false;
   let allowExperimentalCheckpoints = false;
+  let hardwareReport: HardwareRecommendationReport | null = null;
   const historyEntries: HistoryEntry[] = [];
 
   rootElement.innerHTML = createAppMarkup();
@@ -303,6 +317,7 @@ export function renderApp(rootElement: HTMLElement) {
   const actionHandlers: ActionHandlers = {
     check: createActionRunner(elements, "check", handleCheckComfy),
     findPort: createActionRunner(elements, "findPort", handleFindComfyPort),
+    detectHardware: createActionRunner(elements, "detectHardware", handleDetectHardware),
     saveSettings: createActionRunner(elements, "saveSettings", handleSaveSettings),
     resetSettings: createActionRunner(elements, "resetSettings", handleResetSettings),
     toggleNegativePrompt: createActionRunner(elements, "toggleNegativePrompt", handleToggleNegativePrompt),
@@ -327,6 +342,7 @@ export function renderApp(rootElement: HTMLElement) {
 
   bindActionControl(elements.checkButton, actionHandlers.check);
   bindActionControl(elements.findPortButton, actionHandlers.findPort);
+  bindActionControl(elements.detectHardwareButton, actionHandlers.detectHardware);
   bindActionControl(elements.saveSettingsButton, actionHandlers.saveSettings);
   bindActionControl(elements.resetSettingsButton, actionHandlers.resetSettings);
   bindActionControl(elements.negativePromptToggle, actionHandlers.toggleNegativePrompt);
@@ -363,6 +379,7 @@ export function renderApp(rootElement: HTMLElement) {
   setSketchSource(null);
   setSketchResult(null);
   updateSettingsReport(elements);
+  renderHardwareReport(elements, hardwareReport);
   renderHistory(elements, historyEntries);
   void loadInitialCheckpoints();
 
@@ -459,6 +476,31 @@ export function renderApp(rootElement: HTMLElement) {
     } catch (caughtError) {
       setStatus(elements, `Found ${foundUrl}, but model loading failed.`, "error");
       setError(elements, getErrorMessage(caughtError));
+    } finally {
+      updateSettingsReport(elements);
+    }
+  }
+
+  async function handleDetectHardware() {
+    setDiagnostics(elements, "Detecting GPU and installed model families through ComfyUI...");
+    setError(elements, "");
+    setStatus(elements, "Detecting GPU...", "idle");
+
+    try {
+      const client = new ComfyClient(elements.serverUrl.value);
+      const systemStats = await client.getSystemStats();
+      const inventory = await client.getModelInventory();
+      hardwareReport = createHardwareRecommendationReport(systemStats, inventory, listWorkflowPresets());
+
+      renderHardwareReport(elements, hardwareReport);
+      setStatus(elements, "GPU recommendations ready.", "ready");
+      setDiagnostics(elements, formatHardwareReport(hardwareReport));
+    } catch (caughtError) {
+      hardwareReport = null;
+      renderHardwareReport(elements, hardwareReport);
+      setStatus(elements, "GPU detection failed.", "error");
+      setError(elements, getErrorMessage(caughtError));
+      setDiagnostics(elements, "Start ComfyUI, confirm the server URL, then run Detect GPU & Recommend Models again.");
     } finally {
       updateSettingsReport(elements);
     }
@@ -1470,6 +1512,7 @@ function createAppMarkup() {
           </label>
           <button class="button action-control" id="check-comfy" data-openlayer-action="check" type="button">Check ComfyUI</button>
           <button class="button action-control" id="find-comfy-port" data-openlayer-action="findPort" type="button">Find ComfyUI Active Port</button>
+          <button class="button action-control" id="detect-gpu" data-openlayer-action="detectHardware" type="button">Detect GPU &amp; Recommend Models</button>
           <div class="settings-actions">
             <button class="button action-control" id="save-settings" data-openlayer-action="saveSettings" type="button">Save Settings</button>
             <button class="button action-control" id="reset-settings" data-openlayer-action="resetSettings" type="button">Reset Defaults</button>
@@ -1487,6 +1530,24 @@ function createAppMarkup() {
           </div>
           <div class="diagnostics-line" id="settings-diagnostics-text">Diagnostics ready for v${APP_VERSION}.</div>
           <div class="error-message" id="settings-error-message" hidden></div>
+        </section>
+
+        <section class="panel-section settings-panel" aria-label="Hardware advisor">
+          <div class="section-heading">
+            <span class="label">Hardware advisor</span>
+            <span class="muted-label">Model guidance</span>
+          </div>
+          <div class="settings-list hardware-list">
+            <div><span>GPU</span><strong id="settings-gpu-name">Not detected</strong></div>
+            <div><span>Total VRAM</span><strong id="settings-vram-total">Not detected</strong></div>
+            <div><span>Free VRAM</span><strong id="settings-vram-free">Not detected</strong></div>
+            <div><span>Recommendation tier</span><strong id="settings-vram-tier">Run detection</strong></div>
+            <div><span>Detected model families</span><strong id="settings-model-families">Run detection</strong></div>
+            <div><span>Z_image_Turbo</span><strong id="settings-z-image-turbo">Run detection</strong></div>
+          </div>
+          <div class="diagnostics-line hardware-recommendations" id="settings-model-recommendations">
+            Click Detect GPU &amp; Recommend Models to get local hardware-aware suggestions.
+          </div>
         </section>
 
         <section class="panel-section settings-panel" aria-label="Plugin settings">
@@ -1903,6 +1964,7 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     seed: getElement<HTMLInputElement>(rootElement, "seed"),
     checkButton: getElement<HTMLElement>(rootElement, "check-comfy"),
     findPortButton: getElement<HTMLElement>(rootElement, "find-comfy-port"),
+    detectHardwareButton: getElement<HTMLElement>(rootElement, "detect-gpu"),
     saveSettingsButton: getElement<HTMLElement>(rootElement, "save-settings"),
     resetSettingsButton: getElement<HTMLElement>(rootElement, "reset-settings"),
     generateButton: getElement<HTMLElement>(rootElement, "generate"),
@@ -1968,7 +2030,14 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     settingsUrlValue: getElement<HTMLElement>(rootElement, "settings-url-value"),
     settingsCheckpointCount: getElement<HTMLElement>(rootElement, "settings-checkpoint-count"),
     settingsLastCheckpoint: getElement<HTMLElement>(rootElement, "settings-last-checkpoint"),
-    settingsDocumentStatus: getElement<HTMLElement>(rootElement, "settings-document-status")
+    settingsDocumentStatus: getElement<HTMLElement>(rootElement, "settings-document-status"),
+    settingsGpuName: getElement<HTMLElement>(rootElement, "settings-gpu-name"),
+    settingsVramTotal: getElement<HTMLElement>(rootElement, "settings-vram-total"),
+    settingsVramFree: getElement<HTMLElement>(rootElement, "settings-vram-free"),
+    settingsVramTier: getElement<HTMLElement>(rootElement, "settings-vram-tier"),
+    settingsModelFamilies: getElement<HTMLElement>(rootElement, "settings-model-families"),
+    settingsZImageTurbo: getElement<HTMLElement>(rootElement, "settings-z-image-turbo"),
+    settingsModelRecommendations: getElement<HTMLElement>(rootElement, "settings-model-recommendations")
   };
 }
 
@@ -2020,6 +2089,7 @@ function setBusy(
   elements.sketchControlStrength.disabled = isBusy;
   setActionDisabled(elements.checkButton, isBusy);
   setActionDisabled(elements.findPortButton, isBusy);
+  setActionDisabled(elements.detectHardwareButton, isBusy);
   setActionDisabled(elements.saveSettingsButton, isBusy);
   setActionDisabled(elements.resetSettingsButton, isBusy);
   setActionDisabled(elements.negativePromptToggle, isBusy);
@@ -2170,6 +2240,7 @@ function createWorkflowDiagnostics(preset: WorkflowPresetDefinition, checkpointN
 type ActionName =
   | "check"
   | "findPort"
+  | "detectHardware"
   | "saveSettings"
   | "resetSettings"
   | "toggleNegativePrompt"
@@ -2558,7 +2629,7 @@ function getImageToImageFailureHint(error: unknown) {
     details.includes("does not contain a valid clip") ||
     details.includes("text encoder")
   ) {
-    return "This looks like a workflow/model mismatch. img2img-basic is safest with SD 1.x and SDXL checkpoints; SD3, Flux, and Z-Image usually need dedicated loader nodes.";
+    return "This looks like a workflow/model mismatch. img2img-basic is safest with SD 1.x and SDXL checkpoints; SD3, Flux, and Z_image_Turbo usually need dedicated loader nodes.";
   }
 
   if (
@@ -2796,6 +2867,43 @@ function updateSettingsReport(elements: AppElements) {
   elements.settingsUrlValue.textContent = elements.serverUrl.value.trim() || DEFAULT_SERVER_URL;
   elements.settingsCheckpointCount.textContent = checkpointCount > 0 ? `${checkpointCount} listed` : "None";
   elements.settingsLastCheckpoint.textContent = readSelectValue(elements.checkpoint) || "None";
+}
+
+function renderHardwareReport(elements: AppElements, report: HardwareRecommendationReport | null) {
+  if (!report) {
+    elements.settingsGpuName.textContent = "Not detected";
+    elements.settingsVramTotal.textContent = "Not detected";
+    elements.settingsVramFree.textContent = "Not detected";
+    elements.settingsVramTier.textContent = "Run detection";
+    elements.settingsModelFamilies.textContent = "Run detection";
+    elements.settingsZImageTurbo.textContent = "Run detection";
+    elements.settingsModelRecommendations.textContent =
+      "Click Detect GPU & Recommend Models to get local hardware-aware suggestions.";
+    return;
+  }
+
+  elements.settingsGpuName.textContent = `${report.deviceName} (${report.deviceType})`;
+  elements.settingsVramTotal.textContent = report.vramTotalLabel;
+  elements.settingsVramFree.textContent = report.vramFreeLabel;
+  elements.settingsVramTier.textContent = report.tierLabel;
+  elements.settingsModelFamilies.textContent = formatDetectedFamilies(report);
+  elements.settingsZImageTurbo.textContent = report.zImageTurboMessage;
+  elements.settingsModelRecommendations.textContent = report.recommendations
+    .map((item) => `${item.task}: ${item.recommendation}`)
+    .join(" ");
+}
+
+function formatDetectedFamilies(report: HardwareRecommendationReport) {
+  if (report.detectedFamilies.length === 0) {
+    return "No known families detected";
+  }
+
+  return report.detectedFamilies
+    .map((family) => {
+      const examples = family.examples.length > 0 ? ` (${family.examples.join(", ")})` : "";
+      return `${family.label}: ${family.count}${examples}`;
+    })
+    .join("; ");
 }
 
 async function refreshDocumentStatus(elements: AppElements) {

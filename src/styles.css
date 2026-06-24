@@ -518,6 +518,24 @@ a:hover {
   text-align: right;
 }
 
+.hardware-list div {
+  align-items: flex-start;
+}
+
+.hardware-list strong {
+  max-width: 62%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.hardware-recommendations {
+  border: 1px solid #494949;
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: #2d2d2d;
+  color: #c8c8c8;
+}
+
 .app-subtitle {
   margin: 0;
   overflow: hidden;

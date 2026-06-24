@@ -14,7 +14,7 @@ const FAMILY_LABELS: Record<ModelFamily, string> = {
   sdxl: "SDXL",
   sd3: "SD3",
   flux: "Flux",
-  zImage: "Z-Image",
+  zImage: "Z_image_Turbo",
   unknown: "Unknown"
 };
 
@@ -132,7 +132,7 @@ function getFamilyWarning(family: ModelFamily) {
     case "flux":
       return "Flux usually needs dedicated UNet, CLIP/T5, and VAE loader nodes.";
     case "zImage":
-      return "Z-Image models usually need a dedicated Z-Image workflow preset and loader setup.";
+      return "Z_image_Turbo usually needs a dedicated diffusion model, CLIP, VAE, and workflow preset setup.";
     default:
       return "This model family may need a dedicated workflow preset.";
   }

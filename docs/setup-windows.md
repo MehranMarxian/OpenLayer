@@ -47,11 +47,20 @@ python main.py --listen 127.0.0.1 --port 8190
 
 1. Open a Photoshop document.
 2. Click `Check ComfyUI`.
-3. Enter a prompt.
-4. Click `Generate`.
-5. After the preview appears, click `Import Result as New Layer`.
+3. Optional: open Settings and click `Detect GPU & Recommend Models`.
+4. Enter a prompt.
+5. Click `Generate`.
+6. After the preview appears, click `Import Result as New Layer`.
 
 If generation fails, confirm the checkpoint name in `src/workflows/txt2img-basic.json` exists in your ComfyUI models folder.
+
+## GPU And Model Recommendations
+
+The Settings button `Detect GPU & Recommend Models` asks ComfyUI for `/system_stats`, then shows the GPU, available VRAM, detected model families, and practical recommendations.
+
+This is advisory only. OpenLayer does not auto-switch models yet.
+
+If `Z_image_Turbo` is installed as a diffusion model, it may not appear in the checkpoint selector. That is expected because the current stable starter workflows use `CheckpointLoaderSimple`. See `docs/model-guide.md` for the beginner model guide.
 
 ## Sketch To Image LINECN Test
 

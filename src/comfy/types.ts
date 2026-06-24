@@ -9,6 +9,37 @@ export type WorkflowPreset =
 export type WorkflowMode = "txt2img" | "img2img" | "sketch2img";
 export type ModelFamily = "sd1" | "sdxl" | "sd3" | "flux" | "zImage" | "unknown";
 
+export type ComfyHardwareDevice = {
+  name: string;
+  type: string;
+  index?: number;
+  vramTotalBytes?: number;
+  vramFreeBytes?: number;
+  torchVramTotalBytes?: number;
+  torchVramFreeBytes?: number;
+};
+
+export type ComfySystemStats = {
+  devices: ComfyHardwareDevice[];
+  system?: {
+    os?: string;
+    ramTotalBytes?: number;
+    ramFreeBytes?: number;
+    comfyuiVersion?: string;
+    pythonVersion?: string;
+    pytorchVersion?: string;
+  };
+};
+
+export type ComfyModelInventory = {
+  checkpoints: string[];
+  diffusionModels: string[];
+  clipModels: string[];
+  vaeModels: string[];
+  controlNetModels: string[];
+  missingSources: string[];
+};
+
 export type ComfyWorkflow = Record<string, ComfyWorkflowNode>;
 
 export type ComfyWorkflowNode = {

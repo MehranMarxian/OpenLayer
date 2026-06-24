@@ -105,6 +105,23 @@ If this fails:
 - Open `http://127.0.0.1:8190/system_stats` in a browser.
 - Confirm your ComfyUI models folder contains checkpoints.
 
+## 6a. Detect GPU And Model Recommendations
+
+Open Settings and click `Detect GPU & Recommend Models`.
+
+Expected result:
+
+- Settings shows the GPU/device reported by ComfyUI.
+- Settings shows total VRAM and free VRAM if ComfyUI reports those fields.
+- Settings shows a recommendation tier and task-specific model guidance.
+- If `Z_image_Turbo` is installed as a diffusion model, Settings explains that it does not appear in the checkpoint selector.
+
+If this fails:
+
+- Confirm ComfyUI is still running on the active server URL.
+- Confirm `http://127.0.0.1:8190/system_stats` returns JSON in a browser.
+- Treat this as a diagnostics failure only; it should not block Text to Image, Image to Image, or Sketch to Image generation.
+
 ## 7. Generate A Test Image
 
 Use a simple prompt:
@@ -213,7 +230,7 @@ If this fails:
 
 - Confirm `LineArtPreprocessor`, `ControlNetLoader`, and `ControlNetApplyAdvanced` are available in ComfyUI.
 - Confirm the SD 1.5 LineArt ControlNet model is installed.
-- Use the recommended SD 1.x checkpoint first. SDXL, SD3, Flux, and Z-Image need dedicated future Sketch presets.
+- Use the recommended SD 1.x checkpoint first. SDXL, SD3, Flux, and Z_image_Turbo need dedicated future Sketch presets.
 
 ## 11. Check Responsive Panel Layout
 
@@ -239,4 +256,5 @@ The alpha smoke test passes when:
 - The preview imports as a new Photoshop layer.
 - Image to Image can capture an active layer, generate, preview, and import.
 - Sketch to Image can capture an active layer or canvas, generate with the LINECN starter preset, preview, and import.
+- Settings can detect GPU/VRAM through ComfyUI and show recommendations without changing selected models.
 - The panel stays usable at narrow and wide widths.

@@ -6,7 +6,7 @@ OpenLayer now has preset metadata that can support model-family-specific ComfyUI
 - `img2img-basic`
 - `sketch2img-linecn-basic`
 
-These presets use `CheckpointLoaderSimple` and are intended for SD 1.x and SDXL-style checkpoints. SD3, Flux, and Z-Image models often use different loader, text encoder, VAE, or sampler nodes.
+These presets use `CheckpointLoaderSimple` and are intended for SD 1.x and SDXL-style checkpoints. SD3, Flux, and Z_image_Turbo models often use different loader, text encoder, VAE, or sampler nodes.
 
 ## Sketch to Image LINECN
 
@@ -37,7 +37,7 @@ Required node classes:
 
 The registry maps checkpoint, source image, prompt, negative prompt, seed, steps, CFG, denoise, and ControlNet strength into known node IDs from that workflow.
 
-## Required Before Adding Flux or Z-Image
+## Required Before Adding Flux or Z_image_Turbo
 
 Do not guess node APIs. Before wiring a new preset, export a real ComfyUI API-format workflow JSON from the local ComfyUI setup.
 

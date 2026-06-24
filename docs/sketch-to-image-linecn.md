@@ -40,7 +40,7 @@ The preset requires these ComfyUI node classes:
 - Checkpoint: `epicrealism_naturalSinRC1VAE.safetensors`
 - ControlNet: `control_v11p_sd15_lineart_fp16.safetensors`
 
-The workflow is intended for SD 1.x / SD 1.5 checkpoints. SDXL, SD3, Flux, and Z-Image need separate workflows because their loaders, text encoders, VAE paths, or sampler requirements may differ.
+The workflow is intended for SD 1.x / SD 1.5 checkpoints. SDXL, SD3, Flux, and Z_image_Turbo need separate workflows because their loaders, text encoders, VAE paths, or sampler requirements may differ.
 
 ## Registry Injection Targets
 

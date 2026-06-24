@@ -2,15 +2,41 @@ import {
   ComfyHistoryItem,
   ComfyHistoryResponse,
   ComfyImageOutput,
+  ComfyModelInventory,
   ComfyObjectInfoResponse,
   ComfyPromptResponse,
   ComfyQueueResponse,
+  ComfySystemStats,
   ComfyUploadImageResponse,
   ComfyWorkflow,
   GeneratedImageResult,
   WorkflowPresetDefinition
 } from "./types";
 import { createOpenLayerError, getNestedErrorMessage } from "../utils/errors";
+
+const MODEL_INVENTORY_SOURCES = {
+  checkpoints: [
+    { objectInfoNode: "CheckpointLoaderSimple", inputName: "ckpt_name", label: "checkpoint loader" }
+  ],
+  diffusionModels: [
+    { objectInfoNode: "UNETLoader", inputName: "unet_name", label: "diffusion model loader" },
+    { objectInfoNode: "DiffusionModelLoader", inputName: "model_name", label: "diffusion model loader" }
+  ],
+  clipModels: [
+    { objectInfoNode: "CLIPLoader", inputName: "clip_name", label: "CLIP loader" },
+    { objectInfoNode: "DualCLIPLoader", inputName: "clip_name1", label: "dual CLIP loader" },
+    { objectInfoNode: "DualCLIPLoader", inputName: "clip_name2", label: "dual CLIP loader" },
+    { objectInfoNode: "TripleCLIPLoader", inputName: "clip_name1", label: "triple CLIP loader" },
+    { objectInfoNode: "TripleCLIPLoader", inputName: "clip_name2", label: "triple CLIP loader" },
+    { objectInfoNode: "TripleCLIPLoader", inputName: "clip_name3", label: "triple CLIP loader" }
+  ],
+  vaeModels: [
+    { objectInfoNode: "VAELoader", inputName: "vae_name", label: "VAE loader" }
+  ],
+  controlNetModels: [
+    { objectInfoNode: "ControlNetLoader", inputName: "control_net_name", label: "ControlNet loader" }
+  ]
+} as const;
 
 type PollOptions = {
   intervalMs?: number;
@@ -59,6 +85,43 @@ export class ComfyClient {
         getNestedErrorMessage(caughtError)
       );
     }
+  }
+
+  async getSystemStats(): Promise<ComfySystemStats> {
+    try {
+      const response = await fetch(`${this.serverUrl}/system_stats`);
+
+      if (!response.ok) {
+        throw createOpenLayerError("COMFY_HTTP", `ComfyUI responded with HTTP ${response.status}.`);
+      }
+
+      return readComfySystemStats(await response.json());
+    } catch (caughtError) {
+      throw createOpenLayerError(
+        "COMFY_OFFLINE",
+        `Could not detect GPU information because ComfyUI is offline or unreachable at ${this.serverUrl}.`,
+        getNestedErrorMessage(caughtError)
+      );
+    }
+  }
+
+  async getModelInventory(): Promise<ComfyModelInventory> {
+    const inventory: ComfyModelInventory = {
+      checkpoints: [],
+      diffusionModels: [],
+      clipModels: [],
+      vaeModels: [],
+      controlNetModels: [],
+      missingSources: []
+    };
+
+    await this.collectInventoryNames(inventory, "checkpoints", MODEL_INVENTORY_SOURCES.checkpoints);
+    await this.collectInventoryNames(inventory, "diffusionModels", MODEL_INVENTORY_SOURCES.diffusionModels);
+    await this.collectInventoryNames(inventory, "clipModels", MODEL_INVENTORY_SOURCES.clipModels);
+    await this.collectInventoryNames(inventory, "vaeModels", MODEL_INVENTORY_SOURCES.vaeModels);
+    await this.collectInventoryNames(inventory, "controlNetModels", MODEL_INVENTORY_SOURCES.controlNetModels);
+
+    return inventory;
   }
 
   async getCheckpointNames(): Promise<string[]> {
@@ -154,6 +217,21 @@ export class ComfyClient {
     }
 
     return (await response.json()) as ComfyObjectInfoResponse;
+  }
+
+  private async collectInventoryNames(
+    inventory: ComfyModelInventory,
+    category: Exclude<keyof ComfyModelInventory, "missingSources">,
+    sources: readonly { objectInfoNode: string; inputName: string; label: string }[]
+  ) {
+    for (const source of sources) {
+      try {
+        const modelNames = await this.getModelNamesFromObjectInfo(source.objectInfoNode, source.inputName);
+        inventory[category] = mergeUniqueStrings(inventory[category], modelNames);
+      } catch {
+        inventory.missingSources.push(`${source.label}: ${source.objectInfoNode}.${source.inputName}`);
+      }
+    }
   }
 
   async uploadImage(blob: Blob, fileName = "openlayer-source.png") {
@@ -461,6 +539,38 @@ function normalizeServerUrl(serverUrl: string) {
   return trimmed.replace(/\/+$/, "");
 }
 
+function readComfySystemStats(data: unknown): ComfySystemStats {
+  const root = readObject(data);
+  const system = readObject(root.system);
+  const devices = Array.isArray(root.devices) ? root.devices : [];
+
+  return {
+    system: {
+      os: readOptionalString(system.os),
+      ramTotalBytes: readByteCount(system.ram_total),
+      ramFreeBytes: readByteCount(system.ram_free),
+      comfyuiVersion: readOptionalString(system.comfyui_version),
+      pythonVersion: readOptionalString(system.python_version),
+      pytorchVersion: readOptionalString(system.pytorch_version)
+    },
+    devices: devices.map(readComfyHardwareDevice).filter((device) => device.name || device.type)
+  };
+}
+
+function readComfyHardwareDevice(value: unknown) {
+  const device = readObject(value);
+
+  return {
+    name: readOptionalString(device.name) || "Unknown GPU",
+    type: readOptionalString(device.type) || "unknown",
+    index: readOptionalNumber(device.index),
+    vramTotalBytes: readByteCount(device.vram_total),
+    vramFreeBytes: readByteCount(device.vram_free),
+    torchVramTotalBytes: readByteCount(device.torch_vram_total),
+    torchVramFreeBytes: readByteCount(device.torch_vram_free)
+  };
+}
+
 function readComfyModelNameList(data: ComfyObjectInfoResponse, objectInfoNode: string, inputName: string) {
   const input = data[objectInfoNode]?.input?.required?.[inputName];
 
@@ -469,6 +579,46 @@ function readComfyModelNameList(data: ComfyObjectInfoResponse, objectInfoNode: s
   }
 
   return input[0].filter((name): name is string => typeof name === "string");
+}
+
+function mergeUniqueStrings(current: string[], next: string[]) {
+  const names = new Set(current);
+
+  for (const name of next) {
+    if (name) {
+      names.add(name);
+    }
+  }
+
+  return [...names].sort((a, b) => a.localeCompare(b));
+}
+
+function readObject(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function readOptionalString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function readOptionalNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function readByteCount(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      return parsed;
+    }
+  }
+
+  return undefined;
 }
 
 function createClientId() {
