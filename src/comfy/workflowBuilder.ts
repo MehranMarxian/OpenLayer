@@ -1,6 +1,6 @@
-import txt2imgBasicWorkflow from "../workflows/txt2img-basic.json";
-import img2imgBasicWorkflow from "../workflows/img2img-basic.json";
-import sketch2imgLinecnBasicWorkflow from "../workflows/sketch2img-linecn-basic.json";
+import txt2imgBasicWorkflow from "../workflows/api/txt2img-basic.json";
+import img2imgBasicWorkflow from "../workflows/api/img2img-basic.json";
+import sketch2imgLinecnBasicWorkflow from "../workflows/api/sketch2img-linecn-basic.json";
 import {
   BuildImageToImageWorkflowOptions,
   BuildSketchToImageWorkflowOptions,
@@ -22,6 +22,7 @@ const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
 export async function buildTxt2ImgWorkflow(options: BuildWorkflowOptions): Promise<BuildWorkflowResult> {
   const preset = getWorkflowPreset(options.presetId ?? "txt2img-basic");
   assertPresetMode(preset, "txt2img");
+  assertPresetRunnable(preset);
   const workflow = await cloneWorkflowTemplate(preset);
   const seed = options.seed;
 
@@ -55,6 +56,7 @@ export async function buildImg2ImgWorkflow(
 ): Promise<BuildWorkflowResult> {
   const preset = getWorkflowPreset(options.presetId ?? "img2img-basic");
   assertPresetMode(preset, "img2img");
+  assertPresetRunnable(preset);
   const workflow = await cloneWorkflowTemplate(preset);
   const seed = options.seed;
 
@@ -88,6 +90,7 @@ export async function buildSketchToImageWorkflow(
 ): Promise<BuildWorkflowResult> {
   const preset = getWorkflowPreset(options.presetId ?? "sketch2img-linecn-basic");
   assertPresetMode(preset, "sketch2img");
+  assertPresetRunnable(preset);
   const workflow = await cloneWorkflowTemplate(preset);
   const seed = options.seed;
 
@@ -168,6 +171,19 @@ function assertPresetMode(preset: WorkflowPresetDefinition, mode: WorkflowPreset
   }
 }
 
+function assertPresetRunnable(preset: WorkflowPresetDefinition) {
+  if (preset.status !== "todo") {
+    return;
+  }
+
+  throw createOpenLayerError(
+    "WORKFLOW_PRESET_UNSUPPORTED",
+    `${preset.label} is not runnable yet.`,
+    preset.disabledReason ??
+      "This preset is registered for future workflow compatibility work, but it does not have a validated OpenLayer API workflow JSON yet."
+  );
+}
+
 async function loadWorkflowFromFile(preset: WorkflowPresetDefinition): Promise<ComfyWorkflow> {
   try {
     const response = await fetch(preset.workflowFile);
@@ -182,7 +198,7 @@ async function loadWorkflowFromFile(preset: WorkflowPresetDefinition): Promise<C
       throw createOpenLayerError(
         "WORKFLOW_FILE_MISSING",
         "LINECN workflow JSON required.",
-        `Export the working ComfyUI API workflow as src/workflows/sketch2img-linecn-basic.json. ${String(caughtError)}`
+        `Export the working ComfyUI API workflow as src/workflows/api/sketch2img-linecn-basic.json. ${String(caughtError)}`
       );
     }
 

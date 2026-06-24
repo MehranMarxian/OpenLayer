@@ -519,12 +519,16 @@ a:hover {
 }
 
 .hardware-list div {
+  display: block;
   align-items: flex-start;
 }
 
 .hardware-list strong {
-  max-width: 62%;
+  display: block;
+  max-width: 100%;
+  margin-top: 4px;
   overflow-wrap: anywhere;
+  text-align: left;
   white-space: normal;
 }
 

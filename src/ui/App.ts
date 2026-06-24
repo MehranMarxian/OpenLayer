@@ -5,7 +5,7 @@ import {
   HardwareRecommendationReport
 } from "../comfy/hardwareAdvisor";
 import { getCheckpointCompatibility, getPresetCompatibilityNote } from "../comfy/modelCompatibility";
-import { getWorkflowPreset, listWorkflowPresets } from "../comfy/presetRegistry";
+import { getWorkflowPreset, listRunnableWorkflowPresets, listWorkflowPresets } from "../comfy/presetRegistry";
 import { validateGenerationSettings, validateImageToImageSettings, validateSketchToImageSettings } from "../comfy/settings";
 import { buildImg2ImgWorkflow, buildSketchToImageWorkflow, buildTxt2ImgWorkflow } from "../comfy/workflowBuilder";
 import { GeneratedImageResult, WorkflowPresetDefinition } from "../comfy/types";
@@ -26,7 +26,7 @@ import {
 } from "../utils/preferences";
 
 const DEFAULT_SERVER_URL = "http://127.0.0.1:8190";
-const APP_VERSION = "0.2.1";
+const APP_VERSION = "0.2.2";
 const DEVELOPER_GITHUB = "https://github.com/MehranMarxian";
 const HISTORY_LIMIT = 5;
 const COMFY_PORT_CANDIDATES = [8190, 8188, 8189, 8191, 8192, 8193, 7860];
@@ -1590,7 +1590,7 @@ function createAppMarkup() {
           <label class="field">
             <span class="label">Workflow</span>
             <select class="select" id="workflow">
-              ${listWorkflowPresets("txt2img").map((preset) => `<option value="${preset.id}">${preset.label}</option>`).join("")}
+              ${listRunnableWorkflowPresets("txt2img").map((preset) => `<option value="${preset.id}">${preset.label}</option>`).join("")}
             </select>
           </label>
           <label class="field">
@@ -1696,7 +1696,7 @@ function createAppMarkup() {
           <div class="field img2img-field">
             <span class="label">Workflow</span>
             <select class="select" id="img-workflow">
-              ${listWorkflowPresets("img2img").map((preset) => `<option value="${preset.id}">${preset.label}</option>`).join("")}
+              ${listRunnableWorkflowPresets("img2img").map((preset) => `<option value="${preset.id}">${preset.label}</option>`).join("")}
             </select>
           </div>
           <div class="field img2img-field">
@@ -1793,7 +1793,7 @@ function createAppMarkup() {
           <div class="field img2img-field">
             <span class="label">Workflow</span>
             <select class="select" id="sketch-workflow">
-              ${listWorkflowPresets("sketch2img").map((preset) => `<option value="${preset.id}">${preset.label}</option>`).join("")}
+              ${listRunnableWorkflowPresets("sketch2img").map((preset) => `<option value="${preset.id}">${preset.label}</option>`).join("")}
             </select>
           </div>
           <div class="field img2img-field">

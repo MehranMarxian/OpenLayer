@@ -1,6 +1,6 @@
 # Sketch to Image LINECN Setup
 
-OpenLayer v0.2.1 adds the Sketch to Image screen and capture/import foundation. The first target workflow is a simple SD 1.x LineArt ControlNet setup.
+OpenLayer v0.2.1 added the Sketch to Image screen and capture/import foundation. The first target workflow is a simple SD 1.x LineArt ControlNet setup.
 
 ## Recommended First Workflow
 
@@ -15,7 +15,7 @@ OpenLayer v0.2.1 adds the Sketch to Image screen and capture/import foundation. 
 OpenLayer includes a first candidate API workflow at:
 
 ```text
-src/workflows/sketch2img-linecn-basic.json
+src/workflows/api/sketch2img-linecn-basic.json
 ```
 
 This workflow was built from the local ComfyUI `/object_info` schema on the first tested Windows setup, then wired through `src/comfy/presetRegistry.ts`.

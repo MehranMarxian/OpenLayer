@@ -8,10 +8,56 @@ import {
 import { createOpenLayerError } from "../utils/errors";
 
 const CHECKPOINT_MODEL_SOURCE = {
+  kind: "checkpoint",
   objectInfoNode: "CheckpointLoaderSimple",
   inputName: "ckpt_name",
   label: "Checkpoint"
 } as const;
+
+const DIFFUSION_MODEL_SOURCE = {
+  kind: "diffusion-model-stack",
+  objectInfoNode: "UNETLoader",
+  inputName: "unet_name",
+  label: "Diffusion model"
+} as const;
+
+const Z_IMAGE_TURBO_STACK = [
+  {
+    kind: "diffusion-model-stack",
+    objectInfoNode: "UNETLoader",
+    inputName: "unet_name",
+    label: "Z_image_Turbo diffusion model",
+    modelName: "z_image_turbo_bf16.safetensors",
+    setupHint: "Install z_image_turbo_bf16.safetensors where ComfyUI's UNETLoader can find it."
+  },
+  {
+    kind: "clip",
+    objectInfoNode: "CLIPLoader",
+    inputName: "clip_name",
+    label: "Z_image_Turbo CLIP",
+    modelName: "qwen_3_4b.safetensors",
+    setupHint: "Install qwen_3_4b.safetensors where ComfyUI's CLIPLoader can find it."
+  },
+  {
+    kind: "vae",
+    objectInfoNode: "VAELoader",
+    inputName: "vae_name",
+    label: "Z_image_Turbo VAE",
+    modelName: "ae.safetensors",
+    setupHint: "Install ae.safetensors where ComfyUI's VAELoader can find it."
+  }
+] as const;
+
+const FLUX1_DEV_STACK = [
+  {
+    kind: "diffusion-model-stack",
+    objectInfoNode: "UNETLoader",
+    inputName: "unet_name",
+    label: "Flux diffusion model",
+    modelName: "flux1-dev.safetensors",
+    setupHint: "Install flux1-dev.safetensors where ComfyUI's UNETLoader can find it."
+  }
+] as const;
 
 const TXT2IMG_BASIC_NODES = {
   checkpointLoader: "4",
@@ -85,7 +131,8 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     label: "txt2img-basic",
     mode: "txt2img",
     description: "Basic local text-to-image generation through ComfyUI.",
-    workflowFile: "workflows/txt2img-basic.json",
+    workflowFile: "workflows/api/txt2img-basic.json",
+    sourceWorkflowFile: "workflows/source/txt2img-basic.workflow.json",
     status: "stable",
     supportedModelFamilies: ["sd1", "sdxl", "unknown"],
     experimentalModelFamilies: ["sd3", "flux", "zImage"],
@@ -130,7 +177,8 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     label: "img2img-basic",
     mode: "img2img",
     description: "Basic local image-to-image generation using an uploaded source image.",
-    workflowFile: "workflows/img2img-basic.json",
+    workflowFile: "workflows/api/img2img-basic.json",
+    sourceWorkflowFile: "workflows/source/img2img-basic.workflow.json",
     status: "stable",
     supportedModelFamilies: ["sd1", "sdxl", "unknown"],
     experimentalModelFamilies: ["sd3", "flux", "zImage"],
@@ -180,7 +228,8 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     label: "sketch2img-linecn-basic",
     mode: "sketch2img",
     description: "Experimental SD 1.x LineArt ControlNet sketch guidance workflow.",
-    workflowFile: "workflows/sketch2img-linecn-basic.json",
+    workflowFile: "workflows/api/sketch2img-linecn-basic.json",
+    sourceWorkflowFile: "workflows/source/sketch2img-linecn-basic.workflow.json",
     status: "experimental",
     supportedModelFamilies: ["sd1"],
     experimentalModelFamilies: ["sdxl", "sd3", "flux", "zImage"],
@@ -190,6 +239,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
       "sketch2img-linecn-basic is a starter SD 1.x LineArt ControlNet workflow. Use an SD 1.x checkpoint and an SD 1.5 LineArt ControlNet model.",
     requiredModels: [
       {
+        kind: "controlnet",
         objectInfoNode: "ControlNetLoader",
         inputName: "control_net_name",
         label: "LineArt ControlNet",
@@ -249,11 +299,161 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
         requiredInputs: ["images"]
       }
     ]
+  },
+  {
+    id: "txt2img-z-image-turbo",
+    label: "txt2img-z-image-turbo",
+    mode: "txt2img",
+    description: "Future text-to-image preset for the Z_image_Turbo diffusion model stack.",
+    workflowFile: "workflows/api/txt2img-z-image-turbo.json",
+    sourceWorkflowFile: "workflows/source/txt2img-z-image-turbo.workflow.json",
+    status: "todo",
+    supportedModelFamilies: ["zImage"],
+    experimentalModelFamilies: ["unknown"],
+    modelSource: DIFFUSION_MODEL_SOURCE,
+    modelStack: [...Z_IMAGE_TURBO_STACK],
+    injections: {},
+    requiredNodes: [
+      {
+        id: "todo-unet-loader",
+        classType: "UNETLoader",
+        requiredInputs: ["unet_name", "weight_dtype"]
+      },
+      {
+        id: "todo-clip-loader",
+        classType: "CLIPLoader",
+        requiredInputs: ["clip_name", "type"]
+      },
+      {
+        id: "todo-vae-loader",
+        classType: "VAELoader",
+        requiredInputs: ["vae_name"]
+      },
+      {
+        id: "todo-lumina2-encode",
+        classType: "CLIPTextEncodeLumina2",
+        requiredInputs: ["system_prompt", "user_prompt", "clip"]
+      }
+    ],
+    compatibilityNote:
+      "Z_image_Turbo is a diffusion model stack, not a checkpoint. It needs a dedicated validated API workflow before generation is enabled.",
+    disabledReason: "No validated OpenLayer API workflow JSON exists yet for Z_image_Turbo."
+  },
+  {
+    id: "img2img-z-image-turbo",
+    label: "img2img-z-image-turbo",
+    mode: "img2img",
+    description: "Future image-to-image preset for the Z_image_Turbo diffusion model stack.",
+    workflowFile: "workflows/api/img2img-z-image-turbo.json",
+    sourceWorkflowFile: "workflows/source/img2img-z-image-turbo.workflow.json",
+    status: "todo",
+    supportedModelFamilies: ["zImage"],
+    experimentalModelFamilies: ["unknown"],
+    modelSource: DIFFUSION_MODEL_SOURCE,
+    modelStack: [...Z_IMAGE_TURBO_STACK],
+    injections: {},
+    requiredNodes: [
+      {
+        id: "todo-unet-loader",
+        classType: "UNETLoader",
+        requiredInputs: ["unet_name", "weight_dtype"]
+      },
+      {
+        id: "todo-clip-loader",
+        classType: "CLIPLoader",
+        requiredInputs: ["clip_name", "type"]
+      },
+      {
+        id: "todo-vae-loader",
+        classType: "VAELoader",
+        requiredInputs: ["vae_name"]
+      },
+      {
+        id: "todo-lumina2-encode",
+        classType: "CLIPTextEncodeLumina2",
+        requiredInputs: ["system_prompt", "user_prompt", "clip"]
+      }
+    ],
+    compatibilityNote:
+      "Z_image_Turbo image-to-image needs a dedicated source-image workflow. It should not use img2img-basic.",
+    disabledReason: "No validated OpenLayer API workflow JSON exists yet for Z_image_Turbo Image to Image."
+  },
+  {
+    id: "txt2img-flux1-dev",
+    label: "txt2img-flux1-dev",
+    mode: "txt2img",
+    description: "Future text-to-image preset for Flux.1-dev style diffusion model stacks.",
+    workflowFile: "workflows/api/txt2img-flux1-dev.json",
+    sourceWorkflowFile: "workflows/source/txt2img-flux1-dev.workflow.json",
+    status: "todo",
+    supportedModelFamilies: ["flux"],
+    experimentalModelFamilies: ["unknown"],
+    modelSource: DIFFUSION_MODEL_SOURCE,
+    modelStack: [...FLUX1_DEV_STACK],
+    injections: {},
+    requiredNodes: [
+      {
+        id: "todo-unet-loader",
+        classType: "UNETLoader",
+        requiredInputs: ["unet_name", "weight_dtype"]
+      },
+      {
+        id: "todo-dual-clip-loader",
+        classType: "DualCLIPLoader",
+        requiredInputs: ["clip_name1", "clip_name2", "type"]
+      },
+      {
+        id: "todo-flux-encode",
+        classType: "CLIPTextEncodeFlux",
+        requiredInputs: ["clip", "clip_l", "t5xxl", "guidance"]
+      }
+    ],
+    compatibilityNote:
+      "Flux needs dedicated UNET, CLIP/T5, VAE, and conditioning workflow nodes before generation is enabled.",
+    disabledReason: "No validated OpenLayer API workflow JSON exists yet for Flux.1-dev."
+  },
+  {
+    id: "img2img-flux1-dev",
+    label: "img2img-flux1-dev",
+    mode: "img2img",
+    description: "Future image-to-image preset for Flux.1-dev style diffusion model stacks.",
+    workflowFile: "workflows/api/img2img-flux1-dev.json",
+    sourceWorkflowFile: "workflows/source/img2img-flux1-dev.workflow.json",
+    status: "todo",
+    supportedModelFamilies: ["flux"],
+    experimentalModelFamilies: ["unknown"],
+    modelSource: DIFFUSION_MODEL_SOURCE,
+    modelStack: [...FLUX1_DEV_STACK],
+    injections: {},
+    requiredNodes: [
+      {
+        id: "todo-unet-loader",
+        classType: "UNETLoader",
+        requiredInputs: ["unet_name", "weight_dtype"]
+      },
+      {
+        id: "todo-dual-clip-loader",
+        classType: "DualCLIPLoader",
+        requiredInputs: ["clip_name1", "clip_name2", "type"]
+      },
+      {
+        id: "todo-flux-encode",
+        classType: "CLIPTextEncodeFlux",
+        requiredInputs: ["clip", "clip_l", "t5xxl", "guidance"]
+      }
+    ],
+    compatibilityNote:
+      "Flux Image to Image needs a dedicated source-image workflow. It should not use img2img-basic.",
+    disabledReason: "No validated OpenLayer API workflow JSON exists yet for Flux.1-dev Image to Image."
   }
 ];
 
 export function listWorkflowPresets(mode?: WorkflowPresetDefinition["mode"]) {
   return mode ? WORKFLOW_PRESETS.filter((preset) => preset.mode === mode) : WORKFLOW_PRESETS;
+}
+
+export function listRunnableWorkflowPresets(mode?: WorkflowPresetDefinition["mode"]) {
+  return listWorkflowPresets(mode).filter((preset) => preset.status !== "todo");
 }
 
 export function getWorkflowPreset(presetId: string): WorkflowPresetDefinition {

@@ -52,7 +52,7 @@ python main.py --listen 127.0.0.1 --port 8190
 5. Click `Generate`.
 6. After the preview appears, click `Import Result as New Layer`.
 
-If generation fails, confirm the checkpoint name in `src/workflows/txt2img-basic.json` exists in your ComfyUI models folder.
+If generation fails, confirm the checkpoint name in `src/workflows/api/txt2img-basic.json` exists in your ComfyUI models folder.
 
 ## GPU And Model Recommendations
 

@@ -110,7 +110,10 @@ export type WorkflowInjectionName =
 
 export type WorkflowInjectionTargets = Partial<Record<WorkflowInjectionName, WorkflowInputTarget>>;
 
+export type WorkflowModelSourceKind = "checkpoint" | "diffusion-model-stack" | "clip" | "vae" | "controlnet";
+
 export type WorkflowModelSource = {
+  kind: WorkflowModelSourceKind;
   objectInfoNode: string;
   inputName: string;
   label: string;
@@ -127,14 +130,17 @@ export type WorkflowPresetDefinition = {
   mode: WorkflowMode;
   description: string;
   workflowFile: string;
+  sourceWorkflowFile?: string;
   status: "stable" | "experimental" | "todo";
   supportedModelFamilies: ModelFamily[];
   experimentalModelFamilies: ModelFamily[];
   modelSource: WorkflowModelSource;
+  modelStack?: WorkflowRequiredModel[];
   injections: WorkflowInjectionTargets;
   requiredNodes: WorkflowNodeRequirement[];
   requiredModels?: WorkflowRequiredModel[];
   compatibilityNote?: string;
+  disabledReason?: string;
 };
 
 export type ComfyPromptResponse = {

@@ -10,7 +10,7 @@ OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop t
 
 ## Alpha Release
 
-`v0.2.1-alpha` is the current public preview. It is intended for testing the core local workflow, not for production work yet.
+`v0.2.2-alpha` is the current public preview. It is intended for testing the core local workflow, not for production work yet.
 
 Included in this alpha:
 
@@ -32,6 +32,7 @@ Included in this alpha:
 - Passive local ComfyUI active port finder
 - GPU-aware model recommendations in Settings using ComfyUI `/system_stats`
 - Beginner-friendly model family guidance for SD 1.x, SDXL, SD3, Flux, and Z_image_Turbo
+- Workflow compatibility foundation that separates checkpoint presets from future diffusion-model-stack presets
 - Session history for recent generated previews
 - Optional auto-import after generation
 - Responsive panel spacing fixes for narrow and wide Photoshop panels
@@ -39,13 +40,14 @@ Included in this alpha:
 
 ![OpenLayer v0.2.1 Home dashboard](docs/assets/openlayer-v021-dashboard.png)
 
-Known v0.2.1-alpha boundaries:
+Known v0.2.2-alpha boundaries:
 
 - Image to Image is an early foundation path, not a full production workflow yet.
 - Sketch to Image is limited to the first SD 1.x LINECN starter workflow.
 - Sketch to Image is currently tested with `epicrealism_naturalSinRC1VAE.safetensors` and `control_v11p_sd15_lineart_fp16.safetensors`.
 - Active-layer and canvas capture are currently encoded as JPEG through Photoshop's Imaging API.
 - `img2img-basic` is the default SD 1.x/SDXL preset. SD3, SD3.5, and Flux checkpoints remain visible but are marked experimental because they usually need dedicated future workflow presets.
+- Z_image_Turbo and Flux preset metadata exists, but those presets are disabled until validated API workflow JSON files are added.
 - SDXL, SD3, Flux, and Z_image_Turbo Sketch to Image workflows need dedicated future presets.
 - Workflow node IDs may need adjustment for custom ComfyUI workflows.
 - True PNG selected-layer export, inpainting, masks, selection preservation, aligned regional workflows, advanced ControlNet-style workflows, and upscaling are not included yet.
@@ -135,7 +137,7 @@ npm run package
 This creates a zip package from `dist` in the `packages` folder. For the current alpha, the expected package name is:
 
 ```text
-packages/openlayer-v0.2.1-alpha.zip
+packages/openlayer-v0.2.2-alpha.zip
 ```
 
 ## Loading In UXP Developer Tool
@@ -242,7 +244,7 @@ OpenLayer_Sketch_YYYYMMDD_HHMM
 
 ## Pre-release Tester Checklist
 
-Use this quick pass before reporting a v0.2.1-alpha test result:
+Use this quick pass before reporting a v0.2.2-alpha test result:
 
 1. Start ComfyUI on `http://127.0.0.1:8190`.
 2. Build OpenLayer and load `dist/manifest.json` in Adobe UXP Developer Tool.
@@ -265,10 +267,18 @@ docs/testing-v0.1-alpha.md
 
 The included workflows are realistic starter ComfyUI workflows using common built-in nodes:
 
-- `src/workflows/txt2img-basic.json`
-- `src/workflows/img2img-basic.json`
+- `src/workflows/api/txt2img-basic.json`
+- `src/workflows/api/img2img-basic.json`
+- `src/workflows/api/sketch2img-linecn-basic.json`
 
 You may need to replace the checkpoint name and node IDs for your own ComfyUI setup.
+
+OpenLayer now keeps workflow files in two folders:
+
+- `src/workflows/api/` for runnable API workflows submitted to ComfyUI
+- `src/workflows/source/` for GUI-editable ComfyUI source workflows
+
+See `docs/workflow-files.md` for the workflow file structure and `docs/comfyui-object-info-audit-v0.2.2.md` for the local node schema audit used by the v0.2.2 compatibility foundation.
 
 The workflow builder injects:
 
@@ -280,7 +290,7 @@ The workflow builder injects:
 - steps
 - cfg
 
-Image to Image and Sketch to Image use Photoshop's UXP Imaging API to capture the active layer or canvas, then send the source image to ComfyUI using `/upload/image`. In `v0.2.1-alpha`, that source capture is encoded as JPEG. True PNG layer export, mask export, and selection-aligned workflows are planned future work.
+Image to Image and Sketch to Image use Photoshop's UXP Imaging API to capture the active layer or canvas, then send the source image to ComfyUI using `/upload/image`. In `v0.2.2-alpha`, that source capture is encoded as JPEG. True PNG layer export, mask export, and selection-aligned workflows are planned future work.
 
 `img2img-basic` is intended for SD 1.x and SDXL-style checkpoints. SD3, SD3.5, and Flux checkpoints are shown in the selector for transparency, but OpenLayer warns before running them because those model families often need different loader, text encoder, and VAE nodes.
 

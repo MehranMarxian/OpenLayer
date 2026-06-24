@@ -13,15 +13,23 @@ npm run package
 
 `npm run build` writes the production plugin to `dist` and copies UXP assets such as `manifest.json` and workflow JSON files.
 
-`npm run package` zips the contents of `dist` into `packages/openlayer-v0.2.1-alpha.zip`.
+`npm run package` zips the contents of `dist` into `packages/openlayer-v0.2.2-alpha.zip`.
 
 ## ComfyUI Workflow Development
 
 The starter workflows are:
 
 ```text
-src/workflows/txt2img-basic.json
-src/workflows/img2img-basic.json
+src/workflows/api/txt2img-basic.json
+src/workflows/api/img2img-basic.json
+src/workflows/api/sketch2img-linecn-basic.json
+```
+
+OpenLayer separates runnable API workflows from GUI-editable source workflows:
+
+```text
+src/workflows/api/
+src/workflows/source/
 ```
 
 The injection logic is:

@@ -31,7 +31,7 @@ npm run package
 Expected result:
 
 - A package is created in `packages`.
-- For this version, the package should be named `openlayer-v0.2.1-alpha.zip`.
+- For this version, the package should be named `openlayer-v0.2.2-alpha.zip`.
 
 If this fails:
 
@@ -121,6 +121,16 @@ If this fails:
 - Confirm ComfyUI is still running on the active server URL.
 - Confirm `http://127.0.0.1:8190/system_stats` returns JSON in a browser.
 - Treat this as a diagnostics failure only; it should not block Text to Image, Image to Image, or Sketch to Image generation.
+
+## 6b. Check Workflow Compatibility Foundation
+
+Open Text to Image and Image to Image workflow selectors.
+
+Expected result:
+
+- `txt2img-basic`, `img2img-basic`, and `sketch2img-linecn-basic` remain available as before.
+- Future Z_image_Turbo and Flux presets do not appear as runnable workflow choices yet.
+- Settings diagnostics may mention Z_image_Turbo or Flux if their model-stack files are detected.
 
 ## 7. Generate A Test Image
 

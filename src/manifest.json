@@ -2,7 +2,7 @@
   "manifestVersion": 5,
   "id": "com.openlayer.photoshop",
   "name": "OpenLayer",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "main": "index.html",
   "host": [
     {
