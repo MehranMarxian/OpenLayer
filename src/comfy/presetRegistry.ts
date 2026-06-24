@@ -502,7 +502,10 @@ export function validateWorkflowForPreset(workflow: ComfyWorkflow, preset: Workf
     throw createOpenLayerError(
       "WORKFLOW_INVALID",
       `The ${preset.id} workflow does not match the expected starter workflow.`,
-      problems.join(" ")
+      [
+        ...problems,
+        `Remap ${preset.id} in src/comfy/presetRegistry.ts after exporting the matching ComfyUI API workflow.`
+      ].join(" ")
     );
   }
 }
@@ -534,7 +537,9 @@ function validateRequiredNode(
 
   for (const inputName of requirement.requiredInputs) {
     if (!Object.prototype.hasOwnProperty.call(node.inputs, inputName)) {
-      problems.push(`Node ${requirement.id} is missing input "${inputName}".`);
+      problems.push(
+        `Node ${requirement.id} (${requirement.classType}) is missing input "${inputName}".`
+      );
     }
   }
 }

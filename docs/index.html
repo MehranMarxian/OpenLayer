@@ -36,7 +36,7 @@
         <div class="hero-content">
           <div class="hero-mark">
             <img src="assets/openlayer-icon.png" alt="" width="72" height="72">
-            <span>Alpha v0.2.2</span>
+            <span>Alpha v0.3.0</span>
           </div>
           <h1 id="hero-title">OpenLayer</h1>
           <p class="hero-lede">
@@ -220,12 +220,12 @@ npm run build</code></pre>
           </div>
           <ul class="check-list">
             <li><code>txt2img-basic</code>, <code>img2img-basic</code>, and <code>sketch2img-linecn-basic</code> are starter workflows, not final production presets.</li>
-            <li>Image to Image and Sketch to Image source capture currently use JPEG through Photoshop's Imaging API.</li>
+            <li>Image to Image and Sketch to Image source capture now encodes raw Photoshop pixels as PNG/lossless images.</li>
             <li>Sketch to Image currently targets SD 1.x LINECN with <code>epicrealism_naturalSinRC1VAE.safetensors</code> and <code>control_v11p_sd15_lineart_fp16.safetensors</code>.</li>
             <li>Custom ComfyUI workflows may need node ID updates in the preset registry.</li>
             <li>GPU-aware recommendations are advisory only. OpenLayer does not auto-switch models or workflows yet.</li>
             <li>Generated images are placed as Photoshop layers; advanced alignment is future work.</li>
-            <li>No true PNG selected-layer export, inpainting, masks, upscaling, or selection-aware workflows yet.</li>
+            <li>No dedicated selected-layer PNG export, inpainting, masks, upscaling, or selection-aware workflows yet.</li>
             <li>The browser dev server is only for UI preview. Photoshop APIs run inside UXP.</li>
             <li>Responsive panel spacing has been improved for testing, but final visual polish is still in progress.</li>
           </ul>
@@ -287,7 +287,7 @@ npm run build</code></pre>
     </main>
 
     <footer class="site-footer">
-      <p>OpenLayer v0.2.2-alpha. Developed by Mehran Ahmadi, 2026.</p>
+      <p>OpenLayer v0.3.0-alpha. Developed by Mehran Ahmadi, 2026.</p>
       <p>
         <a href="https://github.com/MehranMarxian">GitHub</a>
       </p>

@@ -1,18 +1,20 @@
 {
   "name": "openlayer",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "private": true,
   "description": "Local AI layers for Photoshop",
   "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
+    "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit && vite build && node scripts/copy-uxp-assets.mjs",
-    "package": "npm run build && node scripts/package.mjs"
+    "package": "npm run build && node scripts/package.mjs",
+    "test": "vitest run --config vitest.config.ts"
   },
-  "dependencies": {},
   "devDependencies": {
     "typescript": "^5.7.2",
-    "vite": "^6.0.7"
+    "vite": "^6.0.7",
+    "vitest": "^4.1.9"
   }
 }

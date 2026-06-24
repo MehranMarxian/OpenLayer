@@ -43,6 +43,8 @@ Source workflow files are not submitted directly by OpenLayer. They are project 
 7. Run TypeScript and a production build.
 8. Test in Photoshop with ComfyUI running on the active OpenLayer port.
 
+See `docs/custom-workflows.md` for the longer mapping guide.
+
 ## Why Z_image_Turbo Is Different
 
 `Z_image_Turbo` is not a checkpoint. It is a diffusion model stack.

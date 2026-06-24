@@ -1,0 +1,38 @@
+name: Feature request
+description: Suggest a focused OpenLayer improvement
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: OpenLayer is prioritizing reliable local artist workflows. Please describe the real workflow need.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Artist workflow problem
+      placeholder: What are you trying to do in Photoshop?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Suggested solution
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Text to Image
+        - Image to Image
+        - Sketch to Image
+        - Inpainting / masks
+        - Workflow presets
+        - Model compatibility
+        - UI / usability
+        - Documentation
+  - type: textarea
+    id: notes
+    attributes:
+      label: Extra context

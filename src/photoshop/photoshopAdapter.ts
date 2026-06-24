@@ -1,5 +1,6 @@
 import { createLayerName, saveBlobToTemporaryFile } from "../utils/fileUtils";
 import { createOpenLayerError, getErrorMessage } from "../utils/errors";
+import { encodeRgbaPng } from "../utils/png";
 
 type PhotoshopModule = {
   app: {
@@ -14,7 +15,6 @@ type PhotoshopModule = {
   };
   imaging?: {
     getPixels: (options: Record<string, unknown>) => Promise<PhotoshopPixelResult>;
-    encodeImageData: (options: Record<string, unknown>) => Promise<ArrayBuffer | Uint8Array | number[] | string>;
   };
 };
 
@@ -35,6 +35,9 @@ type PhotoshopLayer = {
 type PhotoshopImageData = {
   width?: number;
   height?: number;
+  components?: number;
+  componentSize?: number;
+  getData?: (options?: Record<string, unknown>) => Promise<ArrayBuffer | Uint8Array | number[]> | ArrayBuffer | Uint8Array | number[];
   dispose?: () => void;
 };
 
@@ -42,12 +45,16 @@ type PhotoshopPixelResult = {
   imageData?: PhotoshopImageData;
 };
 
+export type SourceCaptureFormat = "png";
+
 type CapturedSourceImage = {
   data: ArrayBuffer;
   filename: string;
+  mimeType: string;
   width: number;
   height: number;
   sourceName: string;
+  captureFormat: SourceCaptureFormat;
 };
 
 type ImportProgress = (message: string) => void;
@@ -67,7 +74,30 @@ export type ExportedSourceImage = {
   width: number;
   height: number;
   sourceName: string;
+  captureFormat: SourceCaptureFormat;
 };
+
+export type SelectionBounds = {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+};
+
+export type SelectionMaskExport = {
+  blob: Blob;
+  bounds: SelectionBounds;
+  width: number;
+  height: number;
+};
+
+export type AlignedRegionalImportOptions = {
+  blob: Blob;
+  bounds: SelectionBounds;
+  layerName?: string;
+};
+
+export type PreserveSelectionOperation<T> = () => Promise<T>;
 
 export async function hasOpenDocument(): Promise<boolean> {
   const photoshop = getPhotoshop();
@@ -154,7 +184,7 @@ export async function exportActiveLayerForImageToImage(): Promise<ExportedSource
             layerID: activeLayer.id,
             componentSize: 8,
             colorSpace: "RGB",
-            applyAlpha: true
+            applyAlpha: false
           },
           filenamePrefix: "OpenLayer_Source",
           sourceName: activeLayer.name || "Active layer"
@@ -195,7 +225,7 @@ export async function exportCanvasForImageToImage(): Promise<ExportedSourceImage
             ...createDocumentSourceBounds(document),
             componentSize: 8,
             colorSpace: "RGB",
-            applyAlpha: true
+            applyAlpha: false
           },
           filenamePrefix: "OpenLayer_Canvas",
           sourceName: document.title ?? document.name ?? "Canvas composite"
@@ -214,30 +244,30 @@ export async function exportCanvasForImageToImage(): Promise<ExportedSourceImage
 }
 
 export async function exportActiveLayerAsPNG(): Promise<Blob> {
-  // TODO(v0.2+): Add a true PNG export path if Photoshop UXP exposes one safely for selected layers.
+  // TODO(v0.4): Use this for mask-aware inpainting when selected-layer PNG export is fully verified.
   throw createOpenLayerError(
     "PHOTOSHOP_EXPORT_FAILED",
-    "PNG active-layer export is planned for a future OpenLayer version. v0.2.1-alpha captures a JPEG source through Photoshop's Imaging API for Image to Image and Sketch to Image."
+    "Dedicated selected-layer PNG file export is planned for a future OpenLayer inpainting release. Current Image to Image and Sketch capture already encode source pixels as PNG through the Imaging API path."
   );
 }
 
 export async function exportSelectionAsPNG(): Promise<Blob> {
-  // TODO(v0.2): Export the active selection pixels for inpainting and regional generation.
+  // TODO(v0.4): Export selected pixels for inpainting and regional generation.
   throw new Error("exportSelectionAsPNG is planned for a future OpenLayer version.");
 }
 
-export async function exportSelectionMask(): Promise<Blob> {
-  // TODO(v0.2): Export the active selection or mask as a grayscale PNG for mask workflows.
+export async function exportSelectionMask(): Promise<SelectionMaskExport> {
+  // TODO(v0.4): Export the active selection or mask as a grayscale PNG for mask workflows.
   throw new Error("exportSelectionMask is planned for a future OpenLayer version.");
 }
 
-export async function importImageAlignedToSelection(_blob: Blob): Promise<void> {
-  // TODO(v0.2): Place generated content aligned to the active selection bounds.
+export async function importImageAlignedToSelection(_options: AlignedRegionalImportOptions): Promise<void> {
+  // TODO(v0.4): Place generated content aligned to the active selection bounds.
   throw new Error("importImageAlignedToSelection is planned for a future OpenLayer version.");
 }
 
-export async function preserveSelection<T>(_operation: () => Promise<T>): Promise<T> {
-  // TODO(v0.2): Save and restore the active Photoshop selection around generation workflows.
+export async function preserveSelection<T>(_operation: PreserveSelectionOperation<T>): Promise<T> {
+  // TODO(v0.4): Save and restore the active Photoshop selection around generation workflows.
   throw new Error("preserveSelection is planned for a future OpenLayer version.");
 }
 
@@ -351,11 +381,11 @@ async function renameActiveLayer(photoshop: PhotoshopModule, layerName: string) 
 function getImagingApi(photoshop: PhotoshopModule) {
   const imaging = photoshop.imaging;
 
-  if (!imaging?.getPixels || !imaging.encodeImageData) {
+  if (!imaging?.getPixels) {
     throw createOpenLayerError(
       "PHOTOSHOP_EXPORT_FAILED",
       "This Photoshop UXP environment does not expose the Imaging API needed to capture a source image.",
-      "OpenLayer v0.2.1-alpha uses photoshop.imaging.getPixels() and encodeImageData() for image source capture."
+      "OpenLayer uses photoshop.imaging.getPixels() and raw imageData.getData() for PNG source capture."
     );
   }
 
@@ -373,44 +403,189 @@ async function captureSourceImage(
   let imageData: PhotoshopImageData | undefined;
 
   try {
-    const pixelResult = await imaging.getPixels(options.pixelOptions);
+    const pixelResult = await getPixelsWithFallbacks(imaging, options.pixelOptions);
     imageData = pixelResult.imageData;
 
     if (!imageData) {
       throw new Error("Photoshop returned no image data.");
     }
 
-    const encoded = await imaging.encodeImageData({
-      imageData,
-      base64: false
-    });
-    const bytes = toUint8Array(encoded);
+    const encoded = await encodeSourceImageDataAsPng(imageData);
 
-    if (bytes.byteLength === 0) {
+    if (encoded.bytes.byteLength === 0) {
       throw new Error("Photoshop encoded an empty source image.");
     }
 
     return {
-      data: toArrayBuffer(bytes),
-      filename: `${createLayerName(options.filenamePrefix)}.jpg`,
+      data: toArrayBuffer(encoded.bytes),
+      filename: `${createLayerName(options.filenamePrefix)}.${encoded.extension}`,
+      mimeType: encoded.mimeType,
       width: Number(imageData.width ?? 0),
       height: Number(imageData.height ?? 0),
-      sourceName: options.sourceName
+      sourceName: options.sourceName,
+      captureFormat: encoded.captureFormat
     };
   } finally {
     imageData?.dispose?.();
   }
 }
 
+async function getPixelsWithFallbacks(
+  imaging: NonNullable<PhotoshopModule["imaging"]>,
+  pixelOptions: Record<string, unknown>
+) {
+  const attempts = createPixelCaptureAttempts(pixelOptions);
+  const failures: string[] = [];
+
+  for (const attempt of attempts) {
+    try {
+      return await imaging.getPixels(attempt);
+    } catch (caughtError) {
+      failures.push(getErrorMessage(caughtError));
+    }
+  }
+
+  throw new Error(`Photoshop rejected the source capture options. ${failures.filter(Boolean).join(" | ")}`);
+}
+
+function createPixelCaptureAttempts(pixelOptions: Record<string, unknown>) {
+  const attempts: Record<string, unknown>[] = [pixelOptions];
+  const alphaAppliedAttempt = {
+    ...pixelOptions,
+    applyAlpha: true
+  };
+  const defaultAlphaAttempt = { ...pixelOptions };
+
+  delete defaultAlphaAttempt.applyAlpha;
+
+  if (JSON.stringify(alphaAppliedAttempt) !== JSON.stringify(pixelOptions)) {
+    attempts.push(alphaAppliedAttempt);
+  }
+
+  if (JSON.stringify(defaultAlphaAttempt) !== JSON.stringify(pixelOptions)) {
+    attempts.push(defaultAlphaAttempt);
+  }
+
+  return attempts;
+}
+
 function createExportedSourceImage(capturedSource: CapturedSourceImage): ExportedSourceImage {
   return {
-    blob: new Blob([capturedSource.data], { type: "image/jpeg" }),
+    blob: new Blob([capturedSource.data], { type: capturedSource.mimeType }),
     filename: capturedSource.filename,
-    mimeType: "image/jpeg",
+    mimeType: capturedSource.mimeType,
     width: capturedSource.width,
     height: capturedSource.height,
-    sourceName: capturedSource.sourceName
+    sourceName: capturedSource.sourceName,
+    captureFormat: capturedSource.captureFormat
   };
+}
+
+async function encodeSourceImageDataAsPng(imageData: PhotoshopImageData) {
+  const width = Number(imageData.width ?? 0);
+  const height = Number(imageData.height ?? 0);
+  const components = Number(imageData.components ?? 4);
+  const componentSize = Number(imageData.componentSize ?? 8);
+
+  if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+    throw new Error("Photoshop returned source image data without valid dimensions.");
+  }
+
+  if (componentSize !== 8) {
+    throw new Error(`OpenLayer expected 8-bit source pixels, but Photoshop returned ${componentSize}-bit data.`);
+  }
+
+  if (typeof imageData.getData !== "function") {
+    throw new Error(
+      "Photoshop did not expose raw source pixels for PNG capture. Update Photoshop/UXP or report this environment."
+    );
+  }
+
+  const rawPixels = await readImageDataBytes(imageData);
+  const rgba = convertPixelsToRgba(rawPixels, width, height, components);
+  const bytes = encodeRgbaPng({ width, height, rgba });
+
+  return {
+    bytes,
+    captureFormat: "png" as const,
+    extension: "png",
+    mimeType: "image/png"
+  };
+}
+
+async function readImageDataBytes(imageData: PhotoshopImageData) {
+  if (typeof imageData.getData !== "function") {
+    throw new Error(
+      "Photoshop did not expose raw source pixels for PNG capture. Update Photoshop/UXP or report this environment."
+    );
+  }
+
+  try {
+    return toUint8Array(await imageData.getData());
+  } catch (caughtError) {
+    try {
+      return toUint8Array(await imageData.getData({ chunky: true }));
+    } catch {
+      throw caughtError;
+    }
+  }
+}
+
+function convertPixelsToRgba(rawPixels: Uint8Array, width: number, height: number, components: number) {
+  const pixelCount = width * height;
+  const expectedBytes = pixelCount * components;
+
+  if (rawPixels.byteLength < expectedBytes) {
+    throw new Error("Photoshop returned fewer source pixel bytes than expected.");
+  }
+
+  if (components === 4) {
+    return rawPixels.slice(0, pixelCount * 4);
+  }
+
+  const rgba = new Uint8Array(pixelCount * 4);
+
+  if (components === 3) {
+    for (let pixel = 0; pixel < pixelCount; pixel += 1) {
+      const sourceOffset = pixel * 3;
+      const targetOffset = pixel * 4;
+      rgba[targetOffset] = rawPixels[sourceOffset];
+      rgba[targetOffset + 1] = rawPixels[sourceOffset + 1];
+      rgba[targetOffset + 2] = rawPixels[sourceOffset + 2];
+      rgba[targetOffset + 3] = 255;
+    }
+
+    return rgba;
+  }
+
+  if (components === 2) {
+    for (let pixel = 0; pixel < pixelCount; pixel += 1) {
+      const sourceOffset = pixel * 2;
+      const targetOffset = pixel * 4;
+      const value = rawPixels[sourceOffset];
+      rgba[targetOffset] = value;
+      rgba[targetOffset + 1] = value;
+      rgba[targetOffset + 2] = value;
+      rgba[targetOffset + 3] = rawPixels[sourceOffset + 1];
+    }
+
+    return rgba;
+  }
+
+  if (components === 1) {
+    for (let pixel = 0; pixel < pixelCount; pixel += 1) {
+      const targetOffset = pixel * 4;
+      const value = rawPixels[pixel];
+      rgba[targetOffset] = value;
+      rgba[targetOffset + 1] = value;
+      rgba[targetOffset + 2] = value;
+      rgba[targetOffset + 3] = 255;
+    }
+
+    return rgba;
+  }
+
+  throw new Error(`OpenLayer cannot convert ${components}-component Photoshop pixels to PNG yet.`);
 }
 
 function createDocumentSourceBounds(document: PhotoshopDocument) {

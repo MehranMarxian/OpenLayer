@@ -26,7 +26,7 @@ import {
 } from "../utils/preferences";
 
 const DEFAULT_SERVER_URL = "http://127.0.0.1:8190";
-const APP_VERSION = "0.2.2";
+const APP_VERSION = "0.3.0";
 const DEVELOPER_GITHUB = "https://github.com/MehranMarxian";
 const HISTORY_LIMIT = 5;
 const COMFY_PORT_CANDIDATES = [8190, 8188, 8189, 8191, 8192, 8193, 7860];
@@ -796,7 +796,7 @@ export function renderApp(rootElement: HTMLElement) {
       setImageStatus(elements, options.successMessage, "ready");
       setImageDiagnostics(
         elements,
-        `Captured ${exportedSource.sourceName} (${Math.round(exportedSource.width)} x ${Math.round(exportedSource.height)}) as JPEG source.`
+        createSourceCaptureMessage(exportedSource)
       );
     } catch (caughtError) {
       setImageStatus(elements, "Source capture failed.", "error");
@@ -1029,7 +1029,7 @@ export function renderApp(rootElement: HTMLElement) {
       setSketchStatus(elements, options.successMessage, "ready");
       setSketchDiagnostics(
         elements,
-        `Captured ${exportedSource.sourceName} (${Math.round(exportedSource.width)} x ${Math.round(exportedSource.height)}) for LINECN guidance.`
+        createSourceCaptureMessage(exportedSource, " for LINECN guidance")
       );
     } catch (caughtError) {
       setSketchStatus(elements, "Sketch source capture failed.", "error");
@@ -1309,7 +1309,7 @@ export function renderApp(rootElement: HTMLElement) {
     image.alt = "Captured active Photoshop layer";
     elements.imageSourcePreviewPanel.append(image);
     elements.imageSourceTitle.textContent = imageSource.sourceName;
-    elements.imageSourceMeta.textContent = `${Math.round(imageSource.width)} x ${Math.round(imageSource.height)} | JPEG source`;
+    elements.imageSourceMeta.textContent = createSourceMetaText(imageSource);
     setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
   }
 
@@ -1396,7 +1396,7 @@ export function renderApp(rootElement: HTMLElement) {
     image.alt = "Captured Photoshop source for Sketch to Image";
     elements.sketchSourcePreviewPanel.append(image);
     elements.sketchSourceTitle.textContent = sketchSource.sourceName;
-    elements.sketchSourceMeta.textContent = `${Math.round(sketchSource.width)} x ${Math.round(sketchSource.height)} | LINECN source`;
+    elements.sketchSourceMeta.textContent = createSourceMetaText(sketchSource);
     setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
   }
 
@@ -2235,6 +2235,20 @@ function updateSketchCheckpointCompatibility(elements: AppElements) {
 
 function createWorkflowDiagnostics(preset: WorkflowPresetDefinition, checkpointName: string) {
   return getPresetCompatibilityNote(checkpointName, preset) || `Using workflow ${preset.id}, checkpoint: ${checkpointName || "none"}`;
+}
+
+function createSourceCaptureMessage(source: ExportedSourceImage, suffix = "") {
+  const baseMessage = `Captured ${source.sourceName} (${Math.round(source.width)} x ${Math.round(source.height)}) as ${formatSourceCaptureLabel(source)} source${suffix}.`;
+  return baseMessage;
+}
+
+function createSourceMetaText(source: ExportedSourceImage) {
+  const size = `${Math.round(source.width)} x ${Math.round(source.height)}`;
+  return `${size} | ${formatSourceCaptureLabel(source)} source`;
+}
+
+function formatSourceCaptureLabel(_source: ExportedSourceImage) {
+  return "PNG/lossless";
 }
 
 type ActionName =

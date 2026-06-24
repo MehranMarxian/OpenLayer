@@ -13,7 +13,7 @@ npm run package
 
 `npm run build` writes the production plugin to `dist` and copies UXP assets such as `manifest.json` and workflow JSON files.
 
-`npm run package` zips the contents of `dist` into `packages/openlayer-v0.2.2-alpha.zip`.
+`npm run package` zips the contents of `dist` into `packages/openlayer-v0.3.0-alpha.zip`.
 
 ## ComfyUI Workflow Development
 
@@ -50,6 +50,6 @@ src/photoshop/photoshopAdapter.ts
 
 The import path writes the generated image to a UXP temporary file, creates a session token, places the file into the active document, and renames the placed layer.
 
-The v0.2 Image to Image foundation captures the active layer through Photoshop's Imaging API and uploads that source image to ComfyUI. It is currently JPEG source capture only; true PNG layer export and mask workflows are future work.
+The v0.3 Image to Image and Sketch to Image foundation captures the active layer or canvas through Photoshop's Imaging API, encodes raw source pixels as PNG/lossless, and uploads that source image to ComfyUI. Mask workflows are future work.
 
 Future work should keep Photoshop-specific APIs inside this folder so ComfyUI and UI code remain testable.

@@ -1,0 +1,53 @@
+name: Bug report
+description: Report something broken in OpenLayer
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for helping test OpenLayer. Please include enough detail to reproduce the issue.
+  - type: input
+    id: version
+    attributes:
+      label: OpenLayer version
+      placeholder: v0.3.0-alpha
+    validations:
+      required: true
+  - type: input
+    id: photoshop
+    attributes:
+      label: Photoshop version
+      placeholder: Photoshop 2024 / 2025
+    validations:
+      required: true
+  - type: input
+    id: comfy
+    attributes:
+      label: ComfyUI URL
+      placeholder: http://127.0.0.1:8190
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: What did you click, select, or run?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Paste OpenLayer diagnostics, ComfyUI terminal output, or screenshots if useful.

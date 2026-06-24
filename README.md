@@ -10,7 +10,7 @@ OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop t
 
 ## Alpha Release
 
-`v0.2.2-alpha` is the current public preview. It is intended for testing the core local workflow, not for production work yet.
+`v0.3.0-alpha` is the current stabilization preview. It is intended for testing the core local workflow, not for production work yet.
 
 Included in this alpha:
 
@@ -33,6 +33,8 @@ Included in this alpha:
 - GPU-aware model recommendations in Settings using ComfyUI `/system_stats`
 - Beginner-friendly model family guidance for SD 1.x, SDXL, SD3, Flux, and Z_image_Turbo
 - Workflow compatibility foundation that separates checkpoint presets from future diffusion-model-stack presets
+- PNG/lossless source capture for Image to Image and Sketch to Image using raw Photoshop Imaging API pixels
+- Automated CI and unit test foundation for workflow, settings, model compatibility, and error helpers
 - Session history for recent generated previews
 - Optional auto-import after generation
 - Responsive panel spacing fixes for narrow and wide Photoshop panels
@@ -40,17 +42,17 @@ Included in this alpha:
 
 ![OpenLayer v0.2.1 Home dashboard](docs/assets/openlayer-v021-dashboard.png)
 
-Known v0.2.2-alpha boundaries:
+Known v0.3.0-alpha boundaries:
 
 - Image to Image is an early foundation path, not a full production workflow yet.
 - Sketch to Image is limited to the first SD 1.x LINECN starter workflow.
 - Sketch to Image is currently tested with `epicrealism_naturalSinRC1VAE.safetensors` and `control_v11p_sd15_lineart_fp16.safetensors`.
-- Active-layer and canvas capture are currently encoded as JPEG through Photoshop's Imaging API.
+- Active-layer and canvas capture now encode raw Photoshop Imaging API pixels as PNG/lossless source images.
 - `img2img-basic` is the default SD 1.x/SDXL preset. SD3, SD3.5, and Flux checkpoints remain visible but are marked experimental because they usually need dedicated future workflow presets.
 - Z_image_Turbo and Flux preset metadata exists, but those presets are disabled until validated API workflow JSON files are added.
 - SDXL, SD3, Flux, and Z_image_Turbo Sketch to Image workflows need dedicated future presets.
 - Workflow node IDs may need adjustment for custom ComfyUI workflows.
-- True PNG selected-layer export, inpainting, masks, selection preservation, aligned regional workflows, advanced ControlNet-style workflows, and upscaling are not included yet.
+- Dedicated selected-layer PNG export, inpainting, masks, selection preservation, aligned regional workflows, advanced ControlNet-style workflows, and upscaling are not included yet.
 - The UI is functional and responsive enough for testing, but final visual polish will continue in later releases.
 
 ## Project Page
@@ -95,7 +97,7 @@ Working foundation:
 - Result preview in the panel
 - Import result into the active Photoshop document as a new layer
 
-Future placeholders are included for PNG layer export, selection export, masks, selection alignment, and selection preservation.
+Future placeholders are included for selection bounds, selection mask export, regional import alignment, and selection preservation.
 
 ## Requirements
 
@@ -120,6 +122,15 @@ npm run build
 
 Load the generated `dist` folder in Adobe UXP Developer Tool.
 
+Run local checks:
+
+```bash
+npm run typecheck
+npm test
+```
+
+These checks do not require Photoshop or ComfyUI.
+
 For fast UI iteration outside Photoshop, you can run:
 
 ```bash
@@ -137,7 +148,7 @@ npm run package
 This creates a zip package from `dist` in the `packages` folder. For the current alpha, the expected package name is:
 
 ```text
-packages/openlayer-v0.2.2-alpha.zip
+packages/openlayer-v0.3.0-alpha.zip
 ```
 
 ## Loading In UXP Developer Tool
@@ -244,7 +255,7 @@ OpenLayer_Sketch_YYYYMMDD_HHMM
 
 ## Pre-release Tester Checklist
 
-Use this quick pass before reporting a v0.2.2-alpha test result:
+Use this quick pass before reporting a v0.3.0-alpha test result:
 
 1. Start ComfyUI on `http://127.0.0.1:8190`.
 2. Build OpenLayer and load `dist/manifest.json` in Adobe UXP Developer Tool.
@@ -278,7 +289,7 @@ OpenLayer now keeps workflow files in two folders:
 - `src/workflows/api/` for runnable API workflows submitted to ComfyUI
 - `src/workflows/source/` for GUI-editable ComfyUI source workflows
 
-See `docs/workflow-files.md` for the workflow file structure and `docs/comfyui-object-info-audit-v0.2.2.md` for the local node schema audit used by the v0.2.2 compatibility foundation.
+See `docs/workflow-files.md`, `docs/custom-workflows.md`, and `docs/comfyui-object-info-audit-v0.2.2.md` for the workflow file structure, custom workflow mapping requirements, and the local node schema audit used by the workflow compatibility foundation.
 
 The workflow builder injects:
 
@@ -290,7 +301,7 @@ The workflow builder injects:
 - steps
 - cfg
 
-Image to Image and Sketch to Image use Photoshop's UXP Imaging API to capture the active layer or canvas, then send the source image to ComfyUI using `/upload/image`. In `v0.2.2-alpha`, that source capture is encoded as JPEG. True PNG layer export, mask export, and selection-aligned workflows are planned future work.
+Image to Image and Sketch to Image use Photoshop's UXP Imaging API to capture the active layer or canvas, encode the raw pixels as PNG, then send the source image to ComfyUI using `/upload/image`. In `v0.3.0-alpha`, JPEG source capture has been removed from this path so clean edges, masks, transparency, and linework are not degraded by lossy compression. Mask export and selection-aligned workflows are planned future work.
 
 `img2img-basic` is intended for SD 1.x and SDXL-style checkpoints. SD3, SD3.5, and Flux checkpoints are shown in the selector for transparency, but OpenLayer warns before running them because those model families often need different loader, text encoder, and VAE nodes.
 
@@ -350,11 +361,13 @@ Click `Check ComfyUI` after ComfyUI is fully started. If it is still empty, conf
 
 ### Generate fails
 
-Check that the selected checkpoint exists in ComfyUI and that the `txt2img-basic` workflow node IDs still match the starter workflow. Custom workflows may need edits in:
+Check that the selected checkpoint exists in ComfyUI and that the selected workflow node IDs still match the starter workflow. Custom workflows currently require manual mapping in:
 
 ```text
-src/comfy/workflowBuilder.ts
+src/comfy/presetRegistry.ts
 ```
+
+See `docs/custom-workflows.md` for the current custom workflow process.
 
 ### Image to Image fails with a model mismatch
 

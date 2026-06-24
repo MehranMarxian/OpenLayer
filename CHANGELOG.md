@@ -1,5 +1,34 @@
 # Changelog
 
+## v0.3.0-alpha - 2026-06-25
+
+Stabilization release focused on reliability, testability, source capture quality, and repo maturity.
+
+### Added
+
+- GitHub Actions CI for pull requests and pushes to `main`.
+- `npm test` using Vitest for pure TypeScript unit tests.
+- Unit tests for workflow building, preset registry behavior, settings validation, model compatibility, and error helpers.
+- PNG/lossless Photoshop source capture path for Image to Image and Sketch to Image using raw Imaging API pixels.
+- Explicit source capture metadata for format, filename, MIME type, dimensions, and source name.
+- Internal PNG encoder with unit coverage for lossless source-image upload.
+- Contributor, security, issue template, roadmap, and custom workflow docs.
+- Future inpainting architecture types for selection bounds, mask export, aligned regional import, and preserved selection operations.
+
+### Changed
+
+- Image to Image and Sketch to Image source previews now report PNG/lossless source capture.
+- Workflow validation errors now include clearer preset remapping guidance for custom ComfyUI API workflows.
+- README release notes now describe the v0.3.0-alpha stabilization focus and test commands.
+- Bumped plugin/package metadata to `0.3.0`.
+
+### Known Limitations
+
+- PNG/lossless capture depends on Photoshop UXP exposing raw `imageData.getData()` pixels. If that API is unavailable, capture now fails clearly instead of falling back to JPEG.
+- Dedicated selected-layer PNG export, mask export, selection preservation, and aligned regional import remain future inpainting work.
+- Flux, SD3/SD3.5, and Z_image_Turbo dedicated workflows remain disabled until validated API workflow JSON files exist.
+- CI does not run Photoshop, UXP, or ComfyUI integration tests.
+
 ## v0.2.1-alpha - 2026-06-23
 
 Sketch to Image LINECN foundation for pre-release testing.

@@ -31,7 +31,7 @@ npm run package
 Expected result:
 
 - A package is created in `packages`.
-- For this version, the package should be named `openlayer-v0.2.2-alpha.zip`.
+- For this version, the package should be named `openlayer-v0.3.0-alpha.zip`.
 
 If this fails:
 
@@ -131,6 +131,17 @@ Expected result:
 - `txt2img-basic`, `img2img-basic`, and `sketch2img-linecn-basic` remain available as before.
 - Future Z_image_Turbo and Flux presets do not appear as runnable workflow choices yet.
 - Settings diagnostics may mention Z_image_Turbo or Flux if their model-stack files are detected.
+
+## 6c. Check Source Capture Format
+
+Use Image to Image or Sketch to Image and capture an active layer or canvas.
+
+Expected:
+
+- The source preview shows the capture size.
+- The metadata says `PNG/lossless source`.
+- The uploaded source filename ends in `.png`.
+- No JPEG fallback warning appears.
 
 ## 7. Generate A Test Image
 
