@@ -2,6 +2,7 @@ import { createLayerName, saveBlobToTemporaryFile } from "../utils/fileUtils";
 import { createOpenLayerError, getErrorMessage } from "../utils/errors";
 import { encodeRgbaPng } from "../utils/png";
 import {
+  createPaddedSelectionBounds,
   normalizeSelectionBounds,
   NormalizedSelectionBounds,
   SelectionBounds
@@ -65,6 +66,8 @@ type CapturedSourceImage = {
 type ImportProgress = (message: string) => void;
 
 type BatchPlayCommand = Record<string, unknown>;
+const MIN_INPAINT_CONTEXT_PADDING = 96;
+const INPAINT_CONTEXT_PADDING_RATIO = 0.75;
 
 export type ActiveDocumentInfo = {
   name: string;
@@ -84,13 +87,17 @@ export type ExportedSourceImage = {
 
 export type SelectionMaskExport = {
   blob: Blob;
+  filename: string;
+  mimeType: string;
   bounds: SelectionBounds;
   width: number;
   height: number;
+  captureFormat: SourceCaptureFormat;
 };
 
 export type ActiveSelectionInfo = {
   bounds: NormalizedSelectionBounds;
+  contextBounds: NormalizedSelectionBounds;
   documentName: string;
   maskAvailable: boolean;
   maskMessage: string;
@@ -107,6 +114,7 @@ export type AlignedRegionalImportOptions = {
   blob: Blob;
   bounds: SelectionBounds;
   layerName?: string;
+  onProgress?: ImportProgress;
 };
 
 export type PreserveSelectionOperation<T> = () => Promise<T>;
@@ -289,6 +297,8 @@ export async function captureSelectionForInpainting(): Promise<SelectedRegionSou
       async () => {
         const document = getActiveDocument();
         const selection = await readActiveSelectionInfo(photoshop, document);
+        let mask: CapturedSourceImage | null = null;
+        let maskError = "";
 
         if (typeof document.id !== "number") {
           throw createOpenLayerError(
@@ -302,10 +312,10 @@ export async function captureSelectionForInpainting(): Promise<SelectedRegionSou
           pixelOptions: {
             documentID: document.id,
             sourceBounds: {
-              left: selection.bounds.left,
-              top: selection.bounds.top,
-              right: selection.bounds.right,
-              bottom: selection.bounds.bottom
+              left: selection.contextBounds.left,
+              top: selection.contextBounds.top,
+              right: selection.contextBounds.right,
+              bottom: selection.contextBounds.bottom
             },
             componentSize: 8,
             colorSpace: "RGB",
@@ -315,19 +325,36 @@ export async function captureSelectionForInpainting(): Promise<SelectedRegionSou
           sourceName: `Selection from ${selection.documentName}`
         });
 
+        try {
+          mask = await captureSelectionMaskSourceImage(photoshop, imaging, document, selection);
+        } catch (caughtError) {
+          maskError = getErrorMessage(caughtError);
+        }
+
         return {
           captured,
-          selection
+          selection,
+          mask,
+          maskError
         };
       },
       { commandName: "Capture OpenLayer Selection" }
     );
+    const mask = capturedSource.mask ? createSelectionMaskExport(capturedSource.mask, capturedSource.selection.contextBounds) : undefined;
+    const maskMessage = mask
+      ? "Selection mask captured as PNG/lossless source."
+      : `Mask export unavailable. ${capturedSource.maskError || "OpenLayer captured the selected rectangular source only."}`;
 
     return {
       ...createExportedSourceImage(capturedSource.captured),
-      selection: capturedSource.selection,
-      maskAvailable: false,
-      maskMessage: capturedSource.selection.maskMessage
+      selection: {
+        ...capturedSource.selection,
+        maskAvailable: Boolean(mask),
+        maskMessage
+      },
+      mask,
+      maskAvailable: Boolean(mask),
+      maskMessage
     };
   } catch (caughtError) {
     if (isOpenLayerNoSelectionError(caughtError)) {
@@ -358,19 +385,73 @@ export async function exportSelectionAsPNG(): Promise<Blob> {
 }
 
 export async function exportSelectionMask(): Promise<SelectionMaskExport> {
-  // TODO(v0.5): Export the active selection or mask as a grayscale PNG for mask workflows.
-  throw createOpenLayerError(
-    "PHOTOSHOP_EXPORT_FAILED",
-    "Mask export is not available yet. OpenLayer can detect selection bounds, but true grayscale mask export still needs a verified Photoshop UXP path."
-  );
+  const photoshop = getPhotoshop();
+  const imaging = getImagingApi(photoshop);
+
+  try {
+    const capturedMask = await photoshop.core.executeAsModal(
+      async () => {
+        const document = getActiveDocument();
+        const selection = await readActiveSelectionInfo(photoshop, document);
+
+        return {
+          selection,
+          mask: await captureSelectionMaskSourceImage(photoshop, imaging, document, selection)
+        };
+      },
+      { commandName: "Export OpenLayer Selection Mask" }
+    );
+
+    return createSelectionMaskExport(capturedMask.mask, capturedMask.selection.contextBounds);
+  } catch (caughtError) {
+    if (isOpenLayerNoSelectionError(caughtError)) {
+      throw caughtError;
+    }
+
+    throw createOpenLayerError(
+      "PHOTOSHOP_EXPORT_FAILED",
+      `Could not export the active Photoshop selection mask. ${getErrorMessage(caughtError)}`
+    );
+  }
 }
 
-export async function importImageAlignedToSelection(_options: AlignedRegionalImportOptions): Promise<void> {
-  // TODO(v0.5): Place generated content aligned to the active selection bounds.
-  throw createOpenLayerError(
-    "PHOTOSHOP_IMPORT_FAILED",
-    "Aligned regional import is planned for the next inpainting step. Current imports still place full generated layers."
-  );
+export async function importImageAlignedToSelection(options: AlignedRegionalImportOptions): Promise<string> {
+  const photoshop = getPhotoshop();
+  getActiveDocument();
+
+  try {
+    if (!options.blob || options.blob.size === 0) {
+      throw new Error("The generated inpaint image blob is empty.");
+    }
+
+    const bounds = normalizeSelectionBounds(options.bounds);
+    const layerName = options.layerName ?? createLayerName("OpenLayer_Inpaint");
+
+    options.onProgress?.("Saving inpaint result to a temporary PNG...");
+    const file = await saveBlobToTemporaryFile(options.blob, `${layerName}.png`);
+    const uxp = getUxp();
+    options.onProgress?.("Creating Photoshop file token...");
+    const token = await uxp.storage.localFileSystem.createSessionToken(file);
+
+    options.onProgress?.("Placing inpaint patch into the active document...");
+    await photoshop.core.executeAsModal(
+      async () => {
+        await placeFileAsLayer(photoshop, token);
+        await renameActiveLayer(photoshop, layerName);
+        options.onProgress?.("Aligning inpaint patch to the captured selection context...");
+        await alignActiveLayerToBounds(photoshop, bounds);
+      },
+      { commandName: "Import OpenLayer Inpaint Result" }
+    );
+
+    options.onProgress?.(`Imported ${layerName}.`);
+    return layerName;
+  } catch (caughtError) {
+    throw createOpenLayerError(
+      "PHOTOSHOP_IMPORT_FAILED",
+      `Could not import the generated inpaint result aligned to the selection. ${getErrorMessage(caughtError)}`
+    );
+  }
 }
 
 export async function preserveSelection<T>(_operation: PreserveSelectionOperation<T>): Promise<T> {
@@ -396,13 +477,222 @@ async function readActiveSelectionInfo(
   }
 
   const normalizedBounds = normalizeSelectionBounds(bounds);
+  const contextBounds = createInpaintContextBounds(normalizedBounds, document);
 
   return {
     bounds: normalizedBounds,
+    contextBounds,
     documentName: document.title ?? document.name ?? "active document",
     maskAvailable: false,
-    maskMessage: "Mask export not available yet. OpenLayer captured the selected rectangular bounds as a PNG source."
+    maskMessage: "Capture Selection will try to export a PNG/lossless mask from the active Photoshop selection."
   };
+}
+
+function createInpaintContextBounds(
+  selectionBounds: NormalizedSelectionBounds,
+  document: PhotoshopDocument
+) {
+  const documentWidth = Number(document.width ?? 0);
+  const documentHeight = Number(document.height ?? 0);
+  const adaptivePadding = Math.max(
+    MIN_INPAINT_CONTEXT_PADDING,
+    Math.round(Math.max(selectionBounds.width, selectionBounds.height) * INPAINT_CONTEXT_PADDING_RATIO)
+  );
+
+  return createPaddedSelectionBounds(selectionBounds, {
+    width: documentWidth,
+    height: documentHeight
+  }, adaptivePadding);
+}
+
+async function captureSelectionMaskSourceImage(
+  photoshop: PhotoshopModule,
+  imaging: NonNullable<PhotoshopModule["imaging"]>,
+  document: PhotoshopDocument,
+  selection: ActiveSelectionInfo
+): Promise<CapturedSourceImage> {
+  if (typeof document.id !== "number") {
+    throw createOpenLayerError(
+      "PHOTOSHOP_EXPORT_FAILED",
+      "Photoshop did not expose a stable document ID for the active document.",
+      "Selection mask capture needs document.id."
+    );
+  }
+
+  const previousLayer = document.activeLayers?.[0];
+  let temporaryLayerId: number | undefined;
+  let selectionNeedsRestore = false;
+
+  try {
+    temporaryLayerId = await createTemporaryMaskLayer(photoshop);
+    await fillActiveSelection(photoshop, "white");
+    await invertActiveSelection(photoshop);
+    selectionNeedsRestore = true;
+    await fillActiveSelection(photoshop, "black");
+    await invertActiveSelection(photoshop);
+    selectionNeedsRestore = false;
+
+    return captureMaskImage(imaging, {
+      pixelOptions: {
+        documentID: document.id,
+        layerID: temporaryLayerId,
+        sourceBounds: {
+          left: selection.contextBounds.left,
+          top: selection.contextBounds.top,
+          right: selection.contextBounds.right,
+          bottom: selection.contextBounds.bottom
+        },
+        componentSize: 8,
+        colorSpace: "RGB",
+        applyAlpha: false
+      },
+      filenamePrefix: "OpenLayer_Inpaint_Mask",
+      sourceName: `Mask from ${selection.documentName}`
+    });
+  } finally {
+    if (selectionNeedsRestore) {
+      await invertActiveSelection(photoshop);
+    }
+
+    if (typeof temporaryLayerId === "number") {
+      await deleteLayerById(photoshop, temporaryLayerId);
+    }
+
+    if (typeof previousLayer?.id === "number") {
+      await selectLayerById(photoshop, previousLayer.id);
+    }
+  }
+}
+
+async function createTemporaryMaskLayer(photoshop: PhotoshopModule) {
+  const layerName = `OpenLayer_Temporary_Mask_${Date.now()}`;
+
+  await photoshop.action.batchPlay(
+    [
+      {
+        _obj: "make",
+        _target: [
+          {
+            _ref: "layer"
+          }
+        ],
+        using: {
+          _obj: "layer",
+          name: layerName
+        },
+        _options: {
+          dialogOptions: "dontDisplay"
+        }
+      }
+    ],
+    {}
+  );
+
+  const temporaryLayer = photoshop.app.activeDocument?.activeLayers?.[0];
+
+  if (typeof temporaryLayer?.id !== "number") {
+    throw createOpenLayerError(
+      "PHOTOSHOP_EXPORT_FAILED",
+      "Photoshop created a temporary mask layer but did not expose its layer ID."
+    );
+  }
+
+  return temporaryLayer.id;
+}
+
+async function fillActiveSelection(photoshop: PhotoshopModule, color: "black" | "white") {
+  await photoshop.action.batchPlay(
+    [
+      {
+        _obj: "fill",
+        using: {
+          _enum: "fillContents",
+          _value: color
+        },
+        opacity: {
+          _unit: "percentUnit",
+          _value: 100
+        },
+        mode: {
+          _enum: "blendMode",
+          _value: "normal"
+        },
+        _options: {
+          dialogOptions: "dontDisplay"
+        }
+      }
+    ],
+    {}
+  );
+}
+
+async function invertActiveSelection(photoshop: PhotoshopModule) {
+  await photoshop.action.batchPlay(
+    [
+      {
+        _obj: "inverse",
+        _target: [
+          {
+            _ref: "channel",
+            _property: "selection"
+          }
+        ],
+        _options: {
+          dialogOptions: "dontDisplay"
+        }
+      }
+    ],
+    {}
+  );
+}
+
+async function deleteLayerById(photoshop: PhotoshopModule, layerId: number) {
+  try {
+    await photoshop.action.batchPlay(
+      [
+        {
+          _obj: "delete",
+          _target: [
+            {
+              _ref: "layer",
+              _id: layerId
+            }
+          ],
+          _options: {
+            dialogOptions: "dontDisplay"
+          }
+        }
+      ],
+      {}
+    );
+  } catch {
+    // Best-effort cleanup. The caller will still restore the previous layer when possible.
+  }
+}
+
+async function selectLayerById(photoshop: PhotoshopModule, layerId: number) {
+  try {
+    await photoshop.action.batchPlay(
+      [
+        {
+          _obj: "select",
+          _target: [
+            {
+              _ref: "layer",
+              _id: layerId
+            }
+          ],
+          makeVisible: false,
+          _options: {
+            dialogOptions: "dontDisplay"
+          }
+        }
+      ],
+      {}
+    );
+  } catch {
+    // Restoring active layer is helpful but should not fail a successful mask capture.
+  }
 }
 
 async function getSelectionDescriptor(photoshop: PhotoshopModule) {
@@ -593,6 +883,94 @@ async function renameActiveLayer(photoshop: PhotoshopModule, layerName: string) 
   );
 }
 
+async function alignActiveLayerToBounds(
+  photoshop: PhotoshopModule,
+  targetBounds: NormalizedSelectionBounds
+) {
+  const layerBounds = await readActiveLayerBounds(photoshop);
+  const deltaX = Math.round(targetBounds.left - layerBounds.left);
+  const deltaY = Math.round(targetBounds.top - layerBounds.top);
+
+  if (deltaX === 0 && deltaY === 0) {
+    return;
+  }
+
+  await moveActiveLayerBy(photoshop, deltaX, deltaY);
+}
+
+async function readActiveLayerBounds(photoshop: PhotoshopModule): Promise<NormalizedSelectionBounds> {
+  const response = await photoshop.action.batchPlay(
+    [
+      {
+        _obj: "get",
+        _target: [
+          {
+            _property: "bounds"
+          },
+          {
+            _ref: "layer",
+            _enum: "ordinal",
+            _value: "targetEnum"
+          }
+        ],
+        _options: {
+          dialogOptions: "dontDisplay"
+        }
+      }
+    ],
+    {}
+  );
+  const descriptor = response[0] as Record<string, unknown>;
+  const boundsObject = readDescriptorObject(descriptor.bounds) ?? descriptor;
+  const left = readUnitValue(boundsObject.left);
+  const top = readUnitValue(boundsObject.top);
+  const right = readUnitValue(boundsObject.right);
+  const bottom = readUnitValue(boundsObject.bottom);
+
+  if (left === null || top === null || right === null || bottom === null) {
+    throw new Error("Photoshop did not expose bounds for the imported inpaint layer.");
+  }
+
+  return normalizeSelectionBounds({
+    left,
+    top,
+    right,
+    bottom
+  });
+}
+
+async function moveActiveLayerBy(photoshop: PhotoshopModule, deltaX: number, deltaY: number) {
+  await photoshop.action.batchPlay(
+    [
+      {
+        _obj: "move",
+        _target: [
+          {
+            _ref: "layer",
+            _enum: "ordinal",
+            _value: "targetEnum"
+          }
+        ],
+        to: {
+          _obj: "offset",
+          horizontal: {
+            _unit: "pixelsUnit",
+            _value: deltaX
+          },
+          vertical: {
+            _unit: "pixelsUnit",
+            _value: deltaY
+          }
+        },
+        _options: {
+          dialogOptions: "dontDisplay"
+        }
+      }
+    ],
+    {}
+  );
+}
+
 function getImagingApi(photoshop: PhotoshopModule) {
   const imaging = photoshop.imaging;
 
@@ -696,6 +1074,21 @@ function createExportedSourceImage(capturedSource: CapturedSourceImage): Exporte
   };
 }
 
+function createSelectionMaskExport(
+  capturedMask: CapturedSourceImage,
+  bounds: SelectionBounds
+): SelectionMaskExport {
+  return {
+    blob: new Blob([capturedMask.data], { type: capturedMask.mimeType }),
+    filename: capturedMask.filename,
+    mimeType: capturedMask.mimeType,
+    bounds,
+    width: capturedMask.width,
+    height: capturedMask.height,
+    captureFormat: capturedMask.captureFormat
+  };
+}
+
 async function encodeSourceImageDataAsPng(imageData: PhotoshopImageData) {
   const width = Number(imageData.width ?? 0);
   const height = Number(imageData.height ?? 0);
@@ -718,6 +1111,70 @@ async function encodeSourceImageDataAsPng(imageData: PhotoshopImageData) {
 
   const rawPixels = await readImageDataBytes(imageData);
   const rgba = convertPixelsToRgba(rawPixels, width, height, components);
+  const bytes = encodeRgbaPng({ width, height, rgba });
+
+  return {
+    bytes,
+    captureFormat: "png" as const,
+    extension: "png",
+    mimeType: "image/png"
+  };
+}
+
+async function captureMaskImage(
+  imaging: NonNullable<PhotoshopModule["imaging"]>,
+  options: {
+    pixelOptions: Record<string, unknown>;
+    filenamePrefix: string;
+    sourceName: string;
+  }
+): Promise<CapturedSourceImage> {
+  let imageData: PhotoshopImageData | undefined;
+
+  try {
+    const pixelResult = await getPixelsWithFallbacks(imaging, options.pixelOptions);
+    imageData = pixelResult.imageData;
+
+    if (!imageData) {
+      throw new Error("Photoshop returned no mask image data.");
+    }
+
+    const encoded = await encodeSelectionMaskImageDataAsPng(imageData);
+
+    if (encoded.bytes.byteLength === 0) {
+      throw new Error("Photoshop encoded an empty selection mask.");
+    }
+
+    return {
+      data: toArrayBuffer(encoded.bytes),
+      filename: `${createLayerName(options.filenamePrefix)}.${encoded.extension}`,
+      mimeType: encoded.mimeType,
+      width: Number(imageData.width ?? 0),
+      height: Number(imageData.height ?? 0),
+      sourceName: options.sourceName,
+      captureFormat: encoded.captureFormat
+    };
+  } finally {
+    imageData?.dispose?.();
+  }
+}
+
+async function encodeSelectionMaskImageDataAsPng(imageData: PhotoshopImageData) {
+  const width = Number(imageData.width ?? 0);
+  const height = Number(imageData.height ?? 0);
+  const components = Number(imageData.components ?? 4);
+  const componentSize = Number(imageData.componentSize ?? 8);
+
+  if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+    throw new Error("Photoshop returned selection mask data without valid dimensions.");
+  }
+
+  if (componentSize !== 8) {
+    throw new Error(`OpenLayer expected 8-bit mask pixels, but Photoshop returned ${componentSize}-bit data.`);
+  }
+
+  const rawPixels = await readImageDataBytes(imageData);
+  const rgba = convertMaskPixelsToRgba(rawPixels, width, height, components);
   const bytes = encodeRgbaPng({ width, height, rgba });
 
   return {
@@ -801,6 +1258,43 @@ function convertPixelsToRgba(rawPixels: Uint8Array, width: number, height: numbe
   }
 
   throw new Error(`OpenLayer cannot convert ${components}-component Photoshop pixels to PNG yet.`);
+}
+
+function convertMaskPixelsToRgba(rawPixels: Uint8Array, width: number, height: number, components: number) {
+  const pixelCount = width * height;
+  const expectedBytes = pixelCount * components;
+
+  if (rawPixels.byteLength < expectedBytes) {
+    throw new Error("Photoshop returned fewer selection mask pixel bytes than expected.");
+  }
+
+  if (components < 1 || components > 4) {
+    throw new Error(`OpenLayer cannot convert ${components}-component Photoshop mask pixels to PNG yet.`);
+  }
+
+  const rgba = new Uint8Array(pixelCount * 4);
+
+  for (let pixel = 0; pixel < pixelCount; pixel += 1) {
+    const sourceOffset = pixel * components;
+    const targetOffset = pixel * 4;
+    const red = rawPixels[sourceOffset] ?? 0;
+    const green = components === 2 ? red : components >= 3 ? rawPixels[sourceOffset + 1] ?? red : red;
+    const blue = components === 2 ? red : components >= 3 ? rawPixels[sourceOffset + 2] ?? red : red;
+    const alpha = components === 2
+      ? rawPixels[sourceOffset + 1] ?? 255
+      : components >= 4
+        ? rawPixels[sourceOffset + 3] ?? 255
+        : 255;
+    const luminance = Math.round((red + green + blue) / 3);
+    const maskValue = alpha > 8 ? luminance : 0;
+
+    rgba[targetOffset] = maskValue;
+    rgba[targetOffset + 1] = maskValue;
+    rgba[targetOffset + 2] = maskValue;
+    rgba[targetOffset + 3] = 255;
+  }
+
+  return rgba;
 }
 
 function createDocumentSourceBounds(document: PhotoshopDocument) {

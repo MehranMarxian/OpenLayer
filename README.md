@@ -10,7 +10,7 @@ OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop t
 
 ## Alpha Release
 
-`v0.4.0-alpha` is the current inpainting-foundation preview. It is intended for testing the core local workflow, not for production work yet.
+`v0.4.1-alpha` is the current experimental inpainting preview. It is intended for testing the core local workflow, not for production work yet.
 
 Included in this alpha:
 
@@ -34,9 +34,10 @@ Included in this alpha:
 - Beginner-friendly model family guidance for SD 1.x, SDXL, SD3, Flux, and Z_image_Turbo
 - Workflow compatibility foundation that separates checkpoint presets from future diffusion-model-stack presets
 - PNG/lossless source capture for Image to Image and Sketch to Image using raw Photoshop Imaging API pixels
-- Selection-aware Inpaint screen foundation with safe Photoshop selection detection
-- PNG/lossless selected-region capture for future inpainting workflows
-- Friendly Inpaint guardrails when no Photoshop selection exists or mask export is unavailable
+- Selection-aware Inpaint screen with safe Photoshop selection detection
+- PNG/lossless selected-region capture and temporary-layer grayscale mask export for Inpaint
+- Experimental SD 1.x `inpaint-basic` workflow with source image and mask upload to ComfyUI
+- Friendly Inpaint guardrails when no Photoshop selection exists, mask export fails, or required ComfyUI inpaint nodes are unavailable
 - Automated CI and unit test foundation for workflow, settings, model compatibility, and error helpers
 - Session history for recent generated previews
 - Optional auto-import after generation
@@ -45,19 +46,20 @@ Included in this alpha:
 
 ![OpenLayer v0.2.1 Home dashboard](docs/assets/openlayer-v021-dashboard.png)
 
-Known v0.4.0-alpha boundaries:
+Known v0.4.1-alpha boundaries:
 
 - Image to Image is an early foundation path, not a full production workflow yet.
 - Sketch to Image is limited to the first SD 1.x LINECN starter workflow.
 - Sketch to Image is currently tested with `epicrealism_naturalSinRC1VAE.safetensors` and `control_v11p_sd15_lineart_fp16.safetensors`.
 - Active-layer and canvas capture now encode raw Photoshop Imaging API pixels as PNG/lossless source images.
 - Inpaint can detect and capture the selected rectangular region as a PNG/lossless source image.
-- True grayscale selection mask export is not available yet, so `inpaint-basic` generation is intentionally disabled until a validated ComfyUI API workflow and mask mapping exist.
+- Inpaint now attempts a temporary-layer grayscale PNG mask export and can run the experimental SD 1.x `inpaint-basic` workflow when ComfyUI has the required nodes.
+- The first Inpaint preset is intended for SD 1.x checkpoints. SDXL, SD3, Flux, and Z_image_Turbo inpainting need dedicated future presets.
 - `img2img-basic` is the default SD 1.x/SDXL preset. SD3, SD3.5, and Flux checkpoints remain visible but are marked experimental because they usually need dedicated future workflow presets.
 - Z_image_Turbo and Flux preset metadata exists, but those presets are disabled until validated API workflow JSON files are added.
 - SDXL, SD3, Flux, and Z_image_Turbo Sketch to Image workflows need dedicated future presets.
 - Workflow node IDs may need adjustment for custom ComfyUI workflows.
-- Dedicated selected-layer PNG file export, true mask export, selection preservation, aligned regional workflows, advanced ControlNet-style workflows, and upscaling are not included yet.
+- Dedicated selected-layer PNG file export, selection preservation, aligned regional workflows, advanced ControlNet-style workflows, and upscaling are not included yet.
 - The UI is functional and responsive enough for testing, but final visual polish will continue in later releases.
 
 ## Project Page
@@ -95,7 +97,7 @@ Working foundation:
 - `img2img-basic` workflow generation foundation
 - `sketch2img-linecn-basic` Sketch to Image generation foundation
 - Active-layer or visible-canvas source capture and ComfyUI image upload
-- Inpaint screen foundation with Photoshop selection detection and selected-region PNG source capture
+- Experimental Inpaint screen with Photoshop selection detection, selected-region PNG source capture, grayscale mask export, and SD 1.x `inpaint-basic`
 - Experimental checkpoint mode for trying non-SD/SDXL model families with clear warnings
 - `/prompt` submission
 - `/history/{prompt_id}` polling
@@ -103,7 +105,7 @@ Working foundation:
 - Result preview in the panel
 - Import result into the active Photoshop document as a new layer
 
-Future placeholders are included for true selection mask export, regional import alignment, and selection preservation.
+Future placeholders are included for regional import alignment and selection preservation.
 
 ## Requirements
 
@@ -154,7 +156,7 @@ npm run package
 This creates a zip package from `dist` in the `packages` folder. For the current alpha, the expected package name is:
 
 ```text
-packages/openlayer-v0.4.0-alpha.zip
+packages/openlayer-v0.4.1-alpha.zip
 ```
 
 ## Loading In UXP Developer Tool
@@ -259,24 +261,25 @@ The imported layer is named like:
 OpenLayer_Sketch_YYYYMMDD_HHMM
 ```
 
-## First Inpaint Foundation Test
+## First Inpaint Test
 
-This alpha prepares inpainting safely, but it does not submit an inpainting workflow yet.
+This alpha includes the first experimental SD 1.x mask-based inpainting path.
 
 1. Open a Photoshop document.
 2. Make a rectangular or freeform selection in Photoshop.
 3. Open the OpenLayer panel and choose `Inpaint`.
 4. Click `Capture Selection`.
 5. Confirm the source preview appears and the status shows the selection bounds.
-6. Confirm the mask preview says `Mask export not available yet`.
+6. Confirm the mask preview appears as a black/white PNG mask.
 7. Enter a prompt and click `Generate Inpaint`.
-8. Confirm OpenLayer shows a friendly `inpaint-basic` workflow setup message instead of silently failing.
+8. Wait for the result preview.
+9. Click `Import to Layers`.
 
-The `inpaint-basic` preset is registered as a placeholder and remains disabled until a real API workflow JSON and mask export path are mapped.
+The first `inpaint-basic` preset is experimental and intended for SD 1.x inpaint checkpoints first. `inpaint-flux-fill-basic` is also available as an experimental Flux Fill path when your local ComfyUI exposes `flux1-fill-dev.safetensors` through `UNETLoader`.
 
 ## Pre-release Tester Checklist
 
-Use this quick pass before reporting a v0.4.0-alpha test result:
+Use this quick pass before reporting a v0.4.1-alpha test result:
 
 1. Start ComfyUI on `http://127.0.0.1:8190`.
 2. Build OpenLayer and load `dist/manifest.json` in Adobe UXP Developer Tool.
@@ -285,8 +288,8 @@ Use this quick pass before reporting a v0.4.0-alpha test result:
 5. Generate one `txt2img-basic` image and import it as a new layer.
 6. Open `Image to Image`, capture either the active layer or canvas, generate with `img2img-basic`, and click `Import to Layers`.
 7. Open `Sketch to Image`, capture either the active layer or canvas, generate with `sketch2img-linecn-basic`, and click `Import to Layers`.
-8. Open `Inpaint`, make a Photoshop selection, click `Capture Selection`, and confirm the selected-region preview appears.
-9. Click `Generate Inpaint` and confirm it shows the expected workflow setup message.
+8. Open `Inpaint`, make a Photoshop selection, click `Capture Selection`, and confirm the selected-region preview and mask preview appear.
+9. Generate with `inpaint-basic` using an SD 1.x checkpoint, then click `Import to Layers`.
 10. Resize the panel narrow and wide; confirm the header, footer, buttons, preview, and cards remain reachable.
 
 ## Testing Checklist
@@ -304,6 +307,8 @@ The included workflows are realistic starter ComfyUI workflows using common buil
 - `src/workflows/api/txt2img-basic.json`
 - `src/workflows/api/img2img-basic.json`
 - `src/workflows/api/sketch2img-linecn-basic.json`
+- `src/workflows/api/inpaint-basic.json`
+- `src/workflows/api/inpaint-flux-fill-basic.json`
 
 You may need to replace the checkpoint name and node IDs for your own ComfyUI setup.
 
@@ -326,7 +331,18 @@ The workflow builder injects:
 
 Image to Image and Sketch to Image use Photoshop's UXP Imaging API to capture the active layer or canvas, encode the raw pixels as PNG, then send the source image to ComfyUI using `/upload/image`. JPEG source capture has been removed from this path so clean edges, masks, transparency, and linework are not degraded by lossy compression.
 
-Inpaint uses the same PNG/lossless Imaging API path, clipped to the active Photoshop selection bounds when Photoshop exposes them. In `v0.4.0-alpha`, this is a selection-aware capture foundation only: true grayscale mask export, selection preservation, real inpaint workflow submission, and aligned regional import are still planned future work.
+Inpaint uses the same PNG/lossless Imaging API path, clipped to a padded context around the active Photoshop selection when Photoshop exposes selection bounds. In `v0.4.1-alpha`, OpenLayer also creates a temporary white-filled selection layer, captures it as a grayscale PNG mask, deletes the temporary layer, and uploads both source and mask to ComfyUI.
+
+The first `inpaint-basic` preset requires ComfyUI's standard `LoadImage`, `ImageToMask`, `InpaintModelConditioning`, `KSampler`, `VAEDecode`, `ImageCompositeMasked`, and `SaveImage` nodes. It is currently aimed at SD 1.x inpaint checkpoints.
+
+The experimental `inpaint-flux-fill-basic` preset requires:
+
+- `flux1-fill-dev.safetensors` through `UNETLoader`
+- `clip_l.safetensors` and `t5xxl_fp8_e4m3fn.safetensors` through `DualCLIPLoader`
+- `ae.safetensors` through `VAELoader`
+- `ModelSamplingFlux`, `BasicGuider`, `BasicScheduler`, `KSamplerSelect`, `RandomNoise`, and `SamplerCustomAdvanced`
+
+Inpaint import now attempts to align the generated context patch back to the captured Photoshop selection context. Selection preservation remains planned future work.
 
 `img2img-basic` is intended for SD 1.x and SDXL-style checkpoints. SD3, SD3.5, and Flux checkpoints are shown in the selector for transparency, but OpenLayer warns before running them because those model families often need different loader, text encoder, and VAE nodes.
 

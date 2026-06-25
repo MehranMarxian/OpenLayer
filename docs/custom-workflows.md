@@ -24,23 +24,32 @@ When OpenLayer runs a workflow, it injects values into specific ComfyUI node IDs
 - denoise
 - ControlNet strength
 - selection source image
-- future grayscale selection mask image
+- grayscale selection mask image
 
 Those node IDs are different in every custom workflow. The mapping lives in `src/comfy/presetRegistry.ts`.
 
 ## Inpaint Workflow Status
 
-`inpaint-basic` is registered as a placeholder preset in `v0.4.0-alpha`, but it is not runnable yet.
+`inpaint-basic` is an experimental runnable preset in `v0.4.1-alpha`.
 
-The current Inpaint screen can capture Photoshop selection bounds and a selected-region PNG/lossless source image. A production inpaint workflow still needs:
+The current Inpaint screen can capture Photoshop selection bounds, a selected-region PNG/lossless source image, and a grayscale PNG mask from the active selection. The bundled starter workflow uses:
 
-- a verified ComfyUI API workflow JSON in `src/workflows/api/inpaint-basic.json`
-- a GUI-editable source workflow in `src/workflows/source/inpaint-basic.workflow.json`
-- injection targets for prompt, negative prompt, checkpoint, source image, mask image, seed, steps, CFG, and denoise
-- a verified Photoshop UXP grayscale mask export path
-- an aligned regional import path for placing results back over the original selection
+- `CheckpointLoaderSimple`
+- `LoadImage` for the selected-region source
+- `LoadImage` for the mask image
+- `ImageToMask`
+- `CLIPTextEncode`
+- `InpaintModelConditioning`
+- `KSampler`
+- `VAEDecode`
+- `ImageCompositeMasked`
+- `SaveImage`
 
-Until those pieces are mapped, OpenLayer shows a friendly setup message instead of submitting a fake inpaint workflow.
+The mapping for prompt, negative prompt, checkpoint, source image, mask image, seed, steps, CFG, and denoise lives in `src/comfy/presetRegistry.ts`. If you replace the API workflow JSON, remap those node IDs before testing.
+
+`inpaint-flux-fill-basic` is an experimental Flux Fill preset. It uses a diffusion model stack instead of `CheckpointLoaderSimple`, so the model selector must point to `UNETLoader` models such as `flux1-fill-dev.safetensors`. It also expects `DualCLIPLoader`, `VAELoader`, `CLIPTextEncodeFlux`, `ModelSamplingFlux`, `BasicGuider`, `BasicScheduler`, `KSamplerSelect`, `RandomNoise`, `SamplerCustomAdvanced`, `InpaintModelConditioning`, `ImageCompositeMasked`, and `SaveImage`.
+
+Aligned regional import has started for Inpaint context patches. Selection preservation is still future work.
 
 ## Safe Custom Workflow Process
 

@@ -1,14 +1,18 @@
 import txt2imgBasicWorkflow from "../workflows/api/txt2img-basic.json";
 import img2imgBasicWorkflow from "../workflows/api/img2img-basic.json";
 import sketch2imgLinecnBasicWorkflow from "../workflows/api/sketch2img-linecn-basic.json";
+import inpaintBasicWorkflow from "../workflows/api/inpaint-basic.json";
+import inpaintFluxFillBasicWorkflow from "../workflows/api/inpaint-flux-fill-basic.json";
 import {
+  BuildInpaintWorkflowOptions,
   BuildImageToImageWorkflowOptions,
   BuildSketchToImageWorkflowOptions,
   BuildWorkflowOptions,
   BuildWorkflowResult,
   ComfyWorkflow,
   WorkflowPreset,
-  WorkflowPresetDefinition
+  WorkflowPresetDefinition,
+  WorkflowInjectionTargetList
 } from "./types";
 import { getPresetInputTarget, getWorkflowPreset, validateWorkflowForPreset } from "./presetRegistry";
 import { createOpenLayerError } from "../utils/errors";
@@ -16,7 +20,9 @@ import { createOpenLayerError } from "../utils/errors";
 const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
   "txt2img-basic": txt2imgBasicWorkflow as ComfyWorkflow,
   "img2img-basic": img2imgBasicWorkflow as ComfyWorkflow,
-  "sketch2img-linecn-basic": sketch2imgLinecnBasicWorkflow as ComfyWorkflow
+  "sketch2img-linecn-basic": sketch2imgLinecnBasicWorkflow as ComfyWorkflow,
+  "inpaint-basic": inpaintBasicWorkflow as ComfyWorkflow,
+  "inpaint-flux-fill-basic": inpaintFluxFillBasicWorkflow as ComfyWorkflow
 };
 
 export async function buildTxt2ImgWorkflow(options: BuildWorkflowOptions): Promise<BuildWorkflowResult> {
@@ -118,6 +124,41 @@ export async function buildSketchToImageWorkflow(
   };
 }
 
+export async function buildInpaintWorkflow(
+  options: BuildInpaintWorkflowOptions
+): Promise<BuildWorkflowResult> {
+  const preset = getWorkflowPreset(options.presetId ?? "inpaint-basic");
+  assertPresetMode(preset, "inpaint");
+  assertPresetRunnable(preset);
+  const workflow = await cloneWorkflowTemplate(preset);
+  const seed = options.seed;
+
+  validateWorkflowForPreset(workflow, preset);
+
+  if (options.checkpointName) {
+    setPresetInput(workflow, preset, "checkpoint", options.checkpointName, true);
+  }
+
+  setPresetInput(workflow, preset, "sourceImage", options.sourceImageName, true);
+  setPresetInput(workflow, preset, "maskImage", options.maskImageName, true);
+  setPresetInput(workflow, preset, "positivePrompt", options.prompt, true);
+  setPresetInput(workflow, preset, "negativePrompt", options.negativePrompt ?? "", true);
+  setPresetInput(workflow, preset, "seed", seed, true);
+  setPresetInput(workflow, preset, "steps", options.steps, true);
+  setPresetInput(workflow, preset, "cfg", options.cfg, true);
+  setPresetInput(workflow, preset, "denoise", options.denoise, true);
+  setPresetInput(workflow, preset, "width", options.width);
+  setPresetInput(workflow, preset, "height", options.height);
+
+  validateWorkflowForPreset(workflow, preset);
+
+  return {
+    workflow,
+    seed,
+    preset
+  };
+}
+
 async function cloneWorkflowTemplate(preset: WorkflowPresetDefinition): Promise<ComfyWorkflow> {
   const workflow = WORKFLOW_TEMPLATES[preset.id];
 
@@ -145,7 +186,15 @@ function setPresetInput(
     return;
   }
 
-  setInput(workflow, target.nodeId, target.inputName, value);
+  const targets = normalizeTargets(target);
+
+  for (const currentTarget of targets) {
+    setInput(workflow, currentTarget.nodeId, currentTarget.inputName, value);
+  }
+}
+
+function normalizeTargets(target: WorkflowInjectionTargetList) {
+  return Array.isArray(target) ? target : [target];
 }
 
 function setInput(workflow: ComfyWorkflow, nodeId: string, inputName: string, value: unknown) {
@@ -199,6 +248,14 @@ async function loadWorkflowFromFile(preset: WorkflowPresetDefinition): Promise<C
         "WORKFLOW_FILE_MISSING",
         "LINECN workflow JSON required.",
         `Export the working ComfyUI API workflow as src/workflows/api/sketch2img-linecn-basic.json. ${String(caughtError)}`
+      );
+    }
+
+    if (preset.id === "inpaint-basic") {
+      throw createOpenLayerError(
+        "WORKFLOW_FILE_MISSING",
+        "Inpaint workflow JSON required.",
+        `Expected the validated ComfyUI API workflow at src/workflows/api/inpaint-basic.json. ${String(caughtError)}`
       );
     }
 

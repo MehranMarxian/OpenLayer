@@ -10,6 +10,11 @@ export type NormalizedSelectionBounds = SelectionBounds & {
   height: number;
 };
 
+export type DocumentSize = {
+  width: number;
+  height: number;
+};
+
 export function normalizeSelectionBounds(bounds: SelectionBounds): NormalizedSelectionBounds {
   const normalized = {
     left: Math.round(bounds.left),
@@ -39,6 +44,33 @@ export function normalizeSelectionBounds(bounds: SelectionBounds): NormalizedSel
     width,
     height
   };
+}
+
+export function createPaddedSelectionBounds(
+  selectionBounds: SelectionBounds,
+  documentSize: DocumentSize,
+  padding: number
+): NormalizedSelectionBounds {
+  const selection = normalizeSelectionBounds(selectionBounds);
+  const documentWidth = Math.round(documentSize.width);
+  const documentHeight = Math.round(documentSize.height);
+  const normalizedPadding = Math.max(0, Math.round(padding));
+
+  if (
+    !isFiniteNumber(documentWidth) ||
+    !isFiniteNumber(documentHeight) ||
+    documentWidth <= 0 ||
+    documentHeight <= 0
+  ) {
+    throw new Error("Document size must contain visible pixel dimensions.");
+  }
+
+  return normalizeSelectionBounds({
+    left: Math.max(0, selection.left - normalizedPadding),
+    top: Math.max(0, selection.top - normalizedPadding),
+    right: Math.min(documentWidth, selection.right + normalizedPadding),
+    bottom: Math.min(documentHeight, selection.bottom + normalizedPadding)
+  });
 }
 
 export function formatSelectionBounds(bounds: SelectionBounds) {

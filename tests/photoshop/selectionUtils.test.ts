@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { formatSelectionBounds, normalizeSelectionBounds } from "../../src/photoshop/selectionUtils";
+import {
+  createPaddedSelectionBounds,
+  formatSelectionBounds,
+  normalizeSelectionBounds
+} from "../../src/photoshop/selectionUtils";
 
 describe("selectionUtils", () => {
   it("normalizes rectangular Photoshop selection bounds", () => {
@@ -22,6 +26,23 @@ describe("selectionUtils", () => {
 
   it("formats bounds for beginner-friendly status text", () => {
     expect(formatSelectionBounds({ left: 5, top: 8, right: 45, bottom: 58 })).toBe("40 x 50 at 5, 8");
+  });
+
+  it("creates padded inpaint context bounds clamped to the document", () => {
+    expect(
+      createPaddedSelectionBounds(
+        { left: 20, top: 30, right: 80, bottom: 90 },
+        { width: 100, height: 120 },
+        50
+      )
+    ).toEqual({
+      left: 0,
+      top: 0,
+      right: 100,
+      bottom: 120,
+      width: 100,
+      height: 120
+    });
   });
 
   it("rejects empty selection bounds", () => {

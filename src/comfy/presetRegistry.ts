@@ -1,6 +1,7 @@
 import {
   ComfyWorkflow,
   WorkflowInputTarget,
+  WorkflowInjectionTargetList,
   WorkflowPreset,
   WorkflowPresetDefinition,
   WorkflowNodeRequirement
@@ -91,6 +92,40 @@ const SKETCH2IMG_LINECN_BASIC_NODES = {
   saveImage: "9"
 } as const;
 
+const INPAINT_BASIC_NODES = {
+  checkpointLoader: "4",
+  loadImage: "10",
+  loadMaskImage: "12",
+  imageToMask: "13",
+  positivePrompt: "6",
+  negativePrompt: "7",
+  inpaintConditioning: "11",
+  sampler: "3",
+  compositeMasked: "14",
+  saveImage: "9"
+} as const;
+
+const INPAINT_FLUX_FILL_BASIC_NODES = {
+  diffusionModelLoader: "20",
+  dualClipLoader: "21",
+  vaeLoader: "22",
+  modelSamplingFlux: "23",
+  loadImage: "10",
+  loadMaskImage: "12",
+  imageToMask: "13",
+  positivePrompt: "6",
+  negativePrompt: "7",
+  inpaintConditioning: "11",
+  basicGuider: "24",
+  samplerSelect: "25",
+  scheduler: "26",
+  noise: "27",
+  sampler: "28",
+  decode: "8",
+  compositeMasked: "14",
+  saveImage: "9"
+} as const;
+
 const TXT2IMG_BASIC_INJECTIONS = {
   checkpoint: target(TXT2IMG_BASIC_NODES.checkpointLoader, "ckpt_name"),
   positivePrompt: target(TXT2IMG_BASIC_NODES.positivePrompt, "text"),
@@ -124,6 +159,75 @@ const SKETCH2IMG_LINECN_BASIC_INJECTIONS = {
   denoise: target(SKETCH2IMG_LINECN_BASIC_NODES.sampler, "denoise"),
   controlStrength: target(SKETCH2IMG_LINECN_BASIC_NODES.controlNetApply, "strength")
 } as const;
+
+const INPAINT_BASIC_INJECTIONS = {
+  checkpoint: target(INPAINT_BASIC_NODES.checkpointLoader, "ckpt_name"),
+  sourceImage: target(INPAINT_BASIC_NODES.loadImage, "image"),
+  maskImage: target(INPAINT_BASIC_NODES.loadMaskImage, "image"),
+  positivePrompt: target(INPAINT_BASIC_NODES.positivePrompt, "text"),
+  negativePrompt: target(INPAINT_BASIC_NODES.negativePrompt, "text"),
+  seed: target(INPAINT_BASIC_NODES.sampler, "seed"),
+  steps: target(INPAINT_BASIC_NODES.sampler, "steps"),
+  cfg: target(INPAINT_BASIC_NODES.sampler, "cfg"),
+  denoise: target(INPAINT_BASIC_NODES.sampler, "denoise")
+} as const;
+
+const INPAINT_FLUX_FILL_BASIC_INJECTIONS = {
+  checkpoint: target(INPAINT_FLUX_FILL_BASIC_NODES.diffusionModelLoader, "unet_name"),
+  sourceImage: target(INPAINT_FLUX_FILL_BASIC_NODES.loadImage, "image"),
+  maskImage: target(INPAINT_FLUX_FILL_BASIC_NODES.loadMaskImage, "image"),
+  positivePrompt: [
+    target(INPAINT_FLUX_FILL_BASIC_NODES.positivePrompt, "clip_l"),
+    target(INPAINT_FLUX_FILL_BASIC_NODES.positivePrompt, "t5xxl")
+  ],
+  negativePrompt: [
+    target(INPAINT_FLUX_FILL_BASIC_NODES.negativePrompt, "clip_l"),
+    target(INPAINT_FLUX_FILL_BASIC_NODES.negativePrompt, "t5xxl")
+  ],
+  seed: target(INPAINT_FLUX_FILL_BASIC_NODES.noise, "noise_seed"),
+  steps: [
+    target(INPAINT_FLUX_FILL_BASIC_NODES.scheduler, "steps")
+  ],
+  cfg: target(INPAINT_FLUX_FILL_BASIC_NODES.positivePrompt, "guidance"),
+  denoise: target(INPAINT_FLUX_FILL_BASIC_NODES.scheduler, "denoise"),
+  width: target(INPAINT_FLUX_FILL_BASIC_NODES.modelSamplingFlux, "width"),
+  height: target(INPAINT_FLUX_FILL_BASIC_NODES.modelSamplingFlux, "height")
+} as const;
+
+const FLUX_FILL_STACK = [
+  {
+    kind: "diffusion-model-stack",
+    objectInfoNode: "UNETLoader",
+    inputName: "unet_name",
+    label: "Flux Fill diffusion model",
+    modelName: "flux1-fill-dev.safetensors",
+    setupHint: "Install flux1-fill-dev.safetensors where ComfyUI's UNETLoader can find it."
+  },
+  {
+    kind: "clip",
+    objectInfoNode: "DualCLIPLoader",
+    inputName: "clip_name1",
+    label: "Flux CLIP-L",
+    modelName: "clip_l.safetensors",
+    setupHint: "Install clip_l.safetensors where ComfyUI's DualCLIPLoader can find it."
+  },
+  {
+    kind: "clip",
+    objectInfoNode: "DualCLIPLoader",
+    inputName: "clip_name2",
+    label: "Flux T5 text encoder",
+    modelName: "t5xxl_fp8_e4m3fn.safetensors",
+    setupHint: "Install t5xxl_fp8_e4m3fn.safetensors where ComfyUI's DualCLIPLoader can find it."
+  },
+  {
+    kind: "vae",
+    objectInfoNode: "VAELoader",
+    inputName: "vae_name",
+    label: "Flux VAE",
+    modelName: "ae.safetensors",
+    setupHint: "Install ae.safetensors where ComfyUI's VAELoader can find it."
+  }
+] as const;
 
 export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
   {
@@ -304,19 +408,177 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     id: "inpaint-basic",
     label: "inpaint-basic",
     mode: "inpaint",
-    description: "Future selection-aware inpainting workflow using a source image and mask.",
+    description: "Experimental SD 1.x inpainting workflow using a Photoshop selection source and mask.",
     workflowFile: "workflows/api/inpaint-basic.json",
     sourceWorkflowFile: "workflows/source/inpaint-basic.workflow.json",
-    status: "todo",
-    supportedModelFamilies: ["sd1", "sdxl"],
-    experimentalModelFamilies: ["sd3", "flux", "zImage", "unknown"],
+    status: "experimental",
+    supportedModelFamilies: ["sd1"],
+    experimentalModelFamilies: ["sdxl", "sd3", "flux", "zImage", "unknown"],
     modelSource: CHECKPOINT_MODEL_SOURCE,
-    injections: {},
-    requiredNodes: [],
+    injections: INPAINT_BASIC_INJECTIONS,
+    requiredNodes: [
+      {
+        id: INPAINT_BASIC_NODES.checkpointLoader,
+        classType: "CheckpointLoaderSimple",
+        requiredInputs: ["ckpt_name"]
+      },
+      {
+        id: INPAINT_BASIC_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: INPAINT_BASIC_NODES.loadMaskImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: INPAINT_BASIC_NODES.imageToMask,
+        classType: "ImageToMask",
+        requiredInputs: ["image", "channel"]
+      },
+      {
+        id: INPAINT_BASIC_NODES.positivePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: INPAINT_BASIC_NODES.negativePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: INPAINT_BASIC_NODES.inpaintConditioning,
+        classType: "InpaintModelConditioning",
+        requiredInputs: ["positive", "negative", "vae", "pixels", "mask", "noise_mask"]
+      },
+      {
+        id: INPAINT_BASIC_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["seed", "steps", "cfg", "denoise", "model", "positive", "negative", "latent_image"]
+      },
+      {
+        id: INPAINT_BASIC_NODES.compositeMasked,
+        classType: "ImageCompositeMasked",
+        requiredInputs: ["destination", "source", "x", "y", "resize_source"]
+      },
+      {
+        id: INPAINT_BASIC_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images"]
+      }
+    ],
     compatibilityNote:
-      "inpaint-basic is a placeholder for mask-based Photoshop selection workflows. Selection capture is available, but generation needs a validated ComfyUI API workflow JSON.",
-    disabledReason:
-      "No validated OpenLayer API workflow JSON exists yet for inpaint-basic. Capture Selection is available now; generation is intentionally disabled until mask mapping is verified."
+      "inpaint-basic is an experimental SD 1.x workflow using LoadImage, ImageToMask, and InpaintModelConditioning. Start with an SD 1.x inpaint checkpoint."
+  },
+  {
+    id: "inpaint-flux-fill-basic",
+    label: "inpaint-flux-fill-basic",
+    mode: "inpaint",
+    description: "Experimental Flux Fill inpainting workflow using a diffusion model stack.",
+    workflowFile: "workflows/api/inpaint-flux-fill-basic.json",
+    sourceWorkflowFile: "workflows/source/inpaint-flux-fill-basic.workflow.json",
+    status: "experimental",
+    supportedModelFamilies: ["flux"],
+    experimentalModelFamilies: ["sd1", "sdxl", "sd3", "zImage", "unknown"],
+    modelSource: DIFFUSION_MODEL_SOURCE,
+    modelStack: [...FLUX_FILL_STACK],
+    requiredModels: [...FLUX_FILL_STACK],
+    injections: INPAINT_FLUX_FILL_BASIC_INJECTIONS,
+    requiredNodes: [
+      {
+        id: INPAINT_FLUX_FILL_BASIC_NODES.diffusionModelLoader,
+        classType: "UNETLoader",
+        requiredInputs: ["unet_name", "weight_dtype"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_BASIC_NODES.dualClipLoader,
+        classType: "DualCLIPLoader",
+        requiredInputs: ["clip_name1", "clip_name2", "type"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_BASIC_NODES.vaeLoader,
+        classType: "VAELoader",
+        requiredInputs: ["vae_name"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_BASIC_NODES.modelSamplingFlux,
+        classType: "ModelSamplingFlux",
+        requiredInputs: ["model", "max_shift", "base_shift", "width", "height"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_BASIC_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_BASIC_NODES.loadMaskImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_BASIC_NODES.imageToMask,
+        classType: "ImageToMask",
+        requiredInputs: ["image", "channel"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_BASIC_NODES.positivePrompt,
+        classType: "CLIPTextEncodeFlux",
+        requiredInputs: ["clip", "clip_l", "t5xxl", "guidance"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_BASIC_NODES.negativePrompt,
+        classType: "CLIPTextEncodeFlux",
+        requiredInputs: ["clip", "clip_l", "t5xxl", "guidance"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_BASIC_NODES.inpaintConditioning,
+        classType: "InpaintModelConditioning",
+        requiredInputs: ["positive", "negative", "vae", "pixels", "mask", "noise_mask"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_BASIC_NODES.basicGuider,
+        classType: "BasicGuider",
+        requiredInputs: ["model", "conditioning"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_BASIC_NODES.samplerSelect,
+        classType: "KSamplerSelect",
+        requiredInputs: ["sampler_name"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_BASIC_NODES.scheduler,
+        classType: "BasicScheduler",
+        requiredInputs: ["model", "scheduler", "steps", "denoise"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_BASIC_NODES.noise,
+        classType: "RandomNoise",
+        requiredInputs: ["noise_seed"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_BASIC_NODES.sampler,
+        classType: "SamplerCustomAdvanced",
+        requiredInputs: ["noise", "guider", "sampler", "sigmas", "latent_image"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_BASIC_NODES.decode,
+        classType: "VAEDecode",
+        requiredInputs: ["samples", "vae"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_BASIC_NODES.compositeMasked,
+        classType: "ImageCompositeMasked",
+        requiredInputs: ["destination", "source", "x", "y", "resize_source"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_BASIC_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images"]
+      }
+    ],
+    compatibilityNote:
+      "inpaint-flux-fill-basic is experimental and uses flux1-fill-dev.safetensors through UNETLoader with CLIP-L, T5, ae.safetensors, and Flux sampler nodes."
   },
   {
     id: "txt2img-z-image-turbo",
@@ -495,7 +757,7 @@ export function getPresetInputTarget(
   preset: WorkflowPresetDefinition,
   inputName: keyof WorkflowPresetDefinition["injections"],
   options: { required?: boolean } = {}
-): WorkflowInputTarget | null {
+): WorkflowInjectionTargetList | null {
   const target = preset.injections[inputName];
 
   if (!target && options.required) {

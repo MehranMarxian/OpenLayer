@@ -6,7 +6,8 @@ export type WorkflowPreset =
   | "txt2img-z-image-turbo"
   | "img2img-z-image-turbo"
   | "sketch2img-linecn-basic"
-  | "inpaint-basic";
+  | "inpaint-basic"
+  | "inpaint-flux-fill-basic";
 export type WorkflowMode = "txt2img" | "img2img" | "sketch2img" | "inpaint";
 export type ModelFamily = "sd1" | "sdxl" | "sd3" | "flux" | "zImage" | "unknown";
 
@@ -79,6 +80,12 @@ export type BuildSketchToImageWorkflowOptions = BuildImageToImageWorkflowOptions
   controlStrength: number;
 };
 
+export type BuildInpaintWorkflowOptions = BuildImageToImageWorkflowOptions & {
+  maskImageName: string;
+  width?: number;
+  height?: number;
+};
+
 export type BuildWorkflowResult = {
   workflow: ComfyWorkflow;
   seed: number;
@@ -110,7 +117,9 @@ export type WorkflowInjectionName =
   | "maskImage"
   | "controlStrength";
 
-export type WorkflowInjectionTargets = Partial<Record<WorkflowInjectionName, WorkflowInputTarget>>;
+export type WorkflowInjectionTargetList = WorkflowInputTarget | readonly WorkflowInputTarget[];
+
+export type WorkflowInjectionTargets = Partial<Record<WorkflowInjectionName, WorkflowInjectionTargetList>>;
 
 export type WorkflowModelSourceKind = "checkpoint" | "diffusion-model-stack" | "clip" | "vae" | "controlnet";
 

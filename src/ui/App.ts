@@ -7,7 +7,12 @@ import {
 import { getCheckpointCompatibility, getPresetCompatibilityNote } from "../comfy/modelCompatibility";
 import { getWorkflowPreset, listRunnableWorkflowPresets, listWorkflowPresets } from "../comfy/presetRegistry";
 import { validateGenerationSettings, validateImageToImageSettings, validateSketchToImageSettings } from "../comfy/settings";
-import { buildImg2ImgWorkflow, buildSketchToImageWorkflow, buildTxt2ImgWorkflow } from "../comfy/workflowBuilder";
+import {
+  buildImg2ImgWorkflow,
+  buildInpaintWorkflow,
+  buildSketchToImageWorkflow,
+  buildTxt2ImgWorkflow
+} from "../comfy/workflowBuilder";
 import { GeneratedImageResult, WorkflowPresetDefinition } from "../comfy/types";
 import {
   ExportedSourceImage,
@@ -16,7 +21,8 @@ import {
   exportActiveLayerForImageToImage,
   exportCanvasForImageToImage,
   getActiveDocumentInfo,
-  importGeneratedImageAsLayer
+  importGeneratedImageAsLayer,
+  importImageAlignedToSelection
 } from "../photoshop/photoshopAdapter";
 import { formatSelectionBounds } from "../photoshop/selectionUtils";
 import { createOpenLayerError, getErrorMessage, getTechnicalErrorDetails } from "../utils/errors";
@@ -29,7 +35,7 @@ import {
 } from "../utils/preferences";
 
 const DEFAULT_SERVER_URL = "http://127.0.0.1:8190";
-const APP_VERSION = "0.4.0";
+const APP_VERSION = "0.4.1";
 const DEVELOPER_GITHUB = "https://github.com/MehranMarxian";
 const HISTORY_LIMIT = 5;
 const COMFY_PORT_CANDIDATES = [8190, 8188, 8189, 8191, 8192, 8193, 7860];
@@ -338,7 +344,9 @@ export function renderApp(rootElement: HTMLElement) {
   let inpaintSource: InpaintSourceState | null = null;
   let inpaintResult: GeneratedImageResult | null = null;
   let inpaintSourcePreviewUrl = "";
+  let inpaintMaskPreviewUrl = "";
   let inpaintResultPreviewUrl = "";
+  let inpaintLivePreviewUrl = "";
   let importAutomatically = false;
   let isNegativePromptOpen = false;
   let allowExperimentalCheckpoints = false;
@@ -455,6 +463,7 @@ export function renderApp(rootElement: HTMLElement) {
   });
 
   elements.inpaintWorkflow.addEventListener("change", () => {
+    void refreshInpaintModelOptionsForSelectedPreset(elements);
     updateInpaintCheckpointCompatibility(elements);
   });
 
@@ -469,6 +478,7 @@ export function renderApp(rootElement: HTMLElement) {
       const client = new ComfyClient(elements.serverUrl.value);
       await client.checkOnline();
       await loadCheckpoints(client, elements, preferences.checkpointName || readSelectValue(elements.checkpoint));
+      await refreshInpaintModelOptionsForSelectedPreset(elements, client);
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints);
       updateSketchCheckpointCompatibility(elements);
       updateInpaintCheckpointCompatibility(elements);
@@ -491,6 +501,7 @@ export function renderApp(rootElement: HTMLElement) {
       const client = new ComfyClient(elements.serverUrl.value);
       await client.checkOnline();
       await loadCheckpoints(client, elements);
+      await refreshInpaintModelOptionsForSelectedPreset(elements, client);
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints);
       updateSketchCheckpointCompatibility(elements);
       updateInpaintCheckpointCompatibility(elements);
@@ -525,6 +536,7 @@ export function renderApp(rootElement: HTMLElement) {
     try {
       const client = new ComfyClient(foundUrl);
       await loadCheckpoints(client, elements);
+      await refreshInpaintModelOptionsForSelectedPreset(elements, client);
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints);
       updateSketchCheckpointCompatibility(elements);
       updateInpaintCheckpointCompatibility(elements);
@@ -1299,10 +1311,11 @@ export function renderApp(rootElement: HTMLElement) {
         ...exportedSource,
         previewUrl: sourcePreview
       });
+      setInpaintResult(null);
       setInpaintStatus(elements, "Selection captured.", "ready");
       setInpaintDiagnostics(
         elements,
-        `${createSourceCaptureMessage(exportedSource, " for inpainting")} Selection: ${formatSelectionBounds(exportedSource.selection.bounds)}. ${exportedSource.maskMessage}`
+        `${createSourceCaptureMessage(exportedSource, " for inpainting")} Selection: ${formatSelectionBounds(exportedSource.selection.bounds)}. Context: ${formatSelectionBounds(exportedSource.selection.contextBounds)}. ${exportedSource.maskMessage}`
       );
     } catch (caughtError) {
       setInpaintStatus(elements, "Selection capture failed.", "error");
@@ -1314,7 +1327,7 @@ export function renderApp(rootElement: HTMLElement) {
     }
   }
 
-  function handleGenerateInpaint() {
+  async function handleGenerateInpaint() {
     setInpaintDiagnostics(elements, `Inpaint generate pressed at ${new Date().toLocaleTimeString()}.`);
 
     if (!inpaintSource) {
@@ -1329,30 +1342,155 @@ export function renderApp(rootElement: HTMLElement) {
       return;
     }
 
-    const { settings, warnings } = validateImageToImageSettings({
-      steps: elements.inpaintSteps.value,
-      cfg: elements.inpaintCfg.value,
-      seed: elements.inpaintSeed.value,
-      denoise: elements.inpaintDenoise.value
-    });
-    const preset = getWorkflowPreset(readSelectValue(elements.inpaintWorkflow, DEFAULT_INPAINT_WORKFLOW));
-    const checkpointName = readSelectValue(elements.inpaintCheckpoint);
+    if (!inpaintSource.mask) {
+      setInpaintError(elements, inpaintSource.maskMessage || "Capture Selection did not produce a mask image.");
+      setInpaintStatus(elements, "Mask required.", "error");
+      setInpaintDiagnostics(
+        elements,
+        "OpenLayer needs a source image and grayscale selection mask before submitting inpaint-basic."
+      );
+      return;
+    }
 
-    applyValidatedInpaintSettings(elements, settings);
+    setInpaintError(elements, "");
     setInpaintResult(null);
-    setInpaintStatus(elements, "Inpaint workflow not ready.", "error");
-    setInpaintError(
-      elements,
-      preset.disabledReason ||
-        "Inpaint workflow JSON required. Selection capture is ready, but generation is disabled until inpaint-basic is mapped to a verified ComfyUI API workflow."
-    );
-    setInpaintDiagnostics(
-      elements,
-      [
-        warnings.length > 0 ? warnings.join(" ") : createWorkflowDiagnostics(preset, checkpointName),
-        "Mask export not available yet. Real inpainting needs a source image and grayscale mask mapped into ComfyUI."
-      ].join(" ")
-    );
+    isBusy = true;
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+    setInpaintStatus(elements, "Preparing Inpaint workflow...", "idle");
+    setInpaintProgressPreview(elements, "Preparing Inpaint workflow...");
+    let progressWatcher: ReturnType<ComfyClient["watchProgress"]> | null = null;
+
+    try {
+      const workflowPreset = readSelectValue(elements.inpaintWorkflow, DEFAULT_INPAINT_WORKFLOW);
+      const preset = getWorkflowPreset(workflowPreset);
+      const checkpointName = readSelectValue(elements.inpaintCheckpoint);
+      const { settings, warnings } = validateImageToImageSettings({
+        steps: elements.inpaintSteps.value,
+        cfg: elements.inpaintCfg.value,
+        seed: elements.inpaintSeed.value,
+        denoise: elements.inpaintDenoise.value
+      });
+      const client = new ComfyClient(elements.serverUrl.value);
+
+      applyValidatedInpaintSettings(elements, settings);
+      setInpaintDiagnostics(
+        elements,
+        warnings.length > 0
+          ? warnings.join(" ")
+          : createWorkflowDiagnostics(preset, checkpointName)
+      );
+      await client.checkOnline();
+
+      if (!checkpointName) {
+        throw createOpenLayerError("CHECKPOINT_REQUIRED", "Choose a ComfyUI checkpoint before generating Inpaint.");
+      }
+
+      const compatibility = getCheckpointCompatibility(checkpointName, preset);
+
+      if (compatibility.isExperimental && !allowExperimentalCheckpoints) {
+        throw createOpenLayerError(
+          "CHECKPOINT_UNSUPPORTED",
+          `${checkpointName} is marked experimental for ${preset.id}.`,
+          `${compatibility.warning} Enable Experimental checkpoints to try it anyway.`
+        );
+      } else if (compatibility.isExperimental) {
+        setInpaintDiagnostics(
+          elements,
+          `Experimental checkpoint: ${checkpointName}. ${compatibility.warning}`
+        );
+      }
+
+      setInpaintStatus(elements, "Checking selected checkpoint...", "idle");
+      setInpaintProgressPreview(elements, "Checking selected checkpoint...");
+
+      if (!(await client.hasModelForPreset(checkpointName, preset))) {
+        throw createOpenLayerError(
+          "CHECKPOINT_REQUIRED",
+          `The ${preset.modelSource.label.toLowerCase()} "${checkpointName}" was not found in ComfyUI. Click Check ComfyUI and choose an available model.`
+        );
+      }
+
+      setInpaintStatus(elements, "Checking Inpaint nodes...", "idle");
+      setInpaintProgressPreview(elements, "Checking Inpaint setup...");
+      await client.validatePresetSetup(preset);
+
+      setInpaintStatus(elements, "Uploading source and mask to ComfyUI...", "idle");
+      setInpaintProgressPreview(elements, "Uploading source and mask...");
+      const sourceImageName = await client.uploadImage(inpaintSource.blob, inpaintSource.filename);
+      const maskImageName = await client.uploadImage(inpaintSource.mask.blob, inpaintSource.mask.filename);
+      const buildResult = await buildInpaintWorkflow({
+        presetId: preset.id,
+        prompt: elements.inpaintPrompt.value,
+        negativePrompt: elements.inpaintNegativePrompt.value,
+        checkpointName,
+        sourceImageName,
+        maskImageName,
+        steps: settings.steps,
+        cfg: settings.cfg,
+        seed: settings.seed,
+        denoise: settings.denoise,
+        width: Math.round(inpaintSource.width),
+        height: Math.round(inpaintSource.height)
+      });
+
+      setInpaintStatus(elements, "Submitting Inpaint prompt...", "idle");
+      setInpaintProgressPreview(elements, "Submitting prompt to ComfyUI...");
+      const promptId = await client.submitPrompt(buildResult.workflow);
+      let hasLivePreview = false;
+      progressWatcher = client.watchProgress(promptId, {
+        onStatus: (message) => {
+          setInpaintStatus(elements, message, "idle");
+
+          if (!hasLivePreview) {
+            setInpaintProgressPreview(elements, message);
+          }
+        },
+        onPreviewBlob: (blob) => {
+          hasLivePreview = true;
+          setInpaintProgressPreview(elements, "Live ComfyUI preview...", blob);
+        },
+        onError: (message) => setInpaintDiagnostics(elements, message)
+      });
+
+      setInpaintStatus(elements, "Generating Inpaint result...", "idle");
+      setInpaintProgressPreview(elements, "Generating image...");
+      const history = await client.pollUntilComplete(promptId, {
+        onTick: (message) => {
+          setInpaintStatus(elements, message, "idle");
+
+          if (!hasLivePreview) {
+            setInpaintProgressPreview(elements, message);
+          }
+        }
+      });
+      progressWatcher?.close();
+      progressWatcher = null;
+
+      setInpaintStatus(elements, "Retrieving Inpaint result...", "idle");
+      setInpaintProgressPreview(elements, "Retrieving final image...");
+      const generatedResult = await client.retrieveFirstOutputImage(promptId, history);
+      setInpaintResult(generatedResult);
+      addHistoryEntry(elements, historyEntries, generatedResult, {
+        prompt: elements.inpaintPrompt.value,
+        checkpointName,
+        seed: buildResult.seed,
+        sizeLabel: "Inpaint"
+      });
+      setInpaintStatus(elements, "Inpaint generation complete.", "ready");
+      setInpaintDiagnostics(
+        elements,
+        `Seed used: ${buildResult.seed}. Source uploaded as ${sourceImageName}; mask uploaded as ${maskImageName}. Workflow: ${buildResult.preset.id}.`
+      );
+    } catch (caughtError) {
+      setInpaintStatus(elements, "Inpaint generation failed.", "error");
+      setInpaintError(elements, getFriendlyInpaintErrorMessage(caughtError));
+      console.error("[OpenLayer] Inpaint generation failed", getTechnicalErrorDetails(caughtError));
+      setInpaintDiagnostics(elements, getInpaintFailureHint(caughtError));
+    } finally {
+      progressWatcher?.close();
+      isBusy = false;
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+    }
   }
 
   async function handleImportInpaint() {
@@ -1360,6 +1498,11 @@ export function renderApp(rootElement: HTMLElement) {
 
     if (!inpaintResult) {
       setInpaintError(elements, "Generate an Inpaint result before importing.");
+      return;
+    }
+
+    if (!inpaintSource) {
+      setInpaintError(elements, "Capture the Photoshop selection again before importing this Inpaint result.");
       return;
     }
 
@@ -1373,9 +1516,14 @@ export function renderApp(rootElement: HTMLElement) {
       const layerName = createLayerName("OpenLayer_Inpaint");
 
       setInpaintDiagnostics(elements, `Importing into ${documentInfo.name || "active document"}...`);
-      const importedLayerName = await importGeneratedImageAsLayer(inpaintResult.blob, layerName, (message) => {
+      const importedLayerName = await importImageAlignedToSelection({
+        blob: inpaintResult.blob,
+        bounds: inpaintSource.selection.contextBounds,
+        layerName,
+        onProgress: (message) => {
         setInpaintStatus(elements, message, "idle");
         setInpaintDiagnostics(elements, message);
+        }
       });
       setInpaintStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
       setInpaintDiagnostics(elements, `Layer created: ${importedLayerName}`);
@@ -1625,6 +1773,11 @@ export function renderApp(rootElement: HTMLElement) {
       inpaintSourcePreviewUrl = "";
     }
 
+    if (inpaintMaskPreviewUrl) {
+      URL.revokeObjectURL(inpaintMaskPreviewUrl);
+      inpaintMaskPreviewUrl = "";
+    }
+
     inpaintSource = nextSource;
     elements.inpaintSourcePreviewPanel.innerHTML = "";
     elements.inpaintMaskPreviewPanel.innerHTML = "";
@@ -1652,13 +1805,23 @@ export function renderApp(rootElement: HTMLElement) {
     image.alt = "Captured Photoshop selection for Inpaint";
     elements.inpaintSourcePreviewPanel.append(image);
     elements.inpaintSourceTitle.textContent = inpaintSource.sourceName;
-    elements.inpaintSourceMeta.textContent = `${createSourceMetaText(inpaintSource)} | Selection ${formatSelectionBounds(inpaintSource.selection.bounds)}`;
+    elements.inpaintSourceMeta.textContent = `${createSourceMetaText(inpaintSource)} | Selection ${formatSelectionBounds(inpaintSource.selection.bounds)} | Context ${formatSelectionBounds(inpaintSource.selection.contextBounds)}`;
 
-    const maskEmpty = document.createElement("span");
-    maskEmpty.className = "source-empty";
-    maskEmpty.textContent = "N/A";
-    elements.inpaintMaskPreviewPanel.append(maskEmpty);
-    elements.inpaintMaskMeta.textContent = inpaintSource.maskMessage;
+    if (inpaintSource.mask) {
+      inpaintMaskPreviewUrl = URL.createObjectURL(inpaintSource.mask.blob);
+      const maskImage = document.createElement("img");
+      maskImage.src = inpaintMaskPreviewUrl;
+      maskImage.alt = "Captured Photoshop selection mask";
+      elements.inpaintMaskPreviewPanel.append(maskImage);
+      elements.inpaintMaskMeta.textContent = `${inpaintSource.mask.width} x ${inpaintSource.mask.height} | PNG/lossless mask`;
+    } else {
+      const maskEmpty = document.createElement("span");
+      maskEmpty.className = "source-empty";
+      maskEmpty.textContent = "N/A";
+      elements.inpaintMaskPreviewPanel.append(maskEmpty);
+      elements.inpaintMaskMeta.textContent = inpaintSource.maskMessage;
+    }
+
     setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
   }
 
@@ -1666,6 +1829,11 @@ export function renderApp(rootElement: HTMLElement) {
     if (inpaintResultPreviewUrl) {
       URL.revokeObjectURL(inpaintResultPreviewUrl);
       inpaintResultPreviewUrl = "";
+    }
+
+    if (inpaintLivePreviewUrl) {
+      URL.revokeObjectURL(inpaintLivePreviewUrl);
+      inpaintLivePreviewUrl = "";
     }
 
     inpaintResult = nextResult;
@@ -1686,6 +1854,32 @@ export function renderApp(rootElement: HTMLElement) {
     image.alt = "Generated Inpaint preview";
     elements.inpaintResultPreviewPanel.append(image);
     setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+  }
+
+  function setInpaintProgressPreview(elements: AppElements, message: string, blob?: Blob) {
+    if (inpaintResult) {
+      return;
+    }
+
+    elements.inpaintResultPreviewPanel.innerHTML = "";
+
+    if (blob) {
+      if (inpaintLivePreviewUrl) {
+        URL.revokeObjectURL(inpaintLivePreviewUrl);
+      }
+
+      inpaintLivePreviewUrl = URL.createObjectURL(blob);
+      const image = document.createElement("img");
+      image.src = inpaintLivePreviewUrl;
+      image.alt = "Live ComfyUI Inpaint preview";
+      elements.inpaintResultPreviewPanel.append(image);
+      return;
+    }
+
+    const progress = document.createElement("span");
+    progress.className = "preview-empty";
+    progress.textContent = message;
+    elements.inpaintResultPreviewPanel.append(progress);
   }
 
   function setView(view: AppView) {
@@ -2630,10 +2824,21 @@ function updateInpaintCheckpointCompatibility(elements: AppElements) {
   const checkpointName = readSelectValue(elements.inpaintCheckpoint);
   const preset = getWorkflowPreset(readSelectValue(elements.inpaintWorkflow, DEFAULT_INPAINT_WORKFLOW));
   const compatibility = getCheckpointCompatibility(checkpointName, preset);
-  const setupNote = preset.disabledReason ? ` ${preset.disabledReason}` : "";
 
-  elements.inpaintCompatibilityNote.textContent = `${compatibility.label}.${setupNote}`;
-  elements.inpaintCompatibilityNote.classList.toggle("is-warning", true);
+  if (preset.id === "inpaint-flux-fill-basic") {
+    elements.inpaintCompatibilityNote.textContent =
+      checkpointName.includes("flux1-fill")
+        ? "Flux Fill diffusion model selected. This preset uses UNETLoader, DualCLIPLoader, ae.safetensors, and Flux sampler nodes."
+        : `${compatibility.label} Use flux1-fill-dev.safetensors for this experimental preset.`;
+    elements.inpaintCompatibilityNote.classList.toggle("is-warning", !checkpointName.includes("flux1-fill"));
+    return;
+  }
+
+  elements.inpaintCompatibilityNote.textContent =
+    checkpointName === RECOMMENDED_SKETCH_CHECKPOINT
+      ? "Recommended SD 1.x checkpoint selected for inpaint-basic."
+      : `${compatibility.label} ${compatibility.warning || "Use an SD 1.x inpaint checkpoint for inpaint-basic."}`;
+  elements.inpaintCompatibilityNote.classList.toggle("is-warning", compatibility.isExperimental);
 }
 
 function createWorkflowDiagnostics(preset: WorkflowPresetDefinition, checkpointName: string) {
@@ -3014,6 +3219,31 @@ async function loadCheckpoints(client: ComfyClient, elements: AppElements, prefe
   fillCheckpointOptions(elements, checkpoints, preferredValue);
 }
 
+async function refreshInpaintModelOptionsForSelectedPreset(
+  elements: AppElements,
+  client = new ComfyClient(elements.serverUrl.value),
+  preferredValue = readSelectValue(elements.inpaintCheckpoint)
+) {
+  const preset = getWorkflowPreset(readSelectValue(elements.inpaintWorkflow, DEFAULT_INPAINT_WORKFLOW));
+
+  try {
+    const modelNames = await client.getModelNamesForPreset(preset);
+
+    if (modelNames.length > 0) {
+      const preferredPresetModel = preset.modelStack?.find(
+        (model) => model.kind === preset.modelSource.kind && modelNames.includes(model.modelName)
+      )?.modelName;
+      const preferredModel = modelNames.includes(preferredValue) ? preferredValue : preferredPresetModel;
+
+      fillSingleCheckpointSelect(elements.inpaintCheckpoint, modelNames, preferredModel);
+    }
+  } catch {
+    // Keep the existing list if ComfyUI is offline or the model source is unavailable.
+  }
+
+  updateInpaintCheckpointCompatibility(elements);
+}
+
 function fillCheckpointOptions(elements: AppElements, checkpoints: string[], preferredValue?: string) {
   fillSingleCheckpointSelect(elements.checkpoint, checkpoints, preferredValue);
   fillSingleCheckpointSelect(elements.imgCheckpoint, checkpoints, preferredValue);
@@ -3151,6 +3381,65 @@ function getFriendlySketchErrorMessage(error: unknown) {
     details.includes("text encoder")
   ) {
     return "The selected checkpoint needs a matching SD 1.x LINECN workflow.";
+  }
+
+  return getErrorMessage(error);
+}
+
+function getInpaintFailureHint(error: unknown) {
+  const details = getTechnicalErrorDetails(error).toLowerCase();
+
+  if (details.includes("inpaint-basic.json") || details.includes("inpaint workflow json")) {
+    return "The bundled inpaint-basic workflow file was not found in this build. Rebuild OpenLayer and reload the plugin.";
+  }
+
+  if (
+    details.includes("vaeencodeforinpaint") ||
+    details.includes("imagetomask") ||
+    details.includes("loadimage") ||
+    details.includes("missing node")
+  ) {
+    return "This Inpaint workflow needs ComfyUI's standard LoadImage, ImageToMask, and VAEEncodeForInpaint nodes. Rebuild or remap the inpaint-basic workflow if node IDs changed.";
+  }
+
+  if (
+    details.includes("clip input is invalid") ||
+    details.includes("does not contain a valid clip") ||
+    details.includes("text encoder")
+  ) {
+    return "This looks like a checkpoint/workflow mismatch. inpaint-basic is intended for SD 1.x checkpoints first.";
+  }
+
+  if (details.includes("mask") || details.includes("vae") || details.includes("invalid prompt")) {
+    return "ComfyUI rejected part of the inpaint workflow. Check that the source image, mask image, and selected checkpoint match inpaint-basic.";
+  }
+
+  const message = getTechnicalErrorDetails(error);
+  return message.length > 160 ? `${message.slice(0, 160)}...` : message;
+}
+
+function getFriendlyInpaintErrorMessage(error: unknown) {
+  const details = getTechnicalErrorDetails(error).toLowerCase();
+
+  if (details.includes("inpaint-basic.json") || details.includes("inpaint workflow json")) {
+    return "Inpaint workflow file missing from this build.";
+  }
+
+  if (
+    details.includes("vaeencodeforinpaint") ||
+    details.includes("imagetomask") ||
+    details.includes("loadimage") ||
+    details.includes("missing node")
+  ) {
+    return "The Inpaint workflow needs matching ComfyUI inpaint nodes.";
+  }
+
+  if (
+    details.includes("clip input is invalid") ||
+    details.includes("does not contain a valid clip") ||
+    details.includes("text encoder")
+  ) {
+    return "The selected checkpoint needs a matching SD 1.x Inpaint workflow.";
   }
 
   return getErrorMessage(error);

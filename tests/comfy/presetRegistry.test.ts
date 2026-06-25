@@ -18,8 +18,30 @@ describe("presetRegistry", () => {
     expect(allTxt2ImgIds).toContain("txt2img-z-image-turbo");
     expect(allTxt2ImgIds).toContain("txt2img-flux1-dev");
     expect(runnableTxt2ImgIds).toEqual(["txt2img-basic"]);
-    expect(allInpaintIds).toEqual(["inpaint-basic"]);
-    expect(runnableInpaintIds).toEqual([]);
+    expect(allInpaintIds).toEqual(["inpaint-basic", "inpaint-flux-fill-basic"]);
+    expect(runnableInpaintIds).toEqual(["inpaint-basic", "inpaint-flux-fill-basic"]);
+  });
+
+  it("maps inpaint-basic mask and source injections", () => {
+    const preset = getWorkflowPreset("inpaint-basic");
+
+    expect(preset.status).toBe("experimental");
+    expect(preset.supportedModelFamilies).toEqual(["sd1"]);
+    expect(preset.injections.sourceImage).toEqual({ nodeId: "10", inputName: "image" });
+    expect(preset.injections.maskImage).toEqual({ nodeId: "12", inputName: "image" });
+    expect(preset.requiredNodes.some((node) => node.classType === "InpaintModelConditioning")).toBe(true);
+    expect(preset.requiredNodes.some((node) => node.classType === "ImageToMask")).toBe(true);
+    expect(preset.requiredNodes.some((node) => node.classType === "ImageCompositeMasked")).toBe(true);
+  });
+
+  it("registers Flux Fill inpaint as a diffusion model stack preset", () => {
+    const preset = getWorkflowPreset("inpaint-flux-fill-basic");
+
+    expect(preset.status).toBe("experimental");
+    expect(preset.modelSource.kind).toBe("diffusion-model-stack");
+    expect(preset.supportedModelFamilies).toEqual(["flux"]);
+    expect(preset.requiredModels?.some((model) => model.modelName === "flux1-fill-dev.safetensors")).toBe(true);
+    expect(preset.requiredNodes.some((node) => node.classType === "SamplerCustomAdvanced")).toBe(true);
   });
 
   it("marks Z_image_Turbo as a diffusion model stack preset", () => {

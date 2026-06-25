@@ -1,5 +1,34 @@
 # Changelog
 
+## v0.4.1-alpha - 2026-06-25
+
+Real experimental mask-based Inpaint path for SD 1.x testing.
+
+### Added
+
+- Photoshop selection mask export using a temporary white-filled selection layer inside `executeAsModal`, captured back as a PNG/lossless grayscale mask.
+- Runnable `inpaint-basic` ComfyUI API workflow using `LoadImage`, `ImageToMask`, `InpaintModelConditioning`, `KSampler`, `VAEDecode`, `ImageCompositeMasked`, and `SaveImage`.
+- Experimental `inpaint-flux-fill-basic` workflow preset for local Flux Fill stacks using `UNETLoader`, `DualCLIPLoader`, `VAELoader`, Flux sampler nodes, and `flux1-fill-dev.safetensors` when available.
+- Inpaint generation path that uploads both selected-region source PNG and mask PNG to ComfyUI.
+- Aligned Inpaint import path that places the generated context patch back over the captured Photoshop selection context.
+- Inpaint mask preview, live progress preview, final result preview, history entry, and existing `Import to Layers` support.
+- Unit coverage for `inpaint-basic` preset registration and workflow injection.
+
+### Changed
+
+- Bumped plugin/package metadata to `0.4.1`.
+- `inpaint-basic` is now an experimental runnable SD 1.x preset instead of a disabled placeholder.
+- `inpaint-basic` now uses `InpaintModelConditioning` so SD inpaint checkpoints receive source and mask context more directly.
+- Inpaint errors now explain missing mask export, missing ComfyUI inpaint nodes, or checkpoint/workflow mismatches without flooding the panel with raw logs.
+
+### Known Limitations
+
+- Inpaint is currently safest with SD 1.x checkpoints such as `epicrealism_naturalSinRC1VAE.safetensors`.
+- Flux Fill inpainting is experimental and requires `flux1-fill-dev.safetensors`, `clip_l.safetensors`, `t5xxl_fp8_e4m3fn.safetensors`, and `ae.safetensors` in the matching ComfyUI model folders.
+- Selection mask export uses a temporary-layer fallback path. If Photoshop rejects that path, OpenLayer keeps source capture available and shows a friendly mask error.
+- Selection preservation remains future work.
+- CI does not run Photoshop, UXP, or ComfyUI integration tests.
+
 ## v0.4.0-alpha - 2026-06-25
 
 Selection-aware inpainting foundation for safe Photoshop alpha testing.
