@@ -1,5 +1,31 @@
 # Changelog
 
+## v0.4.0-alpha - 2026-06-25
+
+Selection-aware inpainting foundation for safe Photoshop alpha testing.
+
+### Added
+
+- Available Inpaint launcher card and a new Inpaint tool screen using the existing OpenLayer design language.
+- Safe Photoshop selection detection with friendly no-selection errors.
+- Selected-region PNG/lossless capture using Photoshop Imaging API source bounds when available.
+- Source preview, mask preview placeholder, prompt, negative prompt, workflow selector, checkpoint selector, denoise, steps, CFG, seed, status, errors, result preview, and guarded `Import to Layers` action for Inpaint.
+- Placeholder experimental `inpaint-basic` workflow preset registered in the preset system.
+- Unit tests for pure selection bounds normalization and status-friendly formatting.
+
+### Changed
+
+- Bumped plugin/package metadata to `0.4.0`.
+- README and docs now explain the current Inpaint foundation and its mask/export limitations.
+- Photoshop adapter TODO paths now describe selection mask export, aligned regional import, and selection preservation more clearly.
+
+### Known Limitations
+
+- `inpaint-basic` is intentionally disabled until a validated ComfyUI API workflow JSON and mask mapping exist.
+- True grayscale selection mask export is not available yet.
+- Selection preservation and aligned regional import remain future work.
+- CI does not run Photoshop, UXP, or ComfyUI integration tests.
+
 ## v0.3.0-alpha - 2026-06-25
 
 Stabilization release focused on reliability, testability, source capture quality, and repo maturity.

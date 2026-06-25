@@ -5,8 +5,9 @@ export type WorkflowPreset =
   | "img2img-flux1-dev"
   | "txt2img-z-image-turbo"
   | "img2img-z-image-turbo"
-  | "sketch2img-linecn-basic";
-export type WorkflowMode = "txt2img" | "img2img" | "sketch2img";
+  | "sketch2img-linecn-basic"
+  | "inpaint-basic";
+export type WorkflowMode = "txt2img" | "img2img" | "sketch2img" | "inpaint";
 export type ModelFamily = "sd1" | "sdxl" | "sd3" | "flux" | "zImage" | "unknown";
 
 export type ComfyHardwareDevice = {
@@ -106,6 +107,7 @@ export type WorkflowInjectionName =
   | "cfg"
   | "denoise"
   | "sourceImage"
+  | "maskImage"
   | "controlStrength";
 
 export type WorkflowInjectionTargets = Partial<Record<WorkflowInjectionName, WorkflowInputTarget>>;

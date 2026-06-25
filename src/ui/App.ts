@@ -11,11 +11,14 @@ import { buildImg2ImgWorkflow, buildSketchToImageWorkflow, buildTxt2ImgWorkflow 
 import { GeneratedImageResult, WorkflowPresetDefinition } from "../comfy/types";
 import {
   ExportedSourceImage,
+  SelectedRegionSourceImage,
+  captureSelectionForInpainting,
   exportActiveLayerForImageToImage,
   exportCanvasForImageToImage,
   getActiveDocumentInfo,
   importGeneratedImageAsLayer
 } from "../photoshop/photoshopAdapter";
+import { formatSelectionBounds } from "../photoshop/selectionUtils";
 import { createOpenLayerError, getErrorMessage, getTechnicalErrorDetails } from "../utils/errors";
 import { createLayerName } from "../utils/fileUtils";
 import {
@@ -26,13 +29,14 @@ import {
 } from "../utils/preferences";
 
 const DEFAULT_SERVER_URL = "http://127.0.0.1:8190";
-const APP_VERSION = "0.3.0";
+const APP_VERSION = "0.4.0";
 const DEVELOPER_GITHUB = "https://github.com/MehranMarxian";
 const HISTORY_LIMIT = 5;
 const COMFY_PORT_CANDIDATES = [8190, 8188, 8189, 8191, 8192, 8193, 7860];
 const DEFAULT_WORKFLOW = "txt2img-basic";
 const DEFAULT_IMAGE_WORKFLOW = "img2img-basic";
 const DEFAULT_SKETCH_WORKFLOW = "sketch2img-linecn-basic";
+const DEFAULT_INPAINT_WORKFLOW = "inpaint-basic";
 const RECOMMENDED_SKETCH_CHECKPOINT = "epicrealism_naturalSinRC1VAE.safetensors";
 const DEFAULT_WIDTH = "512";
 const DEFAULT_HEIGHT = "512";
@@ -43,6 +47,8 @@ const DEFAULT_IMG2IMG_DENOISE = "0.55";
 const DEFAULT_SKETCH_STEPS = "16";
 const DEFAULT_SKETCH_DENOISE = "0.65";
 const DEFAULT_SKETCH_CONTROL_STRENGTH = "0.8";
+const DEFAULT_INPAINT_STEPS = "16";
+const DEFAULT_INPAINT_DENOISE = "0.75";
 const FALLBACK_CHECKPOINTS = [
   "epicrealism_naturalSinRC1VAE.safetensors",
   "epicrealism_pureEvolutionV5-inpainting.safetensors",
@@ -55,7 +61,7 @@ const FALLBACK_CHECKPOINTS = [
 ];
 
 type StatusTone = "idle" | "ready" | "error";
-type AppView = "home" | "text-to-image" | "image-to-image" | "sketch-to-image" | "settings" | "history";
+type AppView = "home" | "text-to-image" | "image-to-image" | "sketch-to-image" | "inpaint" | "settings" | "history";
 type ToolCardStatus = "available" | "coming-soon";
 
 type ToolCard = {
@@ -103,7 +109,8 @@ const TOOL_CARDS: ToolCard[] = [
     title: "Inpaint",
     subtitle: "Regenerate inside a selected area",
     icon: "brush",
-    status: "coming-soon"
+    status: "available",
+    view: "inpaint"
   },
   {
     id: "outpaint",
@@ -178,6 +185,7 @@ type AppElements = {
   generatorView: HTMLElement;
   imageToImageView: HTMLElement;
   sketchToImageView: HTMLElement;
+  inpaintView: HTMLElement;
   settingsView: HTMLElement;
   historyView: HTMLElement;
   homeStatusText: HTMLElement;
@@ -225,6 +233,17 @@ type AppElements = {
   captureSketchCanvasButton: HTMLElement;
   generateSketchButton: HTMLElement;
   importSketchButton: HTMLElement;
+  inpaintPrompt: HTMLTextAreaElement;
+  inpaintNegativePrompt: HTMLTextAreaElement;
+  inpaintWorkflow: HTMLSelectElement;
+  inpaintCheckpoint: HTMLSelectElement;
+  inpaintSteps: HTMLInputElement;
+  inpaintCfg: HTMLInputElement;
+  inpaintSeed: HTMLInputElement;
+  inpaintDenoise: HTMLInputElement;
+  captureInpaintSelectionButton: HTMLElement;
+  generateInpaintButton: HTMLElement;
+  importInpaintButton: HTMLElement;
   experimentalCheckpointToggle: HTMLElement;
   negativePromptToggle: HTMLElement;
   negativePromptField: HTMLElement;
@@ -235,6 +254,8 @@ type AppElements = {
   imgStatusPill: HTMLElement;
   sketchStatusText: HTMLElement;
   sketchStatusPill: HTMLElement;
+  inpaintStatusText: HTMLElement;
+  inpaintStatusPill: HTMLElement;
   settingsStatusText: HTMLElement;
   settingsStatusPill: HTMLElement;
   diagnosticsText: HTMLElement;
@@ -242,10 +263,13 @@ type AppElements = {
   imgCompatibilityNote: HTMLElement;
   sketchDiagnosticsText: HTMLElement;
   sketchCompatibilityNote: HTMLElement;
+  inpaintDiagnosticsText: HTMLElement;
+  inpaintCompatibilityNote: HTMLElement;
   settingsDiagnosticsText: HTMLElement;
   errorMessage: HTMLElement;
   imgErrorMessage: HTMLElement;
   sketchErrorMessage: HTMLElement;
+  inpaintErrorMessage: HTMLElement;
   settingsErrorMessage: HTMLElement;
   previewPanel: HTMLElement;
   imageSourcePreviewPanel: HTMLElement;
@@ -256,6 +280,12 @@ type AppElements = {
   sketchSourceTitle: HTMLElement;
   sketchSourceMeta: HTMLElement;
   sketchResultPreviewPanel: HTMLElement;
+  inpaintSourcePreviewPanel: HTMLElement;
+  inpaintSourceTitle: HTMLElement;
+  inpaintSourceMeta: HTMLElement;
+  inpaintMaskPreviewPanel: HTMLElement;
+  inpaintMaskMeta: HTMLElement;
+  inpaintResultPreviewPanel: HTMLElement;
   historyList: HTMLElement;
   settingsUrlValue: HTMLElement;
   settingsCheckpointCount: HTMLElement;
@@ -285,6 +315,10 @@ type ImageSourceState = ExportedSourceImage & {
   previewUrl: string;
 };
 
+type InpaintSourceState = SelectedRegionSourceImage & {
+  previewUrl: string;
+};
+
 export function renderApp(rootElement: HTMLElement) {
   let currentView: AppView = "home";
   let isBusy = false;
@@ -301,6 +335,10 @@ export function renderApp(rootElement: HTMLElement) {
   let sketchSourcePreviewUrl = "";
   let sketchResultPreviewUrl = "";
   let sketchLivePreviewUrl = "";
+  let inpaintSource: InpaintSourceState | null = null;
+  let inpaintResult: GeneratedImageResult | null = null;
+  let inpaintSourcePreviewUrl = "";
+  let inpaintResultPreviewUrl = "";
   let importAutomatically = false;
   let isNegativePromptOpen = false;
   let allowExperimentalCheckpoints = false;
@@ -337,6 +375,9 @@ export function renderApp(rootElement: HTMLElement) {
     captureSketchCanvasSource: createActionRunner(elements, "captureSketchCanvasSource", handleCaptureSketchCanvasSource),
     generateSketch: createActionRunner(elements, "generateSketch", handleGenerateSketch),
     importSketch: createActionRunner(elements, "importSketch", handleImportSketch),
+    captureInpaintSelection: createActionRunner(elements, "captureInpaintSelection", handleCaptureInpaintSelection),
+    generateInpaint: createActionRunner(elements, "generateInpaint", handleGenerateInpaint),
+    importInpaint: createActionRunner(elements, "importInpaint", handleImportInpaint),
     clearHistory: createActionRunner(elements, "clearHistory", handleClearHistory)
   };
 
@@ -358,6 +399,9 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.captureSketchCanvasButton, actionHandlers.captureSketchCanvasSource);
   bindActionControl(elements.generateSketchButton, actionHandlers.generateSketch);
   bindActionControl(elements.importSketchButton, actionHandlers.importSketch);
+  bindActionControl(elements.captureInpaintSelectionButton, actionHandlers.captureInpaintSelection);
+  bindActionControl(elements.generateInpaintButton, actionHandlers.generateInpaint);
+  bindActionControl(elements.importInpaintButton, actionHandlers.importInpaint);
   bindActionControl(elements.clearHistoryButton, actionHandlers.clearHistory);
   bindDelegatedActions(rootElement, actionHandlers);
   bindDocumentActions(rootElement, actionHandlers);
@@ -368,7 +412,7 @@ export function renderApp(rootElement: HTMLElement) {
   setStatus(elements, "Ready.", "idle");
   setView(currentView);
   setError(elements, "");
-  setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+  setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
   updateNegativePromptDisclosure(elements, isNegativePromptOpen);
   updateAutoImportToggle(elements, importAutomatically);
   updateExperimentalCheckpointToggle(elements, allowExperimentalCheckpoints);
@@ -378,6 +422,9 @@ export function renderApp(rootElement: HTMLElement) {
   updateSketchCheckpointCompatibility(elements);
   setSketchSource(null);
   setSketchResult(null);
+  updateInpaintCheckpointCompatibility(elements);
+  setInpaintSource(null);
+  setInpaintResult(null);
   updateSettingsReport(elements);
   renderHardwareReport(elements, hardwareReport);
   renderHistory(elements, historyEntries);
@@ -407,6 +454,14 @@ export function renderApp(rootElement: HTMLElement) {
     updateSketchCheckpointCompatibility(elements);
   });
 
+  elements.inpaintWorkflow.addEventListener("change", () => {
+    updateInpaintCheckpointCompatibility(elements);
+  });
+
+  elements.inpaintCheckpoint.addEventListener("change", () => {
+    updateInpaintCheckpointCompatibility(elements);
+  });
+
   async function loadInitialCheckpoints() {
     setStatus(elements, "Loading ComfyUI models...", "idle");
 
@@ -416,6 +471,7 @@ export function renderApp(rootElement: HTMLElement) {
       await loadCheckpoints(client, elements, preferences.checkpointName || readSelectValue(elements.checkpoint));
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints);
       updateSketchCheckpointCompatibility(elements);
+      updateInpaintCheckpointCompatibility(elements);
       setStatus(elements, "ComfyUI is online. Models loaded.", "ready");
       savePreferencesFromElements(elements);
       updateSettingsReport(elements);
@@ -437,6 +493,7 @@ export function renderApp(rootElement: HTMLElement) {
       await loadCheckpoints(client, elements);
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints);
       updateSketchCheckpointCompatibility(elements);
+      updateInpaintCheckpointCompatibility(elements);
       setStatus(elements, "ComfyUI is online. Models loaded.", "ready");
       savePreferencesFromElements(elements);
       updateSettingsReport(elements);
@@ -470,6 +527,7 @@ export function renderApp(rootElement: HTMLElement) {
       await loadCheckpoints(client, elements);
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints);
       updateSketchCheckpointCompatibility(elements);
+      updateInpaintCheckpointCompatibility(elements);
       savePreferencesFromElements(elements);
       setStatus(elements, `Found ComfyUI at ${foundUrl}.`, "ready");
       setDiagnostics(elements, `Active ComfyUI server selected: ${foundUrl}.`);
@@ -524,6 +582,7 @@ export function renderApp(rootElement: HTMLElement) {
     fillCheckpointOptions(elements, FALLBACK_CHECKPOINTS, FALLBACK_CHECKPOINTS[0]);
     updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints);
     updateSketchCheckpointCompatibility(elements);
+    updateInpaintCheckpointCompatibility(elements);
     setError(elements, "");
     setStatus(elements, "Settings reset to OpenLayer defaults.", "ready");
     setDiagnostics(elements, "Defaults restored. Click Check ComfyUI to reload available models.");
@@ -565,7 +624,7 @@ export function renderApp(rootElement: HTMLElement) {
     setError(elements, "");
     setResult(null);
     isBusy = true;
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
     setStatus(elements, "Preparing workflow...", "idle");
     setProgressPreview(elements, "Preparing workflow...");
     let progressWatcher: ReturnType<ComfyClient["watchProgress"]> | null = null;
@@ -685,7 +744,7 @@ export function renderApp(rootElement: HTMLElement) {
     } finally {
       progressWatcher?.close();
       isBusy = false;
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
     }
   }
 
@@ -733,7 +792,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     setError(elements, "");
     isBusy = true;
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
     setStatus(elements, "Importing image into Photoshop...", "idle");
 
     try {
@@ -752,7 +811,7 @@ export function renderApp(rootElement: HTMLElement) {
       setError(elements, getErrorMessage(caughtError));
     } finally {
       isBusy = false;
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
     }
   }
 
@@ -784,7 +843,7 @@ export function renderApp(rootElement: HTMLElement) {
     setImageError(elements, "");
     setImageStatus(elements, options.statusMessage, "idle");
     isBusy = true;
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
 
     try {
       const exportedSource = await options.capture();
@@ -804,7 +863,7 @@ export function renderApp(rootElement: HTMLElement) {
       setImageDiagnostics(elements, getTechnicalErrorDetails(caughtError));
     } finally {
       isBusy = false;
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
     }
   }
 
@@ -826,7 +885,7 @@ export function renderApp(rootElement: HTMLElement) {
     setImageError(elements, "");
     setImageResult(null);
     isBusy = true;
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
     setImageStatus(elements, "Preparing Image to Image workflow...", "idle");
     setImageProgressPreview(elements, "Preparing Image to Image workflow...");
     let progressWatcher: ReturnType<ComfyClient["watchProgress"]> | null = null;
@@ -952,7 +1011,7 @@ export function renderApp(rootElement: HTMLElement) {
     } finally {
       progressWatcher?.close();
       isBusy = false;
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
     }
   }
 
@@ -966,7 +1025,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     setImageError(elements, "");
     isBusy = true;
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
     setImageStatus(elements, "Importing Image to Image result into Photoshop...", "idle");
 
     try {
@@ -985,7 +1044,7 @@ export function renderApp(rootElement: HTMLElement) {
       setImageError(elements, getErrorMessage(caughtError));
     } finally {
       isBusy = false;
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
     }
   }
 
@@ -1017,7 +1076,7 @@ export function renderApp(rootElement: HTMLElement) {
     setSketchError(elements, "");
     setSketchStatus(elements, options.statusMessage, "idle");
     isBusy = true;
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
 
     try {
       const exportedSource = await options.capture();
@@ -1037,7 +1096,7 @@ export function renderApp(rootElement: HTMLElement) {
       setSketchDiagnostics(elements, getTechnicalErrorDetails(caughtError));
     } finally {
       isBusy = false;
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
     }
   }
 
@@ -1062,7 +1121,7 @@ export function renderApp(rootElement: HTMLElement) {
     setSketchError(elements, "");
     setSketchResult(null);
     isBusy = true;
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
     setSketchStatus(elements, "Preparing LINECN workflow...", "idle");
     setSketchProgressPreview(elements, "Preparing LINECN workflow...");
     let progressWatcher: ReturnType<ComfyClient["watchProgress"]> | null = null;
@@ -1189,7 +1248,7 @@ export function renderApp(rootElement: HTMLElement) {
     } finally {
       progressWatcher?.close();
       isBusy = false;
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
     }
   }
 
@@ -1203,7 +1262,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     setSketchError(elements, "");
     isBusy = true;
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
     setSketchStatus(elements, "Importing Sketch to Image result into Photoshop...", "idle");
 
     try {
@@ -1222,7 +1281,110 @@ export function renderApp(rootElement: HTMLElement) {
       setSketchError(elements, getErrorMessage(caughtError));
     } finally {
       isBusy = false;
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+    }
+  }
+
+  async function handleCaptureInpaintSelection() {
+    setInpaintDiagnostics(elements, "Capturing active Photoshop selection...");
+    setInpaintError(elements, "");
+    setInpaintStatus(elements, "Capturing selection...", "idle");
+    isBusy = true;
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+
+    try {
+      const exportedSource = await captureSelectionForInpainting();
+      const sourcePreview = URL.createObjectURL(exportedSource.blob);
+      setInpaintSource({
+        ...exportedSource,
+        previewUrl: sourcePreview
+      });
+      setInpaintStatus(elements, "Selection captured.", "ready");
+      setInpaintDiagnostics(
+        elements,
+        `${createSourceCaptureMessage(exportedSource, " for inpainting")} Selection: ${formatSelectionBounds(exportedSource.selection.bounds)}. ${exportedSource.maskMessage}`
+      );
+    } catch (caughtError) {
+      setInpaintStatus(elements, "Selection capture failed.", "error");
+      setInpaintError(elements, getErrorMessage(caughtError));
+      setInpaintDiagnostics(elements, getTechnicalErrorDetails(caughtError));
+    } finally {
+      isBusy = false;
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+    }
+  }
+
+  function handleGenerateInpaint() {
+    setInpaintDiagnostics(elements, `Inpaint generate pressed at ${new Date().toLocaleTimeString()}.`);
+
+    if (!inpaintSource) {
+      setInpaintError(elements, "Make a Photoshop selection, then click Capture Selection before generating Inpaint.");
+      setInpaintStatus(elements, "Selection required.", "error");
+      return;
+    }
+
+    if (!elements.inpaintPrompt.value.trim()) {
+      setInpaintError(elements, getErrorMessage(createOpenLayerError("PROMPT_REQUIRED", "Enter a prompt before generating Inpaint.")));
+      setInpaintStatus(elements, "Prompt required.", "error");
+      return;
+    }
+
+    const { settings, warnings } = validateImageToImageSettings({
+      steps: elements.inpaintSteps.value,
+      cfg: elements.inpaintCfg.value,
+      seed: elements.inpaintSeed.value,
+      denoise: elements.inpaintDenoise.value
+    });
+    const preset = getWorkflowPreset(readSelectValue(elements.inpaintWorkflow, DEFAULT_INPAINT_WORKFLOW));
+    const checkpointName = readSelectValue(elements.inpaintCheckpoint);
+
+    applyValidatedInpaintSettings(elements, settings);
+    setInpaintResult(null);
+    setInpaintStatus(elements, "Inpaint workflow not ready.", "error");
+    setInpaintError(
+      elements,
+      preset.disabledReason ||
+        "Inpaint workflow JSON required. Selection capture is ready, but generation is disabled until inpaint-basic is mapped to a verified ComfyUI API workflow."
+    );
+    setInpaintDiagnostics(
+      elements,
+      [
+        warnings.length > 0 ? warnings.join(" ") : createWorkflowDiagnostics(preset, checkpointName),
+        "Mask export not available yet. Real inpainting needs a source image and grayscale mask mapped into ComfyUI."
+      ].join(" ")
+    );
+  }
+
+  async function handleImportInpaint() {
+    setInpaintDiagnostics(elements, "Inpaint import pressed.");
+
+    if (!inpaintResult) {
+      setInpaintError(elements, "Generate an Inpaint result before importing.");
+      return;
+    }
+
+    setInpaintError(elements, "");
+    isBusy = true;
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+    setInpaintStatus(elements, "Importing Inpaint result into Photoshop...", "idle");
+
+    try {
+      const documentInfo = await getActiveDocumentInfo();
+      const layerName = createLayerName("OpenLayer_Inpaint");
+
+      setInpaintDiagnostics(elements, `Importing into ${documentInfo.name || "active document"}...`);
+      const importedLayerName = await importGeneratedImageAsLayer(inpaintResult.blob, layerName, (message) => {
+        setInpaintStatus(elements, message, "idle");
+        setInpaintDiagnostics(elements, message);
+      });
+      setInpaintStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
+      setInpaintDiagnostics(elements, `Layer created: ${importedLayerName}`);
+    } catch (caughtError) {
+      setInpaintStatus(elements, "Import failed.", "error");
+      setInpaintError(elements, getErrorMessage(caughtError));
+    } finally {
+      isBusy = false;
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
     }
   }
 
@@ -1245,7 +1407,7 @@ export function renderApp(rootElement: HTMLElement) {
       empty.className = "preview-empty";
       empty.textContent = "No result yet";
       elements.previewPanel.append(empty);
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
       return;
     }
 
@@ -1254,7 +1416,7 @@ export function renderApp(rootElement: HTMLElement) {
     image.src = previewUrl;
     image.alt = "Generated OpenLayer preview";
     elements.previewPanel.append(image);
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
   }
 
   function setProgressPreview(elements: AppElements, message: string, blob?: Blob) {
@@ -1299,7 +1461,7 @@ export function renderApp(rootElement: HTMLElement) {
       elements.imageSourcePreviewPanel.append(empty);
       elements.imageSourceTitle.textContent = "No source captured";
       elements.imageSourceMeta.textContent = "Choose active layer or full canvas.";
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
       return;
     }
 
@@ -1310,7 +1472,7 @@ export function renderApp(rootElement: HTMLElement) {
     elements.imageSourcePreviewPanel.append(image);
     elements.imageSourceTitle.textContent = imageSource.sourceName;
     elements.imageSourceMeta.textContent = createSourceMetaText(imageSource);
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
   }
 
   function setImageResult(nextResult: GeneratedImageResult | null) {
@@ -1332,7 +1494,7 @@ export function renderApp(rootElement: HTMLElement) {
       empty.className = "preview-empty";
       empty.textContent = "No Image to Image result yet";
       elements.imageResultPreviewPanel.append(empty);
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
       return;
     }
 
@@ -1341,7 +1503,7 @@ export function renderApp(rootElement: HTMLElement) {
     image.src = imageResultPreviewUrl;
     image.alt = "Generated Image to Image preview";
     elements.imageResultPreviewPanel.append(image);
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
   }
 
   function setImageProgressPreview(elements: AppElements, message: string, blob?: Blob) {
@@ -1386,7 +1548,7 @@ export function renderApp(rootElement: HTMLElement) {
       elements.sketchSourcePreviewPanel.append(empty);
       elements.sketchSourceTitle.textContent = "No source captured";
       elements.sketchSourceMeta.textContent = "Choose active layer or full canvas.";
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
       return;
     }
 
@@ -1397,7 +1559,7 @@ export function renderApp(rootElement: HTMLElement) {
     elements.sketchSourcePreviewPanel.append(image);
     elements.sketchSourceTitle.textContent = sketchSource.sourceName;
     elements.sketchSourceMeta.textContent = createSourceMetaText(sketchSource);
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
   }
 
   function setSketchResult(nextResult: GeneratedImageResult | null) {
@@ -1419,7 +1581,7 @@ export function renderApp(rootElement: HTMLElement) {
       empty.className = "preview-empty";
       empty.textContent = "No Sketch to Image result yet";
       elements.sketchResultPreviewPanel.append(empty);
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
       return;
     }
 
@@ -1428,7 +1590,7 @@ export function renderApp(rootElement: HTMLElement) {
     image.src = sketchResultPreviewUrl;
     image.alt = "Generated Sketch to Image preview";
     elements.sketchResultPreviewPanel.append(image);
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource);
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
   }
 
   function setSketchProgressPreview(elements: AppElements, message: string, blob?: Blob) {
@@ -1457,12 +1619,82 @@ export function renderApp(rootElement: HTMLElement) {
     elements.sketchResultPreviewPanel.append(progress);
   }
 
+  function setInpaintSource(nextSource: InpaintSourceState | null) {
+    if (inpaintSourcePreviewUrl) {
+      URL.revokeObjectURL(inpaintSourcePreviewUrl);
+      inpaintSourcePreviewUrl = "";
+    }
+
+    inpaintSource = nextSource;
+    elements.inpaintSourcePreviewPanel.innerHTML = "";
+    elements.inpaintMaskPreviewPanel.innerHTML = "";
+
+    if (!inpaintSource) {
+      const sourceEmpty = document.createElement("span");
+      sourceEmpty.className = "source-empty";
+      sourceEmpty.textContent = "None";
+      elements.inpaintSourcePreviewPanel.append(sourceEmpty);
+      elements.inpaintSourceTitle.textContent = "No selection captured";
+      elements.inpaintSourceMeta.textContent = "Make a Photoshop selection first.";
+
+      const maskEmpty = document.createElement("span");
+      maskEmpty.className = "source-empty";
+      maskEmpty.textContent = "Mask";
+      elements.inpaintMaskPreviewPanel.append(maskEmpty);
+      elements.inpaintMaskMeta.textContent = "Mask export not available yet.";
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+      return;
+    }
+
+    inpaintSourcePreviewUrl = inpaintSource.previewUrl;
+    const image = document.createElement("img");
+    image.src = inpaintSourcePreviewUrl;
+    image.alt = "Captured Photoshop selection for Inpaint";
+    elements.inpaintSourcePreviewPanel.append(image);
+    elements.inpaintSourceTitle.textContent = inpaintSource.sourceName;
+    elements.inpaintSourceMeta.textContent = `${createSourceMetaText(inpaintSource)} | Selection ${formatSelectionBounds(inpaintSource.selection.bounds)}`;
+
+    const maskEmpty = document.createElement("span");
+    maskEmpty.className = "source-empty";
+    maskEmpty.textContent = "N/A";
+    elements.inpaintMaskPreviewPanel.append(maskEmpty);
+    elements.inpaintMaskMeta.textContent = inpaintSource.maskMessage;
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+  }
+
+  function setInpaintResult(nextResult: GeneratedImageResult | null) {
+    if (inpaintResultPreviewUrl) {
+      URL.revokeObjectURL(inpaintResultPreviewUrl);
+      inpaintResultPreviewUrl = "";
+    }
+
+    inpaintResult = nextResult;
+    elements.inpaintResultPreviewPanel.innerHTML = "";
+
+    if (!inpaintResult) {
+      const empty = document.createElement("span");
+      empty.className = "preview-empty";
+      empty.textContent = "No Inpaint result yet";
+      elements.inpaintResultPreviewPanel.append(empty);
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+      return;
+    }
+
+    inpaintResultPreviewUrl = URL.createObjectURL(inpaintResult.blob);
+    const image = document.createElement("img");
+    image.src = inpaintResultPreviewUrl;
+    image.alt = "Generated Inpaint preview";
+    elements.inpaintResultPreviewPanel.append(image);
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+  }
+
   function setView(view: AppView) {
     currentView = view;
     elements.homeView.hidden = currentView !== "home";
     elements.generatorView.hidden = currentView !== "text-to-image";
     elements.imageToImageView.hidden = currentView !== "image-to-image";
     elements.sketchToImageView.hidden = currentView !== "sketch-to-image";
+    elements.inpaintView.hidden = currentView !== "inpaint";
     elements.settingsView.hidden = currentView !== "settings";
     elements.historyView.hidden = currentView !== "history";
 
@@ -1851,6 +2083,109 @@ function createAppMarkup() {
         </section>
       </section>
 
+      <section class="inpaint-view image-to-image-view" id="inpaint-view" aria-label="Inpaint" hidden>
+        <div class="screen-nav">
+          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
+          <div class="screen-title-block">
+            <span class="screen-kicker">INP</span>
+            <span class="screen-title">Inpaint</span>
+          </div>
+        </div>
+
+        <section class="panel-section generator-panel source-panel" aria-label="Inpaint selection source">
+          <div class="section-heading">
+            <span class="label">Selection source</span>
+            <span class="muted-label">Photoshop selection</span>
+          </div>
+          <div class="source-action-row" aria-label="Selection capture actions">
+            <button class="button source-action-button action-control" id="capture-inpaint-selection" data-openlayer-action="captureInpaintSelection" type="button">Capture Selection</button>
+          </div>
+          <div class="source-card">
+            <div class="source-thumb-frame" id="inpaint-source-preview-panel">
+              <span class="source-empty">None</span>
+            </div>
+            <div class="source-card-body">
+              <span class="source-title" id="inpaint-source-title">No selection captured</span>
+              <span class="source-card-meta" id="inpaint-source-meta">Make a Photoshop selection first.</span>
+            </div>
+          </div>
+          <div class="source-card">
+            <div class="source-thumb-frame" id="inpaint-mask-preview-panel">
+              <span class="source-empty">Mask</span>
+            </div>
+            <div class="source-card-body">
+              <span class="source-title">Mask preview</span>
+              <span class="source-card-meta" id="inpaint-mask-meta">Mask export not available yet.</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel-section generator-panel img2img-form-panel" aria-label="Inpaint prompt">
+          <div class="field img2img-field">
+            <span class="label">Prompt</span>
+            <textarea class="textarea compact-textarea" id="inpaint-prompt" placeholder="Describe what should replace the selected area..."></textarea>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Negative prompt</span>
+            <textarea class="textarea compact-textarea" id="inpaint-negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Workflow</span>
+            <select class="select" id="inpaint-workflow">
+              ${listWorkflowPresets("inpaint").map((preset) => `<option value="${preset.id}">${preset.label}${preset.status === "todo" ? " (setup required)" : ""}</option>`).join("")}
+            </select>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Checkpoint</span>
+            <select class="select" id="inpaint-checkpoint">
+              ${FALLBACK_CHECKPOINTS.map((checkpoint) => `<option value="${checkpoint}">${checkpoint}</option>`).join("")}
+            </select>
+            <span class="compatibility-note" id="inpaint-compatibility-note">Selection capture is available. Generation needs a mapped inpaint-basic API workflow.</span>
+          </div>
+          <div class="settings-grid img2img-settings-grid" aria-label="Inpaint settings">
+            <div class="field">
+              <span class="label">Steps</span>
+              <input class="input input-compact" id="inpaint-steps" type="number" min="1" max="150" step="1" value="${DEFAULT_INPAINT_STEPS}" />
+            </div>
+            <div class="field">
+              <span class="label">CFG</span>
+              <input class="input input-compact" id="inpaint-cfg" type="number" min="1" max="30" step="0.5" value="${DEFAULT_CFG}" />
+            </div>
+            <div class="field">
+              <span class="label">Denoise</span>
+              <input class="input input-compact" id="inpaint-denoise" type="number" min="0.05" max="1" step="0.05" value="${DEFAULT_INPAINT_DENOISE}" />
+            </div>
+            <div class="field settings-seed">
+              <span class="label">Seed</span>
+              <input class="input input-compact" id="inpaint-seed" type="number" min="0" placeholder="Random" />
+            </div>
+          </div>
+          <button class="button button-primary button-generate button-wide action-control" id="generate-inpaint" data-openlayer-action="generateInpaint" type="button">Generate Inpaint</button>
+        </section>
+
+        <section class="generation-status-panel img2img-status-panel" aria-label="Inpaint status">
+          <div class="status-bar" role="status">
+            <span class="status-text" id="inpaint-status-text">Ready.</span>
+            <span class="status-pill idle" id="inpaint-status-pill">Status</span>
+          </div>
+          <div class="diagnostics-line" id="inpaint-diagnostics-text">Capture a Photoshop selection to prepare inpainting.</div>
+          <div class="error-message" id="inpaint-error-message" hidden></div>
+        </section>
+
+        <section class="panel-section result-panel img2img-result-panel" aria-label="Inpaint result">
+          <div class="section-heading">
+            <span class="label">Result preview</span>
+            <span class="muted-label">Generated result appears here</span>
+          </div>
+          <div class="preview-panel" id="inpaint-result-preview-panel">
+            <span class="preview-empty">No Inpaint result yet</span>
+          </div>
+          <div class="import-actions">
+            <button class="button button-import button-import-blue action-control is-disabled" id="import-inpaint-result" data-openlayer-action="importInpaint" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
+          </div>
+        </section>
+      </section>
+
       <section class="history-view" id="history-view" aria-label="History" hidden>
         <div class="screen-nav">
           <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
@@ -1948,6 +2283,7 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     generatorView: getElement<HTMLElement>(rootElement, "generator-view"),
     imageToImageView: getElement<HTMLElement>(rootElement, "image-to-image-view"),
     sketchToImageView: getElement<HTMLElement>(rootElement, "sketch-to-image-view"),
+    inpaintView: getElement<HTMLElement>(rootElement, "inpaint-view"),
     settingsView: getElement<HTMLElement>(rootElement, "settings-view"),
     historyView: getElement<HTMLElement>(rootElement, "history-view"),
     homeStatusText: getElement<HTMLElement>(rootElement, "home-status-text"),
@@ -1995,6 +2331,17 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     captureSketchCanvasButton: getElement<HTMLElement>(rootElement, "capture-sketch-canvas-source"),
     generateSketchButton: getElement<HTMLElement>(rootElement, "generate-sketch"),
     importSketchButton: getElement<HTMLElement>(rootElement, "import-sketch-result"),
+    inpaintPrompt: getElement<HTMLTextAreaElement>(rootElement, "inpaint-prompt"),
+    inpaintNegativePrompt: getElement<HTMLTextAreaElement>(rootElement, "inpaint-negative-prompt"),
+    inpaintWorkflow: getElement<HTMLSelectElement>(rootElement, "inpaint-workflow"),
+    inpaintCheckpoint: getElement<HTMLSelectElement>(rootElement, "inpaint-checkpoint"),
+    inpaintSteps: getElement<HTMLInputElement>(rootElement, "inpaint-steps"),
+    inpaintCfg: getElement<HTMLInputElement>(rootElement, "inpaint-cfg"),
+    inpaintSeed: getElement<HTMLInputElement>(rootElement, "inpaint-seed"),
+    inpaintDenoise: getElement<HTMLInputElement>(rootElement, "inpaint-denoise"),
+    captureInpaintSelectionButton: getElement<HTMLElement>(rootElement, "capture-inpaint-selection"),
+    generateInpaintButton: getElement<HTMLElement>(rootElement, "generate-inpaint"),
+    importInpaintButton: getElement<HTMLElement>(rootElement, "import-inpaint-result"),
     experimentalCheckpointToggle: getElement<HTMLElement>(rootElement, "experimental-checkpoint-toggle"),
     negativePromptToggle: getElement<HTMLElement>(rootElement, "negative-prompt-toggle"),
     negativePromptField: getElement<HTMLElement>(rootElement, "negative-prompt-field"),
@@ -2005,6 +2352,8 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     imgStatusPill: getElement<HTMLElement>(rootElement, "img-status-pill"),
     sketchStatusText: getElement<HTMLElement>(rootElement, "sketch-status-text"),
     sketchStatusPill: getElement<HTMLElement>(rootElement, "sketch-status-pill"),
+    inpaintStatusText: getElement<HTMLElement>(rootElement, "inpaint-status-text"),
+    inpaintStatusPill: getElement<HTMLElement>(rootElement, "inpaint-status-pill"),
     settingsStatusText: getElement<HTMLElement>(rootElement, "settings-status-text"),
     settingsStatusPill: getElement<HTMLElement>(rootElement, "settings-status-pill"),
     diagnosticsText: getElement<HTMLElement>(rootElement, "diagnostics-text"),
@@ -2012,10 +2361,13 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     imgCompatibilityNote: getElement<HTMLElement>(rootElement, "img-compatibility-note"),
     sketchDiagnosticsText: getElement<HTMLElement>(rootElement, "sketch-diagnostics-text"),
     sketchCompatibilityNote: getElement<HTMLElement>(rootElement, "sketch-compatibility-note"),
+    inpaintDiagnosticsText: getElement<HTMLElement>(rootElement, "inpaint-diagnostics-text"),
+    inpaintCompatibilityNote: getElement<HTMLElement>(rootElement, "inpaint-compatibility-note"),
     settingsDiagnosticsText: getElement<HTMLElement>(rootElement, "settings-diagnostics-text"),
     errorMessage: getElement<HTMLElement>(rootElement, "error-message"),
     imgErrorMessage: getElement<HTMLElement>(rootElement, "img-error-message"),
     sketchErrorMessage: getElement<HTMLElement>(rootElement, "sketch-error-message"),
+    inpaintErrorMessage: getElement<HTMLElement>(rootElement, "inpaint-error-message"),
     settingsErrorMessage: getElement<HTMLElement>(rootElement, "settings-error-message"),
     previewPanel: getElement<HTMLElement>(rootElement, "preview-panel"),
     imageSourcePreviewPanel: getElement<HTMLElement>(rootElement, "image-source-preview-panel"),
@@ -2026,6 +2378,12 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     sketchSourceTitle: getElement<HTMLElement>(rootElement, "sketch-source-title"),
     sketchSourceMeta: getElement<HTMLElement>(rootElement, "sketch-source-meta"),
     sketchResultPreviewPanel: getElement<HTMLElement>(rootElement, "sketch-result-preview-panel"),
+    inpaintSourcePreviewPanel: getElement<HTMLElement>(rootElement, "inpaint-source-preview-panel"),
+    inpaintSourceTitle: getElement<HTMLElement>(rootElement, "inpaint-source-title"),
+    inpaintSourceMeta: getElement<HTMLElement>(rootElement, "inpaint-source-meta"),
+    inpaintMaskPreviewPanel: getElement<HTMLElement>(rootElement, "inpaint-mask-preview-panel"),
+    inpaintMaskMeta: getElement<HTMLElement>(rootElement, "inpaint-mask-meta"),
+    inpaintResultPreviewPanel: getElement<HTMLElement>(rootElement, "inpaint-result-preview-panel"),
     historyList: getElement<HTMLElement>(rootElement, "history-list"),
     settingsUrlValue: getElement<HTMLElement>(rootElement, "settings-url-value"),
     settingsCheckpointCount: getElement<HTMLElement>(rootElement, "settings-checkpoint-count"),
@@ -2058,7 +2416,9 @@ function setBusy(
   imageResult: GeneratedImageResult | null = null,
   imageSource: ImageSourceState | null = null,
   sketchResult: GeneratedImageResult | null = null,
-  sketchSource: ImageSourceState | null = null
+  sketchSource: ImageSourceState | null = null,
+  inpaintResult: GeneratedImageResult | null = null,
+  inpaintSource: InpaintSourceState | null = null
 ) {
   elements.serverUrl.disabled = isBusy;
   elements.prompt.disabled = isBusy;
@@ -2087,6 +2447,14 @@ function setBusy(
   elements.sketchSeed.disabled = isBusy;
   elements.sketchDenoise.disabled = isBusy;
   elements.sketchControlStrength.disabled = isBusy;
+  elements.inpaintPrompt.disabled = isBusy;
+  elements.inpaintNegativePrompt.disabled = isBusy;
+  elements.inpaintWorkflow.disabled = isBusy;
+  elements.inpaintCheckpoint.disabled = isBusy;
+  elements.inpaintSteps.disabled = isBusy;
+  elements.inpaintCfg.disabled = isBusy;
+  elements.inpaintSeed.disabled = isBusy;
+  elements.inpaintDenoise.disabled = isBusy;
   setActionDisabled(elements.checkButton, isBusy);
   setActionDisabled(elements.findPortButton, isBusy);
   setActionDisabled(elements.detectHardwareButton, isBusy);
@@ -2105,6 +2473,9 @@ function setBusy(
   setActionDisabled(elements.captureSketchCanvasButton, isBusy);
   setActionDisabled(elements.generateSketchButton, isBusy || !sketchSource);
   setActionDisabled(elements.importSketchButton, isBusy || !sketchResult);
+  setActionDisabled(elements.captureInpaintSelectionButton, isBusy);
+  setActionDisabled(elements.generateInpaintButton, isBusy || !inpaintSource);
+  setActionDisabled(elements.importInpaintButton, isBusy || !inpaintResult);
   setActionDisabled(elements.clearHistoryButton, isBusy);
 }
 
@@ -2118,6 +2489,9 @@ function setStatus(elements: AppElements, status: string, tone: StatusTone) {
   elements.sketchStatusText.textContent = status;
   elements.sketchStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
   elements.sketchStatusPill.className = `status-pill ${tone}`;
+  elements.inpaintStatusText.textContent = status;
+  elements.inpaintStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
+  elements.inpaintStatusPill.className = `status-pill ${tone}`;
   elements.settingsStatusText.textContent = status;
   elements.settingsStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
   elements.settingsStatusPill.className = `status-pill ${tone}`;
@@ -2141,6 +2515,14 @@ function setSketchStatus(elements: AppElements, status: string, tone: StatusTone
   elements.homeStatusDot.className = `home-status-dot ${tone}`;
 }
 
+function setInpaintStatus(elements: AppElements, status: string, tone: StatusTone) {
+  elements.inpaintStatusText.textContent = status;
+  elements.inpaintStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
+  elements.inpaintStatusPill.className = `status-pill ${tone}`;
+  elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
+  elements.homeStatusDot.className = `home-status-dot ${tone}`;
+}
+
 function setError(elements: AppElements, message: string) {
   elements.errorMessage.textContent = message;
   elements.errorMessage.hidden = !message;
@@ -2158,10 +2540,16 @@ function setSketchError(elements: AppElements, message: string) {
   elements.sketchErrorMessage.hidden = !message;
 }
 
+function setInpaintError(elements: AppElements, message: string) {
+  elements.inpaintErrorMessage.textContent = message;
+  elements.inpaintErrorMessage.hidden = !message;
+}
+
 function setDiagnostics(elements: AppElements, message: string) {
   elements.diagnosticsText.textContent = message;
   elements.imgDiagnosticsText.textContent = message;
   elements.sketchDiagnosticsText.textContent = message;
+  elements.inpaintDiagnosticsText.textContent = message;
   elements.settingsDiagnosticsText.textContent = message;
 }
 
@@ -2172,6 +2560,11 @@ function setImageDiagnostics(elements: AppElements, message: string) {
 
 function setSketchDiagnostics(elements: AppElements, message: string) {
   elements.sketchDiagnosticsText.textContent = message;
+  elements.settingsDiagnosticsText.textContent = message;
+}
+
+function setInpaintDiagnostics(elements: AppElements, message: string) {
+  elements.inpaintDiagnosticsText.textContent = message;
   elements.settingsDiagnosticsText.textContent = message;
 }
 
@@ -2233,6 +2626,16 @@ function updateSketchCheckpointCompatibility(elements: AppElements) {
   elements.sketchCompatibilityNote.classList.toggle("is-warning", compatibility.isExperimental);
 }
 
+function updateInpaintCheckpointCompatibility(elements: AppElements) {
+  const checkpointName = readSelectValue(elements.inpaintCheckpoint);
+  const preset = getWorkflowPreset(readSelectValue(elements.inpaintWorkflow, DEFAULT_INPAINT_WORKFLOW));
+  const compatibility = getCheckpointCompatibility(checkpointName, preset);
+  const setupNote = preset.disabledReason ? ` ${preset.disabledReason}` : "";
+
+  elements.inpaintCompatibilityNote.textContent = `${compatibility.label}.${setupNote}`;
+  elements.inpaintCompatibilityNote.classList.toggle("is-warning", true);
+}
+
 function createWorkflowDiagnostics(preset: WorkflowPresetDefinition, checkpointName: string) {
   return getPresetCompatibilityNote(checkpointName, preset) || `Using workflow ${preset.id}, checkpoint: ${checkpointName || "none"}`;
 }
@@ -2270,6 +2673,9 @@ type ActionName =
   | "captureSketchCanvasSource"
   | "generateSketch"
   | "importSketch"
+  | "captureInpaintSelection"
+  | "generateInpaint"
+  | "importInpaint"
   | "clearHistory";
 type HistoryActionName = "preview" | "import";
 type ActionRunner = (eventName: string) => void;
@@ -2616,6 +3022,7 @@ function fillCheckpointOptions(elements: AppElements, checkpoints: string[], pre
     checkpoints,
     checkpoints.includes(RECOMMENDED_SKETCH_CHECKPOINT) ? RECOMMENDED_SKETCH_CHECKPOINT : preferredValue
   );
+  fillSingleCheckpointSelect(elements.inpaintCheckpoint, checkpoints, preferredValue);
 }
 
 function fillSingleCheckpointSelect(select: HTMLSelectElement, checkpoints: string[], preferredValue?: string) {
@@ -2802,6 +3209,18 @@ function applyValidatedSketchToImageSettings(elements: AppElements, settings: {
   elements.sketchControlStrength.value = String(settings.controlStrength);
 }
 
+function applyValidatedInpaintSettings(elements: AppElements, settings: {
+  steps: number;
+  cfg: number;
+  seed: number;
+  denoise: number;
+}) {
+  elements.inpaintSteps.value = String(settings.steps);
+  elements.inpaintCfg.value = String(settings.cfg);
+  elements.inpaintSeed.value = String(settings.seed);
+  elements.inpaintDenoise.value = String(settings.denoise);
+}
+
 function applyPreferences(elements: AppElements, preferences: Partial<OpenLayerPreferences>) {
   if (preferences.serverUrl) {
     elements.serverUrl.value = preferences.serverUrl;
@@ -2813,6 +3232,7 @@ function applyPreferences(elements: AppElements, preferences: Partial<OpenLayerP
 
   elements.imgWorkflow.value = DEFAULT_IMAGE_WORKFLOW;
   elements.sketchWorkflow.value = DEFAULT_SKETCH_WORKFLOW;
+  elements.inpaintWorkflow.value = DEFAULT_INPAINT_WORKFLOW;
 
   if (preferences.width) {
     elements.width.value = preferences.width;
@@ -2830,6 +3250,7 @@ function applyPreferences(elements: AppElements, preferences: Partial<OpenLayerP
     elements.cfg.value = preferences.cfg;
     elements.imgCfg.value = preferences.cfg;
     elements.sketchCfg.value = preferences.cfg;
+    elements.inpaintCfg.value = preferences.cfg;
   }
 
   if (preferences.seed) {
@@ -2856,6 +3277,11 @@ function applyDefaultSettings(elements: AppElements) {
   elements.sketchSeed.value = "";
   elements.sketchDenoise.value = DEFAULT_SKETCH_DENOISE;
   elements.sketchControlStrength.value = DEFAULT_SKETCH_CONTROL_STRENGTH;
+  elements.inpaintWorkflow.value = DEFAULT_INPAINT_WORKFLOW;
+  elements.inpaintSteps.value = DEFAULT_INPAINT_STEPS;
+  elements.inpaintCfg.value = DEFAULT_CFG;
+  elements.inpaintSeed.value = "";
+  elements.inpaintDenoise.value = DEFAULT_INPAINT_DENOISE;
 }
 
 function savePreferencesFromElements(

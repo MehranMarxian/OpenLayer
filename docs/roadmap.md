@@ -7,6 +7,7 @@ OpenLayer is a local-first Photoshop UXP plugin for artist-friendly ComfyUI work
 - Text to Image with `txt2img-basic`
 - Image to Image with active-layer or canvas capture
 - Sketch to Image with the SD 1.x LINECN starter workflow
+- Inpaint foundation with Photoshop selection detection and selected-region PNG capture
 - Import generated results as new Photoshop layers
 - Local ComfyUI connection, checkpoint loading, and status diagnostics
 - GPU-aware model recommendations
@@ -22,10 +23,12 @@ OpenLayer is a local-first Photoshop UXP plugin for artist-friendly ComfyUI work
 
 ## v0.4 Inpainting And Mask Workflows
 
-- Selection bounds capture
+- Selection bounds capture (started in v0.4.0-alpha)
+- Selected-region PNG/lossless source capture (started in v0.4.0-alpha)
+- Disabled `inpaint-basic` preset placeholder for future ComfyUI API mapping
 - Selection mask export
 - Preserve and restore selection state
-- Inpainting workflow preset foundation
+- Inpainting workflow preset foundation with real mask input
 - Import generated regions aligned to the original selection
 
 ## v0.5 Custom Workflow Importer

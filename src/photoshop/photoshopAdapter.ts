@@ -1,6 +1,11 @@
 import { createLayerName, saveBlobToTemporaryFile } from "../utils/fileUtils";
 import { createOpenLayerError, getErrorMessage } from "../utils/errors";
 import { encodeRgbaPng } from "../utils/png";
+import {
+  normalizeSelectionBounds,
+  NormalizedSelectionBounds,
+  SelectionBounds
+} from "./selectionUtils";
 
 type PhotoshopModule = {
   app: {
@@ -77,18 +82,25 @@ export type ExportedSourceImage = {
   captureFormat: SourceCaptureFormat;
 };
 
-export type SelectionBounds = {
-  left: number;
-  top: number;
-  right: number;
-  bottom: number;
-};
-
 export type SelectionMaskExport = {
   blob: Blob;
   bounds: SelectionBounds;
   width: number;
   height: number;
+};
+
+export type ActiveSelectionInfo = {
+  bounds: NormalizedSelectionBounds;
+  documentName: string;
+  maskAvailable: boolean;
+  maskMessage: string;
+};
+
+export type SelectedRegionSourceImage = ExportedSourceImage & {
+  selection: ActiveSelectionInfo;
+  mask?: SelectionMaskExport;
+  maskAvailable: boolean;
+  maskMessage: string;
 };
 
 export type AlignedRegionalImportOptions = {
@@ -98,6 +110,10 @@ export type AlignedRegionalImportOptions = {
 };
 
 export type PreserveSelectionOperation<T> = () => Promise<T>;
+
+export type AlignedInpaintResultImport = AlignedRegionalImportOptions & {
+  selection: ActiveSelectionInfo;
+};
 
 export async function hasOpenDocument(): Promise<boolean> {
   const photoshop = getPhotoshop();
@@ -243,6 +259,88 @@ export async function exportCanvasForImageToImage(): Promise<ExportedSourceImage
   }
 }
 
+export async function getActiveSelectionInfo(): Promise<ActiveSelectionInfo> {
+  const photoshop = getPhotoshop();
+
+  try {
+    return await photoshop.core.executeAsModal(
+      async () => readActiveSelectionInfo(photoshop, getActiveDocument()),
+      { commandName: "Inspect OpenLayer Selection" }
+    );
+  } catch (caughtError) {
+    if (isOpenLayerNoSelectionError(caughtError)) {
+      throw caughtError;
+    }
+
+    throw createOpenLayerError(
+      "PHOTOSHOP_NO_SELECTION",
+      "No active Photoshop selection was found. Make a selection before using Inpaint.",
+      getErrorMessage(caughtError)
+    );
+  }
+}
+
+export async function captureSelectionForInpainting(): Promise<SelectedRegionSourceImage> {
+  const photoshop = getPhotoshop();
+  const imaging = getImagingApi(photoshop);
+
+  try {
+    const capturedSource = await photoshop.core.executeAsModal(
+      async () => {
+        const document = getActiveDocument();
+        const selection = await readActiveSelectionInfo(photoshop, document);
+
+        if (typeof document.id !== "number") {
+          throw createOpenLayerError(
+            "PHOTOSHOP_EXPORT_FAILED",
+            "Photoshop did not expose a stable document ID for the active document.",
+            "Selection source capture needs document.id."
+          );
+        }
+
+        const captured = await captureSourceImage(imaging, {
+          pixelOptions: {
+            documentID: document.id,
+            sourceBounds: {
+              left: selection.bounds.left,
+              top: selection.bounds.top,
+              right: selection.bounds.right,
+              bottom: selection.bounds.bottom
+            },
+            componentSize: 8,
+            colorSpace: "RGB",
+            applyAlpha: false
+          },
+          filenamePrefix: "OpenLayer_Inpaint_Source",
+          sourceName: `Selection from ${selection.documentName}`
+        });
+
+        return {
+          captured,
+          selection
+        };
+      },
+      { commandName: "Capture OpenLayer Selection" }
+    );
+
+    return {
+      ...createExportedSourceImage(capturedSource.captured),
+      selection: capturedSource.selection,
+      maskAvailable: false,
+      maskMessage: capturedSource.selection.maskMessage
+    };
+  } catch (caughtError) {
+    if (isOpenLayerNoSelectionError(caughtError)) {
+      throw caughtError;
+    }
+
+    throw createOpenLayerError(
+      "PHOTOSHOP_EXPORT_FAILED",
+      `Could not capture the active Photoshop selection for inpainting. ${getErrorMessage(caughtError)}`
+    );
+  }
+}
+
 export async function exportActiveLayerAsPNG(): Promise<Blob> {
   // TODO(v0.4): Use this for mask-aware inpainting when selected-layer PNG export is fully verified.
   throw createOpenLayerError(
@@ -252,23 +350,140 @@ export async function exportActiveLayerAsPNG(): Promise<Blob> {
 }
 
 export async function exportSelectionAsPNG(): Promise<Blob> {
-  // TODO(v0.4): Export selected pixels for inpainting and regional generation.
-  throw new Error("exportSelectionAsPNG is planned for a future OpenLayer version.");
+  // TODO(v0.5): Export selected pixels as a standalone PNG when this path is verified separately.
+  throw createOpenLayerError(
+    "PHOTOSHOP_EXPORT_FAILED",
+    "Dedicated selected-pixels PNG export is planned for a future OpenLayer inpainting release. The current Inpaint foundation captures selection bounds as a PNG source image."
+  );
 }
 
 export async function exportSelectionMask(): Promise<SelectionMaskExport> {
-  // TODO(v0.4): Export the active selection or mask as a grayscale PNG for mask workflows.
-  throw new Error("exportSelectionMask is planned for a future OpenLayer version.");
+  // TODO(v0.5): Export the active selection or mask as a grayscale PNG for mask workflows.
+  throw createOpenLayerError(
+    "PHOTOSHOP_EXPORT_FAILED",
+    "Mask export is not available yet. OpenLayer can detect selection bounds, but true grayscale mask export still needs a verified Photoshop UXP path."
+  );
 }
 
 export async function importImageAlignedToSelection(_options: AlignedRegionalImportOptions): Promise<void> {
-  // TODO(v0.4): Place generated content aligned to the active selection bounds.
-  throw new Error("importImageAlignedToSelection is planned for a future OpenLayer version.");
+  // TODO(v0.5): Place generated content aligned to the active selection bounds.
+  throw createOpenLayerError(
+    "PHOTOSHOP_IMPORT_FAILED",
+    "Aligned regional import is planned for the next inpainting step. Current imports still place full generated layers."
+  );
 }
 
 export async function preserveSelection<T>(_operation: PreserveSelectionOperation<T>): Promise<T> {
-  // TODO(v0.4): Save and restore the active Photoshop selection around generation workflows.
-  throw new Error("preserveSelection is planned for a future OpenLayer version.");
+  // TODO(v0.5): Save and restore the active Photoshop selection around generation workflows.
+  throw createOpenLayerError(
+    "PHOTOSHOP_EXPORT_FAILED",
+    "Selection preservation is planned for the next inpainting step."
+  );
+}
+
+async function readActiveSelectionInfo(
+  photoshop: PhotoshopModule,
+  document: PhotoshopDocument
+): Promise<ActiveSelectionInfo> {
+  const selectionDescriptor = await getSelectionDescriptor(photoshop);
+  const bounds = readSelectionBounds(selectionDescriptor);
+
+  if (!bounds) {
+    throw createOpenLayerError(
+      "PHOTOSHOP_NO_SELECTION",
+      "No active Photoshop selection was found. Make a selection before using Inpaint."
+    );
+  }
+
+  const normalizedBounds = normalizeSelectionBounds(bounds);
+
+  return {
+    bounds: normalizedBounds,
+    documentName: document.title ?? document.name ?? "active document",
+    maskAvailable: false,
+    maskMessage: "Mask export not available yet. OpenLayer captured the selected rectangular bounds as a PNG source."
+  };
+}
+
+async function getSelectionDescriptor(photoshop: PhotoshopModule) {
+  try {
+    const response = await photoshop.action.batchPlay(
+      [
+        {
+          _obj: "get",
+          _target: [
+            {
+              _property: "selection"
+            },
+            {
+              _ref: "document",
+              _enum: "ordinal",
+              _value: "targetEnum"
+            }
+          ],
+          _options: {
+            dialogOptions: "dontDisplay"
+          }
+        }
+      ],
+      {}
+    );
+
+    return response[0] as Record<string, unknown>;
+  } catch (caughtError) {
+    throw createOpenLayerError(
+      "PHOTOSHOP_NO_SELECTION",
+      "No active Photoshop selection was found. Make a selection before using Inpaint.",
+      getErrorMessage(caughtError)
+    );
+  }
+}
+
+function readSelectionBounds(descriptor: Record<string, unknown>): SelectionBounds | null {
+  const selection = readDescriptorObject(descriptor.selection) ?? descriptor;
+  const left = readUnitValue(selection.left);
+  const top = readUnitValue(selection.top);
+  const right = readUnitValue(selection.right);
+  const bottom = readUnitValue(selection.bottom);
+
+  if (left === null || top === null || right === null || bottom === null) {
+    return null;
+  }
+
+  try {
+    return normalizeSelectionBounds({
+      left,
+      top,
+      right,
+      bottom
+    });
+  } catch {
+    return null;
+  }
+}
+
+function readDescriptorObject(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+}
+
+function readUnitValue(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  const objectValue = readDescriptorObject(value);
+
+  if (!objectValue) {
+    return null;
+  }
+
+  const numericValue = objectValue._value;
+
+  return typeof numericValue === "number" && Number.isFinite(numericValue) ? numericValue : null;
+}
+
+function isOpenLayerNoSelectionError(error: unknown) {
+  return (error as { code?: string } | null)?.code === "PHOTOSHOP_NO_SELECTION";
 }
 
 function getActiveDocument() {

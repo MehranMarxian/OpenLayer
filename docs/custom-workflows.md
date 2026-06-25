@@ -23,8 +23,24 @@ When OpenLayer runs a workflow, it injects values into specific ComfyUI node IDs
 - CFG or guidance
 - denoise
 - ControlNet strength
+- selection source image
+- future grayscale selection mask image
 
 Those node IDs are different in every custom workflow. The mapping lives in `src/comfy/presetRegistry.ts`.
+
+## Inpaint Workflow Status
+
+`inpaint-basic` is registered as a placeholder preset in `v0.4.0-alpha`, but it is not runnable yet.
+
+The current Inpaint screen can capture Photoshop selection bounds and a selected-region PNG/lossless source image. A production inpaint workflow still needs:
+
+- a verified ComfyUI API workflow JSON in `src/workflows/api/inpaint-basic.json`
+- a GUI-editable source workflow in `src/workflows/source/inpaint-basic.workflow.json`
+- injection targets for prompt, negative prompt, checkpoint, source image, mask image, seed, steps, CFG, and denoise
+- a verified Photoshop UXP grayscale mask export path
+- an aligned regional import path for placing results back over the original selection
+
+Until those pieces are mapped, OpenLayer shows a friendly setup message instead of submitting a fake inpaint workflow.
 
 ## Safe Custom Workflow Process
 

@@ -12,10 +12,14 @@ describe("presetRegistry", () => {
   it("keeps future diffusion-stack presets registered but not runnable", () => {
     const allTxt2ImgIds = listWorkflowPresets("txt2img").map((preset) => preset.id);
     const runnableTxt2ImgIds = listRunnableWorkflowPresets("txt2img").map((preset) => preset.id);
+    const allInpaintIds = listWorkflowPresets("inpaint").map((preset) => preset.id);
+    const runnableInpaintIds = listRunnableWorkflowPresets("inpaint").map((preset) => preset.id);
 
     expect(allTxt2ImgIds).toContain("txt2img-z-image-turbo");
     expect(allTxt2ImgIds).toContain("txt2img-flux1-dev");
     expect(runnableTxt2ImgIds).toEqual(["txt2img-basic"]);
+    expect(allInpaintIds).toEqual(["inpaint-basic"]);
+    expect(runnableInpaintIds).toEqual([]);
   });
 
   it("marks Z_image_Turbo as a diffusion model stack preset", () => {

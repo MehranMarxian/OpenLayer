@@ -301,6 +301,24 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     ]
   },
   {
+    id: "inpaint-basic",
+    label: "inpaint-basic",
+    mode: "inpaint",
+    description: "Future selection-aware inpainting workflow using a source image and mask.",
+    workflowFile: "workflows/api/inpaint-basic.json",
+    sourceWorkflowFile: "workflows/source/inpaint-basic.workflow.json",
+    status: "todo",
+    supportedModelFamilies: ["sd1", "sdxl"],
+    experimentalModelFamilies: ["sd3", "flux", "zImage", "unknown"],
+    modelSource: CHECKPOINT_MODEL_SOURCE,
+    injections: {},
+    requiredNodes: [],
+    compatibilityNote:
+      "inpaint-basic is a placeholder for mask-based Photoshop selection workflows. Selection capture is available, but generation needs a validated ComfyUI API workflow JSON.",
+    disabledReason:
+      "No validated OpenLayer API workflow JSON exists yet for inpaint-basic. Capture Selection is available now; generation is intentionally disabled until mask mapping is verified."
+  },
+  {
     id: "txt2img-z-image-turbo",
     label: "txt2img-z-image-turbo",
     mode: "txt2img",
