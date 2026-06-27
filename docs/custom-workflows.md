@@ -30,7 +30,7 @@ Those node IDs are different in every custom workflow. The mapping lives in `src
 
 ## Inpaint Workflow Status
 
-`inpaint-basic` is an experimental runnable preset in `v0.4.1-alpha`.
+`inpaint-basic` is an experimental runnable preset in `v0.4.1-alpha`. It is available for testing, but output quality and Photoshop alignment are not confirmed stable yet.
 
 The current Inpaint screen can capture Photoshop selection bounds, a selected-region PNG/lossless source image, and a grayscale PNG mask from the active selection. The bundled starter workflow uses:
 
@@ -49,7 +49,9 @@ The mapping for prompt, negative prompt, checkpoint, source image, mask image, s
 
 `inpaint-flux-fill-basic` is an experimental Flux Fill preset. It uses a diffusion model stack instead of `CheckpointLoaderSimple`, so the model selector must point to `UNETLoader` models such as `flux1-fill-dev.safetensors`. It also expects `DualCLIPLoader`, `VAELoader`, `CLIPTextEncodeFlux`, `ModelSamplingFlux`, `BasicGuider`, `BasicScheduler`, `KSamplerSelect`, `RandomNoise`, `SamplerCustomAdvanced`, `InpaintModelConditioning`, `ImageCompositeMasked`, and `SaveImage`.
 
-Aligned regional import has started for Inpaint context patches. Selection preservation is still future work.
+Flux Fill may need workflow tuning for guidance, denoise, mask blur, and context size before it becomes dependable.
+
+Aligned regional import has started for Inpaint context patches. Output quality, mask polarity, transparent outside-mask behavior, and selection preservation still need focused testing.
 
 ## Safe Custom Workflow Process
 

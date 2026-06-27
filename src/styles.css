@@ -218,7 +218,8 @@ a:hover {
   background: #4d4d4d;
 }
 
-.tool-card.is-available:active {
+.tool-card.is-available:active,
+.tool-card.is-experimental:active {
   transform: translateY(1px);
 }
 
@@ -231,7 +232,22 @@ a:hover {
   border-color: #8c7840;
 }
 
+.tool-card.is-experimental {
+  border-color: #b08a2a;
+}
+
+.tool-card.is-experimental:hover {
+  border-color: #d7b64b;
+  background: #4d4d4d;
+}
+
 .tool-card.is-available .icon-glyph {
+  border-color: #f0c83f;
+  background: #5b4b18;
+  color: #ffd95c;
+}
+
+.tool-card.is-experimental .icon-glyph {
   border-color: #f0c83f;
   background: #5b4b18;
   color: #ffd95c;
@@ -366,6 +382,10 @@ a:hover {
   color: #fff4c7;
 }
 
+.tool-card.is-experimental .tool-title {
+  color: #fff4c7;
+}
+
 .tool-subtitle {
   display: block;
   margin-top: 3px;
@@ -386,6 +406,10 @@ a:hover {
 }
 
 .tool-status.available {
+  color: #ffd95c;
+}
+
+.tool-status.experimental {
   color: #ffd95c;
 }
 
@@ -734,6 +758,18 @@ a:hover {
 
 .compatibility-note.is-warning {
   color: #ffd98a;
+}
+
+.tool-warning {
+  display: block;
+  margin: 12px 0;
+  border: 1px solid rgba(215, 182, 75, 0.45);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: rgba(215, 134, 21, 0.08);
+  color: #e4d4a0;
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .result-panel {

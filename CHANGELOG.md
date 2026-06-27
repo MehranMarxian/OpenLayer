@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased / v0.4.2-alpha draft - 2026-06-27
+
+End-of-week stabilization checkpoint for honest inpaint testing.
+
+### Changed
+
+- Marked Inpaint/Repaint Selection as experimental in the Home dashboard while keeping it available for testing.
+- Added a small Inpaint screen warning explaining that output quality and Photoshop alignment are still being tested.
+- Added a clearer Flux Fill warning for workflow tuning around guidance, denoise, mask blur, and context size.
+- Documented the current Inpaint limitations and next debugging checklist.
+
+### Known Limitations
+
+- No major inpaint algorithm, alignment, or workflow rewrite was attempted in this checkpoint.
+- Inpaint output may still appear incorrect, gray, partial, or not artist-usable until the source/mask/workflow behavior is verified more deeply.
+- Flux Fill remains experimental and may require dedicated workflow tuning before it becomes a dependable OpenLayer preset.
+
 ## v0.4.1-alpha - 2026-06-25
 
 Real experimental mask-based Inpaint path for SD 1.x testing.

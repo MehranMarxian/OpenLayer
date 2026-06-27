@@ -2,11 +2,11 @@
   <img src="src/icons/openlayer.png" alt="OpenLayer icon" width="96" height="96">
 </p>
 
-# OpenLayer
+# OpenLayer - Open Source Photoshop ComfyUI Plugin
 
-Local AI layers for Photoshop.
+OpenLayer is an open-source Photoshop ComfyUI plugin for local AI layers.
 
-OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop to a locally running ComfyUI server. The alpha builds a local-first foundation for generating AI images, previewing results, and importing them into the active Photoshop document as editable layers.
+OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop to a locally running ComfyUI server for text-to-image, image-to-image, sketch-to-image, preview, and importing AI results into the active Photoshop document as editable layers.
 
 ## Alpha Release
 
@@ -34,7 +34,7 @@ Included in this alpha:
 - Beginner-friendly model family guidance for SD 1.x, SDXL, SD3, Flux, and Z_image_Turbo
 - Workflow compatibility foundation that separates checkpoint presets from future diffusion-model-stack presets
 - PNG/lossless source capture for Image to Image and Sketch to Image using raw Photoshop Imaging API pixels
-- Selection-aware Inpaint screen with safe Photoshop selection detection
+- Experimental Inpaint/Repaint Selection screen with safe Photoshop selection detection
 - PNG/lossless selected-region capture and temporary-layer grayscale mask export for Inpaint
 - Experimental SD 1.x `inpaint-basic` workflow with source image and mask upload to ComfyUI
 - Friendly Inpaint guardrails when no Photoshop selection exists, mask export fails, or required ComfyUI inpaint nodes are unavailable
@@ -54,6 +54,7 @@ Known v0.4.1-alpha boundaries:
 - Active-layer and canvas capture now encode raw Photoshop Imaging API pixels as PNG/lossless source images.
 - Inpaint can detect and capture the selected rectangular region as a PNG/lossless source image.
 - Inpaint now attempts a temporary-layer grayscale PNG mask export and can run the experimental SD 1.x `inpaint-basic` workflow when ComfyUI has the required nodes.
+- Inpainting is available for testing, but output quality and Photoshop alignment are not confirmed stable yet.
 - The first Inpaint preset is intended for SD 1.x checkpoints. SDXL, SD3, Flux, and Z_image_Turbo inpainting need dedicated future presets.
 - `img2img-basic` is the default SD 1.x/SDXL preset. SD3, SD3.5, and Flux checkpoints remain visible but are marked experimental because they usually need dedicated future workflow presets.
 - Z_image_Turbo and Flux preset metadata exists, but those presets are disabled until validated API workflow JSON files are added.
@@ -80,6 +81,18 @@ OpenLayer includes a beginner-friendly guide for local model choices, VRAM tiers
 docs/model-guide.md
 ```
 
+The current experimental inpainting status and next debugging checklist are documented in:
+
+```text
+docs/inpainting.md
+```
+
+Key technical decisions for the project are tracked in:
+
+```text
+docs/technical-decisions.md
+```
+
 ## MVP Status
 
 Working foundation:
@@ -97,7 +110,7 @@ Working foundation:
 - `img2img-basic` workflow generation foundation
 - `sketch2img-linecn-basic` Sketch to Image generation foundation
 - Active-layer or visible-canvas source capture and ComfyUI image upload
-- Experimental Inpaint screen with Photoshop selection detection, selected-region PNG source capture, grayscale mask export, and SD 1.x `inpaint-basic`
+- Experimental Inpaint/Repaint Selection screen with Photoshop selection detection, selected-region PNG source capture, grayscale mask export, and SD 1.x `inpaint-basic`
 - Experimental checkpoint mode for trying non-SD/SDXL model families with clear warnings
 - `/prompt` submission
 - `/history/{prompt_id}` polling
@@ -277,6 +290,8 @@ This alpha includes the first experimental SD 1.x mask-based inpainting path.
 
 The first `inpaint-basic` preset is experimental and intended for SD 1.x inpaint checkpoints first. `inpaint-flux-fill-basic` is also available as an experimental Flux Fill path when your local ComfyUI exposes `flux1-fill-dev.safetensors` through `UNETLoader`.
 
+Inpaint output quality, mask interpretation, and Photoshop alignment are still being tested. Use this path for debugging and feedback rather than production work.
+
 ## Pre-release Tester Checklist
 
 Use this quick pass before reporting a v0.4.1-alpha test result:
@@ -342,7 +357,7 @@ The experimental `inpaint-flux-fill-basic` preset requires:
 - `ae.safetensors` through `VAELoader`
 - `ModelSamplingFlux`, `BasicGuider`, `BasicScheduler`, `KSamplerSelect`, `RandomNoise`, and `SamplerCustomAdvanced`
 
-Inpaint import now attempts to align the generated context patch back to the captured Photoshop selection context. Selection preservation remains planned future work.
+Inpaint import now attempts to align the generated context patch back to the captured Photoshop selection context. Output quality and alignment are not confirmed stable yet, and selection preservation remains planned future work.
 
 `img2img-basic` is intended for SD 1.x and SDXL-style checkpoints. SD3, SD3.5, and Flux checkpoints are shown in the selector for transparency, but OpenLayer warns before running them because those model families often need different loader, text encoder, and VAE nodes.
 

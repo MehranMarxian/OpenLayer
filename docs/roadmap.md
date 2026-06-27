@@ -29,6 +29,9 @@ OpenLayer is a local-first Photoshop UXP plugin for artist-friendly ComfyUI work
 - Experimental `inpaint-basic` preset with real source and mask inputs (started in v0.4.1-alpha)
 - Experimental `inpaint-flux-fill-basic` preset for local Flux Fill stacks (started in v0.4.1-alpha)
 - Import generated regions aligned to the original selection context (started in v0.4.1-alpha)
+- Confirm inpaint mask polarity for SD inpaint and Flux Fill workflows
+- Decide between full-canvas import, cropped patch import, transparent outside-mask import, or Photoshop layer-mask import
+- Verify inpaint output quality and Photoshop alignment before calling the feature stable
 - Preserve and restore selection state
 - Add cleaner transparency/layer-mask options for imported inpaint patches
 
@@ -48,4 +51,7 @@ OpenLayer is a local-first Photoshop UXP plugin for artist-friendly ComfyUI work
 - Upscaling
 - Style reference
 - Realtime local preview experiments
+- Cancel or interrupt long-running ComfyUI jobs from the panel
+- Persistent generation metadata for prompt, seed, checkpoint, source, mask, and workflow
+- Future simplified UI once the technical workflow paths are stable
 - Better guide previews for lineart, depth, pose, and related control workflows

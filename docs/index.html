@@ -3,14 +3,14 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>OpenLayer | Local AI layers for Photoshop</title>
+    <title>OpenLayer - Open Source Photoshop ComfyUI Plugin</title>
     <meta
       name="description"
-      content="OpenLayer is an open-source Photoshop UXP plugin that connects Photoshop to a local ComfyUI server for text-to-image, image-to-image, Sketch to Image LINECN, preview, and layer import."
+      content="OpenLayer is an open-source Photoshop plugin and Photoshop UXP plugin that connects Photoshop to local ComfyUI workflows for text-to-image, image-to-image, sketch-to-image, preview, and layer import."
     >
     <meta name="theme-color" content="#2b2b2b">
-    <meta property="og:title" content="OpenLayer">
-    <meta property="og:description" content="Local AI layers for Photoshop. Open-source, local-first, and artist-first.">
+    <meta property="og:title" content="OpenLayer - Open Source Photoshop ComfyUI Plugin">
+    <meta property="og:description" content="An open-source Photoshop UXP plugin for local ComfyUI text-to-image, image-to-image, sketch-to-image, preview, and layer import workflows.">
     <meta property="og:image" content="assets/openlayer-photoshop-mvp.png">
     <meta property="og:type" content="website">
     <link rel="icon" href="assets/openlayer-icon.png">
@@ -38,10 +38,11 @@
             <img src="assets/openlayer-icon.png" alt="" width="72" height="72">
             <span>Alpha v0.3.0</span>
           </div>
-          <h1 id="hero-title">OpenLayer</h1>
+          <h1 id="hero-title">OpenLayer - Open Source Photoshop ComfyUI Plugin</h1>
           <p class="hero-lede">
-            Local AI layers for Photoshop. Generate, reinterpret an active layer,
-            or guide a result with LineArt ControlNet using your own ComfyUI server,
+            OpenLayer is an open-source Photoshop UXP plugin for local ComfyUI
+            text-to-image, image-to-image, and sketch-to-image workflows. Generate,
+            reinterpret an active layer, guide a result with LineArt ControlNet,
             then preview and import the result as an editable Photoshop layer.
           </p>
           <div class="hero-actions">
@@ -225,7 +226,7 @@ npm run build</code></pre>
             <li>Custom ComfyUI workflows may need node ID updates in the preset registry.</li>
             <li>GPU-aware recommendations are advisory only. OpenLayer does not auto-switch models or workflows yet.</li>
             <li>Generated images are placed as Photoshop layers; advanced alignment is future work.</li>
-            <li>Inpaint is experimental: source and mask export are available, but aligned regional import and selection preservation are still future work.</li>
+            <li>Inpaint is experimental: source and mask export are available, but output quality and Photoshop alignment are still being tested.</li>
             <li>The browser dev server is only for UI preview. Photoshop APIs run inside UXP.</li>
             <li>Responsive panel spacing has been improved for testing, but final visual polish is still in progress.</li>
           </ul>

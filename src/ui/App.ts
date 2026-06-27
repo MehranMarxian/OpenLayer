@@ -68,7 +68,7 @@ const FALLBACK_CHECKPOINTS = [
 
 type StatusTone = "idle" | "ready" | "error";
 type AppView = "home" | "text-to-image" | "image-to-image" | "sketch-to-image" | "inpaint" | "settings" | "history";
-type ToolCardStatus = "available" | "coming-soon";
+type ToolCardStatus = "available" | "experimental" | "coming-soon";
 
 type ToolCard = {
   id: string;
@@ -113,9 +113,9 @@ const TOOL_CARDS: ToolCard[] = [
   {
     id: "inpaint",
     title: "Inpaint",
-    subtitle: "Regenerate inside a selected area",
+    subtitle: "Selection repaint is in testing",
     icon: "brush",
-    status: "available",
+    status: "experimental",
     view: "inpaint"
   },
   {
@@ -2286,6 +2286,10 @@ function createAppMarkup() {
           </div>
         </div>
 
+        <div class="tool-warning" role="note">
+          Experimental: Inpaint output quality and Photoshop alignment are still being tested. Use this for debugging, not production work yet.
+        </div>
+
         <section class="panel-section generator-panel source-panel" aria-label="Inpaint selection source">
           <div class="section-heading">
             <span class="label">Selection source</span>
@@ -2424,18 +2428,18 @@ function createBrandHeaderMarkup() {
 }
 
 function createToolCardMarkup(card: ToolCard) {
-  const isAvailable = card.status === "available";
-  const viewAttribute = isAvailable && card.view ? ` data-openlayer-view="${card.view}"` : "";
-  const disabledAttributes = isAvailable ? "" : ` aria-disabled="true" tabindex="-1"`;
-  const statusMarkup = isAvailable
-    ? `<span class="tool-status available">Available</span>`
-    : `<span class="tool-status coming-soon">Coming Soon</span>`;
+  const isEnabled = card.status !== "coming-soon";
+  const statusLabel =
+    card.status === "available" ? "Available" : card.status === "experimental" ? "Experimental" : "Coming Soon";
+  const viewAttribute = isEnabled && card.view ? ` data-openlayer-view="${card.view}"` : "";
+  const disabledAttributes = isEnabled ? "" : ` aria-disabled="true" tabindex="-1"`;
+  const statusMarkup = `<span class="tool-status ${card.status}">${statusLabel}</span>`;
 
   return `
     <div
-      class="tool-card ${isAvailable ? "is-available" : "is-coming-soon"}"
+      class="tool-card is-${card.status}"
       role="button"
-      tabindex="${isAvailable ? "0" : "-1"}"
+      tabindex="${isEnabled ? "0" : "-1"}"
       data-tool-id="${card.id}"
       ${viewAttribute}
       ${disabledAttributes}
@@ -2828,8 +2832,8 @@ function updateInpaintCheckpointCompatibility(elements: AppElements) {
   if (preset.id === "inpaint-flux-fill-basic") {
     elements.inpaintCompatibilityNote.textContent =
       checkpointName.includes("flux1-fill")
-        ? "Flux Fill diffusion model selected. This preset uses UNETLoader, DualCLIPLoader, ae.safetensors, and Flux sampler nodes."
-        : `${compatibility.label} Use flux1-fill-dev.safetensors for this experimental preset.`;
+        ? "Flux Fill is experimental and may require workflow tuning for guidance, denoise, mask blur, and context size."
+        : `${compatibility.label} Use flux1-fill-dev.safetensors for this experimental preset. Flux Fill may require workflow tuning for guidance, denoise, mask blur, and context size.`;
     elements.inpaintCompatibilityNote.classList.toggle("is-warning", !checkpointName.includes("flux1-fill"));
     return;
   }
@@ -3395,11 +3399,12 @@ function getInpaintFailureHint(error: unknown) {
 
   if (
     details.includes("vaeencodeforinpaint") ||
+    details.includes("inpaintmodelconditioning") ||
     details.includes("imagetomask") ||
     details.includes("loadimage") ||
     details.includes("missing node")
   ) {
-    return "This Inpaint workflow needs ComfyUI's standard LoadImage, ImageToMask, and VAEEncodeForInpaint nodes. Rebuild or remap the inpaint-basic workflow if node IDs changed.";
+    return "This Inpaint workflow needs ComfyUI's standard LoadImage, ImageToMask, and InpaintModelConditioning nodes. Rebuild or remap the inpaint-basic workflow if node IDs changed.";
   }
 
   if (
@@ -3427,6 +3432,7 @@ function getFriendlyInpaintErrorMessage(error: unknown) {
 
   if (
     details.includes("vaeencodeforinpaint") ||
+    details.includes("inpaintmodelconditioning") ||
     details.includes("imagetomask") ||
     details.includes("loadimage") ||
     details.includes("missing node")
