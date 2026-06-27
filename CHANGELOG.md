@@ -10,6 +10,8 @@ End-of-week stabilization checkpoint for honest inpaint testing.
 - Added a small Inpaint screen warning explaining that output quality and Photoshop alignment are still being tested.
 - Added a clearer Flux Fill warning for workflow tuning around guidance, denoise, mask blur, and context size.
 - Documented the current Inpaint limitations and next debugging checklist.
+- Began using the workflow intelligence layer for UI diagnostics in Text to Image, Image to Image, Sketch to Image, Inpaint, and Settings.
+- Added artist-facing workflow readiness messages for model-family mismatch, setup-required presets, missing source/selection inputs, and experimental workflows without changing generation behavior.
 
 ### Known Limitations
 

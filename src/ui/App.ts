@@ -4,7 +4,7 @@ import {
   formatHardwareReport,
   HardwareRecommendationReport
 } from "../comfy/hardwareAdvisor";
-import { getCheckpointCompatibility, getPresetCompatibilityNote } from "../comfy/modelCompatibility";
+import { getCheckpointCompatibility } from "../comfy/modelCompatibility";
 import { getWorkflowPreset, listRunnableWorkflowPresets, listWorkflowPresets } from "../comfy/presetRegistry";
 import { validateGenerationSettings, validateImageToImageSettings, validateSketchToImageSettings } from "../comfy/settings";
 import {
@@ -13,6 +13,12 @@ import {
   buildSketchToImageWorkflow,
   buildTxt2ImgWorkflow
 } from "../comfy/workflowBuilder";
+import {
+  createWorkflowDiagnosticMessage,
+  createWorkflowReadinessSummary,
+  WorkflowDiagnosticMessage
+} from "../comfy/workflowDiagnostics";
+import type { WorkflowPhotoshopInputAvailability } from "../comfy/workflowCompatibility";
 import { GeneratedImageResult, WorkflowPresetDefinition } from "../comfy/types";
 import {
   ExportedSourceImage,
@@ -297,6 +303,7 @@ type AppElements = {
   settingsCheckpointCount: HTMLElement;
   settingsLastCheckpoint: HTMLElement;
   settingsDocumentStatus: HTMLElement;
+  settingsWorkflowReadiness: HTMLElement;
   settingsGpuName: HTMLElement;
   settingsVramTotal: HTMLElement;
   settingsVramFree: HTMLElement;
@@ -424,13 +431,13 @@ export function renderApp(rootElement: HTMLElement) {
   updateNegativePromptDisclosure(elements, isNegativePromptOpen);
   updateAutoImportToggle(elements, importAutomatically);
   updateExperimentalCheckpointToggle(elements, allowExperimentalCheckpoints);
-  updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints);
+  updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
   setImageSource(null);
   setImageResult(null);
-  updateSketchCheckpointCompatibility(elements);
+  updateSketchCheckpointCompatibility(elements, sketchSource);
   setSketchSource(null);
   setSketchResult(null);
-  updateInpaintCheckpointCompatibility(elements);
+  updateInpaintCheckpointCompatibility(elements, inpaintSource);
   setInpaintSource(null);
   setInpaintResult(null);
   updateSettingsReport(elements);
@@ -447,28 +454,28 @@ export function renderApp(rootElement: HTMLElement) {
   });
 
   elements.imgWorkflow.addEventListener("change", () => {
-    updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints);
+    updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
   });
 
   elements.imgCheckpoint.addEventListener("change", () => {
-    updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints);
+    updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
   });
 
   elements.sketchWorkflow.addEventListener("change", () => {
-    updateSketchCheckpointCompatibility(elements);
+    updateSketchCheckpointCompatibility(elements, sketchSource);
   });
 
   elements.sketchCheckpoint.addEventListener("change", () => {
-    updateSketchCheckpointCompatibility(elements);
+    updateSketchCheckpointCompatibility(elements, sketchSource);
   });
 
   elements.inpaintWorkflow.addEventListener("change", () => {
     void refreshInpaintModelOptionsForSelectedPreset(elements);
-    updateInpaintCheckpointCompatibility(elements);
+    updateInpaintCheckpointCompatibility(elements, inpaintSource);
   });
 
   elements.inpaintCheckpoint.addEventListener("change", () => {
-    updateInpaintCheckpointCompatibility(elements);
+    updateInpaintCheckpointCompatibility(elements, inpaintSource);
   });
 
   async function loadInitialCheckpoints() {
@@ -479,9 +486,9 @@ export function renderApp(rootElement: HTMLElement) {
       await client.checkOnline();
       await loadCheckpoints(client, elements, preferences.checkpointName || readSelectValue(elements.checkpoint));
       await refreshInpaintModelOptionsForSelectedPreset(elements, client);
-      updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints);
-      updateSketchCheckpointCompatibility(elements);
-      updateInpaintCheckpointCompatibility(elements);
+      updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
+      updateSketchCheckpointCompatibility(elements, sketchSource);
+      updateInpaintCheckpointCompatibility(elements, inpaintSource);
       setStatus(elements, "ComfyUI is online. Models loaded.", "ready");
       savePreferencesFromElements(elements);
       updateSettingsReport(elements);
@@ -502,9 +509,9 @@ export function renderApp(rootElement: HTMLElement) {
       await client.checkOnline();
       await loadCheckpoints(client, elements);
       await refreshInpaintModelOptionsForSelectedPreset(elements, client);
-      updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints);
-      updateSketchCheckpointCompatibility(elements);
-      updateInpaintCheckpointCompatibility(elements);
+      updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
+      updateSketchCheckpointCompatibility(elements, sketchSource);
+      updateInpaintCheckpointCompatibility(elements, inpaintSource);
       setStatus(elements, "ComfyUI is online. Models loaded.", "ready");
       savePreferencesFromElements(elements);
       updateSettingsReport(elements);
@@ -537,9 +544,9 @@ export function renderApp(rootElement: HTMLElement) {
       const client = new ComfyClient(foundUrl);
       await loadCheckpoints(client, elements);
       await refreshInpaintModelOptionsForSelectedPreset(elements, client);
-      updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints);
-      updateSketchCheckpointCompatibility(elements);
-      updateInpaintCheckpointCompatibility(elements);
+      updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
+      updateSketchCheckpointCompatibility(elements, sketchSource);
+      updateInpaintCheckpointCompatibility(elements, inpaintSource);
       savePreferencesFromElements(elements);
       setStatus(elements, `Found ComfyUI at ${foundUrl}.`, "ready");
       setDiagnostics(elements, `Active ComfyUI server selected: ${foundUrl}.`);
@@ -592,9 +599,9 @@ export function renderApp(rootElement: HTMLElement) {
     clearOpenLayerPreferences();
     applyDefaultSettings(elements);
     fillCheckpointOptions(elements, FALLBACK_CHECKPOINTS, FALLBACK_CHECKPOINTS[0]);
-    updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints);
-    updateSketchCheckpointCompatibility(elements);
-    updateInpaintCheckpointCompatibility(elements);
+    updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
+    updateSketchCheckpointCompatibility(elements, sketchSource);
+    updateInpaintCheckpointCompatibility(elements, inpaintSource);
     setError(elements, "");
     setStatus(elements, "Settings reset to OpenLayer defaults.", "ready");
     setDiagnostics(elements, "Defaults restored. Click Check ComfyUI to reload available models.");
@@ -615,7 +622,7 @@ export function renderApp(rootElement: HTMLElement) {
   function handleToggleExperimentalCheckpoints() {
     allowExperimentalCheckpoints = !allowExperimentalCheckpoints;
     updateExperimentalCheckpointToggle(elements, allowExperimentalCheckpoints);
-    updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints);
+    updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
     setImageDiagnostics(
       elements,
       allowExperimentalCheckpoints
@@ -885,6 +892,14 @@ export function renderApp(rootElement: HTMLElement) {
     if (!imageSource) {
       setImageError(elements, "Capture the active Photoshop layer before generating Image to Image.");
       setImageStatus(elements, "Source required.", "error");
+      setImageDiagnostics(
+        elements,
+        createWorkflowDiagnostics(
+          getWorkflowPreset(readSelectValue(elements.imgWorkflow, DEFAULT_IMAGE_WORKFLOW)),
+          readSelectValue(elements.imgCheckpoint),
+          createSourceInputAvailability(imageSource)
+        )
+      );
       return;
     }
 
@@ -919,7 +934,7 @@ export function renderApp(rootElement: HTMLElement) {
         elements,
         warnings.length > 0
           ? warnings.join(" ")
-          : createWorkflowDiagnostics(preset, checkpointName)
+          : createWorkflowDiagnostics(preset, checkpointName, createSourceInputAvailability(imageSource))
       );
       await client.checkOnline();
 
@@ -1118,6 +1133,14 @@ export function renderApp(rootElement: HTMLElement) {
     if (!sketchSource) {
       setSketchError(elements, "Capture the active Photoshop layer or canvas before generating Sketch to Image.");
       setSketchStatus(elements, "Source required.", "error");
+      setSketchDiagnostics(
+        elements,
+        createWorkflowDiagnostics(
+          getWorkflowPreset(readSelectValue(elements.sketchWorkflow, DEFAULT_SKETCH_WORKFLOW)),
+          readSelectValue(elements.sketchCheckpoint),
+          createSourceInputAvailability(sketchSource)
+        )
+      );
       return;
     }
 
@@ -1156,7 +1179,7 @@ export function renderApp(rootElement: HTMLElement) {
         elements,
         warnings.length > 0
           ? warnings.join(" ")
-          : createWorkflowDiagnostics(preset, checkpointName)
+          : createWorkflowDiagnostics(preset, checkpointName, createSourceInputAvailability(sketchSource))
       );
       await client.checkOnline();
 
@@ -1333,6 +1356,17 @@ export function renderApp(rootElement: HTMLElement) {
     if (!inpaintSource) {
       setInpaintError(elements, "Make a Photoshop selection, then click Capture Selection before generating Inpaint.");
       setInpaintStatus(elements, "Selection required.", "error");
+      setInpaintDiagnostics(
+        elements,
+        createWorkflowDiagnostics(
+          getWorkflowPreset(readSelectValue(elements.inpaintWorkflow, DEFAULT_INPAINT_WORKFLOW)),
+          readSelectValue(elements.inpaintCheckpoint),
+          {
+            selection: false,
+            "selection-mask": false
+          }
+        )
+      );
       return;
     }
 
@@ -1347,7 +1381,14 @@ export function renderApp(rootElement: HTMLElement) {
       setInpaintStatus(elements, "Mask required.", "error");
       setInpaintDiagnostics(
         elements,
-        "OpenLayer needs a source image and grayscale selection mask before submitting inpaint-basic."
+        createWorkflowDiagnostics(
+          getWorkflowPreset(readSelectValue(elements.inpaintWorkflow, DEFAULT_INPAINT_WORKFLOW)),
+          readSelectValue(elements.inpaintCheckpoint),
+          {
+            selection: true,
+            "selection-mask": false
+          }
+        )
       );
       return;
     }
@@ -1377,7 +1418,10 @@ export function renderApp(rootElement: HTMLElement) {
         elements,
         warnings.length > 0
           ? warnings.join(" ")
-          : createWorkflowDiagnostics(preset, checkpointName)
+          : createWorkflowDiagnostics(preset, checkpointName, {
+            selection: Boolean(inpaintSource),
+            "selection-mask": Boolean(inpaintSource?.mask)
+          })
       );
       await client.checkOnline();
 
@@ -1609,6 +1653,7 @@ export function renderApp(rootElement: HTMLElement) {
       elements.imageSourcePreviewPanel.append(empty);
       elements.imageSourceTitle.textContent = "No source captured";
       elements.imageSourceMeta.textContent = "Choose active layer or full canvas.";
+      updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
       setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
       return;
     }
@@ -1620,6 +1665,7 @@ export function renderApp(rootElement: HTMLElement) {
     elements.imageSourcePreviewPanel.append(image);
     elements.imageSourceTitle.textContent = imageSource.sourceName;
     elements.imageSourceMeta.textContent = createSourceMetaText(imageSource);
+    updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
     setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
   }
 
@@ -1696,6 +1742,7 @@ export function renderApp(rootElement: HTMLElement) {
       elements.sketchSourcePreviewPanel.append(empty);
       elements.sketchSourceTitle.textContent = "No source captured";
       elements.sketchSourceMeta.textContent = "Choose active layer or full canvas.";
+      updateSketchCheckpointCompatibility(elements, sketchSource);
       setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
       return;
     }
@@ -1707,6 +1754,7 @@ export function renderApp(rootElement: HTMLElement) {
     elements.sketchSourcePreviewPanel.append(image);
     elements.sketchSourceTitle.textContent = sketchSource.sourceName;
     elements.sketchSourceMeta.textContent = createSourceMetaText(sketchSource);
+    updateSketchCheckpointCompatibility(elements, sketchSource);
     setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
   }
 
@@ -1795,6 +1843,7 @@ export function renderApp(rootElement: HTMLElement) {
       maskEmpty.textContent = "Mask";
       elements.inpaintMaskPreviewPanel.append(maskEmpty);
       elements.inpaintMaskMeta.textContent = "Mask export not available yet.";
+      updateInpaintCheckpointCompatibility(elements, inpaintSource);
       setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
       return;
     }
@@ -1822,6 +1871,7 @@ export function renderApp(rootElement: HTMLElement) {
       elements.inpaintMaskMeta.textContent = inpaintSource.maskMessage;
     }
 
+    updateInpaintCheckpointCompatibility(elements, inpaintSource);
     setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
   }
 
@@ -1988,6 +2038,7 @@ function createAppMarkup() {
             <div><span>Checkpoint count</span><strong id="settings-checkpoint-count">Fallback list</strong></div>
             <div><span>Last checkpoint</span><strong id="settings-last-checkpoint">Not checked</strong></div>
             <div><span>Photoshop document</span><strong id="settings-document-status">Not checked</strong></div>
+            <div><span>Workflow readiness</span><strong id="settings-workflow-readiness">Not checked</strong></div>
           </div>
         </section>
       </section>
@@ -2587,6 +2638,7 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     settingsCheckpointCount: getElement<HTMLElement>(rootElement, "settings-checkpoint-count"),
     settingsLastCheckpoint: getElement<HTMLElement>(rootElement, "settings-last-checkpoint"),
     settingsDocumentStatus: getElement<HTMLElement>(rootElement, "settings-document-status"),
+    settingsWorkflowReadiness: getElement<HTMLElement>(rootElement, "settings-workflow-readiness"),
     settingsGpuName: getElement<HTMLElement>(rootElement, "settings-gpu-name"),
     settingsVramTotal: getElement<HTMLElement>(rootElement, "settings-vram-total"),
     settingsVramFree: getElement<HTMLElement>(rootElement, "settings-vram-free"),
@@ -2791,62 +2843,85 @@ function updateTextCheckpointCompatibility(elements: AppElements) {
   try {
     const preset = getWorkflowPreset(readSelectValue(elements.workflow, DEFAULT_WORKFLOW));
     const checkpointName = readSelectValue(elements.checkpoint);
-    const note = getPresetCompatibilityNote(checkpointName, preset);
+    const message = createWorkflowDiagnosticMessage(preset, { selectedModelName: checkpointName });
 
-    if (note) {
-      setDiagnostics(elements, note);
-    }
+    setDiagnostics(elements, formatWorkflowDiagnosticMessage(message));
+    updateSettingsReport(elements);
   } catch {
     // Selection-change diagnostics should never break the panel.
   }
 }
 
-function updateImageCheckpointCompatibility(elements: AppElements, allowExperimentalCheckpoints: boolean) {
+function updateImageCheckpointCompatibility(
+  elements: AppElements,
+  allowExperimentalCheckpoints: boolean,
+  source: ImageSourceState | null = null
+) {
   const checkpointName = readSelectValue(elements.imgCheckpoint);
   const preset = getWorkflowPreset(readSelectValue(elements.imgWorkflow, DEFAULT_IMAGE_WORKFLOW));
-  const compatibility = getCheckpointCompatibility(checkpointName, preset);
+  const message = createWorkflowDiagnosticMessage(preset, {
+    selectedModelName: checkpointName,
+    photoshopInputs: createSourceInputAvailability(source)
+  });
 
   elements.imgCompatibilityNote.textContent = allowExperimentalCheckpoints
-    ? `${compatibility.label}. ${compatibility.experimentalNote}`
-    : compatibility.label;
-  elements.imgCompatibilityNote.classList.toggle("is-warning", compatibility.isExperimental);
+    ? `${formatWorkflowDiagnosticMessage(message)} Experimental model families may still need dedicated presets.`
+    : formatWorkflowDiagnosticMessage(message);
+  elements.imgCompatibilityNote.classList.toggle("is-warning", message.isWarning);
+  updateSettingsReport(elements);
 }
 
-function updateSketchCheckpointCompatibility(elements: AppElements) {
+function updateSketchCheckpointCompatibility(elements: AppElements, source: ImageSourceState | null = null) {
   const checkpointName = readSelectValue(elements.sketchCheckpoint);
   const preset = getWorkflowPreset(readSelectValue(elements.sketchWorkflow, DEFAULT_SKETCH_WORKFLOW));
-  const compatibility = getCheckpointCompatibility(checkpointName, preset);
+  const message = createWorkflowDiagnosticMessage(preset, {
+    selectedModelName: checkpointName,
+    photoshopInputs: createSourceInputAvailability(source)
+  });
 
-  elements.sketchCompatibilityNote.textContent =
-    checkpointName === RECOMMENDED_SKETCH_CHECKPOINT
-      ? "Recommended SD 1.x checkpoint selected for LINECN."
-      : `${compatibility.label} ${compatibility.warning || "Use an SD 1.x checkpoint for the first LINECN preset."}`;
-  elements.sketchCompatibilityNote.classList.toggle("is-warning", compatibility.isExperimental);
+  elements.sketchCompatibilityNote.textContent = checkpointName === RECOMMENDED_SKETCH_CHECKPOINT
+    ? `${formatWorkflowDiagnosticMessage(message)} Recommended SD 1.x checkpoint for LINECN.`
+    : formatWorkflowDiagnosticMessage(message);
+  elements.sketchCompatibilityNote.classList.toggle("is-warning", message.isWarning);
+  updateSettingsReport(elements);
 }
 
-function updateInpaintCheckpointCompatibility(elements: AppElements) {
+function updateInpaintCheckpointCompatibility(elements: AppElements, source: InpaintSourceState | null = null) {
   const checkpointName = readSelectValue(elements.inpaintCheckpoint);
   const preset = getWorkflowPreset(readSelectValue(elements.inpaintWorkflow, DEFAULT_INPAINT_WORKFLOW));
-  const compatibility = getCheckpointCompatibility(checkpointName, preset);
+  const message = createWorkflowDiagnosticMessage(preset, {
+    selectedModelName: checkpointName,
+    photoshopInputs: {
+      selection: Boolean(source),
+      "selection-mask": Boolean(source?.mask)
+    }
+  });
 
-  if (preset.id === "inpaint-flux-fill-basic") {
-    elements.inpaintCompatibilityNote.textContent =
-      checkpointName.includes("flux1-fill")
-        ? "Flux Fill is experimental and may require workflow tuning for guidance, denoise, mask blur, and context size."
-        : `${compatibility.label} Use flux1-fill-dev.safetensors for this experimental preset. Flux Fill may require workflow tuning for guidance, denoise, mask blur, and context size.`;
-    elements.inpaintCompatibilityNote.classList.toggle("is-warning", !checkpointName.includes("flux1-fill"));
-    return;
-  }
-
-  elements.inpaintCompatibilityNote.textContent =
-    checkpointName === RECOMMENDED_SKETCH_CHECKPOINT
-      ? "Recommended SD 1.x checkpoint selected for inpaint-basic."
-      : `${compatibility.label} ${compatibility.warning || "Use an SD 1.x inpaint checkpoint for inpaint-basic."}`;
-  elements.inpaintCompatibilityNote.classList.toggle("is-warning", compatibility.isExperimental);
+  elements.inpaintCompatibilityNote.textContent = formatWorkflowDiagnosticMessage(message);
+  elements.inpaintCompatibilityNote.classList.toggle("is-warning", true);
+  updateSettingsReport(elements);
 }
 
-function createWorkflowDiagnostics(preset: WorkflowPresetDefinition, checkpointName: string) {
-  return getPresetCompatibilityNote(checkpointName, preset) || `Using workflow ${preset.id}, checkpoint: ${checkpointName || "none"}`;
+function createWorkflowDiagnostics(
+  preset: WorkflowPresetDefinition,
+  checkpointName: string,
+  photoshopInputs?: WorkflowPhotoshopInputAvailability
+) {
+  return formatWorkflowDiagnosticMessage(createWorkflowDiagnosticMessage(preset, {
+    selectedModelName: checkpointName,
+    photoshopInputs
+  }));
+}
+
+function formatWorkflowDiagnosticMessage(message: WorkflowDiagnosticMessage) {
+  return `${message.summary} ${message.detail}`.trim();
+}
+
+function createSourceInputAvailability(source: ImageSourceState | null): WorkflowPhotoshopInputAvailability {
+  return {
+    "active-layer": Boolean(source),
+    canvas: Boolean(source)
+  };
 }
 
 function createSourceCaptureMessage(source: ExportedSourceImage, suffix = "") {
@@ -3602,6 +3677,31 @@ function updateSettingsReport(elements: AppElements) {
   elements.settingsUrlValue.textContent = elements.serverUrl.value.trim() || DEFAULT_SERVER_URL;
   elements.settingsCheckpointCount.textContent = checkpointCount > 0 ? `${checkpointCount} listed` : "None";
   elements.settingsLastCheckpoint.textContent = readSelectValue(elements.checkpoint) || "None";
+  elements.settingsWorkflowReadiness.textContent = createSettingsWorkflowReadiness(elements);
+}
+
+function createSettingsWorkflowReadiness(elements: AppElements) {
+  const messages = [
+    createWorkflowDiagnosticMessage(getWorkflowPreset(readSelectValue(elements.workflow, DEFAULT_WORKFLOW)), {
+      selectedModelName: readSelectValue(elements.checkpoint)
+    }),
+    createWorkflowDiagnosticMessage(getWorkflowPreset(readSelectValue(elements.imgWorkflow, DEFAULT_IMAGE_WORKFLOW)), {
+      selectedModelName: readSelectValue(elements.imgCheckpoint)
+    }),
+    createWorkflowDiagnosticMessage(getWorkflowPreset(readSelectValue(elements.sketchWorkflow, DEFAULT_SKETCH_WORKFLOW)), {
+      selectedModelName: readSelectValue(elements.sketchCheckpoint)
+    }),
+    createWorkflowDiagnosticMessage(getWorkflowPreset(readSelectValue(elements.inpaintWorkflow, DEFAULT_INPAINT_WORKFLOW)), {
+      selectedModelName: readSelectValue(elements.inpaintCheckpoint)
+    })
+  ];
+  const warnings = messages.filter((message) => message.isWarning);
+
+  if (warnings.length === 0) {
+    return "Selected workflows look ready.";
+  }
+
+  return createWorkflowReadinessSummary(warnings);
 }
 
 function renderHardwareReport(elements: AppElements, report: HardwareRecommendationReport | null) {
