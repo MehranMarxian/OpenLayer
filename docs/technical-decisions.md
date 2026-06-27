@@ -23,6 +23,10 @@ This page records current project direction so contributors can make compatible 
 
 ## Workflow Architecture
 
+- OpenLayer should use a workflow intelligence layer instead of exposing ComfyUI complexity directly in the Photoshop panel.
+- Each workflow preset should describe its tool type, loader type, Photoshop inputs, supported controls, output kind, required nodes, required model files, and UI hints.
+- Compatibility checks should be pure and testable: selected model family, local ComfyUI node availability, required model files, Photoshop input state, and experimental/setup-required status should produce friendly artist-facing messages.
+- The UI should eventually adapt from workflow capability metadata, but current generation behavior should remain stable while this internal layer matures.
 - Custom ComfyUI workflow import is future work.
 - Future workflow import should remove or reduce hardcoded node IDs by mapping source workflows to OpenLayer API workflow injection targets.
 - Keep source workflows and runnable API workflows separate.

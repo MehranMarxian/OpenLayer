@@ -2,6 +2,7 @@ import {
   ComfyWorkflow,
   WorkflowInputTarget,
   WorkflowInjectionTargetList,
+  WorkflowCapability,
   WorkflowPreset,
   WorkflowPresetDefinition,
   WorkflowNodeRequirement
@@ -229,6 +230,184 @@ const FLUX_FILL_STACK = [
   }
 ] as const;
 
+const TXT2IMG_BASIC_CAPABILITY: WorkflowCapability = {
+  toolType: "txt2img",
+  loaderType: "checkpoint",
+  artistLabel: "Text to Image",
+  technicalLabel: "txt2img-basic",
+  requiredPhotoshopInputs: [],
+  controls: ["prompt", "negativePrompt", "width", "height", "steps", "cfg", "seed"],
+  output: {
+    kind: "full-image",
+    size: "preset",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Checkpoint",
+    primaryActionLabel: "Generate"
+  }
+};
+
+const IMG2IMG_BASIC_CAPABILITY: WorkflowCapability = {
+  toolType: "img2img",
+  loaderType: "checkpoint",
+  artistLabel: "Image to Image",
+  technicalLabel: "img2img-basic",
+  requiredPhotoshopInputs: [{ anyOf: ["active-layer", "canvas"], label: "an active layer or captured canvas" }],
+  controls: ["prompt", "negativePrompt", "steps", "cfg", "denoise", "seed"],
+  output: {
+    kind: "source-sized-image",
+    size: "source",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Checkpoint",
+    primaryActionLabel: "Generate Image to Image"
+  }
+};
+
+const SKETCH2IMG_LINECN_BASIC_CAPABILITY: WorkflowCapability = {
+  toolType: "sketch2img",
+  loaderType: "checkpoint",
+  artistLabel: "Sketch to Image",
+  technicalLabel: "sketch2img-linecn-basic",
+  requiredPhotoshopInputs: [{ anyOf: ["active-layer", "canvas"], label: "an active layer or captured canvas" }],
+  controls: ["prompt", "negativePrompt", "steps", "cfg", "denoise", "seed", "controlStrength"],
+  output: {
+    kind: "source-sized-image",
+    size: "source",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Checkpoint",
+    primaryActionLabel: "Generate Sketch to Image",
+    experimentalNote: "Starter SD 1.x LineArt ControlNet workflow."
+  }
+};
+
+const INPAINT_BASIC_CAPABILITY: WorkflowCapability = {
+  toolType: "inpaint",
+  loaderType: "checkpoint",
+  artistLabel: "Inpaint",
+  technicalLabel: "inpaint-basic",
+  requiredPhotoshopInputs: ["selection", "selection-mask"],
+  controls: ["prompt", "negativePrompt", "steps", "cfg", "denoise", "seed", "contextPadding"],
+  output: {
+    kind: "selection-patch",
+    size: "selection-context",
+    importBehavior: "aligned-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Checkpoint",
+    primaryActionLabel: "Generate Inpaint",
+    warning: "Inpaint/Repaint Selection is experimental until Photoshop alignment and output quality are confirmed."
+  }
+};
+
+const INPAINT_FLUX_FILL_BASIC_CAPABILITY: WorkflowCapability = {
+  toolType: "inpaint",
+  loaderType: "diffusion-model-stack",
+  artistLabel: "Inpaint",
+  technicalLabel: "inpaint-flux-fill-basic",
+  requiredPhotoshopInputs: ["selection", "selection-mask"],
+  controls: ["prompt", "negativePrompt", "steps", "guidance", "denoise", "seed", "contextPadding", "maskBlur"],
+  output: {
+    kind: "selection-patch",
+    size: "selection-context",
+    importBehavior: "aligned-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Flux Fill model",
+    primaryActionLabel: "Generate Inpaint",
+    warning: "Flux Fill is experimental and may require guidance, denoise, mask blur, and context-size tuning."
+  }
+};
+
+const Z_IMAGE_TURBO_TXT2IMG_CAPABILITY: WorkflowCapability = {
+  toolType: "txt2img",
+  loaderType: "diffusion-model-stack",
+  artistLabel: "Text to Image",
+  technicalLabel: "txt2img-z-image-turbo",
+  requiredPhotoshopInputs: [],
+  controls: ["prompt", "negativePrompt", "width", "height", "steps", "guidance", "seed"],
+  output: {
+    kind: "full-image",
+    size: "preset",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Z_image_Turbo model",
+    primaryActionLabel: "Generate",
+    warning: "Z_image_Turbo needs a validated diffusion-model-stack workflow before generation is enabled."
+  }
+};
+
+const Z_IMAGE_TURBO_IMG2IMG_CAPABILITY: WorkflowCapability = {
+  toolType: "img2img",
+  loaderType: "diffusion-model-stack",
+  artistLabel: "Image to Image",
+  technicalLabel: "img2img-z-image-turbo",
+  requiredPhotoshopInputs: [{ anyOf: ["active-layer", "canvas"], label: "an active layer or captured canvas" }],
+  controls: ["prompt", "negativePrompt", "steps", "guidance", "denoise", "seed"],
+  output: {
+    kind: "source-sized-image",
+    size: "source",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Z_image_Turbo model",
+    primaryActionLabel: "Generate Image to Image",
+    warning: "Z_image_Turbo Image to Image needs a validated source-image workflow before generation is enabled."
+  }
+};
+
+const FLUX1_DEV_TXT2IMG_CAPABILITY: WorkflowCapability = {
+  toolType: "txt2img",
+  loaderType: "diffusion-model-stack",
+  artistLabel: "Text to Image",
+  technicalLabel: "txt2img-flux1-dev",
+  requiredPhotoshopInputs: [],
+  controls: ["prompt", "negativePrompt", "width", "height", "steps", "guidance", "seed"],
+  output: {
+    kind: "full-image",
+    size: "preset",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Flux model",
+    primaryActionLabel: "Generate",
+    warning: "Flux needs a validated diffusion-model-stack workflow before generation is enabled."
+  }
+};
+
+const FLUX1_DEV_IMG2IMG_CAPABILITY: WorkflowCapability = {
+  toolType: "img2img",
+  loaderType: "diffusion-model-stack",
+  artistLabel: "Image to Image",
+  technicalLabel: "img2img-flux1-dev",
+  requiredPhotoshopInputs: [{ anyOf: ["active-layer", "canvas"], label: "an active layer or captured canvas" }],
+  controls: ["prompt", "negativePrompt", "steps", "guidance", "denoise", "seed"],
+  output: {
+    kind: "source-sized-image",
+    size: "source",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Flux model",
+    primaryActionLabel: "Generate Image to Image",
+    warning: "Flux Image to Image needs a validated source-image workflow before generation is enabled."
+  }
+};
+
 export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
   {
     id: "txt2img-basic",
@@ -241,6 +420,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     supportedModelFamilies: ["sd1", "sdxl", "unknown"],
     experimentalModelFamilies: ["sd3", "flux", "zImage"],
     modelSource: CHECKPOINT_MODEL_SOURCE,
+    capability: TXT2IMG_BASIC_CAPABILITY,
     injections: TXT2IMG_BASIC_INJECTIONS,
     compatibilityNote: "txt2img-basic uses the standard CheckpointLoaderSimple SD/SDXL workflow.",
     requiredNodes: [
@@ -287,6 +467,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     supportedModelFamilies: ["sd1", "sdxl", "unknown"],
     experimentalModelFamilies: ["sd3", "flux", "zImage"],
     modelSource: CHECKPOINT_MODEL_SOURCE,
+    capability: IMG2IMG_BASIC_CAPABILITY,
     injections: IMG2IMG_BASIC_INJECTIONS,
     compatibilityNote: "img2img-basic uses the standard CheckpointLoaderSimple, LoadImage, and VAEEncode SD/SDXL workflow.",
     requiredNodes: [
@@ -338,6 +519,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     supportedModelFamilies: ["sd1"],
     experimentalModelFamilies: ["sdxl", "sd3", "flux", "zImage"],
     modelSource: CHECKPOINT_MODEL_SOURCE,
+    capability: SKETCH2IMG_LINECN_BASIC_CAPABILITY,
     injections: SKETCH2IMG_LINECN_BASIC_INJECTIONS,
     compatibilityNote:
       "sketch2img-linecn-basic is a starter SD 1.x LineArt ControlNet workflow. Use an SD 1.x checkpoint and an SD 1.5 LineArt ControlNet model.",
@@ -415,6 +597,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     supportedModelFamilies: ["sd1"],
     experimentalModelFamilies: ["sdxl", "sd3", "flux", "zImage", "unknown"],
     modelSource: CHECKPOINT_MODEL_SOURCE,
+    capability: INPAINT_BASIC_CAPABILITY,
     injections: INPAINT_BASIC_INJECTIONS,
     requiredNodes: [
       {
@@ -482,6 +665,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     supportedModelFamilies: ["flux"],
     experimentalModelFamilies: ["sd1", "sdxl", "sd3", "zImage", "unknown"],
     modelSource: DIFFUSION_MODEL_SOURCE,
+    capability: INPAINT_FLUX_FILL_BASIC_CAPABILITY,
     modelStack: [...FLUX_FILL_STACK],
     requiredModels: [...FLUX_FILL_STACK],
     injections: INPAINT_FLUX_FILL_BASIC_INJECTIONS,
@@ -591,6 +775,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     supportedModelFamilies: ["zImage"],
     experimentalModelFamilies: ["unknown"],
     modelSource: DIFFUSION_MODEL_SOURCE,
+    capability: Z_IMAGE_TURBO_TXT2IMG_CAPABILITY,
     modelStack: [...Z_IMAGE_TURBO_STACK],
     injections: {},
     requiredNodes: [
@@ -630,6 +815,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     supportedModelFamilies: ["zImage"],
     experimentalModelFamilies: ["unknown"],
     modelSource: DIFFUSION_MODEL_SOURCE,
+    capability: Z_IMAGE_TURBO_IMG2IMG_CAPABILITY,
     modelStack: [...Z_IMAGE_TURBO_STACK],
     injections: {},
     requiredNodes: [
@@ -669,6 +855,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     supportedModelFamilies: ["flux"],
     experimentalModelFamilies: ["unknown"],
     modelSource: DIFFUSION_MODEL_SOURCE,
+    capability: FLUX1_DEV_TXT2IMG_CAPABILITY,
     modelStack: [...FLUX1_DEV_STACK],
     injections: {},
     requiredNodes: [
@@ -703,6 +890,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     supportedModelFamilies: ["flux"],
     experimentalModelFamilies: ["unknown"],
     modelSource: DIFFUSION_MODEL_SOURCE,
+    capability: FLUX1_DEV_IMG2IMG_CAPABILITY,
     modelStack: [...FLUX1_DEV_STACK],
     injections: {},
     requiredNodes: [

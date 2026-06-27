@@ -10,6 +10,60 @@ export type WorkflowPreset =
   | "inpaint-flux-fill-basic";
 export type WorkflowMode = "txt2img" | "img2img" | "sketch2img" | "inpaint";
 export type ModelFamily = "sd1" | "sdxl" | "sd3" | "flux" | "zImage" | "unknown";
+export type WorkflowToolType = WorkflowMode | "realtime";
+export type WorkflowLoaderType = "checkpoint" | "diffusion-model-stack";
+export type WorkflowControlId =
+  | "prompt"
+  | "negativePrompt"
+  | "width"
+  | "height"
+  | "steps"
+  | "cfg"
+  | "guidance"
+  | "denoise"
+  | "seed"
+  | "controlStrength"
+  | "maskBlur"
+  | "contextPadding";
+export type WorkflowPhotoshopInputKind = "canvas" | "active-layer" | "selection" | "selection-mask";
+export type WorkflowPhotoshopInputRequirement =
+  | WorkflowPhotoshopInputKind
+  | {
+    anyOf: readonly WorkflowPhotoshopInputKind[];
+    label: string;
+  };
+export type WorkflowOutputKind =
+  | "full-image"
+  | "source-sized-image"
+  | "selection-patch"
+  | "transparent-patch"
+  | "layer-mask-candidate";
+export type WorkflowOutputSize = "preset" | "source" | "selection-context";
+export type WorkflowImportBehavior = "new-layer" | "aligned-layer" | "future-layer-mask";
+
+export type WorkflowCapabilityUiHints = {
+  showModelSelector: boolean;
+  modelSelectorLabel: string;
+  primaryActionLabel: string;
+  warning?: string;
+  experimentalNote?: string;
+  hiddenControls?: readonly WorkflowControlId[];
+};
+
+export type WorkflowCapability = {
+  toolType: WorkflowToolType;
+  loaderType: WorkflowLoaderType;
+  artistLabel: string;
+  technicalLabel: string;
+  requiredPhotoshopInputs: readonly WorkflowPhotoshopInputRequirement[];
+  controls: readonly WorkflowControlId[];
+  output: {
+    kind: WorkflowOutputKind;
+    size: WorkflowOutputSize;
+    importBehavior: WorkflowImportBehavior;
+  };
+  uiHints: WorkflowCapabilityUiHints;
+};
 
 export type ComfyHardwareDevice = {
   name: string;
@@ -150,6 +204,7 @@ export type WorkflowPresetDefinition = {
   injections: WorkflowInjectionTargets;
   requiredNodes: WorkflowNodeRequirement[];
   requiredModels?: WorkflowRequiredModel[];
+  capability?: WorkflowCapability;
   compatibilityNote?: string;
   disabledReason?: string;
 };
