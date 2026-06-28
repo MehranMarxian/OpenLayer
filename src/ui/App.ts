@@ -18,6 +18,10 @@ import {
   createWorkflowReadinessSummary,
   WorkflowDiagnosticMessage
 } from "../comfy/workflowDiagnostics";
+import {
+  createWorkflowHealthReport,
+  WorkflowHealthReport
+} from "../comfy/workflowHealth";
 import type { WorkflowPhotoshopInputAvailability } from "../comfy/workflowCompatibility";
 import { GeneratedImageResult, WorkflowPresetDefinition } from "../comfy/types";
 import {
@@ -41,7 +45,7 @@ import {
 } from "../utils/preferences";
 
 const DEFAULT_SERVER_URL = "http://127.0.0.1:8190";
-const APP_VERSION = "0.4.3";
+const APP_VERSION = "0.4.4";
 const DEVELOPER_GITHUB = "https://github.com/MehranMarxian";
 const HISTORY_LIMIT = 5;
 const COMFY_PORT_CANDIDATES = [8190, 8188, 8189, 8191, 8192, 8193, 7860];
@@ -233,6 +237,7 @@ type AppElements = {
   checkButton: HTMLElement;
   findPortButton: HTMLElement;
   detectHardwareButton: HTMLElement;
+  checkWorkflowHealthButton: HTMLElement;
   saveSettingsButton: HTMLElement;
   resetSettingsButton: HTMLElement;
   generateButton: HTMLElement;
@@ -342,6 +347,7 @@ type AppElements = {
   settingsModelFamilies: HTMLElement;
   settingsZImageTurbo: HTMLElement;
   settingsModelRecommendations: HTMLElement;
+  settingsWorkflowHealthList: HTMLElement;
 };
 
 type HistoryEntry = {
@@ -404,6 +410,7 @@ export function renderApp(rootElement: HTMLElement) {
     check: createActionRunner(elements, "check", handleCheckComfy),
     findPort: createActionRunner(elements, "findPort", handleFindComfyPort),
     detectHardware: createActionRunner(elements, "detectHardware", handleDetectHardware),
+    checkWorkflowHealth: createActionRunner(elements, "checkWorkflowHealth", handleCheckWorkflowHealth),
     saveSettings: createActionRunner(elements, "saveSettings", handleSaveSettings),
     resetSettings: createActionRunner(elements, "resetSettings", handleResetSettings),
     toggleNegativePrompt: createActionRunner(elements, "toggleNegativePrompt", handleToggleNegativePrompt),
@@ -437,6 +444,7 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.checkButton, actionHandlers.check);
   bindActionControl(elements.findPortButton, actionHandlers.findPort);
   bindActionControl(elements.detectHardwareButton, actionHandlers.detectHardware);
+  bindActionControl(elements.checkWorkflowHealthButton, actionHandlers.checkWorkflowHealth);
   bindActionControl(elements.saveSettingsButton, actionHandlers.saveSettings);
   bindActionControl(elements.resetSettingsButton, actionHandlers.resetSettings);
   bindActionControl(elements.negativePromptToggle, actionHandlers.toggleNegativePrompt);
@@ -486,6 +494,7 @@ export function renderApp(rootElement: HTMLElement) {
   setPromptLayerSource(null);
   updateSettingsReport(elements);
   renderHardwareReport(elements, hardwareReport);
+  renderWorkflowHealthReport(elements, null);
   renderHistory(elements, historyEntries);
   void loadInitialCheckpoints();
 
@@ -630,6 +639,35 @@ export function renderApp(rootElement: HTMLElement) {
       setStatus(elements, "GPU detection failed.", "error");
       setError(elements, getErrorMessage(caughtError));
       setDiagnostics(elements, "Start ComfyUI, confirm the server URL, then run Detect GPU & Recommend Models again.");
+    } finally {
+      updateSettingsReport(elements);
+    }
+  }
+
+  async function handleCheckWorkflowHealth() {
+    setDiagnostics(elements, "Checking workflow health against local ComfyUI...");
+    setError(elements, "");
+    setStatus(elements, "Checking workflow health...", "idle");
+
+    try {
+      const presets = listWorkflowPresets();
+      const client = new ComfyClient(elements.serverUrl.value);
+      await client.checkOnline();
+      const inventory = await client.getModelInventory();
+      const availableNodes = await client.getWorkflowNodeAvailability(presets);
+      const report = createWorkflowHealthReport(presets, {
+        availableModels: inventory,
+        availableNodes
+      });
+
+      renderWorkflowHealthReport(elements, report);
+      setStatus(elements, "Workflow health checked.", report.issueCount > 0 ? "idle" : "ready");
+      setDiagnostics(elements, report.summary);
+    } catch (caughtError) {
+      renderWorkflowHealthReport(elements, null);
+      setStatus(elements, "Workflow health check failed.", "error");
+      setError(elements, getErrorMessage(caughtError));
+      setDiagnostics(elements, "Start ComfyUI, confirm the server URL, then run Check Workflow Health again.");
     } finally {
       updateSettingsReport(elements);
     }
@@ -2224,6 +2262,7 @@ function createAppMarkup() {
           <button class="button action-control" id="check-comfy" data-openlayer-action="check" type="button">Check ComfyUI</button>
           <button class="button action-control" id="find-comfy-port" data-openlayer-action="findPort" type="button">Find ComfyUI Active Port</button>
           <button class="button action-control" id="detect-gpu" data-openlayer-action="detectHardware" type="button">Detect GPU &amp; Recommend Models</button>
+          <button class="button action-control" id="check-workflow-health" data-openlayer-action="checkWorkflowHealth" type="button">Check Workflow Health</button>
           <div class="settings-actions">
             <button class="button action-control" id="save-settings" data-openlayer-action="saveSettings" type="button">Save Settings</button>
             <button class="button action-control" id="reset-settings" data-openlayer-action="resetSettings" type="button">Reset Defaults</button>
@@ -2258,6 +2297,16 @@ function createAppMarkup() {
           </div>
           <div class="diagnostics-line hardware-recommendations" id="settings-model-recommendations">
             Click Detect GPU &amp; Recommend Models to get local hardware-aware suggestions.
+          </div>
+        </section>
+
+        <section class="panel-section settings-panel" aria-label="Workflow health">
+          <div class="section-heading">
+            <span class="label">Workflow health</span>
+            <span class="muted-label">Local ComfyUI</span>
+          </div>
+          <div class="workflow-health-list" id="settings-workflow-health-list">
+            <div class="diagnostics-line">Click Check Workflow Health to inspect local workflow readiness.</div>
           </div>
         </section>
 
@@ -2787,6 +2836,7 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     checkButton: getElement<HTMLElement>(rootElement, "check-comfy"),
     findPortButton: getElement<HTMLElement>(rootElement, "find-comfy-port"),
     detectHardwareButton: getElement<HTMLElement>(rootElement, "detect-gpu"),
+    checkWorkflowHealthButton: getElement<HTMLElement>(rootElement, "check-workflow-health"),
     saveSettingsButton: getElement<HTMLElement>(rootElement, "save-settings"),
     resetSettingsButton: getElement<HTMLElement>(rootElement, "reset-settings"),
     generateButton: getElement<HTMLElement>(rootElement, "generate"),
@@ -2895,7 +2945,8 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     settingsVramTier: getElement<HTMLElement>(rootElement, "settings-vram-tier"),
     settingsModelFamilies: getElement<HTMLElement>(rootElement, "settings-model-families"),
     settingsZImageTurbo: getElement<HTMLElement>(rootElement, "settings-z-image-turbo"),
-    settingsModelRecommendations: getElement<HTMLElement>(rootElement, "settings-model-recommendations")
+    settingsModelRecommendations: getElement<HTMLElement>(rootElement, "settings-model-recommendations"),
+    settingsWorkflowHealthList: getElement<HTMLElement>(rootElement, "settings-workflow-health-list")
   };
 }
 
@@ -2959,6 +3010,7 @@ function setBusy(
   setActionDisabled(elements.checkButton, isBusy);
   setActionDisabled(elements.findPortButton, isBusy);
   setActionDisabled(elements.detectHardwareButton, isBusy);
+  setActionDisabled(elements.checkWorkflowHealthButton, isBusy);
   setActionDisabled(elements.saveSettingsButton, isBusy);
   setActionDisabled(elements.resetSettingsButton, isBusy);
   setActionDisabled(elements.negativePromptToggle, isBusy);
@@ -3220,6 +3272,7 @@ type ActionName =
   | "check"
   | "findPort"
   | "detectHardware"
+  | "checkWorkflowHealth"
   | "saveSettings"
   | "resetSettings"
   | "toggleNegativePrompt"
@@ -4062,6 +4115,52 @@ function renderHardwareReport(elements: AppElements, report: HardwareRecommendat
   elements.settingsModelRecommendations.textContent = report.recommendations
     .map((item) => `${item.task}: ${item.recommendation}`)
     .join(" ");
+}
+
+function renderWorkflowHealthReport(elements: AppElements, report: WorkflowHealthReport | null) {
+  elements.settingsWorkflowHealthList.innerHTML = "";
+
+  if (!report) {
+    const empty = document.createElement("div");
+    empty.className = "diagnostics-line";
+    empty.textContent = "Click Check Workflow Health to inspect local workflow readiness.";
+    elements.settingsWorkflowHealthList.append(empty);
+    return;
+  }
+
+  for (const item of report.items) {
+    const row = document.createElement("div");
+    row.className = `workflow-health-item is-${item.state}`;
+
+    const heading = document.createElement("div");
+    heading.className = "workflow-health-heading";
+
+    const title = document.createElement("div");
+    title.className = "workflow-health-title";
+    title.textContent = item.label;
+    heading.append(title);
+
+    const badge = document.createElement("div");
+    badge.className = `workflow-health-state is-${item.state}`;
+    badge.textContent = item.stateLabel;
+    heading.append(badge);
+
+    row.append(heading);
+
+    const summary = document.createElement("div");
+    summary.className = "workflow-health-summary";
+    summary.textContent = item.summary;
+    row.append(summary);
+
+    if (item.detail) {
+      const detail = document.createElement("div");
+      detail.className = "workflow-health-detail";
+      detail.textContent = item.detail;
+      row.append(detail);
+    }
+
+    elements.settingsWorkflowHealthList.append(row);
+  }
 }
 
 function formatDetectedFamilies(report: HardwareRecommendationReport) {

@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased / v0.4.4-alpha draft - 2026-06-28
+
+Workflow health diagnostics foundation for safer local setup testing.
+
+### Added
+
+- Added a Settings workflow health checker that evaluates every registered preset against local ComfyUI node classes and installed model files.
+- Added compact readiness states for Ready, Experimental, Missing model, Missing ComfyUI node, Missing workflow JSON, and Setup required.
+- Added ComfyUI node-availability inspection through `/object_info` without changing any generation paths.
+- Added unit coverage for workflow health states, including Z_image_Turbo stack readiness and future Flux missing-workflow behavior.
+
+### Changed
+
+- Bumped plugin/package metadata to `0.4.4`.
+- README tester notes now include the Settings workflow health check.
+
+### Known Limitations
+
+- Workflow health is diagnostic only. It does not auto-install missing models, remap node IDs, or enable future Flux presets.
+- Existing generation behavior, workflow JSON files, imports, and panel design are unchanged.
+
 ## Unreleased / v0.4.3-alpha draft - 2026-06-28
 
 Workflow compatibility checkpoint for Z_image_Turbo and future layer captioning.

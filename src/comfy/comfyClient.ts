@@ -12,6 +12,7 @@ import {
   GeneratedImageResult,
   WorkflowPresetDefinition
 } from "./types";
+import type { WorkflowNodeAvailability } from "./workflowCompatibility";
 import { createOpenLayerError, getNestedErrorMessage } from "../utils/errors";
 
 const MODEL_INVENTORY_SOURCES = {
@@ -122,6 +123,35 @@ export class ComfyClient {
     await this.collectInventoryNames(inventory, "controlNetModels", MODEL_INVENTORY_SOURCES.controlNetModels);
 
     return inventory;
+  }
+
+  async getWorkflowNodeAvailability(
+    presets: readonly WorkflowPresetDefinition[]
+  ): Promise<WorkflowNodeAvailability> {
+    const availability: WorkflowNodeAvailability = {};
+    const nodeClasses = new Set<string>();
+
+    for (const preset of presets) {
+      for (const requirement of preset.requiredNodes) {
+        nodeClasses.add(requirement.classType);
+      }
+    }
+
+    for (const classType of nodeClasses) {
+      try {
+        const objectInfo = await this.getObjectInfo(classType);
+        const schema = objectInfo[classType];
+        const requiredInputs = schema?.input?.required ?? {};
+
+        if (schema) {
+          availability[classType] = Object.keys(requiredInputs);
+        }
+      } catch {
+        // Missing node classes are reported by the workflow health evaluator.
+      }
+    }
+
+    return availability;
   }
 
   async getCheckpointNames(): Promise<string[]> {

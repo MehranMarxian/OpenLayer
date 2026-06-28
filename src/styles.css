@@ -570,6 +570,111 @@ a:hover {
   color: #c8c8c8;
 }
 
+.workflow-health-list {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0;
+}
+
+.workflow-health-list > * {
+  margin-bottom: 8px;
+}
+
+.workflow-health-list > *:last-child {
+  margin-bottom: 0;
+}
+
+.workflow-health-item {
+  display: block;
+  min-width: 0;
+  border: 1px solid #4f4f4f;
+  border-radius: 8px;
+  padding: 8px 9px;
+  background: #2d2d2d;
+}
+
+.workflow-health-item.is-ready {
+  border-color: rgba(86, 159, 103, 0.5);
+}
+
+.workflow-health-item.is-experimental {
+  border-color: rgba(215, 182, 75, 0.58);
+}
+
+.workflow-health-item.is-missing-model,
+.workflow-health-item.is-missing-node,
+.workflow-health-item.is-missing-workflow,
+.workflow-health-item.is-setup-required {
+  border-color: rgba(218, 98, 98, 0.48);
+}
+
+.workflow-health-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0;
+  margin-bottom: 5px;
+}
+
+.workflow-health-title {
+  min-width: 0;
+  margin-right: 8px;
+  overflow: hidden;
+  color: #eeeeee;
+  font-size: 12px;
+  font-weight: 760;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-health-state {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 3px 7px;
+  background: #414141;
+  color: #d0d0d0;
+  font-size: 10px;
+  font-weight: 760;
+  line-height: 1.1;
+}
+
+.workflow-health-state.is-ready {
+  background: rgba(58, 148, 94, 0.28);
+  color: #a6e6bb;
+}
+
+.workflow-health-state.is-experimental {
+  background: rgba(215, 182, 75, 0.2);
+  color: #ffe08a;
+}
+
+.workflow-health-state.is-missing-model,
+.workflow-health-state.is-missing-node,
+.workflow-health-state.is-missing-workflow,
+.workflow-health-state.is-setup-required {
+  background: rgba(181, 72, 72, 0.28);
+  color: #ffb0b0;
+}
+
+.workflow-health-summary,
+.workflow-health-detail {
+  overflow-wrap: anywhere;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.workflow-health-summary {
+  color: #d0d0d0;
+}
+
+.workflow-health-detail {
+  margin-top: 3px;
+  color: #9f9f9f;
+}
+
 .app-subtitle {
   margin: 0;
   overflow: hidden;

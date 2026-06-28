@@ -19,7 +19,7 @@ Do not enable a preset in OpenLayer until its API workflow exists and passes loc
 
 ## Z_image_Turbo Notes
 
-The v0.4.3-alpha source folder includes the user-provided Z_image_Turbo GUI workflows as references:
+This source folder includes the user-provided Z_image_Turbo GUI workflows as references:
 
 - `txt2img-z-image-turbo.workflow.json`
 - `img2img-z-image-turbo.workflow.json`
