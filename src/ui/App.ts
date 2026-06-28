@@ -46,7 +46,7 @@ import {
 } from "../utils/preferences";
 
 const DEFAULT_SERVER_URL = "http://127.0.0.1:8190";
-const APP_VERSION = "0.4.5";
+const APP_VERSION = "0.4.6";
 const DEVELOPER_GITHUB = "https://github.com/MehranMarxian";
 const HISTORY_LIMIT = 5;
 const COMFY_PORT_CANDIDATES = [8190, 8188, 8189, 8191, 8192, 8193, 7860];
@@ -349,6 +349,7 @@ type AppElements = {
   settingsModelFamilies: HTMLElement;
   settingsZImageTurbo: HTMLElement;
   settingsModelRecommendations: HTMLElement;
+  settingsWorkflowHealthSummary: HTMLElement;
   settingsWorkflowHealthList: HTMLElement;
   settingsDiagnosticsReport: HTMLTextAreaElement;
 };
@@ -2281,7 +2282,7 @@ function createAppMarkup() {
           </div>
         </div>
 
-        <section class="panel-section settings-panel" aria-label="ComfyUI settings">
+        <section class="panel-section settings-panel diagnostic-section diagnostic-scroll-safe" aria-label="ComfyUI settings">
           <div class="section-heading">
             <span class="label">ComfyUI</span>
             <span class="muted-label">Local server</span>
@@ -2290,19 +2291,19 @@ function createAppMarkup() {
             <span class="label">ComfyUI server URL</span>
             <input class="input" id="server-url" value="${DEFAULT_SERVER_URL}" placeholder="${DEFAULT_SERVER_URL}" />
           </label>
-          <div class="settings-button-stack" aria-label="ComfyUI diagnostic actions">
+          <div class="settings-button-stack diagnostic-action-stack" aria-label="ComfyUI diagnostic actions">
             <button class="button action-control" id="check-comfy" data-openlayer-action="check" type="button">Check ComfyUI</button>
             <button class="button action-control" id="find-comfy-port" data-openlayer-action="findPort" type="button">Find ComfyUI Active Port</button>
             <button class="button action-control" id="detect-gpu" data-openlayer-action="detectHardware" type="button">Detect GPU &amp; Recommend Models</button>
             <button class="button action-control" id="check-workflow-health" data-openlayer-action="checkWorkflowHealth" type="button">Check Workflow Health</button>
-          </div>
-          <div class="settings-actions">
+            <button class="button action-control" id="copy-diagnostics" data-openlayer-action="copyDiagnostics" type="button">Copy Diagnostics</button>
             <button class="button action-control" id="save-settings" data-openlayer-action="saveSettings" type="button">Save Settings</button>
             <button class="button action-control" id="reset-settings" data-openlayer-action="resetSettings" type="button">Reset Defaults</button>
           </div>
+          <textarea class="textarea compact-textarea diagnostics-report" id="settings-diagnostics-report" readonly hidden></textarea>
         </section>
 
-        <section class="panel-section settings-panel" aria-label="Status report">
+        <section class="panel-section settings-panel diagnostic-section diagnostic-scroll-safe" aria-label="Status report">
           <div class="section-heading">
             <span class="label">Status report</span>
             <span class="muted-label">Runtime</span>
@@ -2315,12 +2316,12 @@ function createAppMarkup() {
           <div class="error-message" id="settings-error-message" hidden></div>
         </section>
 
-        <section class="panel-section settings-panel" aria-label="Hardware advisor">
+        <section class="panel-section settings-panel diagnostic-section diagnostic-scroll-safe" aria-label="Hardware advisor">
           <div class="section-heading">
             <span class="label">Hardware advisor</span>
             <span class="muted-label">Model guidance</span>
           </div>
-          <div class="settings-list hardware-list">
+          <div class="settings-list diagnostic-list hardware-list">
             <div><span>GPU</span><strong id="settings-gpu-name">Not detected</strong></div>
             <div><span>Total VRAM</span><strong id="settings-vram-total">Not detected</strong></div>
             <div><span>Free VRAM</span><strong id="settings-vram-free">Not detected</strong></div>
@@ -2332,26 +2333,27 @@ function createAppMarkup() {
             Click Detect GPU &amp; Recommend Models to get local hardware-aware suggestions.
           </div>
           <div class="diagnostics-line model-stack-note">
-            Z_image_Turbo is a diffusion model stack, not a checkpoint. OpenLayer lists it through diffusion model loaders such as UNETLoader. Flux presets stay setup-required until matching workflow JSON is validated.
+            Z_image_Turbo is not a checkpoint. It uses a diffusion model stack. Flux presets need dedicated workflow JSON before they are ready.
           </div>
         </section>
 
-        <section class="panel-section settings-panel" aria-label="Workflow health">
+        <section class="panel-section settings-panel diagnostic-section diagnostic-scroll-safe" aria-label="Workflow health">
           <div class="section-heading">
             <span class="label">Workflow health</span>
             <span class="muted-label">Local ComfyUI</span>
           </div>
+          <div class="diagnostic-summary-grid" id="settings-workflow-health-summary" aria-label="Workflow health summary"></div>
           <div class="workflow-health-list" id="settings-workflow-health-list">
             <div class="diagnostics-line">Click Check Workflow Health to inspect local workflow readiness.</div>
           </div>
         </section>
 
-        <section class="panel-section settings-panel" aria-label="Plugin settings">
+        <section class="panel-section settings-panel diagnostic-section diagnostic-scroll-safe" aria-label="Plugin settings">
           <div class="section-heading">
             <span class="label">Plugin</span>
             <span class="muted-label">MVP defaults</span>
           </div>
-          <div class="settings-list">
+          <div class="settings-list diagnostic-list">
             <div><span>Version</span><strong>v${APP_VERSION}</strong></div>
             <div><span>Default workflow</span><strong>txt2img-basic</strong></div>
             <div><span>Server URL</span><strong id="settings-url-value">${DEFAULT_SERVER_URL}</strong></div>
@@ -2360,8 +2362,6 @@ function createAppMarkup() {
             <div><span>Photoshop document</span><strong id="settings-document-status">Not checked</strong></div>
             <div><span>Workflow readiness</span><strong id="settings-workflow-readiness">Not checked</strong></div>
           </div>
-          <button class="button action-control button-wide" id="copy-diagnostics" data-openlayer-action="copyDiagnostics" type="button">Copy Diagnostics</button>
-          <textarea class="textarea compact-textarea diagnostics-report" id="settings-diagnostics-report" readonly hidden></textarea>
         </section>
       </section>
 
@@ -2985,6 +2985,7 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     settingsModelFamilies: getElement<HTMLElement>(rootElement, "settings-model-families"),
     settingsZImageTurbo: getElement<HTMLElement>(rootElement, "settings-z-image-turbo"),
     settingsModelRecommendations: getElement<HTMLElement>(rootElement, "settings-model-recommendations"),
+    settingsWorkflowHealthSummary: getElement<HTMLElement>(rootElement, "settings-workflow-health-summary"),
     settingsWorkflowHealthList: getElement<HTMLElement>(rootElement, "settings-workflow-health-list"),
     settingsDiagnosticsReport: getElement<HTMLTextAreaElement>(rootElement, "settings-diagnostics-report")
   };
@@ -4152,8 +4153,8 @@ function renderHardwareReport(elements: AppElements, report: HardwareRecommendat
   elements.settingsVramTotal.textContent = report.vramTotalLabel;
   elements.settingsVramFree.textContent = report.vramFreeLabel;
   elements.settingsVramTier.textContent = report.tierLabel;
-  elements.settingsModelFamilies.textContent = formatDetectedFamilies(report);
-  elements.settingsZImageTurbo.textContent = report.zImageTurboMessage;
+  elements.settingsModelFamilies.textContent = formatDetectedFamilySummary(report);
+  elements.settingsZImageTurbo.textContent = formatZImageTurboSettingsNote(report);
   elements.settingsModelRecommendations.textContent = report.recommendations
     .map((item) => `${item.task}: ${item.recommendation}`)
     .join(" ");
@@ -4161,6 +4162,7 @@ function renderHardwareReport(elements: AppElements, report: HardwareRecommendat
 
 function renderWorkflowHealthReport(elements: AppElements, report: WorkflowHealthReport | null) {
   elements.settingsWorkflowHealthList.innerHTML = "";
+  renderWorkflowHealthSummary(elements, report);
 
   if (!report) {
     const empty = document.createElement("div");
@@ -4176,7 +4178,7 @@ function renderWorkflowHealthReport(elements: AppElements, report: WorkflowHealt
 
     const groupTitle = document.createElement("div");
     groupTitle.className = "workflow-health-group-title";
-    groupTitle.textContent = group.label;
+    groupTitle.textContent = `${group.label} (${group.items.length})`;
     groupElement.append(groupTitle);
 
     for (const item of group.items) {
@@ -4184,6 +4186,39 @@ function renderWorkflowHealthReport(elements: AppElements, report: WorkflowHealt
     }
 
     elements.settingsWorkflowHealthList.append(groupElement);
+  }
+}
+
+function renderWorkflowHealthSummary(elements: AppElements, report: WorkflowHealthReport | null) {
+  elements.settingsWorkflowHealthSummary.innerHTML = "";
+
+  const readyCount = report?.stateCounts.ready ?? 0;
+  const experimentalCount = report?.stateCounts.experimental ?? 0;
+  const missingSetupCount = report
+    ? report.stateCounts["missing-model"] + report.stateCounts["missing-node"] + report.stateCounts["setup-required"]
+    : 0;
+  const missingWorkflowCount = report?.stateCounts["missing-workflow"] ?? 0;
+
+  const cards = [
+    { label: "Ready", value: readyCount, state: "ready" },
+    { label: "Experimental", value: experimentalCount, state: "experimental" },
+    { label: "Missing setup", value: missingSetupCount, state: "setup" },
+    { label: "Needs workflow", value: missingWorkflowCount, state: "future" }
+  ];
+
+  for (const card of cards) {
+    const cardElement = document.createElement("div");
+    cardElement.className = `diagnostic-summary-card is-${card.state}`;
+
+    const label = document.createElement("span");
+    label.textContent = card.label;
+    cardElement.append(label);
+
+    const value = document.createElement("strong");
+    value.textContent = report ? String(card.value) : "-";
+    cardElement.append(value);
+
+    elements.settingsWorkflowHealthSummary.append(cardElement);
   }
 }
 
@@ -4247,10 +4282,23 @@ function createWorkflowHealthCard(item: WorkflowHealthItem) {
   row.append(summary);
 
   if (item.detail) {
+    const toggle = document.createElement("button");
+    toggle.className = "button diagnostic-detail-toggle";
+    toggle.type = "button";
+    toggle.textContent = "Show details";
+    row.append(toggle);
+
     const detail = document.createElement("div");
-    detail.className = "workflow-health-detail";
+    detail.className = "workflow-health-detail diagnostic-muted";
     detail.textContent = item.detail;
+    detail.hidden = true;
     row.append(detail);
+
+    toggle.addEventListener("click", () => {
+      const shouldShow = detail.hidden;
+      detail.hidden = !shouldShow;
+      toggle.textContent = shouldShow ? "Hide details" : "Show details";
+    });
   }
 
   return row;
@@ -4307,17 +4355,28 @@ function formatHardwareReportLines(report: HardwareRecommendationReport | null) 
   ];
 }
 
-function formatDetectedFamilies(report: HardwareRecommendationReport) {
+function formatDetectedFamilySummary(report: HardwareRecommendationReport) {
   if (report.detectedFamilies.length === 0) {
     return "No known families detected";
   }
 
   return report.detectedFamilies
-    .map((family) => {
-      const examples = family.examples.length > 0 ? ` (${family.examples.join(", ")})` : "";
-      return `${family.label}: ${family.count}${examples}`;
-    })
-    .join("; ");
+    .map((family) => `${family.label}: ${family.count}`)
+    .join(", ");
+}
+
+function formatZImageTurboSettingsNote(report: HardwareRecommendationReport) {
+  const message = report.zImageTurboMessage.toLowerCase();
+
+  if (message.includes("stack detected")) {
+    return "Detected as a diffusion model stack.";
+  }
+
+  if (message.includes("diffusion model detected")) {
+    return "Diffusion model found; stack setup needs checking.";
+  }
+
+  return "Not found in diffusion model loaders.";
 }
 
 async function refreshDocumentStatus(elements: AppElements) {

@@ -10,7 +10,7 @@ OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop t
 
 ## Alpha Release
 
-`v0.4.5-alpha` is the current Settings diagnostics stabilization preview. It is intended for testing the core local workflow, not for production work yet.
+`v0.4.6-alpha` is the current Settings diagnostics readability preview. It is intended for testing the core local workflow, not for production work yet.
 
 Included in this alpha:
 
@@ -34,7 +34,7 @@ Included in this alpha:
 - Beginner-friendly model family guidance for SD 1.x, SDXL, SD3, Flux, and Z_image_Turbo
 - Workflow compatibility foundation that separates checkpoint presets from future diffusion-model-stack presets
 - Settings workflow health checker for registered presets, required ComfyUI node classes, and required model-stack files
-- Readable Settings diagnostics center with grouped workflow health cards and Copy Diagnostics support
+- Readable Settings diagnostics center with grouped workflow health cards, collapsed technical details, summary counts, and Copy Diagnostics support
 - Experimental Z_image_Turbo Text to Image and Image to Image presets using a dedicated diffusion-model-stack workflow path
 - Prompt from Layer foundation card for future Florence-2 PromptGen layer description
 - PNG/lossless source capture for Image to Image and Sketch to Image using raw Photoshop Imaging API pixels
@@ -50,7 +50,7 @@ Included in this alpha:
 
 ![OpenLayer v0.2.1 Home dashboard](docs/assets/openlayer-v021-dashboard.png)
 
-Known v0.4.5-alpha boundaries:
+Known v0.4.6-alpha boundaries:
 
 - Image to Image is an early foundation path, not a full production workflow yet.
 - Sketch to Image is limited to the first SD 1.x LINECN starter workflow.
@@ -179,7 +179,7 @@ npm run package
 This creates a zip package from `dist` in the `packages` folder. For the current alpha, the expected package name is:
 
 ```text
-packages/openlayer-v0.4.5-alpha.zip
+packages/openlayer-v0.4.6-alpha.zip
 ```
 
 ## Loading In UXP Developer Tool
@@ -304,20 +304,21 @@ Inpaint output quality, mask interpretation, and Photoshop alignment are still b
 
 ## Pre-release Tester Checklist
 
-Use this quick pass before reporting a v0.4.5-alpha test result:
+Use this quick pass before reporting a v0.4.6-alpha test result:
 
 1. Start ComfyUI on `http://127.0.0.1:8190`.
 2. Build OpenLayer and load `dist/manifest.json` in Adobe UXP Developer Tool.
 3. Open Photoshop, create or open a document, and launch OpenLayer.
 4. Open Settings and click `Check ComfyUI`; confirm checkpoints load.
 5. Click `Check Workflow Health`; confirm each registered preset shows Ready, Experimental, Missing model, Missing ComfyUI node, Missing workflow JSON, or Setup required.
-6. Click `Copy Diagnostics`; confirm the report is copied or appears in the read-only diagnostics box.
-7. Generate one `txt2img-basic` image and import it as a new layer.
-8. Open `Image to Image`, capture either the active layer or canvas, generate with `img2img-basic`, and click `Import to Layers`.
-9. Open `Sketch to Image`, capture either the active layer or canvas, generate with `sketch2img-linecn-basic`, and click `Import to Layers`.
-10. Open `Inpaint`, make a Photoshop selection, click `Capture Selection`, and confirm the selected-region preview and mask preview appear.
-11. Generate with `inpaint-basic` using an SD 1.x checkpoint, then click `Import to Layers`.
-12. Resize the panel narrow and wide; confirm Settings, workflow health cards, buttons, preview, and footer remain readable and reachable.
+6. Confirm Settings shows readable summary counts and collapsed technical details without overlapping cards.
+7. Click `Copy Diagnostics`; confirm the report is copied or appears in the read-only diagnostics box.
+8. Generate one `txt2img-basic` image and import it as a new layer.
+9. Open `Image to Image`, capture either the active layer or canvas, generate with `img2img-basic`, and click `Import to Layers`.
+10. Open `Sketch to Image`, capture either the active layer or canvas, generate with `sketch2img-linecn-basic`, and click `Import to Layers`.
+11. Open `Inpaint`, make a Photoshop selection, click `Capture Selection`, and confirm the selected-region preview and mask preview appear.
+12. Generate with `inpaint-basic` using an SD 1.x checkpoint, then click `Import to Layers`.
+13. Resize the panel narrow and wide; confirm Settings, workflow health cards, buttons, preview, and footer remain readable and reachable.
 
 ## Testing Checklist
 

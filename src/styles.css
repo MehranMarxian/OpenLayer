@@ -990,11 +990,14 @@ a:hover {
 .settings-panel > .field,
 .settings-panel > .button,
 .settings-panel > .settings-button-stack,
+.settings-panel > .diagnostic-action-stack,
 .settings-panel > .settings-actions,
 .settings-panel > .status-bar,
 .settings-panel > .diagnostics-line,
 .settings-panel > .error-message,
 .settings-panel > .settings-list,
+.settings-panel > .diagnostic-list,
+.settings-panel > .diagnostic-summary-grid,
 .settings-panel > .workflow-health-list,
 .settings-panel > .diagnostics-report {
   margin-bottom: 13px;
@@ -1002,6 +1005,172 @@ a:hover {
 
 .settings-panel > *:last-child {
   margin-bottom: 0;
+}
+
+.settings-view {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  overflow: visible;
+}
+
+.settings-view > * {
+  margin-bottom: 18px;
+}
+
+.settings-view > *:last-child {
+  margin-bottom: 0;
+}
+
+.panel-section.settings-panel.diagnostic-section {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  clear: both;
+  margin: 0 0 18px;
+  padding: 12px;
+  overflow: visible;
+}
+
+.diagnostic-section > * {
+  min-width: 0;
+  margin-bottom: 12px;
+}
+
+.diagnostic-section > *:last-child {
+  margin-bottom: 0;
+}
+
+.diagnostic-section .section-heading {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.diagnostic-action-stack,
+.settings-button-stack.diagnostic-action-stack {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+.diagnostic-action-stack .button,
+.settings-button-stack.diagnostic-action-stack .button {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  margin: 0 0 10px;
+}
+
+.diagnostic-action-stack .button:last-child,
+.settings-button-stack.diagnostic-action-stack .button:last-child {
+  margin-bottom: 0;
+}
+
+.diagnostic-list,
+.settings-list.diagnostic-list {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+.diagnostic-list div,
+.settings-list.diagnostic-list div {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  padding: 0 0 9px;
+  margin: 0 0 9px;
+}
+
+.diagnostic-list span,
+.settings-list.diagnostic-list span {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  color: #a7a7a7;
+}
+
+.diagnostic-list strong,
+.settings-list.diagnostic-list strong {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin-top: 3px;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.diagnostic-summary-grid {
+  display: flex;
+  width: auto;
+  min-width: 0;
+  flex-wrap: wrap;
+  margin: 0 -4px 6px;
+}
+
+.diagnostic-summary-card {
+  display: block;
+  min-width: 94px;
+  flex: 1 1 120px;
+  border: 1px solid #4f4f4f;
+  border-radius: 8px;
+  padding: 8px 9px;
+  margin: 0 4px 8px;
+  background: #2d2d2d;
+}
+
+.diagnostic-summary-card span {
+  display: block;
+  overflow: hidden;
+  color: #a8a8a8;
+  font-size: 10px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diagnostic-summary-card strong {
+  display: block;
+  margin-top: 3px;
+  color: #f0f0f0;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.diagnostic-summary-card.is-ready {
+  border-color: rgba(86, 159, 103, 0.52);
+}
+
+.diagnostic-summary-card.is-experimental {
+  border-color: rgba(215, 182, 75, 0.58);
+}
+
+.diagnostic-summary-card.is-setup,
+.diagnostic-summary-card.is-future {
+  border-color: rgba(181, 72, 72, 0.45);
+}
+
+.diagnostic-muted {
+  color: #9a9a9a;
+}
+
+.diagnostic-detail-toggle {
+  display: flex;
+  width: 100%;
+  min-height: 28px;
+  margin-top: 8px;
+  padding: 5px 8px;
+  font-size: 11px;
+}
+
+.diagnostic-scroll-safe {
+  overflow: visible;
 }
 
 .field {

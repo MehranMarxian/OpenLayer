@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased / v0.4.6-alpha draft - 2026-06-28
+
+Settings diagnostics readability pass for Photoshop UXP.
+
+### Added
+
+- Added Workflow Health summary cards for Ready, Experimental, Missing setup, and Needs workflow counts.
+- Added collapsed technical details for workflow health cards so artists see short readable messages first.
+
+### Changed
+
+- Bumped plugin/package metadata to `0.4.6`.
+- Rebuilt the Settings diagnostic layout with UXP-safe block and flex rules so panels and buttons stack cleanly in narrow Photoshop panels.
+- Moved Settings actions into one full-width action stack: Check ComfyUI, Find ComfyUI Active Port, Detect GPU, Check Workflow Health, Copy Diagnostics, Save Settings, and Reset Defaults.
+- Simplified Hardware Advisor rows and shortened the Z_image_Turbo / Flux explanation in Settings.
+
+### Known Limitations
+
+- This is a Settings UI readability release only. It does not change generation behavior, workflow JSON files, model loading, ComfyUI requests, or import behavior.
+- Workflow Health remains advisory and technical details are still meant for setup/debugging, not everyday artist controls.
+
 ## Unreleased / v0.4.5-alpha draft - 2026-06-28
 
 Settings diagnostics stabilization for readable workflow health testing.
