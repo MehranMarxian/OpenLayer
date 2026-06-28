@@ -9,15 +9,19 @@ import { ComfyWorkflow } from "../../src/comfy/types";
 import { getTechnicalErrorDetails } from "../../src/utils/errors";
 
 describe("presetRegistry", () => {
-  it("keeps future diffusion-stack presets registered but not runnable", () => {
+  it("keeps Z_image_Turbo runnable while future Flux presets stay registered but disabled", () => {
     const allTxt2ImgIds = listWorkflowPresets("txt2img").map((preset) => preset.id);
     const runnableTxt2ImgIds = listRunnableWorkflowPresets("txt2img").map((preset) => preset.id);
+    const allImg2ImgIds = listWorkflowPresets("img2img").map((preset) => preset.id);
+    const runnableImg2ImgIds = listRunnableWorkflowPresets("img2img").map((preset) => preset.id);
     const allInpaintIds = listWorkflowPresets("inpaint").map((preset) => preset.id);
     const runnableInpaintIds = listRunnableWorkflowPresets("inpaint").map((preset) => preset.id);
 
     expect(allTxt2ImgIds).toContain("txt2img-z-image-turbo");
     expect(allTxt2ImgIds).toContain("txt2img-flux1-dev");
-    expect(runnableTxt2ImgIds).toEqual(["txt2img-basic"]);
+    expect(runnableTxt2ImgIds).toEqual(["txt2img-basic", "txt2img-z-image-turbo"]);
+    expect(allImg2ImgIds).toContain("img2img-z-image-turbo");
+    expect(runnableImg2ImgIds).toEqual(["img2img-basic", "img2img-z-image-turbo"]);
     expect(allInpaintIds).toEqual(["inpaint-basic", "inpaint-flux-fill-basic"]);
     expect(runnableInpaintIds).toEqual(["inpaint-basic", "inpaint-flux-fill-basic"]);
   });
@@ -47,9 +51,11 @@ describe("presetRegistry", () => {
   it("marks Z_image_Turbo as a diffusion model stack preset", () => {
     const preset = getWorkflowPreset("txt2img-z-image-turbo");
 
-    expect(preset.status).toBe("todo");
+    expect(preset.status).toBe("experimental");
     expect(preset.modelSource.kind).toBe("diffusion-model-stack");
     expect(preset.modelStack?.some((model) => model.modelName === "z_image_turbo_bf16.safetensors")).toBe(true);
+    expect(preset.requiredModels?.some((model) => model.modelName === "qwen_3_4b.safetensors")).toBe(true);
+    expect(preset.requiredNodes.some((node) => node.classType === "ModelSamplingAuraFlow")).toBe(true);
   });
 
   it("reports missing workflow inputs with remapping guidance", () => {

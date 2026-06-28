@@ -41,7 +41,7 @@ import {
 } from "../utils/preferences";
 
 const DEFAULT_SERVER_URL = "http://127.0.0.1:8190";
-const APP_VERSION = "0.4.1";
+const APP_VERSION = "0.4.3";
 const DEVELOPER_GITHUB = "https://github.com/MehranMarxian";
 const HISTORY_LIMIT = 5;
 const COMFY_PORT_CANDIDATES = [8190, 8188, 8189, 8191, 8192, 8193, 7860];
@@ -73,7 +73,15 @@ const FALLBACK_CHECKPOINTS = [
 ];
 
 type StatusTone = "idle" | "ready" | "error";
-type AppView = "home" | "text-to-image" | "image-to-image" | "sketch-to-image" | "inpaint" | "settings" | "history";
+type AppView =
+  | "home"
+  | "text-to-image"
+  | "image-to-image"
+  | "sketch-to-image"
+  | "inpaint"
+  | "prompt-from-layer"
+  | "settings"
+  | "history";
 type ToolCardStatus = "available" | "experimental" | "coming-soon";
 
 type ToolCard = {
@@ -91,6 +99,7 @@ type ToolIconName =
   | "brush"
   | "expand"
   | "lineart"
+  | "promptFromLayer"
   | "upscale"
   | "style"
   | "control"
@@ -123,6 +132,14 @@ const TOOL_CARDS: ToolCard[] = [
     icon: "brush",
     status: "experimental",
     view: "inpaint"
+  },
+  {
+    id: "prompt-from-layer",
+    title: "Prompt from Layer",
+    subtitle: "Describe a layer into prompt text",
+    icon: "promptFromLayer",
+    status: "experimental",
+    view: "prompt-from-layer"
   },
   {
     id: "outpaint",
@@ -198,6 +215,7 @@ type AppElements = {
   imageToImageView: HTMLElement;
   sketchToImageView: HTMLElement;
   inpaintView: HTMLElement;
+  promptFromLayerView: HTMLElement;
   settingsView: HTMLElement;
   historyView: HTMLElement;
   homeStatusText: HTMLElement;
@@ -256,6 +274,11 @@ type AppElements = {
   captureInpaintSelectionButton: HTMLElement;
   generateInpaintButton: HTMLElement;
   importInpaintButton: HTMLElement;
+  capturePromptLayerButton: HTMLElement;
+  capturePromptCanvasButton: HTMLElement;
+  generatePromptLayerButton: HTMLElement;
+  copyPromptLayerButton: HTMLElement;
+  sendPromptLayerButton: HTMLElement;
   experimentalCheckpointToggle: HTMLElement;
   negativePromptToggle: HTMLElement;
   negativePromptField: HTMLElement;
@@ -268,6 +291,8 @@ type AppElements = {
   sketchStatusPill: HTMLElement;
   inpaintStatusText: HTMLElement;
   inpaintStatusPill: HTMLElement;
+  promptLayerStatusText: HTMLElement;
+  promptLayerStatusPill: HTMLElement;
   settingsStatusText: HTMLElement;
   settingsStatusPill: HTMLElement;
   diagnosticsText: HTMLElement;
@@ -277,11 +302,13 @@ type AppElements = {
   sketchCompatibilityNote: HTMLElement;
   inpaintDiagnosticsText: HTMLElement;
   inpaintCompatibilityNote: HTMLElement;
+  promptLayerDiagnosticsText: HTMLElement;
   settingsDiagnosticsText: HTMLElement;
   errorMessage: HTMLElement;
   imgErrorMessage: HTMLElement;
   sketchErrorMessage: HTMLElement;
   inpaintErrorMessage: HTMLElement;
+  promptLayerErrorMessage: HTMLElement;
   settingsErrorMessage: HTMLElement;
   previewPanel: HTMLElement;
   imageSourcePreviewPanel: HTMLElement;
@@ -298,6 +325,10 @@ type AppElements = {
   inpaintMaskPreviewPanel: HTMLElement;
   inpaintMaskMeta: HTMLElement;
   inpaintResultPreviewPanel: HTMLElement;
+  promptLayerSourcePreviewPanel: HTMLElement;
+  promptLayerSourceTitle: HTMLElement;
+  promptLayerSourceMeta: HTMLElement;
+  promptLayerGeneratedText: HTMLTextAreaElement;
   historyList: HTMLElement;
   settingsUrlValue: HTMLElement;
   settingsCheckpointCount: HTMLElement;
@@ -354,6 +385,8 @@ export function renderApp(rootElement: HTMLElement) {
   let inpaintMaskPreviewUrl = "";
   let inpaintResultPreviewUrl = "";
   let inpaintLivePreviewUrl = "";
+  let promptLayerSource: ImageSourceState | null = null;
+  let promptLayerSourcePreviewUrl = "";
   let importAutomatically = false;
   let isNegativePromptOpen = false;
   let allowExperimentalCheckpoints = false;
@@ -393,6 +426,11 @@ export function renderApp(rootElement: HTMLElement) {
     captureInpaintSelection: createActionRunner(elements, "captureInpaintSelection", handleCaptureInpaintSelection),
     generateInpaint: createActionRunner(elements, "generateInpaint", handleGenerateInpaint),
     importInpaint: createActionRunner(elements, "importInpaint", handleImportInpaint),
+    capturePromptLayerSource: createActionRunner(elements, "capturePromptLayerSource", handleCapturePromptLayerSource),
+    capturePromptCanvasSource: createActionRunner(elements, "capturePromptCanvasSource", handleCapturePromptCanvasSource),
+    generatePromptFromLayer: createActionRunner(elements, "generatePromptFromLayer", handleGeneratePromptFromLayer),
+    copyPromptFromLayer: createActionRunner(elements, "copyPromptFromLayer", handleCopyPromptFromLayer),
+    sendPromptToTextToImage: createActionRunner(elements, "sendPromptToTextToImage", handleSendPromptToTextToImage),
     clearHistory: createActionRunner(elements, "clearHistory", handleClearHistory)
   };
 
@@ -417,6 +455,11 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.captureInpaintSelectionButton, actionHandlers.captureInpaintSelection);
   bindActionControl(elements.generateInpaintButton, actionHandlers.generateInpaint);
   bindActionControl(elements.importInpaintButton, actionHandlers.importInpaint);
+  bindActionControl(elements.capturePromptLayerButton, actionHandlers.capturePromptLayerSource);
+  bindActionControl(elements.capturePromptCanvasButton, actionHandlers.capturePromptCanvasSource);
+  bindActionControl(elements.generatePromptLayerButton, actionHandlers.generatePromptFromLayer);
+  bindActionControl(elements.copyPromptLayerButton, actionHandlers.copyPromptFromLayer);
+  bindActionControl(elements.sendPromptLayerButton, actionHandlers.sendPromptToTextToImage);
   bindActionControl(elements.clearHistoryButton, actionHandlers.clearHistory);
   bindDelegatedActions(rootElement, actionHandlers);
   bindDocumentActions(rootElement, actionHandlers);
@@ -440,13 +483,14 @@ export function renderApp(rootElement: HTMLElement) {
   updateInpaintCheckpointCompatibility(elements, inpaintSource);
   setInpaintSource(null);
   setInpaintResult(null);
+  setPromptLayerSource(null);
   updateSettingsReport(elements);
   renderHardwareReport(elements, hardwareReport);
   renderHistory(elements, historyEntries);
   void loadInitialCheckpoints();
 
   elements.workflow.addEventListener("change", () => {
-    updateTextCheckpointCompatibility(elements);
+    void refreshTextModelOptionsForSelectedPreset(elements).then(() => updateTextCheckpointCompatibility(elements));
   });
 
   elements.checkpoint.addEventListener("change", () => {
@@ -454,7 +498,9 @@ export function renderApp(rootElement: HTMLElement) {
   });
 
   elements.imgWorkflow.addEventListener("change", () => {
-    updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
+    void refreshImageModelOptionsForSelectedPreset(elements).then(() => (
+      updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource)
+    ));
   });
 
   elements.imgCheckpoint.addEventListener("change", () => {
@@ -485,6 +531,8 @@ export function renderApp(rootElement: HTMLElement) {
       const client = new ComfyClient(elements.serverUrl.value);
       await client.checkOnline();
       await loadCheckpoints(client, elements, preferences.checkpointName || readSelectValue(elements.checkpoint));
+      await refreshTextModelOptionsForSelectedPreset(elements, client);
+      await refreshImageModelOptionsForSelectedPreset(elements, client);
       await refreshInpaintModelOptionsForSelectedPreset(elements, client);
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
       updateSketchCheckpointCompatibility(elements, sketchSource);
@@ -508,6 +556,8 @@ export function renderApp(rootElement: HTMLElement) {
       const client = new ComfyClient(elements.serverUrl.value);
       await client.checkOnline();
       await loadCheckpoints(client, elements);
+      await refreshTextModelOptionsForSelectedPreset(elements, client);
+      await refreshImageModelOptionsForSelectedPreset(elements, client);
       await refreshInpaintModelOptionsForSelectedPreset(elements, client);
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
       updateSketchCheckpointCompatibility(elements, sketchSource);
@@ -543,6 +593,8 @@ export function renderApp(rootElement: HTMLElement) {
     try {
       const client = new ComfyClient(foundUrl);
       await loadCheckpoints(client, elements);
+      await refreshTextModelOptionsForSelectedPreset(elements, client);
+      await refreshImageModelOptionsForSelectedPreset(elements, client);
       await refreshInpaintModelOptionsForSelectedPreset(elements, client);
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
       updateSketchCheckpointCompatibility(elements, sketchSource);
@@ -1580,6 +1632,108 @@ export function renderApp(rootElement: HTMLElement) {
     }
   }
 
+  async function handleCapturePromptLayerSource() {
+    await capturePromptFromLayerSource({
+      progressMessage: "Capturing active Photoshop layer for Prompt from Layer...",
+      statusMessage: "Capturing active layer...",
+      successMessage: "Layer captured.",
+      capture: exportActiveLayerForImageToImage
+    });
+  }
+
+  async function handleCapturePromptCanvasSource() {
+    await capturePromptFromLayerSource({
+      progressMessage: "Capturing Photoshop canvas for Prompt from Layer...",
+      statusMessage: "Capturing canvas...",
+      successMessage: "Canvas captured.",
+      capture: exportCanvasForImageToImage
+    });
+  }
+
+  async function capturePromptFromLayerSource(options: {
+    progressMessage: string;
+    statusMessage: string;
+    successMessage: string;
+    capture: () => Promise<ExportedSourceImage>;
+  }) {
+    setPromptLayerDiagnostics(elements, options.progressMessage);
+    setPromptLayerError(elements, "");
+    setPromptLayerStatus(elements, options.statusMessage, "idle");
+    isBusy = true;
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+
+    try {
+      const exportedSource = await options.capture();
+      const sourcePreview = URL.createObjectURL(exportedSource.blob);
+      setPromptLayerSource({
+        ...exportedSource,
+        previewUrl: sourcePreview
+      });
+      setPromptLayerStatus(elements, options.successMessage, "ready");
+      setPromptLayerDiagnostics(
+        elements,
+        `${createSourceCaptureMessage(exportedSource)} Prompt from Layer needs a validated Florence-2 PromptGen workflow before text generation is enabled.`
+      );
+    } catch (caughtError) {
+      setPromptLayerStatus(elements, "Source capture failed.", "error");
+      setPromptLayerError(elements, getErrorMessage(caughtError));
+      setPromptLayerDiagnostics(elements, getTechnicalErrorDetails(caughtError));
+    } finally {
+      isBusy = false;
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+    }
+  }
+
+  function handleGeneratePromptFromLayer() {
+    if (!promptLayerSource) {
+      setPromptLayerStatus(elements, "Source required.", "error");
+      setPromptLayerError(elements, "Capture an active layer or canvas before generating prompt text.");
+      return;
+    }
+
+    setPromptLayerStatus(elements, "PromptGen setup required.", "error");
+    setPromptLayerError(
+      elements,
+      "Florence-2 PromptGen nodes and model are detected locally, but OpenLayer still needs a validated API workflow and text-output reader before this feature can run."
+    );
+    setPromptLayerDiagnostics(
+      elements,
+      "Required foundation: Florence2ModelLoader or DownloadAndLoadFlorence2Model, Florence2Run, Florence-2-base-PromptGen-v2.0, source PNG upload, and ComfyUI text output parsing."
+    );
+  }
+
+  async function handleCopyPromptFromLayer() {
+    const generatedText = elements.promptLayerGeneratedText.value.trim();
+
+    if (!generatedText) {
+      setPromptLayerError(elements, "No generated prompt text to copy yet.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(generatedText);
+      setPromptLayerStatus(elements, "Prompt copied.", "ready");
+      setPromptLayerError(elements, "");
+    } catch {
+      setPromptLayerStatus(elements, "Copy unavailable.", "error");
+      setPromptLayerError(elements, "Clipboard access is unavailable in this UXP environment.");
+    }
+  }
+
+  function handleSendPromptToTextToImage() {
+    const generatedText = elements.promptLayerGeneratedText.value.trim();
+
+    if (!generatedText) {
+      setPromptLayerError(elements, "No generated prompt text to send yet.");
+      return;
+    }
+
+    elements.prompt.value = generatedText;
+    setPromptLayerError(elements, "");
+    setView("text-to-image");
+    updateTextCheckpointCompatibility(elements);
+  }
+
   function setResult(nextResult: GeneratedImageResult | null) {
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
@@ -1932,6 +2086,34 @@ export function renderApp(rootElement: HTMLElement) {
     elements.inpaintResultPreviewPanel.append(progress);
   }
 
+  function setPromptLayerSource(nextSource: ImageSourceState | null) {
+    if (promptLayerSourcePreviewUrl) {
+      URL.revokeObjectURL(promptLayerSourcePreviewUrl);
+      promptLayerSourcePreviewUrl = "";
+    }
+
+    promptLayerSource = nextSource;
+    elements.promptLayerSourcePreviewPanel.innerHTML = "";
+
+    if (!promptLayerSource) {
+      const empty = document.createElement("span");
+      empty.className = "source-empty";
+      empty.textContent = "None";
+      elements.promptLayerSourcePreviewPanel.append(empty);
+      elements.promptLayerSourceTitle.textContent = "No source captured";
+      elements.promptLayerSourceMeta.textContent = "Choose active layer or full canvas.";
+      return;
+    }
+
+    promptLayerSourcePreviewUrl = promptLayerSource.previewUrl;
+    const image = document.createElement("img");
+    image.src = promptLayerSourcePreviewUrl;
+    image.alt = "Captured Photoshop source for Prompt from Layer";
+    elements.promptLayerSourcePreviewPanel.append(image);
+    elements.promptLayerSourceTitle.textContent = promptLayerSource.sourceName;
+    elements.promptLayerSourceMeta.textContent = createSourceMetaText(promptLayerSource);
+  }
+
   function setView(view: AppView) {
     currentView = view;
     elements.homeView.hidden = currentView !== "home";
@@ -1939,6 +2121,7 @@ export function renderApp(rootElement: HTMLElement) {
     elements.imageToImageView.hidden = currentView !== "image-to-image";
     elements.sketchToImageView.hidden = currentView !== "sketch-to-image";
     elements.inpaintView.hidden = currentView !== "inpaint";
+    elements.promptFromLayerView.hidden = currentView !== "prompt-from-layer";
     elements.settingsView.hidden = currentView !== "settings";
     elements.historyView.hidden = currentView !== "history";
 
@@ -1966,6 +2149,58 @@ function createAppMarkup() {
         <div class="tool-grid">
           ${TOOL_CARDS.map(createToolCardMarkup).join("")}
         </div>
+      </section>
+
+      <section class="prompt-from-layer-view image-to-image-view" id="prompt-from-layer-view" aria-label="Prompt from Layer" hidden>
+        <div class="screen-nav">
+          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
+          <div class="screen-title-block">
+            <span class="screen-kicker">PFL</span>
+            <span class="screen-title">Prompt from Layer</span>
+          </div>
+        </div>
+
+        <section class="panel-section generator-panel source-panel" aria-label="Prompt from Layer source">
+          <div class="section-heading">
+            <span class="label">Source layer</span>
+            <span class="muted-label">Vision input</span>
+          </div>
+          <div class="source-action-row" aria-label="Prompt from Layer source capture actions">
+            <button class="button source-action-button action-control" id="capture-prompt-layer-source" data-openlayer-action="capturePromptLayerSource" type="button">Capture Active Layer</button>
+            <button class="button source-action-button action-control" id="capture-prompt-canvas-source" data-openlayer-action="capturePromptCanvasSource" type="button">Capture Canvas</button>
+          </div>
+          <div class="source-card">
+            <div class="source-thumb-frame" id="prompt-layer-source-preview-panel">
+              <span class="source-empty">None</span>
+            </div>
+            <div class="source-card-body">
+              <span class="source-title" id="prompt-layer-source-title">No source captured</span>
+              <span class="source-card-meta" id="prompt-layer-source-meta">Choose active layer or full canvas.</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel-section generator-panel" aria-label="Prompt from Layer text">
+          <div class="section-heading">
+            <span class="label">Generated prompt</span>
+            <span class="muted-label">Florence-2 PromptGen foundation</span>
+          </div>
+          <textarea class="textarea compact-textarea" id="prompt-layer-generated-text" placeholder="Generated prompt text will appear here after the Florence workflow is connected."></textarea>
+          <button class="button button-primary button-generate button-wide action-control" id="generate-prompt-from-layer" data-openlayer-action="generatePromptFromLayer" type="button">Generate Text from Layer</button>
+          <div class="import-actions">
+            <button class="button action-control" id="copy-prompt-from-layer" data-openlayer-action="copyPromptFromLayer" type="button">Copy Prompt</button>
+            <button class="button action-control" id="send-prompt-to-text-to-image" data-openlayer-action="sendPromptToTextToImage" type="button">Send to Text to Image</button>
+          </div>
+        </section>
+
+        <section class="generation-status-panel" aria-label="Prompt from Layer status">
+          <div class="status-bar" role="status">
+            <span class="status-text" id="prompt-layer-status-text">Foundation ready.</span>
+            <span class="status-pill idle" id="prompt-layer-status-pill">Status</span>
+          </div>
+          <div class="diagnostics-line" id="prompt-layer-diagnostics-text">Florence-2 PromptGen support is prepared as a setup-required foundation.</div>
+          <div class="error-message" id="prompt-layer-error-message" hidden></div>
+        </section>
       </section>
 
       <section class="settings-view" id="settings-view" aria-label="Settings" hidden>
@@ -2071,7 +2306,7 @@ function createAppMarkup() {
             </select>
           </label>
           <label class="field">
-            <span class="label">Checkpoint</span>
+            <span class="label">Model</span>
             <select class="select" id="checkpoint">
               ${FALLBACK_CHECKPOINTS.map((checkpoint) => `<option value="${checkpoint}">${checkpoint}</option>`).join("")}
             </select>
@@ -2177,7 +2412,7 @@ function createAppMarkup() {
             </select>
           </div>
           <div class="field img2img-field">
-            <span class="label">Checkpoint</span>
+            <span class="label">Model</span>
             <select class="select" id="img-checkpoint">
               ${FALLBACK_CHECKPOINTS.map((checkpoint) => `<option value="${checkpoint}">${checkpoint}</option>`).join("")}
             </select>
@@ -2514,6 +2749,7 @@ function createToolIconMarkup(icon: ToolIconName) {
     brush: "INP",
     expand: "OUT",
     lineart: "SK",
+    promptFromLayer: "PFL",
     upscale: "UP",
     style: "ST",
     control: "WFP",
@@ -2533,6 +2769,7 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     imageToImageView: getElement<HTMLElement>(rootElement, "image-to-image-view"),
     sketchToImageView: getElement<HTMLElement>(rootElement, "sketch-to-image-view"),
     inpaintView: getElement<HTMLElement>(rootElement, "inpaint-view"),
+    promptFromLayerView: getElement<HTMLElement>(rootElement, "prompt-from-layer-view"),
     settingsView: getElement<HTMLElement>(rootElement, "settings-view"),
     historyView: getElement<HTMLElement>(rootElement, "history-view"),
     homeStatusText: getElement<HTMLElement>(rootElement, "home-status-text"),
@@ -2591,6 +2828,11 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     captureInpaintSelectionButton: getElement<HTMLElement>(rootElement, "capture-inpaint-selection"),
     generateInpaintButton: getElement<HTMLElement>(rootElement, "generate-inpaint"),
     importInpaintButton: getElement<HTMLElement>(rootElement, "import-inpaint-result"),
+    capturePromptLayerButton: getElement<HTMLElement>(rootElement, "capture-prompt-layer-source"),
+    capturePromptCanvasButton: getElement<HTMLElement>(rootElement, "capture-prompt-canvas-source"),
+    generatePromptLayerButton: getElement<HTMLElement>(rootElement, "generate-prompt-from-layer"),
+    copyPromptLayerButton: getElement<HTMLElement>(rootElement, "copy-prompt-from-layer"),
+    sendPromptLayerButton: getElement<HTMLElement>(rootElement, "send-prompt-to-text-to-image"),
     experimentalCheckpointToggle: getElement<HTMLElement>(rootElement, "experimental-checkpoint-toggle"),
     negativePromptToggle: getElement<HTMLElement>(rootElement, "negative-prompt-toggle"),
     negativePromptField: getElement<HTMLElement>(rootElement, "negative-prompt-field"),
@@ -2603,6 +2845,8 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     sketchStatusPill: getElement<HTMLElement>(rootElement, "sketch-status-pill"),
     inpaintStatusText: getElement<HTMLElement>(rootElement, "inpaint-status-text"),
     inpaintStatusPill: getElement<HTMLElement>(rootElement, "inpaint-status-pill"),
+    promptLayerStatusText: getElement<HTMLElement>(rootElement, "prompt-layer-status-text"),
+    promptLayerStatusPill: getElement<HTMLElement>(rootElement, "prompt-layer-status-pill"),
     settingsStatusText: getElement<HTMLElement>(rootElement, "settings-status-text"),
     settingsStatusPill: getElement<HTMLElement>(rootElement, "settings-status-pill"),
     diagnosticsText: getElement<HTMLElement>(rootElement, "diagnostics-text"),
@@ -2612,11 +2856,13 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     sketchCompatibilityNote: getElement<HTMLElement>(rootElement, "sketch-compatibility-note"),
     inpaintDiagnosticsText: getElement<HTMLElement>(rootElement, "inpaint-diagnostics-text"),
     inpaintCompatibilityNote: getElement<HTMLElement>(rootElement, "inpaint-compatibility-note"),
+    promptLayerDiagnosticsText: getElement<HTMLElement>(rootElement, "prompt-layer-diagnostics-text"),
     settingsDiagnosticsText: getElement<HTMLElement>(rootElement, "settings-diagnostics-text"),
     errorMessage: getElement<HTMLElement>(rootElement, "error-message"),
     imgErrorMessage: getElement<HTMLElement>(rootElement, "img-error-message"),
     sketchErrorMessage: getElement<HTMLElement>(rootElement, "sketch-error-message"),
     inpaintErrorMessage: getElement<HTMLElement>(rootElement, "inpaint-error-message"),
+    promptLayerErrorMessage: getElement<HTMLElement>(rootElement, "prompt-layer-error-message"),
     settingsErrorMessage: getElement<HTMLElement>(rootElement, "settings-error-message"),
     previewPanel: getElement<HTMLElement>(rootElement, "preview-panel"),
     imageSourcePreviewPanel: getElement<HTMLElement>(rootElement, "image-source-preview-panel"),
@@ -2633,6 +2879,10 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     inpaintMaskPreviewPanel: getElement<HTMLElement>(rootElement, "inpaint-mask-preview-panel"),
     inpaintMaskMeta: getElement<HTMLElement>(rootElement, "inpaint-mask-meta"),
     inpaintResultPreviewPanel: getElement<HTMLElement>(rootElement, "inpaint-result-preview-panel"),
+    promptLayerSourcePreviewPanel: getElement<HTMLElement>(rootElement, "prompt-layer-source-preview-panel"),
+    promptLayerSourceTitle: getElement<HTMLElement>(rootElement, "prompt-layer-source-title"),
+    promptLayerSourceMeta: getElement<HTMLElement>(rootElement, "prompt-layer-source-meta"),
+    promptLayerGeneratedText: getElement<HTMLTextAreaElement>(rootElement, "prompt-layer-generated-text"),
     historyList: getElement<HTMLElement>(rootElement, "history-list"),
     settingsUrlValue: getElement<HTMLElement>(rootElement, "settings-url-value"),
     settingsCheckpointCount: getElement<HTMLElement>(rootElement, "settings-checkpoint-count"),
@@ -2705,6 +2955,7 @@ function setBusy(
   elements.inpaintCfg.disabled = isBusy;
   elements.inpaintSeed.disabled = isBusy;
   elements.inpaintDenoise.disabled = isBusy;
+  elements.promptLayerGeneratedText.disabled = isBusy;
   setActionDisabled(elements.checkButton, isBusy);
   setActionDisabled(elements.findPortButton, isBusy);
   setActionDisabled(elements.detectHardwareButton, isBusy);
@@ -2726,6 +2977,11 @@ function setBusy(
   setActionDisabled(elements.captureInpaintSelectionButton, isBusy);
   setActionDisabled(elements.generateInpaintButton, isBusy || !inpaintSource);
   setActionDisabled(elements.importInpaintButton, isBusy || !inpaintResult);
+  setActionDisabled(elements.capturePromptLayerButton, isBusy);
+  setActionDisabled(elements.capturePromptCanvasButton, isBusy);
+  setActionDisabled(elements.generatePromptLayerButton, isBusy);
+  setActionDisabled(elements.copyPromptLayerButton, isBusy);
+  setActionDisabled(elements.sendPromptLayerButton, isBusy);
   setActionDisabled(elements.clearHistoryButton, isBusy);
 }
 
@@ -2742,6 +2998,9 @@ function setStatus(elements: AppElements, status: string, tone: StatusTone) {
   elements.inpaintStatusText.textContent = status;
   elements.inpaintStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
   elements.inpaintStatusPill.className = `status-pill ${tone}`;
+  elements.promptLayerStatusText.textContent = status;
+  elements.promptLayerStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
+  elements.promptLayerStatusPill.className = `status-pill ${tone}`;
   elements.settingsStatusText.textContent = status;
   elements.settingsStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
   elements.settingsStatusPill.className = `status-pill ${tone}`;
@@ -2773,6 +3032,14 @@ function setInpaintStatus(elements: AppElements, status: string, tone: StatusTon
   elements.homeStatusDot.className = `home-status-dot ${tone}`;
 }
 
+function setPromptLayerStatus(elements: AppElements, status: string, tone: StatusTone) {
+  elements.promptLayerStatusText.textContent = status;
+  elements.promptLayerStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
+  elements.promptLayerStatusPill.className = `status-pill ${tone}`;
+  elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
+  elements.homeStatusDot.className = `home-status-dot ${tone}`;
+}
+
 function setError(elements: AppElements, message: string) {
   elements.errorMessage.textContent = message;
   elements.errorMessage.hidden = !message;
@@ -2795,11 +3062,17 @@ function setInpaintError(elements: AppElements, message: string) {
   elements.inpaintErrorMessage.hidden = !message;
 }
 
+function setPromptLayerError(elements: AppElements, message: string) {
+  elements.promptLayerErrorMessage.textContent = message;
+  elements.promptLayerErrorMessage.hidden = !message;
+}
+
 function setDiagnostics(elements: AppElements, message: string) {
   elements.diagnosticsText.textContent = message;
   elements.imgDiagnosticsText.textContent = message;
   elements.sketchDiagnosticsText.textContent = message;
   elements.inpaintDiagnosticsText.textContent = message;
+  elements.promptLayerDiagnosticsText.textContent = message;
   elements.settingsDiagnosticsText.textContent = message;
 }
 
@@ -2815,6 +3088,11 @@ function setSketchDiagnostics(elements: AppElements, message: string) {
 
 function setInpaintDiagnostics(elements: AppElements, message: string) {
   elements.inpaintDiagnosticsText.textContent = message;
+  elements.settingsDiagnosticsText.textContent = message;
+}
+
+function setPromptLayerDiagnostics(elements: AppElements, message: string) {
+  elements.promptLayerDiagnosticsText.textContent = message;
   elements.settingsDiagnosticsText.textContent = message;
 }
 
@@ -2960,6 +3238,11 @@ type ActionName =
   | "captureInpaintSelection"
   | "generateInpaint"
   | "importInpaint"
+  | "capturePromptLayerSource"
+  | "capturePromptCanvasSource"
+  | "generatePromptFromLayer"
+  | "copyPromptFromLayer"
+  | "sendPromptToTextToImage"
   | "clearHistory";
 type HistoryActionName = "preview" | "import";
 type ActionRunner = (eventName: string) => void;
@@ -3296,6 +3579,59 @@ async function loadCheckpoints(client: ComfyClient, elements: AppElements, prefe
   }
 
   fillCheckpointOptions(elements, checkpoints, preferredValue);
+}
+
+async function refreshTextModelOptionsForSelectedPreset(
+  elements: AppElements,
+  client = new ComfyClient(elements.serverUrl.value),
+  preferredValue = readSelectValue(elements.checkpoint)
+) {
+  await refreshModelOptionsForSelectedPreset(
+    elements.workflow,
+    elements.checkpoint,
+    DEFAULT_WORKFLOW,
+    client,
+    preferredValue
+  );
+}
+
+async function refreshImageModelOptionsForSelectedPreset(
+  elements: AppElements,
+  client = new ComfyClient(elements.serverUrl.value),
+  preferredValue = readSelectValue(elements.imgCheckpoint)
+) {
+  await refreshModelOptionsForSelectedPreset(
+    elements.imgWorkflow,
+    elements.imgCheckpoint,
+    DEFAULT_IMAGE_WORKFLOW,
+    client,
+    preferredValue
+  );
+}
+
+async function refreshModelOptionsForSelectedPreset(
+  workflowSelect: HTMLSelectElement,
+  modelSelect: HTMLSelectElement,
+  defaultPresetId: string,
+  client: ComfyClient,
+  preferredValue: string
+) {
+  const preset = getWorkflowPreset(readSelectValue(workflowSelect, defaultPresetId));
+
+  try {
+    const modelNames = await client.getModelNamesForPreset(preset);
+
+    if (modelNames.length > 0) {
+      const preferredPresetModel = preset.modelStack?.find(
+        (model) => model.kind === preset.modelSource.kind && modelNames.includes(model.modelName)
+      )?.modelName;
+      const preferredModel = modelNames.includes(preferredValue) ? preferredValue : preferredPresetModel;
+
+      fillSingleCheckpointSelect(modelSelect, modelNames, preferredModel);
+    }
+  } catch {
+    // Keep the existing list if ComfyUI is offline or this model source is unavailable.
+  }
 }
 
 async function refreshInpaintModelOptionsForSelectedPreset(

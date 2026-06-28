@@ -5,7 +5,6 @@ import {
   buildSketchToImageWorkflow,
   buildTxt2ImgWorkflow
 } from "../../src/comfy/workflowBuilder";
-import { OpenLayerError } from "../../src/utils/errors";
 
 describe("workflowBuilder", () => {
   it("injects text-to-image settings into txt2img-basic", async () => {
@@ -132,19 +131,47 @@ describe("workflowBuilder", () => {
     expect(result.workflow["9"].inputs.images).toEqual(["14", 0]);
   });
 
-  it("blocks disabled future presets before fetching missing workflow files", async () => {
-    await expect(
-      buildTxt2ImgWorkflow({
-        presetId: "txt2img-z-image-turbo",
-        prompt: "future",
-        width: 512,
-        height: 512,
-        steps: 4,
-        cfg: 1,
-        seed: 1
-      })
-    ).rejects.toMatchObject<Partial<OpenLayerError>>({
-      code: "WORKFLOW_PRESET_UNSUPPORTED"
+  it("injects Z_image_Turbo text-to-image settings into the diffusion stack workflow", async () => {
+    const result = await buildTxt2ImgWorkflow({
+      presetId: "txt2img-z-image-turbo",
+      prompt: "surreal blue forest",
+      negativePrompt: "muddy colors",
+      checkpointName: "z_image_turbo_bf16.safetensors",
+      width: 896,
+      height: 1024,
+      steps: 6,
+      cfg: 1.5,
+      seed: 77
     });
+
+    expect(result.preset.id).toBe("txt2img-z-image-turbo");
+    expect(result.workflow["20"].inputs.unet_name).toBe("z_image_turbo_bf16.safetensors");
+    expect(result.workflow["6"].inputs.text).toBe("surreal blue forest");
+    expect(result.workflow["7"].inputs.text).toBe("muddy colors");
+    expect(result.workflow["5"].inputs.width).toBe(896);
+    expect(result.workflow["5"].inputs.height).toBe(1024);
+    expect(result.workflow["3"].inputs.steps).toBe(6);
+    expect(result.workflow["3"].inputs.cfg).toBe(1.5);
+    expect(result.workflow["3"].inputs.seed).toBe(77);
+  });
+
+  it("injects Z_image_Turbo image-to-image source and denoise", async () => {
+    const result = await buildImg2ImgWorkflow({
+      presetId: "img2img-z-image-turbo",
+      prompt: "painterly reinterpretation",
+      negativePrompt: "flat",
+      checkpointName: "z_image_turbo_bf16.safetensors",
+      sourceImageName: "openlayer-z-source.png",
+      steps: 5,
+      cfg: 1,
+      denoise: 0.6,
+      seed: 88
+    });
+
+    expect(result.preset.id).toBe("img2img-z-image-turbo");
+    expect(result.workflow["20"].inputs.unet_name).toBe("z_image_turbo_bf16.safetensors");
+    expect(result.workflow["10"].inputs.image).toBe("openlayer-z-source.png");
+    expect(result.workflow["3"].inputs.latent_image).toEqual(["11", 0]);
+    expect(result.workflow["3"].inputs.denoise).toBe(0.6);
   });
 });

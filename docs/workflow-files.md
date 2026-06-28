@@ -16,9 +16,11 @@ Current runnable API workflows:
 
 - `txt2img-basic.json`
 - `img2img-basic.json`
+- `txt2img-z-image-turbo.json`
+- `img2img-z-image-turbo.json`
 - `sketch2img-linecn-basic.json`
 
-These are the only workflow files that should be treated as working presets.
+The Z_image_Turbo workflows are experimental and should be tested carefully against the user's local ComfyUI node versions.
 
 ## Source Workflows
 
@@ -49,17 +51,19 @@ See `docs/custom-workflows.md` for the longer mapping guide.
 
 `Z_image_Turbo` is not a checkpoint. It is a diffusion model stack.
 
-The local audit found this likely stack:
+The local audit found and v0.4.3-alpha uses this stack:
 
 - `UNETLoader` with `z_image_turbo_bf16.safetensors`
 - `CLIPLoader` with `qwen_3_4b.safetensors`
 - `CLIPLoader` type `lumina2`
 - `VAELoader` with `ae.safetensors`
-- `CLIPTextEncodeLumina2`
+- `ModelSamplingAuraFlow`
+- `CLIPTextEncode`
+- `KSampler` with `res_multistep` and `simple`
 
-That means it cannot be safely added to the existing checkpoint selector or reused with `txt2img-basic`.
+That means it cannot appear in `CheckpointLoaderSimple`. OpenLayer must switch the model selector to the diffusion model loader for Z_image_Turbo presets.
 
-OpenLayer now has disabled preset metadata for future `Z_image_Turbo` workflows, but generation stays disabled until a real API workflow JSON exists and is validated against local ComfyUI node schemas.
+OpenLayer now includes experimental API workflows for `txt2img-z-image-turbo` and `img2img-z-image-turbo`. The editable GUI workflow exports are kept under `src/workflows/source/`.
 
 ## Why Flux Is Different
 

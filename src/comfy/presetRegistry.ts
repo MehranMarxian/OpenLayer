@@ -127,6 +127,33 @@ const INPAINT_FLUX_FILL_BASIC_NODES = {
   saveImage: "9"
 } as const;
 
+const Z_IMAGE_TURBO_TXT2IMG_NODES = {
+  diffusionModelLoader: "20",
+  clipLoader: "21",
+  vaeLoader: "22",
+  modelSampling: "23",
+  latentImage: "5",
+  positivePrompt: "6",
+  negativePrompt: "7",
+  sampler: "3",
+  decode: "8",
+  saveImage: "9"
+} as const;
+
+const Z_IMAGE_TURBO_IMG2IMG_NODES = {
+  diffusionModelLoader: "20",
+  clipLoader: "21",
+  vaeLoader: "22",
+  modelSampling: "23",
+  loadImage: "10",
+  vaeEncode: "11",
+  positivePrompt: "6",
+  negativePrompt: "7",
+  sampler: "3",
+  decode: "8",
+  saveImage: "9"
+} as const;
+
 const TXT2IMG_BASIC_INJECTIONS = {
   checkpoint: target(TXT2IMG_BASIC_NODES.checkpointLoader, "ckpt_name"),
   positivePrompt: target(TXT2IMG_BASIC_NODES.positivePrompt, "text"),
@@ -193,6 +220,28 @@ const INPAINT_FLUX_FILL_BASIC_INJECTIONS = {
   denoise: target(INPAINT_FLUX_FILL_BASIC_NODES.scheduler, "denoise"),
   width: target(INPAINT_FLUX_FILL_BASIC_NODES.modelSamplingFlux, "width"),
   height: target(INPAINT_FLUX_FILL_BASIC_NODES.modelSamplingFlux, "height")
+} as const;
+
+const Z_IMAGE_TURBO_TXT2IMG_INJECTIONS = {
+  checkpoint: target(Z_IMAGE_TURBO_TXT2IMG_NODES.diffusionModelLoader, "unet_name"),
+  positivePrompt: target(Z_IMAGE_TURBO_TXT2IMG_NODES.positivePrompt, "text"),
+  negativePrompt: target(Z_IMAGE_TURBO_TXT2IMG_NODES.negativePrompt, "text"),
+  width: target(Z_IMAGE_TURBO_TXT2IMG_NODES.latentImage, "width"),
+  height: target(Z_IMAGE_TURBO_TXT2IMG_NODES.latentImage, "height"),
+  seed: target(Z_IMAGE_TURBO_TXT2IMG_NODES.sampler, "seed"),
+  steps: target(Z_IMAGE_TURBO_TXT2IMG_NODES.sampler, "steps"),
+  cfg: target(Z_IMAGE_TURBO_TXT2IMG_NODES.sampler, "cfg")
+} as const;
+
+const Z_IMAGE_TURBO_IMG2IMG_INJECTIONS = {
+  checkpoint: target(Z_IMAGE_TURBO_IMG2IMG_NODES.diffusionModelLoader, "unet_name"),
+  sourceImage: target(Z_IMAGE_TURBO_IMG2IMG_NODES.loadImage, "image"),
+  positivePrompt: target(Z_IMAGE_TURBO_IMG2IMG_NODES.positivePrompt, "text"),
+  negativePrompt: target(Z_IMAGE_TURBO_IMG2IMG_NODES.negativePrompt, "text"),
+  seed: target(Z_IMAGE_TURBO_IMG2IMG_NODES.sampler, "seed"),
+  steps: target(Z_IMAGE_TURBO_IMG2IMG_NODES.sampler, "steps"),
+  cfg: target(Z_IMAGE_TURBO_IMG2IMG_NODES.sampler, "cfg"),
+  denoise: target(Z_IMAGE_TURBO_IMG2IMG_NODES.sampler, "denoise")
 } as const;
 
 const FLUX_FILL_STACK = [
@@ -768,81 +817,146 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     id: "txt2img-z-image-turbo",
     label: "txt2img-z-image-turbo",
     mode: "txt2img",
-    description: "Future text-to-image preset for the Z_image_Turbo diffusion model stack.",
+    description: "Experimental text-to-image preset for the Z_image_Turbo diffusion model stack.",
     workflowFile: "workflows/api/txt2img-z-image-turbo.json",
     sourceWorkflowFile: "workflows/source/txt2img-z-image-turbo.workflow.json",
-    status: "todo",
+    status: "experimental",
     supportedModelFamilies: ["zImage"],
     experimentalModelFamilies: ["unknown"],
     modelSource: DIFFUSION_MODEL_SOURCE,
     capability: Z_IMAGE_TURBO_TXT2IMG_CAPABILITY,
     modelStack: [...Z_IMAGE_TURBO_STACK],
-    injections: {},
+    requiredModels: [...Z_IMAGE_TURBO_STACK],
+    injections: Z_IMAGE_TURBO_TXT2IMG_INJECTIONS,
     requiredNodes: [
       {
-        id: "todo-unet-loader",
+        id: Z_IMAGE_TURBO_TXT2IMG_NODES.diffusionModelLoader,
         classType: "UNETLoader",
         requiredInputs: ["unet_name", "weight_dtype"]
       },
       {
-        id: "todo-clip-loader",
+        id: Z_IMAGE_TURBO_TXT2IMG_NODES.clipLoader,
         classType: "CLIPLoader",
         requiredInputs: ["clip_name", "type"]
       },
       {
-        id: "todo-vae-loader",
+        id: Z_IMAGE_TURBO_TXT2IMG_NODES.vaeLoader,
         classType: "VAELoader",
         requiredInputs: ["vae_name"]
       },
       {
-        id: "todo-lumina2-encode",
-        classType: "CLIPTextEncodeLumina2",
-        requiredInputs: ["system_prompt", "user_prompt", "clip"]
+        id: Z_IMAGE_TURBO_TXT2IMG_NODES.modelSampling,
+        classType: "ModelSamplingAuraFlow",
+        requiredInputs: ["model", "shift"]
+      },
+      {
+        id: Z_IMAGE_TURBO_TXT2IMG_NODES.positivePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: Z_IMAGE_TURBO_TXT2IMG_NODES.negativePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: Z_IMAGE_TURBO_TXT2IMG_NODES.latentImage,
+        classType: "EmptySD3LatentImage",
+        requiredInputs: ["width", "height", "batch_size"]
+      },
+      {
+        id: Z_IMAGE_TURBO_TXT2IMG_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["model", "seed", "steps", "cfg", "sampler_name", "scheduler", "positive", "negative", "latent_image", "denoise"]
+      },
+      {
+        id: Z_IMAGE_TURBO_TXT2IMG_NODES.decode,
+        classType: "VAEDecode",
+        requiredInputs: ["samples", "vae"]
+      },
+      {
+        id: Z_IMAGE_TURBO_TXT2IMG_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images"]
       }
     ],
     compatibilityNote:
-      "Z_image_Turbo is a diffusion model stack, not a checkpoint. It needs a dedicated validated API workflow before generation is enabled.",
-    disabledReason: "No validated OpenLayer API workflow JSON exists yet for Z_image_Turbo."
+      "Z_image_Turbo is a diffusion model stack, not a checkpoint. OpenLayer loads it through UNETLoader, CLIPLoader, and VAELoader."
   },
   {
     id: "img2img-z-image-turbo",
     label: "img2img-z-image-turbo",
     mode: "img2img",
-    description: "Future image-to-image preset for the Z_image_Turbo diffusion model stack.",
+    description: "Experimental image-to-image preset for the Z_image_Turbo diffusion model stack.",
     workflowFile: "workflows/api/img2img-z-image-turbo.json",
     sourceWorkflowFile: "workflows/source/img2img-z-image-turbo.workflow.json",
-    status: "todo",
+    status: "experimental",
     supportedModelFamilies: ["zImage"],
     experimentalModelFamilies: ["unknown"],
     modelSource: DIFFUSION_MODEL_SOURCE,
     capability: Z_IMAGE_TURBO_IMG2IMG_CAPABILITY,
     modelStack: [...Z_IMAGE_TURBO_STACK],
-    injections: {},
+    requiredModels: [...Z_IMAGE_TURBO_STACK],
+    injections: Z_IMAGE_TURBO_IMG2IMG_INJECTIONS,
     requiredNodes: [
       {
-        id: "todo-unet-loader",
+        id: Z_IMAGE_TURBO_IMG2IMG_NODES.diffusionModelLoader,
         classType: "UNETLoader",
         requiredInputs: ["unet_name", "weight_dtype"]
       },
       {
-        id: "todo-clip-loader",
+        id: Z_IMAGE_TURBO_IMG2IMG_NODES.clipLoader,
         classType: "CLIPLoader",
         requiredInputs: ["clip_name", "type"]
       },
       {
-        id: "todo-vae-loader",
+        id: Z_IMAGE_TURBO_IMG2IMG_NODES.vaeLoader,
         classType: "VAELoader",
         requiredInputs: ["vae_name"]
       },
       {
-        id: "todo-lumina2-encode",
-        classType: "CLIPTextEncodeLumina2",
-        requiredInputs: ["system_prompt", "user_prompt", "clip"]
+        id: Z_IMAGE_TURBO_IMG2IMG_NODES.modelSampling,
+        classType: "ModelSamplingAuraFlow",
+        requiredInputs: ["model", "shift"]
+      },
+      {
+        id: Z_IMAGE_TURBO_IMG2IMG_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: Z_IMAGE_TURBO_IMG2IMG_NODES.vaeEncode,
+        classType: "VAEEncode",
+        requiredInputs: ["pixels", "vae"]
+      },
+      {
+        id: Z_IMAGE_TURBO_IMG2IMG_NODES.positivePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: Z_IMAGE_TURBO_IMG2IMG_NODES.negativePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: Z_IMAGE_TURBO_IMG2IMG_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["model", "seed", "steps", "cfg", "sampler_name", "scheduler", "positive", "negative", "latent_image", "denoise"]
+      },
+      {
+        id: Z_IMAGE_TURBO_IMG2IMG_NODES.decode,
+        classType: "VAEDecode",
+        requiredInputs: ["samples", "vae"]
+      },
+      {
+        id: Z_IMAGE_TURBO_IMG2IMG_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images"]
       }
     ],
     compatibilityNote:
-      "Z_image_Turbo image-to-image needs a dedicated source-image workflow. It should not use img2img-basic.",
-    disabledReason: "No validated OpenLayer API workflow JSON exists yet for Z_image_Turbo Image to Image."
+      "Z_image_Turbo image-to-image uses a diffusion-model stack plus PNG source upload and VAE encoding."
   },
   {
     id: "txt2img-flux1-dev",

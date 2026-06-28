@@ -32,6 +32,8 @@ These are practical starter guidelines, not strict rules.
 | Text to Image | SD 1.x or SDXL | Uses `txt2img-basic`. |
 | Image to Image | SD 1.x or SDXL | Uses `img2img-basic`. |
 | Sketch to Image | SD 1.x | Uses `sketch2img-linecn-basic` with LineArt ControlNet. |
+| Z_image_Turbo Text/Image | Z_image_Turbo | Experimental dedicated presets in v0.4.3-alpha. |
+| Prompt from Layer | Florence-2 PromptGen | Foundation only; text generation workflow is not enabled yet. |
 | Future Realtime Preview | To be tested | Likely needs a very fast dedicated workflow. |
 
 ## Why Z_image_Turbo Does Not Appear In The Checkpoint Selector
@@ -44,9 +46,9 @@ Some models are not checkpoints.
 - `Load CLIP` for a matching CLIP model such as `qwen_3_4b.safetensors`
 - `Load VAE` for a matching VAE such as `ae.safetensors`
 
-OpenLayer's current Text to Image, Image to Image, and Sketch to Image starter workflows use `CheckpointLoaderSimple`, so they only list checkpoint files in the checkpoint selector.
+OpenLayer's SD/SDXL starter workflows use `CheckpointLoaderSimple`, so they only list checkpoint files in the checkpoint selector.
 
-OpenLayer can detect the Z_image_Turbo stack in Settings diagnostics, but generation should not be enabled until a real matching workflow JSON and exact local node schemas are added.
+The experimental Z_image_Turbo presets use a separate diffusion-model-stack path. When one of those workflows is selected, OpenLayer asks ComfyUI for models from `UNETLoader` instead of `CheckpointLoaderSimple`.
 
 ## How OpenLayer Chooses Recommendations
 
@@ -66,5 +68,5 @@ For reliable testing today:
 
 1. Use SDXL for general Text to Image quality if your GPU can handle it.
 2. Use SD 1.x for the current Sketch to Image LINECN workflow.
-3. Treat Flux, SD3.5, and Z_image_Turbo as future dedicated preset work until OpenLayer has matching API workflow JSON files.
+3. Treat Z_image_Turbo as experimental and Flux/SD3.5 as future dedicated preset work until OpenLayer has matching API workflow JSON files for each family.
 4. Use the Settings button `Detect GPU & Recommend Models` after starting ComfyUI.

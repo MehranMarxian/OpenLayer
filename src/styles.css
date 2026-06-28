@@ -307,6 +307,12 @@ a:hover {
   color: #ff89d6;
 }
 
+.tool-card[data-tool-id="prompt-from-layer"] .icon-glyph {
+  border-color: #48d4c7;
+  background: #0e5d61;
+  color: #abfff6;
+}
+
 .tool-card[data-tool-id="outpaint"] .icon-glyph {
   border-color: #35df5b;
   background: #115a24;

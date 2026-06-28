@@ -1,5 +1,7 @@
 import txt2imgBasicWorkflow from "../workflows/api/txt2img-basic.json";
 import img2imgBasicWorkflow from "../workflows/api/img2img-basic.json";
+import txt2imgZImageTurboWorkflow from "../workflows/api/txt2img-z-image-turbo.json";
+import img2imgZImageTurboWorkflow from "../workflows/api/img2img-z-image-turbo.json";
 import sketch2imgLinecnBasicWorkflow from "../workflows/api/sketch2img-linecn-basic.json";
 import inpaintBasicWorkflow from "../workflows/api/inpaint-basic.json";
 import inpaintFluxFillBasicWorkflow from "../workflows/api/inpaint-flux-fill-basic.json";
@@ -20,6 +22,8 @@ import { createOpenLayerError } from "../utils/errors";
 const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
   "txt2img-basic": txt2imgBasicWorkflow as ComfyWorkflow,
   "img2img-basic": img2imgBasicWorkflow as ComfyWorkflow,
+  "txt2img-z-image-turbo": txt2imgZImageTurboWorkflow as ComfyWorkflow,
+  "img2img-z-image-turbo": img2imgZImageTurboWorkflow as ComfyWorkflow,
   "sketch2img-linecn-basic": sketch2imgLinecnBasicWorkflow as ComfyWorkflow,
   "inpaint-basic": inpaintBasicWorkflow as ComfyWorkflow,
   "inpaint-flux-fill-basic": inpaintFluxFillBasicWorkflow as ComfyWorkflow

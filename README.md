@@ -10,7 +10,7 @@ OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop t
 
 ## Alpha Release
 
-`v0.4.1-alpha` is the current experimental inpainting preview. It is intended for testing the core local workflow, not for production work yet.
+`v0.4.3-alpha` is the current experimental workflow-compatibility preview. It is intended for testing the core local workflow, not for production work yet.
 
 Included in this alpha:
 
@@ -33,6 +33,8 @@ Included in this alpha:
 - GPU-aware model recommendations in Settings using ComfyUI `/system_stats`
 - Beginner-friendly model family guidance for SD 1.x, SDXL, SD3, Flux, and Z_image_Turbo
 - Workflow compatibility foundation that separates checkpoint presets from future diffusion-model-stack presets
+- Experimental Z_image_Turbo Text to Image and Image to Image presets using a dedicated diffusion-model-stack workflow path
+- Prompt from Layer foundation card for future Florence-2 PromptGen layer description
 - PNG/lossless source capture for Image to Image and Sketch to Image using raw Photoshop Imaging API pixels
 - Experimental Inpaint/Repaint Selection screen with safe Photoshop selection detection
 - PNG/lossless selected-region capture and temporary-layer grayscale mask export for Inpaint
@@ -46,7 +48,7 @@ Included in this alpha:
 
 ![OpenLayer v0.2.1 Home dashboard](docs/assets/openlayer-v021-dashboard.png)
 
-Known v0.4.1-alpha boundaries:
+Known v0.4.3-alpha boundaries:
 
 - Image to Image is an early foundation path, not a full production workflow yet.
 - Sketch to Image is limited to the first SD 1.x LINECN starter workflow.
@@ -57,7 +59,9 @@ Known v0.4.1-alpha boundaries:
 - Inpainting is available for testing, but output quality and Photoshop alignment are not confirmed stable yet.
 - The first Inpaint preset is intended for SD 1.x checkpoints. SDXL, SD3, Flux, and Z_image_Turbo inpainting need dedicated future presets.
 - `img2img-basic` is the default SD 1.x/SDXL preset. SD3, SD3.5, and Flux checkpoints remain visible but are marked experimental because they usually need dedicated future workflow presets.
-- Z_image_Turbo and Flux preset metadata exists, but those presets are disabled until validated API workflow JSON files are added.
+- Z_image_Turbo presets are experimental and use `UNETLoader`, `CLIPLoader`, and `VAELoader` instead of the checkpoint loader.
+- Flux preset metadata exists, but Flux Text to Image and Image to Image presets are disabled until validated API workflow JSON files are added.
+- Prompt from Layer can capture a source image as foundation work, but Florence-2 PromptGen text generation is not enabled until a validated text-output workflow is added.
 - SDXL, SD3, Flux, and Z_image_Turbo Sketch to Image workflows need dedicated future presets.
 - Workflow node IDs may need adjustment for custom ComfyUI workflows.
 - Dedicated selected-layer PNG file export, selection preservation, aligned regional workflows, advanced ControlNet-style workflows, and upscaling are not included yet.
@@ -99,7 +103,7 @@ Working foundation:
 
 - Photoshop UXP panel scaffold for Photoshop 2024+
 - Dark, minimal UXP-friendly TypeScript UI
-- Photoshop-dark Home dashboard with Text to Image, Image to Image, Sketch to Image, Inpaint, Settings, History, and future workflow cards
+- Photoshop-dark Home dashboard with Text to Image, Image to Image, Sketch to Image, Inpaint, Prompt from Layer, Settings, History, and future workflow cards
 - Configurable local ComfyUI server URL
 - ComfyUI connection check
 - Checkpoint/model selector loaded from ComfyUI
@@ -107,7 +111,9 @@ Working foundation:
 - Settings hardware advisor for detecting ComfyUI GPU/VRAM and recommending safe model families
 - Session history for recent generated images
 - `txt2img-basic` workflow generation
+- Experimental `txt2img-z-image-turbo` workflow generation
 - `img2img-basic` workflow generation foundation
+- Experimental `img2img-z-image-turbo` workflow generation foundation
 - `sketch2img-linecn-basic` Sketch to Image generation foundation
 - Active-layer or visible-canvas source capture and ComfyUI image upload
 - Experimental Inpaint/Repaint Selection screen with Photoshop selection detection, selected-region PNG source capture, grayscale mask export, and SD 1.x `inpaint-basic`
@@ -169,7 +175,7 @@ npm run package
 This creates a zip package from `dist` in the `packages` folder. For the current alpha, the expected package name is:
 
 ```text
-packages/openlayer-v0.4.1-alpha.zip
+packages/openlayer-v0.4.3-alpha.zip
 ```
 
 ## Loading In UXP Developer Tool
@@ -294,7 +300,7 @@ Inpaint output quality, mask interpretation, and Photoshop alignment are still b
 
 ## Pre-release Tester Checklist
 
-Use this quick pass before reporting a v0.4.1-alpha test result:
+Use this quick pass before reporting a v0.4.3-alpha test result:
 
 1. Start ComfyUI on `http://127.0.0.1:8190`.
 2. Build OpenLayer and load `dist/manifest.json` in Adobe UXP Developer Tool.

@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased / v0.4.3-alpha draft - 2026-06-28
+
+Workflow compatibility checkpoint for Z_image_Turbo and future layer captioning.
+
+### Added
+
+- Added experimental `txt2img-z-image-turbo` and `img2img-z-image-turbo` API workflows using `UNETLoader`, `CLIPLoader`, `VAELoader`, `ModelSamplingAuraFlow`, and `KSampler`.
+- Added diffusion-model-stack model selector refresh so Z_image_Turbo presets can list `UNETLoader` models such as `z_image_turbo_bf16.safetensors` instead of checkpoint files.
+- Preserved the attached ComfyUI GUI workflow exports under `src/workflows/source/` as editable source references.
+- Added a new Prompt from Layer dashboard card and foundation screen with PNG source capture, generated-prompt text area, Copy Prompt, and Send to Text to Image controls.
+
+### Changed
+
+- Z_image_Turbo presets are now experimental runnable presets instead of disabled future metadata when required local nodes/models are available.
+- Documentation now explains why Z_image_Turbo does not appear in checkpoint-only selectors.
+
+### Known Limitations
+
+- Z_image_Turbo support is experimental and should be tested with the user's local ComfyUI setup before release.
+- Prompt from Layer does not run Florence-2 PromptGen yet; it is a foundation screen until a validated API workflow and text-output reader are added.
+- Flux Text to Image and Image to Image remain setup-required future presets.
+
 ## Unreleased / v0.4.2-alpha draft - 2026-06-27
 
 End-of-week stabilization checkpoint for honest inpaint testing.

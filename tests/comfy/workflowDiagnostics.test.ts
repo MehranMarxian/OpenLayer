@@ -87,7 +87,7 @@ describe("workflow diagnostics", () => {
       })
     ]);
 
-    expect(summary).toContain("Text to Image needs setup");
+    expect(summary).toContain("Text to Image is experimental");
     expect(summary).toContain("Inpaint is experimental");
     expect(summary).toContain("experimental");
   });

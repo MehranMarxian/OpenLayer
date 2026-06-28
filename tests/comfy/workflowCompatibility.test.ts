@@ -28,7 +28,7 @@ describe("workflow compatibility", () => {
     expect(imgResult.canRun).toBe(true);
   });
 
-  it("keeps future Flux and Z_image_Turbo diffusion-stack presets setup-required", () => {
+  it("treats Z_image_Turbo as experimental-runnable when its stack is present and keeps future Flux setup-required", () => {
     const zImagePreset = getWorkflowPreset("txt2img-z-image-turbo");
     const fluxPreset = getWorkflowPreset("txt2img-flux1-dev");
 
@@ -50,9 +50,9 @@ describe("workflow compatibility", () => {
     });
 
     expect(getWorkflowCapability(zImagePreset).loaderType).toBe("diffusion-model-stack");
-    expect(zImageResult.level).toBe("setup-required");
-    expect(zImageResult.canRun).toBe(false);
-    expect(zImageResult.issues.some((issue) => issue.code === "WORKFLOW_NOT_RUNNABLE")).toBe(true);
+    expect(zImageResult.level).toBe("experimental");
+    expect(zImageResult.canRun).toBe(true);
+    expect(zImageResult.issues.some((issue) => issue.code === "WORKFLOW_EXPERIMENTAL")).toBe(true);
 
     expect(getWorkflowCapability(fluxPreset).loaderType).toBe("diffusion-model-stack");
     expect(fluxResult.level).toBe("setup-required");
