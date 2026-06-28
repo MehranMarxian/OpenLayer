@@ -137,6 +137,16 @@ Future placeholders are included for regional import alignment and selection pre
 - Node.js 18+
 - A local ComfyUI server for OpenLayer running at `http://127.0.0.1:8190`
 
+## Local Permissions
+
+OpenLayer is local-first. The Photoshop UXP manifest currently requests filesystem and network access because:
+
+- local filesystem access is used for temporary files and Photoshop import tokens
+- network access is used to communicate with the user's local ComfyUI server
+- Copy Diagnostics prepares a local text report only
+
+OpenLayer does not send diagnostics, images, prompts, or model information anywhere automatically.
+
 ## Install
 
 ```bash

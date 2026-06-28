@@ -2,12 +2,14 @@
 
 ## Unreleased / v0.4.6-alpha draft - 2026-06-28
 
-Settings diagnostics readability pass for Photoshop UXP.
+Settings diagnostics readability and public alpha release-readiness pass.
 
 ### Added
 
 - Added Workflow Health summary cards for Ready, Experimental, Missing setup, and Needs workflow counts.
 - Added collapsed technical details for workflow health cards so artists see short readable messages first.
+- Added a public alpha release checklist in `docs/release-checklist.md`.
+- Added clearer local permission notes for filesystem, local ComfyUI network access, and local-only diagnostics.
 
 ### Changed
 
@@ -15,11 +17,15 @@ Settings diagnostics readability pass for Photoshop UXP.
 - Rebuilt the Settings diagnostic layout with UXP-safe block and flex rules so panels and buttons stack cleanly in narrow Photoshop panels.
 - Moved Settings actions into one full-width action stack: Check ComfyUI, Find ComfyUI Active Port, Detect GPU, Check Workflow Health, Copy Diagnostics, Save Settings, and Reset Defaults.
 - Simplified Hardware Advisor rows and shortened the Z_image_Turbo / Flux explanation in Settings.
+- Synced the GitHub Pages landing page with the v0.4.6-alpha release story, including PNG/lossless capture, GPU/VRAM diagnostics, Workflow Health, Copy Diagnostics, Z_image_Turbo experiments, Prompt from Layer foundation, and experimental Inpaint/Repaint Selection.
+- Kept Inpaint, Flux Fill, Prompt from Layer, and custom workflow import messaging honest for public alpha testing.
 
 ### Known Limitations
 
-- This is a Settings UI readability release only. It does not change generation behavior, workflow JSON files, model loading, ComfyUI requests, or import behavior.
+- This release-readiness pass does not change generation behavior, workflow JSON files, model loading, ComfyUI requests, or import behavior.
 - Workflow Health remains advisory and technical details are still meant for setup/debugging, not everyday artist controls.
+- Inpaint/Repaint Selection remains experimental and output quality/alignment are not confirmed stable.
+- CI does not run Photoshop, UXP Developer Tool, or ComfyUI integration tests.
 
 ## Unreleased / v0.4.5-alpha draft - 2026-06-28
 

@@ -18,3 +18,11 @@ Do not publish exploit details publicly until the issue has been reviewed.
 - Do not expose your ComfyUI server to the public internet unless you understand the risks.
 - OpenLayer does not require cloud APIs or paid services.
 - OpenLayer should never send images to external services as part of the core plugin.
+
+## Permission Notes
+
+OpenLayer's Photoshop UXP manifest currently requests local filesystem access and network access.
+
+- Local filesystem access is used for temporary files and Photoshop import tokens.
+- Network access is used to talk to the ComfyUI server selected by the user, normally `127.0.0.1`.
+- Settings diagnostics and Copy Diagnostics are local only. OpenLayer does not upload diagnostics automatically.

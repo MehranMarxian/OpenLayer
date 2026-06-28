@@ -6,11 +6,11 @@
     <title>OpenLayer - Open Source Photoshop ComfyUI Plugin</title>
     <meta
       name="description"
-      content="OpenLayer is an open-source Photoshop plugin and Photoshop UXP plugin that connects Photoshop to local ComfyUI workflows for text-to-image, image-to-image, sketch-to-image, preview, and layer import."
+      content="OpenLayer v0.4.6-alpha is an open-source Photoshop UXP plugin for local ComfyUI workflows, including text-to-image, image-to-image, sketch-to-image, PNG/lossless source capture, workflow health diagnostics, and experimental inpaint testing."
     >
     <meta name="theme-color" content="#2b2b2b">
     <meta property="og:title" content="OpenLayer - Open Source Photoshop ComfyUI Plugin">
-    <meta property="og:description" content="An open-source Photoshop UXP plugin for local ComfyUI text-to-image, image-to-image, sketch-to-image, preview, and layer import workflows.">
+    <meta property="og:description" content="OpenLayer v0.4.6-alpha is an open-source Photoshop UXP plugin for local ComfyUI text-to-image, image-to-image, sketch-to-image, diagnostics, and experimental layer workflows.">
     <meta property="og:image" content="assets/openlayer-photoshop-mvp.png">
     <meta property="og:type" content="website">
     <link rel="icon" href="assets/openlayer-icon.png">
@@ -24,6 +24,7 @@
       </a>
       <nav>
         <a href="#features">Features</a>
+        <a href="#status">Status</a>
         <a href="#setup">Setup</a>
         <a href="#roadmap">Roadmap</a>
         <a href="https://github.com/MehranMarxian/OpenLayer">GitHub</a>
@@ -36,14 +37,17 @@
         <div class="hero-content">
           <div class="hero-mark">
             <img src="assets/openlayer-icon.png" alt="" width="72" height="72">
-            <span>Alpha v0.3.0</span>
+            <span>Alpha v0.4.6</span>
           </div>
           <h1 id="hero-title">OpenLayer - Open Source Photoshop ComfyUI Plugin</h1>
           <p class="hero-lede">
             OpenLayer is an open-source Photoshop UXP plugin for local ComfyUI
-            text-to-image, image-to-image, and sketch-to-image workflows. Generate,
-            reinterpret an active layer, guide a result with LineArt ControlNet,
-            then preview and import the result as an editable Photoshop layer.
+            workflows. The current alpha supports text-to-image, image-to-image,
+            sketch-to-image, PNG/lossless Photoshop source capture, workflow health
+            diagnostics, and experimental layer tools for testing.
+          </p>
+          <p class="alpha-note">
+            Current release: <strong>v0.4.6-alpha</strong>. Built for testing, not production work yet.
           </p>
           <div class="hero-actions">
             <a class="button button-primary" href="https://github.com/MehranMarxian/OpenLayer">View on GitHub</a>
@@ -54,6 +58,7 @@
             <li>Local first</li>
             <li>No cloud dependency</li>
             <li>Photoshop UXP</li>
+            <li>Testing alpha</li>
           </ul>
         </div>
       </section>
@@ -66,9 +71,10 @@
           </div>
           <p>
             OpenLayer starts with dependable local workflows: text-to-image generation,
-            image-to-image, a first Sketch to Image LINECN path, canvas capture, panel
-            previews, and import into the active document. The goal is a clean base that
-            can grow into deeper layer, mask, and selection workflows without rushing fake features.
+            image-to-image, a first Sketch to Image LINECN path, PNG/lossless source
+            capture, panel previews, diagnostics, and import into the active document.
+            The goal is a clean base that can grow into deeper layer, mask, and selection
+            workflows without rushing fake features.
           </p>
         </div>
       </section>
@@ -97,8 +103,20 @@
               <p>Capture the active Photoshop layer or visible canvas, preview the source, upload it to ComfyUI, and generate through a starter img2img workflow.</p>
             </article>
             <article class="feature-card">
+              <h3>PNG/lossless source capture</h3>
+              <p>Capture raw Photoshop pixels as PNG/lossless source images for Image to Image, Sketch to Image, and inpaint testing.</p>
+            </article>
+            <article class="feature-card">
               <h3>Sketch to Image LINECN</h3>
               <p>Capture a layer or canvas, run a starter SD 1.x LineArt ControlNet workflow, preview the result, and import it back to Photoshop.</p>
+            </article>
+            <article class="feature-card">
+              <h3>Z_image_Turbo experiments</h3>
+              <p>Use experimental Text/Image presets through diffusion-model-stack loaders instead of checkpoint-only selectors.</p>
+            </article>
+            <article class="feature-card">
+              <h3>Experimental Inpaint/Repaint Selection</h3>
+              <p>Selection capture and mask export are available for testing. Output quality and Photoshop alignment are not confirmed stable yet.</p>
             </article>
             <article class="feature-card">
               <h3>Experimental checkpoint mode</h3>
@@ -121,8 +139,16 @@
               <p>Detect the GPU and VRAM reported by ComfyUI, then show beginner-friendly model and workflow guidance in Settings.</p>
             </article>
             <article class="feature-card">
+              <h3>Workflow Health and Copy Diagnostics</h3>
+              <p>Check local workflow readiness, missing model setup, missing workflow JSON, and prepare a local diagnostics report for testers.</p>
+            </article>
+            <article class="feature-card">
               <h3>Workflow compatibility foundation</h3>
               <p>Separate checkpoint-based presets from future diffusion-model-stack presets such as Z_image_Turbo and Flux without enabling unvalidated workflows.</p>
+            </article>
+            <article class="feature-card">
+              <h3>Prompt from Layer foundation</h3>
+              <p>Capture a source image for future Florence-2 PromptGen text generation. Text output is not enabled until a validated workflow is added.</p>
             </article>
             <article class="feature-card">
               <h3>UXP-safe interface</h3>
@@ -169,6 +195,7 @@
             <li>Open Photoshop and load the OpenLayer UXP panel.</li>
             <li>Run ComfyUI locally on the OpenLayer server port.</li>
             <li>Use Settings to check ComfyUI and optionally detect GPU/VRAM recommendations.</li>
+            <li>Run Workflow Health to see which local presets are ready, experimental, or missing setup.</li>
             <li>Choose Text to Image, Image to Image, or Sketch to Image.</li>
             <li>Choose a compatible checkpoint and enter a prompt.</li>
             <li>Generate through the ComfyUI prompt API.</li>
@@ -213,6 +240,41 @@ npm run build</code></pre>
         </div>
       </section>
 
+      <section id="status" class="section" aria-labelledby="status-title">
+        <div class="section-inner">
+          <div class="section-heading">
+            <p class="eyebrow">Current alpha status</p>
+            <h2 id="status-title">What this release is honest about</h2>
+          </div>
+          <div class="status-grid">
+            <article class="status-card">
+              <h3>Testing alpha</h3>
+              <p>OpenLayer v0.4.6-alpha is for local testing and feedback. It is not production-ready yet.</p>
+            </article>
+            <article class="status-card">
+              <h3>Inpaint is experimental</h3>
+              <p>Selection capture and mask export are available for testing. Output quality and Photoshop alignment are not confirmed stable yet.</p>
+            </article>
+            <article class="status-card">
+              <h3>Flux Fill is experimental</h3>
+              <p>Flux Fill metadata exists, but dependable Flux Fill behavior still needs validated workflows and tuning.</p>
+            </article>
+            <article class="status-card">
+              <h3>Prompt from Layer foundation</h3>
+              <p>The card and source capture exist, but Florence-2 PromptGen text generation is not enabled until a validated text-output workflow is added.</p>
+            </article>
+            <article class="status-card">
+              <h3>Custom workflows are future work</h3>
+              <p>OpenLayer keeps API and source workflow folders, but custom workflow import and automatic node mapping are not built yet.</p>
+            </article>
+            <article class="status-card">
+              <h3>Integration tests are manual</h3>
+              <p>CI checks TypeScript and unit tests. It does not run Photoshop, UXP Developer Tool, or ComfyUI integration tests.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
       <section class="section" aria-labelledby="limits-title">
         <div class="section-inner split-layout">
           <div>
@@ -227,6 +289,10 @@ npm run build</code></pre>
             <li>GPU-aware recommendations are advisory only. OpenLayer does not auto-switch models or workflows yet.</li>
             <li>Generated images are placed as Photoshop layers; advanced alignment is future work.</li>
             <li>Inpaint is experimental: source and mask export are available, but output quality and Photoshop alignment are still being tested.</li>
+            <li>Flux Fill is experimental and not a fully validated production workflow.</li>
+            <li>Prompt from Layer does not generate Florence-2 text yet.</li>
+            <li>Custom workflow import, LoRA browser, batch variants, upscaling, and persistent AI layer metadata are future work.</li>
+            <li>CI does not run Photoshop, UXP, or ComfyUI integration tests.</li>
             <li>The browser dev server is only for UI preview. Photoshop APIs run inside UXP.</li>
             <li>Responsive panel spacing has been improved for testing, but final visual polish is still in progress.</li>
           </ul>
@@ -267,8 +333,12 @@ npm run build</code></pre>
               <p>Image-to-image starter workflow, Sketch to Image LINECN foundation, active-layer and canvas source preview, ComfyUI upload, experimental checkpoint warnings, and result import.</p>
             </article>
             <article>
+              <h3>v0.4 alpha</h3>
+              <p>PNG/lossless capture, GPU diagnostics, Workflow Health, Z_image_Turbo experiments, Prompt from Layer foundation, and experimental Inpaint/Repaint Selection.</p>
+            </article>
+            <article>
               <h3>Future artist tools</h3>
-              <p>Better image-to-image controls, inpainting, layer export, selection masks, upscaling, and guided generation workflows.</p>
+              <p>Reliable inpaint alignment, custom workflow import, ControlNet panels, LoRA browser, batch variants, upscaling, and persistent AI layer metadata.</p>
             </article>
           </div>
         </div>
@@ -288,7 +358,7 @@ npm run build</code></pre>
     </main>
 
     <footer class="site-footer">
-      <p>OpenLayer v0.3.0-alpha. Developed by Mehran Ahmadi, 2026.</p>
+      <p>OpenLayer v0.4.6-alpha. Developed by Mehran Ahmadi, 2026.</p>
       <p>
         <a href="https://github.com/MehranMarxian">GitHub</a>
       </p>
