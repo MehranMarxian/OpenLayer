@@ -499,15 +499,38 @@ a:hover {
 }
 
 .settings-panel {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  clear: both;
   border: 1px solid #4f4f4f;
   border-radius: 10px;
-  margin-bottom: 18px;
+  margin: 0 0 20px;
   padding: 12px;
   background: #333333;
 }
 
+.settings-button-stack {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0;
+}
+
+.settings-button-stack .button {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  margin-bottom: 9px;
+}
+
+.settings-button-stack .button:last-child {
+  margin-bottom: 0;
+}
+
 .settings-actions {
   display: flex;
+  min-width: 0;
   flex-wrap: wrap;
   margin: 0 -4px -8px;
   gap: 0;
@@ -520,18 +543,17 @@ a:hover {
 
 .settings-list {
   display: flex;
+  min-width: 0;
   flex-direction: column;
   gap: 0;
 }
 
 .settings-list div {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  display: block;
+  min-width: 0;
   border-bottom: 1px solid #444444;
-  padding-bottom: 8px;
-  margin-bottom: 8px;
+  padding: 0 0 8px;
+  margin: 0 0 8px;
   color: #bdbdbd;
   font-size: 12px;
 }
@@ -543,26 +565,27 @@ a:hover {
 }
 
 .settings-list strong {
-  color: #e7e7e7;
-  font-weight: 700;
-  text-align: right;
-}
-
-.hardware-list div {
-  display: block;
-  align-items: flex-start;
-}
-
-.hardware-list strong {
   display: block;
   max-width: 100%;
-  margin-top: 4px;
+  margin-top: 3px;
   overflow-wrap: anywhere;
+  color: #e7e7e7;
+  font-weight: 700;
+  line-height: 1.35;
   text-align: left;
   white-space: normal;
 }
 
-.hardware-recommendations {
+.settings-list span {
+  display: block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+  white-space: normal;
+}
+
+.hardware-recommendations,
+.model-stack-note {
   border: 1px solid #494949;
   border-radius: 8px;
   padding: 9px 10px;
@@ -578,7 +601,7 @@ a:hover {
 }
 
 .workflow-health-list > * {
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
 .workflow-health-list > *:last-child {
@@ -590,8 +613,23 @@ a:hover {
   min-width: 0;
   border: 1px solid #4f4f4f;
   border-radius: 8px;
-  padding: 8px 9px;
+  margin-bottom: 8px;
+  padding: 9px 10px;
   background: #2d2d2d;
+}
+
+.workflow-health-group {
+  display: block;
+  min-width: 0;
+}
+
+.workflow-health-group-title {
+  display: block;
+  margin: 0 0 7px;
+  color: #bdbdbd;
+  font-size: 11px;
+  font-weight: 760;
+  line-height: 1.3;
 }
 
 .workflow-health-item.is-ready {
@@ -612,15 +650,21 @@ a:hover {
 .workflow-health-heading {
   display: flex;
   min-width: 0;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 0;
+  gap: 8px;
   margin-bottom: 5px;
 }
 
-.workflow-health-title {
+.workflow-health-title-block {
+  display: block;
   min-width: 0;
-  margin-right: 8px;
+  flex: 1 1 auto;
+}
+
+.workflow-health-title {
+  display: block;
+  min-width: 0;
   overflow: hidden;
   color: #eeeeee;
   font-size: 12px;
@@ -630,8 +674,21 @@ a:hover {
   white-space: nowrap;
 }
 
+.workflow-health-tool {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  color: #9f9f9f;
+  font-size: 10px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .workflow-health-state {
   flex: 0 0 auto;
+  max-width: 118px;
+  overflow: hidden;
   border-radius: 999px;
   padding: 3px 7px;
   background: #414141;
@@ -639,6 +696,8 @@ a:hover {
   font-size: 10px;
   font-weight: 760;
   line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .workflow-health-state.is-ready {
@@ -661,6 +720,8 @@ a:hover {
 
 .workflow-health-summary,
 .workflow-health-detail {
+  display: block;
+  min-width: 0;
   overflow-wrap: anywhere;
   font-size: 11px;
   line-height: 1.35;
@@ -671,8 +732,17 @@ a:hover {
 }
 
 .workflow-health-detail {
+  max-height: 44px;
+  overflow: hidden;
   margin-top: 3px;
   color: #9f9f9f;
+}
+
+.diagnostics-report {
+  min-height: 130px;
+  max-height: 220px;
+  resize: vertical;
+  white-space: pre-wrap;
 }
 
 .app-subtitle {
@@ -919,11 +989,14 @@ a:hover {
 .settings-panel > .section-heading,
 .settings-panel > .field,
 .settings-panel > .button,
+.settings-panel > .settings-button-stack,
 .settings-panel > .settings-actions,
 .settings-panel > .status-bar,
 .settings-panel > .diagnostics-line,
 .settings-panel > .error-message,
-.settings-panel > .settings-list {
+.settings-panel > .settings-list,
+.settings-panel > .workflow-health-list,
+.settings-panel > .diagnostics-report {
   margin-bottom: 13px;
 }
 

@@ -47,6 +47,14 @@ Source workflow files are not submitted directly by OpenLayer. They are project 
 
 See `docs/custom-workflows.md` for the longer mapping guide.
 
+## Workflow Health Diagnostics
+
+The Settings `Check Workflow Health` action compares registered preset metadata against the active local ComfyUI install. It checks known node classes, required model files, setup-required presets, experimental presets, and missing runnable API workflow JSON files.
+
+This diagnostic pass does not edit workflow JSON, remap node IDs, install models, or change generation behavior. It is a readability and support tool for testers.
+
+Use `Copy Diagnostics` after running Workflow Health to prepare a compact local report for issues or test notes.
+
 ## Why Z_image_Turbo Is Different
 
 `Z_image_Turbo` is not a checkpoint. It is a diffusion model stack.

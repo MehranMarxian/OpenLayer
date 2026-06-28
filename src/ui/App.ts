@@ -20,6 +20,7 @@ import {
 } from "../comfy/workflowDiagnostics";
 import {
   createWorkflowHealthReport,
+  WorkflowHealthItem,
   WorkflowHealthReport
 } from "../comfy/workflowHealth";
 import type { WorkflowPhotoshopInputAvailability } from "../comfy/workflowCompatibility";
@@ -45,7 +46,7 @@ import {
 } from "../utils/preferences";
 
 const DEFAULT_SERVER_URL = "http://127.0.0.1:8190";
-const APP_VERSION = "0.4.4";
+const APP_VERSION = "0.4.5";
 const DEVELOPER_GITHUB = "https://github.com/MehranMarxian";
 const HISTORY_LIMIT = 5;
 const COMFY_PORT_CANDIDATES = [8190, 8188, 8189, 8191, 8192, 8193, 7860];
@@ -238,6 +239,7 @@ type AppElements = {
   findPortButton: HTMLElement;
   detectHardwareButton: HTMLElement;
   checkWorkflowHealthButton: HTMLElement;
+  copyDiagnosticsButton: HTMLElement;
   saveSettingsButton: HTMLElement;
   resetSettingsButton: HTMLElement;
   generateButton: HTMLElement;
@@ -348,6 +350,7 @@ type AppElements = {
   settingsZImageTurbo: HTMLElement;
   settingsModelRecommendations: HTMLElement;
   settingsWorkflowHealthList: HTMLElement;
+  settingsDiagnosticsReport: HTMLTextAreaElement;
 };
 
 type HistoryEntry = {
@@ -397,6 +400,7 @@ export function renderApp(rootElement: HTMLElement) {
   let isNegativePromptOpen = false;
   let allowExperimentalCheckpoints = false;
   let hardwareReport: HardwareRecommendationReport | null = null;
+  let workflowHealthReport: WorkflowHealthReport | null = null;
   const historyEntries: HistoryEntry[] = [];
 
   rootElement.innerHTML = createAppMarkup();
@@ -411,6 +415,7 @@ export function renderApp(rootElement: HTMLElement) {
     findPort: createActionRunner(elements, "findPort", handleFindComfyPort),
     detectHardware: createActionRunner(elements, "detectHardware", handleDetectHardware),
     checkWorkflowHealth: createActionRunner(elements, "checkWorkflowHealth", handleCheckWorkflowHealth),
+    copyDiagnostics: createActionRunner(elements, "copyDiagnostics", handleCopyDiagnostics),
     saveSettings: createActionRunner(elements, "saveSettings", handleSaveSettings),
     resetSettings: createActionRunner(elements, "resetSettings", handleResetSettings),
     toggleNegativePrompt: createActionRunner(elements, "toggleNegativePrompt", handleToggleNegativePrompt),
@@ -445,6 +450,7 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.findPortButton, actionHandlers.findPort);
   bindActionControl(elements.detectHardwareButton, actionHandlers.detectHardware);
   bindActionControl(elements.checkWorkflowHealthButton, actionHandlers.checkWorkflowHealth);
+  bindActionControl(elements.copyDiagnosticsButton, actionHandlers.copyDiagnostics);
   bindActionControl(elements.saveSettingsButton, actionHandlers.saveSettings);
   bindActionControl(elements.resetSettingsButton, actionHandlers.resetSettings);
   bindActionControl(elements.negativePromptToggle, actionHandlers.toggleNegativePrompt);
@@ -494,7 +500,7 @@ export function renderApp(rootElement: HTMLElement) {
   setPromptLayerSource(null);
   updateSettingsReport(elements);
   renderHardwareReport(elements, hardwareReport);
-  renderWorkflowHealthReport(elements, null);
+  renderWorkflowHealthReport(elements, workflowHealthReport);
   renderHistory(elements, historyEntries);
   void loadInitialCheckpoints();
 
@@ -660,16 +666,41 @@ export function renderApp(rootElement: HTMLElement) {
         availableNodes
       });
 
-      renderWorkflowHealthReport(elements, report);
+      workflowHealthReport = report;
+      renderWorkflowHealthReport(elements, workflowHealthReport);
       setStatus(elements, "Workflow health checked.", report.issueCount > 0 ? "idle" : "ready");
       setDiagnostics(elements, report.summary);
     } catch (caughtError) {
-      renderWorkflowHealthReport(elements, null);
+      workflowHealthReport = null;
+      renderWorkflowHealthReport(elements, workflowHealthReport);
       setStatus(elements, "Workflow health check failed.", "error");
       setError(elements, getErrorMessage(caughtError));
       setDiagnostics(elements, "Start ComfyUI, confirm the server URL, then run Check Workflow Health again.");
     } finally {
       updateSettingsReport(elements);
+    }
+  }
+
+  async function handleCopyDiagnostics() {
+    const reportText = createDiagnosticsReport(elements, hardwareReport, workflowHealthReport);
+    elements.settingsDiagnosticsReport.value = reportText;
+    elements.settingsDiagnosticsReport.hidden = false;
+
+    try {
+      const clipboard = (navigator as Navigator & {
+        clipboard?: { writeText?: (text: string) => Promise<void> };
+      }).clipboard;
+
+      if (typeof clipboard?.writeText !== "function") {
+        throw new Error("Clipboard API is unavailable.");
+      }
+
+      await clipboard.writeText(reportText);
+      setStatus(elements, "Diagnostics copied.", "ready");
+      setDiagnostics(elements, "Copied a compact OpenLayer diagnostics report to the clipboard.");
+    } catch {
+      setStatus(elements, "Diagnostics ready to copy.", "ready");
+      setDiagnostics(elements, "Clipboard is unavailable here. The diagnostics report is shown below for manual copy.");
     }
   }
 
@@ -2259,10 +2290,12 @@ function createAppMarkup() {
             <span class="label">ComfyUI server URL</span>
             <input class="input" id="server-url" value="${DEFAULT_SERVER_URL}" placeholder="${DEFAULT_SERVER_URL}" />
           </label>
-          <button class="button action-control" id="check-comfy" data-openlayer-action="check" type="button">Check ComfyUI</button>
-          <button class="button action-control" id="find-comfy-port" data-openlayer-action="findPort" type="button">Find ComfyUI Active Port</button>
-          <button class="button action-control" id="detect-gpu" data-openlayer-action="detectHardware" type="button">Detect GPU &amp; Recommend Models</button>
-          <button class="button action-control" id="check-workflow-health" data-openlayer-action="checkWorkflowHealth" type="button">Check Workflow Health</button>
+          <div class="settings-button-stack" aria-label="ComfyUI diagnostic actions">
+            <button class="button action-control" id="check-comfy" data-openlayer-action="check" type="button">Check ComfyUI</button>
+            <button class="button action-control" id="find-comfy-port" data-openlayer-action="findPort" type="button">Find ComfyUI Active Port</button>
+            <button class="button action-control" id="detect-gpu" data-openlayer-action="detectHardware" type="button">Detect GPU &amp; Recommend Models</button>
+            <button class="button action-control" id="check-workflow-health" data-openlayer-action="checkWorkflowHealth" type="button">Check Workflow Health</button>
+          </div>
           <div class="settings-actions">
             <button class="button action-control" id="save-settings" data-openlayer-action="saveSettings" type="button">Save Settings</button>
             <button class="button action-control" id="reset-settings" data-openlayer-action="resetSettings" type="button">Reset Defaults</button>
@@ -2298,6 +2331,9 @@ function createAppMarkup() {
           <div class="diagnostics-line hardware-recommendations" id="settings-model-recommendations">
             Click Detect GPU &amp; Recommend Models to get local hardware-aware suggestions.
           </div>
+          <div class="diagnostics-line model-stack-note">
+            Z_image_Turbo is a diffusion model stack, not a checkpoint. OpenLayer lists it through diffusion model loaders such as UNETLoader. Flux presets stay setup-required until matching workflow JSON is validated.
+          </div>
         </section>
 
         <section class="panel-section settings-panel" aria-label="Workflow health">
@@ -2324,6 +2360,8 @@ function createAppMarkup() {
             <div><span>Photoshop document</span><strong id="settings-document-status">Not checked</strong></div>
             <div><span>Workflow readiness</span><strong id="settings-workflow-readiness">Not checked</strong></div>
           </div>
+          <button class="button action-control button-wide" id="copy-diagnostics" data-openlayer-action="copyDiagnostics" type="button">Copy Diagnostics</button>
+          <textarea class="textarea compact-textarea diagnostics-report" id="settings-diagnostics-report" readonly hidden></textarea>
         </section>
       </section>
 
@@ -2837,6 +2875,7 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     findPortButton: getElement<HTMLElement>(rootElement, "find-comfy-port"),
     detectHardwareButton: getElement<HTMLElement>(rootElement, "detect-gpu"),
     checkWorkflowHealthButton: getElement<HTMLElement>(rootElement, "check-workflow-health"),
+    copyDiagnosticsButton: getElement<HTMLElement>(rootElement, "copy-diagnostics"),
     saveSettingsButton: getElement<HTMLElement>(rootElement, "save-settings"),
     resetSettingsButton: getElement<HTMLElement>(rootElement, "reset-settings"),
     generateButton: getElement<HTMLElement>(rootElement, "generate"),
@@ -2946,7 +2985,8 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     settingsModelFamilies: getElement<HTMLElement>(rootElement, "settings-model-families"),
     settingsZImageTurbo: getElement<HTMLElement>(rootElement, "settings-z-image-turbo"),
     settingsModelRecommendations: getElement<HTMLElement>(rootElement, "settings-model-recommendations"),
-    settingsWorkflowHealthList: getElement<HTMLElement>(rootElement, "settings-workflow-health-list")
+    settingsWorkflowHealthList: getElement<HTMLElement>(rootElement, "settings-workflow-health-list"),
+    settingsDiagnosticsReport: getElement<HTMLTextAreaElement>(rootElement, "settings-diagnostics-report")
   };
 }
 
@@ -3011,6 +3051,7 @@ function setBusy(
   setActionDisabled(elements.findPortButton, isBusy);
   setActionDisabled(elements.detectHardwareButton, isBusy);
   setActionDisabled(elements.checkWorkflowHealthButton, isBusy);
+  setActionDisabled(elements.copyDiagnosticsButton, isBusy);
   setActionDisabled(elements.saveSettingsButton, isBusy);
   setActionDisabled(elements.resetSettingsButton, isBusy);
   setActionDisabled(elements.negativePromptToggle, isBusy);
@@ -3273,6 +3314,7 @@ type ActionName =
   | "findPort"
   | "detectHardware"
   | "checkWorkflowHealth"
+  | "copyDiagnostics"
   | "saveSettings"
   | "resetSettings"
   | "toggleNegativePrompt"
@@ -4128,39 +4170,141 @@ function renderWorkflowHealthReport(elements: AppElements, report: WorkflowHealt
     return;
   }
 
-  for (const item of report.items) {
-    const row = document.createElement("div");
-    row.className = `workflow-health-item is-${item.state}`;
+  for (const group of createWorkflowHealthGroups(report.items)) {
+    const groupElement = document.createElement("div");
+    groupElement.className = "workflow-health-group";
 
-    const heading = document.createElement("div");
-    heading.className = "workflow-health-heading";
+    const groupTitle = document.createElement("div");
+    groupTitle.className = "workflow-health-group-title";
+    groupTitle.textContent = group.label;
+    groupElement.append(groupTitle);
 
-    const title = document.createElement("div");
-    title.className = "workflow-health-title";
-    title.textContent = item.label;
-    heading.append(title);
-
-    const badge = document.createElement("div");
-    badge.className = `workflow-health-state is-${item.state}`;
-    badge.textContent = item.stateLabel;
-    heading.append(badge);
-
-    row.append(heading);
-
-    const summary = document.createElement("div");
-    summary.className = "workflow-health-summary";
-    summary.textContent = item.summary;
-    row.append(summary);
-
-    if (item.detail) {
-      const detail = document.createElement("div");
-      detail.className = "workflow-health-detail";
-      detail.textContent = item.detail;
-      row.append(detail);
+    for (const item of group.items) {
+      groupElement.append(createWorkflowHealthCard(item));
     }
 
-    elements.settingsWorkflowHealthList.append(row);
+    elements.settingsWorkflowHealthList.append(groupElement);
   }
+}
+
+function createWorkflowHealthGroups(items: readonly WorkflowHealthItem[]) {
+  return [
+    {
+      label: "Ready",
+      items: items.filter((item) => item.state === "ready")
+    },
+    {
+      label: "Experimental",
+      items: items.filter((item) => item.state === "experimental")
+    },
+    {
+      label: "Missing setup",
+      items: items.filter((item) => (
+        item.state === "missing-model" ||
+        item.state === "missing-node" ||
+        item.state === "setup-required"
+      ))
+    },
+    {
+      label: "Future / workflow JSON needed",
+      items: items.filter((item) => item.state === "missing-workflow")
+    }
+  ].filter((group) => group.items.length > 0);
+}
+
+function createWorkflowHealthCard(item: WorkflowHealthItem) {
+  const row = document.createElement("div");
+  row.className = `workflow-health-item is-${item.state}`;
+
+  const heading = document.createElement("div");
+  heading.className = "workflow-health-heading";
+
+  const titleBlock = document.createElement("div");
+  titleBlock.className = "workflow-health-title-block";
+
+  const title = document.createElement("div");
+  title.className = "workflow-health-title";
+  title.textContent = item.label;
+  titleBlock.append(title);
+
+  const tool = document.createElement("div");
+  tool.className = "workflow-health-tool";
+  tool.textContent = item.toolLabel;
+  titleBlock.append(tool);
+
+  heading.append(titleBlock);
+
+  const badge = document.createElement("div");
+  badge.className = `workflow-health-state is-${item.state}`;
+  badge.textContent = item.stateLabel;
+  heading.append(badge);
+
+  row.append(heading);
+
+  const summary = document.createElement("div");
+  summary.className = "workflow-health-summary";
+  summary.textContent = item.summary;
+  row.append(summary);
+
+  if (item.detail) {
+    const detail = document.createElement("div");
+    detail.className = "workflow-health-detail";
+    detail.textContent = item.detail;
+    row.append(detail);
+  }
+
+  return row;
+}
+
+function createDiagnosticsReport(
+  elements: AppElements,
+  hardwareReport: HardwareRecommendationReport | null,
+  workflowHealthReport: WorkflowHealthReport | null
+) {
+  const lines = [
+    "OpenLayer Diagnostics",
+    `Version: v${APP_VERSION}`,
+    `Server URL: ${elements.serverUrl.value.trim() || DEFAULT_SERVER_URL}`,
+    `Checkpoint count: ${elements.checkpoint.options.length}`,
+    `Text to Image model: ${readSelectValue(elements.checkpoint) || "None"}`,
+    `Image to Image model: ${readSelectValue(elements.imgCheckpoint) || "None"}`,
+    `Sketch to Image model: ${readSelectValue(elements.sketchCheckpoint) || "None"}`,
+    `Inpaint model: ${readSelectValue(elements.inpaintCheckpoint) || "None"}`,
+    "",
+    "Workflow health:",
+    workflowHealthReport?.summary ?? "Workflow health has not been checked yet.",
+    ...formatWorkflowHealthReportLines(workflowHealthReport),
+    "",
+    "Hardware advisor:",
+    ...formatHardwareReportLines(hardwareReport),
+    "",
+    "Model stack note:",
+    "Z_image_Turbo is not a checkpoint. It appears through diffusion model loaders such as UNETLoader. Flux presets need matching workflow JSON before they are ready."
+  ];
+
+  return lines.join("\n");
+}
+
+function formatWorkflowHealthReportLines(report: WorkflowHealthReport | null) {
+  if (!report) {
+    return ["- Not checked"];
+  }
+
+  return report.items.map((item) => `- ${item.label}: ${item.stateLabel} | ${item.summary}`);
+}
+
+function formatHardwareReportLines(report: HardwareRecommendationReport | null) {
+  if (!report) {
+    return ["- Not checked"];
+  }
+
+  return [
+    `- GPU: ${report.deviceName} (${report.deviceType})`,
+    `- Total VRAM: ${report.vramTotalLabel}`,
+    `- Free VRAM: ${report.vramFreeLabel}`,
+    `- Tier: ${report.tierLabel}`,
+    `- Z_image_Turbo: ${report.zImageTurboMessage}`
+  ];
 }
 
 function formatDetectedFamilies(report: HardwareRecommendationReport) {

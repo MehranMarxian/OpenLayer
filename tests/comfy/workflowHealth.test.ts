@@ -92,6 +92,8 @@ describe("workflow health", () => {
 
     expect(report.items).toHaveLength(presets.length);
     expect(report.summary).toContain("workflow presets");
+    expect(report.summary).toContain("need workflow JSON");
+    expect(report.stateCounts["missing-workflow"]).toBeGreaterThan(0);
     expect(report.items.some((item) => item.state === "missing-workflow")).toBe(true);
   });
 });

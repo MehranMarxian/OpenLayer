@@ -62,6 +62,16 @@ The Settings advisor combines:
 
 OpenLayer does not auto-switch your model yet. Recommendations are advisory so artists stay in control.
 
+## Settings Diagnostics
+
+Use `Check Workflow Health` in Settings to see which presets are ready on your local ComfyUI install.
+
+For diffusion model stacks, OpenLayer checks the model loader lists instead of the checkpoint list. This is why `Z_image_Turbo` readiness depends on files such as `z_image_turbo_bf16.safetensors`, `qwen_3_4b.safetensors`, and `ae.safetensors`.
+
+Flux presets stay setup-required until OpenLayer has matching validated API workflow JSON files for your local node stack.
+
+`Copy Diagnostics` creates a local text report that you can paste into an issue or test note. It does not send hardware, model, or workflow information anywhere.
+
 ## Practical Starting Advice
 
 For reliable testing today:

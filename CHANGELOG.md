@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased / v0.4.5-alpha draft - 2026-06-28
+
+Settings diagnostics stabilization for readable workflow health testing.
+
+### Added
+
+- Added a Copy Diagnostics action in Settings that prepares a compact local setup report for tester feedback.
+- Added clearer Settings guidance explaining that `Z_image_Turbo` is a diffusion model stack, not a checkpoint, and that Flux presets still need matching workflow JSON.
+
+### Changed
+
+- Bumped plugin/package metadata to `0.4.5`.
+- Reworked the Settings diagnostics layout so panels, buttons, hardware rows, and workflow health cards remain readable in narrow Photoshop panels.
+- Grouped Workflow Health results into readable preset cards with artist-facing summaries and secondary technical detail.
+- Improved workflow health summary wording, including missing workflow JSON counts.
+- README tester notes now include Copy Diagnostics and Settings readability checks.
+
+### Known Limitations
+
+- This is a diagnostics polish release. It does not change generation behavior, workflow JSON files, model loading, or import behavior.
+- Workflow Health remains advisory and does not auto-install models, remap workflow node IDs, or enable future Flux presets.
+
 ## Unreleased / v0.4.4-alpha draft - 2026-06-28
 
 Workflow health diagnostics foundation for safer local setup testing.

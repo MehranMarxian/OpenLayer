@@ -31,6 +31,7 @@ export type WorkflowHealthReport = {
   summary: string;
   readyCount: number;
   issueCount: number;
+  stateCounts: Record<WorkflowHealthState, number>;
 };
 
 const STATE_LABELS: Record<WorkflowHealthState, string> = {
@@ -47,6 +48,7 @@ export function createWorkflowHealthReport(
   context: WorkflowCompatibilityContext = {}
 ): WorkflowHealthReport {
   const items = presets.map((preset) => createWorkflowHealthItem(preset, context));
+  const stateCounts = createStateCounts(items);
   const readyCount = items.filter((item) => item.state === "ready" || item.state === "experimental").length;
   const issueCount = items.length - readyCount;
 
@@ -54,7 +56,8 @@ export function createWorkflowHealthReport(
     items,
     readyCount,
     issueCount,
-    summary: `${readyCount} of ${items.length} workflow presets are ready or available for testing.`
+    stateCounts,
+    summary: createReportSummary(items.length, readyCount, stateCounts)
   };
 }
 
@@ -112,7 +115,7 @@ function createHealthSummary(
     case "ready":
       return "Ready on this ComfyUI.";
     case "experimental":
-      return "Available for testing.";
+      return "Experimental but available for testing.";
     case "missing-workflow":
       return "A validated OpenLayer API workflow is not ready yet.";
     case "missing-node":
@@ -122,6 +125,39 @@ function createHealthSummary(
     default:
       return preset.description;
   }
+}
+
+function createStateCounts(items: readonly WorkflowHealthItem[]) {
+  const counts: Record<WorkflowHealthState, number> = {
+    ready: 0,
+    experimental: 0,
+    "missing-model": 0,
+    "missing-node": 0,
+    "missing-workflow": 0,
+    "setup-required": 0
+  };
+
+  for (const item of items) {
+    counts[item.state] += 1;
+  }
+
+  return counts;
+}
+
+function createReportSummary(
+  total: number,
+  availableCount: number,
+  stateCounts: Record<WorkflowHealthState, number>
+) {
+  const details = [
+    stateCounts["missing-workflow"] > 0 ? `${stateCounts["missing-workflow"]} need workflow JSON` : "",
+    stateCounts["missing-model"] > 0 ? `${stateCounts["missing-model"]} missing model setup` : "",
+    stateCounts["missing-node"] > 0 ? `${stateCounts["missing-node"]} missing ComfyUI nodes` : "",
+    stateCounts["setup-required"] > 0 ? `${stateCounts["setup-required"]} need setup` : ""
+  ].filter(Boolean);
+
+  const suffix = details.length > 0 ? ` ${details.join(". ")}.` : "";
+  return `${availableCount} of ${total} workflow presets are available for testing.${suffix}`;
 }
 
 function createHealthDetail(
