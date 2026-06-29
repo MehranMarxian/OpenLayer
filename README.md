@@ -10,7 +10,7 @@ OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop t
 
 ## Alpha Release
 
-`v0.4.6-alpha` is the current Settings diagnostics readability preview. It is intended for testing the core local workflow, not for production work yet.
+`v0.4.7-alpha` is the current Flux1-dev fp8 and cancel-generation preview. It is intended for testing the core local workflow, not for production work yet.
 
 Included in this alpha:
 
@@ -18,6 +18,7 @@ Included in this alpha:
 - Checkpoint loading from ComfyUI
 - Photoshop-dark Home dashboard with tool cards for current and planned workflows
 - Text-to-image generation with the `txt2img-basic` preset
+- Experimental Flux1-dev fp8 Text to Image preset using the attached checkpoint-style ComfyUI workflow
 - Experimental image-to-image generation with the `img2img-basic` preset
 - Active Photoshop layer capture for Image to Image using Photoshop UXP Imaging API
 - Canvas capture option for Image to Image source input
@@ -36,6 +37,7 @@ Included in this alpha:
 - Settings workflow health checker for registered presets, required ComfyUI node classes, and required model-stack files
 - Readable Settings diagnostics center with grouped workflow health cards, collapsed technical details, summary counts, and Copy Diagnostics support
 - Experimental Z_image_Turbo Text to Image and Image to Image presets using a dedicated diffusion-model-stack workflow path
+- Text to Image Cancel Generation button using ComfyUI's local interrupt endpoint
 - Prompt from Layer foundation card for future Florence-2 PromptGen layer description
 - PNG/lossless source capture for Image to Image and Sketch to Image using raw Photoshop Imaging API pixels
 - Experimental Inpaint/Repaint Selection screen with safe Photoshop selection detection
@@ -50,7 +52,7 @@ Included in this alpha:
 
 ![OpenLayer v0.2.1 Home dashboard](docs/assets/openlayer-v021-dashboard.png)
 
-Known v0.4.6-alpha boundaries:
+Known v0.4.7-alpha boundaries:
 
 - Image to Image is an early foundation path, not a full production workflow yet.
 - Sketch to Image is limited to the first SD 1.x LINECN starter workflow.
@@ -62,7 +64,9 @@ Known v0.4.6-alpha boundaries:
 - The first Inpaint preset is intended for SD 1.x checkpoints. SDXL, SD3, Flux, and Z_image_Turbo inpainting need dedicated future presets.
 - `img2img-basic` is the default SD 1.x/SDXL preset. SD3, SD3.5, and Flux checkpoints remain visible but are marked experimental because they usually need dedicated future workflow presets.
 - Z_image_Turbo presets are experimental and use `UNETLoader`, `CLIPLoader`, and `VAELoader` instead of the checkpoint loader.
-- Flux preset metadata exists, but Flux Text to Image and Image to Image presets are disabled until validated API workflow JSON files are added.
+- `txt2img-flux1-dev-fp8` is an experimental checkpoint-style Flux Text to Image preset for `flux1-dev-fp8.safetensors`.
+- Generic Flux diffusion-model-stack Text to Image and Image to Image presets remain disabled until validated API workflow JSON files are added.
+- Cancel Generation uses ComfyUI's interrupt endpoint and stops OpenLayer's Text to Image watcher/polling, but cancellation cannot undo work ComfyUI already completed.
 - The Settings workflow health checker reports local readiness, but it does not auto-fix missing models, missing nodes, or workflow mappings.
 - Copy Diagnostics prepares a setup report for testers. It does not send data anywhere.
 - Prompt from Layer can capture a source image as foundation work, but Florence-2 PromptGen text generation is not enabled until a validated text-output workflow is added.
@@ -189,7 +193,7 @@ npm run package
 This creates a zip package from `dist` in the `packages` folder. For the current alpha, the expected package name is:
 
 ```text
-packages/openlayer-v0.4.6-alpha.zip
+packages/openlayer-v0.4.7-alpha.zip
 ```
 
 ## Loading In UXP Developer Tool
@@ -314,7 +318,7 @@ Inpaint output quality, mask interpretation, and Photoshop alignment are still b
 
 ## Pre-release Tester Checklist
 
-Use this quick pass before reporting a v0.4.6-alpha test result:
+Use this quick pass before reporting a v0.4.7-alpha test result:
 
 1. Start ComfyUI on `http://127.0.0.1:8190`.
 2. Build OpenLayer and load `dist/manifest.json` in Adobe UXP Developer Tool.
@@ -324,11 +328,13 @@ Use this quick pass before reporting a v0.4.6-alpha test result:
 6. Confirm Settings shows readable summary counts and collapsed technical details without overlapping cards.
 7. Click `Copy Diagnostics`; confirm the report is copied or appears in the read-only diagnostics box.
 8. Generate one `txt2img-basic` image and import it as a new layer.
-9. Open `Image to Image`, capture either the active layer or canvas, generate with `img2img-basic`, and click `Import to Layers`.
-10. Open `Sketch to Image`, capture either the active layer or canvas, generate with `sketch2img-linecn-basic`, and click `Import to Layers`.
-11. Open `Inpaint`, make a Photoshop selection, click `Capture Selection`, and confirm the selected-region preview and mask preview appear.
-12. Generate with `inpaint-basic` using an SD 1.x checkpoint, then click `Import to Layers`.
-13. Resize the panel narrow and wide; confirm Settings, workflow health cards, buttons, preview, and footer remain readable and reachable.
+9. Select `txt2img-flux1-dev-fp8` with `flux1-dev-fp8.safetensors` if available, generate once, and confirm the result preview appears.
+10. Start one Text to Image generation and click `Cancel Generation`; confirm the status changes to `Generation cancelled.` and the next generation still works.
+11. Open `Image to Image`, capture either the active layer or canvas, generate with `img2img-basic`, and click `Import to Layers`.
+12. Open `Sketch to Image`, capture either the active layer or canvas, generate with `sketch2img-linecn-basic`, and click `Import to Layers`.
+13. Open `Inpaint`, make a Photoshop selection, click `Capture Selection`, and confirm the selected-region preview and mask preview appear.
+14. Generate with `inpaint-basic` using an SD 1.x checkpoint, then click `Import to Layers`.
+15. Resize the panel narrow and wide; confirm Settings, workflow health cards, buttons, preview, and footer remain readable and reachable.
 
 ## Testing Checklist
 
@@ -343,6 +349,7 @@ docs/testing-v0.1-alpha.md
 The included workflows are realistic starter ComfyUI workflows using common built-in nodes:
 
 - `src/workflows/api/txt2img-basic.json`
+- `src/workflows/api/txt2img-flux1-dev-fp8.json`
 - `src/workflows/api/img2img-basic.json`
 - `src/workflows/api/sketch2img-linecn-basic.json`
 - `src/workflows/api/inpaint-basic.json`

@@ -1,5 +1,6 @@
 import txt2imgBasicWorkflow from "../workflows/api/txt2img-basic.json";
 import img2imgBasicWorkflow from "../workflows/api/img2img-basic.json";
+import txt2imgFlux1DevFp8Workflow from "../workflows/api/txt2img-flux1-dev-fp8.json";
 import txt2imgZImageTurboWorkflow from "../workflows/api/txt2img-z-image-turbo.json";
 import img2imgZImageTurboWorkflow from "../workflows/api/img2img-z-image-turbo.json";
 import sketch2imgLinecnBasicWorkflow from "../workflows/api/sketch2img-linecn-basic.json";
@@ -18,11 +19,13 @@ import {
 } from "./types";
 import { getPresetInputTarget, getWorkflowPreset, validateWorkflowForPreset } from "./presetRegistry";
 import { createRequiredModelSelectionKey } from "./workflowModelRequirements";
+import { applyFluxFillReferenceDefaults, FLUX_FILL_PRESET_ID } from "./fluxFillDefaults";
 import { createOpenLayerError } from "../utils/errors";
 
 const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
   "txt2img-basic": txt2imgBasicWorkflow as ComfyWorkflow,
   "img2img-basic": img2imgBasicWorkflow as ComfyWorkflow,
+  "txt2img-flux1-dev-fp8": txt2imgFlux1DevFp8Workflow as ComfyWorkflow,
   "txt2img-z-image-turbo": txt2imgZImageTurboWorkflow as ComfyWorkflow,
   "img2img-z-image-turbo": img2imgZImageTurboWorkflow as ComfyWorkflow,
   "sketch2img-linecn-basic": sketch2imgLinecnBasicWorkflow as ComfyWorkflow,
@@ -151,9 +154,15 @@ export async function buildInpaintWorkflow(
   setPresetInput(workflow, preset, "positivePrompt", options.prompt, true);
   setPresetInput(workflow, preset, "negativePrompt", options.negativePrompt ?? "");
   setPresetInput(workflow, preset, "seed", seed, true);
-  setPresetInput(workflow, preset, "steps", options.steps, true);
-  setPresetInput(workflow, preset, "cfg", options.cfg, true);
-  setPresetInput(workflow, preset, "denoise", options.denoise, true);
+
+  if (preset.id === FLUX_FILL_PRESET_ID) {
+    applyFluxFillReferenceDefaults(workflow);
+  } else {
+    setPresetInput(workflow, preset, "steps", options.steps, true);
+    setPresetInput(workflow, preset, "cfg", options.cfg, true);
+    setPresetInput(workflow, preset, "denoise", options.denoise, true);
+  }
+
   setPresetInput(workflow, preset, "width", options.width);
   setPresetInput(workflow, preset, "height", options.height);
 

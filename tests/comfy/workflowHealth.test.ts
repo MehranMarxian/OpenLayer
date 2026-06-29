@@ -34,6 +34,20 @@ describe("workflow health", () => {
     expect(item.canRun).toBe(true);
   });
 
+  it("marks Flux1-dev fp8 text-to-image as experimental when the checkpoint workflow is available", () => {
+    const preset = getWorkflowPreset("txt2img-flux1-dev-fp8");
+    const item = createWorkflowHealthItem(preset, {
+      availableNodes: createAvailableNodes(preset),
+      availableModels: createInventory({
+        checkpoints: ["flux1-dev-fp8.safetensors"]
+      })
+    });
+
+    expect(item.state).toBe("experimental");
+    expect(item.canRun).toBe(true);
+    expect(item.detail).toContain("flux1-dev-fp8.safetensors");
+  });
+
   it("reports missing diffusion-model-stack files for Z_image_Turbo presets", () => {
     const preset = getWorkflowPreset("img2img-z-image-turbo");
     const item = createWorkflowHealthItem(preset, {
@@ -122,7 +136,7 @@ describe("workflow health", () => {
     const report = createWorkflowHealthReport(presets, {
       availableNodes,
       availableModels: createInventory({
-        checkpoints: ["epicrealism_naturalSinRC1VAE.safetensors"],
+        checkpoints: ["epicrealism_naturalSinRC1VAE.safetensors", "flux1-dev-fp8.safetensors"],
         controlNetModels: ["control_v11p_sd15_lineart_fp16.safetensors"],
         diffusionModels: ["z_image_turbo_bf16.safetensors"],
         clipModels: ["qwen_3_4b.safetensors"],

@@ -61,12 +61,32 @@ const FLUX1_DEV_STACK = [
   }
 ] as const;
 
+const FLUX1_DEV_FP8_CHECKPOINT = {
+  kind: "checkpoint",
+  objectInfoNode: "CheckpointLoaderSimple",
+  inputName: "ckpt_name",
+  label: "Flux1-dev fp8 checkpoint",
+  modelName: "flux1-dev-fp8.safetensors",
+  setupHint: "Install flux1-dev-fp8.safetensors where ComfyUI's CheckpointLoaderSimple can find it."
+} as const;
+
 const TXT2IMG_BASIC_NODES = {
   checkpointLoader: "4",
   positivePrompt: "6",
   negativePrompt: "7",
   sampler: "3",
   latentImage: "5",
+  saveImage: "9"
+} as const;
+
+const FLUX1_DEV_FP8_TXT2IMG_NODES = {
+  checkpointLoader: "30",
+  positivePrompt: "6",
+  negativePrompt: "33",
+  fluxGuidance: "35",
+  latentImage: "27",
+  sampler: "31",
+  decode: "8",
   saveImage: "9"
 } as const;
 
@@ -157,6 +177,17 @@ const TXT2IMG_BASIC_INJECTIONS = {
   seed: target(TXT2IMG_BASIC_NODES.sampler, "seed"),
   steps: target(TXT2IMG_BASIC_NODES.sampler, "steps"),
   cfg: target(TXT2IMG_BASIC_NODES.sampler, "cfg")
+} as const;
+
+const FLUX1_DEV_FP8_TXT2IMG_INJECTIONS = {
+  checkpoint: target(FLUX1_DEV_FP8_TXT2IMG_NODES.checkpointLoader, "ckpt_name"),
+  positivePrompt: target(FLUX1_DEV_FP8_TXT2IMG_NODES.positivePrompt, "text"),
+  negativePrompt: target(FLUX1_DEV_FP8_TXT2IMG_NODES.negativePrompt, "text"),
+  width: target(FLUX1_DEV_FP8_TXT2IMG_NODES.latentImage, "width"),
+  height: target(FLUX1_DEV_FP8_TXT2IMG_NODES.latentImage, "height"),
+  seed: target(FLUX1_DEV_FP8_TXT2IMG_NODES.sampler, "seed"),
+  steps: target(FLUX1_DEV_FP8_TXT2IMG_NODES.sampler, "steps"),
+  cfg: target(FLUX1_DEV_FP8_TXT2IMG_NODES.fluxGuidance, "guidance")
 } as const;
 
 const IMG2IMG_BASIC_INJECTIONS = {
@@ -282,6 +313,27 @@ const TXT2IMG_BASIC_CAPABILITY: WorkflowCapability = {
     showModelSelector: true,
     modelSelectorLabel: "Checkpoint",
     primaryActionLabel: "Generate"
+  }
+};
+
+const FLUX1_DEV_FP8_TXT2IMG_CAPABILITY: WorkflowCapability = {
+  toolType: "txt2img",
+  loaderType: "checkpoint",
+  artistLabel: "Text to Image",
+  technicalLabel: "txt2img-flux1-dev-fp8",
+  requiredPhotoshopInputs: [],
+  controls: ["prompt", "negativePrompt", "width", "height", "steps", "guidance", "seed"],
+  output: {
+    kind: "full-image",
+    size: "preset",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Flux checkpoint",
+    primaryActionLabel: "Generate",
+    experimentalNote:
+      "Flux1-dev fp8 uses a checkpoint-style ComfyUI graph. The UI CFG value controls Flux guidance while sampler CFG stays 1."
   }
 };
 
@@ -489,6 +541,65 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
         id: TXT2IMG_BASIC_NODES.saveImage,
         classType: "SaveImage",
         requiredInputs: ["images"]
+      }
+    ]
+  },
+  {
+    id: "txt2img-flux1-dev-fp8",
+    label: "txt2img-flux1-dev-fp8",
+    mode: "txt2img",
+    description: "Experimental Flux1-dev fp8 text-to-image workflow using a checkpoint-style ComfyUI graph.",
+    workflowFile: "workflows/api/txt2img-flux1-dev-fp8.json",
+    sourceWorkflowFile: "workflows/source/txt2img-flux1-dev-fp8.workflow.json",
+    status: "experimental",
+    supportedModelFamilies: ["flux"],
+    experimentalModelFamilies: ["sd1", "sdxl", "sd3", "zImage", "unknown"],
+    modelSource: CHECKPOINT_MODEL_SOURCE,
+    capability: FLUX1_DEV_FP8_TXT2IMG_CAPABILITY,
+    requiredModels: [FLUX1_DEV_FP8_CHECKPOINT],
+    injections: FLUX1_DEV_FP8_TXT2IMG_INJECTIONS,
+    compatibilityNote:
+      "txt2img-flux1-dev-fp8 follows the attached CheckpointLoaderSimple Flux workflow. KSampler CFG stays 1; OpenLayer maps the UI CFG control to FluxGuidance.",
+    requiredNodes: [
+      {
+        id: FLUX1_DEV_FP8_TXT2IMG_NODES.checkpointLoader,
+        classType: "CheckpointLoaderSimple",
+        requiredInputs: ["ckpt_name"]
+      },
+      {
+        id: FLUX1_DEV_FP8_TXT2IMG_NODES.positivePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: FLUX1_DEV_FP8_TXT2IMG_NODES.negativePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: FLUX1_DEV_FP8_TXT2IMG_NODES.fluxGuidance,
+        classType: "FluxGuidance",
+        requiredInputs: ["conditioning", "guidance"]
+      },
+      {
+        id: FLUX1_DEV_FP8_TXT2IMG_NODES.latentImage,
+        classType: "EmptySD3LatentImage",
+        requiredInputs: ["width", "height", "batch_size"]
+      },
+      {
+        id: FLUX1_DEV_FP8_TXT2IMG_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["model", "seed", "steps", "cfg", "sampler_name", "scheduler", "positive", "negative", "latent_image", "denoise"]
+      },
+      {
+        id: FLUX1_DEV_FP8_TXT2IMG_NODES.decode,
+        classType: "VAEDecode",
+        requiredInputs: ["samples", "vae"]
+      },
+      {
+        id: FLUX1_DEV_FP8_TXT2IMG_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images", "filename_prefix"]
       }
     ]
   },

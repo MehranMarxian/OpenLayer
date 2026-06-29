@@ -30,6 +30,7 @@ These are practical starter guidelines, not strict rules.
 | Task | Recommended current family | Notes |
 | --- | --- | --- |
 | Text to Image | SD 1.x or SDXL | Uses `txt2img-basic`. |
+| Flux1-dev fp8 Text to Image | Flux | Experimental `txt2img-flux1-dev-fp8` using `flux1-dev-fp8.safetensors` through `CheckpointLoaderSimple`. |
 | Image to Image | SD 1.x or SDXL | Uses `img2img-basic`. |
 | Sketch to Image | SD 1.x | Uses `sketch2img-linecn-basic` with LineArt ControlNet. |
 | Inpaint / Flux Fill | Flux Fill Dev | Experimental `inpaint-flux-fill-basic`; not production-ready. |
@@ -63,6 +64,12 @@ The Settings advisor combines:
 
 OpenLayer does not auto-switch your model yet. Recommendations are advisory so artists stay in control.
 
+## Flux1-dev fp8 Text to Image Notes
+
+`flux1-dev-fp8.safetensors` is a checkpoint-style Flux model in the attached ComfyUI workflow, so it appears through `CheckpointLoaderSimple` and can be selected by the experimental `txt2img-flux1-dev-fp8` preset.
+
+This preset uses `CheckpointLoaderSimple`, `EmptySD3LatentImage`, `CLIPTextEncode`, `FluxGuidance`, `KSampler`, `VAEDecode`, and `SaveImage`. OpenLayer maps the UI CFG field to `FluxGuidance.guidance`; the sampler CFG stays at `1`, matching the ComfyUI workflow note that Flux dev does not use negative prompt guidance in the usual SD way.
+
 ## Flux Fill Notes
 
 `flux1-fill-dev.safetensors` is not a checkpoint. OpenLayer lists it through the diffusion model loader path and runs it through the experimental `inpaint-flux-fill-basic` preset.
@@ -77,7 +84,7 @@ Use `Check Workflow Health` in Settings to see which presets are ready on your l
 
 For diffusion model stacks, OpenLayer checks the model loader lists instead of the checkpoint list. This is why `Z_image_Turbo` readiness depends on files such as `z_image_turbo_bf16.safetensors`, `qwen_3_4b.safetensors`, and `ae.safetensors`.
 
-Flux Fill inpainting has an experimental preset when ComfyUI exposes `flux1-fill-dev.safetensors`, `t5xxl_fp16.safetensors` or the accepted `t5xxl_fp8_e4m3fn.safetensors` fallback, `clip_l.safetensors`, and `ae.safetensors`. Generic Flux text-to-image and image-to-image presets still stay setup-required until OpenLayer has matching validated API workflow JSON files.
+Flux1-dev fp8 Text to Image has an experimental preset when ComfyUI exposes `flux1-dev-fp8.safetensors` through `CheckpointLoaderSimple`. Flux Fill inpainting has an experimental preset when ComfyUI exposes `flux1-fill-dev.safetensors`, `t5xxl_fp16.safetensors` or the accepted `t5xxl_fp8_e4m3fn.safetensors` fallback, `clip_l.safetensors`, and `ae.safetensors`. Generic Flux diffusion-model-stack text-to-image and image-to-image presets still stay setup-required until OpenLayer has matching validated API workflow JSON files.
 
 `Copy Diagnostics` creates a local text report that you can paste into an issue or test note. It does not send hardware, model, or workflow information anywhere.
 
@@ -87,5 +94,5 @@ For reliable testing today:
 
 1. Use SDXL for general Text to Image quality if your GPU can handle it.
 2. Use SD 1.x for the current Sketch to Image LINECN workflow.
-3. Treat Z_image_Turbo and Flux Fill as experimental. Treat generic Flux/SD3.5 as future dedicated preset work until OpenLayer has matching API workflow JSON files for each family.
+3. Treat Z_image_Turbo, Flux1-dev fp8, and Flux Fill as experimental. Treat generic Flux/SD3.5 as future dedicated preset work until OpenLayer has matching API workflow JSON files for each family.
 4. Use the Settings button `Detect GPU & Recommend Models` after starting ComfyUI.

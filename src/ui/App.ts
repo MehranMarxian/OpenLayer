@@ -9,6 +9,11 @@ import {
   validateFluxFillInpaintSource
 } from "../comfy/inpaintValidation";
 import { createFluxFillEmbeddedMaskSource } from "../comfy/fluxFillMaskBridge";
+import { formatFluxFillReferenceDefaults } from "../comfy/fluxFillDefaults";
+import {
+  formatCancelDiagnostic,
+  isGenerationCancelledError
+} from "../comfy/generationCancel";
 import {
   formatInpaintOutputDiagnostics,
   ImageDimensions,
@@ -45,8 +50,13 @@ import {
   exportCanvasForImageToImage,
   getActiveDocumentInfo,
   importGeneratedImageAsLayer,
-  importImageAlignedToSelection
+  importImageAlignedToSelectionWithLayerMask
 } from "../photoshop/photoshopAdapter";
+import {
+  createInpaintSourceModeDiagnostic,
+  getInpaintSourceModeLabel,
+  InpaintSourceMode
+} from "../photoshop/inpaintSourceMode";
 import { formatSelectionBounds } from "../photoshop/selectionUtils";
 import { createOpenLayerError, getErrorMessage, getTechnicalErrorDetails } from "../utils/errors";
 import { createLayerName } from "../utils/fileUtils";
@@ -58,7 +68,7 @@ import {
 } from "../utils/preferences";
 
 const DEFAULT_SERVER_URL = "http://127.0.0.1:8190";
-const APP_VERSION = "0.4.6";
+const APP_VERSION = "0.4.7";
 const DEVELOPER_GITHUB = "https://github.com/MehranMarxian";
 const HISTORY_LIMIT = 5;
 const COMFY_PORT_CANDIDATES = [8190, 8188, 8189, 8191, 8192, 8193, 7860];
@@ -255,6 +265,7 @@ type AppElements = {
   saveSettingsButton: HTMLElement;
   resetSettingsButton: HTMLElement;
   generateButton: HTMLElement;
+  cancelGenerateButton: HTMLElement;
   importButton: HTMLElement;
   autoImportToggle: HTMLElement;
   imgPrompt: HTMLTextAreaElement;
@@ -291,6 +302,7 @@ type AppElements = {
   inpaintSeed: HTMLInputElement;
   inpaintDenoise: HTMLInputElement;
   captureInpaintSelectionButton: HTMLElement;
+  captureInpaintActiveLayerButton: HTMLElement;
   generateInpaintButton: HTMLElement;
   importInpaintButton: HTMLElement;
   capturePromptLayerButton: HTMLElement;
@@ -385,6 +397,13 @@ type InpaintSourceState = SelectedRegionSourceImage & {
   previewUrl: string;
 };
 
+type ActiveTextGeneration = {
+  client: ComfyClient;
+  promptId?: string;
+  watcher: ReturnType<ComfyClient["watchProgress"]> | null;
+  isCancelled: boolean;
+};
+
 export function renderApp(rootElement: HTMLElement) {
   let currentView: AppView = "home";
   let isBusy = false;
@@ -412,6 +431,7 @@ export function renderApp(rootElement: HTMLElement) {
   let importAutomatically = false;
   let isNegativePromptOpen = false;
   let allowExperimentalCheckpoints = false;
+  let activeTextGeneration: ActiveTextGeneration | null = null;
   let hardwareReport: HardwareRecommendationReport | null = null;
   let workflowHealthReport: WorkflowHealthReport | null = null;
   const historyEntries: HistoryEntry[] = [];
@@ -434,6 +454,7 @@ export function renderApp(rootElement: HTMLElement) {
     toggleNegativePrompt: createActionRunner(elements, "toggleNegativePrompt", handleToggleNegativePrompt),
     toggleAutoImport: createActionRunner(elements, "toggleAutoImport", handleToggleAutoImport),
     generate: createActionRunner(elements, "generate", handleGenerate),
+    cancelGeneration: createActionRunner(elements, "cancelGeneration", handleCancelGeneration),
     import: createActionRunner(elements, "import", handleImport),
     captureImageSource: createActionRunner(elements, "captureImageSource", handleCaptureImageSource),
     captureCanvasSource: createActionRunner(elements, "captureCanvasSource", handleCaptureCanvasSource),
@@ -448,7 +469,16 @@ export function renderApp(rootElement: HTMLElement) {
     captureSketchCanvasSource: createActionRunner(elements, "captureSketchCanvasSource", handleCaptureSketchCanvasSource),
     generateSketch: createActionRunner(elements, "generateSketch", handleGenerateSketch),
     importSketch: createActionRunner(elements, "importSketch", handleImportSketch),
-    captureInpaintSelection: createActionRunner(elements, "captureInpaintSelection", handleCaptureInpaintSelection),
+    captureInpaintSelection: createActionRunner(
+      elements,
+      "captureInpaintSelection",
+      () => handleCaptureInpaintSelection("visible-canvas")
+    ),
+    captureInpaintActiveLayer: createActionRunner(
+      elements,
+      "captureInpaintActiveLayer",
+      () => handleCaptureInpaintSelection("active-layer")
+    ),
     generateInpaint: createActionRunner(elements, "generateInpaint", handleGenerateInpaint),
     importInpaint: createActionRunner(elements, "importInpaint", handleImportInpaint),
     capturePromptLayerSource: createActionRunner(elements, "capturePromptLayerSource", handleCapturePromptLayerSource),
@@ -469,6 +499,7 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.negativePromptToggle, actionHandlers.toggleNegativePrompt);
   bindActionControl(elements.autoImportToggle, actionHandlers.toggleAutoImport);
   bindActionControl(elements.generateButton, actionHandlers.generate);
+  bindActionControl(elements.cancelGenerateButton, actionHandlers.cancelGeneration);
   bindActionControl(elements.importButton, actionHandlers.import);
   bindActionControl(elements.captureLayerButton, actionHandlers.captureImageSource);
   bindActionControl(elements.captureCanvasButton, actionHandlers.captureCanvasSource);
@@ -480,6 +511,7 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.generateSketchButton, actionHandlers.generateSketch);
   bindActionControl(elements.importSketchButton, actionHandlers.importSketch);
   bindActionControl(elements.captureInpaintSelectionButton, actionHandlers.captureInpaintSelection);
+  bindActionControl(elements.captureInpaintActiveLayerButton, actionHandlers.captureInpaintActiveLayer);
   bindActionControl(elements.generateInpaintButton, actionHandlers.generateInpaint);
   bindActionControl(elements.importInpaintButton, actionHandlers.importInpaint);
   bindActionControl(elements.capturePromptLayerButton, actionHandlers.capturePromptLayerSource);
@@ -765,6 +797,32 @@ export function renderApp(rootElement: HTMLElement) {
     );
   }
 
+  async function handleCancelGeneration() {
+    const generation = activeTextGeneration;
+
+    if (!generation) {
+      setDiagnostics(elements, "No active Text to Image generation to cancel.");
+      return;
+    }
+
+    generation.isCancelled = true;
+    generation.watcher?.close();
+    generation.watcher = null;
+    setStatus(elements, "Cancelling generation...", "idle");
+    setProgressPreview(elements, "Cancelling generation...");
+    setCancelGenerationVisible(elements, false);
+
+    try {
+      await generation.client.interruptGeneration();
+      setDiagnostics(elements, formatCancelDiagnostic(generation.promptId));
+    } catch (caughtError) {
+      setDiagnostics(
+        elements,
+        `Cancel requested locally. ComfyUI interrupt may already be complete or unavailable. ${getTechnicalErrorDetails(caughtError)}`
+      );
+    }
+  }
+
   async function handleGenerate() {
     setDiagnostics(elements, `Generate pressed at ${new Date().toLocaleTimeString()}.`);
 
@@ -781,6 +839,7 @@ export function renderApp(rootElement: HTMLElement) {
     setStatus(elements, "Preparing workflow...", "idle");
     setProgressPreview(elements, "Preparing workflow...");
     let progressWatcher: ReturnType<ComfyClient["watchProgress"]> | null = null;
+    let activeRun: ActiveTextGeneration | null = null;
 
     try {
       const workflowPreset = readSelectValue(elements.workflow, DEFAULT_WORKFLOW);
@@ -835,6 +894,14 @@ export function renderApp(rootElement: HTMLElement) {
       setStatus(elements, "Submitting prompt to ComfyUI...", "idle");
       setProgressPreview(elements, "Submitting prompt to ComfyUI...");
       const promptId = await client.submitPrompt(buildResult.workflow);
+      activeRun = {
+        client,
+        promptId,
+        watcher: null,
+        isCancelled: false
+      };
+      activeTextGeneration = activeRun;
+      setCancelGenerationVisible(elements, true);
       let hasLivePreview = false;
       progressWatcher = client.watchProgress(promptId, {
         onStatus: (message) => {
@@ -850,6 +917,7 @@ export function renderApp(rootElement: HTMLElement) {
         },
         onError: (message) => setDiagnostics(elements, message)
       });
+      activeRun.watcher = progressWatcher;
 
       setStatus(elements, "Generating image...", "idle");
       setProgressPreview(elements, "Generating image...");
@@ -861,12 +929,14 @@ export function renderApp(rootElement: HTMLElement) {
 
             if (!hasLivePreview) {
               setProgressPreview(elements, message);
-            }
           }
-        }
+        },
+        isCancelled: () => Boolean(activeRun?.isCancelled)
+      }
       );
       progressWatcher?.close();
       progressWatcher = null;
+      activeRun.watcher = null;
 
       setStatus(elements, "Retrieving image...", "idle");
       setProgressPreview(elements, "Retrieving final image...");
@@ -893,11 +963,23 @@ export function renderApp(rootElement: HTMLElement) {
       savePreferencesFromElements(elements, { seed: requestedSeed });
       updateSettingsReport(elements);
     } catch (caughtError) {
+      if (isGenerationCancelledError(caughtError)) {
+        setStatus(elements, "Generation cancelled.", "idle");
+        setError(elements, "");
+        setDiagnostics(elements, formatCancelDiagnostic(activeRun?.promptId));
+        setProgressPreview(elements, "Generation cancelled.");
+        return;
+      }
+
       setStatus(elements, "Generation failed.", "error");
       setError(elements, getErrorMessage(caughtError));
       setDiagnostics(elements, getTechnicalErrorDetails(caughtError));
     } finally {
       progressWatcher?.close();
+      if (activeTextGeneration === activeRun) {
+        activeTextGeneration = null;
+      }
+      setCancelGenerationVisible(elements, false);
       isBusy = false;
       setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
     }
@@ -1460,15 +1542,16 @@ export function renderApp(rootElement: HTMLElement) {
     }
   }
 
-  async function handleCaptureInpaintSelection() {
-    setInpaintDiagnostics(elements, "Capturing active Photoshop selection...");
+  async function handleCaptureInpaintSelection(sourceMode: InpaintSourceMode) {
+    const sourceModeLabel = getInpaintSourceModeLabel(sourceMode);
+    setInpaintDiagnostics(elements, `Capturing Photoshop selection from ${sourceModeLabel}...`);
     setInpaintError(elements, "");
-    setInpaintStatus(elements, "Capturing selection...", "idle");
+    setInpaintStatus(elements, `Capturing ${sourceModeLabel} selection...`, "idle");
     isBusy = true;
     setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
 
     try {
-      const exportedSource = await captureSelectionForInpainting();
+      const exportedSource = await captureSelectionForInpainting(sourceMode);
       const sourcePreview = URL.createObjectURL(exportedSource.blob);
       setInpaintSource({
         ...exportedSource,
@@ -1478,7 +1561,16 @@ export function renderApp(rootElement: HTMLElement) {
       setInpaintStatus(elements, "Selection captured.", "ready");
       setInpaintDiagnostics(
         elements,
-        `${createSourceCaptureMessage(exportedSource, " for inpainting")} Selection: ${formatSelectionBounds(exportedSource.selection.bounds)}. Context: ${formatSelectionBounds(exportedSource.selection.contextBounds)}. ${exportedSource.maskMessage}`
+        [
+          createInpaintSourceModeDiagnostic({
+            mode: exportedSource.sourceMode,
+            sourceName: exportedSource.sourceName,
+            activeLayerName: exportedSource.activeLayerName,
+            maskAvailable: exportedSource.maskAvailable
+          }),
+          `${createSourceCaptureMessage(exportedSource, " for inpainting")} Selection: ${formatSelectionBounds(exportedSource.selection.bounds)}. Context: ${formatSelectionBounds(exportedSource.selection.contextBounds)}. ${exportedSource.maskMessage}`,
+          exportedSource.sourceWarning
+        ].filter(Boolean).join(" ")
       );
     } catch (caughtError) {
       setInpaintStatus(elements, "Selection capture failed.", "error");
@@ -1668,6 +1760,17 @@ export function renderApp(rootElement: HTMLElement) {
         requiredModelSelections
       });
 
+      const fluxDefaultsMessage =
+        preset.id === "inpaint-flux-fill-basic" ? formatFluxFillReferenceDefaults() : "";
+      if (fluxDefaultsMessage) {
+        setInpaintDiagnostics(
+          elements,
+          [workflowDiagnostics, fluxDebugSummary, fluxEmbeddedMaskMessage, fluxDefaultsMessage]
+            .filter(Boolean)
+            .join(" ")
+        );
+      }
+
       setInpaintStatus(elements, "Submitting Inpaint prompt...", "idle");
       setInpaintProgressPreview(elements, "Submitting prompt to ComfyUI...");
       const promptId = await client.submitPrompt(buildResult.workflow);
@@ -1805,15 +1908,15 @@ export function renderApp(rootElement: HTMLElement) {
       let importMode: InpaintImportMode = "aligned-context-fallback";
 
       setInpaintDiagnostics(elements, `Importing into ${documentInfo.name || "active document"}...`);
-      setInpaintStatus(elements, "Using aligned context fallback...", "idle");
+      setInpaintStatus(elements, "Importing with Photoshop layer mask...", "idle");
       setInpaintDiagnostics(
         elements,
-        resultDimensions && dimensionsMatchForUi(resultDimensions, maskDimensions)
-          ? "Transparent mask compositing is disabled for this experimental build. Aligned context fallback used."
-          : "Raw inpaint result dimensions do not match the captured mask. Aligned context fallback used."
+        resultDimensions && dimensionsMatchForUi(resultDimensions, sourceDimensions)
+          ? "Attempting native Photoshop layer mask import."
+          : "Raw inpaint result dimensions do not match the captured source context. Layer mask import will still be attempted, with aligned fallback if needed."
       );
 
-      const importedLayerName = await importImageAlignedToSelection({
+      const importResult = await importImageAlignedToSelectionWithLayerMask({
         blob: inpaintResult.blob,
         bounds: inpaintSource.selection.contextBounds,
         layerName,
@@ -1822,11 +1925,14 @@ export function renderApp(rootElement: HTMLElement) {
           setInpaintDiagnostics(elements, message);
         }
       });
+      importMode = importResult.maskApplied ? "transparent-outside-mask" : "aligned-context-fallback";
+      const importedLayerName = importResult.layerName;
       setInpaintStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
       setInpaintDiagnostics(
         elements,
         [
           `Layer created: ${importedLayerName}.`,
+          importResult.message,
           formatInpaintOutputDiagnostics({
             presetId,
             sourceDimensions,
@@ -2222,7 +2328,7 @@ export function renderApp(rootElement: HTMLElement) {
     image.alt = "Captured Photoshop selection for Inpaint";
     elements.inpaintSourcePreviewPanel.append(image);
     elements.inpaintSourceTitle.textContent = inpaintSource.sourceName;
-    elements.inpaintSourceMeta.textContent = `${createSourceMetaText(inpaintSource)} | Selection ${formatSelectionBounds(inpaintSource.selection.bounds)} | Context ${formatSelectionBounds(inpaintSource.selection.contextBounds)}`;
+    elements.inpaintSourceMeta.textContent = `${getInpaintSourceModeLabel(inpaintSource.sourceMode)} | ${createSourceMetaText(inpaintSource)} | Selection ${formatSelectionBounds(inpaintSource.selection.bounds)} | Context ${formatSelectionBounds(inpaintSource.selection.contextBounds)} | ${inpaintSource.sourceWarning}`;
 
     if (inpaintSource.mask) {
       inpaintMaskPreviewUrl = URL.createObjectURL(inpaintSource.mask.blob);
@@ -2477,7 +2583,7 @@ function createAppMarkup() {
             Click Detect GPU &amp; Recommend Models to get local hardware-aware suggestions.
           </div>
           <div class="diagnostics-line model-stack-note">
-            Z_image_Turbo is not a checkpoint. It uses a diffusion model stack. Flux presets need dedicated workflow JSON before they are ready.
+            Z_image_Turbo is not a checkpoint. It uses a diffusion model stack. Flux1-dev fp8 is a checkpoint-style exception; generic Flux presets still need dedicated workflow JSON.
           </div>
         </section>
 
@@ -2565,6 +2671,7 @@ function createAppMarkup() {
             </label>
           </div>
           <button class="button button-primary button-generate button-wide action-control" id="generate" data-openlayer-action="generate" type="button">Generate</button>
+          <button class="button button-wide action-control" id="cancel-generation" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
         </section>
 
         <section class="generation-status-panel" aria-label="Generation status">
@@ -2813,7 +2920,8 @@ function createAppMarkup() {
             <span class="muted-label">Photoshop selection</span>
           </div>
           <div class="source-action-row" aria-label="Selection capture actions">
-            <button class="button source-action-button action-control" id="capture-inpaint-selection" data-openlayer-action="captureInpaintSelection" type="button">Capture Selection</button>
+            <button class="button source-action-button action-control" id="capture-inpaint-selection" data-openlayer-action="captureInpaintSelection" type="button">Capture Visible Canvas</button>
+            <button class="button source-action-button action-control" id="capture-inpaint-active-layer" data-openlayer-action="captureInpaintActiveLayer" type="button">Capture Active Layer</button>
           </div>
           <div class="source-card">
             <div class="source-thumb-frame" id="inpaint-source-preview-panel">
@@ -3023,6 +3131,7 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     saveSettingsButton: getElement<HTMLElement>(rootElement, "save-settings"),
     resetSettingsButton: getElement<HTMLElement>(rootElement, "reset-settings"),
     generateButton: getElement<HTMLElement>(rootElement, "generate"),
+    cancelGenerateButton: getElement<HTMLElement>(rootElement, "cancel-generation"),
     importButton: getElement<HTMLElement>(rootElement, "import-result"),
     autoImportToggle: getElement<HTMLElement>(rootElement, "auto-import-toggle"),
     imgPrompt: getElement<HTMLTextAreaElement>(rootElement, "img-prompt"),
@@ -3059,6 +3168,7 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     inpaintSeed: getElement<HTMLInputElement>(rootElement, "inpaint-seed"),
     inpaintDenoise: getElement<HTMLInputElement>(rootElement, "inpaint-denoise"),
     captureInpaintSelectionButton: getElement<HTMLElement>(rootElement, "capture-inpaint-selection"),
+    captureInpaintActiveLayerButton: getElement<HTMLElement>(rootElement, "capture-inpaint-active-layer"),
     generateInpaintButton: getElement<HTMLElement>(rootElement, "generate-inpaint"),
     importInpaintButton: getElement<HTMLElement>(rootElement, "import-inpaint-result"),
     capturePromptLayerButton: getElement<HTMLElement>(rootElement, "capture-prompt-layer-source"),
@@ -3202,6 +3312,7 @@ function setBusy(
   setActionDisabled(elements.negativePromptToggle, isBusy);
   setActionDisabled(elements.autoImportToggle, isBusy);
   setActionDisabled(elements.generateButton, isBusy);
+  setActionDisabled(elements.cancelGenerateButton, !isBusy);
   setActionDisabled(elements.importButton, isBusy || !result);
   setActionDisabled(elements.captureLayerButton, isBusy);
   setActionDisabled(elements.captureCanvasButton, isBusy);
@@ -3213,6 +3324,7 @@ function setBusy(
   setActionDisabled(elements.generateSketchButton, isBusy || !sketchSource);
   setActionDisabled(elements.importSketchButton, isBusy || !sketchResult);
   setActionDisabled(elements.captureInpaintSelectionButton, isBusy);
+  setActionDisabled(elements.captureInpaintActiveLayerButton, isBusy);
   setActionDisabled(elements.generateInpaintButton, isBusy || !inpaintSource);
   setActionDisabled(elements.importInpaintButton, isBusy || !inpaintResult);
   setActionDisabled(elements.capturePromptLayerButton, isBusy);
@@ -3221,6 +3333,11 @@ function setBusy(
   setActionDisabled(elements.copyPromptLayerButton, isBusy);
   setActionDisabled(elements.sendPromptLayerButton, isBusy);
   setActionDisabled(elements.clearHistoryButton, isBusy);
+}
+
+function setCancelGenerationVisible(elements: AppElements, isVisible: boolean) {
+  elements.cancelGenerateButton.hidden = !isVisible;
+  setActionDisabled(elements.cancelGenerateButton, !isVisible);
 }
 
 function setStatus(elements: AppElements, status: string, tone: StatusTone) {
@@ -3473,6 +3590,7 @@ type ActionName =
   | "toggleNegativePrompt"
   | "toggleAutoImport"
   | "generate"
+  | "cancelGeneration"
   | "import"
   | "captureImageSource"
   | "captureCanvasSource"
@@ -3484,6 +3602,7 @@ type ActionName =
   | "generateSketch"
   | "importSketch"
   | "captureInpaintSelection"
+  | "captureInpaintActiveLayer"
   | "generateInpaint"
   | "importInpaint"
   | "capturePromptLayerSource"
@@ -4479,7 +4598,7 @@ function createDiagnosticsReport(
     ...formatHardwareReportLines(hardwareReport),
     "",
     "Model stack note:",
-    "Z_image_Turbo is not a checkpoint. It appears through diffusion model loaders such as UNETLoader. Flux presets need matching workflow JSON before they are ready."
+    "Z_image_Turbo is not a checkpoint. It appears through diffusion model loaders such as UNETLoader. Flux1-dev fp8 is a checkpoint-style exception; generic Flux presets need matching workflow JSON before they are ready."
   ];
 
   return lines.join("\n");

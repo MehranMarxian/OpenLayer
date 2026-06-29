@@ -61,7 +61,8 @@
       "model": [
         "31",
         0
-      ]
+      ],
+      "strength": 1
     },
     "_meta": {
       "title": "Differential Diffusion"

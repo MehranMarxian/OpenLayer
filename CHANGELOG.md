@@ -1,5 +1,30 @@
 # Changelog
 
+## Unreleased / v0.4.7-alpha draft - 2026-06-29
+
+Flux1-dev fp8 Text to Image preset and safe generation cancellation foundation.
+
+### Added
+
+- Added experimental `txt2img-flux1-dev-fp8` as a runnable Text to Image preset based on the attached checkpoint-style ComfyUI workflow.
+- Added `src/workflows/api/txt2img-flux1-dev-fp8.json` and preserved the GUI source workflow as `src/workflows/source/txt2img-flux1-dev-fp8.workflow.json`.
+- Added Workflow Health metadata for `flux1-dev-fp8.safetensors`, `CheckpointLoaderSimple`, `EmptySD3LatentImage`, `FluxGuidance`, `KSampler`, `VAEDecode`, and `SaveImage`.
+- Added a Text to Image `Cancel Generation` button that appears only while generation is active.
+- Added ComfyUI `/interrupt` support plus local watcher/poll cancellation handling.
+- Added unit coverage for Flux1-dev fp8 preset registration, workflow injection, workflow health, and cancel request helpers.
+
+### Changed
+
+- Bumped plugin/package metadata to `0.4.7`.
+- Kept `txt2img-basic`, `txt2img-z-image-turbo`, Image to Image, Sketch to Image, Inpaint, Settings, and imports unchanged.
+- Flux1-dev fp8 maps the UI CFG control to `FluxGuidance.guidance`; the sampler CFG stays at `1` to match the attached ComfyUI workflow.
+
+### Known Limitations
+
+- Flux1-dev fp8 Text to Image is experimental and should be tested against the user's local ComfyUI setup.
+- Cancel Generation asks ComfyUI to interrupt and stops OpenLayer polling, but it cannot undo a job ComfyUI already completed.
+- Inpaint and Flux Fill remain experimental and were not redesigned or fixed in this run.
+
 ## Unreleased / v0.4.6-alpha Flux Fill follow-up - 2026-06-29
 
 Experimental Flux Fill inpaint workflow alignment with a tested ComfyUI reference graph.
@@ -9,6 +34,8 @@ Experimental Flux Fill inpaint workflow alignment with a tested ComfyUI referenc
 - Added `src/workflows/source/inpaint-flux-fill-basic.workflow.json` as the GUI-editable source reference for the Flux Fill preset.
 - Added a pure TypeScript Flux Fill source/mask bridge that embeds OpenLayer's white repaint mask into the uploaded PNG alpha channel for ComfyUI `LoadImage`.
 - Added unit coverage for the Flux Fill alpha-mask bridge and the ported reference graph mapping.
+- Added separate Inpaint source capture modes for Visible Canvas and Active Layer, plus diagnostics for accidental visible OpenLayer result layers.
+- Added an experimental Photoshop-native layer-mask import attempt for Inpaint with aligned context fallback if Photoshop rejects the mask command.
 
 ### Changed
 
@@ -21,6 +48,7 @@ Experimental Flux Fill inpaint workflow alignment with a tested ComfyUI referenc
 - Inpaint and Flux Fill remain experimental.
 - Flux Fill still needs manual Photoshop + ComfyUI testing for final output quality, mask polarity, and aligned import behavior.
 - OpenLayer still imports the Flux Fill result as an aligned context layer; Photoshop-native layer-mask import remains future work.
+- Photoshop-native layer-mask import is experimental and must be verified in real Photoshop documents before it can replace fallback behavior.
 
 ## Unreleased / v0.4.6-alpha draft - 2026-06-28
 

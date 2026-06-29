@@ -15,12 +15,13 @@ These are runnable ComfyUI API workflows. OpenLayer sends these files to ComfyUI
 Current runnable API workflows:
 
 - `txt2img-basic.json`
+- `txt2img-flux1-dev-fp8.json`
 - `img2img-basic.json`
 - `txt2img-z-image-turbo.json`
 - `img2img-z-image-turbo.json`
 - `sketch2img-linecn-basic.json`
 
-The Z_image_Turbo workflows are experimental and should be tested carefully against the user's local ComfyUI node versions.
+The Flux1-dev fp8 and Z_image_Turbo workflows are experimental and should be tested carefully against the user's local ComfyUI node versions.
 
 ## Source Workflows
 
@@ -75,7 +76,21 @@ OpenLayer now includes experimental API workflows for `txt2img-z-image-turbo` an
 
 ## Why Flux Is Different
 
-Flux workflows also use model-stack style loading instead of the starter checkpoint workflow.
+Most Flux workflows use model-stack style loading instead of the starter checkpoint workflow. The `txt2img-flux1-dev-fp8` preset is the current exception because the attached working ComfyUI graph loads `flux1-dev-fp8.safetensors` through `CheckpointLoaderSimple`.
+
+The validated Flux1-dev fp8 Text to Image workflow uses:
+
+- `CheckpointLoaderSimple` with `flux1-dev-fp8.safetensors`
+- `EmptySD3LatentImage`
+- `CLIPTextEncode`
+- `FluxGuidance`
+- `KSampler`
+- `VAEDecode`
+- `SaveImage`
+
+OpenLayer maps the UI CFG field to `FluxGuidance.guidance`. The sampler CFG remains `1`, matching the source ComfyUI workflow.
+
+Generic Flux diffusion-model-stack workflows still use model-stack style loading.
 
 The local audit found:
 
@@ -84,4 +99,4 @@ The local audit found:
 - `CLIPTextEncodeFlux`
 - `FluxSampler`
 
-OpenLayer now has disabled preset metadata for future Flux workflows. These presets are not selectable until a real API workflow exists.
+OpenLayer now has a runnable experimental `txt2img-flux1-dev-fp8` preset plus disabled preset metadata for future generic Flux workflows. The generic Flux presets are not selectable until a real API workflow exists.

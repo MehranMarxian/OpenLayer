@@ -18,6 +18,10 @@ import {
   formatMissingRequiredModelMessage,
   getAcceptedModelNames
 } from "./workflowModelRequirements";
+import {
+  createComfyInterruptRequest,
+  createGenerationCancelledError
+} from "./generationCancel";
 import { createOpenLayerError, getNestedErrorMessage } from "../utils/errors";
 
 const MODEL_INVENTORY_SOURCES = {
@@ -48,6 +52,7 @@ type PollOptions = {
   intervalMs?: number;
   timeoutMs?: number;
   onTick?: (message: string) => void;
+  isCancelled?: () => boolean;
 };
 
 type ProgressWatcherOptions = {
@@ -353,12 +358,30 @@ export class ComfyClient {
     return data.prompt_id;
   }
 
+  async interruptGeneration() {
+    const request = createComfyInterruptRequest(this.serverUrl);
+    const response = await fetch(request.url, request.init);
+
+    if (!response.ok) {
+      const message = await readResponseText(response);
+      throw createOpenLayerError(
+        "COMFY_HTTP",
+        `ComfyUI interrupt failed with HTTP ${response.status}.`,
+        message
+      );
+    }
+  }
+
   async pollUntilComplete(promptId: string, options: PollOptions = {}): Promise<ComfyHistoryItem> {
     const intervalMs = options.intervalMs ?? 1500;
     const timeoutMs = options.timeoutMs ?? 10 * 60 * 1000;
     const startedAt = Date.now();
 
     while (Date.now() - startedAt < timeoutMs) {
+      if (options.isCancelled?.()) {
+        throw createGenerationCancelledError();
+      }
+
       const history = await this.getHistory(promptId);
       const item = history[promptId];
 
@@ -376,6 +399,10 @@ export class ComfyClient {
 
       options.onTick?.(await this.createPollingStatusMessage(promptId));
       await delay(intervalMs);
+
+      if (options.isCancelled?.()) {
+        throw createGenerationCancelledError();
+      }
     }
 
     throw createOpenLayerError("COMFY_TIMEOUT", "Timed out while waiting for ComfyUI to finish generation.");

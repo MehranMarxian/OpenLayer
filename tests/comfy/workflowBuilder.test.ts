@@ -5,6 +5,7 @@ import {
   buildSketchToImageWorkflow,
   buildTxt2ImgWorkflow
 } from "../../src/comfy/workflowBuilder";
+import { FLUX_FILL_REFERENCE_DEFAULTS } from "../../src/comfy/fluxFillDefaults";
 import { getWorkflowPreset } from "../../src/comfy/presetRegistry";
 import { createRequiredModelSelectionKey } from "../../src/comfy/workflowModelRequirements";
 
@@ -31,6 +32,35 @@ describe("workflowBuilder", () => {
     expect(result.workflow["3"].inputs.steps).toBe(24);
     expect(result.workflow["3"].inputs.cfg).toBe(6.5);
     expect(result.workflow["3"].inputs.seed).toBe(1234);
+  });
+
+  it("injects Flux1-dev fp8 text-to-image prompt, seed, and guidance while preserving sampler defaults", async () => {
+    const result = await buildTxt2ImgWorkflow({
+      presetId: "txt2img-flux1-dev-fp8",
+      prompt: "a soft cinematic studio portrait",
+      negativePrompt: "low detail",
+      checkpointName: "flux1-dev-fp8.safetensors",
+      width: 1024,
+      height: 768,
+      steps: 24,
+      cfg: 3.5,
+      seed: 9876
+    });
+
+    expect(result.preset.id).toBe("txt2img-flux1-dev-fp8");
+    expect(result.workflow["30"].inputs.ckpt_name).toBe("flux1-dev-fp8.safetensors");
+    expect(result.workflow["6"].inputs.text).toBe("a soft cinematic studio portrait");
+    expect(result.workflow["33"].inputs.text).toBe("low detail");
+    expect(result.workflow["27"].inputs.width).toBe(1024);
+    expect(result.workflow["27"].inputs.height).toBe(768);
+    expect(result.workflow["31"].inputs.seed).toBe(9876);
+    expect(result.workflow["31"].inputs.steps).toBe(24);
+    expect(result.workflow["31"].inputs.cfg).toBe(1);
+    expect(result.workflow["31"].inputs.sampler_name).toBe("euler");
+    expect(result.workflow["31"].inputs.scheduler).toBe("simple");
+    expect(result.workflow["31"].inputs.denoise).toBe(1);
+    expect(result.workflow["35"].inputs.guidance).toBe(3.5);
+    expect(result.workflow["9"].inputs.images).toEqual(["8", 0]);
   });
 
   it("injects source image and denoise into img2img-basic", async () => {
@@ -101,7 +131,7 @@ describe("workflowBuilder", () => {
     expect(result.workflow["9"].inputs.images).toEqual(["14", 0]);
   });
 
-  it("injects Flux Fill inpaint embedded source, prompt, model, guidance, and seed", async () => {
+  it("injects Flux Fill inpaint embedded source, prompt, model, and seed while preserving reference defaults", async () => {
     const result = await buildInpaintWorkflow({
       presetId: "inpaint-flux-fill-basic",
       prompt: "repair the moon surface",
@@ -124,13 +154,17 @@ describe("workflowBuilder", () => {
     expect(result.workflow["34"].inputs.type).toBe("flux");
     expect(result.workflow["17"].inputs.image).toBe("openlayer-flux-source-mask.png");
     expect(result.workflow["23"].inputs.text).toBe("repair the moon surface");
-    expect(result.workflow["26"].inputs.guidance).toBe(3.5);
-    expect(result.workflow["3"].inputs.steps).toBe(18);
-    expect(result.workflow["3"].inputs.denoise).toBe(0.8);
+    expect(result.workflow["26"].inputs.guidance).toBe(FLUX_FILL_REFERENCE_DEFAULTS.guidance);
+    expect(result.workflow["3"].inputs.steps).toBe(FLUX_FILL_REFERENCE_DEFAULTS.steps);
+    expect(result.workflow["3"].inputs.cfg).toBe(FLUX_FILL_REFERENCE_DEFAULTS.cfg);
+    expect(result.workflow["3"].inputs.sampler_name).toBe(FLUX_FILL_REFERENCE_DEFAULTS.samplerName);
+    expect(result.workflow["3"].inputs.scheduler).toBe(FLUX_FILL_REFERENCE_DEFAULTS.scheduler);
+    expect(result.workflow["3"].inputs.denoise).toBe(FLUX_FILL_REFERENCE_DEFAULTS.denoise);
     expect(result.workflow["3"].inputs.seed).toBe(4242);
     expect(result.workflow["38"].inputs.pixels).toEqual(["17", 0]);
     expect(result.workflow["38"].inputs.mask).toEqual(["17", 1]);
     expect(result.workflow["39"].class_type).toBe("DifferentialDiffusion");
+    expect(result.workflow["39"].inputs.strength).toBe(FLUX_FILL_REFERENCE_DEFAULTS.differentialDiffusionStrength);
     expect(result.workflow["46"].class_type).toBe("ConditioningZeroOut");
     expect(result.workflow["9"].inputs.images).toEqual(["8", 0]);
   });

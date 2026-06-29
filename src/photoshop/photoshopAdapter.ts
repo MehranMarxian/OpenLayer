@@ -7,6 +7,10 @@ import {
   NormalizedSelectionBounds,
   SelectionBounds
 } from "./selectionUtils";
+import {
+  createInpaintSourceModeWarning,
+  InpaintSourceMode
+} from "./inpaintSourceMode";
 
 type PhotoshopModule = {
   app: {
@@ -108,6 +112,9 @@ export type SelectedRegionSourceImage = ExportedSourceImage & {
   mask?: SelectionMaskExport;
   maskAvailable: boolean;
   maskMessage: string;
+  sourceMode: InpaintSourceMode;
+  sourceWarning: string;
+  activeLayerName?: string;
 };
 
 export type AlignedRegionalImportOptions = {
@@ -121,6 +128,12 @@ export type PreserveSelectionOperation<T> = () => Promise<T>;
 
 export type AlignedInpaintResultImport = AlignedRegionalImportOptions & {
   selection: ActiveSelectionInfo;
+};
+
+export type InpaintLayerMaskImportResult = {
+  layerName: string;
+  maskApplied: boolean;
+  message: string;
 };
 
 export async function hasOpenDocument(): Promise<boolean> {
@@ -288,7 +301,9 @@ export async function getActiveSelectionInfo(): Promise<ActiveSelectionInfo> {
   }
 }
 
-export async function captureSelectionForInpainting(): Promise<SelectedRegionSourceImage> {
+export async function captureSelectionForInpainting(
+  sourceMode: InpaintSourceMode = "visible-canvas"
+): Promise<SelectedRegionSourceImage> {
   const photoshop = getPhotoshop();
   const imaging = getImagingApi(photoshop);
 
@@ -297,6 +312,7 @@ export async function captureSelectionForInpainting(): Promise<SelectedRegionSou
       async () => {
         const document = getActiveDocument();
         const selection = await readActiveSelectionInfo(photoshop, document);
+        const activeLayer = document.activeLayers?.[0];
         let mask: CapturedSourceImage | null = null;
         let maskError = "";
 
@@ -308,9 +324,18 @@ export async function captureSelectionForInpainting(): Promise<SelectedRegionSou
           );
         }
 
+        if (sourceMode === "active-layer" && typeof activeLayer?.id !== "number") {
+          throw createOpenLayerError(
+            "PHOTOSHOP_EXPORT_FAILED",
+            "No active Photoshop layer was found for Inpaint Active Layer capture.",
+            "Select the layer you want OpenLayer to use as the Inpaint source."
+          );
+        }
+
         const captured = await captureSourceImage(imaging, {
           pixelOptions: {
             documentID: document.id,
+            ...(sourceMode === "active-layer" ? { layerID: activeLayer?.id } : {}),
             sourceBounds: {
               left: selection.contextBounds.left,
               top: selection.contextBounds.top,
@@ -322,7 +347,9 @@ export async function captureSelectionForInpainting(): Promise<SelectedRegionSou
             applyAlpha: false
           },
           filenamePrefix: "OpenLayer_Inpaint_Source",
-          sourceName: `Selection from ${selection.documentName}`
+          sourceName: sourceMode === "active-layer"
+            ? `Active layer: ${activeLayer?.name || "Layer"}`
+            : `Visible canvas from ${selection.documentName}`
         });
 
         try {
@@ -335,7 +362,8 @@ export async function captureSelectionForInpainting(): Promise<SelectedRegionSou
           captured,
           selection,
           mask,
-          maskError
+          maskError,
+          activeLayerName: activeLayer?.name
         };
       },
       { commandName: "Capture OpenLayer Selection" }
@@ -354,7 +382,10 @@ export async function captureSelectionForInpainting(): Promise<SelectedRegionSou
       },
       mask,
       maskAvailable: Boolean(mask),
-      maskMessage
+      maskMessage,
+      sourceMode,
+      sourceWarning: createInpaintSourceModeWarning(sourceMode, capturedSource.activeLayerName),
+      activeLayerName: capturedSource.activeLayerName
     };
   } catch (caughtError) {
     if (isOpenLayerNoSelectionError(caughtError)) {
@@ -364,6 +395,62 @@ export async function captureSelectionForInpainting(): Promise<SelectedRegionSou
     throw createOpenLayerError(
       "PHOTOSHOP_EXPORT_FAILED",
       `Could not capture the active Photoshop selection for inpainting. ${getErrorMessage(caughtError)}`
+    );
+  }
+}
+
+export async function importImageAlignedToSelectionWithLayerMask(
+  options: AlignedRegionalImportOptions
+): Promise<InpaintLayerMaskImportResult> {
+  const photoshop = getPhotoshop();
+  getActiveDocument();
+
+  try {
+    if (!options.blob || options.blob.size === 0) {
+      throw new Error("The generated inpaint image blob is empty.");
+    }
+
+    const bounds = normalizeSelectionBounds(options.bounds);
+    const layerName = options.layerName ?? createLayerName("OpenLayer_Inpaint");
+
+    options.onProgress?.("Saving inpaint result to a temporary PNG...");
+    const file = await saveBlobToTemporaryFile(options.blob, `${layerName}.png`);
+    const uxp = getUxp();
+    options.onProgress?.("Creating Photoshop file token...");
+    const token = await uxp.storage.localFileSystem.createSessionToken(file);
+    let maskApplied = false;
+    let maskMessage = "Layer mask was not applied. Aligned context fallback used.";
+
+    options.onProgress?.("Placing inpaint patch into the active document...");
+    await photoshop.core.executeAsModal(
+      async () => {
+        await placeFileAsLayer(photoshop, token);
+        await renameActiveLayer(photoshop, layerName);
+        options.onProgress?.("Aligning inpaint patch to the captured selection context...");
+        await alignActiveLayerToBounds(photoshop, bounds);
+
+        try {
+          options.onProgress?.("Applying Photoshop selection as a layer mask...");
+          await createLayerMaskFromActiveSelection(photoshop);
+          maskApplied = true;
+          maskMessage = "Imported with a Photoshop layer mask from the active selection.";
+        } catch (caughtError) {
+          maskMessage = `Layer mask import fallback used. ${getErrorMessage(caughtError)}`;
+        }
+      },
+      { commandName: "Import OpenLayer Inpaint Result With Mask" }
+    );
+
+    options.onProgress?.(`Imported ${layerName}. ${maskMessage}`);
+    return {
+      layerName,
+      maskApplied,
+      message: maskMessage
+    };
+  } catch (caughtError) {
+    throw createOpenLayerError(
+      "PHOTOSHOP_IMPORT_FAILED",
+      `Could not import the generated inpaint result aligned to the selection. ${getErrorMessage(caughtError)}`
     );
   }
 }
@@ -873,6 +960,32 @@ async function renameActiveLayer(photoshop: PhotoshopModule, layerName: string) 
         to: {
           _obj: "layer",
           name: layerName
+        },
+        _options: {
+          dialogOptions: "dontDisplay"
+        }
+      }
+    ],
+    {}
+  );
+}
+
+async function createLayerMaskFromActiveSelection(photoshop: PhotoshopModule) {
+  await photoshop.action.batchPlay(
+    [
+      {
+        _obj: "make",
+        new: {
+          _class: "channel"
+        },
+        at: {
+          _ref: "channel",
+          _enum: "channel",
+          _value: "mask"
+        },
+        using: {
+          _enum: "userMaskEnabled",
+          _value: "revealSelection"
         },
         _options: {
           dialogOptions: "dontDisplay"

@@ -19,6 +19,8 @@ Use this feature for debugging and feedback. Do not rely on it for final artwork
 - Import to Layers for the generated result
 - Inpaint debug diagnostics for source, mask, raw result dimensions, output kind, mask polarity, and import mode
 - Aligned context import for generated inpaint results
+- Separate Inpaint source capture modes for Visible Canvas and Active Layer
+- Experimental Photoshop-native layer mask import attempt, with aligned context fallback if Photoshop rejects the mask command
 
 ## What Is Not Confirmed Yet
 
@@ -30,7 +32,7 @@ Use this feature for debugging and feedback. Do not rely on it for final artwork
 - Perfect Photoshop-native aligned import
 - Whether the imported result should be a full canvas, a cropped patch, or transparent outside the mask
 - Whether OpenLayer should import a visible patch, a layer mask, or transparent outside-mask pixels
-- Whether Photoshop-native layer mask import should replace the disabled UXP canvas compositing experiment
+- Whether Photoshop-native layer mask import is reliable enough to replace the aligned context fallback in all Photoshop documents
 
 ## Current Observed Issue
 
@@ -38,7 +40,11 @@ Generated inpaint output may appear incorrect, gray, patch-like, partial, or dis
 
 This does not mean selection capture, mask export, or upload is completely broken. It means the full inpaint pipeline still needs controlled testing inside both Photoshop and ComfyUI.
 
-OpenLayer now retrieves the generated image from the preset's expected `SaveImage` node instead of the first image in ComfyUI history. This avoids accidentally importing uploaded source or mask previews as final output. The transparent PNG compositing experiment is disabled in the active Photoshop path because UXP canvas/blob compositing is not trusted yet. Inpaint uses aligned context import and reports this fallback in diagnostics.
+OpenLayer now retrieves the generated image from the preset's expected `SaveImage` node instead of the first image in ComfyUI history. This avoids accidentally importing uploaded source or mask previews as final output. The transparent PNG compositing experiment is disabled in the active Photoshop path because UXP canvas/blob compositing is not trusted yet.
+
+OpenLayer now attempts Photoshop-native masked import for Inpaint by placing the generated context result, aligning it to the captured selection context, and creating a layer mask from the active Photoshop selection. If Photoshop rejects that layer-mask command, OpenLayer falls back to aligned context import and reports the fallback in diagnostics.
+
+Visible Canvas capture includes all currently visible Photoshop layers, including previous OpenLayer result layers. For cleaner inpaint tests, hide old OpenLayer generated layers or use Active Layer capture.
 
 ## Next Debugging Checklist
 

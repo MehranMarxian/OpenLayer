@@ -9,7 +9,7 @@ import { ComfyWorkflow } from "../../src/comfy/types";
 import { getTechnicalErrorDetails } from "../../src/utils/errors";
 
 describe("presetRegistry", () => {
-  it("keeps Z_image_Turbo runnable while future Flux presets stay registered but disabled", () => {
+  it("keeps runnable Flux fp8 and Z_image_Turbo presets while future Flux stack presets stay disabled", () => {
     const allTxt2ImgIds = listWorkflowPresets("txt2img").map((preset) => preset.id);
     const runnableTxt2ImgIds = listRunnableWorkflowPresets("txt2img").map((preset) => preset.id);
     const allImg2ImgIds = listWorkflowPresets("img2img").map((preset) => preset.id);
@@ -18,12 +18,26 @@ describe("presetRegistry", () => {
     const runnableInpaintIds = listRunnableWorkflowPresets("inpaint").map((preset) => preset.id);
 
     expect(allTxt2ImgIds).toContain("txt2img-z-image-turbo");
+    expect(allTxt2ImgIds).toContain("txt2img-flux1-dev-fp8");
     expect(allTxt2ImgIds).toContain("txt2img-flux1-dev");
-    expect(runnableTxt2ImgIds).toEqual(["txt2img-basic", "txt2img-z-image-turbo"]);
+    expect(runnableTxt2ImgIds).toEqual(["txt2img-basic", "txt2img-flux1-dev-fp8", "txt2img-z-image-turbo"]);
     expect(allImg2ImgIds).toContain("img2img-z-image-turbo");
     expect(runnableImg2ImgIds).toEqual(["img2img-basic", "img2img-z-image-turbo"]);
     expect(allInpaintIds).toEqual(["inpaint-basic", "inpaint-flux-fill-basic"]);
     expect(runnableInpaintIds).toEqual(["inpaint-basic", "inpaint-flux-fill-basic"]);
+  });
+
+  it("registers Flux1-dev fp8 text-to-image as an experimental checkpoint workflow", () => {
+    const preset = getWorkflowPreset("txt2img-flux1-dev-fp8");
+
+    expect(preset.status).toBe("experimental");
+    expect(preset.mode).toBe("txt2img");
+    expect(preset.modelSource.kind).toBe("checkpoint");
+    expect(preset.supportedModelFamilies).toEqual(["flux"]);
+    expect(preset.requiredModels?.some((model) => model.modelName === "flux1-dev-fp8.safetensors")).toBe(true);
+    expect(preset.requiredNodes.some((node) => node.classType === "FluxGuidance")).toBe(true);
+    expect(preset.requiredNodes.some((node) => node.classType === "EmptySD3LatentImage")).toBe(true);
+    expect(preset.injections.cfg).toEqual({ nodeId: "35", inputName: "guidance" });
   });
 
   it("maps inpaint-basic mask and source injections", () => {
