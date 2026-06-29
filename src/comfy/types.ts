@@ -128,6 +128,7 @@ export type BuildImageToImageWorkflowOptions = {
   cfg: number;
   seed: number;
   denoise: number;
+  requiredModelSelections?: Record<string, string>;
 };
 
 export type BuildSketchToImageWorkflowOptions = BuildImageToImageWorkflowOptions & {
@@ -186,6 +187,7 @@ export type WorkflowModelSource = {
 
 export type WorkflowRequiredModel = WorkflowModelSource & {
   modelName: string;
+  acceptedModelNames?: readonly string[];
   setupHint?: string;
 };
 

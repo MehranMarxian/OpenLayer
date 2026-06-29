@@ -8,6 +8,10 @@ import {
   WorkflowPresetDefinition,
   WorkflowRequiredModel
 } from "./types";
+import {
+  formatMissingRequiredModelMessage,
+  hasRequiredModel
+} from "./workflowModelRequirements";
 
 export type WorkflowCompatibilityLevel =
   | "ready"
@@ -171,11 +175,11 @@ function addModelFileIssues(
   }
 
   for (const model of getRequiredModels(preset)) {
-    if (!hasModel(context.availableModels, model)) {
+    if (!hasRequiredModel(context.availableModels, model)) {
       issues.push({
         level: "setup-required",
         code: "MODEL_FILE_MISSING",
-        artistMessage: `Missing ${model.label}: ${model.modelName}.`,
+        artistMessage: formatMissingRequiredModelMessage(model),
         technicalMessage: model.setupHint
       });
     }
@@ -208,28 +212,6 @@ function addPhotoshopInputIssues(
 
 function getRequiredModels(preset: WorkflowPresetDefinition): readonly WorkflowRequiredModel[] {
   return preset.requiredModels ?? preset.modelStack ?? [];
-}
-
-function hasModel(inventory: Partial<ComfyModelInventory>, model: WorkflowRequiredModel) {
-  const bucket = getModelBucket(inventory, model.kind);
-  return bucket.some((modelName) => modelName === model.modelName);
-}
-
-function getModelBucket(inventory: Partial<ComfyModelInventory>, kind: WorkflowRequiredModel["kind"]) {
-  switch (kind) {
-    case "checkpoint":
-      return inventory.checkpoints ?? [];
-    case "diffusion-model-stack":
-      return inventory.diffusionModels ?? [];
-    case "clip":
-      return inventory.clipModels ?? [];
-    case "vae":
-      return inventory.vaeModels ?? [];
-    case "controlnet":
-      return inventory.controlNetModels ?? [];
-    default:
-      return [];
-  }
 }
 
 function isPhotoshopRequirementAvailable(

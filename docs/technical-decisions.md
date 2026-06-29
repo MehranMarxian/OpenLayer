@@ -31,12 +31,16 @@ This page records current project direction so contributors can make compatible 
 - Future workflow import should remove or reduce hardcoded node IDs by mapping source workflows to OpenLayer API workflow injection targets.
 - Keep source workflows and runnable API workflows separate.
 - API workflow validation should explain which preset failed and which node/input mapping needs attention.
+- Diffusion-model-stack presets may declare accepted model-file alternatives, but the selected available file must be written into the runnable API workflow before submit.
 
 ## Inpainting
 
 - Inpaint/Repaint Selection remains experimental until confirmed by real Photoshop testing.
 - Current debugging should focus on source PNG, mask PNG, mask polarity, workflow expectations, context area, and import alignment.
-- The next stable inpaint direction should decide whether OpenLayer imports a full context image, a cropped patch, transparent outside-mask pixels, or a layer with a Photoshop mask.
+- Flux Fill currently assumes source and mask PNG dimensions match and white mask pixels mean repaint; both assumptions need continued real workflow testing.
+- Inpaint result retrieval should target each preset's expected `SaveImage` node instead of the first ComfyUI history image because source and mask loaders can expose non-final images.
+- Inpaint import should not use UXP canvas/blob compositing in the active Photoshop path because it is not trusted yet.
+- The next stable inpaint direction should prefer Photoshop-native layer masks or transparent imports created through Photoshop-safe APIs instead of relying on UXP canvas compositing.
 
 ## Long-Term Product Direction
 

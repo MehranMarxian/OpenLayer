@@ -308,7 +308,7 @@ This alpha includes the first experimental SD 1.x mask-based inpainting path.
 8. Wait for the result preview.
 9. Click `Import to Layers`.
 
-The first `inpaint-basic` preset is experimental and intended for SD 1.x inpaint checkpoints first. `inpaint-flux-fill-basic` is also available as an experimental Flux Fill path when your local ComfyUI exposes `flux1-fill-dev.safetensors` through `UNETLoader`.
+The first `inpaint-basic` preset is experimental and intended for SD 1.x inpaint checkpoints first. `inpaint-flux-fill-basic` is also available as an experimental Flux Fill path when your local ComfyUI exposes the required Flux Fill model stack.
 
 Inpaint output quality, mask interpretation, and Photoshop alignment are still being tested. Use this path for debugging and feedback rather than production work.
 
@@ -375,12 +375,16 @@ The first `inpaint-basic` preset requires ComfyUI's standard `LoadImage`, `Image
 
 The experimental `inpaint-flux-fill-basic` preset requires:
 
-- `flux1-fill-dev.safetensors` through `UNETLoader`
-- `clip_l.safetensors` and `t5xxl_fp8_e4m3fn.safetensors` through `DualCLIPLoader`
-- `ae.safetensors` through `VAELoader`
-- `ModelSamplingFlux`, `BasicGuider`, `BasicScheduler`, `KSamplerSelect`, `RandomNoise`, and `SamplerCustomAdvanced`
+- `flux1-fill-dev.safetensors` through `UNETLoader` from `models/diffusion_models`
+- `clip_l.safetensors` through `DualCLIPLoader.clip_name1` from `models/text_encoders`
+- `t5xxl_fp16.safetensors` through `DualCLIPLoader.clip_name2` from `models/text_encoders`
+- `t5xxl_fp8_e4m3fn.safetensors` as an accepted T5 fallback when the fp16 file is not installed
+- `ae.safetensors` through `VAELoader` from `models/vae`
+- `DifferentialDiffusion`, `FluxGuidance`, `ConditioningZeroOut`, `InpaintModelConditioning`, `KSampler`, `VAEDecode`, and `SaveImage`
 
-Inpaint import now attempts to align the generated context patch back to the captured Photoshop selection context. Output quality and alignment are not confirmed stable yet, and selection preservation remains planned future work.
+Flux Fill follows the reference-style graph in `src/workflows/source/inpaint-flux-fill-basic.workflow.json`. That graph expects one `LoadImage` node whose alpha channel becomes the mask. OpenLayer preserves the Photoshop source PNG and embeds the white repaint mask into the uploaded PNG alpha channel before submission. Inpaint import currently uses aligned context import only. The earlier transparent outside-mask PNG experiment is disabled because Photoshop UXP canvas/blob compositing is not trusted yet. Output quality, mask polarity, and alignment are not confirmed stable yet, and Photoshop-native layer mask import remains planned future work.
+
+For debugging, OpenLayer records source, mask, raw result dimensions, import mode, and temporary local debug copies of the source PNG, mask PNG, and raw generated PNG after an Inpaint run.
 
 `img2img-basic` is intended for SD 1.x and SDXL-style checkpoints. SD3, SD3.5, and Flux checkpoints are shown in the selector for transparency, but OpenLayer warns before running them because those model families often need different loader, text encoder, and VAE nodes.
 

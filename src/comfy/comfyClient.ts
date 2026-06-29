@@ -13,6 +13,11 @@ import {
   WorkflowPresetDefinition
 } from "./types";
 import type { WorkflowNodeAvailability } from "./workflowCompatibility";
+import {
+  createRequiredModelSelectionKey,
+  formatMissingRequiredModelMessage,
+  getAcceptedModelNames
+} from "./workflowModelRequirements";
 import { createOpenLayerError, getNestedErrorMessage } from "../utils/errors";
 
 const MODEL_INVENTORY_SOURCES = {
@@ -49,6 +54,10 @@ type ProgressWatcherOptions = {
   onStatus?: (message: string) => void;
   onPreviewBlob?: (blob: Blob) => void;
   onError?: (message: string) => void;
+};
+
+type RetrieveOutputOptions = {
+  preferredNodeId?: string;
 };
 
 type ProgressWatcher = {
@@ -174,6 +183,7 @@ export class ComfyClient {
 
   async validatePresetSetup(preset: WorkflowPresetDefinition) {
     const problems: string[] = [];
+    const modelSelections: Record<string, string> = {};
     const checkedNodeClasses = new Set<string>();
 
     for (const requirement of preset.requiredNodes) {
@@ -208,10 +218,15 @@ export class ComfyClient {
           requiredModel.inputName
         );
 
-        if (!modelNames.includes(requiredModel.modelName)) {
+        const acceptedModelNames = getAcceptedModelNames(requiredModel);
+        const matchedModelName = acceptedModelNames.find((modelName) => modelNames.includes(modelName));
+
+        if (!matchedModelName) {
           problems.push(
-            `Missing ${requiredModel.label}: ${requiredModel.modelName}. ${requiredModel.setupHint ?? ""}`.trim()
+            `${formatMissingRequiredModelMessage(requiredModel)} ${requiredModel.setupHint ?? ""}`.trim()
           );
+        } else {
+          modelSelections[createRequiredModelSelectionKey(requiredModel)] = matchedModelName;
         }
       } catch (caughtError) {
         problems.push(
@@ -227,6 +242,8 @@ export class ComfyClient {
         problems.join(" ")
       );
     }
+
+    return modelSelections;
   }
 
   private async getModelNamesFromObjectInfo(objectInfoNode: string, inputName: string): Promise<string[]> {
@@ -364,17 +381,26 @@ export class ComfyClient {
     throw createOpenLayerError("COMFY_TIMEOUT", "Timed out while waiting for ComfyUI to finish generation.");
   }
 
-  async retrieveFirstOutputImage(promptId: string, historyItem?: ComfyHistoryItem): Promise<GeneratedImageResult> {
+  async retrieveFirstOutputImage(
+    promptId: string,
+    historyItem?: ComfyHistoryItem,
+    options: RetrieveOutputOptions = {}
+  ): Promise<GeneratedImageResult> {
     const history = historyItem ?? (await this.getHistory(promptId))[promptId];
 
     if (!history) {
       throw createOpenLayerError("COMFY_NO_IMAGE", `No ComfyUI history was found for prompt ${promptId}.`);
     }
 
-    const image = findFirstImage(history);
+    const image = findImageOutput(history, options.preferredNodeId);
 
     if (!image) {
-      throw createOpenLayerError("COMFY_NO_IMAGE", "No output image was found in the ComfyUI history.");
+      throw createOpenLayerError(
+        "COMFY_NO_IMAGE",
+        options.preferredNodeId
+          ? `No output image was found from the expected SaveImage node ${options.preferredNodeId}.`
+          : "No output image was found in the ComfyUI history."
+      );
     }
 
     const imageUrl = this.createViewUrl(image);
@@ -660,11 +686,19 @@ function createClientId() {
 }
 
 function hasImageOutput(history: ComfyHistoryItem) {
-  return Boolean(findFirstImage(history));
+  return Boolean(findImageOutput(history));
 }
 
-function findFirstImage(history: ComfyHistoryItem): ComfyImageOutput | null {
+export function findImageOutput(
+  history: ComfyHistoryItem,
+  preferredNodeId?: string
+): ComfyImageOutput | null {
   const outputs = history.outputs ?? {};
+
+  if (preferredNodeId) {
+    const preferredImage = outputs[preferredNodeId]?.images?.[0];
+    return preferredImage?.filename ? preferredImage : null;
+  }
 
   for (const output of Object.values(outputs)) {
     const image = output.images?.[0];

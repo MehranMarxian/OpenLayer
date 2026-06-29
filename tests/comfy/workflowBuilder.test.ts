@@ -5,6 +5,8 @@ import {
   buildSketchToImageWorkflow,
   buildTxt2ImgWorkflow
 } from "../../src/comfy/workflowBuilder";
+import { getWorkflowPreset } from "../../src/comfy/presetRegistry";
+import { createRequiredModelSelectionKey } from "../../src/comfy/workflowModelRequirements";
 
 describe("workflowBuilder", () => {
   it("injects text-to-image settings into txt2img-basic", async () => {
@@ -99,14 +101,14 @@ describe("workflowBuilder", () => {
     expect(result.workflow["9"].inputs.images).toEqual(["14", 0]);
   });
 
-  it("injects Flux Fill inpaint source, mask, prompt, model, size, and seed", async () => {
+  it("injects Flux Fill inpaint embedded source, prompt, model, guidance, and seed", async () => {
     const result = await buildInpaintWorkflow({
       presetId: "inpaint-flux-fill-basic",
       prompt: "repair the moon surface",
       negativePrompt: "black square",
       checkpointName: "flux1-fill-dev.safetensors",
-      sourceImageName: "openlayer-flux-source.png",
-      maskImageName: "openlayer-flux-mask.png",
+      sourceImageName: "openlayer-flux-source-mask.png",
+      maskImageName: "openlayer-separate-mask-should-not-be-injected.png",
       steps: 18,
       cfg: 3.5,
       denoise: 0.8,
@@ -116,19 +118,49 @@ describe("workflowBuilder", () => {
     });
 
     expect(result.preset.id).toBe("inpaint-flux-fill-basic");
-    expect(result.workflow["20"].inputs.unet_name).toBe("flux1-fill-dev.safetensors");
-    expect(result.workflow["10"].inputs.image).toBe("openlayer-flux-source.png");
-    expect(result.workflow["12"].inputs.image).toBe("openlayer-flux-mask.png");
-    expect(result.workflow["6"].inputs.clip_l).toBe("repair the moon surface");
-    expect(result.workflow["6"].inputs.t5xxl).toBe("repair the moon surface");
-    expect(result.workflow["7"].inputs.clip_l).toBe("black square");
-    expect(result.workflow["7"].inputs.t5xxl).toBe("black square");
-    expect(result.workflow["23"].inputs.width).toBe(640);
-    expect(result.workflow["23"].inputs.height).toBe(512);
-    expect(result.workflow["26"].inputs.steps).toBe(18);
-    expect(result.workflow["26"].inputs.denoise).toBe(0.8);
-    expect(result.workflow["27"].inputs.noise_seed).toBe(4242);
-    expect(result.workflow["9"].inputs.images).toEqual(["14", 0]);
+    expect(result.workflow["31"].inputs.unet_name).toBe("flux1-fill-dev.safetensors");
+    expect(result.workflow["34"].inputs.clip_name1).toBe("clip_l.safetensors");
+    expect(result.workflow["34"].inputs.clip_name2).toBe("t5xxl_fp16.safetensors");
+    expect(result.workflow["34"].inputs.type).toBe("flux");
+    expect(result.workflow["17"].inputs.image).toBe("openlayer-flux-source-mask.png");
+    expect(result.workflow["23"].inputs.text).toBe("repair the moon surface");
+    expect(result.workflow["26"].inputs.guidance).toBe(3.5);
+    expect(result.workflow["3"].inputs.steps).toBe(18);
+    expect(result.workflow["3"].inputs.denoise).toBe(0.8);
+    expect(result.workflow["3"].inputs.seed).toBe(4242);
+    expect(result.workflow["38"].inputs.pixels).toEqual(["17", 0]);
+    expect(result.workflow["38"].inputs.mask).toEqual(["17", 1]);
+    expect(result.workflow["39"].class_type).toBe("DifferentialDiffusion");
+    expect(result.workflow["46"].class_type).toBe("ConditioningZeroOut");
+    expect(result.workflow["9"].inputs.images).toEqual(["8", 0]);
+  });
+
+  it("can inject the accepted Flux Fill T5 fallback when fp16 is unavailable", async () => {
+    const preset = getWorkflowPreset("inpaint-flux-fill-basic");
+    const t5Requirement = preset.requiredModels?.find((model) => model.modelName === "t5xxl_fp16.safetensors");
+
+    expect(t5Requirement).toBeDefined();
+
+    const result = await buildInpaintWorkflow({
+      presetId: "inpaint-flux-fill-basic",
+      prompt: "repair the selected area",
+      negativePrompt: "",
+      checkpointName: "flux1-fill-dev.safetensors",
+      sourceImageName: "openlayer-flux-source-mask.png",
+      maskImageName: "openlayer-flux-source-mask.png",
+      steps: 12,
+      cfg: 3.5,
+      denoise: 0.7,
+      seed: 5150,
+      width: 512,
+      height: 512,
+      requiredModelSelections: {
+        [createRequiredModelSelectionKey(t5Requirement!)]: "t5xxl_fp8_e4m3fn.safetensors"
+      }
+    });
+
+    expect(result.workflow["34"].inputs.clip_name1).toBe("clip_l.safetensors");
+    expect(result.workflow["34"].inputs.clip_name2).toBe("t5xxl_fp8_e4m3fn.safetensors");
   });
 
   it("injects Z_image_Turbo text-to-image settings into the diffusion stack workflow", async () => {

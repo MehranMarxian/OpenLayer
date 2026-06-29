@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased / v0.4.6-alpha Flux Fill follow-up - 2026-06-29
+
+Experimental Flux Fill inpaint workflow alignment with a tested ComfyUI reference graph.
+
+### Added
+
+- Added `src/workflows/source/inpaint-flux-fill-basic.workflow.json` as the GUI-editable source reference for the Flux Fill preset.
+- Added a pure TypeScript Flux Fill source/mask bridge that embeds OpenLayer's white repaint mask into the uploaded PNG alpha channel for ComfyUI `LoadImage`.
+- Added unit coverage for the Flux Fill alpha-mask bridge and the ported reference graph mapping.
+
+### Changed
+
+- Replaced the guessed `inpaint-flux-fill-basic` API workflow with the reference-style graph using `UNETLoader`, `DifferentialDiffusion`, `DualCLIPLoader`, `FluxGuidance`, `ConditioningZeroOut`, `InpaintModelConditioning`, regular `KSampler`, `VAEDecode`, and `SaveImage`.
+- Corrected Flux Fill `DualCLIPLoader` mapping to use `clip_l.safetensors` on `clip_name1` and `t5xxl_fp16.safetensors` on `clip_name2`, while keeping `t5xxl_fp8_e4m3fn.safetensors` as an accepted T5 fallback.
+- Removed the Flux Fill `ImageCompositeMasked` output path from the experimental API workflow so the saved result comes directly from the decoded inpaint result.
+
+### Known Limitations
+
+- Inpaint and Flux Fill remain experimental.
+- Flux Fill still needs manual Photoshop + ComfyUI testing for final output quality, mask polarity, and aligned import behavior.
+- OpenLayer still imports the Flux Fill result as an aligned context layer; Photoshop-native layer-mask import remains future work.
+
 ## Unreleased / v0.4.6-alpha draft - 2026-06-28
 
 Settings diagnostics readability and public alpha release-readiness pass.
@@ -10,6 +32,11 @@ Settings diagnostics readability and public alpha release-readiness pass.
 - Added collapsed technical details for workflow health cards so artists see short readable messages first.
 - Added a public alpha release checklist in `docs/release-checklist.md`.
 - Added clearer local permission notes for filesystem, local ComfyUI network access, and local-only diagnostics.
+- Added Flux Fill preflight validation for source/mask presence, matching dimensions, and selection context before submitting the experimental inpaint workflow.
+- Added Flux Fill debug diagnostics showing preset, source size, mask size, model stack, and the current white-mask-means-repaint assumption.
+- Added Inpaint output diagnostics for source, mask, raw result dimensions, output kind, mask polarity, and import mode.
+- Added temporary local debug copies for Inpaint source PNG, mask PNG, and raw generated result PNG.
+- Added Inpaint output selection by expected `SaveImage` node so uploaded source/mask images are not mistaken for final ComfyUI results.
 
 ### Changed
 
@@ -17,6 +44,10 @@ Settings diagnostics readability and public alpha release-readiness pass.
 - Rebuilt the Settings diagnostic layout with UXP-safe block and flex rules so panels and buttons stack cleanly in narrow Photoshop panels.
 - Moved Settings actions into one full-width action stack: Check ComfyUI, Find ComfyUI Active Port, Detect GPU, Check Workflow Health, Copy Diagnostics, Save Settings, and Reset Defaults.
 - Simplified Hardware Advisor rows and shortened the Z_image_Turbo / Flux explanation in Settings.
+- Updated the experimental Flux Fill model-stack metadata to prefer `t5xxl_fp16.safetensors` while accepting `t5xxl_fp8_e4m3fn.safetensors` as a local T5 fallback.
+- Updated `inpaint-flux-fill-basic.json` to use the wiki-style DualCLIPLoader mapping with T5 on `clip_name1` and CLIP-L on `clip_name2`.
+- Disabled the active transparent mask compositing import path for now so Photoshop UXP cannot get stuck on `Preparing transparent inpaint patch...`.
+- Kept Inpaint import fallback explicit: generated Inpaint results now import with aligned context fallback until a Photoshop-native layer mask strategy is implemented.
 - Synced the GitHub Pages landing page with the v0.4.6-alpha release story, including PNG/lossless capture, GPU/VRAM diagnostics, Workflow Health, Copy Diagnostics, Z_image_Turbo experiments, Prompt from Layer foundation, and experimental Inpaint/Repaint Selection.
 - Kept Inpaint, Flux Fill, Prompt from Layer, and custom workflow import messaging honest for public alpha testing.
 
@@ -25,6 +56,8 @@ Settings diagnostics readability and public alpha release-readiness pass.
 - This release-readiness pass does not change generation behavior, workflow JSON files, model loading, ComfyUI requests, or import behavior.
 - Workflow Health remains advisory and technical details are still meant for setup/debugging, not everyday artist controls.
 - Inpaint/Repaint Selection remains experimental and output quality/alignment are not confirmed stable.
+- Flux Fill remains experimental and still needs real Photoshop + ComfyUI testing for quality, mask polarity, and aligned import behavior.
+- Transparent outside-mask import is disabled in the active Photoshop path because UXP canvas/blob compositing is not trusted yet. OpenLayer uses aligned context fallback and reports that in diagnostics.
 - CI does not run Photoshop, UXP Developer Tool, or ComfyUI integration tests.
 
 ## Unreleased / v0.4.5-alpha draft - 2026-06-28
@@ -135,7 +168,7 @@ Real experimental mask-based Inpaint path for SD 1.x testing.
 ### Known Limitations
 
 - Inpaint is currently safest with SD 1.x checkpoints such as `epicrealism_naturalSinRC1VAE.safetensors`.
-- Flux Fill inpainting is experimental and requires `flux1-fill-dev.safetensors`, `clip_l.safetensors`, `t5xxl_fp8_e4m3fn.safetensors`, and `ae.safetensors` in the matching ComfyUI model folders.
+- Flux Fill inpainting is experimental and requires `flux1-fill-dev.safetensors`, `clip_l.safetensors`, `t5xxl_fp16.safetensors` or accepted fallback `t5xxl_fp8_e4m3fn.safetensors`, and `ae.safetensors` in the matching ComfyUI model folders.
 - Selection mask export uses a temporary-layer fallback path. If Photoshop rejects that path, OpenLayer keeps source capture available and shows a friendly mask error.
 - Selection preservation remains future work.
 - CI does not run Photoshop, UXP, or ComfyUI integration tests.

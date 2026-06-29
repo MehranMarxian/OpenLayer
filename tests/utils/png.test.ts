@@ -1,6 +1,6 @@
 import { inflateSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
-import { encodeRgbaPng } from "../../src/utils/png";
+import { decodeRgbaPng, encodeRgbaPng } from "../../src/utils/png";
 
 describe("encodeRgbaPng", () => {
   it("creates a valid RGBA PNG with lossless pixel bytes", () => {
@@ -34,6 +34,19 @@ describe("encodeRgbaPng", () => {
         rgba: new Uint8Array([255, 0, 0, 255])
       })
     ).toThrow("PNG RGBA buffer size does not match width and height.");
+  });
+
+  it("decodes OpenLayer RGBA PNG bytes", () => {
+    const rgba = new Uint8Array([
+      10, 20, 30, 255,
+      40, 50, 60, 0
+    ]);
+    const png = encodeRgbaPng({ width: 2, height: 1, rgba });
+    const decoded = decodeRgbaPng(png);
+
+    expect(decoded.width).toBe(2);
+    expect(decoded.height).toBe(1);
+    expect([...decoded.rgba]).toEqual([...rgba]);
   });
 });
 

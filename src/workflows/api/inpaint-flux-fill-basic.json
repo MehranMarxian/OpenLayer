@@ -1,19 +1,9 @@
 {
-  "20": {
-    "class_type": "UNETLoader",
-    "inputs": {
-      "unet_name": "flux1-fill-dev.safetensors",
-      "weight_dtype": "fp8_e4m3fn"
-    },
-    "_meta": {
-      "title": "Load Flux Fill Diffusion Model"
-    }
-  },
-  "21": {
+  "34": {
     "class_type": "DualCLIPLoader",
     "inputs": {
       "clip_name1": "clip_l.safetensors",
-      "clip_name2": "t5xxl_fp8_e4m3fn.safetensors",
+      "clip_name2": "t5xxl_fp16.safetensors",
       "type": "flux",
       "device": "default"
     },
@@ -21,7 +11,20 @@
       "title": "Load Flux Text Encoders"
     }
   },
-  "22": {
+  "26": {
+    "class_type": "FluxGuidance",
+    "inputs": {
+      "conditioning": [
+        "23",
+        0
+      ],
+      "guidance": 30
+    },
+    "_meta": {
+      "title": "Flux Guidance"
+    }
+  },
+  "32": {
     "class_type": "VAELoader",
     "inputs": {
       "vae_name": "ae.safetensors"
@@ -30,239 +33,149 @@
       "title": "Load Flux VAE"
     }
   },
-  "23": {
-    "class_type": "ModelSamplingFlux",
+  "31": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "flux1-fill-dev.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "Load Flux Fill Diffusion Model"
+    }
+  },
+  "46": {
+    "class_type": "ConditioningZeroOut",
+    "inputs": {
+      "conditioning": [
+        "23",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Negative Conditioning"
+    }
+  },
+  "39": {
+    "class_type": "DifferentialDiffusion",
     "inputs": {
       "model": [
-        "20",
+        "31",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Differential Diffusion"
+    }
+  },
+  "3": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": [
+        "39",
         0
       ],
-      "max_shift": 1.15,
-      "base_shift": 0.5,
-      "width": 512,
-      "height": 512
-    },
-    "_meta": {
-      "title": "Flux Sampling Settings"
-    }
-  },
-  "10": {
-    "class_type": "LoadImage",
-    "inputs": {
-      "image": "openlayer-inpaint-source.png"
-    },
-    "_meta": {
-      "title": "Load Inpaint Source"
-    }
-  },
-  "12": {
-    "class_type": "LoadImage",
-    "inputs": {
-      "image": "openlayer-inpaint-mask.png"
-    },
-    "_meta": {
-      "title": "Load Inpaint Mask"
-    }
-  },
-  "13": {
-    "class_type": "ImageToMask",
-    "inputs": {
-      "image": [
-        "12",
-        0
-      ],
-      "channel": "red"
-    },
-    "_meta": {
-      "title": "Convert Mask Image"
-    }
-  },
-  "6": {
-    "class_type": "CLIPTextEncodeFlux",
-    "inputs": {
-      "clip": [
-        "21",
-        0
-      ],
-      "clip_l": "replace the selected area naturally",
-      "t5xxl": "replace the selected area naturally",
-      "guidance": 3.5
-    },
-    "_meta": {
-      "title": "Positive Flux Prompt"
-    }
-  },
-  "7": {
-    "class_type": "CLIPTextEncodeFlux",
-    "inputs": {
-      "clip": [
-        "21",
-        0
-      ],
-      "clip_l": "",
-      "t5xxl": "",
-      "guidance": 3.5
-    },
-    "_meta": {
-      "title": "Negative Flux Prompt"
-    }
-  },
-  "11": {
-    "class_type": "InpaintModelConditioning",
-    "inputs": {
       "positive": [
-        "6",
+        "38",
         0
       ],
       "negative": [
-        "7",
-        0
-      ],
-      "vae": [
-        "22",
-        0
-      ],
-      "pixels": [
-        "10",
-        0
-      ],
-      "mask": [
-        "13",
-        0
-      ],
-      "noise_mask": true
-    },
-    "_meta": {
-      "title": "Flux Inpaint Conditioning"
-    }
-  },
-  "24": {
-    "class_type": "BasicGuider",
-    "inputs": {
-      "model": [
-        "23",
-        0
-      ],
-      "conditioning": [
-        "11",
-        0
-      ]
-    },
-    "_meta": {
-      "title": "Flux Guider"
-    }
-  },
-  "25": {
-    "class_type": "KSamplerSelect",
-    "inputs": {
-      "sampler_name": "euler"
-    },
-    "_meta": {
-      "title": "Sampler"
-    }
-  },
-  "26": {
-    "class_type": "BasicScheduler",
-    "inputs": {
-      "model": [
-        "23",
-        0
-      ],
-      "scheduler": "simple",
-      "steps": 16,
-      "denoise": 0.75
-    },
-    "_meta": {
-      "title": "Flux Scheduler"
-    }
-  },
-  "27": {
-    "class_type": "RandomNoise",
-    "inputs": {
-      "noise_seed": 1
-    },
-    "_meta": {
-      "title": "Noise"
-    }
-  },
-  "28": {
-    "class_type": "SamplerCustomAdvanced",
-    "inputs": {
-      "noise": [
-        "27",
-        0
-      ],
-      "guider": [
-        "24",
-        0
-      ],
-      "sampler": [
-        "25",
-        0
-      ],
-      "sigmas": [
-        "26",
-        0
+        "38",
+        1
       ],
       "latent_image": [
-        "11",
+        "38",
         2
-      ]
+      ],
+      "seed": 1,
+      "control_after_generate": "randomize",
+      "steps": 20,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 1
     },
     "_meta": {
-      "title": "Flux Sampler"
+      "title": "KSampler"
     }
   },
   "8": {
     "class_type": "VAEDecode",
     "inputs": {
       "samples": [
-        "28",
+        "3",
         0
       ],
       "vae": [
-        "22",
+        "32",
         0
       ]
     },
     "_meta": {
-      "title": "Decode Flux Result"
-    }
-  },
-  "14": {
-    "class_type": "ImageCompositeMasked",
-    "inputs": {
-      "destination": [
-        "10",
-        0
-      ],
-      "source": [
-        "8",
-        0
-      ],
-      "x": 0,
-      "y": 0,
-      "resize_source": false,
-      "mask": [
-        "13",
-        0
-      ]
-    },
-    "_meta": {
-      "title": "Composite Inpaint Over Source"
+      "title": "Decode Flux Fill Result"
     }
   },
   "9": {
     "class_type": "SaveImage",
     "inputs": {
-      "filename_prefix": "OpenLayer_Flux_Inpaint",
       "images": [
-        "14",
+        "8",
         0
-      ]
+      ],
+      "filename_prefix": "OpenLayer_Flux_Inpaint"
     },
     "_meta": {
       "title": "Save Image"
+    }
+  },
+  "38": {
+    "class_type": "InpaintModelConditioning",
+    "inputs": {
+      "positive": [
+        "26",
+        0
+      ],
+      "negative": [
+        "46",
+        0
+      ],
+      "vae": [
+        "32",
+        0
+      ],
+      "pixels": [
+        "17",
+        0
+      ],
+      "mask": [
+        "17",
+        1
+      ],
+      "noise_mask": true
+    },
+    "_meta": {
+      "title": "Flux Fill Inpaint Conditioning"
+    }
+  },
+  "17": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "openlayer-flux-fill-source-mask.png"
+    },
+    "_meta": {
+      "title": "Load Source With Embedded Mask"
+    }
+  },
+  "23": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "34",
+        0
+      ],
+      "text": "replace the selected area naturally"
+    },
+    "_meta": {
+      "title": "Positive Prompt"
     }
   }
 }

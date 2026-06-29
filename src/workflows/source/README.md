@@ -25,3 +25,9 @@ This source folder includes the user-provided Z_image_Turbo GUI workflows as ref
 - `img2img-z-image-turbo.workflow.json`
 
 The runnable OpenLayer API versions are in `src/workflows/api/`. If the GUI workflows are edited in ComfyUI, export matching API workflows and update `src/comfy/presetRegistry.ts` node mappings before relying on them.
+
+## Flux Fill Notes
+
+`inpaint-flux-fill-basic.workflow.json` is the GUI-editable reference workflow used to rebuild the experimental Flux Fill API workflow.
+
+The runnable API version is in `src/workflows/api/inpaint-flux-fill-basic.json`. If this source workflow is edited in ComfyUI, export a matching API workflow and update `src/comfy/presetRegistry.ts` node mappings before relying on it.

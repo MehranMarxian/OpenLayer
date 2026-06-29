@@ -48,6 +48,46 @@ describe("workflow health", () => {
     expect(item.summary).toContain("qwen_3_4b.safetensors");
   });
 
+  it("marks Flux Fill as experimental when its full model stack is available", () => {
+    const preset = getWorkflowPreset("inpaint-flux-fill-basic");
+    const item = createWorkflowHealthItem(preset, {
+      availableNodes: createAvailableNodes(preset),
+      availableModels: createFluxFillInventory()
+    });
+
+    expect(item.state).toBe("experimental");
+    expect(item.canRun).toBe(true);
+    expect(item.detail).toContain("t5xxl_fp16.safetensors");
+  });
+
+  it("marks Flux Fill as experimental with the accepted fp8 T5 fallback", () => {
+    const preset = getWorkflowPreset("inpaint-flux-fill-basic");
+    const item = createWorkflowHealthItem(preset, {
+      availableNodes: createAvailableNodes(preset),
+      availableModels: createFluxFillInventory({
+        clipModels: ["t5xxl_fp8_e4m3fn.safetensors", "clip_l.safetensors"]
+      })
+    });
+
+    expect(item.state).toBe("experimental");
+    expect(item.canRun).toBe(true);
+    expect(item.detail).toContain("t5xxl_fp8_e4m3fn.safetensors");
+  });
+
+  it("reports missing Flux Fill T5 alternatives as model setup", () => {
+    const preset = getWorkflowPreset("inpaint-flux-fill-basic");
+    const item = createWorkflowHealthItem(preset, {
+      availableNodes: createAvailableNodes(preset),
+      availableModels: createFluxFillInventory({
+        clipModels: ["clip_l.safetensors"]
+      })
+    });
+
+    expect(item.state).toBe("missing-model");
+    expect(item.summary).toContain("t5xxl_fp16.safetensors");
+    expect(item.summary).toContain("t5xxl_fp8_e4m3fn.safetensors");
+  });
+
   it("reports missing ComfyUI node classes", () => {
     const preset = getWorkflowPreset("sketch2img-linecn-basic");
     const availableNodes = createAvailableNodes(preset);
@@ -121,5 +161,14 @@ function createZImageInventory() {
     diffusionModels: ["z_image_turbo_bf16.safetensors"],
     clipModels: ["qwen_3_4b.safetensors"],
     vaeModels: ["ae.safetensors"]
+  });
+}
+
+function createFluxFillInventory(overrides: Partial<ComfyModelInventory> = {}) {
+  return createInventory({
+    diffusionModels: ["flux1-fill-dev.safetensors"],
+    clipModels: ["t5xxl_fp16.safetensors", "clip_l.safetensors"],
+    vaeModels: ["ae.safetensors"],
+    ...overrides
   });
 }

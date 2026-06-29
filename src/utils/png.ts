@@ -8,6 +8,8 @@ export type RgbaPngOptions = {
   rgba: Uint8Array;
 };
 
+export type DecodedRgbaPng = RgbaPngOptions;
+
 export function encodeRgbaPng(options: RgbaPngOptions): Uint8Array {
   validatePngOptions(options);
 
@@ -18,6 +20,80 @@ export function encodeRgbaPng(options: RgbaPngOptions): Uint8Array {
   const iend = createChunk("IEND", new Uint8Array());
 
   return concatUint8Arrays([PNG_SIGNATURE, ihdr, idat, iend]);
+}
+
+export function decodeRgbaPng(bytes: Uint8Array): DecodedRgbaPng {
+  if (!hasPngSignature(bytes)) {
+    throw new Error("PNG signature was not found.");
+  }
+
+  let offset = PNG_SIGNATURE.byteLength;
+  let width = 0;
+  let height = 0;
+  let bitDepth = 0;
+  let colorType = 0;
+  const idatChunks: Uint8Array[] = [];
+
+  while (offset + 12 <= bytes.byteLength) {
+    const length = readUint32(bytes, offset);
+    const type = String.fromCharCode(...bytes.subarray(offset + 4, offset + 8));
+    const dataStart = offset + 8;
+    const dataEnd = dataStart + length;
+
+    if (dataEnd + 4 > bytes.byteLength) {
+      throw new Error("PNG chunk length is invalid.");
+    }
+
+    const data = bytes.subarray(dataStart, dataEnd);
+
+    if (type === "IHDR") {
+      width = readUint32(data, 0);
+      height = readUint32(data, 4);
+      bitDepth = data[8] ?? 0;
+      colorType = data[9] ?? 0;
+    } else if (type === "IDAT") {
+      idatChunks.push(data);
+    } else if (type === "IEND") {
+      break;
+    }
+
+    offset = dataEnd + 4;
+  }
+
+  if (width <= 0 || height <= 0 || bitDepth !== 8 || colorType !== 6) {
+    throw new Error("Only 8-bit RGBA PNG files are supported.");
+  }
+
+  if (idatChunks.length === 0) {
+    throw new Error("PNG IDAT chunk was not found.");
+  }
+
+  const scanlines = inflateStoredZlib(concatUint8Arrays(idatChunks));
+  const rowBytes = width * 4;
+  const expectedScanlineBytes = (rowBytes + 1) * height;
+
+  if (scanlines.byteLength !== expectedScanlineBytes) {
+    throw new Error("PNG scanline data does not match image dimensions.");
+  }
+
+  const rgba = new Uint8Array(width * height * 4);
+  let sourceOffset = 0;
+  let targetOffset = 0;
+
+  for (let row = 0; row < height; row += 1) {
+    const filterType = scanlines[sourceOffset];
+    sourceOffset += 1;
+
+    if (filterType !== 0) {
+      throw new Error("Only unfiltered OpenLayer PNG files are supported.");
+    }
+
+    rgba.set(scanlines.subarray(sourceOffset, sourceOffset + rowBytes), targetOffset);
+    sourceOffset += rowBytes;
+    targetOffset += rowBytes;
+  }
+
+  return { width, height, rgba };
 }
 
 function validatePngOptions(options: RgbaPngOptions) {
@@ -84,6 +160,48 @@ function createZlibStoredBlocks(data: Uint8Array) {
   return output;
 }
 
+function inflateStoredZlib(data: Uint8Array) {
+  if (
+    data.byteLength < ZLIB_NO_COMPRESSION_HEADER.byteLength + 5 ||
+    data[0] !== ZLIB_NO_COMPRESSION_HEADER[0] ||
+    data[1] !== ZLIB_NO_COMPRESSION_HEADER[1]
+  ) {
+    throw new Error("Only OpenLayer's stored zlib PNG compression is supported.");
+  }
+
+  const parts: Uint8Array[] = [];
+  let offset = ZLIB_NO_COMPRESSION_HEADER.byteLength;
+  let isFinalBlock = false;
+
+  while (!isFinalBlock && offset + 5 <= data.byteLength) {
+    const header = data[offset] ?? 0;
+    offset += 1;
+    isFinalBlock = (header & 0x01) === 1;
+
+    const blockType = (header >>> 1) & 0x03;
+    if (blockType !== 0) {
+      throw new Error("PNG zlib stream uses unsupported compression.");
+    }
+
+    const length = (data[offset] ?? 0) | ((data[offset + 1] ?? 0) << 8);
+    const invertedLength = (data[offset + 2] ?? 0) | ((data[offset + 3] ?? 0) << 8);
+    offset += 4;
+
+    if (((length ^ invertedLength) & 0xffff) !== 0xffff) {
+      throw new Error("PNG zlib block length is invalid.");
+    }
+
+    if (offset + length > data.byteLength) {
+      throw new Error("PNG zlib block exceeds stream length.");
+    }
+
+    parts.push(data.subarray(offset, offset + length));
+    offset += length;
+  }
+
+  return concatUint8Arrays(parts);
+}
+
 function createIhdrChunk(width: number, height: number) {
   const ihdr = new Uint8Array(13);
   writeUint32(ihdr, 0, width);
@@ -143,6 +261,21 @@ function calculateCrc32(data: Uint8Array) {
   }
 
   return (crc ^ 0xffffffff) >>> 0;
+}
+
+function hasPngSignature(bytes: Uint8Array) {
+  if (bytes.byteLength < PNG_SIGNATURE.byteLength) {
+    return false;
+  }
+
+  return PNG_SIGNATURE.every((byte, index) => bytes[index] === byte);
+}
+
+function readUint32(bytes: Uint8Array, offset: number) {
+  return (
+    ((bytes[offset] ?? 0) * 0x1000000) +
+    (((bytes[offset + 1] ?? 0) << 16) | ((bytes[offset + 2] ?? 0) << 8) | (bytes[offset + 3] ?? 0))
+  ) >>> 0;
 }
 
 function writeUint32(target: Uint8Array, offset: number, value: number) {

@@ -8,6 +8,8 @@ OpenLayer is a local-first Photoshop UXP plugin for artist-friendly ComfyUI work
 - Image to Image with active-layer or canvas capture
 - Sketch to Image with the SD 1.x LINECN starter workflow
 - Experimental Inpaint with Photoshop selection detection, selected-region PNG capture, grayscale mask export, aligned context import, SD 1.x `inpaint-basic`, and experimental Flux Fill preset metadata/workflow
+- Flux Fill metadata prefers `t5xxl_fp16.safetensors`, accepts `t5xxl_fp8_e4m3fn.safetensors` as a T5 fallback, and validates source/mask dimensions before submit
+- Inpaint output diagnostics and best-effort transparent outside-mask import, with aligned context fallback when compositing is unavailable
 - Import generated results as new Photoshop layers
 - Local ComfyUI connection, checkpoint loading, and status diagnostics
 - GPU-aware model recommendations
@@ -28,6 +30,8 @@ OpenLayer is a local-first Photoshop UXP plugin for artist-friendly ComfyUI work
 - Selection mask export (started in v0.4.1-alpha)
 - Experimental `inpaint-basic` preset with real source and mask inputs (started in v0.4.1-alpha)
 - Experimental `inpaint-flux-fill-basic` preset for local Flux Fill stacks (started in v0.4.1-alpha)
+- Continue Flux Fill testing against real Photoshop selections, including mask polarity, source/context size, and aligned import behavior
+- Verify whether the transparent outside-mask import path works reliably across Photoshop UXP environments or should be replaced by Photoshop layer-mask import
 - Import generated regions aligned to the original selection context (started in v0.4.1-alpha)
 - Confirm inpaint mask polarity for SD inpaint and Flux Fill workflows
 - Decide between full-canvas import, cropped patch import, transparent outside-mask import, or Photoshop layer-mask import

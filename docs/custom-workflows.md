@@ -47,7 +47,11 @@ The current Inpaint screen can capture Photoshop selection bounds, a selected-re
 
 The mapping for prompt, negative prompt, checkpoint, source image, mask image, seed, steps, CFG, and denoise lives in `src/comfy/presetRegistry.ts`. If you replace the API workflow JSON, remap those node IDs before testing.
 
-`inpaint-flux-fill-basic` is an experimental Flux Fill preset. It uses a diffusion model stack instead of `CheckpointLoaderSimple`, so the model selector must point to `UNETLoader` models such as `flux1-fill-dev.safetensors`. It also expects `DualCLIPLoader`, `VAELoader`, `CLIPTextEncodeFlux`, `ModelSamplingFlux`, `BasicGuider`, `BasicScheduler`, `KSamplerSelect`, `RandomNoise`, `SamplerCustomAdvanced`, `InpaintModelConditioning`, `ImageCompositeMasked`, and `SaveImage`.
+`inpaint-flux-fill-basic` is an experimental Flux Fill preset. It uses a diffusion model stack instead of `CheckpointLoaderSimple`, so the model selector must point to `UNETLoader` models such as `flux1-fill-dev.safetensors`. It follows the reference-style graph in `src/workflows/source/inpaint-flux-fill-basic.workflow.json` and expects `UNETLoader`, `DifferentialDiffusion`, `DualCLIPLoader`, `VAELoader`, `LoadImage`, `CLIPTextEncode`, `FluxGuidance`, `ConditioningZeroOut`, `InpaintModelConditioning`, regular `KSampler`, `VAEDecode`, and `SaveImage`.
+
+The current Flux Fill API workflow maps `clip_l.safetensors` to `DualCLIPLoader.clip_name1` and `t5xxl_fp16.safetensors` to `DualCLIPLoader.clip_name2`. `t5xxl_fp8_e4m3fn.safetensors` is accepted as a fallback for the T5 encoder when fp16 is not installed.
+
+The Flux Fill graph expects one `LoadImage` node with an embedded alpha mask. OpenLayer captures source and mask separately, then creates a single alpha-masked upload for this preset. White Photoshop mask pixels mean repaint.
 
 Flux Fill may need workflow tuning for guidance, denoise, mask blur, and context size before it becomes dependable.
 

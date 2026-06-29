@@ -17,6 +17,7 @@ import {
   WorkflowInjectionTargetList
 } from "./types";
 import { getPresetInputTarget, getWorkflowPreset, validateWorkflowForPreset } from "./presetRegistry";
+import { createRequiredModelSelectionKey } from "./workflowModelRequirements";
 import { createOpenLayerError } from "../utils/errors";
 
 const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
@@ -105,6 +106,7 @@ export async function buildSketchToImageWorkflow(
   const seed = options.seed;
 
   validateWorkflowForPreset(workflow, preset);
+  applyRequiredModelSelections(workflow, preset, options.requiredModelSelections);
 
   if (options.checkpointName) {
     setPresetInput(workflow, preset, "checkpoint", options.checkpointName, true);
@@ -138,15 +140,16 @@ export async function buildInpaintWorkflow(
   const seed = options.seed;
 
   validateWorkflowForPreset(workflow, preset);
+  applyRequiredModelSelections(workflow, preset, options.requiredModelSelections);
 
   if (options.checkpointName) {
     setPresetInput(workflow, preset, "checkpoint", options.checkpointName, true);
   }
 
   setPresetInput(workflow, preset, "sourceImage", options.sourceImageName, true);
-  setPresetInput(workflow, preset, "maskImage", options.maskImageName, true);
+  setPresetInput(workflow, preset, "maskImage", options.maskImageName, preset.id !== "inpaint-flux-fill-basic");
   setPresetInput(workflow, preset, "positivePrompt", options.prompt, true);
-  setPresetInput(workflow, preset, "negativePrompt", options.negativePrompt ?? "", true);
+  setPresetInput(workflow, preset, "negativePrompt", options.negativePrompt ?? "");
   setPresetInput(workflow, preset, "seed", seed, true);
   setPresetInput(workflow, preset, "steps", options.steps, true);
   setPresetInput(workflow, preset, "cfg", options.cfg, true);
@@ -199,6 +202,34 @@ function setPresetInput(
 
 function normalizeTargets(target: WorkflowInjectionTargetList) {
   return Array.isArray(target) ? target : [target];
+}
+
+function applyRequiredModelSelections(
+  workflow: ComfyWorkflow,
+  preset: WorkflowPresetDefinition,
+  modelSelections: Record<string, string> | undefined
+) {
+  if (!modelSelections) {
+    return;
+  }
+
+  for (const requiredModel of preset.requiredModels ?? []) {
+    const selectedModelName = modelSelections[createRequiredModelSelectionKey(requiredModel)];
+
+    if (!selectedModelName) {
+      continue;
+    }
+
+    const node = Object.values(workflow).find(
+      (candidate) =>
+        candidate.class_type === requiredModel.objectInfoNode &&
+        Object.prototype.hasOwnProperty.call(candidate.inputs, requiredModel.inputName)
+    );
+
+    if (node) {
+      node.inputs[requiredModel.inputName] = selectedModelName;
+    }
+  }
 }
 
 function setInput(workflow: ComfyWorkflow, nodeId: string, inputName: string, value: unknown) {

@@ -45,7 +45,18 @@ describe("presetRegistry", () => {
     expect(preset.modelSource.kind).toBe("diffusion-model-stack");
     expect(preset.supportedModelFamilies).toEqual(["flux"]);
     expect(preset.requiredModels?.some((model) => model.modelName === "flux1-fill-dev.safetensors")).toBe(true);
-    expect(preset.requiredNodes.some((node) => node.classType === "SamplerCustomAdvanced")).toBe(true);
+    expect(preset.requiredModels?.some((model) =>
+      model.modelName === "t5xxl_fp16.safetensors" &&
+      model.acceptedModelNames?.includes("t5xxl_fp8_e4m3fn.safetensors")
+    )).toBe(true);
+    expect(preset.requiredModels?.some((model) =>
+      model.modelName === "clip_l.safetensors" &&
+      model.inputName === "clip_name1"
+    )).toBe(true);
+    expect(preset.requiredNodes.some((node) => node.classType === "DifferentialDiffusion")).toBe(true);
+    expect(preset.requiredNodes.some((node) => node.classType === "FluxGuidance")).toBe(true);
+    expect(preset.requiredNodes.some((node) => node.classType === "KSampler")).toBe(true);
+    expect(preset.requiredNodes.some((node) => node.classType === "ImageCompositeMasked")).toBe(false);
   });
 
   it("marks Z_image_Turbo as a diffusion model stack preset", () => {

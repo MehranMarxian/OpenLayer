@@ -6,6 +6,7 @@ import {
   WorkflowCompatibilityResult
 } from "./workflowCompatibility";
 import { WorkflowPresetDefinition } from "./types";
+import { getAvailableRequiredModelName } from "./workflowModelRequirements";
 
 export type WorkflowHealthState =
   | "ready"
@@ -77,7 +78,7 @@ export function createWorkflowHealthItem(
     state,
     stateLabel: STATE_LABELS[state],
     summary: createHealthSummary(preset, state, primaryIssue),
-    detail: createHealthDetail(preset, state, primaryIssue),
+    detail: createHealthDetail(preset, context, state, primaryIssue),
     canRun: result.canRun
   };
 }
@@ -162,16 +163,38 @@ function createReportSummary(
 
 function createHealthDetail(
   preset: WorkflowPresetDefinition,
+  context: WorkflowCompatibilityContext,
   state: WorkflowHealthState,
   primaryIssue: WorkflowCompatibilityIssue | undefined
 ) {
   const details = [
     state === "ready" || state === "experimental" ? preset.description : "",
+    createDetectedModelDetail(preset, context),
     primaryIssue?.technicalMessage,
     preset.compatibilityNote
   ].filter((detail): detail is string => Boolean(detail && detail.trim()));
 
   return details.join(" ");
+}
+
+function createDetectedModelDetail(
+  preset: WorkflowPresetDefinition,
+  context: WorkflowCompatibilityContext
+) {
+  const availableModels = context.availableModels;
+
+  if (!availableModels) {
+    return "";
+  }
+
+  const detectedModels = (preset.requiredModels ?? preset.modelStack ?? [])
+    .map((model) => {
+      const detectedName = getAvailableRequiredModelName(availableModels, model);
+      return detectedName ? `${model.label}: ${detectedName}` : "";
+    })
+    .filter(Boolean);
+
+  return detectedModels.length > 0 ? `Detected model files: ${detectedModels.join("; ")}.` : "";
 }
 
 function hasIssue(result: WorkflowCompatibilityResult, code: string) {

@@ -95,6 +95,73 @@ describe("workflow compatibility", () => {
     expect(result.recommendedAction).toContain("Missing LineArt ControlNet");
   });
 
+  it("accepts the preferred Flux Fill T5 encoder when the model stack is present", () => {
+    const preset = getWorkflowPreset("inpaint-flux-fill-basic");
+
+    const result = evaluateWorkflowCompatibility(preset, {
+      selectedModelName: "flux1-fill-dev.safetensors",
+      availableNodes: createAvailableNodes(preset),
+      availableModels: createFluxFillInventory({
+        clipModels: ["t5xxl_fp16.safetensors", "clip_l.safetensors"]
+      }),
+      photoshopInputs: { selection: true, "selection-mask": true }
+    });
+
+    expect(result.level).toBe("experimental");
+    expect(result.canRun).toBe(true);
+    expect(result.issues.some((issue) => issue.code === "MODEL_FILE_MISSING")).toBe(false);
+  });
+
+  it("accepts the common Flux Fill fp8 T5 fallback when fp16 is missing", () => {
+    const preset = getWorkflowPreset("inpaint-flux-fill-basic");
+
+    const result = evaluateWorkflowCompatibility(preset, {
+      selectedModelName: "flux1-fill-dev.safetensors",
+      availableNodes: createAvailableNodes(preset),
+      availableModels: createFluxFillInventory({
+        clipModels: ["t5xxl_fp8_e4m3fn.safetensors", "clip_l.safetensors"]
+      }),
+      photoshopInputs: { selection: true, "selection-mask": true }
+    });
+
+    expect(result.level).toBe("experimental");
+    expect(result.canRun).toBe(true);
+    expect(result.issues.some((issue) => issue.code === "MODEL_FILE_MISSING")).toBe(false);
+  });
+
+  it("reports both accepted Flux Fill T5 names when neither is installed", () => {
+    const preset = getWorkflowPreset("inpaint-flux-fill-basic");
+
+    const result = evaluateWorkflowCompatibility(preset, {
+      selectedModelName: "flux1-fill-dev.safetensors",
+      availableNodes: createAvailableNodes(preset),
+      availableModels: createFluxFillInventory({
+        clipModels: ["clip_l.safetensors"]
+      }),
+      photoshopInputs: { selection: true, "selection-mask": true }
+    });
+
+    expect(result.level).toBe("setup-required");
+    expect(result.canRun).toBe(false);
+    expect(result.recommendedAction).toContain("t5xxl_fp16.safetensors");
+    expect(result.recommendedAction).toContain("t5xxl_fp8_e4m3fn.safetensors");
+  });
+
+  it("reports missing Photoshop mask input for Flux Fill before generation", () => {
+    const preset = getWorkflowPreset("inpaint-flux-fill-basic");
+
+    const result = evaluateWorkflowCompatibility(preset, {
+      selectedModelName: "flux1-fill-dev.safetensors",
+      availableNodes: createAvailableNodes(preset),
+      availableModels: createFluxFillInventory(),
+      photoshopInputs: { selection: true, "selection-mask": false }
+    });
+
+    expect(result.level).toBe("setup-required");
+    expect(result.canRun).toBe(false);
+    expect(result.issues.some((issue) => issue.code === "PHOTOSHOP_INPUT_MISSING")).toBe(true);
+  });
+
   it("reports missing Photoshop inputs for selection workflows", () => {
     const preset = getWorkflowPreset("inpaint-basic");
 
@@ -143,4 +210,13 @@ function createInventory(overrides: Partial<ComfyModelInventory> = {}): ComfyMod
     missingSources: [],
     ...overrides
   };
+}
+
+function createFluxFillInventory(overrides: Partial<ComfyModelInventory> = {}) {
+  return createInventory({
+    diffusionModels: ["flux1-fill-dev.safetensors"],
+    clipModels: ["t5xxl_fp16.safetensors", "clip_l.safetensors"],
+    vaeModels: ["ae.safetensors"],
+    ...overrides
+  });
 }
