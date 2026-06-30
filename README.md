@@ -10,7 +10,7 @@ OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop t
 
 ## Alpha Release
 
-`v0.4.8-alpha` is the current build hygiene and Outpaint availability preview. It is intended for testing the core local workflow, not for production work yet.
+`v0.4.9-alpha` is the current global generation safety and session history metadata preview. It is intended for testing the core local workflow, not for production work yet.
 
 Included in this alpha:
 
@@ -37,7 +37,7 @@ Included in this alpha:
 - Settings workflow health checker for registered presets, required ComfyUI node classes, and required model-stack files
 - Readable Settings diagnostics center with grouped workflow health cards, collapsed technical details, summary counts, and Copy Diagnostics support
 - Experimental Z_image_Turbo Text to Image and Image to Image presets using a dedicated diffusion-model-stack workflow path
-- Text to Image Cancel Generation button using ComfyUI's local interrupt endpoint
+- Global Cancel Generation button path for Text to Image, Image to Image, Sketch to Image, Inpaint, Outpaint, and Prompt from Layer using ComfyUI's local interrupt endpoint
 - Experimental Prompt from Layer workflow using Florence-2 PromptGen to describe a captured layer or canvas
 - Experimental Flux Fill Outpaint workflow using `ImagePadForOutpaint`
 - PNG/lossless source capture for Image to Image and Sketch to Image using raw Photoshop Imaging API pixels
@@ -46,14 +46,15 @@ Included in this alpha:
 - Experimental SD 1.x `inpaint-basic` workflow with source image and mask upload to ComfyUI
 - Friendly Inpaint guardrails when no Photoshop selection exists, mask export fails, or required ComfyUI inpaint nodes are unavailable
 - Automated CI and unit test foundation for workflow, settings, model compatibility, and error helpers
-- Session history for recent generated previews
+- Session history for recent generated previews with prompt, model, workflow preset, seed, dimensions, source mode, tool type, timestamp, and import status where available
+- Reuse Settings action for recent generated-image history entries
 - Optional auto-import after generation
 - Responsive panel spacing fixes for narrow and wide Photoshop panels
 - Official OpenLayer icon and GitHub Pages landing page
 
 ![OpenLayer v0.2.1 Home dashboard](docs/assets/openlayer-v021-dashboard.png)
 
-Known v0.4.8-alpha boundaries:
+Known v0.4.9-alpha boundaries:
 
 - Image to Image is an early foundation path, not a full production workflow yet.
 - Sketch to Image is limited to the first SD 1.x LINECN starter workflow.
@@ -67,7 +68,7 @@ Known v0.4.8-alpha boundaries:
 - Z_image_Turbo presets are experimental and use `UNETLoader`, `CLIPLoader`, and `VAELoader` instead of the checkpoint loader.
 - `txt2img-flux1-dev-fp8` is an experimental checkpoint-style Flux Text to Image preset for `flux1-dev-fp8.safetensors`.
 - Generic Flux diffusion-model-stack Text to Image and Image to Image presets remain disabled until validated API workflow JSON files are added.
-- Cancel Generation uses ComfyUI's interrupt endpoint and stops OpenLayer's Text to Image watcher/polling, but cancellation cannot undo work ComfyUI already completed.
+- Cancel Generation uses ComfyUI's interrupt endpoint and stops OpenLayer watchers/polling for active generation tools, but cancellation cannot undo work ComfyUI already completed.
 - The Settings workflow health checker reports local readiness, but it does not auto-fix missing models, missing nodes, or workflow mappings.
 - Copy Diagnostics prepares a setup report for testers. It does not send data anywhere.
 - Prompt from Layer is experimental and requires `comfyui-florence2`, `comfyui-custom-scripts`, and `Florence-2-base-PromptGen-v2.0`.
@@ -197,7 +198,7 @@ npm run package
 This creates a zip package from `dist` in the `packages` folder. For the current alpha, the expected package name is:
 
 ```text
-packages/openlayer-v0.4.8-alpha.zip
+packages/openlayer-v0.4.9-alpha.zip
 ```
 
 ## Loading In UXP Developer Tool
@@ -322,7 +323,7 @@ Inpaint output quality, mask interpretation, and Photoshop alignment are still b
 
 ## Pre-release Tester Checklist
 
-Use this quick pass before reporting a v0.4.8-alpha test result:
+Use this quick pass before reporting a v0.4.9-alpha test result:
 
 1. Start ComfyUI on `http://127.0.0.1:8190`.
 2. Build OpenLayer and load `dist/manifest.json` in Adobe UXP Developer Tool.
@@ -338,7 +339,9 @@ Use this quick pass before reporting a v0.4.8-alpha test result:
 12. Open `Sketch to Image`, capture either the active layer or canvas, generate with `sketch2img-linecn-basic`, and click `Import to Layers`.
 13. Open `Inpaint`, make a Photoshop selection, click `Capture Selection`, and confirm the selected-region preview and mask preview appear.
 14. Generate with `inpaint-basic` using an SD 1.x checkpoint, then click `Import to Layers`.
-15. Resize the panel narrow and wide; confirm Settings, workflow health cards, buttons, preview, and footer remain readable and reachable.
+15. Start and cancel one longer Image to Image, Sketch, Outpaint, Inpaint, or Prompt from Layer run if your ComfyUI setup supports it; confirm the next generation still works.
+16. Open History after a generation; confirm prompt, model, workflow, seed, dimensions, source mode, tool type, timestamp, import status, Preview, Import, and Reuse Settings are visible.
+17. Resize the panel narrow and wide; confirm Settings, workflow health cards, buttons, preview, and footer remain readable and reachable.
 
 ## Testing Checklist
 

@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased / v0.4.9-alpha draft - 2026-06-30
+
+Global generation safety and richer session history checkpoint.
+
+### Added
+
+- Extended Cancel Generation from Text to Image to the other active tools: Image to Image, Sketch to Image, Inpaint, Outpaint, and Prompt from Layer.
+- Added shared ComfyUI interrupt handling for active generation tools, including watcher/polling cleanup and a clear `Generation cancelled.` status.
+- Expanded session history metadata with tool type, workflow preset, model, prompt, seed, dimensions, source mode, timestamp, and import status.
+- Added a safe History `Reuse Settings` action for generated-image entries.
+- Added unit coverage for History metadata formatting helpers.
+
+### Changed
+
+- Bumped plugin/package metadata to `0.4.9`.
+- Kept Inpaint and Outpaint marked Experimental; no inpaint/outpaint workflow behavior changed in this checkpoint.
+
+### Known Limitations
+
+- Cancel Generation uses ComfyUI's local interrupt endpoint, but it cannot undo work ComfyUI has already completed.
+- History remains session-local and does not persist generation metadata into Photoshop layers yet.
+
 ## Unreleased / v0.4.8-alpha draft - 2026-06-30
 
 Build hygiene and Outpaint availability checkpoint.

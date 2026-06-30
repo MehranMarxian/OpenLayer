@@ -73,9 +73,17 @@ import {
   OpenLayerPreferences,
   saveOpenLayerPreferences
 } from "../utils/preferences";
+import {
+  createHistoryMetadataLine,
+  createHistoryReuseMessage,
+  formatHistoryImportStatus,
+  formatHistoryToolLabel,
+  HistoryImportStatus,
+  HistoryToolType
+} from "./historyMetadata";
 
 const DEFAULT_SERVER_URL = "http://127.0.0.1:8190";
-const APP_VERSION = "0.4.8";
+const APP_VERSION = "0.4.9";
 const DEVELOPER_GITHUB = "https://github.com/MehranMarxian";
 const HISTORY_LIMIT = 5;
 const COMFY_PORT_CANDIDATES = [8190, 8188, 8189, 8191, 8192, 8193, 7860];
@@ -292,6 +300,7 @@ type AppElements = {
   resetSettingsButton: HTMLElement;
   generateButton: HTMLElement;
   cancelGenerateButton: HTMLElement;
+  cancelGenerationButtons: HTMLElement[];
   importButton: HTMLElement;
   autoImportToggle: HTMLElement;
   imgPrompt: HTMLTextAreaElement;
@@ -437,8 +446,16 @@ type HistoryEntry = {
   previewUrl: string;
   prompt: string;
   checkpointName: string;
+  modelName: string;
+  workflowPreset: string;
+  toolType: HistoryToolType;
   seed: number;
   sizeLabel: string;
+  dimensions: string;
+  sourceMode: string;
+  importStatus: HistoryImportStatus;
+  importedLayerName?: string;
+  importedAt?: string;
   createdAt: string;
 };
 
@@ -450,7 +467,8 @@ type InpaintSourceState = SelectedRegionSourceImage & {
   previewUrl: string;
 };
 
-type ActiveTextGeneration = {
+type ActiveGeneration = {
+  toolType: HistoryToolType;
   client: ComfyClient;
   promptId?: string;
   watcher: ReturnType<ComfyClient["watchProgress"]> | null;
@@ -489,7 +507,7 @@ export function renderApp(rootElement: HTMLElement) {
   let importAutomatically = false;
   let isNegativePromptOpen = false;
   let allowExperimentalCheckpoints = false;
-  let activeTextGeneration: ActiveTextGeneration | null = null;
+  let activeGeneration: ActiveGeneration | null = null;
   let hardwareReport: HardwareRecommendationReport | null = null;
   let workflowHealthReport: WorkflowHealthReport | null = null;
   const historyEntries: HistoryEntry[] = [];
@@ -902,27 +920,149 @@ export function renderApp(rootElement: HTMLElement) {
     );
   }
 
+  function beginActiveGeneration(toolType: HistoryToolType, client: ComfyClient, promptId: string): ActiveGeneration {
+    const activeRun: ActiveGeneration = {
+      toolType,
+      client,
+      promptId,
+      watcher: null,
+      isCancelled: false
+    };
+
+    activeGeneration = activeRun;
+    setCancelGenerationVisible(elements, true);
+    return activeRun;
+  }
+
+  function finishActiveGeneration(activeRun: ActiveGeneration | null) {
+    activeRun?.watcher?.close();
+
+    if (activeRun && activeGeneration === activeRun) {
+      activeGeneration = null;
+    }
+
+    setCancelGenerationVisible(elements, false);
+  }
+
+  function setGenerationToolStatus(toolType: HistoryToolType, status: string, tone: StatusTone) {
+    switch (toolType) {
+      case "image-to-image":
+        setImageStatus(elements, status, tone);
+        return;
+      case "sketch-to-image":
+        setSketchStatus(elements, status, tone);
+        return;
+      case "inpaint":
+        setInpaintStatus(elements, status, tone);
+        return;
+      case "outpaint":
+        setOutpaintStatus(elements, status, tone);
+        return;
+      case "prompt-from-layer":
+        setPromptLayerStatus(elements, status, tone);
+        return;
+      case "text-to-image":
+      default:
+        setStatus(elements, status, tone);
+    }
+  }
+
+  function setGenerationToolDiagnostics(toolType: HistoryToolType, message: string) {
+    switch (toolType) {
+      case "image-to-image":
+        setImageDiagnostics(elements, message);
+        return;
+      case "sketch-to-image":
+        setSketchDiagnostics(elements, message);
+        return;
+      case "inpaint":
+        setInpaintDiagnostics(elements, message);
+        return;
+      case "outpaint":
+        setOutpaintDiagnostics(elements, message);
+        return;
+      case "prompt-from-layer":
+        setPromptLayerDiagnostics(elements, message);
+        return;
+      case "text-to-image":
+      default:
+        setDiagnostics(elements, message);
+    }
+  }
+
+  function setGenerationToolProgress(toolType: HistoryToolType, message: string) {
+    switch (toolType) {
+      case "image-to-image":
+        setImageProgressPreview(elements, message);
+        return;
+      case "sketch-to-image":
+        setSketchProgressPreview(elements, message);
+        return;
+      case "inpaint":
+        setInpaintProgressPreview(elements, message);
+        return;
+      case "outpaint":
+        setOutpaintProgressPreview(elements, message);
+        return;
+      case "prompt-from-layer":
+        return;
+      case "text-to-image":
+      default:
+        setProgressPreview(elements, message);
+    }
+  }
+
+  function clearGenerationToolError(toolType: HistoryToolType) {
+    switch (toolType) {
+      case "image-to-image":
+        setImageError(elements, "");
+        return;
+      case "sketch-to-image":
+        setSketchError(elements, "");
+        return;
+      case "inpaint":
+        setInpaintError(elements, "");
+        return;
+      case "outpaint":
+        setOutpaintError(elements, "");
+        return;
+      case "prompt-from-layer":
+        setPromptLayerError(elements, "");
+        return;
+      case "text-to-image":
+      default:
+        setError(elements, "");
+    }
+  }
+
+  function showGenerationCancelled(toolType: HistoryToolType, promptId?: string) {
+    setGenerationToolStatus(toolType, "Generation cancelled.", "idle");
+    clearGenerationToolError(toolType);
+    setGenerationToolDiagnostics(toolType, formatCancelDiagnostic(promptId));
+    setGenerationToolProgress(toolType, "Generation cancelled.");
+  }
+
   async function handleCancelGeneration() {
-    const generation = activeTextGeneration;
+    const generation = activeGeneration;
 
     if (!generation) {
-      setDiagnostics(elements, "No active Text to Image generation to cancel.");
+      setDiagnostics(elements, "No active generation to cancel.");
       return;
     }
 
     generation.isCancelled = true;
     generation.watcher?.close();
     generation.watcher = null;
-    setStatus(elements, "Cancelling generation...", "idle");
-    setProgressPreview(elements, "Cancelling generation...");
+    setGenerationToolStatus(generation.toolType, "Cancelling generation...", "idle");
+    setGenerationToolProgress(generation.toolType, "Cancelling generation...");
     setCancelGenerationVisible(elements, false);
 
     try {
       await generation.client.interruptGeneration();
-      setDiagnostics(elements, formatCancelDiagnostic(generation.promptId));
+      setGenerationToolDiagnostics(generation.toolType, formatCancelDiagnostic(generation.promptId));
     } catch (caughtError) {
-      setDiagnostics(
-        elements,
+      setGenerationToolDiagnostics(
+        generation.toolType,
         `Cancel requested locally. ComfyUI interrupt may already be complete or unavailable. ${getTechnicalErrorDetails(caughtError)}`
       );
     }
@@ -944,7 +1084,7 @@ export function renderApp(rootElement: HTMLElement) {
     setStatus(elements, "Preparing workflow...", "idle");
     setProgressPreview(elements, "Preparing workflow...");
     let progressWatcher: ReturnType<ComfyClient["watchProgress"]> | null = null;
-    let activeRun: ActiveTextGeneration | null = null;
+    let activeRun: ActiveGeneration | null = null;
 
     try {
       const workflowPreset = readSelectValue(elements.workflow, DEFAULT_WORKFLOW);
@@ -999,14 +1139,7 @@ export function renderApp(rootElement: HTMLElement) {
       setStatus(elements, "Submitting prompt to ComfyUI...", "idle");
       setProgressPreview(elements, "Submitting prompt to ComfyUI...");
       const promptId = await client.submitPrompt(buildResult.workflow);
-      activeRun = {
-        client,
-        promptId,
-        watcher: null,
-        isCancelled: false
-      };
-      activeTextGeneration = activeRun;
-      setCancelGenerationVisible(elements, true);
+      activeRun = beginActiveGeneration("text-to-image", client, promptId);
       let hasLivePreview = false;
       progressWatcher = client.watchProgress(promptId, {
         onStatus: (message) => {
@@ -1052,8 +1185,13 @@ export function renderApp(rootElement: HTMLElement) {
       addHistoryEntry(elements, historyEntries, generatedResult, {
         prompt: elements.prompt.value,
         checkpointName,
+        modelName: checkpointName,
+        workflowPreset: buildResult.preset.id,
+        toolType: "text-to-image",
         seed: buildResult.seed,
-        sizeLabel: `${settings.width} x ${settings.height}`
+        sizeLabel: `${settings.width} x ${settings.height}`,
+        dimensions: `${settings.width} x ${settings.height}`,
+        sourceMode: "Prompt only"
       });
 
       if (importAutomatically) {
@@ -1069,10 +1207,7 @@ export function renderApp(rootElement: HTMLElement) {
       updateSettingsReport(elements);
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
-        setStatus(elements, "Generation cancelled.", "idle");
-        setError(elements, "");
-        setDiagnostics(elements, formatCancelDiagnostic(activeRun?.promptId));
-        setProgressPreview(elements, "Generation cancelled.");
+        showGenerationCancelled("text-to-image", activeRun?.promptId);
         return;
       }
 
@@ -1081,10 +1216,7 @@ export function renderApp(rootElement: HTMLElement) {
       setDiagnostics(elements, getTechnicalErrorDetails(caughtError));
     } finally {
       progressWatcher?.close();
-      if (activeTextGeneration === activeRun) {
-        activeTextGeneration = null;
-      }
-      setCancelGenerationVisible(elements, false);
+      finishActiveGeneration(activeRun);
       isBusy = false;
       syncBusy();
     }
@@ -1111,17 +1243,116 @@ export function renderApp(rootElement: HTMLElement) {
       return;
     }
 
-    setResult(entry.result);
-    setError(elements, "");
-    setView("text-to-image");
-
     if (action === "preview") {
-      setStatus(elements, "Loaded history item into preview.", "ready");
-      setDiagnostics(elements, `History item loaded: seed ${entry.seed}, ${entry.sizeLabel}.`);
+      loadHistoryResultIntoTool(entry);
+      setGenerationToolStatus(entry.toolType, "Loaded history item into preview.", "ready");
+      setGenerationToolDiagnostics(entry.toolType, `History item loaded: seed ${entry.seed}, ${entry.dimensions}.`);
       return;
     }
 
-    void handleImport();
+    if (action === "reuse") {
+      reuseHistorySettings(entry);
+      return;
+    }
+
+    loadHistoryResultIntoTool(entry);
+    void importHistoryEntry(entry);
+  }
+
+  function loadHistoryResultIntoTool(entry: HistoryEntry) {
+    setError(elements, "");
+    setImageError(elements, "");
+    setSketchError(elements, "");
+    setInpaintError(elements, "");
+    setOutpaintError(elements, "");
+
+    switch (entry.toolType) {
+      case "image-to-image":
+        setImageResult(entry.result);
+        setView("image-to-image");
+        return;
+      case "sketch-to-image":
+        setSketchResult(entry.result);
+        setView("sketch-to-image");
+        return;
+      case "inpaint":
+        setInpaintResult(entry.result);
+        setView("inpaint");
+        return;
+      case "outpaint":
+        setOutpaintResult(entry.result);
+        setView("outpaint");
+        return;
+      case "text-to-image":
+      default:
+        setResult(entry.result);
+        setView("text-to-image");
+    }
+  }
+
+  async function importHistoryEntry(entry: HistoryEntry) {
+    switch (entry.toolType) {
+      case "image-to-image":
+        await handleImportImg2Img();
+        return;
+      case "sketch-to-image":
+        await handleImportSketch();
+        return;
+      case "inpaint":
+        await handleImportInpaint();
+        return;
+      case "outpaint":
+        await handleImportOutpaint();
+        return;
+      case "text-to-image":
+      default:
+        await handleImport();
+    }
+  }
+
+  function reuseHistorySettings(entry: HistoryEntry) {
+    switch (entry.toolType) {
+      case "image-to-image":
+        elements.imgPrompt.value = entry.prompt;
+        setSelectValueIfPresent(elements.imgWorkflow, entry.workflowPreset);
+        setSelectValueIfPresent(elements.imgCheckpoint, entry.modelName);
+        elements.imgSeed.value = String(entry.seed);
+        setView("image-to-image");
+        break;
+      case "sketch-to-image":
+        elements.sketchPrompt.value = entry.prompt;
+        setSelectValueIfPresent(elements.sketchWorkflow, entry.workflowPreset);
+        setSelectValueIfPresent(elements.sketchCheckpoint, entry.modelName);
+        elements.sketchSeed.value = String(entry.seed);
+        setView("sketch-to-image");
+        break;
+      case "inpaint":
+        elements.inpaintPrompt.value = entry.prompt;
+        setSelectValueIfPresent(elements.inpaintWorkflow, entry.workflowPreset);
+        setSelectValueIfPresent(elements.inpaintCheckpoint, entry.modelName);
+        elements.inpaintSeed.value = String(entry.seed);
+        setView("inpaint");
+        break;
+      case "outpaint":
+        elements.outpaintPrompt.value = entry.prompt;
+        setSelectValueIfPresent(elements.outpaintWorkflow, entry.workflowPreset);
+        setSelectValueIfPresent(elements.outpaintCheckpoint, entry.modelName);
+        elements.outpaintSeed.value = String(entry.seed);
+        setView("outpaint");
+        break;
+      case "text-to-image":
+      default:
+        elements.prompt.value = entry.prompt;
+        setSelectValueIfPresent(elements.workflow, entry.workflowPreset);
+        setSelectValueIfPresent(elements.checkpoint, entry.modelName);
+        elements.seed.value = String(entry.seed);
+        setView("text-to-image");
+        updateTextCheckpointCompatibility(elements);
+        break;
+    }
+
+    setGenerationToolStatus(entry.toolType, "Settings reused.", "ready");
+    setGenerationToolDiagnostics(entry.toolType, createHistoryReuseMessage(entry.toolType));
   }
 
   async function handleImport(source: "manual" | "auto" = "manual") {
@@ -1148,6 +1379,7 @@ export function renderApp(rootElement: HTMLElement) {
       });
       setStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
       setDiagnostics(elements, `Layer created: ${importedLayerName}`);
+      markHistoryImported(elements, historyEntries, result, importedLayerName);
     } catch (caughtError) {
       setStatus(elements, "Import failed.", "error");
       setError(elements, getErrorMessage(caughtError));
@@ -1239,6 +1471,7 @@ export function renderApp(rootElement: HTMLElement) {
     setImageStatus(elements, "Preparing Image to Image workflow...", "idle");
     setImageProgressPreview(elements, "Preparing Image to Image workflow...");
     let progressWatcher: ReturnType<ComfyClient["watchProgress"]> | null = null;
+    let activeRun: ActiveGeneration | null = null;
 
     try {
       const workflowPreset = readSelectValue(elements.imgWorkflow, DEFAULT_IMAGE_WORKFLOW);
@@ -1308,6 +1541,7 @@ export function renderApp(rootElement: HTMLElement) {
       setImageStatus(elements, "Submitting Image to Image prompt...", "idle");
       setImageProgressPreview(elements, "Submitting prompt to ComfyUI...");
       const promptId = await client.submitPrompt(buildResult.workflow);
+      activeRun = beginActiveGeneration("image-to-image", client, promptId);
       let hasLivePreview = false;
       progressWatcher = client.watchProgress(promptId, {
         onStatus: (message) => {
@@ -1323,6 +1557,7 @@ export function renderApp(rootElement: HTMLElement) {
         },
         onError: (message) => setImageDiagnostics(elements, message)
       });
+      activeRun.watcher = progressWatcher;
 
       setImageStatus(elements, "Generating Image to Image result...", "idle");
       setImageProgressPreview(elements, "Generating image...");
@@ -1333,10 +1568,12 @@ export function renderApp(rootElement: HTMLElement) {
           if (!hasLivePreview) {
             setImageProgressPreview(elements, message);
           }
-        }
+        },
+        isCancelled: () => Boolean(activeRun?.isCancelled)
       });
       progressWatcher?.close();
       progressWatcher = null;
+      activeRun.watcher = null;
 
       setImageStatus(elements, "Retrieving Image to Image result...", "idle");
       setImageProgressPreview(elements, "Retrieving final image...");
@@ -1347,8 +1584,13 @@ export function renderApp(rootElement: HTMLElement) {
       addHistoryEntry(elements, historyEntries, generatedResult, {
         prompt: elements.imgPrompt.value,
         checkpointName,
+        modelName: checkpointName,
+        workflowPreset: buildResult.preset.id,
+        toolType: "image-to-image",
         seed: buildResult.seed,
-        sizeLabel: "Image to Image"
+        sizeLabel: "Image to Image",
+        dimensions: `${imageSource.width} x ${imageSource.height}`,
+        sourceMode: imageSource.sourceName
       });
       setImageStatus(elements, "Image to Image generation complete.", "ready");
       setImageDiagnostics(
@@ -1356,12 +1598,18 @@ export function renderApp(rootElement: HTMLElement) {
         `Seed used: ${buildResult.seed}. Source uploaded as ${sourceImageName}. Workflow: ${buildResult.preset.id}.`
       );
     } catch (caughtError) {
+      if (isGenerationCancelledError(caughtError)) {
+        showGenerationCancelled("image-to-image", activeRun?.promptId);
+        return;
+      }
+
       setImageStatus(elements, "Image to Image generation failed.", "error");
       setImageError(elements, getFriendlyImageToImageErrorMessage(caughtError));
       console.error("[OpenLayer] Image to Image generation failed", getTechnicalErrorDetails(caughtError));
       setImageDiagnostics(elements, getImageToImageFailureHint(caughtError));
     } finally {
       progressWatcher?.close();
+      finishActiveGeneration(activeRun);
       isBusy = false;
       syncBusy();
     }
@@ -1391,6 +1639,7 @@ export function renderApp(rootElement: HTMLElement) {
       });
       setImageStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
       setImageDiagnostics(elements, `Layer created: ${importedLayerName}`);
+      markHistoryImported(elements, historyEntries, imageResult, importedLayerName);
     } catch (caughtError) {
       setImageStatus(elements, "Import failed.", "error");
       setImageError(elements, getErrorMessage(caughtError));
@@ -1485,6 +1734,7 @@ export function renderApp(rootElement: HTMLElement) {
     setOutpaintStatus(elements, "Preparing Outpaint workflow...", "idle");
     setOutpaintProgressPreview(elements, "Preparing Outpaint workflow...");
     let progressWatcher: ReturnType<ComfyClient["watchProgress"]> | null = null;
+    let activeRun: ActiveGeneration | null = null;
 
     try {
       const workflowPreset = readSelectValue(elements.outpaintWorkflow, DEFAULT_OUTPAINT_WORKFLOW);
@@ -1553,6 +1803,7 @@ export function renderApp(rootElement: HTMLElement) {
       setOutpaintStatus(elements, "Submitting Outpaint prompt...", "idle");
       setOutpaintProgressPreview(elements, "Submitting prompt to ComfyUI...");
       const promptId = await client.submitPrompt(buildResult.workflow);
+      activeRun = beginActiveGeneration("outpaint", client, promptId);
       let hasLivePreview = false;
       progressWatcher = client.watchProgress(promptId, {
         onStatus: (message) => {
@@ -1568,6 +1819,7 @@ export function renderApp(rootElement: HTMLElement) {
         },
         onError: (message) => setOutpaintDiagnostics(elements, message)
       });
+      activeRun.watcher = progressWatcher;
 
       setOutpaintStatus(elements, "Generating Outpaint result...", "idle");
       setOutpaintProgressPreview(elements, "Generating outpaint...");
@@ -1578,10 +1830,12 @@ export function renderApp(rootElement: HTMLElement) {
           if (!hasLivePreview) {
             setOutpaintProgressPreview(elements, message);
           }
-        }
+        },
+        isCancelled: () => Boolean(activeRun?.isCancelled)
       });
       progressWatcher?.close();
       progressWatcher = null;
+      activeRun.watcher = null;
 
       setOutpaintStatus(elements, "Retrieving Outpaint result...", "idle");
       setOutpaintProgressPreview(elements, "Retrieving final image...");
@@ -1592,8 +1846,13 @@ export function renderApp(rootElement: HTMLElement) {
       addHistoryEntry(elements, historyEntries, generatedResult, {
         prompt: elements.outpaintPrompt.value,
         checkpointName,
+        modelName: checkpointName,
+        workflowPreset: buildResult.preset.id,
+        toolType: "outpaint",
         seed: buildResult.seed,
-        sizeLabel: "Outpaint"
+        sizeLabel: "Outpaint",
+        dimensions: `${outpaintSource.width} x ${outpaintSource.height}`,
+        sourceMode: outpaintSource.sourceName
       });
       setOutpaintStatus(elements, "Outpaint generation complete.", "ready");
       setOutpaintDiagnostics(
@@ -1601,12 +1860,18 @@ export function renderApp(rootElement: HTMLElement) {
         `Seed used: ${buildResult.seed}. Source uploaded as ${sourceImageName}. Workflow: ${buildResult.preset.id}. Padding left ${settings.left}, top ${settings.top}, right ${settings.right}, bottom ${settings.bottom}, feather ${settings.feathering}.`
       );
     } catch (caughtError) {
+      if (isGenerationCancelledError(caughtError)) {
+        showGenerationCancelled("outpaint", activeRun?.promptId);
+        return;
+      }
+
       setOutpaintStatus(elements, "Outpaint generation failed.", "error");
       setOutpaintError(elements, getFriendlyOutpaintErrorMessage(caughtError));
       console.error("[OpenLayer] Outpaint generation failed", getTechnicalErrorDetails(caughtError));
       setOutpaintDiagnostics(elements, getOutpaintFailureHint(caughtError));
     } finally {
       progressWatcher?.close();
+      finishActiveGeneration(activeRun);
       isBusy = false;
       syncBusy();
     }
@@ -1636,6 +1901,7 @@ export function renderApp(rootElement: HTMLElement) {
       });
       setOutpaintStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
       setOutpaintDiagnostics(elements, `Layer created: ${importedLayerName}`);
+      markHistoryImported(elements, historyEntries, outpaintResult, importedLayerName);
     } catch (caughtError) {
       setOutpaintStatus(elements, "Import failed.", "error");
       setOutpaintError(elements, getErrorMessage(caughtError));
@@ -1730,6 +1996,7 @@ export function renderApp(rootElement: HTMLElement) {
     setSketchStatus(elements, "Preparing LINECN workflow...", "idle");
     setSketchProgressPreview(elements, "Preparing LINECN workflow...");
     let progressWatcher: ReturnType<ComfyClient["watchProgress"]> | null = null;
+    let activeRun: ActiveGeneration | null = null;
 
     try {
       const workflowPreset = readSelectValue(elements.sketchWorkflow, DEFAULT_SKETCH_WORKFLOW);
@@ -1800,6 +2067,7 @@ export function renderApp(rootElement: HTMLElement) {
       setSketchStatus(elements, "Submitting Sketch to Image prompt...", "idle");
       setSketchProgressPreview(elements, "Submitting prompt to ComfyUI...");
       const promptId = await client.submitPrompt(buildResult.workflow);
+      activeRun = beginActiveGeneration("sketch-to-image", client, promptId);
       let hasLivePreview = false;
       progressWatcher = client.watchProgress(promptId, {
         onStatus: (message) => {
@@ -1815,6 +2083,7 @@ export function renderApp(rootElement: HTMLElement) {
         },
         onError: (message) => setSketchDiagnostics(elements, message)
       });
+      activeRun.watcher = progressWatcher;
 
       setSketchStatus(elements, "Generating Sketch to Image result...", "idle");
       setSketchProgressPreview(elements, "Generating image...");
@@ -1825,10 +2094,12 @@ export function renderApp(rootElement: HTMLElement) {
           if (!hasLivePreview) {
             setSketchProgressPreview(elements, message);
           }
-        }
+        },
+        isCancelled: () => Boolean(activeRun?.isCancelled)
       });
       progressWatcher?.close();
       progressWatcher = null;
+      activeRun.watcher = null;
 
       setSketchStatus(elements, "Retrieving Sketch to Image result...", "idle");
       setSketchProgressPreview(elements, "Retrieving final image...");
@@ -1839,8 +2110,13 @@ export function renderApp(rootElement: HTMLElement) {
       addHistoryEntry(elements, historyEntries, generatedResult, {
         prompt: elements.sketchPrompt.value,
         checkpointName,
+        modelName: checkpointName,
+        workflowPreset: buildResult.preset.id,
+        toolType: "sketch-to-image",
         seed: buildResult.seed,
-        sizeLabel: "Sketch to Image"
+        sizeLabel: "Sketch to Image",
+        dimensions: `${sketchSource.width} x ${sketchSource.height}`,
+        sourceMode: sketchSource.sourceName
       });
       setSketchStatus(elements, "Sketch to Image generation complete.", "ready");
       setSketchDiagnostics(
@@ -1848,12 +2124,18 @@ export function renderApp(rootElement: HTMLElement) {
         `Seed used: ${buildResult.seed}. Source uploaded as ${sourceImageName}. Workflow: ${buildResult.preset.id}.`
       );
     } catch (caughtError) {
+      if (isGenerationCancelledError(caughtError)) {
+        showGenerationCancelled("sketch-to-image", activeRun?.promptId);
+        return;
+      }
+
       setSketchStatus(elements, "Sketch to Image generation failed.", "error");
       setSketchError(elements, getFriendlySketchErrorMessage(caughtError));
       console.error("[OpenLayer] Sketch to Image generation failed", getTechnicalErrorDetails(caughtError));
       setSketchDiagnostics(elements, getSketchFailureHint(caughtError));
     } finally {
       progressWatcher?.close();
+      finishActiveGeneration(activeRun);
       isBusy = false;
       syncBusy();
     }
@@ -1883,6 +2165,7 @@ export function renderApp(rootElement: HTMLElement) {
       });
       setSketchStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
       setSketchDiagnostics(elements, `Layer created: ${importedLayerName}`);
+      markHistoryImported(elements, historyEntries, sketchResult, importedLayerName);
     } catch (caughtError) {
       setSketchStatus(elements, "Import failed.", "error");
       setSketchError(elements, getErrorMessage(caughtError));
@@ -1982,6 +2265,7 @@ export function renderApp(rootElement: HTMLElement) {
     setInpaintStatus(elements, "Preparing Inpaint workflow...", "idle");
     setInpaintProgressPreview(elements, "Preparing Inpaint workflow...");
     let progressWatcher: ReturnType<ComfyClient["watchProgress"]> | null = null;
+    let activeRun: ActiveGeneration | null = null;
 
     try {
       const workflowPreset = readSelectValue(elements.inpaintWorkflow, DEFAULT_INPAINT_WORKFLOW);
@@ -2124,6 +2408,7 @@ export function renderApp(rootElement: HTMLElement) {
       setInpaintStatus(elements, "Submitting Inpaint prompt...", "idle");
       setInpaintProgressPreview(elements, "Submitting prompt to ComfyUI...");
       const promptId = await client.submitPrompt(buildResult.workflow);
+      activeRun = beginActiveGeneration("inpaint", client, promptId);
       let hasLivePreview = false;
       progressWatcher = client.watchProgress(promptId, {
         onStatus: (message) => {
@@ -2139,6 +2424,7 @@ export function renderApp(rootElement: HTMLElement) {
         },
         onError: (message) => setInpaintDiagnostics(elements, message)
       });
+      activeRun.watcher = progressWatcher;
 
       setInpaintStatus(elements, "Generating Inpaint result...", "idle");
       setInpaintProgressPreview(elements, "Generating image...");
@@ -2149,10 +2435,12 @@ export function renderApp(rootElement: HTMLElement) {
           if (!hasLivePreview) {
             setInpaintProgressPreview(elements, message);
           }
-        }
+        },
+        isCancelled: () => Boolean(activeRun?.isCancelled)
       });
       progressWatcher?.close();
       progressWatcher = null;
+      activeRun.watcher = null;
 
       setInpaintStatus(elements, "Retrieving Inpaint result...", "idle");
       setInpaintProgressPreview(elements, "Retrieving final image...");
@@ -2193,8 +2481,13 @@ export function renderApp(rootElement: HTMLElement) {
       addHistoryEntry(elements, historyEntries, generatedResult, {
         prompt: elements.inpaintPrompt.value,
         checkpointName,
+        modelName: checkpointName,
+        workflowPreset: buildResult.preset.id,
+        toolType: "inpaint",
         seed: buildResult.seed,
-        sizeLabel: "Inpaint"
+        sizeLabel: "Inpaint",
+        dimensions: `${inpaintSource.width} x ${inpaintSource.height}`,
+        sourceMode: getInpaintSourceModeLabel(inpaintSource.sourceMode)
       });
       setInpaintStatus(elements, "Inpaint generation complete.", "ready");
       setInpaintDiagnostics(
@@ -2208,12 +2501,18 @@ export function renderApp(rootElement: HTMLElement) {
         ].filter(Boolean).join(" ")
       );
     } catch (caughtError) {
+      if (isGenerationCancelledError(caughtError)) {
+        showGenerationCancelled("inpaint", activeRun?.promptId);
+        return;
+      }
+
       setInpaintStatus(elements, "Inpaint generation failed.", "error");
       setInpaintError(elements, getFriendlyInpaintErrorMessage(caughtError));
       console.error("[OpenLayer] Inpaint generation failed", getTechnicalErrorDetails(caughtError));
       setInpaintDiagnostics(elements, getInpaintFailureHint(caughtError));
     } finally {
       progressWatcher?.close();
+      finishActiveGeneration(activeRun);
       isBusy = false;
       syncBusy();
     }
@@ -2278,6 +2577,7 @@ export function renderApp(rootElement: HTMLElement) {
       importMode = importResult.maskApplied ? "transparent-outside-mask" : "aligned-context-fallback";
       const importedLayerName = importResult.layerName;
       setInpaintStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
+      markHistoryImported(elements, historyEntries, inpaintResult, importedLayerName);
       setInpaintDiagnostics(
         elements,
         [
@@ -2372,6 +2672,7 @@ export function renderApp(rootElement: HTMLElement) {
     setPromptLayerDiagnostics(elements, `Task: ${task}. Num beams: ${numBeams}.`);
     isBusy = true;
     syncBusy();
+    let activeRun: ActiveGeneration | null = null;
 
     try {
       await client.validatePresetSetup(preset);
@@ -2392,9 +2693,11 @@ export function renderApp(rootElement: HTMLElement) {
       );
 
       const promptId = await client.submitPrompt(workflowResult.workflow);
+      activeRun = beginActiveGeneration("prompt-from-layer", client, promptId);
       const historyItem = await client.pollUntilTextComplete(promptId, {
         preferredNodeId: textOutputNodeId,
-        onTick: (message) => setPromptLayerStatus(elements, message, "idle")
+        onTick: (message) => setPromptLayerStatus(elements, message, "idle"),
+        isCancelled: () => Boolean(activeRun?.isCancelled)
       });
       const generatedText = await client.retrieveFirstOutputText(promptId, historyItem, {
         preferredNodeId: textOutputNodeId
@@ -2407,10 +2710,16 @@ export function renderApp(rootElement: HTMLElement) {
         `Generated from ${promptLayerSource.sourceName}. Task: ${task}. Num beams: ${numBeams}. Seed: ${seed}.`
       );
     } catch (caughtError) {
+      if (isGenerationCancelledError(caughtError)) {
+        showGenerationCancelled("prompt-from-layer", activeRun?.promptId);
+        return;
+      }
+
       setPromptLayerStatus(elements, "Prompt text generation failed.", "error");
       setPromptLayerError(elements, getErrorMessage(caughtError));
       setPromptLayerDiagnostics(elements, getTechnicalErrorDetails(caughtError));
     } finally {
+      finishActiveGeneration(activeRun);
       isBusy = false;
       syncBusy();
     }
@@ -3003,6 +3312,7 @@ function createAppMarkup() {
           </div>
           <textarea class="textarea compact-textarea" id="prompt-layer-generated-text" placeholder="Generated prompt text will appear here..."></textarea>
           <button class="button button-primary button-generate button-wide action-control" id="generate-prompt-from-layer" data-openlayer-action="generatePromptFromLayer" type="button">Generate Text from Layer</button>
+          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
           <div class="import-actions">
             <button class="button action-control" id="copy-prompt-from-layer" data-openlayer-action="copyPromptFromLayer" type="button">Copy Prompt</button>
             <button class="button action-control" id="send-prompt-to-text-to-image" data-openlayer-action="sendPromptToTextToImage" type="button">Send to Text to Image</button>
@@ -3167,7 +3477,7 @@ function createAppMarkup() {
             </label>
           </div>
           <button class="button button-primary button-generate button-wide action-control" id="generate" data-openlayer-action="generate" type="button">Generate</button>
-          <button class="button button-wide action-control" id="cancel-generation" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
+          <button class="button button-wide action-control cancel-generation-button" id="cancel-generation" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
         </section>
 
         <section class="generation-status-panel" aria-label="Generation status">
@@ -3272,6 +3582,7 @@ function createAppMarkup() {
             </div>
           </div>
           <button class="button button-primary button-generate button-wide action-control" id="generate-img2img" data-openlayer-action="generateImg2Img" type="button">Generate Image to Image</button>
+          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
         </section>
 
         <section class="generation-status-panel img2img-status-panel" aria-label="Image to Image status">
@@ -3372,6 +3683,7 @@ function createAppMarkup() {
             </div>
           </div>
           <button class="button button-primary button-generate button-wide action-control" id="generate-sketch" data-openlayer-action="generateSketch" type="button">Generate Sketch to Image</button>
+          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
         </section>
 
         <section class="generation-status-panel img2img-status-panel" aria-label="Sketch to Image status">
@@ -3480,6 +3792,7 @@ function createAppMarkup() {
             </div>
           </div>
           <button class="button button-primary button-generate button-wide action-control" id="generate-inpaint" data-openlayer-action="generateInpaint" type="button">Generate Inpaint</button>
+          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
         </section>
 
         <section class="generation-status-panel img2img-status-panel" aria-label="Inpaint status">
@@ -3597,6 +3910,7 @@ function createAppMarkup() {
             </div>
           </div>
           <button class="button button-primary button-generate button-wide action-control" id="generate-outpaint" data-openlayer-action="generateOutpaint" type="button">Generate Outpaint</button>
+          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
         </section>
 
         <section class="generation-status-panel img2img-status-panel" aria-label="Outpaint status">
@@ -3746,6 +4060,7 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     resetSettingsButton: getElement<HTMLElement>(rootElement, "reset-settings"),
     generateButton: getElement<HTMLElement>(rootElement, "generate"),
     cancelGenerateButton: getElement<HTMLElement>(rootElement, "cancel-generation"),
+    cancelGenerationButtons: Array.from(rootElement.querySelectorAll<HTMLElement>(".cancel-generation-button")),
     importButton: getElement<HTMLElement>(rootElement, "import-result"),
     autoImportToggle: getElement<HTMLElement>(rootElement, "auto-import-toggle"),
     imgPrompt: getElement<HTMLTextAreaElement>(rootElement, "img-prompt"),
@@ -3969,7 +4284,9 @@ function setBusy(
   setActionDisabled(elements.negativePromptToggle, isBusy);
   setActionDisabled(elements.autoImportToggle, isBusy);
   setActionDisabled(elements.generateButton, isBusy);
-  setActionDisabled(elements.cancelGenerateButton, !isBusy);
+  for (const cancelButton of elements.cancelGenerationButtons) {
+    setActionDisabled(cancelButton, !isBusy || cancelButton.hidden);
+  }
   setActionDisabled(elements.importButton, isBusy || !result);
   setActionDisabled(elements.captureLayerButton, isBusy);
   setActionDisabled(elements.captureCanvasButton, isBusy);
@@ -3997,8 +4314,10 @@ function setBusy(
 }
 
 function setCancelGenerationVisible(elements: AppElements, isVisible: boolean) {
-  elements.cancelGenerateButton.hidden = !isVisible;
-  setActionDisabled(elements.cancelGenerateButton, !isVisible);
+  for (const cancelButton of elements.cancelGenerationButtons) {
+    cancelButton.hidden = !isVisible;
+    setActionDisabled(cancelButton, !isVisible);
+  }
 }
 
 function setStatus(elements: AppElements, status: string, tone: StatusTone) {
@@ -4336,7 +4655,7 @@ type ActionName =
   | "copyPromptFromLayer"
   | "sendPromptToTextToImage"
   | "clearHistory";
-type HistoryActionName = "preview" | "import";
+type HistoryActionName = "preview" | "import" | "reuse";
 type ActionRunner = (eventName: string) => void;
 type ActionHandlers = Record<ActionName, ActionRunner>;
 
@@ -5046,6 +5365,21 @@ function readSelectValue(select: HTMLSelectElement, fallback = "") {
   return optionValue || fallback;
 }
 
+function setSelectValueIfPresent(select: HTMLSelectElement, value: string) {
+  if (!value) {
+    return false;
+  }
+
+  const matchingOption = Array.from(select.options).find((option) => option.value === value);
+
+  if (!matchingOption) {
+    return false;
+  }
+
+  select.value = value;
+  return true;
+}
+
 function applyValidatedSettings(elements: AppElements, settings: {
   width: number;
   height: number;
@@ -5507,8 +5841,13 @@ function addHistoryEntry(
   details: {
     prompt: string;
     checkpointName: string;
+    modelName: string;
+    workflowPreset: string;
+    toolType: HistoryToolType;
     seed: number;
     sizeLabel: string;
+    dimensions: string;
+    sourceMode: string;
   }
 ) {
   historyEntries.unshift({
@@ -5517,8 +5856,14 @@ function addHistoryEntry(
     previewUrl: URL.createObjectURL(result.blob),
     prompt: details.prompt.trim() || "Untitled prompt",
     checkpointName: details.checkpointName,
+    modelName: details.modelName,
+    workflowPreset: details.workflowPreset,
+    toolType: details.toolType,
     seed: details.seed,
     sizeLabel: details.sizeLabel,
+    dimensions: details.dimensions,
+    sourceMode: details.sourceMode,
+    importStatus: "not-imported",
     createdAt: new Date().toLocaleString()
   });
 
@@ -5564,13 +5909,29 @@ function renderHistory(elements: AppElements, historyEntries: HistoryEntry[]) {
 
     const meta = document.createElement("div");
     meta.className = "history-meta";
-    meta.textContent = `${entry.sizeLabel} | Seed ${entry.seed}`;
+    meta.textContent = createHistoryMetadataLine({
+      toolType: entry.toolType,
+      dimensions: entry.dimensions,
+      seed: entry.seed
+    });
     body.append(meta);
 
     const checkpoint = document.createElement("div");
     checkpoint.className = "history-meta";
-    checkpoint.textContent = entry.checkpointName;
+    checkpoint.textContent = `${entry.workflowPreset} | ${entry.modelName || entry.checkpointName}`;
     body.append(checkpoint);
+
+    if (entry.sourceMode) {
+      const source = document.createElement("div");
+      source.className = "history-meta";
+      source.textContent = `Source: ${entry.sourceMode}`;
+      body.append(source);
+    }
+
+    const importStatus = document.createElement("div");
+    importStatus.className = "history-meta";
+    importStatus.textContent = formatHistoryImportStatus(entry.importStatus, entry.importedLayerName);
+    body.append(importStatus);
 
     const createdAt = document.createElement("div");
     createdAt.className = "history-time";
@@ -5581,11 +5942,30 @@ function renderHistory(elements: AppElements, historyEntries: HistoryEntry[]) {
     actions.className = "history-actions";
     actions.append(createHistoryButton("Preview", "preview", entry.id));
     actions.append(createHistoryButton("Import", "import", entry.id));
+    actions.append(createHistoryButton("Reuse Settings", "reuse", entry.id));
     body.append(actions);
 
     card.append(body);
     elements.historyList.append(card);
   }
+}
+
+function markHistoryImported(
+  elements: AppElements,
+  historyEntries: HistoryEntry[],
+  result: GeneratedImageResult,
+  importedLayerName: string
+) {
+  const entry = historyEntries.find((historyEntry) => historyEntry.result === result);
+
+  if (!entry) {
+    return;
+  }
+
+  entry.importStatus = "imported";
+  entry.importedLayerName = importedLayerName;
+  entry.importedAt = new Date().toLocaleString();
+  renderHistory(elements, historyEntries);
 }
 
 function createHistoryButton(label: string, action: HistoryActionName, historyId: string) {
