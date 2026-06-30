@@ -10,7 +10,7 @@ OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop t
 
 ## Alpha Release
 
-`v0.4.7-alpha` is the current Flux1-dev fp8 and cancel-generation preview. It is intended for testing the core local workflow, not for production work yet.
+`v0.4.8-alpha` is the current build hygiene and Outpaint availability preview. It is intended for testing the core local workflow, not for production work yet.
 
 Included in this alpha:
 
@@ -53,7 +53,7 @@ Included in this alpha:
 
 ![OpenLayer v0.2.1 Home dashboard](docs/assets/openlayer-v021-dashboard.png)
 
-Known v0.4.7-alpha boundaries:
+Known v0.4.8-alpha boundaries:
 
 - Image to Image is an early foundation path, not a full production workflow yet.
 - Sketch to Image is limited to the first SD 1.x LINECN starter workflow.
@@ -197,7 +197,7 @@ npm run package
 This creates a zip package from `dist` in the `packages` folder. For the current alpha, the expected package name is:
 
 ```text
-packages/openlayer-v0.4.7-alpha.zip
+packages/openlayer-v0.4.8-alpha.zip
 ```
 
 ## Loading In UXP Developer Tool
@@ -322,7 +322,7 @@ Inpaint output quality, mask interpretation, and Photoshop alignment are still b
 
 ## Pre-release Tester Checklist
 
-Use this quick pass before reporting a v0.4.7-alpha test result:
+Use this quick pass before reporting a v0.4.8-alpha test result:
 
 1. Start ComfyUI on `http://127.0.0.1:8190`.
 2. Build OpenLayer and load `dist/manifest.json` in Adobe UXP Developer Tool.

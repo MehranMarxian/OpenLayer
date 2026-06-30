@@ -20,7 +20,7 @@ Use this checklist before publishing an OpenLayer alpha release.
 - Confirm `README.md` release version.
 - Confirm `CHANGELOG.md` release section.
 - Confirm `docs/index.html` landing page version.
-- Confirm the package name matches the release, for example `openlayer-v0.4.7-alpha.zip`.
+- Confirm the package name matches the release, for example `openlayer-v0.4.8-alpha.zip`.
 
 ## Public Alpha Truth Check
 
@@ -34,7 +34,7 @@ Use this checklist before publishing an OpenLayer alpha release.
 
 ## GitHub Release
 
-- Create a git tag, for example `v0.4.7-alpha`.
+- Create a git tag, for example `v0.4.8-alpha`.
 - Create a GitHub Release from the tag.
 - Mark the release as a pre-release.
 - Attach the package zip from `packages/`.

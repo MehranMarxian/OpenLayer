@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased / v0.4.8-alpha draft - 2026-06-30
+
+Build hygiene and Outpaint availability checkpoint.
+
+### Changed
+
+- Bumped plugin/package metadata to `0.4.8`.
+- Rebuilt the production bundle so the experimental Outpaint screen and workflow assets are included in `dist`.
+- Confirmed pnpm cache/workspace artifacts are ignored and removed the local `.pnpm-store` cache from the workspace.
+
+### Known Limitations
+
+- Outpaint remains experimental and should be tested carefully with the local Flux Fill stack.
+- No generation behavior, ComfyUI workflow behavior, or UI redesign changes are included in this checkpoint.
+
 ## Unreleased / v0.4.7-alpha draft - 2026-06-29
 
 Flux1-dev fp8 Text to Image preset and safe generation cancellation foundation.
