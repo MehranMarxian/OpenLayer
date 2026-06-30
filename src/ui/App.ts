@@ -23,10 +23,16 @@ import {
 } from "../comfy/inpaintOutput";
 import { getCheckpointCompatibility } from "../comfy/modelCompatibility";
 import { getWorkflowPreset, listRunnableWorkflowPresets, listWorkflowPresets } from "../comfy/presetRegistry";
-import { validateGenerationSettings, validateImageToImageSettings, validateSketchToImageSettings } from "../comfy/settings";
+import {
+  validateGenerationSettings,
+  validateImageToImageSettings,
+  validateOutpaintSettings,
+  validateSketchToImageSettings
+} from "../comfy/settings";
 import {
   buildImg2ImgWorkflow,
   buildInpaintWorkflow,
+  buildOutpaintWorkflow,
   buildPromptFromLayerWorkflow,
   buildSketchToImageWorkflow,
   buildTxt2ImgWorkflow
@@ -77,6 +83,7 @@ const DEFAULT_WORKFLOW = "txt2img-basic";
 const DEFAULT_IMAGE_WORKFLOW = "img2img-basic";
 const DEFAULT_SKETCH_WORKFLOW = "sketch2img-linecn-basic";
 const DEFAULT_INPAINT_WORKFLOW = "inpaint-basic";
+const DEFAULT_OUTPAINT_WORKFLOW = "outpaint-flux-fill-basic";
 const RECOMMENDED_SKETCH_CHECKPOINT = "epicrealism_naturalSinRC1VAE.safetensors";
 const DEFAULT_WIDTH = "512";
 const DEFAULT_HEIGHT = "512";
@@ -89,6 +96,14 @@ const DEFAULT_SKETCH_DENOISE = "0.65";
 const DEFAULT_SKETCH_CONTROL_STRENGTH = "0.8";
 const DEFAULT_INPAINT_STEPS = "16";
 const DEFAULT_INPAINT_DENOISE = "0.75";
+const DEFAULT_OUTPAINT_STEPS = "20";
+const DEFAULT_OUTPAINT_GUIDANCE = "30";
+const DEFAULT_OUTPAINT_DENOISE = "1";
+const DEFAULT_OUTPAINT_LEFT = "400";
+const DEFAULT_OUTPAINT_TOP = "0";
+const DEFAULT_OUTPAINT_RIGHT = "400";
+const DEFAULT_OUTPAINT_BOTTOM = "400";
+const DEFAULT_OUTPAINT_FEATHERING = "24";
 const DEFAULT_PROMPT_LAYER_TASK = "detailed_caption";
 const DEFAULT_PROMPT_LAYER_NUM_BEAMS = "12";
 const PROMPT_LAYER_TASKS = [
@@ -114,6 +129,7 @@ type AppView =
   | "image-to-image"
   | "sketch-to-image"
   | "inpaint"
+  | "outpaint"
   | "prompt-from-layer"
   | "settings"
   | "history";
@@ -173,7 +189,7 @@ const TOOL_CARDS: ToolCard[] = [
     title: "Prompt from Layer",
     subtitle: "Describe a layer into prompt text",
     icon: "promptFromLayer",
-    status: "experimental",
+    status: "available",
     view: "prompt-from-layer"
   },
   {
@@ -181,7 +197,8 @@ const TOOL_CARDS: ToolCard[] = [
     title: "Outpaint",
     subtitle: "Extend canvas content beyond edges",
     icon: "expand",
-    status: "coming-soon"
+    status: "experimental",
+    view: "outpaint"
   },
   {
     id: "lineart",
@@ -250,6 +267,7 @@ type AppElements = {
   imageToImageView: HTMLElement;
   sketchToImageView: HTMLElement;
   inpaintView: HTMLElement;
+  outpaintView: HTMLElement;
   promptFromLayerView: HTMLElement;
   settingsView: HTMLElement;
   historyView: HTMLElement;
@@ -313,6 +331,22 @@ type AppElements = {
   captureInpaintActiveLayerButton: HTMLElement;
   generateInpaintButton: HTMLElement;
   importInpaintButton: HTMLElement;
+  outpaintPrompt: HTMLTextAreaElement;
+  outpaintWorkflow: HTMLSelectElement;
+  outpaintCheckpoint: HTMLSelectElement;
+  outpaintSteps: HTMLInputElement;
+  outpaintGuidance: HTMLInputElement;
+  outpaintSeed: HTMLInputElement;
+  outpaintDenoise: HTMLInputElement;
+  outpaintLeft: HTMLInputElement;
+  outpaintTop: HTMLInputElement;
+  outpaintRight: HTMLInputElement;
+  outpaintBottom: HTMLInputElement;
+  outpaintFeathering: HTMLInputElement;
+  captureOutpaintLayerButton: HTMLElement;
+  captureOutpaintCanvasButton: HTMLElement;
+  generateOutpaintButton: HTMLElement;
+  importOutpaintButton: HTMLElement;
   capturePromptLayerButton: HTMLElement;
   capturePromptCanvasButton: HTMLElement;
   generatePromptLayerButton: HTMLElement;
@@ -341,12 +375,17 @@ type AppElements = {
   sketchCompatibilityNote: HTMLElement;
   inpaintDiagnosticsText: HTMLElement;
   inpaintCompatibilityNote: HTMLElement;
+  outpaintStatusText: HTMLElement;
+  outpaintStatusPill: HTMLElement;
+  outpaintDiagnosticsText: HTMLElement;
+  outpaintCompatibilityNote: HTMLElement;
   promptLayerDiagnosticsText: HTMLElement;
   settingsDiagnosticsText: HTMLElement;
   errorMessage: HTMLElement;
   imgErrorMessage: HTMLElement;
   sketchErrorMessage: HTMLElement;
   inpaintErrorMessage: HTMLElement;
+  outpaintErrorMessage: HTMLElement;
   promptLayerErrorMessage: HTMLElement;
   settingsErrorMessage: HTMLElement;
   previewPanel: HTMLElement;
@@ -364,6 +403,10 @@ type AppElements = {
   inpaintMaskPreviewPanel: HTMLElement;
   inpaintMaskMeta: HTMLElement;
   inpaintResultPreviewPanel: HTMLElement;
+  outpaintSourcePreviewPanel: HTMLElement;
+  outpaintSourceTitle: HTMLElement;
+  outpaintSourceMeta: HTMLElement;
+  outpaintResultPreviewPanel: HTMLElement;
   promptLayerSourcePreviewPanel: HTMLElement;
   promptLayerSourceTitle: HTMLElement;
   promptLayerSourceMeta: HTMLElement;
@@ -436,6 +479,11 @@ export function renderApp(rootElement: HTMLElement) {
   let inpaintMaskPreviewUrl = "";
   let inpaintResultPreviewUrl = "";
   let inpaintLivePreviewUrl = "";
+  let outpaintSource: ImageSourceState | null = null;
+  let outpaintResult: GeneratedImageResult | null = null;
+  let outpaintSourcePreviewUrl = "";
+  let outpaintResultPreviewUrl = "";
+  let outpaintLivePreviewUrl = "";
   let promptLayerSource: ImageSourceState | null = null;
   let promptLayerSourcePreviewUrl = "";
   let importAutomatically = false;
@@ -445,6 +493,22 @@ export function renderApp(rootElement: HTMLElement) {
   let hardwareReport: HardwareRecommendationReport | null = null;
   let workflowHealthReport: WorkflowHealthReport | null = null;
   const historyEntries: HistoryEntry[] = [];
+
+  function syncBusy() {
+    setBusy(
+      elements,
+      isBusy,
+      result,
+      imageResult,
+      imageSource,
+      sketchResult,
+      sketchSource,
+      inpaintResult,
+      inpaintSource,
+      outpaintResult,
+      outpaintSource
+    );
+  }
 
   rootElement.innerHTML = createAppMarkup();
 
@@ -491,6 +555,14 @@ export function renderApp(rootElement: HTMLElement) {
     ),
     generateInpaint: createActionRunner(elements, "generateInpaint", handleGenerateInpaint),
     importInpaint: createActionRunner(elements, "importInpaint", handleImportInpaint),
+    captureOutpaintSource: createActionRunner(elements, "captureOutpaintSource", handleCaptureOutpaintSource),
+    captureOutpaintCanvasSource: createActionRunner(
+      elements,
+      "captureOutpaintCanvasSource",
+      handleCaptureOutpaintCanvasSource
+    ),
+    generateOutpaint: createActionRunner(elements, "generateOutpaint", handleGenerateOutpaint),
+    importOutpaint: createActionRunner(elements, "importOutpaint", handleImportOutpaint),
     capturePromptLayerSource: createActionRunner(elements, "capturePromptLayerSource", handleCapturePromptLayerSource),
     capturePromptCanvasSource: createActionRunner(elements, "capturePromptCanvasSource", handleCapturePromptCanvasSource),
     generatePromptFromLayer: createActionRunner(elements, "generatePromptFromLayer", handleGeneratePromptFromLayer),
@@ -524,6 +596,10 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.captureInpaintActiveLayerButton, actionHandlers.captureInpaintActiveLayer);
   bindActionControl(elements.generateInpaintButton, actionHandlers.generateInpaint);
   bindActionControl(elements.importInpaintButton, actionHandlers.importInpaint);
+  bindActionControl(elements.captureOutpaintLayerButton, actionHandlers.captureOutpaintSource);
+  bindActionControl(elements.captureOutpaintCanvasButton, actionHandlers.captureOutpaintCanvasSource);
+  bindActionControl(elements.generateOutpaintButton, actionHandlers.generateOutpaint);
+  bindActionControl(elements.importOutpaintButton, actionHandlers.importOutpaint);
   bindActionControl(elements.capturePromptLayerButton, actionHandlers.capturePromptLayerSource);
   bindActionControl(elements.capturePromptCanvasButton, actionHandlers.capturePromptCanvasSource);
   bindActionControl(elements.generatePromptLayerButton, actionHandlers.generatePromptFromLayer);
@@ -539,7 +615,7 @@ export function renderApp(rootElement: HTMLElement) {
   setStatus(elements, "Ready.", "idle");
   setView(currentView);
   setError(elements, "");
-  setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+  syncBusy();
   updateNegativePromptDisclosure(elements, isNegativePromptOpen);
   updateAutoImportToggle(elements, importAutomatically);
   updateExperimentalCheckpointToggle(elements, allowExperimentalCheckpoints);
@@ -552,6 +628,9 @@ export function renderApp(rootElement: HTMLElement) {
   updateInpaintCheckpointCompatibility(elements, inpaintSource);
   setInpaintSource(null);
   setInpaintResult(null);
+  updateOutpaintCheckpointCompatibility(elements, outpaintSource);
+  setOutpaintSource(null);
+  setOutpaintResult(null);
   setPromptLayerSource(null);
   updateSettingsReport(elements);
   renderHardwareReport(elements, hardwareReport);
@@ -594,6 +673,15 @@ export function renderApp(rootElement: HTMLElement) {
     updateInpaintCheckpointCompatibility(elements, inpaintSource);
   });
 
+  elements.outpaintWorkflow.addEventListener("change", () => {
+    void refreshOutpaintModelOptionsForSelectedPreset(elements);
+    updateOutpaintCheckpointCompatibility(elements, outpaintSource);
+  });
+
+  elements.outpaintCheckpoint.addEventListener("change", () => {
+    updateOutpaintCheckpointCompatibility(elements, outpaintSource);
+  });
+
   async function loadInitialCheckpoints() {
     setStatus(elements, "Loading ComfyUI models...", "idle");
 
@@ -604,9 +692,11 @@ export function renderApp(rootElement: HTMLElement) {
       await refreshTextModelOptionsForSelectedPreset(elements, client);
       await refreshImageModelOptionsForSelectedPreset(elements, client);
       await refreshInpaintModelOptionsForSelectedPreset(elements, client);
+      await refreshOutpaintModelOptionsForSelectedPreset(elements, client);
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
       updateSketchCheckpointCompatibility(elements, sketchSource);
       updateInpaintCheckpointCompatibility(elements, inpaintSource);
+      updateOutpaintCheckpointCompatibility(elements, outpaintSource);
       setStatus(elements, "ComfyUI is online. Models loaded.", "ready");
       savePreferencesFromElements(elements);
       updateSettingsReport(elements);
@@ -629,9 +719,11 @@ export function renderApp(rootElement: HTMLElement) {
       await refreshTextModelOptionsForSelectedPreset(elements, client);
       await refreshImageModelOptionsForSelectedPreset(elements, client);
       await refreshInpaintModelOptionsForSelectedPreset(elements, client);
+      await refreshOutpaintModelOptionsForSelectedPreset(elements, client);
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
       updateSketchCheckpointCompatibility(elements, sketchSource);
       updateInpaintCheckpointCompatibility(elements, inpaintSource);
+      updateOutpaintCheckpointCompatibility(elements, outpaintSource);
       setStatus(elements, "ComfyUI is online. Models loaded.", "ready");
       savePreferencesFromElements(elements);
       updateSettingsReport(elements);
@@ -666,9 +758,11 @@ export function renderApp(rootElement: HTMLElement) {
       await refreshTextModelOptionsForSelectedPreset(elements, client);
       await refreshImageModelOptionsForSelectedPreset(elements, client);
       await refreshInpaintModelOptionsForSelectedPreset(elements, client);
+      await refreshOutpaintModelOptionsForSelectedPreset(elements, client);
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
       updateSketchCheckpointCompatibility(elements, sketchSource);
       updateInpaintCheckpointCompatibility(elements, inpaintSource);
+      updateOutpaintCheckpointCompatibility(elements, outpaintSource);
       savePreferencesFromElements(elements);
       setStatus(elements, `Found ComfyUI at ${foundUrl}.`, "ready");
       setDiagnostics(elements, `Active ComfyUI server selected: ${foundUrl}.`);
@@ -778,6 +872,7 @@ export function renderApp(rootElement: HTMLElement) {
     updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
     updateSketchCheckpointCompatibility(elements, sketchSource);
     updateInpaintCheckpointCompatibility(elements, inpaintSource);
+    updateOutpaintCheckpointCompatibility(elements, outpaintSource);
     setError(elements, "");
     setStatus(elements, "Settings reset to OpenLayer defaults.", "ready");
     setDiagnostics(elements, "Defaults restored. Click Check ComfyUI to reload available models.");
@@ -845,7 +940,7 @@ export function renderApp(rootElement: HTMLElement) {
     setError(elements, "");
     setResult(null);
     isBusy = true;
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+    syncBusy();
     setStatus(elements, "Preparing workflow...", "idle");
     setProgressPreview(elements, "Preparing workflow...");
     let progressWatcher: ReturnType<ComfyClient["watchProgress"]> | null = null;
@@ -991,7 +1086,7 @@ export function renderApp(rootElement: HTMLElement) {
       }
       setCancelGenerationVisible(elements, false);
       isBusy = false;
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+      syncBusy();
     }
   }
 
@@ -1039,7 +1134,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     setError(elements, "");
     isBusy = true;
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+    syncBusy();
     setStatus(elements, "Importing image into Photoshop...", "idle");
 
     try {
@@ -1058,7 +1153,7 @@ export function renderApp(rootElement: HTMLElement) {
       setError(elements, getErrorMessage(caughtError));
     } finally {
       isBusy = false;
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+      syncBusy();
     }
   }
 
@@ -1090,7 +1185,7 @@ export function renderApp(rootElement: HTMLElement) {
     setImageError(elements, "");
     setImageStatus(elements, options.statusMessage, "idle");
     isBusy = true;
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+    syncBusy();
 
     try {
       const exportedSource = await options.capture();
@@ -1110,7 +1205,7 @@ export function renderApp(rootElement: HTMLElement) {
       setImageDiagnostics(elements, getTechnicalErrorDetails(caughtError));
     } finally {
       isBusy = false;
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+      syncBusy();
     }
   }
 
@@ -1140,7 +1235,7 @@ export function renderApp(rootElement: HTMLElement) {
     setImageError(elements, "");
     setImageResult(null);
     isBusy = true;
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+    syncBusy();
     setImageStatus(elements, "Preparing Image to Image workflow...", "idle");
     setImageProgressPreview(elements, "Preparing Image to Image workflow...");
     let progressWatcher: ReturnType<ComfyClient["watchProgress"]> | null = null;
@@ -1268,7 +1363,7 @@ export function renderApp(rootElement: HTMLElement) {
     } finally {
       progressWatcher?.close();
       isBusy = false;
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+      syncBusy();
     }
   }
 
@@ -1282,7 +1377,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     setImageError(elements, "");
     isBusy = true;
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+    syncBusy();
     setImageStatus(elements, "Importing Image to Image result into Photoshop...", "idle");
 
     try {
@@ -1301,7 +1396,252 @@ export function renderApp(rootElement: HTMLElement) {
       setImageError(elements, getErrorMessage(caughtError));
     } finally {
       isBusy = false;
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+      syncBusy();
+    }
+  }
+
+  async function handleCaptureOutpaintSource() {
+    await captureOutpaintSourceImage({
+      progressMessage: "Capturing active Photoshop layer for Outpaint...",
+      statusMessage: "Capturing active layer...",
+      successMessage: "Outpaint source captured.",
+      capture: exportActiveLayerForImageToImage
+    });
+  }
+
+  async function handleCaptureOutpaintCanvasSource() {
+    await captureOutpaintSourceImage({
+      progressMessage: "Capturing Photoshop canvas for Outpaint...",
+      statusMessage: "Capturing canvas...",
+      successMessage: "Outpaint canvas captured.",
+      capture: exportCanvasForImageToImage
+    });
+  }
+
+  async function captureOutpaintSourceImage(options: {
+    progressMessage: string;
+    statusMessage: string;
+    successMessage: string;
+    capture: () => Promise<ExportedSourceImage>;
+  }) {
+    setOutpaintDiagnostics(elements, options.progressMessage);
+    setOutpaintError(elements, "");
+    setOutpaintStatus(elements, options.statusMessage, "idle");
+    isBusy = true;
+    syncBusy();
+
+    try {
+      const exportedSource = await options.capture();
+      const sourcePreview = URL.createObjectURL(exportedSource.blob);
+      setOutpaintSource({
+        ...exportedSource,
+        previewUrl: sourcePreview
+      });
+      setOutpaintStatus(elements, options.successMessage, "ready");
+      setOutpaintDiagnostics(
+        elements,
+        `${createSourceCaptureMessage(exportedSource, " for Flux Fill outpainting")} Padding will be added in ComfyUI.`
+      );
+    } catch (caughtError) {
+      setOutpaintStatus(elements, "Outpaint source capture failed.", "error");
+      setOutpaintError(elements, getErrorMessage(caughtError));
+      setOutpaintDiagnostics(elements, getTechnicalErrorDetails(caughtError));
+    } finally {
+      isBusy = false;
+      syncBusy();
+    }
+  }
+
+  async function handleGenerateOutpaint() {
+    setOutpaintDiagnostics(elements, `Outpaint generate pressed at ${new Date().toLocaleTimeString()}.`);
+
+    if (!outpaintSource) {
+      setOutpaintError(elements, "Capture the active Photoshop layer or canvas before generating Outpaint.");
+      setOutpaintStatus(elements, "Source required.", "error");
+      setOutpaintDiagnostics(
+        elements,
+        createWorkflowDiagnostics(
+          getWorkflowPreset(readSelectValue(elements.outpaintWorkflow, DEFAULT_OUTPAINT_WORKFLOW)),
+          readSelectValue(elements.outpaintCheckpoint),
+          createSourceInputAvailability(outpaintSource)
+        )
+      );
+      return;
+    }
+
+    if (!elements.outpaintPrompt.value.trim()) {
+      setOutpaintError(
+        elements,
+        getErrorMessage(createOpenLayerError("PROMPT_REQUIRED", "Enter a prompt before generating Outpaint."))
+      );
+      setOutpaintStatus(elements, "Prompt required.", "error");
+      return;
+    }
+
+    setOutpaintError(elements, "");
+    setOutpaintResult(null);
+    isBusy = true;
+    syncBusy();
+    setOutpaintStatus(elements, "Preparing Outpaint workflow...", "idle");
+    setOutpaintProgressPreview(elements, "Preparing Outpaint workflow...");
+    let progressWatcher: ReturnType<ComfyClient["watchProgress"]> | null = null;
+
+    try {
+      const workflowPreset = readSelectValue(elements.outpaintWorkflow, DEFAULT_OUTPAINT_WORKFLOW);
+      const preset = getWorkflowPreset(workflowPreset);
+      const checkpointName = readSelectValue(elements.outpaintCheckpoint);
+      const { settings, warnings } = validateOutpaintSettings({
+        steps: elements.outpaintSteps.value,
+        cfg: elements.outpaintGuidance.value,
+        seed: elements.outpaintSeed.value,
+        denoise: elements.outpaintDenoise.value,
+        left: elements.outpaintLeft.value,
+        top: elements.outpaintTop.value,
+        right: elements.outpaintRight.value,
+        bottom: elements.outpaintBottom.value,
+        feathering: elements.outpaintFeathering.value
+      });
+      const client = new ComfyClient(elements.serverUrl.value);
+
+      applyValidatedOutpaintSettings(elements, settings);
+      setOutpaintDiagnostics(
+        elements,
+        warnings.length > 0
+          ? warnings.join(" ")
+          : createWorkflowDiagnostics(preset, checkpointName, createSourceInputAvailability(outpaintSource))
+      );
+      await client.checkOnline();
+
+      if (!checkpointName) {
+        throw createOpenLayerError("CHECKPOINT_REQUIRED", "Choose a Flux Fill model before generating Outpaint.");
+      }
+
+      setOutpaintStatus(elements, "Checking selected Flux Fill model...", "idle");
+      setOutpaintProgressPreview(elements, "Checking selected model...");
+
+      if (!(await client.hasModelForPreset(checkpointName, preset))) {
+        throw createOpenLayerError(
+          "CHECKPOINT_REQUIRED",
+          `The ${preset.modelSource.label.toLowerCase()} "${checkpointName}" was not found in ComfyUI. Click Check ComfyUI and choose an available model.`
+        );
+      }
+
+      setOutpaintStatus(elements, "Checking Outpaint nodes...", "idle");
+      setOutpaintProgressPreview(elements, "Checking Flux Fill outpaint setup...");
+      const requiredModelSelections = await client.validatePresetSetup(preset);
+
+      setOutpaintStatus(elements, "Uploading source image to ComfyUI...", "idle");
+      setOutpaintProgressPreview(elements, "Uploading source image...");
+      const sourceImageName = await client.uploadImage(outpaintSource.blob, outpaintSource.filename);
+      const buildResult = await buildOutpaintWorkflow({
+        presetId: preset.id,
+        prompt: elements.outpaintPrompt.value,
+        checkpointName,
+        sourceImageName,
+        steps: settings.steps,
+        cfg: settings.cfg,
+        seed: settings.seed,
+        denoise: settings.denoise,
+        left: settings.left,
+        top: settings.top,
+        right: settings.right,
+        bottom: settings.bottom,
+        feathering: settings.feathering,
+        requiredModelSelections
+      });
+
+      setOutpaintStatus(elements, "Submitting Outpaint prompt...", "idle");
+      setOutpaintProgressPreview(elements, "Submitting prompt to ComfyUI...");
+      const promptId = await client.submitPrompt(buildResult.workflow);
+      let hasLivePreview = false;
+      progressWatcher = client.watchProgress(promptId, {
+        onStatus: (message) => {
+          setOutpaintStatus(elements, message, "idle");
+
+          if (!hasLivePreview) {
+            setOutpaintProgressPreview(elements, message);
+          }
+        },
+        onPreviewBlob: (blob) => {
+          hasLivePreview = true;
+          setOutpaintProgressPreview(elements, "Live ComfyUI Outpaint preview...", blob);
+        },
+        onError: (message) => setOutpaintDiagnostics(elements, message)
+      });
+
+      setOutpaintStatus(elements, "Generating Outpaint result...", "idle");
+      setOutpaintProgressPreview(elements, "Generating outpaint...");
+      const history = await client.pollUntilComplete(promptId, {
+        onTick: (message) => {
+          setOutpaintStatus(elements, message, "idle");
+
+          if (!hasLivePreview) {
+            setOutpaintProgressPreview(elements, message);
+          }
+        }
+      });
+      progressWatcher?.close();
+      progressWatcher = null;
+
+      setOutpaintStatus(elements, "Retrieving Outpaint result...", "idle");
+      setOutpaintProgressPreview(elements, "Retrieving final image...");
+      const generatedResult = await client.retrieveFirstOutputImage(promptId, history, {
+        preferredNodeId: getSaveImageNodeId(buildResult.preset)
+      });
+      setOutpaintResult(generatedResult);
+      addHistoryEntry(elements, historyEntries, generatedResult, {
+        prompt: elements.outpaintPrompt.value,
+        checkpointName,
+        seed: buildResult.seed,
+        sizeLabel: "Outpaint"
+      });
+      setOutpaintStatus(elements, "Outpaint generation complete.", "ready");
+      setOutpaintDiagnostics(
+        elements,
+        `Seed used: ${buildResult.seed}. Source uploaded as ${sourceImageName}. Workflow: ${buildResult.preset.id}. Padding left ${settings.left}, top ${settings.top}, right ${settings.right}, bottom ${settings.bottom}, feather ${settings.feathering}.`
+      );
+    } catch (caughtError) {
+      setOutpaintStatus(elements, "Outpaint generation failed.", "error");
+      setOutpaintError(elements, getFriendlyOutpaintErrorMessage(caughtError));
+      console.error("[OpenLayer] Outpaint generation failed", getTechnicalErrorDetails(caughtError));
+      setOutpaintDiagnostics(elements, getOutpaintFailureHint(caughtError));
+    } finally {
+      progressWatcher?.close();
+      isBusy = false;
+      syncBusy();
+    }
+  }
+
+  async function handleImportOutpaint() {
+    setOutpaintDiagnostics(elements, "Outpaint import pressed.");
+
+    if (!outpaintResult) {
+      setOutpaintError(elements, "Generate an Outpaint result before importing.");
+      return;
+    }
+
+    setOutpaintError(elements, "");
+    isBusy = true;
+    syncBusy();
+    setOutpaintStatus(elements, "Importing Outpaint result into Photoshop...", "idle");
+
+    try {
+      const documentInfo = await getActiveDocumentInfo();
+      const layerName = createLayerName("OpenLayer_Outpaint");
+
+      setOutpaintDiagnostics(elements, `Importing into ${documentInfo.name || "active document"}...`);
+      const importedLayerName = await importGeneratedImageAsLayer(outpaintResult.blob, layerName, (message) => {
+        setOutpaintStatus(elements, message, "idle");
+        setOutpaintDiagnostics(elements, message);
+      });
+      setOutpaintStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
+      setOutpaintDiagnostics(elements, `Layer created: ${importedLayerName}`);
+    } catch (caughtError) {
+      setOutpaintStatus(elements, "Import failed.", "error");
+      setOutpaintError(elements, getErrorMessage(caughtError));
+    } finally {
+      isBusy = false;
+      syncBusy();
     }
   }
 
@@ -1333,7 +1673,7 @@ export function renderApp(rootElement: HTMLElement) {
     setSketchError(elements, "");
     setSketchStatus(elements, options.statusMessage, "idle");
     isBusy = true;
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+    syncBusy();
 
     try {
       const exportedSource = await options.capture();
@@ -1353,7 +1693,7 @@ export function renderApp(rootElement: HTMLElement) {
       setSketchDiagnostics(elements, getTechnicalErrorDetails(caughtError));
     } finally {
       isBusy = false;
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+      syncBusy();
     }
   }
 
@@ -1386,7 +1726,7 @@ export function renderApp(rootElement: HTMLElement) {
     setSketchError(elements, "");
     setSketchResult(null);
     isBusy = true;
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+    syncBusy();
     setSketchStatus(elements, "Preparing LINECN workflow...", "idle");
     setSketchProgressPreview(elements, "Preparing LINECN workflow...");
     let progressWatcher: ReturnType<ComfyClient["watchProgress"]> | null = null;
@@ -1515,7 +1855,7 @@ export function renderApp(rootElement: HTMLElement) {
     } finally {
       progressWatcher?.close();
       isBusy = false;
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+      syncBusy();
     }
   }
 
@@ -1529,7 +1869,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     setSketchError(elements, "");
     isBusy = true;
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+    syncBusy();
     setSketchStatus(elements, "Importing Sketch to Image result into Photoshop...", "idle");
 
     try {
@@ -1548,7 +1888,7 @@ export function renderApp(rootElement: HTMLElement) {
       setSketchError(elements, getErrorMessage(caughtError));
     } finally {
       isBusy = false;
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+      syncBusy();
     }
   }
 
@@ -1558,7 +1898,7 @@ export function renderApp(rootElement: HTMLElement) {
     setInpaintError(elements, "");
     setInpaintStatus(elements, `Capturing ${sourceModeLabel} selection...`, "idle");
     isBusy = true;
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+    syncBusy();
 
     try {
       const exportedSource = await captureSelectionForInpainting(sourceMode);
@@ -1588,7 +1928,7 @@ export function renderApp(rootElement: HTMLElement) {
       setInpaintDiagnostics(elements, getTechnicalErrorDetails(caughtError));
     } finally {
       isBusy = false;
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+      syncBusy();
     }
   }
 
@@ -1638,7 +1978,7 @@ export function renderApp(rootElement: HTMLElement) {
     setInpaintError(elements, "");
     setInpaintResult(null);
     isBusy = true;
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+    syncBusy();
     setInpaintStatus(elements, "Preparing Inpaint workflow...", "idle");
     setInpaintProgressPreview(elements, "Preparing Inpaint workflow...");
     let progressWatcher: ReturnType<ComfyClient["watchProgress"]> | null = null;
@@ -1875,7 +2215,7 @@ export function renderApp(rootElement: HTMLElement) {
     } finally {
       progressWatcher?.close();
       isBusy = false;
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+      syncBusy();
     }
   }
 
@@ -1899,7 +2239,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     setInpaintError(elements, "");
     isBusy = true;
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+    syncBusy();
     setInpaintStatus(elements, "Importing Inpaint result into Photoshop...", "idle");
 
     try {
@@ -1958,7 +2298,7 @@ export function renderApp(rootElement: HTMLElement) {
       setInpaintError(elements, getErrorMessage(caughtError));
     } finally {
       isBusy = false;
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+      syncBusy();
     }
   }
 
@@ -1990,7 +2330,7 @@ export function renderApp(rootElement: HTMLElement) {
     setPromptLayerError(elements, "");
     setPromptLayerStatus(elements, options.statusMessage, "idle");
     isBusy = true;
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+    syncBusy();
 
     try {
       const exportedSource = await options.capture();
@@ -2010,7 +2350,7 @@ export function renderApp(rootElement: HTMLElement) {
       setPromptLayerDiagnostics(elements, getTechnicalErrorDetails(caughtError));
     } finally {
       isBusy = false;
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+      syncBusy();
     }
   }
 
@@ -2031,7 +2371,7 @@ export function renderApp(rootElement: HTMLElement) {
     setPromptLayerStatus(elements, "Uploading source to ComfyUI...", "idle");
     setPromptLayerDiagnostics(elements, `Task: ${task}. Num beams: ${numBeams}.`);
     isBusy = true;
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+    syncBusy();
 
     try {
       await client.validatePresetSetup(preset);
@@ -2072,7 +2412,7 @@ export function renderApp(rootElement: HTMLElement) {
       setPromptLayerDiagnostics(elements, getTechnicalErrorDetails(caughtError));
     } finally {
       isBusy = false;
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+      syncBusy();
     }
   }
 
@@ -2127,7 +2467,7 @@ export function renderApp(rootElement: HTMLElement) {
       empty.className = "preview-empty";
       empty.textContent = "No result yet";
       elements.previewPanel.append(empty);
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+      syncBusy();
       return;
     }
 
@@ -2136,7 +2476,7 @@ export function renderApp(rootElement: HTMLElement) {
     image.src = previewUrl;
     image.alt = "Generated OpenLayer preview";
     elements.previewPanel.append(image);
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+    syncBusy();
   }
 
   function setProgressPreview(elements: AppElements, message: string, blob?: Blob) {
@@ -2182,7 +2522,7 @@ export function renderApp(rootElement: HTMLElement) {
       elements.imageSourceTitle.textContent = "No source captured";
       elements.imageSourceMeta.textContent = "Choose active layer or full canvas.";
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+      syncBusy();
       return;
     }
 
@@ -2194,7 +2534,7 @@ export function renderApp(rootElement: HTMLElement) {
     elements.imageSourceTitle.textContent = imageSource.sourceName;
     elements.imageSourceMeta.textContent = createSourceMetaText(imageSource);
     updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+    syncBusy();
   }
 
   function setImageResult(nextResult: GeneratedImageResult | null) {
@@ -2216,7 +2556,7 @@ export function renderApp(rootElement: HTMLElement) {
       empty.className = "preview-empty";
       empty.textContent = "No Image to Image result yet";
       elements.imageResultPreviewPanel.append(empty);
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+      syncBusy();
       return;
     }
 
@@ -2225,7 +2565,7 @@ export function renderApp(rootElement: HTMLElement) {
     image.src = imageResultPreviewUrl;
     image.alt = "Generated Image to Image preview";
     elements.imageResultPreviewPanel.append(image);
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+    syncBusy();
   }
 
   function setImageProgressPreview(elements: AppElements, message: string, blob?: Blob) {
@@ -2271,7 +2611,7 @@ export function renderApp(rootElement: HTMLElement) {
       elements.sketchSourceTitle.textContent = "No source captured";
       elements.sketchSourceMeta.textContent = "Choose active layer or full canvas.";
       updateSketchCheckpointCompatibility(elements, sketchSource);
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+      syncBusy();
       return;
     }
 
@@ -2283,7 +2623,7 @@ export function renderApp(rootElement: HTMLElement) {
     elements.sketchSourceTitle.textContent = sketchSource.sourceName;
     elements.sketchSourceMeta.textContent = createSourceMetaText(sketchSource);
     updateSketchCheckpointCompatibility(elements, sketchSource);
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+    syncBusy();
   }
 
   function setSketchResult(nextResult: GeneratedImageResult | null) {
@@ -2305,7 +2645,7 @@ export function renderApp(rootElement: HTMLElement) {
       empty.className = "preview-empty";
       empty.textContent = "No Sketch to Image result yet";
       elements.sketchResultPreviewPanel.append(empty);
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+      syncBusy();
       return;
     }
 
@@ -2314,7 +2654,7 @@ export function renderApp(rootElement: HTMLElement) {
     image.src = sketchResultPreviewUrl;
     image.alt = "Generated Sketch to Image preview";
     elements.sketchResultPreviewPanel.append(image);
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+    syncBusy();
   }
 
   function setSketchProgressPreview(elements: AppElements, message: string, blob?: Blob) {
@@ -2372,7 +2712,7 @@ export function renderApp(rootElement: HTMLElement) {
       elements.inpaintMaskPreviewPanel.append(maskEmpty);
       elements.inpaintMaskMeta.textContent = "Mask export not available yet.";
       updateInpaintCheckpointCompatibility(elements, inpaintSource);
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+      syncBusy();
       return;
     }
 
@@ -2400,7 +2740,7 @@ export function renderApp(rootElement: HTMLElement) {
     }
 
     updateInpaintCheckpointCompatibility(elements, inpaintSource);
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+    syncBusy();
   }
 
   function setInpaintResult(nextResult: GeneratedImageResult | null) {
@@ -2422,7 +2762,7 @@ export function renderApp(rootElement: HTMLElement) {
       empty.className = "preview-empty";
       empty.textContent = "No Inpaint result yet";
       elements.inpaintResultPreviewPanel.append(empty);
-      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+      syncBusy();
       return;
     }
 
@@ -2431,7 +2771,7 @@ export function renderApp(rootElement: HTMLElement) {
     image.src = inpaintResultPreviewUrl;
     image.alt = "Generated Inpaint preview";
     elements.inpaintResultPreviewPanel.append(image);
-    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+    syncBusy();
   }
 
   function setInpaintProgressPreview(elements: AppElements, message: string, blob?: Blob) {
@@ -2458,6 +2798,95 @@ export function renderApp(rootElement: HTMLElement) {
     progress.className = "preview-empty";
     progress.textContent = message;
     elements.inpaintResultPreviewPanel.append(progress);
+  }
+
+  function setOutpaintSource(nextSource: ImageSourceState | null) {
+    if (outpaintSourcePreviewUrl) {
+      URL.revokeObjectURL(outpaintSourcePreviewUrl);
+      outpaintSourcePreviewUrl = "";
+    }
+
+    outpaintSource = nextSource;
+    elements.outpaintSourcePreviewPanel.innerHTML = "";
+
+    if (!outpaintSource) {
+      const empty = document.createElement("span");
+      empty.className = "source-empty";
+      empty.textContent = "None";
+      elements.outpaintSourcePreviewPanel.append(empty);
+      elements.outpaintSourceTitle.textContent = "No source captured";
+      elements.outpaintSourceMeta.textContent = "Choose active layer or full canvas.";
+      updateOutpaintCheckpointCompatibility(elements, outpaintSource);
+      syncBusy();
+      return;
+    }
+
+    outpaintSourcePreviewUrl = outpaintSource.previewUrl;
+    const image = document.createElement("img");
+    image.src = outpaintSourcePreviewUrl;
+    image.alt = "Captured Photoshop source for Outpaint";
+    elements.outpaintSourcePreviewPanel.append(image);
+    elements.outpaintSourceTitle.textContent = outpaintSource.sourceName;
+    elements.outpaintSourceMeta.textContent = createSourceMetaText(outpaintSource);
+    updateOutpaintCheckpointCompatibility(elements, outpaintSource);
+    syncBusy();
+  }
+
+  function setOutpaintResult(nextResult: GeneratedImageResult | null) {
+    if (outpaintResultPreviewUrl) {
+      URL.revokeObjectURL(outpaintResultPreviewUrl);
+      outpaintResultPreviewUrl = "";
+    }
+
+    if (outpaintLivePreviewUrl) {
+      URL.revokeObjectURL(outpaintLivePreviewUrl);
+      outpaintLivePreviewUrl = "";
+    }
+
+    outpaintResult = nextResult;
+    elements.outpaintResultPreviewPanel.innerHTML = "";
+
+    if (!outpaintResult) {
+      const empty = document.createElement("span");
+      empty.className = "preview-empty";
+      empty.textContent = "No Outpaint result yet";
+      elements.outpaintResultPreviewPanel.append(empty);
+      syncBusy();
+      return;
+    }
+
+    outpaintResultPreviewUrl = URL.createObjectURL(outpaintResult.blob);
+    const image = document.createElement("img");
+    image.src = outpaintResultPreviewUrl;
+    image.alt = "Generated Outpaint preview";
+    elements.outpaintResultPreviewPanel.append(image);
+    syncBusy();
+  }
+
+  function setOutpaintProgressPreview(elements: AppElements, message: string, blob?: Blob) {
+    if (outpaintResult) {
+      return;
+    }
+
+    elements.outpaintResultPreviewPanel.innerHTML = "";
+
+    if (blob) {
+      if (outpaintLivePreviewUrl) {
+        URL.revokeObjectURL(outpaintLivePreviewUrl);
+      }
+
+      outpaintLivePreviewUrl = URL.createObjectURL(blob);
+      const image = document.createElement("img");
+      image.src = outpaintLivePreviewUrl;
+      image.alt = "Live ComfyUI Outpaint preview";
+      elements.outpaintResultPreviewPanel.append(image);
+      return;
+    }
+
+    const progress = document.createElement("span");
+    progress.className = "preview-empty";
+    progress.textContent = message;
+    elements.outpaintResultPreviewPanel.append(progress);
   }
 
   function setPromptLayerSource(nextSource: ImageSourceState | null) {
@@ -2495,6 +2924,7 @@ export function renderApp(rootElement: HTMLElement) {
     elements.imageToImageView.hidden = currentView !== "image-to-image";
     elements.sketchToImageView.hidden = currentView !== "sketch-to-image";
     elements.inpaintView.hidden = currentView !== "inpaint";
+    elements.outpaintView.hidden = currentView !== "outpaint";
     elements.promptFromLayerView.hidden = currentView !== "prompt-from-layer";
     elements.settingsView.hidden = currentView !== "settings";
     elements.historyView.hidden = currentView !== "history";
@@ -3075,6 +3505,123 @@ function createAppMarkup() {
         </section>
       </section>
 
+      <section class="outpaint-view image-to-image-view" id="outpaint-view" aria-label="Outpaint" hidden>
+        <div class="screen-nav">
+          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
+          <div class="screen-title-block">
+            <span class="screen-kicker">OUT</span>
+            <span class="screen-title">Outpaint</span>
+          </div>
+        </div>
+
+        <div class="tool-warning" role="note">
+          Experimental: Outpaint uses Flux Fill and ImagePadForOutpaint to expand captured Photoshop content. Test on duplicate layers first.
+        </div>
+
+        <section class="panel-section generator-panel source-panel" aria-label="Outpaint source">
+          <div class="section-heading">
+            <span class="label">Source layer</span>
+            <span class="muted-label">Flux Fill input</span>
+          </div>
+          <div class="source-action-row" aria-label="Outpaint source capture actions">
+            <button class="button source-action-button action-control" id="capture-outpaint-source" data-openlayer-action="captureOutpaintSource" type="button">Capture Active Layer</button>
+            <button class="button source-action-button action-control" id="capture-outpaint-canvas-source" data-openlayer-action="captureOutpaintCanvasSource" type="button">Capture Canvas</button>
+          </div>
+          <div class="source-card">
+            <div class="source-thumb-frame" id="outpaint-source-preview-panel">
+              <span class="source-empty">None</span>
+            </div>
+            <div class="source-card-body">
+              <span class="source-title" id="outpaint-source-title">No source captured</span>
+              <span class="source-card-meta" id="outpaint-source-meta">Choose active layer or full canvas.</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel-section generator-panel img2img-form-panel" aria-label="Outpaint prompt">
+          <div class="field img2img-field">
+            <span class="label">Prompt</span>
+            <textarea class="textarea compact-textarea" id="outpaint-prompt" placeholder="Describe what should extend beyond the current image..."></textarea>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Workflow</span>
+            <select class="select" id="outpaint-workflow">
+              ${listRunnableWorkflowPresets("outpaint").map((preset) => `<option value="${preset.id}">${preset.label}</option>`).join("")}
+            </select>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Model</span>
+            <select class="select" id="outpaint-checkpoint">
+              ${FALLBACK_CHECKPOINTS.map((checkpoint) => `<option value="${checkpoint}">${checkpoint}</option>`).join("")}
+            </select>
+            <span class="compatibility-note" id="outpaint-compatibility-note">Outpaint uses Flux Fill diffusion models and ImagePadForOutpaint.</span>
+          </div>
+          <div class="settings-grid img2img-settings-grid" aria-label="Outpaint settings">
+            <div class="field">
+              <span class="label">Steps</span>
+              <input class="input input-compact" id="outpaint-steps" type="number" min="1" max="150" step="1" value="${DEFAULT_OUTPAINT_STEPS}" />
+            </div>
+            <div class="field">
+              <span class="label">Guidance</span>
+              <input class="input input-compact" id="outpaint-guidance" type="number" min="0" max="60" step="0.5" value="${DEFAULT_OUTPAINT_GUIDANCE}" />
+            </div>
+            <div class="field">
+              <span class="label">Denoise</span>
+              <input class="input input-compact" id="outpaint-denoise" type="number" min="0.05" max="1" step="0.05" value="${DEFAULT_OUTPAINT_DENOISE}" />
+            </div>
+            <div class="field settings-seed">
+              <span class="label">Seed</span>
+              <input class="input input-compact" id="outpaint-seed" type="number" min="0" placeholder="Random" />
+            </div>
+          </div>
+          <div class="settings-grid img2img-settings-grid" aria-label="Outpaint expansion settings">
+            <div class="field">
+              <span class="label">Left</span>
+              <input class="input input-compact" id="outpaint-left" type="number" min="0" max="2048" step="8" value="${DEFAULT_OUTPAINT_LEFT}" />
+            </div>
+            <div class="field">
+              <span class="label">Top</span>
+              <input class="input input-compact" id="outpaint-top" type="number" min="0" max="2048" step="8" value="${DEFAULT_OUTPAINT_TOP}" />
+            </div>
+            <div class="field">
+              <span class="label">Right</span>
+              <input class="input input-compact" id="outpaint-right" type="number" min="0" max="2048" step="8" value="${DEFAULT_OUTPAINT_RIGHT}" />
+            </div>
+            <div class="field">
+              <span class="label">Bottom</span>
+              <input class="input input-compact" id="outpaint-bottom" type="number" min="0" max="2048" step="8" value="${DEFAULT_OUTPAINT_BOTTOM}" />
+            </div>
+            <div class="field">
+              <span class="label">Feather</span>
+              <input class="input input-compact" id="outpaint-feathering" type="number" min="0" max="256" step="1" value="${DEFAULT_OUTPAINT_FEATHERING}" />
+            </div>
+          </div>
+          <button class="button button-primary button-generate button-wide action-control" id="generate-outpaint" data-openlayer-action="generateOutpaint" type="button">Generate Outpaint</button>
+        </section>
+
+        <section class="generation-status-panel img2img-status-panel" aria-label="Outpaint status">
+          <div class="status-bar" role="status">
+            <span class="status-text" id="outpaint-status-text">Ready.</span>
+            <span class="status-pill idle" id="outpaint-status-pill">Status</span>
+          </div>
+          <div class="diagnostics-line" id="outpaint-diagnostics-text">Capture a source, then extend it with Flux Fill outpaint.</div>
+          <div class="error-message" id="outpaint-error-message" hidden></div>
+        </section>
+
+        <section class="panel-section result-panel img2img-result-panel" aria-label="Outpaint result">
+          <div class="section-heading">
+            <span class="label">Result preview</span>
+            <span class="muted-label">Generated result appears here</span>
+          </div>
+          <div class="preview-panel" id="outpaint-result-preview-panel">
+            <span class="preview-empty">No Outpaint result yet</span>
+          </div>
+          <div class="import-actions">
+            <button class="button button-import button-import-blue action-control is-disabled" id="import-outpaint-result" data-openlayer-action="importOutpaint" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
+          </div>
+        </section>
+      </section>
+
       <section class="history-view" id="history-view" aria-label="History" hidden>
         <div class="screen-nav">
           <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
@@ -3174,6 +3721,7 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     imageToImageView: getElement<HTMLElement>(rootElement, "image-to-image-view"),
     sketchToImageView: getElement<HTMLElement>(rootElement, "sketch-to-image-view"),
     inpaintView: getElement<HTMLElement>(rootElement, "inpaint-view"),
+    outpaintView: getElement<HTMLElement>(rootElement, "outpaint-view"),
     promptFromLayerView: getElement<HTMLElement>(rootElement, "prompt-from-layer-view"),
     settingsView: getElement<HTMLElement>(rootElement, "settings-view"),
     historyView: getElement<HTMLElement>(rootElement, "history-view"),
@@ -3237,6 +3785,22 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     captureInpaintActiveLayerButton: getElement<HTMLElement>(rootElement, "capture-inpaint-active-layer"),
     generateInpaintButton: getElement<HTMLElement>(rootElement, "generate-inpaint"),
     importInpaintButton: getElement<HTMLElement>(rootElement, "import-inpaint-result"),
+    outpaintPrompt: getElement<HTMLTextAreaElement>(rootElement, "outpaint-prompt"),
+    outpaintWorkflow: getElement<HTMLSelectElement>(rootElement, "outpaint-workflow"),
+    outpaintCheckpoint: getElement<HTMLSelectElement>(rootElement, "outpaint-checkpoint"),
+    outpaintSteps: getElement<HTMLInputElement>(rootElement, "outpaint-steps"),
+    outpaintGuidance: getElement<HTMLInputElement>(rootElement, "outpaint-guidance"),
+    outpaintSeed: getElement<HTMLInputElement>(rootElement, "outpaint-seed"),
+    outpaintDenoise: getElement<HTMLInputElement>(rootElement, "outpaint-denoise"),
+    outpaintLeft: getElement<HTMLInputElement>(rootElement, "outpaint-left"),
+    outpaintTop: getElement<HTMLInputElement>(rootElement, "outpaint-top"),
+    outpaintRight: getElement<HTMLInputElement>(rootElement, "outpaint-right"),
+    outpaintBottom: getElement<HTMLInputElement>(rootElement, "outpaint-bottom"),
+    outpaintFeathering: getElement<HTMLInputElement>(rootElement, "outpaint-feathering"),
+    captureOutpaintLayerButton: getElement<HTMLElement>(rootElement, "capture-outpaint-source"),
+    captureOutpaintCanvasButton: getElement<HTMLElement>(rootElement, "capture-outpaint-canvas-source"),
+    generateOutpaintButton: getElement<HTMLElement>(rootElement, "generate-outpaint"),
+    importOutpaintButton: getElement<HTMLElement>(rootElement, "import-outpaint-result"),
     capturePromptLayerButton: getElement<HTMLElement>(rootElement, "capture-prompt-layer-source"),
     capturePromptCanvasButton: getElement<HTMLElement>(rootElement, "capture-prompt-canvas-source"),
     generatePromptLayerButton: getElement<HTMLElement>(rootElement, "generate-prompt-from-layer"),
@@ -3265,12 +3829,17 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     sketchCompatibilityNote: getElement<HTMLElement>(rootElement, "sketch-compatibility-note"),
     inpaintDiagnosticsText: getElement<HTMLElement>(rootElement, "inpaint-diagnostics-text"),
     inpaintCompatibilityNote: getElement<HTMLElement>(rootElement, "inpaint-compatibility-note"),
+    outpaintStatusText: getElement<HTMLElement>(rootElement, "outpaint-status-text"),
+    outpaintStatusPill: getElement<HTMLElement>(rootElement, "outpaint-status-pill"),
+    outpaintDiagnosticsText: getElement<HTMLElement>(rootElement, "outpaint-diagnostics-text"),
+    outpaintCompatibilityNote: getElement<HTMLElement>(rootElement, "outpaint-compatibility-note"),
     promptLayerDiagnosticsText: getElement<HTMLElement>(rootElement, "prompt-layer-diagnostics-text"),
     settingsDiagnosticsText: getElement<HTMLElement>(rootElement, "settings-diagnostics-text"),
     errorMessage: getElement<HTMLElement>(rootElement, "error-message"),
     imgErrorMessage: getElement<HTMLElement>(rootElement, "img-error-message"),
     sketchErrorMessage: getElement<HTMLElement>(rootElement, "sketch-error-message"),
     inpaintErrorMessage: getElement<HTMLElement>(rootElement, "inpaint-error-message"),
+    outpaintErrorMessage: getElement<HTMLElement>(rootElement, "outpaint-error-message"),
     promptLayerErrorMessage: getElement<HTMLElement>(rootElement, "prompt-layer-error-message"),
     settingsErrorMessage: getElement<HTMLElement>(rootElement, "settings-error-message"),
     previewPanel: getElement<HTMLElement>(rootElement, "preview-panel"),
@@ -3288,6 +3857,10 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     inpaintMaskPreviewPanel: getElement<HTMLElement>(rootElement, "inpaint-mask-preview-panel"),
     inpaintMaskMeta: getElement<HTMLElement>(rootElement, "inpaint-mask-meta"),
     inpaintResultPreviewPanel: getElement<HTMLElement>(rootElement, "inpaint-result-preview-panel"),
+    outpaintSourcePreviewPanel: getElement<HTMLElement>(rootElement, "outpaint-source-preview-panel"),
+    outpaintSourceTitle: getElement<HTMLElement>(rootElement, "outpaint-source-title"),
+    outpaintSourceMeta: getElement<HTMLElement>(rootElement, "outpaint-source-meta"),
+    outpaintResultPreviewPanel: getElement<HTMLElement>(rootElement, "outpaint-result-preview-panel"),
     promptLayerSourcePreviewPanel: getElement<HTMLElement>(rootElement, "prompt-layer-source-preview-panel"),
     promptLayerSourceTitle: getElement<HTMLElement>(rootElement, "prompt-layer-source-title"),
     promptLayerSourceMeta: getElement<HTMLElement>(rootElement, "prompt-layer-source-meta"),
@@ -3332,7 +3905,9 @@ function setBusy(
   sketchResult: GeneratedImageResult | null = null,
   sketchSource: ImageSourceState | null = null,
   inpaintResult: GeneratedImageResult | null = null,
-  inpaintSource: InpaintSourceState | null = null
+  inpaintSource: InpaintSourceState | null = null,
+  outpaintResult: GeneratedImageResult | null = null,
+  outpaintSource: ImageSourceState | null = null
 ) {
   elements.serverUrl.disabled = isBusy;
   elements.prompt.disabled = isBusy;
@@ -3369,6 +3944,18 @@ function setBusy(
   elements.inpaintCfg.disabled = isBusy;
   elements.inpaintSeed.disabled = isBusy;
   elements.inpaintDenoise.disabled = isBusy;
+  elements.outpaintPrompt.disabled = isBusy;
+  elements.outpaintWorkflow.disabled = isBusy;
+  elements.outpaintCheckpoint.disabled = isBusy;
+  elements.outpaintSteps.disabled = isBusy;
+  elements.outpaintGuidance.disabled = isBusy;
+  elements.outpaintSeed.disabled = isBusy;
+  elements.outpaintDenoise.disabled = isBusy;
+  elements.outpaintLeft.disabled = isBusy;
+  elements.outpaintTop.disabled = isBusy;
+  elements.outpaintRight.disabled = isBusy;
+  elements.outpaintBottom.disabled = isBusy;
+  elements.outpaintFeathering.disabled = isBusy;
   elements.promptLayerTask.disabled = isBusy;
   elements.promptLayerNumBeams.disabled = isBusy;
   elements.promptLayerGeneratedText.disabled = isBusy;
@@ -3397,6 +3984,10 @@ function setBusy(
   setActionDisabled(elements.captureInpaintActiveLayerButton, isBusy);
   setActionDisabled(elements.generateInpaintButton, isBusy || !inpaintSource);
   setActionDisabled(elements.importInpaintButton, isBusy || !inpaintResult);
+  setActionDisabled(elements.captureOutpaintLayerButton, isBusy);
+  setActionDisabled(elements.captureOutpaintCanvasButton, isBusy);
+  setActionDisabled(elements.generateOutpaintButton, isBusy || !outpaintSource);
+  setActionDisabled(elements.importOutpaintButton, isBusy || !outpaintResult);
   setActionDisabled(elements.capturePromptLayerButton, isBusy);
   setActionDisabled(elements.capturePromptCanvasButton, isBusy);
   setActionDisabled(elements.generatePromptLayerButton, isBusy);
@@ -3423,6 +4014,9 @@ function setStatus(elements: AppElements, status: string, tone: StatusTone) {
   elements.inpaintStatusText.textContent = status;
   elements.inpaintStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
   elements.inpaintStatusPill.className = `status-pill ${tone}`;
+  elements.outpaintStatusText.textContent = status;
+  elements.outpaintStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
+  elements.outpaintStatusPill.className = `status-pill ${tone}`;
   elements.promptLayerStatusText.textContent = status;
   elements.promptLayerStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
   elements.promptLayerStatusPill.className = `status-pill ${tone}`;
@@ -3457,6 +4051,14 @@ function setInpaintStatus(elements: AppElements, status: string, tone: StatusTon
   elements.homeStatusDot.className = `home-status-dot ${tone}`;
 }
 
+function setOutpaintStatus(elements: AppElements, status: string, tone: StatusTone) {
+  elements.outpaintStatusText.textContent = status;
+  elements.outpaintStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
+  elements.outpaintStatusPill.className = `status-pill ${tone}`;
+  elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
+  elements.homeStatusDot.className = `home-status-dot ${tone}`;
+}
+
 function setPromptLayerStatus(elements: AppElements, status: string, tone: StatusTone) {
   elements.promptLayerStatusText.textContent = status;
   elements.promptLayerStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
@@ -3487,6 +4089,11 @@ function setInpaintError(elements: AppElements, message: string) {
   elements.inpaintErrorMessage.hidden = !message;
 }
 
+function setOutpaintError(elements: AppElements, message: string) {
+  elements.outpaintErrorMessage.textContent = message;
+  elements.outpaintErrorMessage.hidden = !message;
+}
+
 function setPromptLayerError(elements: AppElements, message: string) {
   elements.promptLayerErrorMessage.textContent = message;
   elements.promptLayerErrorMessage.hidden = !message;
@@ -3497,6 +4104,7 @@ function setDiagnostics(elements: AppElements, message: string) {
   elements.imgDiagnosticsText.textContent = message;
   elements.sketchDiagnosticsText.textContent = message;
   elements.inpaintDiagnosticsText.textContent = message;
+  elements.outpaintDiagnosticsText.textContent = message;
   elements.promptLayerDiagnosticsText.textContent = message;
   elements.settingsDiagnosticsText.textContent = message;
 }
@@ -3513,6 +4121,11 @@ function setSketchDiagnostics(elements: AppElements, message: string) {
 
 function setInpaintDiagnostics(elements: AppElements, message: string) {
   elements.inpaintDiagnosticsText.textContent = message;
+  elements.settingsDiagnosticsText.textContent = message;
+}
+
+function setOutpaintDiagnostics(elements: AppElements, message: string) {
+  elements.outpaintDiagnosticsText.textContent = message;
   elements.settingsDiagnosticsText.textContent = message;
 }
 
@@ -3602,6 +4215,19 @@ function updateInpaintCheckpointCompatibility(elements: AppElements, source: Inp
 
   elements.inpaintCompatibilityNote.textContent = formatWorkflowDiagnosticMessage(message);
   elements.inpaintCompatibilityNote.classList.toggle("is-warning", true);
+  updateSettingsReport(elements);
+}
+
+function updateOutpaintCheckpointCompatibility(elements: AppElements, source: ImageSourceState | null = null) {
+  const checkpointName = readSelectValue(elements.outpaintCheckpoint);
+  const preset = getWorkflowPreset(readSelectValue(elements.outpaintWorkflow, DEFAULT_OUTPAINT_WORKFLOW));
+  const message = createWorkflowDiagnosticMessage(preset, {
+    selectedModelName: checkpointName,
+    photoshopInputs: createSourceInputAvailability(source)
+  });
+
+  elements.outpaintCompatibilityNote.textContent = formatWorkflowDiagnosticMessage(message);
+  elements.outpaintCompatibilityNote.classList.toggle("is-warning", true);
   updateSettingsReport(elements);
 }
 
@@ -3700,6 +4326,10 @@ type ActionName =
   | "captureInpaintActiveLayer"
   | "generateInpaint"
   | "importInpaint"
+  | "captureOutpaintSource"
+  | "captureOutpaintCanvasSource"
+  | "generateOutpaint"
+  | "importOutpaint"
   | "capturePromptLayerSource"
   | "capturePromptCanvasSource"
   | "generatePromptFromLayer"
@@ -4121,6 +4751,31 @@ async function refreshInpaintModelOptionsForSelectedPreset(
   updateInpaintCheckpointCompatibility(elements);
 }
 
+async function refreshOutpaintModelOptionsForSelectedPreset(
+  elements: AppElements,
+  client = new ComfyClient(elements.serverUrl.value),
+  preferredValue = readSelectValue(elements.outpaintCheckpoint)
+) {
+  const preset = getWorkflowPreset(readSelectValue(elements.outpaintWorkflow, DEFAULT_OUTPAINT_WORKFLOW));
+
+  try {
+    const modelNames = await client.getModelNamesForPreset(preset);
+
+    if (modelNames.length > 0) {
+      const preferredPresetModel = preset.modelStack?.find(
+        (model) => model.kind === preset.modelSource.kind && modelNames.includes(model.modelName)
+      )?.modelName;
+      const preferredModel = modelNames.includes(preferredValue) ? preferredValue : preferredPresetModel;
+
+      fillSingleCheckpointSelect(elements.outpaintCheckpoint, modelNames, preferredModel);
+    }
+  } catch {
+    // Keep the existing list if ComfyUI is offline or the diffusion model source is unavailable.
+  }
+
+  updateOutpaintCheckpointCompatibility(elements);
+}
+
 function fillCheckpointOptions(elements: AppElements, checkpoints: string[], preferredValue?: string) {
   fillSingleCheckpointSelect(elements.checkpoint, checkpoints, preferredValue);
   fillSingleCheckpointSelect(elements.imgCheckpoint, checkpoints, preferredValue);
@@ -4130,6 +4785,7 @@ function fillCheckpointOptions(elements: AppElements, checkpoints: string[], pre
     checkpoints.includes(RECOMMENDED_SKETCH_CHECKPOINT) ? RECOMMENDED_SKETCH_CHECKPOINT : preferredValue
   );
   fillSingleCheckpointSelect(elements.inpaintCheckpoint, checkpoints, preferredValue);
+  fillSingleCheckpointSelect(elements.outpaintCheckpoint, checkpoints, preferredValue);
 }
 
 function fillSingleCheckpointSelect(select: HTMLSelectElement, checkpoints: string[], preferredValue?: string) {
@@ -4324,6 +4980,59 @@ function getFriendlyInpaintErrorMessage(error: unknown) {
   return getErrorMessage(error);
 }
 
+function getOutpaintFailureHint(error: unknown) {
+  const details = getTechnicalErrorDetails(error).toLowerCase();
+
+  if (details.includes("outpaint-flux-fill-basic.json") || details.includes("outpaint workflow json")) {
+    return "The bundled Outpaint workflow file was not found in this build. Rebuild OpenLayer and reload the plugin.";
+  }
+
+  if (
+    details.includes("imagepadforoutpaint") ||
+    details.includes("differentialdiffusion") ||
+    details.includes("fluxguidance") ||
+    details.includes("unetloader") ||
+    details.includes("dualcliploader") ||
+    details.includes("missing node")
+  ) {
+    return "This Outpaint workflow needs the local Flux Fill node stack, including ImagePadForOutpaint, DifferentialDiffusion, FluxGuidance, UNETLoader, DualCLIPLoader, VAELoader, and KSampler.";
+  }
+
+  if (
+    details.includes("text encoder") ||
+    details.includes("t5") ||
+    details.includes("clip_l") ||
+    details.includes("vae") ||
+    details.includes("ae.safetensors")
+  ) {
+    return "Flux Fill Outpaint needs flux1-fill-dev.safetensors, clip_l.safetensors, t5xxl_fp16.safetensors or the accepted fp8 fallback, and ae.safetensors.";
+  }
+
+  const message = getTechnicalErrorDetails(error);
+  return message.length > 180 ? `${message.slice(0, 180)}...` : message;
+}
+
+function getFriendlyOutpaintErrorMessage(error: unknown) {
+  const details = getTechnicalErrorDetails(error).toLowerCase();
+
+  if (details.includes("outpaint-flux-fill-basic.json") || details.includes("outpaint workflow json")) {
+    return "Outpaint workflow file missing from this build.";
+  }
+
+  if (
+    details.includes("imagepadforoutpaint") ||
+    details.includes("differentialdiffusion") ||
+    details.includes("fluxguidance") ||
+    details.includes("unetloader") ||
+    details.includes("dualcliploader") ||
+    details.includes("missing node")
+  ) {
+    return "The Outpaint workflow needs matching Flux Fill ComfyUI nodes.";
+  }
+
+  return getErrorMessage(error);
+}
+
 function readSelectValue(select: HTMLSelectElement, fallback = "") {
   const directValue = typeof select.value === "string" ? select.value.trim() : "";
 
@@ -4389,6 +5098,28 @@ function applyValidatedInpaintSettings(elements: AppElements, settings: {
   elements.inpaintDenoise.value = String(settings.denoise);
 }
 
+function applyValidatedOutpaintSettings(elements: AppElements, settings: {
+  steps: number;
+  cfg: number;
+  seed: number;
+  denoise: number;
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+  feathering: number;
+}) {
+  elements.outpaintSteps.value = String(settings.steps);
+  elements.outpaintGuidance.value = String(settings.cfg);
+  elements.outpaintSeed.value = String(settings.seed);
+  elements.outpaintDenoise.value = String(settings.denoise);
+  elements.outpaintLeft.value = String(settings.left);
+  elements.outpaintTop.value = String(settings.top);
+  elements.outpaintRight.value = String(settings.right);
+  elements.outpaintBottom.value = String(settings.bottom);
+  elements.outpaintFeathering.value = String(settings.feathering);
+}
+
 function applyPreferences(elements: AppElements, preferences: Partial<OpenLayerPreferences>) {
   if (preferences.serverUrl) {
     elements.serverUrl.value = preferences.serverUrl;
@@ -4401,6 +5132,7 @@ function applyPreferences(elements: AppElements, preferences: Partial<OpenLayerP
   elements.imgWorkflow.value = DEFAULT_IMAGE_WORKFLOW;
   elements.sketchWorkflow.value = DEFAULT_SKETCH_WORKFLOW;
   elements.inpaintWorkflow.value = DEFAULT_INPAINT_WORKFLOW;
+  elements.outpaintWorkflow.value = DEFAULT_OUTPAINT_WORKFLOW;
 
   if (preferences.width) {
     elements.width.value = preferences.width;
@@ -4450,6 +5182,16 @@ function applyDefaultSettings(elements: AppElements) {
   elements.inpaintCfg.value = DEFAULT_CFG;
   elements.inpaintSeed.value = "";
   elements.inpaintDenoise.value = DEFAULT_INPAINT_DENOISE;
+  elements.outpaintWorkflow.value = DEFAULT_OUTPAINT_WORKFLOW;
+  elements.outpaintSteps.value = DEFAULT_OUTPAINT_STEPS;
+  elements.outpaintGuidance.value = DEFAULT_OUTPAINT_GUIDANCE;
+  elements.outpaintSeed.value = "";
+  elements.outpaintDenoise.value = DEFAULT_OUTPAINT_DENOISE;
+  elements.outpaintLeft.value = DEFAULT_OUTPAINT_LEFT;
+  elements.outpaintTop.value = DEFAULT_OUTPAINT_TOP;
+  elements.outpaintRight.value = DEFAULT_OUTPAINT_RIGHT;
+  elements.outpaintBottom.value = DEFAULT_OUTPAINT_BOTTOM;
+  elements.outpaintFeathering.value = DEFAULT_OUTPAINT_FEATHERING;
 }
 
 function savePreferencesFromElements(
@@ -4491,6 +5233,9 @@ function createSettingsWorkflowReadiness(elements: AppElements) {
     }),
     createWorkflowDiagnosticMessage(getWorkflowPreset(readSelectValue(elements.inpaintWorkflow, DEFAULT_INPAINT_WORKFLOW)), {
       selectedModelName: readSelectValue(elements.inpaintCheckpoint)
+    }),
+    createWorkflowDiagnosticMessage(getWorkflowPreset(readSelectValue(elements.outpaintWorkflow, DEFAULT_OUTPAINT_WORKFLOW)), {
+      selectedModelName: readSelectValue(elements.outpaintCheckpoint)
     })
   ];
   const warnings = messages.filter((message) => message.isWarning);
@@ -4684,6 +5429,7 @@ function createDiagnosticsReport(
     `Image to Image model: ${readSelectValue(elements.imgCheckpoint) || "None"}`,
     `Sketch to Image model: ${readSelectValue(elements.sketchCheckpoint) || "None"}`,
     `Inpaint model: ${readSelectValue(elements.inpaintCheckpoint) || "None"}`,
+    `Outpaint model: ${readSelectValue(elements.outpaintCheckpoint) || "None"}`,
     "",
     "Workflow health:",
     workflowHealthReport?.summary ?? "Workflow health has not been checked yet.",
@@ -4921,3 +5667,4 @@ async function isComfyServerOnline(serverUrl: string) {
 function createHistoryId() {
   return `history-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
+

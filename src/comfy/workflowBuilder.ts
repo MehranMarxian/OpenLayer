@@ -7,9 +7,11 @@ import promptFromLayerFlorence2Workflow from "../workflows/api/prompt-from-layer
 import sketch2imgLinecnBasicWorkflow from "../workflows/api/sketch2img-linecn-basic.json";
 import inpaintBasicWorkflow from "../workflows/api/inpaint-basic.json";
 import inpaintFluxFillBasicWorkflow from "../workflows/api/inpaint-flux-fill-basic.json";
+import outpaintFluxFillBasicWorkflow from "../workflows/api/outpaint-flux-fill-basic.json";
 import {
   BuildInpaintWorkflowOptions,
   BuildImageToImageWorkflowOptions,
+  BuildOutpaintWorkflowOptions,
   BuildPromptFromLayerWorkflowOptions,
   BuildSketchToImageWorkflowOptions,
   BuildWorkflowOptions,
@@ -33,7 +35,8 @@ const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
   "prompt-from-layer-florence2": promptFromLayerFlorence2Workflow as ComfyWorkflow,
   "sketch2img-linecn-basic": sketch2imgLinecnBasicWorkflow as ComfyWorkflow,
   "inpaint-basic": inpaintBasicWorkflow as ComfyWorkflow,
-  "inpaint-flux-fill-basic": inpaintFluxFillBasicWorkflow as ComfyWorkflow
+  "inpaint-flux-fill-basic": inpaintFluxFillBasicWorkflow as ComfyWorkflow,
+  "outpaint-flux-fill-basic": outpaintFluxFillBasicWorkflow as ComfyWorkflow
 };
 
 export async function buildTxt2ImgWorkflow(options: BuildWorkflowOptions): Promise<BuildWorkflowResult> {
@@ -168,6 +171,43 @@ export async function buildInpaintWorkflow(
 
   setPresetInput(workflow, preset, "width", options.width);
   setPresetInput(workflow, preset, "height", options.height);
+
+  validateWorkflowForPreset(workflow, preset);
+
+  return {
+    workflow,
+    seed,
+    preset
+  };
+}
+
+export async function buildOutpaintWorkflow(
+  options: BuildOutpaintWorkflowOptions
+): Promise<BuildWorkflowResult> {
+  const preset = getWorkflowPreset(options.presetId ?? "outpaint-flux-fill-basic");
+  assertPresetMode(preset, "outpaint");
+  assertPresetRunnable(preset);
+  const workflow = await cloneWorkflowTemplate(preset);
+  const seed = options.seed;
+
+  validateWorkflowForPreset(workflow, preset);
+  applyRequiredModelSelections(workflow, preset, options.requiredModelSelections);
+
+  if (options.checkpointName) {
+    setPresetInput(workflow, preset, "checkpoint", options.checkpointName, true);
+  }
+
+  setPresetInput(workflow, preset, "sourceImage", options.sourceImageName, true);
+  setPresetInput(workflow, preset, "positivePrompt", options.prompt, true);
+  setPresetInput(workflow, preset, "seed", seed, true);
+  setPresetInput(workflow, preset, "steps", options.steps, true);
+  setPresetInput(workflow, preset, "cfg", options.cfg, true);
+  setPresetInput(workflow, preset, "denoise", options.denoise, true);
+  setPresetInput(workflow, preset, "outpaintLeft", options.left, true);
+  setPresetInput(workflow, preset, "outpaintTop", options.top, true);
+  setPresetInput(workflow, preset, "outpaintRight", options.right, true);
+  setPresetInput(workflow, preset, "outpaintBottom", options.bottom, true);
+  setPresetInput(workflow, preset, "outpaintFeathering", options.feathering, true);
 
   validateWorkflowForPreset(workflow, preset);
 

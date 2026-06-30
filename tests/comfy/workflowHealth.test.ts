@@ -88,6 +88,18 @@ describe("workflow health", () => {
     expect(item.detail).toContain("t5xxl_fp8_e4m3fn.safetensors");
   });
 
+  it("marks Flux Fill outpaint as experimental when its full model stack is available", () => {
+    const preset = getWorkflowPreset("outpaint-flux-fill-basic");
+    const item = createWorkflowHealthItem(preset, {
+      availableNodes: createAvailableNodes(preset),
+      availableModels: createFluxFillInventory()
+    });
+
+    expect(item.state).toBe("experimental");
+    expect(item.canRun).toBe(true);
+    expect(item.detail).toContain("flux1-fill-dev.safetensors");
+  });
+
   it("reports missing Flux Fill T5 alternatives as model setup", () => {
     const preset = getWorkflowPreset("inpaint-flux-fill-basic");
     const item = createWorkflowHealthItem(preset, {

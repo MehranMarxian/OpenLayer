@@ -37,3 +37,9 @@ The runnable API version is in `src/workflows/api/prompt-from-layer-florence2.js
 `inpaint-flux-fill-basic.workflow.json` is the GUI-editable reference workflow used to rebuild the experimental Flux Fill API workflow.
 
 The runnable API version is in `src/workflows/api/inpaint-flux-fill-basic.json`. If this source workflow is edited in ComfyUI, export a matching API workflow and update `src/comfy/presetRegistry.ts` node mappings before relying on it.
+
+## Flux Fill Outpaint Notes
+
+`outpaint-flux-fill-basic.workflow.json` is the GUI-editable reference workflow for the experimental Outpaint tool.
+
+The runnable API version is in `src/workflows/api/outpaint-flux-fill-basic.json`. It uses ImagePadForOutpaint to expand the captured source before Flux Fill sampling. If this source workflow is edited in ComfyUI, export a matching API workflow and update `src/comfy/presetRegistry.ts` node mappings before relying on it.

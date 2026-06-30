@@ -39,6 +39,7 @@ Included in this alpha:
 - Experimental Z_image_Turbo Text to Image and Image to Image presets using a dedicated diffusion-model-stack workflow path
 - Text to Image Cancel Generation button using ComfyUI's local interrupt endpoint
 - Experimental Prompt from Layer workflow using Florence-2 PromptGen to describe a captured layer or canvas
+- Experimental Flux Fill Outpaint workflow using `ImagePadForOutpaint`
 - PNG/lossless source capture for Image to Image and Sketch to Image using raw Photoshop Imaging API pixels
 - Experimental Inpaint/Repaint Selection screen with safe Photoshop selection detection
 - PNG/lossless selected-region capture and temporary-layer grayscale mask export for Inpaint
@@ -70,6 +71,7 @@ Known v0.4.7-alpha boundaries:
 - The Settings workflow health checker reports local readiness, but it does not auto-fix missing models, missing nodes, or workflow mappings.
 - Copy Diagnostics prepares a setup report for testers. It does not send data anywhere.
 - Prompt from Layer is experimental and requires `comfyui-florence2`, `comfyui-custom-scripts`, and `Florence-2-base-PromptGen-v2.0`.
+- Outpaint is experimental and currently uses `outpaint-flux-fill-basic` with `flux1-fill-dev.safetensors`, `clip_l.safetensors`, `t5xxl_fp16.safetensors` or the accepted T5 fp8 fallback, and `ae.safetensors`.
 - SDXL, SD3, Flux, and Z_image_Turbo Sketch to Image workflows need dedicated future presets.
 - Workflow node IDs may need adjustment for custom ComfyUI workflows.
 - Dedicated selected-layer PNG file export, selection preservation, aligned regional workflows, advanced ControlNet-style workflows, and upscaling are not included yet.
@@ -112,6 +114,7 @@ Working foundation:
 - Photoshop UXP panel scaffold for Photoshop 2024+
 - Dark, minimal UXP-friendly TypeScript UI
 - Photoshop-dark Home dashboard with Text to Image, Image to Image, Sketch to Image, Inpaint, Prompt from Layer, Settings, History, and future workflow cards
+- Experimental Outpaint card and screen for Flux Fill canvas expansion testing
 - Configurable local ComfyUI server URL
 - ComfyUI connection check
 - Checkpoint/model selector loaded from ComfyUI

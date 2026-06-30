@@ -157,6 +157,22 @@ const INPAINT_FLUX_FILL_BASIC_NODES = {
   saveImage: "9"
 } as const;
 
+const OUTPAINT_FLUX_FILL_BASIC_NODES = {
+  diffusionModelLoader: "31",
+  differentialDiffusion: "39",
+  dualClipLoader: "34",
+  vaeLoader: "32",
+  loadImage: "17",
+  imagePad: "44",
+  positivePrompt: "23",
+  fluxGuidance: "26",
+  negativeConditioning: "46",
+  outpaintConditioning: "38",
+  sampler: "3",
+  decode: "8",
+  saveImage: "9"
+} as const;
+
 const Z_IMAGE_TURBO_TXT2IMG_NODES = {
   diffusionModelLoader: "20",
   clipLoader: "21",
@@ -256,6 +272,21 @@ const INPAINT_FLUX_FILL_BASIC_INJECTIONS = {
   steps: target(INPAINT_FLUX_FILL_BASIC_NODES.sampler, "steps"),
   cfg: target(INPAINT_FLUX_FILL_BASIC_NODES.fluxGuidance, "guidance"),
   denoise: target(INPAINT_FLUX_FILL_BASIC_NODES.sampler, "denoise")
+} as const;
+
+const OUTPAINT_FLUX_FILL_BASIC_INJECTIONS = {
+  checkpoint: target(OUTPAINT_FLUX_FILL_BASIC_NODES.diffusionModelLoader, "unet_name"),
+  sourceImage: target(OUTPAINT_FLUX_FILL_BASIC_NODES.loadImage, "image"),
+  positivePrompt: target(OUTPAINT_FLUX_FILL_BASIC_NODES.positivePrompt, "text"),
+  seed: target(OUTPAINT_FLUX_FILL_BASIC_NODES.sampler, "seed"),
+  steps: target(OUTPAINT_FLUX_FILL_BASIC_NODES.sampler, "steps"),
+  cfg: target(OUTPAINT_FLUX_FILL_BASIC_NODES.fluxGuidance, "guidance"),
+  denoise: target(OUTPAINT_FLUX_FILL_BASIC_NODES.sampler, "denoise"),
+  outpaintLeft: target(OUTPAINT_FLUX_FILL_BASIC_NODES.imagePad, "left"),
+  outpaintTop: target(OUTPAINT_FLUX_FILL_BASIC_NODES.imagePad, "top"),
+  outpaintRight: target(OUTPAINT_FLUX_FILL_BASIC_NODES.imagePad, "right"),
+  outpaintBottom: target(OUTPAINT_FLUX_FILL_BASIC_NODES.imagePad, "bottom"),
+  outpaintFeathering: target(OUTPAINT_FLUX_FILL_BASIC_NODES.imagePad, "feathering")
 } as const;
 
 const Z_IMAGE_TURBO_TXT2IMG_INJECTIONS = {
@@ -443,6 +474,37 @@ const INPAINT_FLUX_FILL_BASIC_CAPABILITY: WorkflowCapability = {
     modelSelectorLabel: "Flux Fill model",
     primaryActionLabel: "Generate Inpaint",
     warning: "Flux Fill is experimental and may require guidance, denoise, mask blur, and context-size tuning."
+  }
+};
+
+const OUTPAINT_FLUX_FILL_BASIC_CAPABILITY: WorkflowCapability = {
+  toolType: "outpaint",
+  loaderType: "diffusion-model-stack",
+  artistLabel: "Outpaint",
+  technicalLabel: "outpaint-flux-fill-basic",
+  requiredPhotoshopInputs: [{ anyOf: ["active-layer", "canvas"], label: "an active layer or captured canvas" }],
+  controls: [
+    "prompt",
+    "steps",
+    "guidance",
+    "denoise",
+    "seed",
+    "outpaintLeft",
+    "outpaintTop",
+    "outpaintRight",
+    "outpaintBottom",
+    "outpaintFeathering"
+  ],
+  output: {
+    kind: "source-sized-image",
+    size: "source",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Flux Fill model",
+    primaryActionLabel: "Generate Outpaint",
+    warning: "Outpaint is experimental and uses Flux Fill with ImagePadForOutpaint."
   }
 };
 
@@ -725,7 +787,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
       {
         id: PROMPT_FROM_LAYER_FLORENCE2_NODES.modelLoader,
         classType: "Florence2ModelLoader",
-        requiredInputs: ["model", "precision", "attention", "convert_to_safetensors"]
+        requiredInputs: ["model", "precision", "attention"]
       },
       {
         id: PROMPT_FROM_LAYER_FLORENCE2_NODES.loadImage,
@@ -735,7 +797,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
       {
         id: PROMPT_FROM_LAYER_FLORENCE2_NODES.florenceRun,
         classType: "Florence2Run",
-        requiredInputs: ["image", "florence2_model", "task", "num_beams", "seed"]
+        requiredInputs: ["image", "florence2_model", "text_input", "task", "fill_mask"]
       },
       {
         id: PROMPT_FROM_LAYER_FLORENCE2_NODES.showText,
@@ -968,6 +1030,91 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     ],
     compatibilityNote:
       "inpaint-flux-fill-basic is experimental and follows the Flux Fill reference graph: UNETLoader, DifferentialDiffusion, DualCLIPLoader, FluxGuidance, InpaintModelConditioning, KSampler, VAEDecode, and SaveImage. OpenLayer embeds the Photoshop mask into the uploaded PNG alpha channel for the LoadImage mask output. T5 prefers t5xxl_fp16.safetensors and accepts t5xxl_fp8_e4m3fn.safetensors as a fallback."
+  },
+  {
+    id: "outpaint-flux-fill-basic",
+    label: "outpaint-flux-fill-basic",
+    mode: "outpaint",
+    description: "Experimental Flux Fill outpainting workflow using ImagePadForOutpaint.",
+    workflowFile: "workflows/api/outpaint-flux-fill-basic.json",
+    sourceWorkflowFile: "workflows/source/outpaint-flux-fill-basic.workflow.json",
+    status: "experimental",
+    supportedModelFamilies: ["flux"],
+    experimentalModelFamilies: ["sd1", "sdxl", "sd3", "zImage", "unknown"],
+    modelSource: DIFFUSION_MODEL_SOURCE,
+    capability: OUTPAINT_FLUX_FILL_BASIC_CAPABILITY,
+    modelStack: [...FLUX_FILL_STACK],
+    requiredModels: [...FLUX_FILL_STACK],
+    injections: OUTPAINT_FLUX_FILL_BASIC_INJECTIONS,
+    requiredNodes: [
+      {
+        id: OUTPAINT_FLUX_FILL_BASIC_NODES.diffusionModelLoader,
+        classType: "UNETLoader",
+        requiredInputs: ["unet_name", "weight_dtype"]
+      },
+      {
+        id: OUTPAINT_FLUX_FILL_BASIC_NODES.differentialDiffusion,
+        classType: "DifferentialDiffusion",
+        requiredInputs: ["model"]
+      },
+      {
+        id: OUTPAINT_FLUX_FILL_BASIC_NODES.dualClipLoader,
+        classType: "DualCLIPLoader",
+        requiredInputs: ["clip_name1", "clip_name2", "type"]
+      },
+      {
+        id: OUTPAINT_FLUX_FILL_BASIC_NODES.vaeLoader,
+        classType: "VAELoader",
+        requiredInputs: ["vae_name"]
+      },
+      {
+        id: OUTPAINT_FLUX_FILL_BASIC_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: OUTPAINT_FLUX_FILL_BASIC_NODES.imagePad,
+        classType: "ImagePadForOutpaint",
+        requiredInputs: ["image", "left", "top", "right", "bottom", "feathering"]
+      },
+      {
+        id: OUTPAINT_FLUX_FILL_BASIC_NODES.positivePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: OUTPAINT_FLUX_FILL_BASIC_NODES.fluxGuidance,
+        classType: "FluxGuidance",
+        requiredInputs: ["conditioning", "guidance"]
+      },
+      {
+        id: OUTPAINT_FLUX_FILL_BASIC_NODES.negativeConditioning,
+        classType: "ConditioningZeroOut",
+        requiredInputs: ["conditioning"]
+      },
+      {
+        id: OUTPAINT_FLUX_FILL_BASIC_NODES.outpaintConditioning,
+        classType: "InpaintModelConditioning",
+        requiredInputs: ["positive", "negative", "vae", "pixels", "mask", "noise_mask"]
+      },
+      {
+        id: OUTPAINT_FLUX_FILL_BASIC_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["model", "seed", "steps", "cfg", "sampler_name", "scheduler", "positive", "negative", "latent_image", "denoise"]
+      },
+      {
+        id: OUTPAINT_FLUX_FILL_BASIC_NODES.decode,
+        classType: "VAEDecode",
+        requiredInputs: ["samples", "vae"]
+      },
+      {
+        id: OUTPAINT_FLUX_FILL_BASIC_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images", "filename_prefix"]
+      }
+    ],
+    compatibilityNote:
+      "outpaint-flux-fill-basic is experimental and follows the attached Flux Fill outpaint graph: ImagePadForOutpaint creates the padded image and mask, then Flux Fill generates the expanded result. T5 prefers t5xxl_fp16.safetensors and accepts t5xxl_fp8_e4m3fn.safetensors as a fallback."
   },
   {
     id: "txt2img-z-image-turbo",

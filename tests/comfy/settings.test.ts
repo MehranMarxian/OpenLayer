@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   validateGenerationSettings,
   validateImageToImageSettings,
+  validateOutpaintSettings,
   validateSketchToImageSettings
 } from "../../src/comfy/settings";
 
@@ -44,6 +45,39 @@ describe("settings validation", () => {
 
     expect(result.settings.controlStrength).toBe(2);
     expect(result.warnings).toContain("ControlNet strength adjusted to 2.");
+  });
+
+  it("clamps outpaint padding and warns when no side expands", () => {
+    const result = validateOutpaintSettings({
+      steps: "12",
+      cfg: "30",
+      seed: "1",
+      denoise: "1",
+      left: "0",
+      top: "0",
+      right: "9999",
+      bottom: "0",
+      feathering: "999"
+    });
+
+    expect(result.settings.right).toBe(2048);
+    expect(result.settings.feathering).toBe(256);
+    expect(result.warnings).toContain("Right expansion adjusted to 2048.");
+    expect(result.warnings).toContain("Feathering adjusted to 256.");
+
+    const noExpansion = validateOutpaintSettings({
+      steps: "12",
+      cfg: "30",
+      seed: "1",
+      denoise: "1",
+      left: "0",
+      top: "0",
+      right: "0",
+      bottom: "0",
+      feathering: "24"
+    });
+
+    expect(noExpansion.warnings).toContain("No outpaint expansion was requested.");
   });
 
   it("rejects non-numeric settings", () => {

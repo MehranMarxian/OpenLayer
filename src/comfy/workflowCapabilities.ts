@@ -10,6 +10,7 @@ const MODE_LABELS: Record<WorkflowPresetDefinition["mode"], string> = {
   img2img: "Image to Image",
   sketch2img: "Sketch to Image",
   inpaint: "Inpaint",
+  outpaint: "Outpaint",
   prompt: "Prompt from Layer"
 };
 
@@ -18,6 +19,18 @@ const DEFAULT_CONTROLS: Record<WorkflowPresetDefinition["mode"], readonly Workfl
   img2img: ["prompt", "negativePrompt", "steps", "cfg", "denoise", "seed"],
   sketch2img: ["prompt", "negativePrompt", "steps", "cfg", "denoise", "seed", "controlStrength"],
   inpaint: ["prompt", "negativePrompt", "steps", "cfg", "denoise", "seed"],
+  outpaint: [
+    "prompt",
+    "steps",
+    "guidance",
+    "denoise",
+    "seed",
+    "outpaintLeft",
+    "outpaintTop",
+    "outpaintRight",
+    "outpaintBottom",
+    "outpaintFeathering"
+  ],
   prompt: ["task", "numBeams", "seed"]
 };
 

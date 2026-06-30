@@ -12,6 +12,9 @@ Flux1-dev fp8 Text to Image preset and safe generation cancellation foundation.
 - Added `src/workflows/api/prompt-from-layer-florence2.json` and preserved the GUI source workflow as `src/workflows/source/prompt-from-layer-florence2.workflow.json`.
 - Added ComfyUI text-output polling and history parsing so OpenLayer can read `ShowText`/Florence caption output.
 - Added Prompt from Layer controls for task selection and `num_beams`, defaulting to `detailed_caption` and `12`.
+- Added experimental `outpaint-flux-fill-basic` as a runnable Outpaint preset based on the attached Flux Fill outpaint workflow.
+- Added `src/workflows/api/outpaint-flux-fill-basic.json` and preserved the GUI source workflow as `src/workflows/source/outpaint-flux-fill-basic.workflow.json`.
+- Added Outpaint controls for source capture, Flux Fill model selection, padding sides, feathering, prompt, seed, guidance, denoise, preview, and import.
 - Added Workflow Health metadata for `flux1-dev-fp8.safetensors`, `CheckpointLoaderSimple`, `EmptySD3LatentImage`, `FluxGuidance`, `KSampler`, `VAEDecode`, and `SaveImage`.
 - Added a Text to Image `Cancel Generation` button that appears only while generation is active.
 - Added ComfyUI `/interrupt` support plus local watcher/poll cancellation handling.
@@ -27,6 +30,7 @@ Flux1-dev fp8 Text to Image preset and safe generation cancellation foundation.
 
 - Flux1-dev fp8 Text to Image is experimental and should be tested against the user's local ComfyUI setup.
 - Prompt from Layer is experimental and requires `comfyui-florence2`, `comfyui-custom-scripts`, and `Florence-2-base-PromptGen-v2.0`.
+- Outpaint is experimental and requires the Flux Fill stack: `flux1-fill-dev.safetensors`, `clip_l.safetensors`, `t5xxl_fp16.safetensors` or the accepted T5 fp8 fallback, and `ae.safetensors`.
 - Cancel Generation asks ComfyUI to interrupt and stops OpenLayer polling, but it cannot undo a job ComfyUI already completed.
 - Inpaint and Flux Fill remain experimental and were not redesigned or fixed in this run.
 

@@ -9,8 +9,9 @@ export type WorkflowPreset =
   | "prompt-from-layer-florence2"
   | "sketch2img-linecn-basic"
   | "inpaint-basic"
-  | "inpaint-flux-fill-basic";
-export type WorkflowMode = "txt2img" | "img2img" | "sketch2img" | "inpaint" | "prompt";
+  | "inpaint-flux-fill-basic"
+  | "outpaint-flux-fill-basic";
+export type WorkflowMode = "txt2img" | "img2img" | "sketch2img" | "inpaint" | "outpaint" | "prompt";
 export type ModelFamily = "sd1" | "sdxl" | "sd3" | "flux" | "zImage" | "unknown";
 export type WorkflowToolType = WorkflowMode | "realtime";
 export type WorkflowLoaderType = "checkpoint" | "diffusion-model-stack" | "vision-language";
@@ -28,7 +29,12 @@ export type WorkflowControlId =
   | "numBeams"
   | "controlStrength"
   | "maskBlur"
-  | "contextPadding";
+  | "contextPadding"
+  | "outpaintLeft"
+  | "outpaintTop"
+  | "outpaintRight"
+  | "outpaintBottom"
+  | "outpaintFeathering";
 export type WorkflowPhotoshopInputKind = "canvas" | "active-layer" | "selection" | "selection-mask";
 export type WorkflowPhotoshopInputRequirement =
   | WorkflowPhotoshopInputKind
@@ -147,6 +153,14 @@ export type BuildInpaintWorkflowOptions = BuildImageToImageWorkflowOptions & {
   height?: number;
 };
 
+export type BuildOutpaintWorkflowOptions = BuildImageToImageWorkflowOptions & {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+  feathering: number;
+};
+
 export type BuildPromptFromLayerWorkflowOptions = {
   presetId?: string;
   sourceImageName: string;
@@ -186,7 +200,12 @@ export type WorkflowInjectionName =
   | "maskImage"
   | "task"
   | "numBeams"
-  | "controlStrength";
+  | "controlStrength"
+  | "outpaintLeft"
+  | "outpaintTop"
+  | "outpaintRight"
+  | "outpaintBottom"
+  | "outpaintFeathering";
 
 export type WorkflowInjectionTargetList = WorkflowInputTarget | readonly WorkflowInputTarget[];
 
@@ -298,6 +317,14 @@ export type SketchToImageSettings = ImageToImageSettings & {
   controlStrength: number;
 };
 
+export type OutpaintSettings = ImageToImageSettings & {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+  feathering: number;
+};
+
 export type GenerationSettingsInput = {
   width: string;
   height: string;
@@ -317,6 +344,14 @@ export type SketchToImageSettingsInput = ImageToImageSettingsInput & {
   controlStrength: string;
 };
 
+export type OutpaintSettingsInput = ImageToImageSettingsInput & {
+  left: string;
+  top: string;
+  right: string;
+  bottom: string;
+  feathering: string;
+};
+
 export type GenerationSettingsValidation = {
   settings: GenerationSettings;
   warnings: string[];
@@ -329,6 +364,11 @@ export type ImageToImageSettingsValidation = {
 
 export type SketchToImageSettingsValidation = {
   settings: SketchToImageSettings;
+  warnings: string[];
+};
+
+export type OutpaintSettingsValidation = {
+  settings: OutpaintSettings;
   warnings: string[];
 };
 

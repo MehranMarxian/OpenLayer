@@ -3,6 +3,8 @@ import {
   GenerationSettingsValidation,
   ImageToImageSettingsInput,
   ImageToImageSettingsValidation,
+  OutpaintSettingsInput,
+  OutpaintSettingsValidation,
   SketchToImageSettingsInput,
   SketchToImageSettingsValidation
 } from "./types";
@@ -56,6 +58,31 @@ export function validateSketchToImageSettings(input: SketchToImageSettingsInput)
     settings: {
       ...settings,
       controlStrength
+    },
+    warnings
+  };
+}
+
+export function validateOutpaintSettings(input: OutpaintSettingsInput): OutpaintSettingsValidation {
+  const { settings, warnings } = validateImageToImageSettings(input);
+  const left = readIntegerInRange(input.left, "Left expansion", 0, 2048, warnings);
+  const top = readIntegerInRange(input.top, "Top expansion", 0, 2048, warnings);
+  const right = readIntegerInRange(input.right, "Right expansion", 0, 2048, warnings);
+  const bottom = readIntegerInRange(input.bottom, "Bottom expansion", 0, 2048, warnings);
+  const feathering = readIntegerInRange(input.feathering, "Feathering", 0, 256, warnings);
+
+  if (left + top + right + bottom === 0) {
+    warnings.push("No outpaint expansion was requested.");
+  }
+
+  return {
+    settings: {
+      ...settings,
+      left,
+      top,
+      right,
+      bottom,
+      feathering
     },
     warnings
   };

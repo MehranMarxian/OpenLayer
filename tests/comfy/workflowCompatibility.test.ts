@@ -162,6 +162,28 @@ describe("workflow compatibility", () => {
     expect(result.issues.some((issue) => issue.code === "PHOTOSHOP_INPUT_MISSING")).toBe(true);
   });
 
+  it("allows Flux Fill outpaint from either an active layer or canvas source", () => {
+    const preset = getWorkflowPreset("outpaint-flux-fill-basic");
+
+    const fromCanvas = evaluateWorkflowCompatibility(preset, {
+      selectedModelName: "flux1-fill-dev.safetensors",
+      availableNodes: createAvailableNodes(preset),
+      availableModels: createFluxFillInventory(),
+      photoshopInputs: { canvas: true }
+    });
+    const missingSource = evaluateWorkflowCompatibility(preset, {
+      selectedModelName: "flux1-fill-dev.safetensors",
+      availableNodes: createAvailableNodes(preset),
+      availableModels: createFluxFillInventory(),
+      photoshopInputs: {}
+    });
+
+    expect(fromCanvas.level).toBe("experimental");
+    expect(fromCanvas.canRun).toBe(true);
+    expect(missingSource.level).toBe("setup-required");
+    expect(missingSource.issues.some((issue) => issue.code === "PHOTOSHOP_INPUT_MISSING")).toBe(true);
+  });
+
   it("reports missing Photoshop inputs for selection workflows", () => {
     const preset = getWorkflowPreset("inpaint-basic");
 
@@ -181,6 +203,7 @@ describe("workflow compatibility", () => {
     const imgCapability = getWorkflowCapability(getWorkflowPreset("img2img-basic"));
     const sketchCapability = getWorkflowCapability(getWorkflowPreset("sketch2img-linecn-basic"));
     const inpaintCapability = getWorkflowCapability(getWorkflowPreset("inpaint-basic"));
+    const outpaintCapability = getWorkflowCapability(getWorkflowPreset("outpaint-flux-fill-basic"));
 
     expect(txtCapability.controls).toEqual(["prompt", "negativePrompt", "width", "height", "steps", "cfg", "seed"]);
     expect(imgCapability.controls).toContain("denoise");
@@ -191,6 +214,11 @@ describe("workflow compatibility", () => {
     expect(inpaintCapability.requiredPhotoshopInputs).toEqual(["selection", "selection-mask"]);
     expect(inpaintCapability.output.kind).toBe("selection-patch");
     expect(inpaintCapability.uiHints.warning).toContain("experimental");
+    expect(outpaintCapability.controls).toContain("outpaintLeft");
+    expect(outpaintCapability.controls).toContain("outpaintFeathering");
+    expect(outpaintCapability.requiredPhotoshopInputs).toEqual([
+      { anyOf: ["active-layer", "canvas"], label: "an active layer or captured canvas" }
+    ]);
   });
 });
 

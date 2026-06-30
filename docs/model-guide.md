@@ -34,8 +34,9 @@ These are practical starter guidelines, not strict rules.
 | Image to Image | SD 1.x or SDXL | Uses `img2img-basic`. |
 | Sketch to Image | SD 1.x | Uses `sketch2img-linecn-basic` with LineArt ControlNet. |
 | Inpaint / Flux Fill | Flux Fill Dev | Experimental `inpaint-flux-fill-basic`; not production-ready. |
+| Outpaint / Canvas Expansion | Flux Fill Dev | Experimental `outpaint-flux-fill-basic` using `ImagePadForOutpaint`. |
 | Z_image_Turbo Text/Image | Z_image_Turbo | Experimental dedicated presets in v0.4.3-alpha. |
-| Prompt from Layer | Florence-2 PromptGen | Experimental `prompt-from-layer-florence2` text workflow for describing captured Photoshop sources. |
+| Prompt from Layer | Florence-2 PromptGen | Available for alpha testing through `prompt-from-layer-florence2` for describing captured Photoshop sources. |
 | Future Realtime Preview | To be tested | Likely needs a very fast dedicated workflow. |
 
 ## Why Z_image_Turbo Does Not Appear In The Checkpoint Selector
@@ -90,6 +91,19 @@ The current Flux Fill preset follows a reference ComfyUI graph with `UNETLoader`
 
 OpenLayer embeds the Photoshop selection mask into the uploaded source PNG alpha channel for this preset because ComfyUI `LoadImage` provides the mask from image alpha.
 
+## Flux Fill Outpaint Notes
+
+The first Outpaint preset is `outpaint-flux-fill-basic`. It uses the same Flux Fill model stack as the experimental inpaint path, but adds ComfyUI's `ImagePadForOutpaint` node to expand the captured source before sampling.
+
+Required local setup:
+
+- `flux1-fill-dev.safetensors`
+- `clip_l.safetensors`
+- `t5xxl_fp16.safetensors`, or the accepted `t5xxl_fp8_e4m3fn.safetensors` fallback
+- `ae.safetensors`
+
+Outpaint is available for testing, but it is still experimental. Start with small expansions and use Workflow Health in Settings to confirm the Flux Fill stack is ready before judging output quality.
+
 ## Settings Diagnostics
 
 Use `Check Workflow Health` in Settings to see which presets are ready on your local ComfyUI install.
@@ -106,5 +120,5 @@ For reliable testing today:
 
 1. Use SDXL for general Text to Image quality if your GPU can handle it.
 2. Use SD 1.x for the current Sketch to Image LINECN workflow.
-3. Treat Z_image_Turbo, Flux1-dev fp8, and Flux Fill as experimental. Treat generic Flux/SD3.5 as future dedicated preset work until OpenLayer has matching API workflow JSON files for each family.
+3. Treat Z_image_Turbo, Flux1-dev fp8, Flux Fill Inpaint, and Flux Fill Outpaint as experimental. Treat generic Flux/SD3.5 as future dedicated preset work until OpenLayer has matching API workflow JSON files for each family.
 4. Use the Settings button `Detect GPU & Recommend Models` after starting ComfyUI.

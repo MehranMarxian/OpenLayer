@@ -21,8 +21,9 @@ Current runnable API workflows:
 - `img2img-z-image-turbo.json`
 - `prompt-from-layer-florence2.json`
 - `sketch2img-linecn-basic.json`
+- `outpaint-flux-fill-basic.json`
 
-The Flux1-dev fp8, Z_image_Turbo, and Prompt from Layer workflows are experimental and should be tested carefully against the user's local ComfyUI node versions.
+The Flux1-dev fp8, Z_image_Turbo, Prompt from Layer, and Outpaint workflows are experimental and should be tested carefully against the user's local ComfyUI node versions.
 
 ## Source Workflows
 
@@ -120,3 +121,11 @@ The local audit found:
 - `FluxSampler`
 
 OpenLayer now has a runnable experimental `txt2img-flux1-dev-fp8` preset plus disabled preset metadata for future generic Flux workflows. The generic Flux presets are not selectable until a real API workflow exists.
+
+## Flux Fill Outpaint
+
+`outpaint-flux-fill-basic.workflow.json` is the GUI-editable reference workflow for the experimental Outpaint tool.
+
+The runnable API version is in `src/workflows/api/outpaint-flux-fill-basic.json`. It uses `ImagePadForOutpaint` to create the padded source and mask, then runs the Flux Fill stack through `DifferentialDiffusion`, `FluxGuidance`, `InpaintModelConditioning`, `KSampler`, `VAEDecode`, and `SaveImage`.
+
+If this source workflow is edited in ComfyUI, export a matching API workflow and update the Outpaint node mappings in `src/comfy/presetRegistry.ts`.

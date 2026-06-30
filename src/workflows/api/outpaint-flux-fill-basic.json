@@ -1,0 +1,199 @@
+{
+  "31": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "flux1-fill-dev.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "Load Diffusion Model"
+    }
+  },
+  "39": {
+    "class_type": "DifferentialDiffusion",
+    "inputs": {
+      "model": [
+        "31",
+        0
+      ],
+      "strength": 1
+    },
+    "_meta": {
+      "title": "Differential Diffusion"
+    }
+  },
+  "34": {
+    "class_type": "DualCLIPLoader",
+    "inputs": {
+      "clip_name1": "clip_l.safetensors",
+      "clip_name2": "t5xxl_fp16.safetensors",
+      "type": "flux",
+      "device": "default"
+    },
+    "_meta": {
+      "title": "DualCLIPLoader"
+    }
+  },
+  "32": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    },
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "17": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "openlayer-outpaint-source.png"
+    },
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "44": {
+    "class_type": "ImagePadForOutpaint",
+    "inputs": {
+      "image": [
+        "17",
+        0
+      ],
+      "left": 400,
+      "top": 0,
+      "right": 400,
+      "bottom": 400,
+      "feathering": 24
+    },
+    "_meta": {
+      "title": "ImagePadForOutpaint"
+    }
+  },
+  "23": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "beautiful scenery",
+      "clip": [
+        "34",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "CLIP Text Encode"
+    }
+  },
+  "26": {
+    "class_type": "FluxGuidance",
+    "inputs": {
+      "conditioning": [
+        "23",
+        0
+      ],
+      "guidance": 30
+    },
+    "_meta": {
+      "title": "FluxGuidance"
+    }
+  },
+  "46": {
+    "class_type": "ConditioningZeroOut",
+    "inputs": {
+      "conditioning": [
+        "23",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "ConditioningZeroOut"
+    }
+  },
+  "38": {
+    "class_type": "InpaintModelConditioning",
+    "inputs": {
+      "positive": [
+        "26",
+        0
+      ],
+      "negative": [
+        "46",
+        0
+      ],
+      "vae": [
+        "32",
+        0
+      ],
+      "pixels": [
+        "44",
+        0
+      ],
+      "mask": [
+        "44",
+        1
+      ],
+      "noise_mask": true
+    },
+    "_meta": {
+      "title": "InpaintModelConditioning"
+    }
+  },
+  "3": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": [
+        "39",
+        0
+      ],
+      "seed": 164211176398261,
+      "control_after_generate": "randomize",
+      "steps": 20,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "positive": [
+        "38",
+        0
+      ],
+      "negative": [
+        "38",
+        1
+      ],
+      "latent_image": [
+        "38",
+        2
+      ],
+      "denoise": 1
+    },
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "8": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "3",
+        0
+      ],
+      "vae": [
+        "32",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "9": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "8",
+        0
+      ],
+      "filename_prefix": "OpenLayer_Outpaint"
+    },
+    "_meta": {
+      "title": "Save Image"
+    }
+  }
+}

@@ -17,6 +17,8 @@ describe("presetRegistry", () => {
     const runnablePromptIds = listRunnableWorkflowPresets("prompt").map((preset) => preset.id);
     const allInpaintIds = listWorkflowPresets("inpaint").map((preset) => preset.id);
     const runnableInpaintIds = listRunnableWorkflowPresets("inpaint").map((preset) => preset.id);
+    const allOutpaintIds = listWorkflowPresets("outpaint").map((preset) => preset.id);
+    const runnableOutpaintIds = listRunnableWorkflowPresets("outpaint").map((preset) => preset.id);
 
     expect(allTxt2ImgIds).toContain("txt2img-z-image-turbo");
     expect(allTxt2ImgIds).toContain("txt2img-flux1-dev-fp8");
@@ -27,6 +29,8 @@ describe("presetRegistry", () => {
     expect(runnablePromptIds).toEqual(["prompt-from-layer-florence2"]);
     expect(allInpaintIds).toEqual(["inpaint-basic", "inpaint-flux-fill-basic"]);
     expect(runnableInpaintIds).toEqual(["inpaint-basic", "inpaint-flux-fill-basic"]);
+    expect(allOutpaintIds).toEqual(["outpaint-flux-fill-basic"]);
+    expect(runnableOutpaintIds).toEqual(["outpaint-flux-fill-basic"]);
   });
 
   it("registers Flux1-dev fp8 text-to-image as an experimental checkpoint workflow", () => {
@@ -89,6 +93,26 @@ describe("presetRegistry", () => {
     expect(preset.requiredNodes.some((node) => node.classType === "FluxGuidance")).toBe(true);
     expect(preset.requiredNodes.some((node) => node.classType === "KSampler")).toBe(true);
     expect(preset.requiredNodes.some((node) => node.classType === "ImageCompositeMasked")).toBe(false);
+  });
+
+  it("registers Flux Fill outpaint as a diffusion model stack preset", () => {
+    const preset = getWorkflowPreset("outpaint-flux-fill-basic");
+
+    expect(preset.status).toBe("experimental");
+    expect(preset.mode).toBe("outpaint");
+    expect(preset.modelSource.kind).toBe("diffusion-model-stack");
+    expect(preset.supportedModelFamilies).toEqual(["flux"]);
+    expect(preset.requiredModels?.some((model) => model.modelName === "flux1-fill-dev.safetensors")).toBe(true);
+    expect(preset.requiredModels?.some((model) =>
+      model.modelName === "t5xxl_fp16.safetensors" &&
+      model.acceptedModelNames?.includes("t5xxl_fp8_e4m3fn.safetensors")
+    )).toBe(true);
+    expect(preset.requiredNodes.some((node) => node.classType === "ImagePadForOutpaint")).toBe(true);
+    expect(preset.requiredNodes.some((node) => node.classType === "DifferentialDiffusion")).toBe(true);
+    expect(preset.requiredNodes.some((node) => node.classType === "FluxGuidance")).toBe(true);
+    expect(preset.injections.sourceImage).toEqual({ nodeId: "17", inputName: "image" });
+    expect(preset.injections.outpaintLeft).toEqual({ nodeId: "44", inputName: "left" });
+    expect(preset.injections.outpaintFeathering).toEqual({ nodeId: "44", inputName: "feathering" });
   });
 
   it("marks Z_image_Turbo as a diffusion model stack preset", () => {

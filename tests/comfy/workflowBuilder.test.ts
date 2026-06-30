@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildInpaintWorkflow,
   buildImg2ImgWorkflow,
+  buildOutpaintWorkflow,
   buildPromptFromLayerWorkflow,
   buildSketchToImageWorkflow,
   buildTxt2ImgWorkflow
@@ -215,6 +216,47 @@ describe("workflowBuilder", () => {
 
     expect(result.workflow["34"].inputs.clip_name1).toBe("clip_l.safetensors");
     expect(result.workflow["34"].inputs.clip_name2).toBe("t5xxl_fp8_e4m3fn.safetensors");
+  });
+
+  it("injects Flux Fill outpaint source, padding, prompt, model, and seed", async () => {
+    const result = await buildOutpaintWorkflow({
+      presetId: "outpaint-flux-fill-basic",
+      prompt: "extend the studio background",
+      negativePrompt: "",
+      checkpointName: "flux1-fill-dev.safetensors",
+      sourceImageName: "openlayer-outpaint-source.png",
+      steps: 20,
+      cfg: 30,
+      denoise: 1,
+      seed: 6060,
+      left: 128,
+      top: 0,
+      right: 256,
+      bottom: 512,
+      feathering: 24
+    });
+
+    expect(result.preset.id).toBe("outpaint-flux-fill-basic");
+    expect(result.workflow["31"].inputs.unet_name).toBe("flux1-fill-dev.safetensors");
+    expect(result.workflow["34"].inputs.clip_name1).toBe("clip_l.safetensors");
+    expect(result.workflow["34"].inputs.clip_name2).toBe("t5xxl_fp16.safetensors");
+    expect(result.workflow["17"].inputs.image).toBe("openlayer-outpaint-source.png");
+    expect(result.workflow["44"].inputs.left).toBe(128);
+    expect(result.workflow["44"].inputs.top).toBe(0);
+    expect(result.workflow["44"].inputs.right).toBe(256);
+    expect(result.workflow["44"].inputs.bottom).toBe(512);
+    expect(result.workflow["44"].inputs.feathering).toBe(24);
+    expect(result.workflow["23"].inputs.text).toBe("extend the studio background");
+    expect(result.workflow["26"].inputs.guidance).toBe(30);
+    expect(result.workflow["3"].inputs.seed).toBe(6060);
+    expect(result.workflow["3"].inputs.steps).toBe(20);
+    expect(result.workflow["3"].inputs.cfg).toBe(1);
+    expect(result.workflow["3"].inputs.sampler_name).toBe("euler");
+    expect(result.workflow["3"].inputs.scheduler).toBe("normal");
+    expect(result.workflow["3"].inputs.denoise).toBe(1);
+    expect(result.workflow["38"].inputs.pixels).toEqual(["44", 0]);
+    expect(result.workflow["38"].inputs.mask).toEqual(["44", 1]);
+    expect(result.workflow["9"].inputs.images).toEqual(["8", 0]);
   });
 
   it("injects Z_image_Turbo text-to-image settings into the diffusion stack workflow", async () => {
