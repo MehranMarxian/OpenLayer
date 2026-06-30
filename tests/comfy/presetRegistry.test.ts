@@ -14,6 +14,7 @@ describe("presetRegistry", () => {
     const runnableTxt2ImgIds = listRunnableWorkflowPresets("txt2img").map((preset) => preset.id);
     const allImg2ImgIds = listWorkflowPresets("img2img").map((preset) => preset.id);
     const runnableImg2ImgIds = listRunnableWorkflowPresets("img2img").map((preset) => preset.id);
+    const runnablePromptIds = listRunnableWorkflowPresets("prompt").map((preset) => preset.id);
     const allInpaintIds = listWorkflowPresets("inpaint").map((preset) => preset.id);
     const runnableInpaintIds = listRunnableWorkflowPresets("inpaint").map((preset) => preset.id);
 
@@ -23,6 +24,7 @@ describe("presetRegistry", () => {
     expect(runnableTxt2ImgIds).toEqual(["txt2img-basic", "txt2img-flux1-dev-fp8", "txt2img-z-image-turbo"]);
     expect(allImg2ImgIds).toContain("img2img-z-image-turbo");
     expect(runnableImg2ImgIds).toEqual(["img2img-basic", "img2img-z-image-turbo"]);
+    expect(runnablePromptIds).toEqual(["prompt-from-layer-florence2"]);
     expect(allInpaintIds).toEqual(["inpaint-basic", "inpaint-flux-fill-basic"]);
     expect(runnableInpaintIds).toEqual(["inpaint-basic", "inpaint-flux-fill-basic"]);
   });
@@ -38,6 +40,22 @@ describe("presetRegistry", () => {
     expect(preset.requiredNodes.some((node) => node.classType === "FluxGuidance")).toBe(true);
     expect(preset.requiredNodes.some((node) => node.classType === "EmptySD3LatentImage")).toBe(true);
     expect(preset.injections.cfg).toEqual({ nodeId: "35", inputName: "guidance" });
+  });
+
+  it("registers Prompt from Layer as an experimental Florence text workflow", () => {
+    const preset = getWorkflowPreset("prompt-from-layer-florence2");
+
+    expect(preset.status).toBe("experimental");
+    expect(preset.mode).toBe("prompt");
+    expect(preset.modelSource.kind).toBe("vision-language");
+    expect(preset.capability?.output.kind).toBe("prompt-text");
+    expect(preset.requiredModels?.some((model) => model.modelName === "Florence-2-base-PromptGen-v2.0")).toBe(true);
+    expect(preset.requiredNodes.some((node) => node.classType === "Florence2ModelLoader")).toBe(true);
+    expect(preset.requiredNodes.some((node) => node.classType === "Florence2Run")).toBe(true);
+    expect(preset.requiredNodes.some((node) => node.classType === "ShowText|pysssss")).toBe(true);
+    expect(preset.injections.sourceImage).toEqual({ nodeId: "42", inputName: "image" });
+    expect(preset.injections.task).toEqual({ nodeId: "38", inputName: "task" });
+    expect(preset.injections.numBeams).toEqual({ nodeId: "38", inputName: "num_beams" });
   });
 
   it("maps inpaint-basic mask and source injections", () => {

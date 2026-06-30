@@ -3,6 +3,7 @@ import {
   ComfyHistoryResponse,
   ComfyImageOutput,
   ComfyModelInventory,
+  ComfyNodeOutput,
   ComfyObjectInfoResponse,
   ComfyPromptResponse,
   ComfyQueueResponse,
@@ -45,6 +46,9 @@ const MODEL_INVENTORY_SOURCES = {
   ],
   controlNetModels: [
     { objectInfoNode: "ControlNetLoader", inputName: "control_net_name", label: "ControlNet loader" }
+  ],
+  visionLanguageModels: [
+    { objectInfoNode: "Florence2ModelLoader", inputName: "model", label: "Florence model loader" }
   ]
 } as const;
 
@@ -127,6 +131,7 @@ export class ComfyClient {
       clipModels: [],
       vaeModels: [],
       controlNetModels: [],
+      visionLanguageModels: [],
       missingSources: []
     };
 
@@ -135,6 +140,7 @@ export class ComfyClient {
     await this.collectInventoryNames(inventory, "clipModels", MODEL_INVENTORY_SOURCES.clipModels);
     await this.collectInventoryNames(inventory, "vaeModels", MODEL_INVENTORY_SOURCES.vaeModels);
     await this.collectInventoryNames(inventory, "controlNetModels", MODEL_INVENTORY_SOURCES.controlNetModels);
+    await this.collectInventoryNames(inventory, "visionLanguageModels", MODEL_INVENTORY_SOURCES.visionLanguageModels);
 
     return inventory;
   }
@@ -408,6 +414,55 @@ export class ComfyClient {
     throw createOpenLayerError("COMFY_TIMEOUT", "Timed out while waiting for ComfyUI to finish generation.");
   }
 
+  async pollUntilTextComplete(
+    promptId: string,
+    options: PollOptions & RetrieveOutputOptions = {}
+  ): Promise<ComfyHistoryItem> {
+    const intervalMs = options.intervalMs ?? 1500;
+    const timeoutMs = options.timeoutMs ?? 10 * 60 * 1000;
+    const startedAt = Date.now();
+
+    while (Date.now() - startedAt < timeoutMs) {
+      if (options.isCancelled?.()) {
+        throw createGenerationCancelledError();
+      }
+
+      const history = await this.getHistory(promptId);
+      const item = history[promptId];
+
+      if (item?.status?.status_str === "error") {
+        throw createOpenLayerError(
+          "COMFY_GENERATION_FAILED",
+          "ComfyUI reported a text generation failure.",
+          JSON.stringify(item.status)
+        );
+      }
+
+      if (item?.outputs && findTextOutput(item, options.preferredNodeId)) {
+        return item;
+      }
+
+      if (item?.status?.completed) {
+        throw createOpenLayerError(
+          "COMFY_NO_TEXT",
+          "ComfyUI finished, but no prompt text was found in the expected output.",
+          options.preferredNodeId
+            ? `Expected text output from node ${options.preferredNodeId}.`
+            : "Expected a Show Text or Florence caption output in ComfyUI history."
+        );
+      }
+
+      options.onTick?.(await this.createPollingStatusMessage(promptId));
+      await delay(intervalMs);
+
+      if (options.isCancelled?.()) {
+        throw createGenerationCancelledError();
+      }
+    }
+
+    throw createOpenLayerError("COMFY_TIMEOUT", "Timed out while waiting for ComfyUI to finish text generation.");
+  }
+
   async retrieveFirstOutputImage(
     promptId: string,
     historyItem?: ComfyHistoryItem,
@@ -448,6 +503,31 @@ export class ComfyClient {
       filename: image.filename,
       mimeType
     };
+  }
+
+  async retrieveFirstOutputText(
+    promptId: string,
+    historyItem?: ComfyHistoryItem,
+    options: RetrieveOutputOptions = {}
+  ): Promise<string> {
+    const history = historyItem ?? (await this.getHistory(promptId))[promptId];
+
+    if (!history) {
+      throw createOpenLayerError("COMFY_NO_TEXT", `No ComfyUI history was found for prompt ${promptId}.`);
+    }
+
+    const text = findTextOutput(history, options.preferredNodeId);
+
+    if (!text) {
+      throw createOpenLayerError(
+        "COMFY_NO_TEXT",
+        options.preferredNodeId
+          ? `No prompt text was found from the expected output node ${options.preferredNodeId}.`
+          : "No prompt text was found in the ComfyUI history."
+      );
+    }
+
+    return text;
   }
 
   watchProgress(promptId: string, options: ProgressWatcherOptions = {}): ProgressWatcher | null {
@@ -733,6 +813,80 @@ export function findImageOutput(
     if (image?.filename) {
       return image;
     }
+  }
+
+  return null;
+}
+
+export function findTextOutput(
+  history: ComfyHistoryItem,
+  preferredNodeId?: string
+): string | null {
+  const outputs = history.outputs ?? {};
+
+  if (preferredNodeId) {
+    return readTextFromOutput(outputs[preferredNodeId]);
+  }
+
+  for (const output of Object.values(outputs)) {
+    const text = readTextFromOutput(output);
+
+    if (text) {
+      return text;
+    }
+  }
+
+  return null;
+}
+
+function readTextFromOutput(output: ComfyNodeOutput | undefined): string | null {
+  if (!output) {
+    return null;
+  }
+
+  const candidates = [
+    output.text,
+    output.texts,
+    output.string,
+    output.strings,
+    output.caption,
+    output.STRING
+  ];
+
+  for (const candidate of candidates) {
+    const text = readOutputText(candidate);
+
+    if (text) {
+      return text;
+    }
+  }
+
+  for (const [key, value] of Object.entries(output)) {
+    if (key === "images") {
+      continue;
+    }
+
+    const text = readOutputText(value);
+
+    if (text) {
+      return text;
+    }
+  }
+
+  return null;
+}
+
+function readOutputText(value: unknown): string | null {
+  if (typeof value === "string") {
+    return value.trim() || null;
+  }
+
+  if (Array.isArray(value)) {
+    const parts = value
+      .map((item) => readOutputText(item))
+      .filter((item): item is string => Boolean(item));
+
+    return parts.length > 0 ? parts.join("\n").trim() : null;
   }
 
   return null;

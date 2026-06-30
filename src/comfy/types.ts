@@ -6,13 +6,14 @@ export type WorkflowPreset =
   | "img2img-flux1-dev"
   | "txt2img-z-image-turbo"
   | "img2img-z-image-turbo"
+  | "prompt-from-layer-florence2"
   | "sketch2img-linecn-basic"
   | "inpaint-basic"
   | "inpaint-flux-fill-basic";
-export type WorkflowMode = "txt2img" | "img2img" | "sketch2img" | "inpaint";
+export type WorkflowMode = "txt2img" | "img2img" | "sketch2img" | "inpaint" | "prompt";
 export type ModelFamily = "sd1" | "sdxl" | "sd3" | "flux" | "zImage" | "unknown";
 export type WorkflowToolType = WorkflowMode | "realtime";
-export type WorkflowLoaderType = "checkpoint" | "diffusion-model-stack";
+export type WorkflowLoaderType = "checkpoint" | "diffusion-model-stack" | "vision-language";
 export type WorkflowControlId =
   | "prompt"
   | "negativePrompt"
@@ -23,6 +24,8 @@ export type WorkflowControlId =
   | "guidance"
   | "denoise"
   | "seed"
+  | "task"
+  | "numBeams"
   | "controlStrength"
   | "maskBlur"
   | "contextPadding";
@@ -38,9 +41,10 @@ export type WorkflowOutputKind =
   | "source-sized-image"
   | "selection-patch"
   | "transparent-patch"
-  | "layer-mask-candidate";
-export type WorkflowOutputSize = "preset" | "source" | "selection-context";
-export type WorkflowImportBehavior = "new-layer" | "aligned-layer" | "future-layer-mask";
+  | "layer-mask-candidate"
+  | "prompt-text";
+export type WorkflowOutputSize = "preset" | "source" | "selection-context" | "none";
+export type WorkflowImportBehavior = "new-layer" | "aligned-layer" | "future-layer-mask" | "none";
 
 export type WorkflowCapabilityUiHints = {
   showModelSelector: boolean;
@@ -94,6 +98,7 @@ export type ComfyModelInventory = {
   clipModels: string[];
   vaeModels: string[];
   controlNetModels: string[];
+  visionLanguageModels: string[];
   missingSources: string[];
 };
 
@@ -142,6 +147,14 @@ export type BuildInpaintWorkflowOptions = BuildImageToImageWorkflowOptions & {
   height?: number;
 };
 
+export type BuildPromptFromLayerWorkflowOptions = {
+  presetId?: string;
+  sourceImageName: string;
+  task: string;
+  numBeams: number;
+  seed: number;
+};
+
 export type BuildWorkflowResult = {
   workflow: ComfyWorkflow;
   seed: number;
@@ -171,13 +184,21 @@ export type WorkflowInjectionName =
   | "denoise"
   | "sourceImage"
   | "maskImage"
+  | "task"
+  | "numBeams"
   | "controlStrength";
 
 export type WorkflowInjectionTargetList = WorkflowInputTarget | readonly WorkflowInputTarget[];
 
 export type WorkflowInjectionTargets = Partial<Record<WorkflowInjectionName, WorkflowInjectionTargetList>>;
 
-export type WorkflowModelSourceKind = "checkpoint" | "diffusion-model-stack" | "clip" | "vae" | "controlnet";
+export type WorkflowModelSourceKind =
+  | "checkpoint"
+  | "diffusion-model-stack"
+  | "clip"
+  | "vae"
+  | "controlnet"
+  | "vision-language";
 
 export type WorkflowModelSource = {
   kind: WorkflowModelSourceKind;
@@ -226,12 +247,22 @@ export type ComfyImageOutput = {
 
 export type ComfyHistoryItem = {
   prompt?: unknown[];
-  outputs?: Record<string, { images?: ComfyImageOutput[] }>;
+  outputs?: Record<string, ComfyNodeOutput>;
   status?: {
     status_str?: string;
     completed?: boolean;
     messages?: unknown[];
   };
+};
+
+export type ComfyNodeOutput = {
+  images?: ComfyImageOutput[];
+  text?: unknown;
+  texts?: unknown;
+  string?: unknown;
+  strings?: unknown;
+  caption?: unknown;
+  [key: string]: unknown;
 };
 
 export type ComfyHistoryResponse = Record<string, ComfyHistoryItem>;

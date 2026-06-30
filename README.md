@@ -38,7 +38,7 @@ Included in this alpha:
 - Readable Settings diagnostics center with grouped workflow health cards, collapsed technical details, summary counts, and Copy Diagnostics support
 - Experimental Z_image_Turbo Text to Image and Image to Image presets using a dedicated diffusion-model-stack workflow path
 - Text to Image Cancel Generation button using ComfyUI's local interrupt endpoint
-- Prompt from Layer foundation card for future Florence-2 PromptGen layer description
+- Experimental Prompt from Layer workflow using Florence-2 PromptGen to describe a captured layer or canvas
 - PNG/lossless source capture for Image to Image and Sketch to Image using raw Photoshop Imaging API pixels
 - Experimental Inpaint/Repaint Selection screen with safe Photoshop selection detection
 - PNG/lossless selected-region capture and temporary-layer grayscale mask export for Inpaint
@@ -69,7 +69,7 @@ Known v0.4.7-alpha boundaries:
 - Cancel Generation uses ComfyUI's interrupt endpoint and stops OpenLayer's Text to Image watcher/polling, but cancellation cannot undo work ComfyUI already completed.
 - The Settings workflow health checker reports local readiness, but it does not auto-fix missing models, missing nodes, or workflow mappings.
 - Copy Diagnostics prepares a setup report for testers. It does not send data anywhere.
-- Prompt from Layer can capture a source image as foundation work, but Florence-2 PromptGen text generation is not enabled until a validated text-output workflow is added.
+- Prompt from Layer is experimental and requires `comfyui-florence2`, `comfyui-custom-scripts`, and `Florence-2-base-PromptGen-v2.0`.
 - SDXL, SD3, Flux, and Z_image_Turbo Sketch to Image workflows need dedicated future presets.
 - Workflow node IDs may need adjustment for custom ComfyUI workflows.
 - Dedicated selected-layer PNG file export, selection preservation, aligned regional workflows, advanced ControlNet-style workflows, and upscaling are not included yet.
@@ -123,6 +123,7 @@ Working foundation:
 - `img2img-basic` workflow generation foundation
 - Experimental `img2img-z-image-turbo` workflow generation foundation
 - `sketch2img-linecn-basic` Sketch to Image generation foundation
+- Experimental `prompt-from-layer-florence2` text workflow with Task and Num beams controls
 - Active-layer or visible-canvas source capture and ComfyUI image upload
 - Experimental Inpaint/Repaint Selection screen with Photoshop selection detection, selected-region PNG source capture, grayscale mask export, and SD 1.x `inpaint-basic`
 - Experimental checkpoint mode for trying non-SD/SDXL model families with clear warnings
@@ -350,6 +351,7 @@ The included workflows are realistic starter ComfyUI workflows using common buil
 
 - `src/workflows/api/txt2img-basic.json`
 - `src/workflows/api/txt2img-flux1-dev-fp8.json`
+- `src/workflows/api/prompt-from-layer-florence2.json`
 - `src/workflows/api/img2img-basic.json`
 - `src/workflows/api/sketch2img-linecn-basic.json`
 - `src/workflows/api/inpaint-basic.json`

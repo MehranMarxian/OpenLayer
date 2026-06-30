@@ -8,10 +8,14 @@ Flux1-dev fp8 Text to Image preset and safe generation cancellation foundation.
 
 - Added experimental `txt2img-flux1-dev-fp8` as a runnable Text to Image preset based on the attached checkpoint-style ComfyUI workflow.
 - Added `src/workflows/api/txt2img-flux1-dev-fp8.json` and preserved the GUI source workflow as `src/workflows/source/txt2img-flux1-dev-fp8.workflow.json`.
+- Added experimental `prompt-from-layer-florence2` as a runnable Prompt from Layer text workflow based on the attached Florence-2 PromptGen graph.
+- Added `src/workflows/api/prompt-from-layer-florence2.json` and preserved the GUI source workflow as `src/workflows/source/prompt-from-layer-florence2.workflow.json`.
+- Added ComfyUI text-output polling and history parsing so OpenLayer can read `ShowText`/Florence caption output.
+- Added Prompt from Layer controls for task selection and `num_beams`, defaulting to `detailed_caption` and `12`.
 - Added Workflow Health metadata for `flux1-dev-fp8.safetensors`, `CheckpointLoaderSimple`, `EmptySD3LatentImage`, `FluxGuidance`, `KSampler`, `VAEDecode`, and `SaveImage`.
 - Added a Text to Image `Cancel Generation` button that appears only while generation is active.
 - Added ComfyUI `/interrupt` support plus local watcher/poll cancellation handling.
-- Added unit coverage for Flux1-dev fp8 preset registration, workflow injection, workflow health, and cancel request helpers.
+- Added unit coverage for Flux1-dev fp8 and Prompt from Layer preset registration, workflow injection, workflow health, text-output parsing, and cancel request helpers.
 
 ### Changed
 
@@ -22,6 +26,7 @@ Flux1-dev fp8 Text to Image preset and safe generation cancellation foundation.
 ### Known Limitations
 
 - Flux1-dev fp8 Text to Image is experimental and should be tested against the user's local ComfyUI setup.
+- Prompt from Layer is experimental and requires `comfyui-florence2`, `comfyui-custom-scripts`, and `Florence-2-base-PromptGen-v2.0`.
 - Cancel Generation asks ComfyUI to interrupt and stops OpenLayer polling, but it cannot undo a job ComfyUI already completed.
 - Inpaint and Flux Fill remain experimental and were not redesigned or fixed in this run.
 

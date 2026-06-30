@@ -26,6 +26,12 @@ This source folder includes the user-provided Z_image_Turbo GUI workflows as ref
 
 The runnable OpenLayer API versions are in `src/workflows/api/`. If the GUI workflows are edited in ComfyUI, export matching API workflows and update `src/comfy/presetRegistry.ts` node mappings before relying on them.
 
+## Prompt From Layer Notes
+
+`prompt-from-layer-florence2.workflow.json` is the GUI-editable Florence-2 PromptGen workflow for the Prompt from Layer tool.
+
+The runnable API version is in `src/workflows/api/prompt-from-layer-florence2.json`. It uses Florence2ModelLoader, LoadImage, Florence2Run, and ShowText to return caption text through ComfyUI history. If this source workflow is edited in ComfyUI, export a matching API workflow and update `src/comfy/presetRegistry.ts` node mappings before relying on it.
+
 ## Flux Fill Notes
 
 `inpaint-flux-fill-basic.workflow.json` is the GUI-editable reference workflow used to rebuild the experimental Flux Fill API workflow.

@@ -1,0 +1,390 @@
+{
+  "id": "d9e47253-70cc-4c2c-81ac-1f7822f4d472",
+  "revision": 0,
+  "last_node_id": 45,
+  "last_link_id": 63,
+  "nodes": [
+    {
+      "id": 39,
+      "type": "Florence2ModelLoader",
+      "pos": [
+        48.579398948159294,
+        606.7247933884292
+      ],
+      "size": [
+        288.740234375,
+        130
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "lora",
+          "shape": 7,
+          "type": "PEFTLORA",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "florence2_model",
+          "type": "FL2MODEL",
+          "links": [
+            58
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-florence2",
+        "ver": "1.0.6",
+        "Node name for S&R": "Florence2ModelLoader",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.4.1"
+        }
+      },
+      "widgets_values": [
+        "Florence-2-base-PromptGen-v2.0",
+        "fp16",
+        "sdpa",
+        false
+      ]
+    },
+    {
+      "id": 41,
+      "type": "PreviewAny",
+      "pos": [
+        1019.6929601803156,
+        970.1321938392196
+      ],
+      "size": [
+        361.6378662659654,
+        298.57700976709225
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "source",
+          "type": "*",
+          "link": 59
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.76",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        },
+        "Node name for S&R": "PreviewAny"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 43,
+      "type": "SaveText|pysssss",
+      "pos": [
+        1074.7272137707923,
+        764.6091738797028
+      ],
+      "size": [
+        270,
+        130
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "link": 61
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-custom-scripts",
+        "ver": "1.2.5",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        },
+        "Node name for S&R": "SaveText|pysssss"
+      },
+      "widgets_values": [
+        "input",
+        "file.txt",
+        "append",
+        true
+      ]
+    },
+    {
+      "id": 42,
+      "type": "LoadImage",
+      "pos": [
+        45.801149511645235,
+        810.4777986476323
+      ],
+      "size": [
+        274.080078125,
+        314
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            60
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.76",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        },
+        "Node name for S&R": "LoadImage",
+        "#sdppp_variant": "default",
+        "#sdppp_simple_content": "canvas",
+        "#sdppp_simple_mask": "canvas",
+        "#sdppp_simple_boundary": "canvas",
+        "#sdppp_label": ""
+      },
+      "widgets_values": [
+        "5f09e1d1-53d9-4949-b03c-4b63fde4461c.png",
+        "image"
+      ]
+    },
+    {
+      "id": 38,
+      "type": "Florence2Run",
+      "pos": [
+        466.98609931015693,
+        731.6720305990017
+      ],
+      "size": [
+        400,
+        364
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 60
+        },
+        {
+          "name": "florence2_model",
+          "type": "FL2MODEL",
+          "link": 58
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": null
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "links": null
+        },
+        {
+          "name": "caption",
+          "type": "STRING",
+          "links": [
+            59,
+            61,
+            63
+          ]
+        },
+        {
+          "name": "data",
+          "type": "JSON",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-florence2",
+        "ver": "1.0.6",
+        "Node name for S&R": "Florence2Run",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.4.1"
+        }
+      },
+      "widgets_values": [
+        "",
+        "detailed_caption",
+        true,
+        false,
+        1024,
+        12,
+        true,
+        "",
+        284075328336101,
+        "randomize"
+      ]
+    },
+    {
+      "id": 45,
+      "type": "ShowText|pysssss",
+      "pos": [
+        1032.3334223631023,
+        460.6842525814802
+      ],
+      "size": [
+        307.22540177843143,
+        223.46881422654906
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "link": 63
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "shape": 6,
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-custom-scripts",
+        "ver": "1.2.5",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        },
+        "Node name for S&R": "ShowText|pysssss"
+      },
+      "widgets_values": [
+        "The image shows a sculpture of a ghostly figure suspended in mid-air, suspended from a skylight above an empty room with concrete floors and white walls. The sculpture is made of white, fluid-like material that appears to be suspended in the air, creating a surreal and eerie atmosphere. On the right side of the image, there is a black and white abstract painting hanging on the wall. The room has a modern, minimalist design with clean lines and a minimalist aesthetic. The image is taken from a low angle, looking up at the sculpture."
+      ]
+    },
+    {
+      "id": 34,
+      "type": "Note",
+      "pos": [
+        697.3929065948056,
+        456.8180886799824
+      ],
+      "size": [
+        282.86,
+        164.08
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "text": "",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.4.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "PLF"
+      ],
+      "color": "#432",
+      "bgcolor": "#653"
+    }
+  ],
+  "links": [
+    [
+      58,
+      39,
+      0,
+      38,
+      1,
+      "FL2MODEL"
+    ],
+    [
+      59,
+      38,
+      2,
+      41,
+      0,
+      "*"
+    ],
+    [
+      60,
+      42,
+      0,
+      38,
+      0,
+      "IMAGE"
+    ],
+    [
+      61,
+      38,
+      2,
+      43,
+      0,
+      "STRING"
+    ],
+    [
+      63,
+      38,
+      2,
+      45,
+      0,
+      "STRING"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 1.2884080000000022,
+      "offset": [
+        475.09141369955535,
+        -289.69505858816194
+      ]
+    },
+    "workflowRendererVersion": "LG",
+    "ue_links": [],
+    "links_added_by_ue": [],
+    "frontendVersion": "1.32.10",
+    "VHS_latentpreview": false,
+    "VHS_latentpreviewrate": 0,
+    "VHS_MetadataImage": true,
+    "VHS_KeepIntermediate": true
+  },
+  "version": 0.4
+}

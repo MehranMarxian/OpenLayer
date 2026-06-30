@@ -1,0 +1,61 @@
+{
+  "39": {
+    "class_type": "Florence2ModelLoader",
+    "inputs": {
+      "model": "Florence-2-base-PromptGen-v2.0",
+      "precision": "fp16",
+      "attention": "sdpa",
+      "convert_to_safetensors": false
+    },
+    "_meta": {
+      "title": "Load Florence-2 PromptGen model"
+    }
+  },
+  "42": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "openlayer-prompt-source.png"
+    },
+    "_meta": {
+      "title": "Load Photoshop source"
+    }
+  },
+  "38": {
+    "class_type": "Florence2Run",
+    "inputs": {
+      "image": [
+        "42",
+        0
+      ],
+      "florence2_model": [
+        "39",
+        0
+      ],
+      "text_input": "",
+      "task": "detailed_caption",
+      "fill_mask": true,
+      "keep_model_loaded": false,
+      "max_new_tokens": 1024,
+      "num_beams": 12,
+      "do_sample": true,
+      "output_mask_select": "",
+      "seed": 284075328336101,
+      "control_after_generate": "randomize"
+    },
+    "_meta": {
+      "title": "Run Florence-2 PromptGen"
+    }
+  },
+  "45": {
+    "class_type": "ShowText|pysssss",
+    "inputs": {
+      "text": [
+        "38",
+        2
+      ]
+    },
+    "_meta": {
+      "title": "Show generated prompt text"
+    }
+  }
+}

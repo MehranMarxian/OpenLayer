@@ -3,12 +3,14 @@ import img2imgBasicWorkflow from "../workflows/api/img2img-basic.json";
 import txt2imgFlux1DevFp8Workflow from "../workflows/api/txt2img-flux1-dev-fp8.json";
 import txt2imgZImageTurboWorkflow from "../workflows/api/txt2img-z-image-turbo.json";
 import img2imgZImageTurboWorkflow from "../workflows/api/img2img-z-image-turbo.json";
+import promptFromLayerFlorence2Workflow from "../workflows/api/prompt-from-layer-florence2.json";
 import sketch2imgLinecnBasicWorkflow from "../workflows/api/sketch2img-linecn-basic.json";
 import inpaintBasicWorkflow from "../workflows/api/inpaint-basic.json";
 import inpaintFluxFillBasicWorkflow from "../workflows/api/inpaint-flux-fill-basic.json";
 import {
   BuildInpaintWorkflowOptions,
   BuildImageToImageWorkflowOptions,
+  BuildPromptFromLayerWorkflowOptions,
   BuildSketchToImageWorkflowOptions,
   BuildWorkflowOptions,
   BuildWorkflowResult,
@@ -28,6 +30,7 @@ const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
   "txt2img-flux1-dev-fp8": txt2imgFlux1DevFp8Workflow as ComfyWorkflow,
   "txt2img-z-image-turbo": txt2imgZImageTurboWorkflow as ComfyWorkflow,
   "img2img-z-image-turbo": img2imgZImageTurboWorkflow as ComfyWorkflow,
+  "prompt-from-layer-florence2": promptFromLayerFlorence2Workflow as ComfyWorkflow,
   "sketch2img-linecn-basic": sketch2imgLinecnBasicWorkflow as ComfyWorkflow,
   "inpaint-basic": inpaintBasicWorkflow as ComfyWorkflow,
   "inpaint-flux-fill-basic": inpaintFluxFillBasicWorkflow as ComfyWorkflow
@@ -165,6 +168,31 @@ export async function buildInpaintWorkflow(
 
   setPresetInput(workflow, preset, "width", options.width);
   setPresetInput(workflow, preset, "height", options.height);
+
+  validateWorkflowForPreset(workflow, preset);
+
+  return {
+    workflow,
+    seed,
+    preset
+  };
+}
+
+export async function buildPromptFromLayerWorkflow(
+  options: BuildPromptFromLayerWorkflowOptions
+): Promise<BuildWorkflowResult> {
+  const preset = getWorkflowPreset(options.presetId ?? "prompt-from-layer-florence2");
+  assertPresetMode(preset, "prompt");
+  assertPresetRunnable(preset);
+  const workflow = await cloneWorkflowTemplate(preset);
+  const seed = options.seed;
+
+  validateWorkflowForPreset(workflow, preset);
+
+  setPresetInput(workflow, preset, "sourceImage", options.sourceImageName, true);
+  setPresetInput(workflow, preset, "task", options.task || "detailed_caption", true);
+  setPresetInput(workflow, preset, "numBeams", options.numBeams, true);
+  setPresetInput(workflow, preset, "seed", seed, true);
 
   validateWorkflowForPreset(workflow, preset);
 

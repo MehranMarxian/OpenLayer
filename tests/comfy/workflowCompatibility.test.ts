@@ -207,6 +207,7 @@ function createInventory(overrides: Partial<ComfyModelInventory> = {}): ComfyMod
     clipModels: [],
     vaeModels: [],
     controlNetModels: [],
+    visionLanguageModels: [],
     missingSources: [],
     ...overrides
   };

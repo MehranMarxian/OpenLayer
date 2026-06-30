@@ -19,9 +19,10 @@ Current runnable API workflows:
 - `img2img-basic.json`
 - `txt2img-z-image-turbo.json`
 - `img2img-z-image-turbo.json`
+- `prompt-from-layer-florence2.json`
 - `sketch2img-linecn-basic.json`
 
-The Flux1-dev fp8 and Z_image_Turbo workflows are experimental and should be tested carefully against the user's local ComfyUI node versions.
+The Flux1-dev fp8, Z_image_Turbo, and Prompt from Layer workflows are experimental and should be tested carefully against the user's local ComfyUI node versions.
 
 ## Source Workflows
 
@@ -73,6 +74,25 @@ The local audit found and v0.4.3-alpha uses this stack:
 That means it cannot appear in `CheckpointLoaderSimple`. OpenLayer must switch the model selector to the diffusion model loader for Z_image_Turbo presets.
 
 OpenLayer now includes experimental API workflows for `txt2img-z-image-turbo` and `img2img-z-image-turbo`. The editable GUI workflow exports are kept under `src/workflows/source/`.
+
+## Prompt From Layer
+
+`prompt-from-layer-florence2` is a text-output workflow. It uploads a captured Photoshop layer or canvas to ComfyUI, runs Florence-2 PromptGen, and reads the caption text from ComfyUI history instead of retrieving an image.
+
+The runnable API workflow uses:
+
+- `Florence2ModelLoader`
+- `LoadImage`
+- `Florence2Run`
+- `ShowText|pysssss`
+
+Required local setup:
+
+- `comfyui-florence2`
+- `comfyui-custom-scripts`
+- `Florence-2-base-PromptGen-v2.0`
+
+The source workflow also includes preview/save text helper nodes. OpenLayer does not rely on the `SaveText` node for normal operation; it reads the text output from the completed prompt history.
 
 ## Why Flux Is Different
 

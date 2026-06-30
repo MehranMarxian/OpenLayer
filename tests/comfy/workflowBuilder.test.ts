@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildInpaintWorkflow,
   buildImg2ImgWorkflow,
+  buildPromptFromLayerWorkflow,
   buildSketchToImageWorkflow,
   buildTxt2ImgWorkflow
 } from "../../src/comfy/workflowBuilder";
@@ -78,6 +79,25 @@ describe("workflowBuilder", () => {
 
     expect(result.workflow["10"].inputs.image).toBe("openlayer-source.png");
     expect(result.workflow["3"].inputs.denoise).toBe(0.45);
+  });
+
+  it("injects Prompt from Layer source, task, beams, and seed into the Florence workflow", async () => {
+    const result = await buildPromptFromLayerWorkflow({
+      presetId: "prompt-from-layer-florence2",
+      sourceImageName: "openlayer-prompt-source.png",
+      task: "detailed_caption",
+      numBeams: 12,
+      seed: 202607
+    });
+
+    expect(result.preset.id).toBe("prompt-from-layer-florence2");
+    expect(result.workflow["42"].inputs.image).toBe("openlayer-prompt-source.png");
+    expect(result.workflow["38"].inputs.image).toEqual(["42", 0]);
+    expect(result.workflow["38"].inputs.florence2_model).toEqual(["39", 0]);
+    expect(result.workflow["38"].inputs.task).toBe("detailed_caption");
+    expect(result.workflow["38"].inputs.num_beams).toBe(12);
+    expect(result.workflow["38"].inputs.seed).toBe(202607);
+    expect(result.workflow["45"].inputs.text).toEqual(["38", 2]);
   });
 
   it("injects ControlNet strength into sketch2img-linecn-basic", async () => {

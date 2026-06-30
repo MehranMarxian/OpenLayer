@@ -57,6 +57,8 @@ function getModelBucket(inventory: Partial<ComfyModelInventory>, kind: WorkflowR
       return inventory.vaeModels ?? [];
     case "controlnet":
       return inventory.controlNetModels ?? [];
+    case "vision-language":
+      return inventory.visionLanguageModels ?? [];
     default:
       return [];
   }

@@ -23,6 +23,13 @@ const DIFFUSION_MODEL_SOURCE = {
   label: "Diffusion model"
 } as const;
 
+const FLORENCE_MODEL_SOURCE = {
+  kind: "vision-language",
+  objectInfoNode: "Florence2ModelLoader",
+  inputName: "model",
+  label: "Florence model"
+} as const;
+
 const Z_IMAGE_TURBO_STACK = [
   {
     kind: "diffusion-model-stack",
@@ -68,6 +75,15 @@ const FLUX1_DEV_FP8_CHECKPOINT = {
   label: "Flux1-dev fp8 checkpoint",
   modelName: "flux1-dev-fp8.safetensors",
   setupHint: "Install flux1-dev-fp8.safetensors where ComfyUI's CheckpointLoaderSimple can find it."
+} as const;
+
+const FLORENCE2_PROMPTGEN_MODEL = {
+  kind: "vision-language",
+  objectInfoNode: "Florence2ModelLoader",
+  inputName: "model",
+  label: "Florence-2 PromptGen model",
+  modelName: "Florence-2-base-PromptGen-v2.0",
+  setupHint: "Install Florence-2-base-PromptGen-v2.0 where ComfyUI's Florence2ModelLoader can find it."
 } as const;
 
 const TXT2IMG_BASIC_NODES = {
@@ -168,6 +184,13 @@ const Z_IMAGE_TURBO_IMG2IMG_NODES = {
   saveImage: "9"
 } as const;
 
+const PROMPT_FROM_LAYER_FLORENCE2_NODES = {
+  modelLoader: "39",
+  loadImage: "42",
+  florenceRun: "38",
+  showText: "45"
+} as const;
+
 const TXT2IMG_BASIC_INJECTIONS = {
   checkpoint: target(TXT2IMG_BASIC_NODES.checkpointLoader, "ckpt_name"),
   positivePrompt: target(TXT2IMG_BASIC_NODES.positivePrompt, "text"),
@@ -255,6 +278,13 @@ const Z_IMAGE_TURBO_IMG2IMG_INJECTIONS = {
   steps: target(Z_IMAGE_TURBO_IMG2IMG_NODES.sampler, "steps"),
   cfg: target(Z_IMAGE_TURBO_IMG2IMG_NODES.sampler, "cfg"),
   denoise: target(Z_IMAGE_TURBO_IMG2IMG_NODES.sampler, "denoise")
+} as const;
+
+const PROMPT_FROM_LAYER_FLORENCE2_INJECTIONS = {
+  sourceImage: target(PROMPT_FROM_LAYER_FLORENCE2_NODES.loadImage, "image"),
+  task: target(PROMPT_FROM_LAYER_FLORENCE2_NODES.florenceRun, "task"),
+  numBeams: target(PROMPT_FROM_LAYER_FLORENCE2_NODES.florenceRun, "num_beams"),
+  seed: target(PROMPT_FROM_LAYER_FLORENCE2_NODES.florenceRun, "seed")
 } as const;
 
 const FLUX_FILL_STACK = [
@@ -456,6 +486,26 @@ const Z_IMAGE_TURBO_IMG2IMG_CAPABILITY: WorkflowCapability = {
   }
 };
 
+const PROMPT_FROM_LAYER_FLORENCE2_CAPABILITY: WorkflowCapability = {
+  toolType: "prompt",
+  loaderType: "vision-language",
+  artistLabel: "Prompt from Layer",
+  technicalLabel: "prompt-from-layer-florence2",
+  requiredPhotoshopInputs: [{ anyOf: ["active-layer", "canvas"], label: "an active layer or captured canvas" }],
+  controls: ["task", "numBeams", "seed"],
+  output: {
+    kind: "prompt-text",
+    size: "none",
+    importBehavior: "none"
+  },
+  uiHints: {
+    showModelSelector: false,
+    modelSelectorLabel: "Florence model",
+    primaryActionLabel: "Generate Text from Layer",
+    experimentalNote: "Prompt from Layer uses a Florence-2 PromptGen custom-node workflow and returns text, not an image."
+  }
+};
+
 const FLUX1_DEV_TXT2IMG_CAPABILITY: WorkflowCapability = {
   toolType: "txt2img",
   loaderType: "diffusion-model-stack",
@@ -652,6 +702,45 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
         id: IMG2IMG_BASIC_NODES.saveImage,
         classType: "SaveImage",
         requiredInputs: ["images"]
+      }
+    ]
+  },
+  {
+    id: "prompt-from-layer-florence2",
+    label: "prompt-from-layer-florence2",
+    mode: "prompt",
+    description: "Experimental Florence-2 PromptGen workflow that describes a captured Photoshop layer or canvas.",
+    workflowFile: "workflows/api/prompt-from-layer-florence2.json",
+    sourceWorkflowFile: "workflows/source/prompt-from-layer-florence2.workflow.json",
+    status: "experimental",
+    supportedModelFamilies: ["unknown"],
+    experimentalModelFamilies: ["sd1", "sdxl", "sd3", "flux", "zImage"],
+    modelSource: FLORENCE_MODEL_SOURCE,
+    capability: PROMPT_FROM_LAYER_FLORENCE2_CAPABILITY,
+    requiredModels: [FLORENCE2_PROMPTGEN_MODEL],
+    injections: PROMPT_FROM_LAYER_FLORENCE2_INJECTIONS,
+    compatibilityNote:
+      "prompt-from-layer-florence2 uses comfyui-florence2 plus ShowText from comfyui-custom-scripts. It returns text from ComfyUI history instead of an image.",
+    requiredNodes: [
+      {
+        id: PROMPT_FROM_LAYER_FLORENCE2_NODES.modelLoader,
+        classType: "Florence2ModelLoader",
+        requiredInputs: ["model", "precision", "attention", "convert_to_safetensors"]
+      },
+      {
+        id: PROMPT_FROM_LAYER_FLORENCE2_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: PROMPT_FROM_LAYER_FLORENCE2_NODES.florenceRun,
+        classType: "Florence2Run",
+        requiredInputs: ["image", "florence2_model", "task", "num_beams", "seed"]
+      },
+      {
+        id: PROMPT_FROM_LAYER_FLORENCE2_NODES.showText,
+        classType: "ShowText|pysssss",
+        requiredInputs: ["text"]
       }
     ]
   },

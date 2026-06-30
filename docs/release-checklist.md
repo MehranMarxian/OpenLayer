@@ -27,7 +27,7 @@ Use this checklist before publishing an OpenLayer alpha release.
 - Confirm Inpaint/Repaint Selection is marked experimental.
 - Confirm the landing page does not claim production-ready inpainting.
 - Confirm Flux Fill is described as experimental or setup-required.
-- Confirm Prompt from Layer is described as foundation work until Florence-2 text generation is connected.
+- Confirm Prompt from Layer is described as an experimental Florence-2 text workflow that requires local custom nodes and model files.
 - Confirm custom workflow import is listed as future work.
 - Confirm LoRA browser, batch variants, upscaling, and persistent metadata are listed as future work.
 - Confirm CI limitations are clear: Photoshop, UXP, and ComfyUI integration tests are manual.

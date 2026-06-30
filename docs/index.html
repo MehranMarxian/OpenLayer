@@ -151,8 +151,8 @@
               <p>Separate checkpoint-based presets from future diffusion-model-stack presets such as Z_image_Turbo and Flux without enabling unvalidated workflows.</p>
             </article>
             <article class="feature-card">
-              <h3>Prompt from Layer foundation</h3>
-              <p>Capture a source image for future Florence-2 PromptGen text generation. Text output is not enabled until a validated workflow is added.</p>
+              <h3>Prompt from Layer</h3>
+              <p>Experimental Florence-2 PromptGen workflow that describes a captured layer or canvas into editable prompt text.</p>
             </article>
             <article class="feature-card">
               <h3>UXP-safe interface</h3>
@@ -264,8 +264,8 @@ npm run build</code></pre>
               <p>Flux1-dev fp8 Text to Image is available for experimental testing. Flux Fill and generic Flux workflows still need careful validation and tuning.</p>
             </article>
             <article class="status-card">
-              <h3>Prompt from Layer foundation</h3>
-              <p>The card and source capture exist, but Florence-2 PromptGen text generation is not enabled until a validated text-output workflow is added.</p>
+              <h3>Prompt from Layer</h3>
+              <p>Prompt from Layer can run a Florence-2 PromptGen text workflow when the required local custom nodes and model are installed.</p>
             </article>
             <article class="status-card">
               <h3>Custom workflows are future work</h3>
@@ -294,7 +294,7 @@ npm run build</code></pre>
             <li>Generated images are placed as Photoshop layers; advanced alignment is future work.</li>
             <li>Inpaint is experimental: source and mask export are available, but output quality and Photoshop alignment are still being tested.</li>
             <li>Flux Fill is experimental and not a fully validated production workflow.</li>
-            <li>Prompt from Layer does not generate Florence-2 text yet.</li>
+            <li>Prompt from Layer is experimental and requires the local Florence-2 PromptGen model plus text-output custom nodes.</li>
             <li>Custom workflow import, LoRA browser, batch variants, upscaling, and persistent AI layer metadata are future work.</li>
             <li>CI does not run Photoshop, UXP, or ComfyUI integration tests.</li>
             <li>The browser dev server is only for UI preview. Photoshop APIs run inside UXP.</li>
@@ -338,7 +338,7 @@ npm run build</code></pre>
             </article>
             <article>
               <h3>v0.4 alpha</h3>
-              <p>PNG/lossless capture, GPU diagnostics, Workflow Health, Z_image_Turbo experiments, Flux1-dev fp8 Text to Image, Prompt from Layer foundation, and experimental Inpaint/Repaint Selection.</p>
+              <p>PNG/lossless capture, GPU diagnostics, Workflow Health, Z_image_Turbo experiments, Flux1-dev fp8 Text to Image, experimental Prompt from Layer, and experimental Inpaint/Repaint Selection.</p>
             </article>
             <article>
               <h3>Future artist tools</h3>

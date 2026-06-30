@@ -27,6 +27,7 @@ import { validateGenerationSettings, validateImageToImageSettings, validateSketc
 import {
   buildImg2ImgWorkflow,
   buildInpaintWorkflow,
+  buildPromptFromLayerWorkflow,
   buildSketchToImageWorkflow,
   buildTxt2ImgWorkflow
 } from "../comfy/workflowBuilder";
@@ -88,6 +89,13 @@ const DEFAULT_SKETCH_DENOISE = "0.65";
 const DEFAULT_SKETCH_CONTROL_STRENGTH = "0.8";
 const DEFAULT_INPAINT_STEPS = "16";
 const DEFAULT_INPAINT_DENOISE = "0.75";
+const DEFAULT_PROMPT_LAYER_TASK = "detailed_caption";
+const DEFAULT_PROMPT_LAYER_NUM_BEAMS = "12";
+const PROMPT_LAYER_TASKS = [
+  { value: "detailed_caption", label: "Detailed caption" },
+  { value: "caption", label: "Caption" },
+  { value: "more_detailed_caption", label: "More detailed caption" }
+];
 const FALLBACK_CHECKPOINTS = [
   "epicrealism_naturalSinRC1VAE.safetensors",
   "epicrealism_pureEvolutionV5-inpainting.safetensors",
@@ -359,6 +367,8 @@ type AppElements = {
   promptLayerSourcePreviewPanel: HTMLElement;
   promptLayerSourceTitle: HTMLElement;
   promptLayerSourceMeta: HTMLElement;
+  promptLayerTask: HTMLSelectElement;
+  promptLayerNumBeams: HTMLInputElement;
   promptLayerGeneratedText: HTMLTextAreaElement;
   historyList: HTMLElement;
   settingsUrlValue: HTMLElement;
@@ -1992,7 +2002,7 @@ export function renderApp(rootElement: HTMLElement) {
       setPromptLayerStatus(elements, options.successMessage, "ready");
       setPromptLayerDiagnostics(
         elements,
-        `${createSourceCaptureMessage(exportedSource)} Prompt from Layer needs a validated Florence-2 PromptGen workflow before text generation is enabled.`
+        `${createSourceCaptureMessage(exportedSource)} Ready to generate prompt text with Florence-2 PromptGen.`
       );
     } catch (caughtError) {
       setPromptLayerStatus(elements, "Source capture failed.", "error");
@@ -2004,22 +2014,66 @@ export function renderApp(rootElement: HTMLElement) {
     }
   }
 
-  function handleGeneratePromptFromLayer() {
+  async function handleGeneratePromptFromLayer() {
     if (!promptLayerSource) {
       setPromptLayerStatus(elements, "Source required.", "error");
       setPromptLayerError(elements, "Capture an active layer or canvas before generating prompt text.");
       return;
     }
 
-    setPromptLayerStatus(elements, "PromptGen setup required.", "error");
-    setPromptLayerError(
-      elements,
-      "Florence-2 PromptGen nodes and model are detected locally, but OpenLayer still needs a validated API workflow and text-output reader before this feature can run."
-    );
-    setPromptLayerDiagnostics(
-      elements,
-      "Required foundation: Florence2ModelLoader or DownloadAndLoadFlorence2Model, Florence2Run, Florence-2-base-PromptGen-v2.0, source PNG upload, and ComfyUI text output parsing."
-    );
+    const task = readPromptLayerTask(elements);
+    const numBeams = readPromptLayerNumBeams(elements);
+    const seed = createRandomSeed();
+    const client = new ComfyClient(elements.serverUrl.value);
+    const preset = getWorkflowPreset("prompt-from-layer-florence2");
+
+    setPromptLayerError(elements, "");
+    setPromptLayerStatus(elements, "Uploading source to ComfyUI...", "idle");
+    setPromptLayerDiagnostics(elements, `Task: ${task}. Num beams: ${numBeams}.`);
+    isBusy = true;
+    setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+
+    try {
+      await client.validatePresetSetup(preset);
+      const sourceImageName = await client.uploadImage(promptLayerSource.blob, promptLayerSource.filename);
+      const workflowResult = await buildPromptFromLayerWorkflow({
+        presetId: preset.id,
+        sourceImageName,
+        task,
+        numBeams,
+        seed
+      });
+      const textOutputNodeId = getTextOutputNodeId(workflowResult.preset);
+
+      setPromptLayerStatus(elements, "Running Florence-2 PromptGen...", "idle");
+      setPromptLayerDiagnostics(
+        elements,
+        `Uploaded ${sourceImageName}. Waiting for ${workflowResult.preset.label} text output...`
+      );
+
+      const promptId = await client.submitPrompt(workflowResult.workflow);
+      const historyItem = await client.pollUntilTextComplete(promptId, {
+        preferredNodeId: textOutputNodeId,
+        onTick: (message) => setPromptLayerStatus(elements, message, "idle")
+      });
+      const generatedText = await client.retrieveFirstOutputText(promptId, historyItem, {
+        preferredNodeId: textOutputNodeId
+      });
+
+      elements.promptLayerGeneratedText.value = generatedText;
+      setPromptLayerStatus(elements, "Prompt text generated.", "ready");
+      setPromptLayerDiagnostics(
+        elements,
+        `Generated from ${promptLayerSource.sourceName}. Task: ${task}. Num beams: ${numBeams}. Seed: ${seed}.`
+      );
+    } catch (caughtError) {
+      setPromptLayerStatus(elements, "Prompt text generation failed.", "error");
+      setPromptLayerError(elements, getErrorMessage(caughtError));
+      setPromptLayerDiagnostics(elements, getTechnicalErrorDetails(caughtError));
+    } finally {
+      isBusy = false;
+      setBusy(elements, isBusy, result, imageResult, imageSource, sketchResult, sketchSource, inpaintResult, inpaintSource);
+    }
   }
 
   async function handleCopyPromptFromLayer() {
@@ -2503,9 +2557,21 @@ function createAppMarkup() {
         <section class="panel-section generator-panel" aria-label="Prompt from Layer text">
           <div class="section-heading">
             <span class="label">Generated prompt</span>
-            <span class="muted-label">Florence-2 PromptGen foundation</span>
+            <span class="muted-label">Florence-2 PromptGen</span>
           </div>
-          <textarea class="textarea compact-textarea" id="prompt-layer-generated-text" placeholder="Generated prompt text will appear here after the Florence workflow is connected."></textarea>
+          <div class="settings-grid" aria-label="Prompt from Layer settings">
+            <label class="field">
+              <span class="label">Task</span>
+              <select class="select" id="prompt-layer-task">
+                ${PROMPT_LAYER_TASKS.map((task) => `<option value="${task.value}"${task.value === DEFAULT_PROMPT_LAYER_TASK ? " selected" : ""}>${task.label}</option>`).join("")}
+              </select>
+            </label>
+            <label class="field">
+              <span class="label">Num beams</span>
+              <input class="input input-compact" id="prompt-layer-num-beams" type="number" min="1" max="32" step="1" value="${DEFAULT_PROMPT_LAYER_NUM_BEAMS}" />
+            </label>
+          </div>
+          <textarea class="textarea compact-textarea" id="prompt-layer-generated-text" placeholder="Generated prompt text will appear here..."></textarea>
           <button class="button button-primary button-generate button-wide action-control" id="generate-prompt-from-layer" data-openlayer-action="generatePromptFromLayer" type="button">Generate Text from Layer</button>
           <div class="import-actions">
             <button class="button action-control" id="copy-prompt-from-layer" data-openlayer-action="copyPromptFromLayer" type="button">Copy Prompt</button>
@@ -2518,7 +2584,7 @@ function createAppMarkup() {
             <span class="status-text" id="prompt-layer-status-text">Foundation ready.</span>
             <span class="status-pill idle" id="prompt-layer-status-pill">Status</span>
           </div>
-          <div class="diagnostics-line" id="prompt-layer-diagnostics-text">Florence-2 PromptGen support is prepared as a setup-required foundation.</div>
+          <div class="diagnostics-line" id="prompt-layer-diagnostics-text">Capture a source, then generate a Florence-2 PromptGen caption.</div>
           <div class="error-message" id="prompt-layer-error-message" hidden></div>
         </section>
       </section>
@@ -3225,6 +3291,8 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     promptLayerSourcePreviewPanel: getElement<HTMLElement>(rootElement, "prompt-layer-source-preview-panel"),
     promptLayerSourceTitle: getElement<HTMLElement>(rootElement, "prompt-layer-source-title"),
     promptLayerSourceMeta: getElement<HTMLElement>(rootElement, "prompt-layer-source-meta"),
+    promptLayerTask: getElement<HTMLSelectElement>(rootElement, "prompt-layer-task"),
+    promptLayerNumBeams: getElement<HTMLInputElement>(rootElement, "prompt-layer-num-beams"),
     promptLayerGeneratedText: getElement<HTMLTextAreaElement>(rootElement, "prompt-layer-generated-text"),
     historyList: getElement<HTMLElement>(rootElement, "history-list"),
     settingsUrlValue: getElement<HTMLElement>(rootElement, "settings-url-value"),
@@ -3301,6 +3369,8 @@ function setBusy(
   elements.inpaintCfg.disabled = isBusy;
   elements.inpaintSeed.disabled = isBusy;
   elements.inpaintDenoise.disabled = isBusy;
+  elements.promptLayerTask.disabled = isBusy;
+  elements.promptLayerNumBeams.disabled = isBusy;
   elements.promptLayerGeneratedText.disabled = isBusy;
   setActionDisabled(elements.checkButton, isBusy);
   setActionDisabled(elements.findPortButton, isBusy);
@@ -3573,6 +3643,31 @@ function dimensionsMatchForUi(first: ImageDimensions, second: ImageDimensions) {
 
 function getSaveImageNodeId(preset: WorkflowPresetDefinition) {
   return preset.requiredNodes.find((node) => node.classType === "SaveImage")?.id;
+}
+
+function getTextOutputNodeId(preset: WorkflowPresetDefinition) {
+  return preset.requiredNodes.find((node) => node.classType.startsWith("ShowText"))?.id;
+}
+
+function readPromptLayerTask(elements: AppElements) {
+  const selectedTask = readSelectValue(elements.promptLayerTask, DEFAULT_PROMPT_LAYER_TASK);
+  const knownTask = PROMPT_LAYER_TASKS.find((task) => task.value === selectedTask);
+
+  return knownTask?.value ?? DEFAULT_PROMPT_LAYER_TASK;
+}
+
+function readPromptLayerNumBeams(elements: AppElements) {
+  const parsed = Number.parseInt(elements.promptLayerNumBeams.value, 10);
+
+  if (Number.isFinite(parsed)) {
+    return Math.min(Math.max(parsed, 1), 32);
+  }
+
+  return Number.parseInt(DEFAULT_PROMPT_LAYER_NUM_BEAMS, 10);
+}
+
+function createRandomSeed() {
+  return Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
 }
 
 function formatSourceCaptureLabel(_source: ExportedSourceImage) {

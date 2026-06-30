@@ -140,7 +140,8 @@ describe("workflow health", () => {
         controlNetModels: ["control_v11p_sd15_lineart_fp16.safetensors"],
         diffusionModels: ["z_image_turbo_bf16.safetensors"],
         clipModels: ["qwen_3_4b.safetensors"],
-        vaeModels: ["ae.safetensors"]
+        vaeModels: ["ae.safetensors"],
+        visionLanguageModels: ["Florence-2-base-PromptGen-v2.0"]
       })
     });
 
@@ -165,6 +166,7 @@ function createInventory(overrides: Partial<ComfyModelInventory> = {}): ComfyMod
     clipModels: [],
     vaeModels: [],
     controlNetModels: [],
+    visionLanguageModels: [],
     missingSources: [],
     ...overrides
   };

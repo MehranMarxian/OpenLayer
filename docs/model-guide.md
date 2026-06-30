@@ -35,7 +35,7 @@ These are practical starter guidelines, not strict rules.
 | Sketch to Image | SD 1.x | Uses `sketch2img-linecn-basic` with LineArt ControlNet. |
 | Inpaint / Flux Fill | Flux Fill Dev | Experimental `inpaint-flux-fill-basic`; not production-ready. |
 | Z_image_Turbo Text/Image | Z_image_Turbo | Experimental dedicated presets in v0.4.3-alpha. |
-| Prompt from Layer | Florence-2 PromptGen | Foundation only; text generation workflow is not enabled yet. |
+| Prompt from Layer | Florence-2 PromptGen | Experimental `prompt-from-layer-florence2` text workflow for describing captured Photoshop sources. |
 | Future Realtime Preview | To be tested | Likely needs a very fast dedicated workflow. |
 
 ## Why Z_image_Turbo Does Not Appear In The Checkpoint Selector
@@ -69,6 +69,18 @@ OpenLayer does not auto-switch your model yet. Recommendations are advisory so a
 `flux1-dev-fp8.safetensors` is a checkpoint-style Flux model in the attached ComfyUI workflow, so it appears through `CheckpointLoaderSimple` and can be selected by the experimental `txt2img-flux1-dev-fp8` preset.
 
 This preset uses `CheckpointLoaderSimple`, `EmptySD3LatentImage`, `CLIPTextEncode`, `FluxGuidance`, `KSampler`, `VAEDecode`, and `SaveImage`. OpenLayer maps the UI CFG field to `FluxGuidance.guidance`; the sampler CFG stays at `1`, matching the ComfyUI workflow note that Flux dev does not use negative prompt guidance in the usual SD way.
+
+## Prompt from Layer Notes
+
+Prompt from Layer uses a vision-language workflow, not a diffusion image model. The first runnable preset is `prompt-from-layer-florence2`.
+
+Required local setup:
+
+- `comfyui-florence2`
+- `comfyui-custom-scripts` for `ShowText|pysssss`
+- `Florence-2-base-PromptGen-v2.0` available to `Florence2ModelLoader`
+
+OpenLayer uploads the captured Photoshop source PNG to ComfyUI, runs Florence-2 PromptGen, reads the text output from ComfyUI history, and places the generated caption into the plugin text area. The default task is `detailed_caption` with `num_beams` set to `12`.
 
 ## Flux Fill Notes
 

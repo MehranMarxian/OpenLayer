@@ -9,14 +9,16 @@ const MODE_LABELS: Record<WorkflowPresetDefinition["mode"], string> = {
   txt2img: "Text to Image",
   img2img: "Image to Image",
   sketch2img: "Sketch to Image",
-  inpaint: "Inpaint"
+  inpaint: "Inpaint",
+  prompt: "Prompt from Layer"
 };
 
 const DEFAULT_CONTROLS: Record<WorkflowPresetDefinition["mode"], readonly WorkflowControlId[]> = {
   txt2img: ["prompt", "negativePrompt", "width", "height", "steps", "cfg", "seed"],
   img2img: ["prompt", "negativePrompt", "steps", "cfg", "denoise", "seed"],
   sketch2img: ["prompt", "negativePrompt", "steps", "cfg", "denoise", "seed", "controlStrength"],
-  inpaint: ["prompt", "negativePrompt", "steps", "cfg", "denoise", "seed"]
+  inpaint: ["prompt", "negativePrompt", "steps", "cfg", "denoise", "seed"],
+  prompt: ["task", "numBeams", "seed"]
 };
 
 export function getWorkflowCapability(preset: WorkflowPresetDefinition): WorkflowCapability {
@@ -25,7 +27,11 @@ export function getWorkflowCapability(preset: WorkflowPresetDefinition): Workflo
   }
 
   const loaderType: WorkflowLoaderType =
-    preset.modelSource.kind === "diffusion-model-stack" ? "diffusion-model-stack" : "checkpoint";
+    preset.modelSource.kind === "diffusion-model-stack"
+      ? "diffusion-model-stack"
+      : preset.modelSource.kind === "vision-language"
+        ? "vision-language"
+        : "checkpoint";
 
   return {
     toolType: preset.mode,
@@ -35,9 +41,9 @@ export function getWorkflowCapability(preset: WorkflowPresetDefinition): Workflo
     requiredPhotoshopInputs: [],
     controls: DEFAULT_CONTROLS[preset.mode],
     output: {
-      kind: preset.mode === "txt2img" ? "full-image" : "source-sized-image",
-      size: preset.mode === "txt2img" ? "preset" : "source",
-      importBehavior: "new-layer"
+      kind: preset.mode === "prompt" ? "prompt-text" : preset.mode === "txt2img" ? "full-image" : "source-sized-image",
+      size: preset.mode === "prompt" ? "none" : preset.mode === "txt2img" ? "preset" : "source",
+      importBehavior: preset.mode === "prompt" ? "none" : "new-layer"
     },
     uiHints: {
       showModelSelector: true,
