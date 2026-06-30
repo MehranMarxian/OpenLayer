@@ -2,6 +2,10 @@ node_modules/
 dist/
 packages/
 
+.pnpm-store/
+pnpm-lock.yaml
+pnpm-workspace.yaml
+
 *.log
 .DS_Store
 Thumbs.db
