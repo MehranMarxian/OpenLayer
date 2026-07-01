@@ -10,7 +10,7 @@ OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop t
 
 ## Alpha Release
 
-`v0.4.9-alpha` is the current global generation safety and session history metadata preview. It is intended for testing the core local workflow, not for production work yet.
+`v0.4.10-alpha` is the current Image to Image auto-import and experimental pixel Upscale foundation preview. It is intended for testing the core local workflow, not for production work yet.
 
 Included in this alpha:
 
@@ -40,6 +40,9 @@ Included in this alpha:
 - Global Cancel Generation button path for Text to Image, Image to Image, Sketch to Image, Inpaint, Outpaint, and Prompt from Layer using ComfyUI's local interrupt endpoint
 - Experimental Prompt from Layer workflow using Florence-2 PromptGen to describe a captured layer or canvas
 - Experimental Flux Fill Outpaint workflow using `ImagePadForOutpaint`
+- Image to Image `Import Automatically` toggle for sending generated results straight back into Photoshop
+- Experimental Upscale screen using ComfyUI pixel/model upscale, not generative upscale
+- Experimental `upscale-basic` workflow using `LoadImage`, `UpscaleModelLoader`, `ImageUpscaleWithModel`, and `SaveImage`
 - PNG/lossless source capture for Image to Image and Sketch to Image using raw Photoshop Imaging API pixels
 - Experimental Inpaint/Repaint Selection screen with safe Photoshop selection detection
 - PNG/lossless selected-region capture and temporary-layer grayscale mask export for Inpaint
@@ -54,7 +57,7 @@ Included in this alpha:
 
 ![OpenLayer v0.2.1 Home dashboard](docs/assets/openlayer-v021-dashboard.png)
 
-Known v0.4.9-alpha boundaries:
+Known v0.4.10-alpha boundaries:
 
 - Image to Image is an early foundation path, not a full production workflow yet.
 - Sketch to Image is limited to the first SD 1.x LINECN starter workflow.
@@ -73,9 +76,11 @@ Known v0.4.9-alpha boundaries:
 - Copy Diagnostics prepares a setup report for testers. It does not send data anywhere.
 - Prompt from Layer is experimental and requires `comfyui-florence2`, `comfyui-custom-scripts`, and `Florence-2-base-PromptGen-v2.0`.
 - Outpaint is experimental and currently uses `outpaint-flux-fill-basic` with `flux1-fill-dev.safetensors`, `clip_l.safetensors`, `t5xxl_fp16.safetensors` or the accepted T5 fp8 fallback, and `ae.safetensors`.
+- Upscale is experimental and currently uses a simple pixel/model upscale path. It does not use prompts, latent upscale, tiled diffusion, or creative enhancement.
+- Upscale needs ComfyUI's `UpscaleModelLoader` and `ImageUpscaleWithModel` nodes plus an installed upscale model such as `4x-UltraSharp.pth` or `RealESRGAN_x4plus.pth`.
 - SDXL, SD3, Flux, and Z_image_Turbo Sketch to Image workflows need dedicated future presets.
 - Workflow node IDs may need adjustment for custom ComfyUI workflows.
-- Dedicated selected-layer PNG file export, selection preservation, aligned regional workflows, advanced ControlNet-style workflows, and upscaling are not included yet.
+- Dedicated selected-layer PNG file export, selection preservation, aligned regional workflows, advanced ControlNet-style workflows, and generative upscaling are not included yet.
 - The UI is functional and responsive enough for testing, but final visual polish will continue in later releases.
 
 ## Project Page
@@ -128,6 +133,7 @@ Working foundation:
 - Experimental `img2img-z-image-turbo` workflow generation foundation
 - `sketch2img-linecn-basic` Sketch to Image generation foundation
 - Experimental `prompt-from-layer-florence2` text workflow with Task and Num beams controls
+- Experimental `upscale-basic` pixel/model upscale workflow
 - Active-layer or visible-canvas source capture and ComfyUI image upload
 - Experimental Inpaint/Repaint Selection screen with Photoshop selection detection, selected-region PNG source capture, grayscale mask export, and SD 1.x `inpaint-basic`
 - Experimental checkpoint mode for trying non-SD/SDXL model families with clear warnings
@@ -198,7 +204,7 @@ npm run package
 This creates a zip package from `dist` in the `packages` folder. For the current alpha, the expected package name is:
 
 ```text
-packages/openlayer-v0.4.9-alpha.zip
+packages/openlayer-v0.4.10-alpha.zip
 ```
 
 ## Loading In UXP Developer Tool
@@ -323,7 +329,7 @@ Inpaint output quality, mask interpretation, and Photoshop alignment are still b
 
 ## Pre-release Tester Checklist
 
-Use this quick pass before reporting a v0.4.9-alpha test result:
+Use this quick pass before reporting a v0.4.10-alpha test result:
 
 1. Start ComfyUI on `http://127.0.0.1:8190`.
 2. Build OpenLayer and load `dist/manifest.json` in Adobe UXP Developer Tool.
@@ -336,12 +342,14 @@ Use this quick pass before reporting a v0.4.9-alpha test result:
 9. Select `txt2img-flux1-dev-fp8` with `flux1-dev-fp8.safetensors` if available, generate once, and confirm the result preview appears.
 10. Start one Text to Image generation and click `Cancel Generation`; confirm the status changes to `Generation cancelled.` and the next generation still works.
 11. Open `Image to Image`, capture either the active layer or canvas, generate with `img2img-basic`, and click `Import to Layers`.
-12. Open `Sketch to Image`, capture either the active layer or canvas, generate with `sketch2img-linecn-basic`, and click `Import to Layers`.
-13. Open `Inpaint`, make a Photoshop selection, click `Capture Selection`, and confirm the selected-region preview and mask preview appear.
-14. Generate with `inpaint-basic` using an SD 1.x checkpoint, then click `Import to Layers`.
-15. Start and cancel one longer Image to Image, Sketch, Outpaint, Inpaint, or Prompt from Layer run if your ComfyUI setup supports it; confirm the next generation still works.
-16. Open History after a generation; confirm prompt, model, workflow, seed, dimensions, source mode, tool type, timestamp, import status, Preview, Import, and Reuse Settings are visible.
-17. Resize the panel narrow and wide; confirm Settings, workflow health cards, buttons, preview, and footer remain readable and reachable.
+12. Toggle Image to Image `Import Automatically`, generate once, and confirm the result imports as a new Photoshop layer.
+13. Open `Upscale`, capture either the active layer or canvas, choose `4x-UltraSharp.pth` or another listed upscale model, generate, and click `Import to Layers`.
+14. Open `Sketch to Image`, capture either the active layer or canvas, generate with `sketch2img-linecn-basic`, and click `Import to Layers`.
+15. Open `Inpaint`, make a Photoshop selection, click `Capture Selection`, and confirm the selected-region preview and mask preview appear.
+16. Generate with `inpaint-basic` using an SD 1.x checkpoint, then click `Import to Layers`.
+17. Start and cancel one longer Image to Image, Sketch, Outpaint, Inpaint, Prompt from Layer, or Upscale run if your ComfyUI setup supports it; confirm the next generation still works.
+18. Open History after a generation; confirm prompt, model, workflow, seed, dimensions, source mode, tool type, timestamp, import status, Preview, Import, and Reuse Settings are visible.
+19. Resize the panel narrow and wide; confirm Settings, workflow health cards, buttons, preview, and footer remain readable and reachable.
 
 ## Testing Checklist
 

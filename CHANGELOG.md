@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased / v0.4.10-alpha draft - 2026-07-01
+
+Image to Image auto-import and experimental pixel Upscale foundation.
+
+### Added
+
+- Added an Image to Image `Import Automatically` toggle so successful Image to Image results can be imported into Photoshop as a new layer without a second click.
+- Added an experimental Upscale dashboard card and Upscale screen.
+- Added the experimental `upscale-basic` preset using ComfyUI `LoadImage`, `UpscaleModelLoader`, `ImageUpscaleWithModel`, and `SaveImage`.
+- Added source capture, source preview, upscale model selection, result preview, import, optional auto-import, cancel support, and history metadata for Upscale.
+- Added ComfyUI model inventory support for `UpscaleModelLoader` model lists.
+- Added unit coverage for `upscale-basic` preset registration and workflow injection.
+
+### Changed
+
+- Bumped plugin/package metadata to `0.4.10`.
+- Kept Inpaint and Outpaint marked Experimental and unchanged.
+
+### Known Limitations
+
+- Upscale is pixel/model upscale only. It does not use prompts, latent upscale, tiled diffusion, or creative enhancement yet.
+- Upscale needs a local model such as `4x-UltraSharp.pth` or `RealESRGAN_x4plus.pth`.
+- No Inpaint, Outpaint, Prompt from Layer, Z_image_Turbo, or Flux workflow behavior changed in this checkpoint.
+
 ## Unreleased / v0.4.9-alpha draft - 2026-06-30
 
 Global generation safety and richer session history checkpoint.

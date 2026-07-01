@@ -10,11 +10,19 @@ export type WorkflowPreset =
   | "sketch2img-linecn-basic"
   | "inpaint-basic"
   | "inpaint-flux-fill-basic"
-  | "outpaint-flux-fill-basic";
-export type WorkflowMode = "txt2img" | "img2img" | "sketch2img" | "inpaint" | "outpaint" | "prompt";
+  | "outpaint-flux-fill-basic"
+  | "upscale-basic";
+export type WorkflowMode =
+  | "txt2img"
+  | "img2img"
+  | "sketch2img"
+  | "inpaint"
+  | "outpaint"
+  | "prompt"
+  | "upscale";
 export type ModelFamily = "sd1" | "sdxl" | "sd3" | "flux" | "zImage" | "unknown";
 export type WorkflowToolType = WorkflowMode | "realtime";
-export type WorkflowLoaderType = "checkpoint" | "diffusion-model-stack" | "vision-language";
+export type WorkflowLoaderType = "checkpoint" | "diffusion-model-stack" | "vision-language" | "upscale";
 export type WorkflowControlId =
   | "prompt"
   | "negativePrompt"
@@ -48,8 +56,9 @@ export type WorkflowOutputKind =
   | "selection-patch"
   | "transparent-patch"
   | "layer-mask-candidate"
-  | "prompt-text";
-export type WorkflowOutputSize = "preset" | "source" | "selection-context" | "none";
+  | "prompt-text"
+  | "upscaled-image";
+export type WorkflowOutputSize = "preset" | "source" | "selection-context" | "none" | "upscaled";
 export type WorkflowImportBehavior = "new-layer" | "aligned-layer" | "future-layer-mask" | "none";
 
 export type WorkflowCapabilityUiHints = {
@@ -105,6 +114,7 @@ export type ComfyModelInventory = {
   vaeModels: string[];
   controlNetModels: string[];
   visionLanguageModels: string[];
+  upscaleModels: string[];
   missingSources: string[];
 };
 
@@ -169,6 +179,12 @@ export type BuildPromptFromLayerWorkflowOptions = {
   seed: number;
 };
 
+export type BuildUpscaleWorkflowOptions = {
+  presetId?: string;
+  sourceImageName: string;
+  modelName: string;
+};
+
 export type BuildWorkflowResult = {
   workflow: ComfyWorkflow;
   seed: number;
@@ -217,7 +233,8 @@ export type WorkflowModelSourceKind =
   | "clip"
   | "vae"
   | "controlnet"
-  | "vision-language";
+  | "vision-language"
+  | "upscale";
 
 export type WorkflowModelSource = {
   kind: WorkflowModelSourceKind;

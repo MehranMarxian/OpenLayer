@@ -4,7 +4,8 @@ export type HistoryToolType =
   | "sketch-to-image"
   | "inpaint"
   | "outpaint"
-  | "prompt-from-layer";
+  | "prompt-from-layer"
+  | "upscale";
 
 export type HistoryImportStatus = "not-imported" | "imported";
 
@@ -14,7 +15,8 @@ const TOOL_LABELS: Record<HistoryToolType, string> = {
   "sketch-to-image": "Sketch to Image",
   inpaint: "Inpaint",
   outpaint: "Outpaint",
-  "prompt-from-layer": "Prompt from Layer"
+  "prompt-from-layer": "Prompt from Layer",
+  upscale: "Upscale"
 };
 
 export function formatHistoryToolLabel(toolType: HistoryToolType) {

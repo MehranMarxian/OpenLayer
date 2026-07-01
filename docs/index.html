@@ -6,11 +6,11 @@
     <title>OpenLayer - Open Source Photoshop ComfyUI Plugin</title>
     <meta
       name="description"
-      content="OpenLayer v0.4.9-alpha is an open-source Photoshop UXP plugin for local ComfyUI workflows, including text-to-image, image-to-image, sketch-to-image, Flux1-dev fp8 testing, PNG/lossless source capture, workflow health diagnostics, global cancel safety, history metadata, and experimental inpaint testing."
+      content="OpenLayer v0.4.10-alpha is an open-source Photoshop UXP plugin for local ComfyUI workflows, including text-to-image, image-to-image, sketch-to-image, pixel upscale testing, PNG/lossless source capture, workflow health diagnostics, global cancel safety, history metadata, and experimental inpaint testing."
     >
     <meta name="theme-color" content="#2b2b2b">
     <meta property="og:title" content="OpenLayer - Open Source Photoshop ComfyUI Plugin">
-    <meta property="og:description" content="OpenLayer v0.4.9-alpha is an open-source Photoshop UXP plugin for local ComfyUI text-to-image, image-to-image, sketch-to-image, Flux1-dev fp8 testing, diagnostics, global cancel safety, history metadata, and experimental layer workflows.">
+    <meta property="og:description" content="OpenLayer v0.4.10-alpha is an open-source Photoshop UXP plugin for local ComfyUI text-to-image, image-to-image, sketch-to-image, pixel upscale testing, diagnostics, global cancel safety, history metadata, and experimental layer workflows.">
     <meta property="og:image" content="assets/openlayer-photoshop-mvp.png">
     <meta property="og:type" content="website">
     <link rel="icon" href="assets/openlayer-icon.png">
@@ -37,18 +37,18 @@
         <div class="hero-content">
           <div class="hero-mark">
             <img src="assets/openlayer-icon.png" alt="" width="72" height="72">
-            <span>Alpha v0.4.9</span>
+            <span>Alpha v0.4.10</span>
           </div>
           <h1 id="hero-title">OpenLayer - Open Source Photoshop ComfyUI Plugin</h1>
           <p class="hero-lede">
             OpenLayer is an open-source Photoshop UXP plugin for local ComfyUI
             workflows. The current alpha supports text-to-image, image-to-image,
-            sketch-to-image, PNG/lossless Photoshop source capture, workflow health
-            diagnostics, global cancel safety, session history metadata, and
+            sketch-to-image, experimental pixel upscale, PNG/lossless Photoshop source capture,
+            workflow health diagnostics, global cancel safety, session history metadata, and
             experimental layer tools for testing.
           </p>
           <p class="alpha-note">
-            Current release: <strong>v0.4.9-alpha</strong>. Built for testing, not production work yet.
+            Current release: <strong>v0.4.10-alpha</strong>. Built for testing, not production work yet.
           </p>
           <div class="hero-actions">
             <a class="button button-primary" href="https://github.com/MehranMarxian/OpenLayer">View on GitHub</a>
@@ -72,8 +72,8 @@
           </div>
           <p>
             OpenLayer starts with dependable local workflows: text-to-image generation,
-            image-to-image, a first Sketch to Image LINECN path, PNG/lossless source
-            capture, panel previews, diagnostics, and import into the active document.
+            image-to-image, a first Sketch to Image LINECN path, experimental pixel upscale,
+            PNG/lossless source capture, panel previews, diagnostics, and import into the active document.
             The goal is a clean base that can grow into deeper layer, mask, and selection
             workflows without rushing fake features.
           </p>
@@ -254,7 +254,7 @@ npm run build</code></pre>
           <div class="status-grid">
             <article class="status-card">
               <h3>Testing alpha</h3>
-              <p>OpenLayer v0.4.9-alpha is for local testing and feedback. It is not production-ready yet.</p>
+              <p>OpenLayer v0.4.10-alpha is for local testing and feedback. It is not production-ready yet.</p>
             </article>
             <article class="status-card">
               <h3>Inpaint is experimental</h3>
@@ -296,7 +296,8 @@ npm run build</code></pre>
             <li>Inpaint is experimental: source and mask export are available, but output quality and Photoshop alignment are still being tested.</li>
             <li>Flux Fill is experimental and not a fully validated production workflow.</li>
             <li>Prompt from Layer is experimental and requires the local Florence-2 PromptGen model plus text-output custom nodes.</li>
-            <li>Custom workflow import, LoRA browser, batch variants, upscaling, and persistent AI layer metadata are future work.</li>
+            <li>Upscale is experimental and uses pixel/model upscale only. Generative upscale, tiled diffusion, and creative enhancement are future work.</li>
+            <li>Custom workflow import, LoRA browser, batch variants, and persistent AI layer metadata are future work.</li>
             <li>CI does not run Photoshop, UXP, or ComfyUI integration tests.</li>
             <li>The browser dev server is only for UI preview. Photoshop APIs run inside UXP.</li>
             <li>Responsive panel spacing has been improved for testing, but final visual polish is still in progress.</li>
@@ -363,7 +364,7 @@ npm run build</code></pre>
     </main>
 
     <footer class="site-footer">
-      <p>OpenLayer v0.4.9-alpha. Developed by Mehran Ahmadi, 2026.</p>
+      <p>OpenLayer v0.4.10-alpha. Developed by Mehran Ahmadi, 2026.</p>
       <p>
         <a href="https://github.com/MehranMarxian">GitHub</a>
       </p>

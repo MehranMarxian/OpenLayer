@@ -11,7 +11,8 @@ const MODE_LABELS: Record<WorkflowPresetDefinition["mode"], string> = {
   sketch2img: "Sketch to Image",
   inpaint: "Inpaint",
   outpaint: "Outpaint",
-  prompt: "Prompt from Layer"
+  prompt: "Prompt from Layer",
+  upscale: "Upscale"
 };
 
 const DEFAULT_CONTROLS: Record<WorkflowPresetDefinition["mode"], readonly WorkflowControlId[]> = {
@@ -31,7 +32,8 @@ const DEFAULT_CONTROLS: Record<WorkflowPresetDefinition["mode"], readonly Workfl
     "outpaintBottom",
     "outpaintFeathering"
   ],
-  prompt: ["task", "numBeams", "seed"]
+  prompt: ["task", "numBeams", "seed"],
+  upscale: []
 };
 
 export function getWorkflowCapability(preset: WorkflowPresetDefinition): WorkflowCapability {
@@ -44,7 +46,9 @@ export function getWorkflowCapability(preset: WorkflowPresetDefinition): Workflo
       ? "diffusion-model-stack"
       : preset.modelSource.kind === "vision-language"
         ? "vision-language"
-        : "checkpoint";
+        : preset.modelSource.kind === "upscale"
+          ? "upscale"
+          : "checkpoint";
 
   return {
     toolType: preset.mode,
@@ -54,8 +58,22 @@ export function getWorkflowCapability(preset: WorkflowPresetDefinition): Workflo
     requiredPhotoshopInputs: [],
     controls: DEFAULT_CONTROLS[preset.mode],
     output: {
-      kind: preset.mode === "prompt" ? "prompt-text" : preset.mode === "txt2img" ? "full-image" : "source-sized-image",
-      size: preset.mode === "prompt" ? "none" : preset.mode === "txt2img" ? "preset" : "source",
+      kind:
+        preset.mode === "prompt"
+          ? "prompt-text"
+          : preset.mode === "txt2img"
+            ? "full-image"
+            : preset.mode === "upscale"
+              ? "upscaled-image"
+              : "source-sized-image",
+      size:
+        preset.mode === "prompt"
+          ? "none"
+          : preset.mode === "txt2img"
+            ? "preset"
+            : preset.mode === "upscale"
+              ? "upscaled"
+              : "source",
       importBehavior: preset.mode === "prompt" ? "none" : "new-layer"
     },
     uiHints: {

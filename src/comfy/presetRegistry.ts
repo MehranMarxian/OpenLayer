@@ -30,6 +30,13 @@ const FLORENCE_MODEL_SOURCE = {
   label: "Florence model"
 } as const;
 
+const UPSCALE_MODEL_SOURCE = {
+  kind: "upscale",
+  objectInfoNode: "UpscaleModelLoader",
+  inputName: "model_name",
+  label: "Upscale model"
+} as const;
+
 const Z_IMAGE_TURBO_STACK = [
   {
     kind: "diffusion-model-stack",
@@ -84,6 +91,16 @@ const FLORENCE2_PROMPTGEN_MODEL = {
   label: "Florence-2 PromptGen model",
   modelName: "Florence-2-base-PromptGen-v2.0",
   setupHint: "Install Florence-2-base-PromptGen-v2.0 where ComfyUI's Florence2ModelLoader can find it."
+} as const;
+
+const UPSCALE_BASIC_MODEL = {
+  kind: "upscale",
+  objectInfoNode: "UpscaleModelLoader",
+  inputName: "model_name",
+  label: "Upscale model",
+  modelName: "4x-UltraSharp.pth",
+  acceptedModelNames: ["RealESRGAN_x4plus.pth"],
+  setupHint: "Install 4x-UltraSharp.pth or RealESRGAN_x4plus.pth where ComfyUI's UpscaleModelLoader can find it."
 } as const;
 
 const TXT2IMG_BASIC_NODES = {
@@ -207,6 +224,13 @@ const PROMPT_FROM_LAYER_FLORENCE2_NODES = {
   showText: "45"
 } as const;
 
+const UPSCALE_BASIC_NODES = {
+  loadImage: "10",
+  upscaleModelLoader: "11",
+  imageUpscale: "12",
+  saveImage: "9"
+} as const;
+
 const TXT2IMG_BASIC_INJECTIONS = {
   checkpoint: target(TXT2IMG_BASIC_NODES.checkpointLoader, "ckpt_name"),
   positivePrompt: target(TXT2IMG_BASIC_NODES.positivePrompt, "text"),
@@ -316,6 +340,11 @@ const PROMPT_FROM_LAYER_FLORENCE2_INJECTIONS = {
   task: target(PROMPT_FROM_LAYER_FLORENCE2_NODES.florenceRun, "task"),
   numBeams: target(PROMPT_FROM_LAYER_FLORENCE2_NODES.florenceRun, "num_beams"),
   seed: target(PROMPT_FROM_LAYER_FLORENCE2_NODES.florenceRun, "seed")
+} as const;
+
+const UPSCALE_BASIC_INJECTIONS = {
+  sourceImage: target(UPSCALE_BASIC_NODES.loadImage, "image"),
+  checkpoint: target(UPSCALE_BASIC_NODES.upscaleModelLoader, "model_name")
 } as const;
 
 const FLUX_FILL_STACK = [
@@ -568,6 +597,26 @@ const PROMPT_FROM_LAYER_FLORENCE2_CAPABILITY: WorkflowCapability = {
   }
 };
 
+const UPSCALE_BASIC_CAPABILITY: WorkflowCapability = {
+  toolType: "upscale",
+  loaderType: "upscale",
+  artistLabel: "Upscale",
+  technicalLabel: "upscale-basic",
+  requiredPhotoshopInputs: [{ anyOf: ["active-layer", "canvas"], label: "an active layer or captured canvas" }],
+  controls: [],
+  output: {
+    kind: "upscaled-image",
+    size: "upscaled",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Upscale model",
+    primaryActionLabel: "Generate Upscale",
+    experimentalNote: "Pixel/model upscale only. No prompt or generative enhancement is used."
+  }
+};
+
 const FLUX1_DEV_TXT2IMG_CAPABILITY: WorkflowCapability = {
   toolType: "txt2img",
   loaderType: "diffusion-model-stack",
@@ -803,6 +852,45 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
         id: PROMPT_FROM_LAYER_FLORENCE2_NODES.showText,
         classType: "ShowText|pysssss",
         requiredInputs: ["text"]
+      }
+    ]
+  },
+  {
+    id: "upscale-basic",
+    label: "upscale-basic",
+    mode: "upscale",
+    description: "Experimental pixel upscale through ComfyUI UpscaleModelLoader and ImageUpscaleWithModel.",
+    workflowFile: "workflows/api/upscale-basic.json",
+    sourceWorkflowFile: "workflows/source/upscale-basic.workflow.json",
+    status: "experimental",
+    supportedModelFamilies: ["unknown"],
+    experimentalModelFamilies: ["sd1", "sdxl", "sd3", "flux", "zImage"],
+    modelSource: UPSCALE_MODEL_SOURCE,
+    capability: UPSCALE_BASIC_CAPABILITY,
+    requiredModels: [UPSCALE_BASIC_MODEL],
+    injections: UPSCALE_BASIC_INJECTIONS,
+    compatibilityNote:
+      "upscale-basic uses ComfyUI's pixel/model upscale path. It does not use prompts, checkpoints, or diffusion sampling.",
+    requiredNodes: [
+      {
+        id: UPSCALE_BASIC_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: UPSCALE_BASIC_NODES.upscaleModelLoader,
+        classType: "UpscaleModelLoader",
+        requiredInputs: ["model_name"]
+      },
+      {
+        id: UPSCALE_BASIC_NODES.imageUpscale,
+        classType: "ImageUpscaleWithModel",
+        requiredInputs: ["upscale_model", "image"]
+      },
+      {
+        id: UPSCALE_BASIC_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images", "filename_prefix"]
       }
     ]
   },

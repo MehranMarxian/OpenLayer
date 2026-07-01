@@ -35,7 +35,8 @@ import {
   buildOutpaintWorkflow,
   buildPromptFromLayerWorkflow,
   buildSketchToImageWorkflow,
-  buildTxt2ImgWorkflow
+  buildTxt2ImgWorkflow,
+  buildUpscaleWorkflow
 } from "../comfy/workflowBuilder";
 import {
   createWorkflowDiagnosticMessage,
@@ -83,7 +84,7 @@ import {
 } from "./historyMetadata";
 
 const DEFAULT_SERVER_URL = "http://127.0.0.1:8190";
-const APP_VERSION = "0.4.9";
+const APP_VERSION = "0.4.10";
 const DEVELOPER_GITHUB = "https://github.com/MehranMarxian";
 const HISTORY_LIMIT = 5;
 const COMFY_PORT_CANDIDATES = [8190, 8188, 8189, 8191, 8192, 8193, 7860];
@@ -92,6 +93,8 @@ const DEFAULT_IMAGE_WORKFLOW = "img2img-basic";
 const DEFAULT_SKETCH_WORKFLOW = "sketch2img-linecn-basic";
 const DEFAULT_INPAINT_WORKFLOW = "inpaint-basic";
 const DEFAULT_OUTPAINT_WORKFLOW = "outpaint-flux-fill-basic";
+const DEFAULT_UPSCALE_WORKFLOW = "upscale-basic";
+const FALLBACK_UPSCALE_MODELS = ["4x-UltraSharp.pth", "RealESRGAN_x4plus.pth"];
 const RECOMMENDED_SKETCH_CHECKPOINT = "epicrealism_naturalSinRC1VAE.safetensors";
 const DEFAULT_WIDTH = "512";
 const DEFAULT_HEIGHT = "512";
@@ -139,6 +142,7 @@ type AppView =
   | "inpaint"
   | "outpaint"
   | "prompt-from-layer"
+  | "upscale"
   | "settings"
   | "history";
 type ToolCardStatus = "available" | "experimental" | "coming-soon";
@@ -221,7 +225,8 @@ const TOOL_CARDS: ToolCard[] = [
     title: "Upscale",
     subtitle: "Enhance generated or selected layers",
     icon: "upscale",
-    status: "coming-soon"
+    status: "experimental",
+    view: "upscale"
   },
   {
     id: "style-reference",
@@ -277,6 +282,7 @@ type AppElements = {
   inpaintView: HTMLElement;
   outpaintView: HTMLElement;
   promptFromLayerView: HTMLElement;
+  upscaleView: HTMLElement;
   settingsView: HTMLElement;
   historyView: HTMLElement;
   homeStatusText: HTMLElement;
@@ -361,6 +367,14 @@ type AppElements = {
   generatePromptLayerButton: HTMLElement;
   copyPromptLayerButton: HTMLElement;
   sendPromptLayerButton: HTMLElement;
+  upscaleWorkflow: HTMLSelectElement;
+  upscaleModel: HTMLSelectElement;
+  captureUpscaleLayerButton: HTMLElement;
+  captureUpscaleCanvasButton: HTMLElement;
+  generateUpscaleButton: HTMLElement;
+  importUpscaleButton: HTMLElement;
+  upscaleAutoImportToggle: HTMLElement;
+  imgAutoImportToggle: HTMLElement;
   experimentalCheckpointToggle: HTMLElement;
   negativePromptToggle: HTMLElement;
   negativePromptField: HTMLElement;
@@ -386,8 +400,12 @@ type AppElements = {
   inpaintCompatibilityNote: HTMLElement;
   outpaintStatusText: HTMLElement;
   outpaintStatusPill: HTMLElement;
+  upscaleStatusText: HTMLElement;
+  upscaleStatusPill: HTMLElement;
   outpaintDiagnosticsText: HTMLElement;
   outpaintCompatibilityNote: HTMLElement;
+  upscaleDiagnosticsText: HTMLElement;
+  upscaleCompatibilityNote: HTMLElement;
   promptLayerDiagnosticsText: HTMLElement;
   settingsDiagnosticsText: HTMLElement;
   errorMessage: HTMLElement;
@@ -395,6 +413,7 @@ type AppElements = {
   sketchErrorMessage: HTMLElement;
   inpaintErrorMessage: HTMLElement;
   outpaintErrorMessage: HTMLElement;
+  upscaleErrorMessage: HTMLElement;
   promptLayerErrorMessage: HTMLElement;
   settingsErrorMessage: HTMLElement;
   previewPanel: HTMLElement;
@@ -416,6 +435,10 @@ type AppElements = {
   outpaintSourceTitle: HTMLElement;
   outpaintSourceMeta: HTMLElement;
   outpaintResultPreviewPanel: HTMLElement;
+  upscaleSourcePreviewPanel: HTMLElement;
+  upscaleSourceTitle: HTMLElement;
+  upscaleSourceMeta: HTMLElement;
+  upscaleResultPreviewPanel: HTMLElement;
   promptLayerSourcePreviewPanel: HTMLElement;
   promptLayerSourceTitle: HTMLElement;
   promptLayerSourceMeta: HTMLElement;
@@ -502,9 +525,16 @@ export function renderApp(rootElement: HTMLElement) {
   let outpaintSourcePreviewUrl = "";
   let outpaintResultPreviewUrl = "";
   let outpaintLivePreviewUrl = "";
+  let upscaleSource: ImageSourceState | null = null;
+  let upscaleResult: GeneratedImageResult | null = null;
+  let upscaleSourcePreviewUrl = "";
+  let upscaleResultPreviewUrl = "";
+  let upscaleLivePreviewUrl = "";
   let promptLayerSource: ImageSourceState | null = null;
   let promptLayerSourcePreviewUrl = "";
   let importAutomatically = false;
+  let imageImportAutomatically = false;
+  let upscaleImportAutomatically = false;
   let isNegativePromptOpen = false;
   let allowExperimentalCheckpoints = false;
   let activeGeneration: ActiveGeneration | null = null;
@@ -524,7 +554,9 @@ export function renderApp(rootElement: HTMLElement) {
       inpaintResult,
       inpaintSource,
       outpaintResult,
-      outpaintSource
+      outpaintSource,
+      upscaleResult,
+      upscaleSource
     );
   }
 
@@ -557,6 +589,7 @@ export function renderApp(rootElement: HTMLElement) {
     ),
     generateImg2Img: createActionRunner(elements, "generateImg2Img", handleGenerateImg2Img),
     importImg2Img: createActionRunner(elements, "importImg2Img", handleImportImg2Img),
+    toggleImg2ImgAutoImport: createActionRunner(elements, "toggleImg2ImgAutoImport", handleToggleImg2ImgAutoImport),
     captureSketchSource: createActionRunner(elements, "captureSketchSource", handleCaptureSketchSource),
     captureSketchCanvasSource: createActionRunner(elements, "captureSketchCanvasSource", handleCaptureSketchCanvasSource),
     generateSketch: createActionRunner(elements, "generateSketch", handleGenerateSketch),
@@ -586,6 +619,11 @@ export function renderApp(rootElement: HTMLElement) {
     generatePromptFromLayer: createActionRunner(elements, "generatePromptFromLayer", handleGeneratePromptFromLayer),
     copyPromptFromLayer: createActionRunner(elements, "copyPromptFromLayer", handleCopyPromptFromLayer),
     sendPromptToTextToImage: createActionRunner(elements, "sendPromptToTextToImage", handleSendPromptToTextToImage),
+    captureUpscaleSource: createActionRunner(elements, "captureUpscaleSource", handleCaptureUpscaleSource),
+    captureUpscaleCanvasSource: createActionRunner(elements, "captureUpscaleCanvasSource", handleCaptureUpscaleCanvasSource),
+    generateUpscale: createActionRunner(elements, "generateUpscale", handleGenerateUpscale),
+    importUpscale: createActionRunner(elements, "importUpscale", handleImportUpscale),
+    toggleUpscaleAutoImport: createActionRunner(elements, "toggleUpscaleAutoImport", handleToggleUpscaleAutoImport),
     clearHistory: createActionRunner(elements, "clearHistory", handleClearHistory)
   };
 
@@ -606,6 +644,7 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.experimentalCheckpointToggle, actionHandlers.toggleExperimentalCheckpoints);
   bindActionControl(elements.generateImg2ImgButton, actionHandlers.generateImg2Img);
   bindActionControl(elements.importImg2ImgButton, actionHandlers.importImg2Img);
+  bindActionControl(elements.imgAutoImportToggle, actionHandlers.toggleImg2ImgAutoImport);
   bindActionControl(elements.captureSketchLayerButton, actionHandlers.captureSketchSource);
   bindActionControl(elements.captureSketchCanvasButton, actionHandlers.captureSketchCanvasSource);
   bindActionControl(elements.generateSketchButton, actionHandlers.generateSketch);
@@ -623,6 +662,11 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.generatePromptLayerButton, actionHandlers.generatePromptFromLayer);
   bindActionControl(elements.copyPromptLayerButton, actionHandlers.copyPromptFromLayer);
   bindActionControl(elements.sendPromptLayerButton, actionHandlers.sendPromptToTextToImage);
+  bindActionControl(elements.captureUpscaleLayerButton, actionHandlers.captureUpscaleSource);
+  bindActionControl(elements.captureUpscaleCanvasButton, actionHandlers.captureUpscaleCanvasSource);
+  bindActionControl(elements.generateUpscaleButton, actionHandlers.generateUpscale);
+  bindActionControl(elements.importUpscaleButton, actionHandlers.importUpscale);
+  bindActionControl(elements.upscaleAutoImportToggle, actionHandlers.toggleUpscaleAutoImport);
   bindActionControl(elements.clearHistoryButton, actionHandlers.clearHistory);
   bindDelegatedActions(rootElement, actionHandlers);
   bindDocumentActions(rootElement, actionHandlers);
@@ -636,6 +680,8 @@ export function renderApp(rootElement: HTMLElement) {
   syncBusy();
   updateNegativePromptDisclosure(elements, isNegativePromptOpen);
   updateAutoImportToggle(elements, importAutomatically);
+  updateImg2ImgAutoImportToggle(elements, imageImportAutomatically);
+  updateUpscaleAutoImportToggle(elements, upscaleImportAutomatically);
   updateExperimentalCheckpointToggle(elements, allowExperimentalCheckpoints);
   updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
   setImageSource(null);
@@ -649,6 +695,9 @@ export function renderApp(rootElement: HTMLElement) {
   updateOutpaintCheckpointCompatibility(elements, outpaintSource);
   setOutpaintSource(null);
   setOutpaintResult(null);
+  updateUpscaleCompatibility(elements, upscaleSource);
+  setUpscaleSource(null);
+  setUpscaleResult(null);
   setPromptLayerSource(null);
   updateSettingsReport(elements);
   renderHardwareReport(elements, hardwareReport);
@@ -700,6 +749,16 @@ export function renderApp(rootElement: HTMLElement) {
     updateOutpaintCheckpointCompatibility(elements, outpaintSource);
   });
 
+  elements.upscaleWorkflow.addEventListener("change", () => {
+    void refreshUpscaleModelOptionsForSelectedPreset(elements).then(() => (
+      updateUpscaleCompatibility(elements, upscaleSource)
+    ));
+  });
+
+  elements.upscaleModel.addEventListener("change", () => {
+    updateUpscaleCompatibility(elements, upscaleSource);
+  });
+
   async function loadInitialCheckpoints() {
     setStatus(elements, "Loading ComfyUI models...", "idle");
 
@@ -711,10 +770,12 @@ export function renderApp(rootElement: HTMLElement) {
       await refreshImageModelOptionsForSelectedPreset(elements, client);
       await refreshInpaintModelOptionsForSelectedPreset(elements, client);
       await refreshOutpaintModelOptionsForSelectedPreset(elements, client);
+      await refreshUpscaleModelOptionsForSelectedPreset(elements, client);
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
       updateSketchCheckpointCompatibility(elements, sketchSource);
       updateInpaintCheckpointCompatibility(elements, inpaintSource);
       updateOutpaintCheckpointCompatibility(elements, outpaintSource);
+      updateUpscaleCompatibility(elements, upscaleSource);
       setStatus(elements, "ComfyUI is online. Models loaded.", "ready");
       savePreferencesFromElements(elements);
       updateSettingsReport(elements);
@@ -738,10 +799,12 @@ export function renderApp(rootElement: HTMLElement) {
       await refreshImageModelOptionsForSelectedPreset(elements, client);
       await refreshInpaintModelOptionsForSelectedPreset(elements, client);
       await refreshOutpaintModelOptionsForSelectedPreset(elements, client);
+      await refreshUpscaleModelOptionsForSelectedPreset(elements, client);
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
       updateSketchCheckpointCompatibility(elements, sketchSource);
       updateInpaintCheckpointCompatibility(elements, inpaintSource);
       updateOutpaintCheckpointCompatibility(elements, outpaintSource);
+      updateUpscaleCompatibility(elements, upscaleSource);
       setStatus(elements, "ComfyUI is online. Models loaded.", "ready");
       savePreferencesFromElements(elements);
       updateSettingsReport(elements);
@@ -777,10 +840,12 @@ export function renderApp(rootElement: HTMLElement) {
       await refreshImageModelOptionsForSelectedPreset(elements, client);
       await refreshInpaintModelOptionsForSelectedPreset(elements, client);
       await refreshOutpaintModelOptionsForSelectedPreset(elements, client);
+      await refreshUpscaleModelOptionsForSelectedPreset(elements, client);
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
       updateSketchCheckpointCompatibility(elements, sketchSource);
       updateInpaintCheckpointCompatibility(elements, inpaintSource);
       updateOutpaintCheckpointCompatibility(elements, outpaintSource);
+      updateUpscaleCompatibility(elements, upscaleSource);
       savePreferencesFromElements(elements);
       setStatus(elements, `Found ComfyUI at ${foundUrl}.`, "ready");
       setDiagnostics(elements, `Active ComfyUI server selected: ${foundUrl}.`);
@@ -891,6 +956,9 @@ export function renderApp(rootElement: HTMLElement) {
     updateSketchCheckpointCompatibility(elements, sketchSource);
     updateInpaintCheckpointCompatibility(elements, inpaintSource);
     updateOutpaintCheckpointCompatibility(elements, outpaintSource);
+    elements.upscaleWorkflow.value = DEFAULT_UPSCALE_WORKFLOW;
+    fillSingleCheckpointSelect(elements.upscaleModel, FALLBACK_UPSCALE_MODELS, FALLBACK_UPSCALE_MODELS[0]);
+    updateUpscaleCompatibility(elements, upscaleSource);
     setError(elements, "");
     setStatus(elements, "Settings reset to OpenLayer defaults.", "ready");
     setDiagnostics(elements, "Defaults restored. Click Check ComfyUI to reload available models.");
@@ -906,6 +974,18 @@ export function renderApp(rootElement: HTMLElement) {
     importAutomatically = !importAutomatically;
     updateAutoImportToggle(elements, importAutomatically);
     setDiagnostics(elements, importAutomatically ? "Auto import is on." : "Auto import is off.");
+  }
+
+  function handleToggleImg2ImgAutoImport() {
+    imageImportAutomatically = !imageImportAutomatically;
+    updateImg2ImgAutoImportToggle(elements, imageImportAutomatically);
+    setImageDiagnostics(elements, imageImportAutomatically ? "Image to Image auto import is on." : "Image to Image auto import is off.");
+  }
+
+  function handleToggleUpscaleAutoImport() {
+    upscaleImportAutomatically = !upscaleImportAutomatically;
+    updateUpscaleAutoImportToggle(elements, upscaleImportAutomatically);
+    setUpscaleDiagnostics(elements, upscaleImportAutomatically ? "Upscale auto import is on." : "Upscale auto import is off.");
   }
 
   function handleToggleExperimentalCheckpoints() {
@@ -958,6 +1038,9 @@ export function renderApp(rootElement: HTMLElement) {
       case "outpaint":
         setOutpaintStatus(elements, status, tone);
         return;
+      case "upscale":
+        setUpscaleStatus(elements, status, tone);
+        return;
       case "prompt-from-layer":
         setPromptLayerStatus(elements, status, tone);
         return;
@@ -980,6 +1063,9 @@ export function renderApp(rootElement: HTMLElement) {
         return;
       case "outpaint":
         setOutpaintDiagnostics(elements, message);
+        return;
+      case "upscale":
+        setUpscaleDiagnostics(elements, message);
         return;
       case "prompt-from-layer":
         setPromptLayerDiagnostics(elements, message);
@@ -1004,6 +1090,9 @@ export function renderApp(rootElement: HTMLElement) {
       case "outpaint":
         setOutpaintProgressPreview(elements, message);
         return;
+      case "upscale":
+        setUpscaleProgressPreview(elements, message);
+        return;
       case "prompt-from-layer":
         return;
       case "text-to-image":
@@ -1025,6 +1114,9 @@ export function renderApp(rootElement: HTMLElement) {
         return;
       case "outpaint":
         setOutpaintError(elements, "");
+        return;
+      case "upscale":
+        setUpscaleError(elements, "");
         return;
       case "prompt-from-layer":
         setPromptLayerError(elements, "");
@@ -1265,6 +1357,7 @@ export function renderApp(rootElement: HTMLElement) {
     setSketchError(elements, "");
     setInpaintError(elements, "");
     setOutpaintError(elements, "");
+    setUpscaleError(elements, "");
 
     switch (entry.toolType) {
       case "image-to-image":
@@ -1282,6 +1375,10 @@ export function renderApp(rootElement: HTMLElement) {
       case "outpaint":
         setOutpaintResult(entry.result);
         setView("outpaint");
+        return;
+      case "upscale":
+        setUpscaleResult(entry.result);
+        setView("upscale");
         return;
       case "text-to-image":
       default:
@@ -1303,6 +1400,9 @@ export function renderApp(rootElement: HTMLElement) {
         return;
       case "outpaint":
         await handleImportOutpaint();
+        return;
+      case "upscale":
+        await handleImportUpscale();
         return;
       case "text-to-image":
       default:
@@ -1339,6 +1439,11 @@ export function renderApp(rootElement: HTMLElement) {
         setSelectValueIfPresent(elements.outpaintCheckpoint, entry.modelName);
         elements.outpaintSeed.value = String(entry.seed);
         setView("outpaint");
+        break;
+      case "upscale":
+        setSelectValueIfPresent(elements.upscaleWorkflow, entry.workflowPreset);
+        setSelectValueIfPresent(elements.upscaleModel, entry.modelName);
+        setView("upscale");
         break;
       case "text-to-image":
       default:
@@ -1597,6 +1702,12 @@ export function renderApp(rootElement: HTMLElement) {
         elements,
         `Seed used: ${buildResult.seed}. Source uploaded as ${sourceImageName}. Workflow: ${buildResult.preset.id}.`
       );
+
+      if (imageImportAutomatically) {
+        setImageStatus(elements, "Image to Image complete. Auto-importing...", "idle");
+        setImageDiagnostics(elements, `Seed used: ${buildResult.seed}. Auto import is on.`);
+        await importImg2ImgResult("auto", false);
+      }
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
         showGenerationCancelled("image-to-image", activeRun?.promptId);
@@ -1616,7 +1727,11 @@ export function renderApp(rootElement: HTMLElement) {
   }
 
   async function handleImportImg2Img() {
-    setImageDiagnostics(elements, "Image to Image import pressed.");
+    await importImg2ImgResult("manual", true);
+  }
+
+  async function importImg2ImgResult(source: "manual" | "auto", manageBusy: boolean) {
+    setImageDiagnostics(elements, source === "auto" ? "Image to Image auto import started." : "Image to Image import pressed.");
 
     if (!imageResult) {
       setImageError(elements, "Generate an Image to Image result before importing.");
@@ -1624,8 +1739,10 @@ export function renderApp(rootElement: HTMLElement) {
     }
 
     setImageError(elements, "");
-    isBusy = true;
-    syncBusy();
+    if (manageBusy) {
+      isBusy = true;
+      syncBusy();
+    }
     setImageStatus(elements, "Importing Image to Image result into Photoshop...", "idle");
 
     try {
@@ -1644,8 +1761,245 @@ export function renderApp(rootElement: HTMLElement) {
       setImageStatus(elements, "Import failed.", "error");
       setImageError(elements, getErrorMessage(caughtError));
     } finally {
+      if (manageBusy) {
+        isBusy = false;
+        syncBusy();
+      }
+    }
+  }
+
+  async function handleCaptureUpscaleSource() {
+    await captureUpscaleSourceImage({
+      progressMessage: "Capturing active Photoshop layer for Upscale...",
+      statusMessage: "Capturing active layer...",
+      successMessage: "Upscale source captured.",
+      capture: exportActiveLayerForImageToImage
+    });
+  }
+
+  async function handleCaptureUpscaleCanvasSource() {
+    await captureUpscaleSourceImage({
+      progressMessage: "Capturing Photoshop canvas for Upscale...",
+      statusMessage: "Capturing canvas...",
+      successMessage: "Upscale canvas captured.",
+      capture: exportCanvasForImageToImage
+    });
+  }
+
+  async function captureUpscaleSourceImage(options: {
+    progressMessage: string;
+    statusMessage: string;
+    successMessage: string;
+    capture: () => Promise<ExportedSourceImage>;
+  }) {
+    setUpscaleDiagnostics(elements, options.progressMessage);
+    setUpscaleError(elements, "");
+    setUpscaleStatus(elements, options.statusMessage, "idle");
+    isBusy = true;
+    syncBusy();
+
+    try {
+      const exportedSource = await options.capture();
+      const sourcePreview = URL.createObjectURL(exportedSource.blob);
+      setUpscaleSource({
+        ...exportedSource,
+        previewUrl: sourcePreview
+      });
+      setUpscaleStatus(elements, options.successMessage, "ready");
+      setUpscaleDiagnostics(
+        elements,
+        `${createSourceCaptureMessage(exportedSource, " for pixel upscale")} Select an upscale model, then generate.`
+      );
+    } catch (caughtError) {
+      setUpscaleStatus(elements, "Source capture failed.", "error");
+      setUpscaleError(elements, getErrorMessage(caughtError));
+      setUpscaleDiagnostics(elements, getTechnicalErrorDetails(caughtError));
+    } finally {
       isBusy = false;
       syncBusy();
+    }
+  }
+
+  async function handleGenerateUpscale() {
+    setUpscaleDiagnostics(elements, `Upscale generate pressed at ${new Date().toLocaleTimeString()}.`);
+
+    if (!upscaleSource) {
+      setUpscaleError(elements, "Capture the active Photoshop layer or canvas before upscaling.");
+      setUpscaleStatus(elements, "Source required.", "error");
+      setUpscaleDiagnostics(
+        elements,
+        createWorkflowDiagnostics(
+          getWorkflowPreset(readSelectValue(elements.upscaleWorkflow, DEFAULT_UPSCALE_WORKFLOW)),
+          readSelectValue(elements.upscaleModel),
+          createSourceInputAvailability(upscaleSource)
+        )
+      );
+      return;
+    }
+
+    setUpscaleError(elements, "");
+    setUpscaleResult(null);
+    isBusy = true;
+    syncBusy();
+    setUpscaleStatus(elements, "Preparing Upscale workflow...", "idle");
+    setUpscaleProgressPreview(elements, "Preparing Upscale workflow...");
+    let progressWatcher: ReturnType<ComfyClient["watchProgress"]> | null = null;
+    let activeRun: ActiveGeneration | null = null;
+
+    try {
+      const workflowPreset = readSelectValue(elements.upscaleWorkflow, DEFAULT_UPSCALE_WORKFLOW);
+      const preset = getWorkflowPreset(workflowPreset);
+      const modelName = readSelectValue(elements.upscaleModel);
+      const client = new ComfyClient(elements.serverUrl.value);
+
+      setUpscaleDiagnostics(elements, createWorkflowDiagnostics(preset, modelName, createSourceInputAvailability(upscaleSource)));
+      await client.checkOnline();
+
+      if (!modelName) {
+        throw createOpenLayerError("CHECKPOINT_REQUIRED", "Choose a ComfyUI upscale model before generating.");
+      }
+
+      setUpscaleStatus(elements, "Checking selected upscale model...", "idle");
+      setUpscaleProgressPreview(elements, "Checking selected upscale model...");
+
+      if (!(await client.hasModelForPreset(modelName, preset))) {
+        throw createOpenLayerError(
+          "CHECKPOINT_REQUIRED",
+          `The ${preset.modelSource.label.toLowerCase()} "${modelName}" was not found in ComfyUI. Click Check ComfyUI and choose an available upscale model.`
+        );
+      }
+
+      setUpscaleStatus(elements, "Uploading source image to ComfyUI...", "idle");
+      setUpscaleProgressPreview(elements, "Uploading source image...");
+      const sourceImageName = await client.uploadImage(upscaleSource.blob, upscaleSource.filename);
+      const buildResult = await buildUpscaleWorkflow({
+        presetId: preset.id,
+        sourceImageName,
+        modelName
+      });
+
+      setUpscaleStatus(elements, "Submitting Upscale prompt...", "idle");
+      setUpscaleProgressPreview(elements, "Submitting prompt to ComfyUI...");
+      const promptId = await client.submitPrompt(buildResult.workflow);
+      activeRun = beginActiveGeneration("upscale", client, promptId);
+      let hasLivePreview = false;
+      progressWatcher = client.watchProgress(promptId, {
+        onStatus: (message) => {
+          setUpscaleStatus(elements, message, "idle");
+
+          if (!hasLivePreview) {
+            setUpscaleProgressPreview(elements, message);
+          }
+        },
+        onPreviewBlob: (blob) => {
+          hasLivePreview = true;
+          setUpscaleProgressPreview(elements, "Live ComfyUI preview...", blob);
+        },
+        onError: (message) => setUpscaleDiagnostics(elements, message)
+      });
+      activeRun.watcher = progressWatcher;
+
+      setUpscaleStatus(elements, "Upscaling image...", "idle");
+      setUpscaleProgressPreview(elements, "Upscaling image...");
+      const history = await client.pollUntilComplete(promptId, {
+        onTick: (message) => {
+          setUpscaleStatus(elements, message, "idle");
+
+          if (!hasLivePreview) {
+            setUpscaleProgressPreview(elements, message);
+          }
+        },
+        isCancelled: () => Boolean(activeRun?.isCancelled)
+      });
+      progressWatcher?.close();
+      progressWatcher = null;
+      activeRun.watcher = null;
+
+      setUpscaleStatus(elements, "Retrieving Upscale result...", "idle");
+      setUpscaleProgressPreview(elements, "Retrieving final image...");
+      const generatedResult = await client.retrieveFirstOutputImage(promptId, history, {
+        preferredNodeId: getSaveImageNodeId(buildResult.preset)
+      });
+      setUpscaleResult(generatedResult);
+      addHistoryEntry(elements, historyEntries, generatedResult, {
+        prompt: `Upscale ${upscaleSource.sourceName}`,
+        checkpointName: modelName,
+        modelName,
+        workflowPreset: buildResult.preset.id,
+        toolType: "upscale",
+        seed: 0,
+        sizeLabel: "Upscale",
+        dimensions: `${upscaleSource.width} x ${upscaleSource.height} source`,
+        sourceMode: upscaleSource.sourceName
+      });
+      setUpscaleStatus(elements, "Upscale generation complete.", "ready");
+      setUpscaleDiagnostics(
+        elements,
+        `Source uploaded as ${sourceImageName}. Upscale model: ${modelName}. Workflow: ${buildResult.preset.id}.`
+      );
+
+      if (upscaleImportAutomatically) {
+        setUpscaleStatus(elements, "Upscale complete. Auto-importing...", "idle");
+        setUpscaleDiagnostics(elements, `Upscale model: ${modelName}. Auto import is on.`);
+        await importUpscaleResult("auto", false);
+      }
+    } catch (caughtError) {
+      if (isGenerationCancelledError(caughtError)) {
+        showGenerationCancelled("upscale", activeRun?.promptId);
+        return;
+      }
+
+      setUpscaleStatus(elements, "Upscale generation failed.", "error");
+      setUpscaleError(elements, getFriendlyUpscaleErrorMessage(caughtError));
+      console.error("[OpenLayer] Upscale generation failed", getTechnicalErrorDetails(caughtError));
+      setUpscaleDiagnostics(elements, getUpscaleFailureHint(caughtError));
+    } finally {
+      progressWatcher?.close();
+      finishActiveGeneration(activeRun);
+      isBusy = false;
+      syncBusy();
+    }
+  }
+
+  async function handleImportUpscale() {
+    await importUpscaleResult("manual", true);
+  }
+
+  async function importUpscaleResult(source: "manual" | "auto", manageBusy: boolean) {
+    setUpscaleDiagnostics(elements, source === "auto" ? "Upscale auto import started." : "Upscale import pressed.");
+
+    if (!upscaleResult) {
+      setUpscaleError(elements, "Generate an Upscale result before importing.");
+      return;
+    }
+
+    setUpscaleError(elements, "");
+    if (manageBusy) {
+      isBusy = true;
+      syncBusy();
+    }
+    setUpscaleStatus(elements, "Importing Upscale result into Photoshop...", "idle");
+
+    try {
+      const documentInfo = await getActiveDocumentInfo();
+      const layerName = createLayerName("OpenLayer_Upscale");
+
+      setUpscaleDiagnostics(elements, `Importing into ${documentInfo.name || "active document"}...`);
+      const importedLayerName = await importGeneratedImageAsLayer(upscaleResult.blob, layerName, (message) => {
+        setUpscaleStatus(elements, message, "idle");
+        setUpscaleDiagnostics(elements, message);
+      });
+      setUpscaleStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
+      setUpscaleDiagnostics(elements, `Layer created: ${importedLayerName}`);
+      markHistoryImported(elements, historyEntries, upscaleResult, importedLayerName);
+    } catch (caughtError) {
+      setUpscaleStatus(elements, "Import failed.", "error");
+      setUpscaleError(elements, getErrorMessage(caughtError));
+    } finally {
+      if (manageBusy) {
+        isBusy = false;
+        syncBusy();
+      }
     }
   }
 
@@ -3198,6 +3552,95 @@ export function renderApp(rootElement: HTMLElement) {
     elements.outpaintResultPreviewPanel.append(progress);
   }
 
+  function setUpscaleSource(nextSource: ImageSourceState | null) {
+    if (upscaleSourcePreviewUrl) {
+      URL.revokeObjectURL(upscaleSourcePreviewUrl);
+      upscaleSourcePreviewUrl = "";
+    }
+
+    upscaleSource = nextSource;
+    elements.upscaleSourcePreviewPanel.innerHTML = "";
+
+    if (!upscaleSource) {
+      const empty = document.createElement("span");
+      empty.className = "source-empty";
+      empty.textContent = "None";
+      elements.upscaleSourcePreviewPanel.append(empty);
+      elements.upscaleSourceTitle.textContent = "No source captured";
+      elements.upscaleSourceMeta.textContent = "Choose active layer or full canvas.";
+      updateUpscaleCompatibility(elements, upscaleSource);
+      syncBusy();
+      return;
+    }
+
+    upscaleSourcePreviewUrl = upscaleSource.previewUrl;
+    const image = document.createElement("img");
+    image.src = upscaleSourcePreviewUrl;
+    image.alt = "Captured Photoshop source for Upscale";
+    elements.upscaleSourcePreviewPanel.append(image);
+    elements.upscaleSourceTitle.textContent = upscaleSource.sourceName;
+    elements.upscaleSourceMeta.textContent = createSourceMetaText(upscaleSource);
+    updateUpscaleCompatibility(elements, upscaleSource);
+    syncBusy();
+  }
+
+  function setUpscaleResult(nextResult: GeneratedImageResult | null) {
+    if (upscaleResultPreviewUrl) {
+      URL.revokeObjectURL(upscaleResultPreviewUrl);
+      upscaleResultPreviewUrl = "";
+    }
+
+    if (upscaleLivePreviewUrl) {
+      URL.revokeObjectURL(upscaleLivePreviewUrl);
+      upscaleLivePreviewUrl = "";
+    }
+
+    upscaleResult = nextResult;
+    elements.upscaleResultPreviewPanel.innerHTML = "";
+
+    if (!upscaleResult) {
+      const empty = document.createElement("span");
+      empty.className = "preview-empty";
+      empty.textContent = "No Upscale result yet";
+      elements.upscaleResultPreviewPanel.append(empty);
+      syncBusy();
+      return;
+    }
+
+    upscaleResultPreviewUrl = URL.createObjectURL(upscaleResult.blob);
+    const image = document.createElement("img");
+    image.src = upscaleResultPreviewUrl;
+    image.alt = "Generated Upscale preview";
+    elements.upscaleResultPreviewPanel.append(image);
+    syncBusy();
+  }
+
+  function setUpscaleProgressPreview(elements: AppElements, message: string, blob?: Blob) {
+    if (upscaleResult) {
+      return;
+    }
+
+    elements.upscaleResultPreviewPanel.innerHTML = "";
+
+    if (blob) {
+      if (upscaleLivePreviewUrl) {
+        URL.revokeObjectURL(upscaleLivePreviewUrl);
+      }
+
+      upscaleLivePreviewUrl = URL.createObjectURL(blob);
+      const image = document.createElement("img");
+      image.src = upscaleLivePreviewUrl;
+      image.alt = "Live ComfyUI Upscale preview";
+      elements.upscaleResultPreviewPanel.append(image);
+      return;
+    }
+
+    const progress = document.createElement("span");
+    progress.className = "preview-empty";
+    progress.textContent = message;
+    elements.upscaleResultPreviewPanel.append(progress);
+  }
+
   function setPromptLayerSource(nextSource: ImageSourceState | null) {
     if (promptLayerSourcePreviewUrl) {
       URL.revokeObjectURL(promptLayerSourcePreviewUrl);
@@ -3235,6 +3678,7 @@ export function renderApp(rootElement: HTMLElement) {
     elements.inpaintView.hidden = currentView !== "inpaint";
     elements.outpaintView.hidden = currentView !== "outpaint";
     elements.promptFromLayerView.hidden = currentView !== "prompt-from-layer";
+    elements.upscaleView.hidden = currentView !== "upscale";
     elements.settingsView.hidden = currentView !== "settings";
     elements.historyView.hidden = currentView !== "history";
 
@@ -3604,6 +4048,7 @@ function createAppMarkup() {
           </div>
           <div class="import-actions">
             <button class="button button-import button-import-blue action-control is-disabled" id="import-img2img-result" data-openlayer-action="importImg2Img" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
+            <button class="button auto-import-toggle action-control" id="img2img-auto-import-toggle" data-openlayer-action="toggleImg2ImgAutoImport" type="button" aria-pressed="false">Import Automatically</button>
           </div>
         </section>
 
@@ -3936,6 +4381,81 @@ function createAppMarkup() {
         </section>
       </section>
 
+      <section class="upscale-view image-to-image-view" id="upscale-view" aria-label="Upscale" hidden>
+        <div class="screen-nav">
+          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
+          <div class="screen-title-block">
+            <span class="screen-kicker">UP</span>
+            <span class="screen-title">Upscale</span>
+          </div>
+        </div>
+
+        <div class="tool-warning" role="note">
+          Experimental: Upscale uses pixel/model enlargement only. It does not reinterpret prompts or run diffusion sampling.
+        </div>
+
+        <section class="panel-section generator-panel source-panel" aria-label="Upscale source">
+          <div class="section-heading">
+            <span class="label">Source layer</span>
+            <span class="muted-label">Pixel upscale input</span>
+          </div>
+          <div class="source-action-row" aria-label="Upscale source capture actions">
+            <button class="button source-action-button action-control" id="capture-upscale-source" data-openlayer-action="captureUpscaleSource" type="button">Capture Active Layer</button>
+            <button class="button source-action-button action-control" id="capture-upscale-canvas-source" data-openlayer-action="captureUpscaleCanvasSource" type="button">Capture Canvas</button>
+          </div>
+          <div class="source-card">
+            <div class="source-thumb-frame" id="upscale-source-preview-panel">
+              <span class="source-empty">None</span>
+            </div>
+            <div class="source-card-body">
+              <span class="source-title" id="upscale-source-title">No source captured</span>
+              <span class="source-card-meta" id="upscale-source-meta">Choose active layer or full canvas.</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel-section generator-panel img2img-form-panel" aria-label="Upscale settings">
+          <div class="field img2img-field">
+            <span class="label">Workflow</span>
+            <select class="select" id="upscale-workflow">
+              ${listRunnableWorkflowPresets("upscale").map((preset) => `<option value="${preset.id}">${preset.label}</option>`).join("")}
+            </select>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Upscale model</span>
+            <select class="select" id="upscale-model">
+              ${FALLBACK_UPSCALE_MODELS.map((model) => `<option value="${model}">${model}</option>`).join("")}
+            </select>
+            <span class="compatibility-note" id="upscale-compatibility-note">upscale-basic needs UpscaleModelLoader and ImageUpscaleWithModel in ComfyUI.</span>
+          </div>
+          <button class="button button-primary button-generate button-wide action-control" id="generate-upscale" data-openlayer-action="generateUpscale" type="button">Generate Upscale</button>
+          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
+        </section>
+
+        <section class="generation-status-panel img2img-status-panel" aria-label="Upscale status">
+          <div class="status-bar" role="status">
+            <span class="status-text" id="upscale-status-text">Ready.</span>
+            <span class="status-pill idle" id="upscale-status-pill">Status</span>
+          </div>
+          <div class="diagnostics-line" id="upscale-diagnostics-text">Capture a source, then upscale with a ComfyUI upscale model.</div>
+          <div class="error-message" id="upscale-error-message" hidden></div>
+        </section>
+
+        <section class="panel-section result-panel img2img-result-panel" aria-label="Upscale result">
+          <div class="section-heading">
+            <span class="label">Result preview</span>
+            <span class="muted-label">Generated upscale appears here</span>
+          </div>
+          <div class="preview-panel" id="upscale-result-preview-panel">
+            <span class="preview-empty">No Upscale result yet</span>
+          </div>
+          <div class="import-actions">
+            <button class="button button-import button-import-blue action-control is-disabled" id="import-upscale-result" data-openlayer-action="importUpscale" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
+            <button class="button auto-import-toggle action-control" id="upscale-auto-import-toggle" data-openlayer-action="toggleUpscaleAutoImport" type="button" aria-pressed="false">Import Automatically</button>
+          </div>
+        </section>
+      </section>
+
       <section class="history-view" id="history-view" aria-label="History" hidden>
         <div class="screen-nav">
           <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
@@ -4037,6 +4557,7 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     inpaintView: getElement<HTMLElement>(rootElement, "inpaint-view"),
     outpaintView: getElement<HTMLElement>(rootElement, "outpaint-view"),
     promptFromLayerView: getElement<HTMLElement>(rootElement, "prompt-from-layer-view"),
+    upscaleView: getElement<HTMLElement>(rootElement, "upscale-view"),
     settingsView: getElement<HTMLElement>(rootElement, "settings-view"),
     historyView: getElement<HTMLElement>(rootElement, "history-view"),
     homeStatusText: getElement<HTMLElement>(rootElement, "home-status-text"),
@@ -4121,6 +4642,14 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     generatePromptLayerButton: getElement<HTMLElement>(rootElement, "generate-prompt-from-layer"),
     copyPromptLayerButton: getElement<HTMLElement>(rootElement, "copy-prompt-from-layer"),
     sendPromptLayerButton: getElement<HTMLElement>(rootElement, "send-prompt-to-text-to-image"),
+    upscaleWorkflow: getElement<HTMLSelectElement>(rootElement, "upscale-workflow"),
+    upscaleModel: getElement<HTMLSelectElement>(rootElement, "upscale-model"),
+    captureUpscaleLayerButton: getElement<HTMLElement>(rootElement, "capture-upscale-source"),
+    captureUpscaleCanvasButton: getElement<HTMLElement>(rootElement, "capture-upscale-canvas-source"),
+    generateUpscaleButton: getElement<HTMLElement>(rootElement, "generate-upscale"),
+    importUpscaleButton: getElement<HTMLElement>(rootElement, "import-upscale-result"),
+    upscaleAutoImportToggle: getElement<HTMLElement>(rootElement, "upscale-auto-import-toggle"),
+    imgAutoImportToggle: getElement<HTMLElement>(rootElement, "img2img-auto-import-toggle"),
     experimentalCheckpointToggle: getElement<HTMLElement>(rootElement, "experimental-checkpoint-toggle"),
     negativePromptToggle: getElement<HTMLElement>(rootElement, "negative-prompt-toggle"),
     negativePromptField: getElement<HTMLElement>(rootElement, "negative-prompt-field"),
@@ -4146,8 +4675,12 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     inpaintCompatibilityNote: getElement<HTMLElement>(rootElement, "inpaint-compatibility-note"),
     outpaintStatusText: getElement<HTMLElement>(rootElement, "outpaint-status-text"),
     outpaintStatusPill: getElement<HTMLElement>(rootElement, "outpaint-status-pill"),
+    upscaleStatusText: getElement<HTMLElement>(rootElement, "upscale-status-text"),
+    upscaleStatusPill: getElement<HTMLElement>(rootElement, "upscale-status-pill"),
     outpaintDiagnosticsText: getElement<HTMLElement>(rootElement, "outpaint-diagnostics-text"),
     outpaintCompatibilityNote: getElement<HTMLElement>(rootElement, "outpaint-compatibility-note"),
+    upscaleDiagnosticsText: getElement<HTMLElement>(rootElement, "upscale-diagnostics-text"),
+    upscaleCompatibilityNote: getElement<HTMLElement>(rootElement, "upscale-compatibility-note"),
     promptLayerDiagnosticsText: getElement<HTMLElement>(rootElement, "prompt-layer-diagnostics-text"),
     settingsDiagnosticsText: getElement<HTMLElement>(rootElement, "settings-diagnostics-text"),
     errorMessage: getElement<HTMLElement>(rootElement, "error-message"),
@@ -4155,6 +4688,7 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     sketchErrorMessage: getElement<HTMLElement>(rootElement, "sketch-error-message"),
     inpaintErrorMessage: getElement<HTMLElement>(rootElement, "inpaint-error-message"),
     outpaintErrorMessage: getElement<HTMLElement>(rootElement, "outpaint-error-message"),
+    upscaleErrorMessage: getElement<HTMLElement>(rootElement, "upscale-error-message"),
     promptLayerErrorMessage: getElement<HTMLElement>(rootElement, "prompt-layer-error-message"),
     settingsErrorMessage: getElement<HTMLElement>(rootElement, "settings-error-message"),
     previewPanel: getElement<HTMLElement>(rootElement, "preview-panel"),
@@ -4176,6 +4710,10 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     outpaintSourceTitle: getElement<HTMLElement>(rootElement, "outpaint-source-title"),
     outpaintSourceMeta: getElement<HTMLElement>(rootElement, "outpaint-source-meta"),
     outpaintResultPreviewPanel: getElement<HTMLElement>(rootElement, "outpaint-result-preview-panel"),
+    upscaleSourcePreviewPanel: getElement<HTMLElement>(rootElement, "upscale-source-preview-panel"),
+    upscaleSourceTitle: getElement<HTMLElement>(rootElement, "upscale-source-title"),
+    upscaleSourceMeta: getElement<HTMLElement>(rootElement, "upscale-source-meta"),
+    upscaleResultPreviewPanel: getElement<HTMLElement>(rootElement, "upscale-result-preview-panel"),
     promptLayerSourcePreviewPanel: getElement<HTMLElement>(rootElement, "prompt-layer-source-preview-panel"),
     promptLayerSourceTitle: getElement<HTMLElement>(rootElement, "prompt-layer-source-title"),
     promptLayerSourceMeta: getElement<HTMLElement>(rootElement, "prompt-layer-source-meta"),
@@ -4222,7 +4760,9 @@ function setBusy(
   inpaintResult: GeneratedImageResult | null = null,
   inpaintSource: InpaintSourceState | null = null,
   outpaintResult: GeneratedImageResult | null = null,
-  outpaintSource: ImageSourceState | null = null
+  outpaintSource: ImageSourceState | null = null,
+  upscaleResult: GeneratedImageResult | null = null,
+  upscaleSource: ImageSourceState | null = null
 ) {
   elements.serverUrl.disabled = isBusy;
   elements.prompt.disabled = isBusy;
@@ -4271,6 +4811,8 @@ function setBusy(
   elements.outpaintRight.disabled = isBusy;
   elements.outpaintBottom.disabled = isBusy;
   elements.outpaintFeathering.disabled = isBusy;
+  elements.upscaleWorkflow.disabled = isBusy;
+  elements.upscaleModel.disabled = isBusy;
   elements.promptLayerTask.disabled = isBusy;
   elements.promptLayerNumBeams.disabled = isBusy;
   elements.promptLayerGeneratedText.disabled = isBusy;
@@ -4283,6 +4825,8 @@ function setBusy(
   setActionDisabled(elements.resetSettingsButton, isBusy);
   setActionDisabled(elements.negativePromptToggle, isBusy);
   setActionDisabled(elements.autoImportToggle, isBusy);
+  setActionDisabled(elements.imgAutoImportToggle, isBusy);
+  setActionDisabled(elements.upscaleAutoImportToggle, isBusy);
   setActionDisabled(elements.generateButton, isBusy);
   for (const cancelButton of elements.cancelGenerationButtons) {
     setActionDisabled(cancelButton, !isBusy || cancelButton.hidden);
@@ -4305,6 +4849,10 @@ function setBusy(
   setActionDisabled(elements.captureOutpaintCanvasButton, isBusy);
   setActionDisabled(elements.generateOutpaintButton, isBusy || !outpaintSource);
   setActionDisabled(elements.importOutpaintButton, isBusy || !outpaintResult);
+  setActionDisabled(elements.captureUpscaleLayerButton, isBusy);
+  setActionDisabled(elements.captureUpscaleCanvasButton, isBusy);
+  setActionDisabled(elements.generateUpscaleButton, isBusy || !upscaleSource);
+  setActionDisabled(elements.importUpscaleButton, isBusy || !upscaleResult);
   setActionDisabled(elements.capturePromptLayerButton, isBusy);
   setActionDisabled(elements.capturePromptCanvasButton, isBusy);
   setActionDisabled(elements.generatePromptLayerButton, isBusy);
@@ -4336,6 +4884,9 @@ function setStatus(elements: AppElements, status: string, tone: StatusTone) {
   elements.outpaintStatusText.textContent = status;
   elements.outpaintStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
   elements.outpaintStatusPill.className = `status-pill ${tone}`;
+  elements.upscaleStatusText.textContent = status;
+  elements.upscaleStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
+  elements.upscaleStatusPill.className = `status-pill ${tone}`;
   elements.promptLayerStatusText.textContent = status;
   elements.promptLayerStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
   elements.promptLayerStatusPill.className = `status-pill ${tone}`;
@@ -4378,6 +4929,14 @@ function setOutpaintStatus(elements: AppElements, status: string, tone: StatusTo
   elements.homeStatusDot.className = `home-status-dot ${tone}`;
 }
 
+function setUpscaleStatus(elements: AppElements, status: string, tone: StatusTone) {
+  elements.upscaleStatusText.textContent = status;
+  elements.upscaleStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
+  elements.upscaleStatusPill.className = `status-pill ${tone}`;
+  elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
+  elements.homeStatusDot.className = `home-status-dot ${tone}`;
+}
+
 function setPromptLayerStatus(elements: AppElements, status: string, tone: StatusTone) {
   elements.promptLayerStatusText.textContent = status;
   elements.promptLayerStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
@@ -4413,6 +4972,11 @@ function setOutpaintError(elements: AppElements, message: string) {
   elements.outpaintErrorMessage.hidden = !message;
 }
 
+function setUpscaleError(elements: AppElements, message: string) {
+  elements.upscaleErrorMessage.textContent = message;
+  elements.upscaleErrorMessage.hidden = !message;
+}
+
 function setPromptLayerError(elements: AppElements, message: string) {
   elements.promptLayerErrorMessage.textContent = message;
   elements.promptLayerErrorMessage.hidden = !message;
@@ -4424,6 +4988,7 @@ function setDiagnostics(elements: AppElements, message: string) {
   elements.sketchDiagnosticsText.textContent = message;
   elements.inpaintDiagnosticsText.textContent = message;
   elements.outpaintDiagnosticsText.textContent = message;
+  elements.upscaleDiagnosticsText.textContent = message;
   elements.promptLayerDiagnosticsText.textContent = message;
   elements.settingsDiagnosticsText.textContent = message;
 }
@@ -4448,6 +5013,11 @@ function setOutpaintDiagnostics(elements: AppElements, message: string) {
   elements.settingsDiagnosticsText.textContent = message;
 }
 
+function setUpscaleDiagnostics(elements: AppElements, message: string) {
+  elements.upscaleDiagnosticsText.textContent = message;
+  elements.settingsDiagnosticsText.textContent = message;
+}
+
 function setPromptLayerDiagnostics(elements: AppElements, message: string) {
   elements.promptLayerDiagnosticsText.textContent = message;
   elements.settingsDiagnosticsText.textContent = message;
@@ -4464,6 +5034,18 @@ function updateAutoImportToggle(elements: AppElements, isEnabled: boolean) {
   elements.autoImportToggle.textContent = isEnabled ? "Auto Import On" : "Import Result Automatically";
   elements.autoImportToggle.setAttribute("aria-pressed", String(isEnabled));
   elements.autoImportToggle.classList.toggle("is-active", isEnabled);
+}
+
+function updateImg2ImgAutoImportToggle(elements: AppElements, isEnabled: boolean) {
+  elements.imgAutoImportToggle.textContent = isEnabled ? "Auto Import On" : "Import Automatically";
+  elements.imgAutoImportToggle.setAttribute("aria-pressed", String(isEnabled));
+  elements.imgAutoImportToggle.classList.toggle("is-active", isEnabled);
+}
+
+function updateUpscaleAutoImportToggle(elements: AppElements, isEnabled: boolean) {
+  elements.upscaleAutoImportToggle.textContent = isEnabled ? "Auto Import On" : "Import Automatically";
+  elements.upscaleAutoImportToggle.setAttribute("aria-pressed", String(isEnabled));
+  elements.upscaleAutoImportToggle.classList.toggle("is-active", isEnabled);
 }
 
 function updateExperimentalCheckpointToggle(elements: AppElements, isEnabled: boolean) {
@@ -4547,6 +5129,19 @@ function updateOutpaintCheckpointCompatibility(elements: AppElements, source: Im
 
   elements.outpaintCompatibilityNote.textContent = formatWorkflowDiagnosticMessage(message);
   elements.outpaintCompatibilityNote.classList.toggle("is-warning", true);
+  updateSettingsReport(elements);
+}
+
+function updateUpscaleCompatibility(elements: AppElements, source: ImageSourceState | null = null) {
+  const modelName = readSelectValue(elements.upscaleModel);
+  const preset = getWorkflowPreset(readSelectValue(elements.upscaleWorkflow, DEFAULT_UPSCALE_WORKFLOW));
+  const message = createWorkflowDiagnosticMessage(preset, {
+    selectedModelName: modelName,
+    photoshopInputs: createSourceInputAvailability(source)
+  });
+
+  elements.upscaleCompatibilityNote.textContent = `${formatWorkflowDiagnosticMessage(message)} Pixel/model upscale only; prompts are not used.`;
+  elements.upscaleCompatibilityNote.classList.toggle("is-warning", message.isWarning || preset.status === "experimental");
   updateSettingsReport(elements);
 }
 
@@ -4637,6 +5232,7 @@ type ActionName =
   | "toggleExperimentalCheckpoints"
   | "generateImg2Img"
   | "importImg2Img"
+  | "toggleImg2ImgAutoImport"
   | "captureSketchSource"
   | "captureSketchCanvasSource"
   | "generateSketch"
@@ -4654,6 +5250,11 @@ type ActionName =
   | "generatePromptFromLayer"
   | "copyPromptFromLayer"
   | "sendPromptToTextToImage"
+  | "captureUpscaleSource"
+  | "captureUpscaleCanvasSource"
+  | "generateUpscale"
+  | "importUpscale"
+  | "toggleUpscaleAutoImport"
   | "clearHistory";
 type HistoryActionName = "preview" | "import" | "reuse";
 type ActionRunner = (eventName: string) => void;
@@ -5095,6 +5696,31 @@ async function refreshOutpaintModelOptionsForSelectedPreset(
   updateOutpaintCheckpointCompatibility(elements);
 }
 
+async function refreshUpscaleModelOptionsForSelectedPreset(
+  elements: AppElements,
+  client = new ComfyClient(elements.serverUrl.value),
+  preferredValue = readSelectValue(elements.upscaleModel)
+) {
+  const preset = getWorkflowPreset(readSelectValue(elements.upscaleWorkflow, DEFAULT_UPSCALE_WORKFLOW));
+
+  try {
+    const modelNames = await client.getModelNamesForPreset(preset);
+
+    if (modelNames.length > 0) {
+      const preferredPresetModel = preset.requiredModels?.find(
+        (model) => modelNames.includes(model.modelName)
+      )?.modelName;
+      const preferredModel = modelNames.includes(preferredValue) ? preferredValue : preferredPresetModel;
+
+      fillSingleCheckpointSelect(elements.upscaleModel, modelNames, preferredModel);
+    }
+  } catch {
+    // Keep the existing list if ComfyUI is offline or the upscale model source is unavailable.
+  }
+
+  updateUpscaleCompatibility(elements);
+}
+
 function fillCheckpointOptions(elements: AppElements, checkpoints: string[], preferredValue?: string) {
   fillSingleCheckpointSelect(elements.checkpoint, checkpoints, preferredValue);
   fillSingleCheckpointSelect(elements.imgCheckpoint, checkpoints, preferredValue);
@@ -5352,6 +5978,58 @@ function getFriendlyOutpaintErrorMessage(error: unknown) {
   return getErrorMessage(error);
 }
 
+function getUpscaleFailureHint(error: unknown) {
+  const details = getTechnicalErrorDetails(error).toLowerCase();
+
+  if (details.includes("upscale-basic.json") || details.includes("workflow file")) {
+    return "The bundled upscale-basic workflow file was not found in this build. Rebuild OpenLayer and reload the plugin.";
+  }
+
+  if (
+    details.includes("upscalemodelloader") ||
+    details.includes("imageupscalewithmodel") ||
+    details.includes("loadimage") ||
+    details.includes("missing node")
+  ) {
+    return "This Upscale preset needs ComfyUI's LoadImage, UpscaleModelLoader, ImageUpscaleWithModel, and SaveImage nodes.";
+  }
+
+  if (
+    details.includes("4x-ultrasharp") ||
+    details.includes("realesrgan") ||
+    details.includes("upscale model") ||
+    details.includes("not found")
+  ) {
+    return "Install an upscale model such as 4x-UltraSharp.pth or RealESRGAN_x4plus.pth, then click Check ComfyUI again.";
+  }
+
+  const message = getTechnicalErrorDetails(error);
+  return message.length > 180 ? `${message.slice(0, 180)}...` : message;
+}
+
+function getFriendlyUpscaleErrorMessage(error: unknown) {
+  const details = getTechnicalErrorDetails(error).toLowerCase();
+
+  if (
+    details.includes("upscalemodelloader") ||
+    details.includes("imageupscalewithmodel") ||
+    details.includes("missing node")
+  ) {
+    return "The Upscale workflow needs matching ComfyUI upscale nodes.";
+  }
+
+  if (
+    details.includes("4x-ultrasharp") ||
+    details.includes("realesrgan") ||
+    details.includes("upscale model") ||
+    details.includes("not found")
+  ) {
+    return "The selected upscale model was not found in ComfyUI.";
+  }
+
+  return getErrorMessage(error);
+}
+
 function readSelectValue(select: HTMLSelectElement, fallback = "") {
   const directValue = typeof select.value === "string" ? select.value.trim() : "";
 
@@ -5467,6 +6145,7 @@ function applyPreferences(elements: AppElements, preferences: Partial<OpenLayerP
   elements.sketchWorkflow.value = DEFAULT_SKETCH_WORKFLOW;
   elements.inpaintWorkflow.value = DEFAULT_INPAINT_WORKFLOW;
   elements.outpaintWorkflow.value = DEFAULT_OUTPAINT_WORKFLOW;
+  elements.upscaleWorkflow.value = DEFAULT_UPSCALE_WORKFLOW;
 
   if (preferences.width) {
     elements.width.value = preferences.width;
@@ -5526,6 +6205,10 @@ function applyDefaultSettings(elements: AppElements) {
   elements.outpaintRight.value = DEFAULT_OUTPAINT_RIGHT;
   elements.outpaintBottom.value = DEFAULT_OUTPAINT_BOTTOM;
   elements.outpaintFeathering.value = DEFAULT_OUTPAINT_FEATHERING;
+  elements.upscaleWorkflow.value = DEFAULT_UPSCALE_WORKFLOW;
+  if (elements.upscaleModel.options.length === 0) {
+    fillSingleCheckpointSelect(elements.upscaleModel, FALLBACK_UPSCALE_MODELS, FALLBACK_UPSCALE_MODELS[0]);
+  }
 }
 
 function savePreferencesFromElements(
@@ -5570,6 +6253,9 @@ function createSettingsWorkflowReadiness(elements: AppElements) {
     }),
     createWorkflowDiagnosticMessage(getWorkflowPreset(readSelectValue(elements.outpaintWorkflow, DEFAULT_OUTPAINT_WORKFLOW)), {
       selectedModelName: readSelectValue(elements.outpaintCheckpoint)
+    }),
+    createWorkflowDiagnosticMessage(getWorkflowPreset(readSelectValue(elements.upscaleWorkflow, DEFAULT_UPSCALE_WORKFLOW)), {
+      selectedModelName: readSelectValue(elements.upscaleModel)
     })
   ];
   const warnings = messages.filter((message) => message.isWarning);
@@ -5764,6 +6450,7 @@ function createDiagnosticsReport(
     `Sketch to Image model: ${readSelectValue(elements.sketchCheckpoint) || "None"}`,
     `Inpaint model: ${readSelectValue(elements.inpaintCheckpoint) || "None"}`,
     `Outpaint model: ${readSelectValue(elements.outpaintCheckpoint) || "None"}`,
+    `Upscale model: ${readSelectValue(elements.upscaleModel) || "None"}`,
     "",
     "Workflow health:",
     workflowHealthReport?.summary ?? "Workflow health has not been checked yet.",

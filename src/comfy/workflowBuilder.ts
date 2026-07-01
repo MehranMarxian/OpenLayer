@@ -8,12 +8,14 @@ import sketch2imgLinecnBasicWorkflow from "../workflows/api/sketch2img-linecn-ba
 import inpaintBasicWorkflow from "../workflows/api/inpaint-basic.json";
 import inpaintFluxFillBasicWorkflow from "../workflows/api/inpaint-flux-fill-basic.json";
 import outpaintFluxFillBasicWorkflow from "../workflows/api/outpaint-flux-fill-basic.json";
+import upscaleBasicWorkflow from "../workflows/api/upscale-basic.json";
 import {
   BuildInpaintWorkflowOptions,
   BuildImageToImageWorkflowOptions,
   BuildOutpaintWorkflowOptions,
   BuildPromptFromLayerWorkflowOptions,
   BuildSketchToImageWorkflowOptions,
+  BuildUpscaleWorkflowOptions,
   BuildWorkflowOptions,
   BuildWorkflowResult,
   ComfyWorkflow,
@@ -36,7 +38,8 @@ const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
   "sketch2img-linecn-basic": sketch2imgLinecnBasicWorkflow as ComfyWorkflow,
   "inpaint-basic": inpaintBasicWorkflow as ComfyWorkflow,
   "inpaint-flux-fill-basic": inpaintFluxFillBasicWorkflow as ComfyWorkflow,
-  "outpaint-flux-fill-basic": outpaintFluxFillBasicWorkflow as ComfyWorkflow
+  "outpaint-flux-fill-basic": outpaintFluxFillBasicWorkflow as ComfyWorkflow,
+  "upscale-basic": upscaleBasicWorkflow as ComfyWorkflow
 };
 
 export async function buildTxt2ImgWorkflow(options: BuildWorkflowOptions): Promise<BuildWorkflowResult> {
@@ -239,6 +242,26 @@ export async function buildPromptFromLayerWorkflow(
   return {
     workflow,
     seed,
+    preset
+  };
+}
+
+export async function buildUpscaleWorkflow(options: BuildUpscaleWorkflowOptions): Promise<BuildWorkflowResult> {
+  const preset = getWorkflowPreset(options.presetId ?? "upscale-basic");
+  assertPresetMode(preset, "upscale");
+  assertPresetRunnable(preset);
+  const workflow = await cloneWorkflowTemplate(preset);
+
+  validateWorkflowForPreset(workflow, preset);
+
+  setPresetInput(workflow, preset, "sourceImage", options.sourceImageName, true);
+  setPresetInput(workflow, preset, "checkpoint", options.modelName, true);
+
+  validateWorkflowForPreset(workflow, preset);
+
+  return {
+    workflow,
+    seed: 0,
     preset
   };
 }

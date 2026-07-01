@@ -19,6 +19,7 @@ describe("presetRegistry", () => {
     const runnableInpaintIds = listRunnableWorkflowPresets("inpaint").map((preset) => preset.id);
     const allOutpaintIds = listWorkflowPresets("outpaint").map((preset) => preset.id);
     const runnableOutpaintIds = listRunnableWorkflowPresets("outpaint").map((preset) => preset.id);
+    const runnableUpscaleIds = listRunnableWorkflowPresets("upscale").map((preset) => preset.id);
 
     expect(allTxt2ImgIds).toContain("txt2img-z-image-turbo");
     expect(allTxt2ImgIds).toContain("txt2img-flux1-dev-fp8");
@@ -31,6 +32,23 @@ describe("presetRegistry", () => {
     expect(runnableInpaintIds).toEqual(["inpaint-basic", "inpaint-flux-fill-basic"]);
     expect(allOutpaintIds).toEqual(["outpaint-flux-fill-basic"]);
     expect(runnableOutpaintIds).toEqual(["outpaint-flux-fill-basic"]);
+    expect(runnableUpscaleIds).toEqual(["upscale-basic"]);
+  });
+
+  it("registers upscale-basic as an experimental pixel upscale workflow", () => {
+    const preset = getWorkflowPreset("upscale-basic");
+
+    expect(preset.status).toBe("experimental");
+    expect(preset.mode).toBe("upscale");
+    expect(preset.modelSource.kind).toBe("upscale");
+    expect(preset.requiredModels?.some((model) =>
+      model.modelName === "4x-UltraSharp.pth" &&
+      model.acceptedModelNames?.includes("RealESRGAN_x4plus.pth")
+    )).toBe(true);
+    expect(preset.injections.sourceImage).toEqual({ nodeId: "10", inputName: "image" });
+    expect(preset.injections.checkpoint).toEqual({ nodeId: "11", inputName: "model_name" });
+    expect(preset.requiredNodes.some((node) => node.classType === "UpscaleModelLoader")).toBe(true);
+    expect(preset.requiredNodes.some((node) => node.classType === "ImageUpscaleWithModel")).toBe(true);
   });
 
   it("registers Flux1-dev fp8 text-to-image as an experimental checkpoint workflow", () => {

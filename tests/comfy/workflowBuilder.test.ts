@@ -5,7 +5,8 @@ import {
   buildOutpaintWorkflow,
   buildPromptFromLayerWorkflow,
   buildSketchToImageWorkflow,
-  buildTxt2ImgWorkflow
+  buildTxt2ImgWorkflow,
+  buildUpscaleWorkflow
 } from "../../src/comfy/workflowBuilder";
 import { FLUX_FILL_REFERENCE_DEFAULTS } from "../../src/comfy/fluxFillDefaults";
 import { getWorkflowPreset } from "../../src/comfy/presetRegistry";
@@ -99,6 +100,22 @@ describe("workflowBuilder", () => {
     expect(result.workflow["38"].inputs.num_beams).toBe(12);
     expect(result.workflow["38"].inputs.seed).toBe(202607);
     expect(result.workflow["45"].inputs.text).toEqual(["38", 2]);
+  });
+
+  it("injects source image and model into upscale-basic", async () => {
+    const result = await buildUpscaleWorkflow({
+      presetId: "upscale-basic",
+      sourceImageName: "openlayer-upscale-source.png",
+      modelName: "4x-UltraSharp.pth"
+    });
+
+    expect(result.preset.id).toBe("upscale-basic");
+    expect(result.workflow["10"].inputs.image).toBe("openlayer-upscale-source.png");
+    expect(result.workflow["11"].inputs.model_name).toBe("4x-UltraSharp.pth");
+    expect(result.workflow["12"].class_type).toBe("ImageUpscaleWithModel");
+    expect(result.workflow["12"].inputs.upscale_model).toEqual(["11", 0]);
+    expect(result.workflow["12"].inputs.image).toEqual(["10", 0]);
+    expect(result.workflow["9"].inputs.images).toEqual(["12", 0]);
   });
 
   it("injects ControlNet strength into sketch2img-linecn-basic", async () => {

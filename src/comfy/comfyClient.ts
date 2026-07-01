@@ -49,6 +49,9 @@ const MODEL_INVENTORY_SOURCES = {
   ],
   visionLanguageModels: [
     { objectInfoNode: "Florence2ModelLoader", inputName: "model", label: "Florence model loader" }
+  ],
+  upscaleModels: [
+    { objectInfoNode: "UpscaleModelLoader", inputName: "model_name", label: "upscale model loader" }
   ]
 } as const;
 
@@ -132,6 +135,7 @@ export class ComfyClient {
       vaeModels: [],
       controlNetModels: [],
       visionLanguageModels: [],
+      upscaleModels: [],
       missingSources: []
     };
 
@@ -141,6 +145,7 @@ export class ComfyClient {
     await this.collectInventoryNames(inventory, "vaeModels", MODEL_INVENTORY_SOURCES.vaeModels);
     await this.collectInventoryNames(inventory, "controlNetModels", MODEL_INVENTORY_SOURCES.controlNetModels);
     await this.collectInventoryNames(inventory, "visionLanguageModels", MODEL_INVENTORY_SOURCES.visionLanguageModels);
+    await this.collectInventoryNames(inventory, "upscaleModels", MODEL_INVENTORY_SOURCES.upscaleModels);
 
     return inventory;
   }
@@ -734,14 +739,24 @@ function readComfyHardwareDevice(value: unknown) {
   };
 }
 
-function readComfyModelNameList(data: ComfyObjectInfoResponse, objectInfoNode: string, inputName: string) {
+export function readComfyModelNameList(data: ComfyObjectInfoResponse, objectInfoNode: string, inputName: string) {
   const input = data[objectInfoNode]?.input?.required?.[inputName];
 
-  if (!Array.isArray(input) || !Array.isArray(input[0])) {
+  if (!Array.isArray(input)) {
     return [];
   }
 
-  return input[0].filter((name): name is string => typeof name === "string");
+  if (Array.isArray(input[0])) {
+    return input[0].filter((name): name is string => typeof name === "string");
+  }
+
+  const comboOptions = readObject(input[1]).options;
+
+  if (Array.isArray(comboOptions)) {
+    return comboOptions.filter((name): name is string => typeof name === "string");
+  }
+
+  return [];
 }
 
 function mergeUniqueStrings(current: string[], next: string[]) {
