@@ -1,3 +1,5 @@
+export type OpenLayerTheme = "compact" | "classic";
+
 export type OpenLayerPreferences = {
   serverUrl: string;
   workflow: string;
@@ -7,6 +9,7 @@ export type OpenLayerPreferences = {
   steps: string;
   cfg: string;
   seed: string;
+  theme: OpenLayerTheme;
 };
 
 const STORAGE_KEY = "openlayer.preferences.v1";
@@ -84,10 +87,15 @@ function sanitizePreferences(value: unknown): Partial<OpenLayerPreferences> {
     height: readString(input.height),
     steps: readString(input.steps),
     cfg: readString(input.cfg),
-    seed: readString(input.seed)
+    seed: readString(input.seed),
+    theme: readTheme(input.theme)
   };
 }
 
 function readString(value: unknown) {
   return typeof value === "string" ? value : "";
+}
+
+function readTheme(value: unknown): OpenLayerTheme {
+  return value === "classic" ? "classic" : "compact";
 }

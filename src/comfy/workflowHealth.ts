@@ -112,17 +112,22 @@ function createHealthSummary(
   state: WorkflowHealthState,
   primaryIssue: WorkflowCompatibilityIssue | undefined
 ) {
+  const nextStep = createSetupNextStep(state, primaryIssue);
+
   switch (state) {
     case "ready":
       return "Ready on this ComfyUI.";
     case "experimental":
-      return "Experimental but available for testing.";
+      return "Experimental but available for testing. Duplicate important layers before production work.";
     case "missing-workflow":
-      return "A validated OpenLayer API workflow is not ready yet.";
+      return `A validated OpenLayer API workflow is not ready yet.${nextStep ? ` ${nextStep}` : ""}`;
     case "missing-node":
     case "missing-model":
     case "setup-required":
-      return primaryIssue?.artistMessage ?? "This preset needs setup before it can run.";
+      return [
+        primaryIssue?.artistMessage ?? "This preset needs setup before it can run.",
+        nextStep
+      ].filter(Boolean).join(" ");
     default:
       return preset.description;
   }
@@ -171,6 +176,7 @@ function createHealthDetail(
     state === "ready" || state === "experimental" ? preset.description : "",
     createDetectedModelDetail(preset, context),
     primaryIssue?.technicalMessage,
+    createSetupDetail(state, primaryIssue),
     preset.compatibilityNote
   ].filter((detail): detail is string => Boolean(detail && detail.trim()));
 
@@ -233,4 +239,37 @@ function getPreferredIssueCodes(state: WorkflowHealthState) {
     default:
       return [];
   }
+}
+
+function createSetupNextStep(
+  state: WorkflowHealthState,
+  primaryIssue: WorkflowCompatibilityIssue | undefined
+) {
+  switch (state) {
+    case "missing-model":
+      return "Install the missing model file in the matching ComfyUI models folder, restart or refresh ComfyUI, then run Check Workflow Health again.";
+    case "missing-node":
+      return "Install or enable the missing ComfyUI/custom node, restart ComfyUI, then check again.";
+    case "missing-workflow":
+      return "This preset needs a validated OpenLayer API workflow JSON before it can run.";
+    case "setup-required":
+      return primaryIssue?.code === "PHOTOSHOP_INPUT_MISSING"
+        ? "Capture the required Photoshop source first, then try again."
+        : "Review the preset setup requirements before running it.";
+    default:
+      return "";
+  }
+}
+
+function createSetupDetail(
+  state: WorkflowHealthState,
+  primaryIssue: WorkflowCompatibilityIssue | undefined
+) {
+  const nextStep = createSetupNextStep(state, primaryIssue);
+
+  if (!nextStep) {
+    return "";
+  }
+
+  return `Next check: ${nextStep}`;
 }

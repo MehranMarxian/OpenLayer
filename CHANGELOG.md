@@ -1,5 +1,47 @@
 # Changelog
 
+## Unreleased / v0.5.1-alpha draft - 2026-07-02
+
+Technical stabilization for AI layer metadata and setup diagnostics.
+
+### Added
+
+- Added a typed OpenLayer AI layer metadata model for prompt, negative prompt, workflow preset, model, seed, dimensions, source mode, source/context bounds, import timestamp, experimental status, and diagnostics summary.
+- Added pure metadata helpers for creating, sanitizing, serializing, and summarizing generated/imported result metadata.
+- Added a best-effort Photoshop layer metadata writer that reports a clear unsupported fallback when safe UXP layer persistence is not exposed.
+- Added inpaint/outpaint debug contract helpers for source mode, source dimensions, mask dimensions, mask polarity, context bounds, output kind, and import mode.
+- Added unit coverage for layer metadata helpers, inpaint/outpaint debug contracts, and the layer metadata fallback writer.
+
+### Changed
+
+- Reused the new metadata helper for session history entries so current history and future persistent AI layer metadata share one data shape.
+- Improved Workflow Health wording with beginner-friendly next checks for missing model files, missing ComfyUI nodes, missing workflow JSON, setup-required presets, and missing Photoshop inputs.
+- Bumped plugin/package metadata to `0.5.1`.
+
+### Not Changed
+
+- No workflow JSON, generation behavior, ComfyUI client behavior, import behavior, Inpaint/Outpaint quality, or UI redesign changes are included in this checkpoint.
+- Photoshop layer metadata persistence remains fallback-only until a safe host-supported route is verified.
+
+## Unreleased / v0.5.0-alpha draft - 2026-07-02
+
+Compact Adobe-style UI stabilization pass.
+
+### Added
+
+- Added a Settings theme selector with `Compact Adobe Dark` as the default and `Classic v0.4` as an optional legacy visual style.
+- Added persisted theme preferences so the selected panel theme survives reloads.
+
+### Changed
+
+- Redesigned the Home screen into a compact single-column tool launcher with smaller icons, clearer tool rows, status badges, and navigation affordances.
+- Applied shared spacing, typography, button height, input height, preview, panel, footer, and diagnostic polish across existing tool screens.
+- Bumped plugin/package metadata to `0.5.0`.
+
+### Not Changed
+
+- No generation logic, workflow JSON, ComfyUI client logic, model detection, import behavior, Inpaint behavior, Outpaint behavior, History behavior, or Settings diagnostics behavior changed in this checkpoint.
+
 ## Unreleased / v0.4.10-alpha draft - 2026-07-01
 
 Image to Image auto-import and experimental pixel Upscale foundation.

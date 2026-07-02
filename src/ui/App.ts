@@ -21,6 +21,13 @@ import {
   readImageDimensionsFromBlob,
   saveInpaintDebugBlobsToTemporaryFiles
 } from "../comfy/inpaintOutput";
+import { formatInpaintOutpaintDebugContract } from "../metadata/inpaintDebugContract";
+import {
+  createOpenLayerLayerMetadata,
+  OpenLayerLayerBounds,
+  OpenLayerLayerMetadata,
+  sanitizeOpenLayerLayerMetadata
+} from "../metadata/layerMetadata";
 import { getCheckpointCompatibility } from "../comfy/modelCompatibility";
 import { getWorkflowPreset, listRunnableWorkflowPresets, listWorkflowPresets } from "../comfy/presetRegistry";
 import {
@@ -65,12 +72,14 @@ import {
   getInpaintSourceModeLabel,
   InpaintSourceMode
 } from "../photoshop/inpaintSourceMode";
+import { writeOpenLayerLayerMetadata } from "../photoshop/layerMetadata";
 import { formatSelectionBounds } from "../photoshop/selectionUtils";
 import { createOpenLayerError, getErrorMessage, getTechnicalErrorDetails } from "../utils/errors";
 import { createLayerName } from "../utils/fileUtils";
 import {
   clearOpenLayerPreferences,
   loadOpenLayerPreferences,
+  OpenLayerTheme,
   OpenLayerPreferences,
   saveOpenLayerPreferences
 } from "../utils/preferences";
@@ -84,7 +93,7 @@ import {
 } from "./historyMetadata";
 
 const DEFAULT_SERVER_URL = "http://127.0.0.1:8190";
-const APP_VERSION = "0.4.10";
+const APP_VERSION = "0.5.1";
 const DEVELOPER_GITHUB = "https://github.com/MehranMarxian";
 const HISTORY_LIMIT = 5;
 const COMFY_PORT_CANDIDATES = [8190, 8188, 8189, 8191, 8192, 8193, 7860];
@@ -93,6 +102,7 @@ const DEFAULT_IMAGE_WORKFLOW = "img2img-basic";
 const DEFAULT_SKETCH_WORKFLOW = "sketch2img-linecn-basic";
 const DEFAULT_INPAINT_WORKFLOW = "inpaint-basic";
 const DEFAULT_OUTPAINT_WORKFLOW = "outpaint-flux-fill-basic";
+const DEFAULT_THEME: OpenLayerTheme = "compact";
 const DEFAULT_UPSCALE_WORKFLOW = "upscale-basic";
 const FALLBACK_UPSCALE_MODELS = ["4x-UltraSharp.pth", "RealESRGAN_x4plus.pth"];
 const RECOMMENDED_SKETCH_CHECKPOINT = "epicrealism_naturalSinRC1VAE.safetensors";
@@ -275,6 +285,7 @@ const TOOL_CARDS: ToolCard[] = [
 ];
 
 type AppElements = {
+  appShell: HTMLElement;
   homeView: HTMLElement;
   generatorView: HTMLElement;
   imageToImageView: HTMLElement;
@@ -451,6 +462,7 @@ type AppElements = {
   settingsLastCheckpoint: HTMLElement;
   settingsDocumentStatus: HTMLElement;
   settingsWorkflowReadiness: HTMLElement;
+  settingsThemeSelect: HTMLSelectElement;
   settingsGpuName: HTMLElement;
   settingsVramTotal: HTMLElement;
   settingsVramFree: HTMLElement;
@@ -480,6 +492,7 @@ type HistoryEntry = {
   importedLayerName?: string;
   importedAt?: string;
   createdAt: string;
+  metadata: OpenLayerLayerMetadata;
 };
 
 type ImageSourceState = ExportedSourceImage & {
@@ -565,6 +578,7 @@ export function renderApp(rootElement: HTMLElement) {
   const elements = getAppElements(rootElement);
   const preferences = loadOpenLayerPreferences();
   applyPreferences(elements, preferences);
+  applyTheme(elements, preferences.theme || DEFAULT_THEME);
   fillCheckpointOptions(elements, FALLBACK_CHECKPOINTS, preferences.checkpointName || FALLBACK_CHECKPOINTS[0]);
 
   const actionHandlers: ActionHandlers = {
@@ -673,6 +687,12 @@ export function renderApp(rootElement: HTMLElement) {
   bindToolCards(rootElement, (view) => setView(view));
   bindHistoryActions(rootElement, handleHistoryAction);
   bindExternalLinks(rootElement);
+  elements.settingsThemeSelect.addEventListener("change", () => {
+    applyTheme(elements, readThemeSelection(elements));
+    savePreferencesFromElements(elements);
+    updateSettingsReport(elements);
+    setDiagnostics(elements, `Panel theme set to ${getThemeLabel(readThemeSelection(elements))}.`);
+  });
 
   setStatus(elements, "Ready.", "idle");
   setView(currentView);
@@ -943,7 +963,7 @@ export function renderApp(rootElement: HTMLElement) {
     setDiagnostics(
       elements,
       wasSaved
-        ? "Saved ComfyUI URL, checkpoint, and generation defaults."
+        ? "Saved ComfyUI URL, checkpoint, generation defaults, and panel theme."
         : "Local storage is unavailable, so settings will reset when the panel reloads."
     );
   }
@@ -951,6 +971,7 @@ export function renderApp(rootElement: HTMLElement) {
   function handleResetSettings() {
     clearOpenLayerPreferences();
     applyDefaultSettings(elements);
+    applyTheme(elements, DEFAULT_THEME);
     fillCheckpointOptions(elements, FALLBACK_CHECKPOINTS, FALLBACK_CHECKPOINTS[0]);
     updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
     updateSketchCheckpointCompatibility(elements, sketchSource);
@@ -1276,6 +1297,7 @@ export function renderApp(rootElement: HTMLElement) {
       setResult(generatedResult);
       addHistoryEntry(elements, historyEntries, generatedResult, {
         prompt: elements.prompt.value,
+        negativePrompt: elements.negativePrompt.value,
         checkpointName,
         modelName: checkpointName,
         workflowPreset: buildResult.preset.id,
@@ -1283,7 +1305,8 @@ export function renderApp(rootElement: HTMLElement) {
         seed: buildResult.seed,
         sizeLabel: `${settings.width} x ${settings.height}`,
         dimensions: `${settings.width} x ${settings.height}`,
-        sourceMode: "Prompt only"
+        sourceMode: "Prompt only",
+        experimental: buildResult.preset.status === "experimental"
       });
 
       if (importAutomatically) {
@@ -1483,8 +1506,11 @@ export function renderApp(rootElement: HTMLElement) {
         setDiagnostics(elements, message);
       });
       setStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
-      setDiagnostics(elements, `Layer created: ${importedLayerName}`);
       markHistoryImported(elements, historyEntries, result, importedLayerName);
+      const metadataMessage = await writeMetadataForImportedResult(historyEntries, result, importedLayerName, (message) => {
+        setDiagnostics(elements, message);
+      });
+      setDiagnostics(elements, `Layer created: ${importedLayerName}. ${metadataMessage}`);
     } catch (caughtError) {
       setStatus(elements, "Import failed.", "error");
       setError(elements, getErrorMessage(caughtError));
@@ -1688,6 +1714,7 @@ export function renderApp(rootElement: HTMLElement) {
       setImageResult(generatedResult);
       addHistoryEntry(elements, historyEntries, generatedResult, {
         prompt: elements.imgPrompt.value,
+        negativePrompt: elements.imgNegativePrompt.value,
         checkpointName,
         modelName: checkpointName,
         workflowPreset: buildResult.preset.id,
@@ -1695,7 +1722,8 @@ export function renderApp(rootElement: HTMLElement) {
         seed: buildResult.seed,
         sizeLabel: "Image to Image",
         dimensions: `${imageSource.width} x ${imageSource.height}`,
-        sourceMode: imageSource.sourceName
+        sourceMode: imageSource.sourceName,
+        experimental: buildResult.preset.status === "experimental"
       });
       setImageStatus(elements, "Image to Image generation complete.", "ready");
       setImageDiagnostics(
@@ -1755,8 +1783,11 @@ export function renderApp(rootElement: HTMLElement) {
         setImageDiagnostics(elements, message);
       });
       setImageStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
-      setImageDiagnostics(elements, `Layer created: ${importedLayerName}`);
       markHistoryImported(elements, historyEntries, imageResult, importedLayerName);
+      const metadataMessage = await writeMetadataForImportedResult(historyEntries, imageResult, importedLayerName, (message) => {
+        setImageDiagnostics(elements, message);
+      });
+      setImageDiagnostics(elements, `Layer created: ${importedLayerName}. ${metadataMessage}`);
     } catch (caughtError) {
       setImageStatus(elements, "Import failed.", "error");
       setImageError(elements, getErrorMessage(caughtError));
@@ -1930,7 +1961,8 @@ export function renderApp(rootElement: HTMLElement) {
         seed: 0,
         sizeLabel: "Upscale",
         dimensions: `${upscaleSource.width} x ${upscaleSource.height} source`,
-        sourceMode: upscaleSource.sourceName
+        sourceMode: upscaleSource.sourceName,
+        experimental: buildResult.preset.status === "experimental"
       });
       setUpscaleStatus(elements, "Upscale generation complete.", "ready");
       setUpscaleDiagnostics(
@@ -1990,8 +2022,11 @@ export function renderApp(rootElement: HTMLElement) {
         setUpscaleDiagnostics(elements, message);
       });
       setUpscaleStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
-      setUpscaleDiagnostics(elements, `Layer created: ${importedLayerName}`);
       markHistoryImported(elements, historyEntries, upscaleResult, importedLayerName);
+      const metadataMessage = await writeMetadataForImportedResult(historyEntries, upscaleResult, importedLayerName, (message) => {
+        setUpscaleDiagnostics(elements, message);
+      });
+      setUpscaleDiagnostics(elements, `Layer created: ${importedLayerName}. ${metadataMessage}`);
     } catch (caughtError) {
       setUpscaleStatus(elements, "Import failed.", "error");
       setUpscaleError(elements, getErrorMessage(caughtError));
@@ -2206,7 +2241,19 @@ export function renderApp(rootElement: HTMLElement) {
         seed: buildResult.seed,
         sizeLabel: "Outpaint",
         dimensions: `${outpaintSource.width} x ${outpaintSource.height}`,
-        sourceMode: outpaintSource.sourceName
+        sourceMode: outpaintSource.sourceName,
+        experimental: true,
+        diagnosticsSummary: formatInpaintOutpaintDebugContract({
+          toolType: "outpaint",
+          presetId: buildResult.preset.id,
+          sourceMode: outpaintSource.sourceName,
+          sourceDimensions: {
+            width: outpaintSource.width,
+            height: outpaintSource.height
+          },
+          outputKind: "expanded canvas",
+          importMode: "new layer"
+        })
       });
       setOutpaintStatus(elements, "Outpaint generation complete.", "ready");
       setOutpaintDiagnostics(
@@ -2254,8 +2301,11 @@ export function renderApp(rootElement: HTMLElement) {
         setOutpaintDiagnostics(elements, message);
       });
       setOutpaintStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
-      setOutpaintDiagnostics(elements, `Layer created: ${importedLayerName}`);
       markHistoryImported(elements, historyEntries, outpaintResult, importedLayerName);
+      const metadataMessage = await writeMetadataForImportedResult(historyEntries, outpaintResult, importedLayerName, (message) => {
+        setOutpaintDiagnostics(elements, message);
+      });
+      setOutpaintDiagnostics(elements, `Layer created: ${importedLayerName}. ${metadataMessage}`);
     } catch (caughtError) {
       setOutpaintStatus(elements, "Import failed.", "error");
       setOutpaintError(elements, getErrorMessage(caughtError));
@@ -2463,6 +2513,7 @@ export function renderApp(rootElement: HTMLElement) {
       setSketchResult(generatedResult);
       addHistoryEntry(elements, historyEntries, generatedResult, {
         prompt: elements.sketchPrompt.value,
+        negativePrompt: elements.sketchNegativePrompt.value,
         checkpointName,
         modelName: checkpointName,
         workflowPreset: buildResult.preset.id,
@@ -2470,7 +2521,8 @@ export function renderApp(rootElement: HTMLElement) {
         seed: buildResult.seed,
         sizeLabel: "Sketch to Image",
         dimensions: `${sketchSource.width} x ${sketchSource.height}`,
-        sourceMode: sketchSource.sourceName
+        sourceMode: sketchSource.sourceName,
+        experimental: buildResult.preset.status === "experimental"
       });
       setSketchStatus(elements, "Sketch to Image generation complete.", "ready");
       setSketchDiagnostics(
@@ -2518,8 +2570,11 @@ export function renderApp(rootElement: HTMLElement) {
         setSketchDiagnostics(elements, message);
       });
       setSketchStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
-      setSketchDiagnostics(elements, `Layer created: ${importedLayerName}`);
       markHistoryImported(elements, historyEntries, sketchResult, importedLayerName);
+      const metadataMessage = await writeMetadataForImportedResult(historyEntries, sketchResult, importedLayerName, (message) => {
+        setSketchDiagnostics(elements, message);
+      });
+      setSketchDiagnostics(elements, `Layer created: ${importedLayerName}. ${metadataMessage}`);
     } catch (caughtError) {
       setSketchStatus(elements, "Import failed.", "error");
       setSketchError(elements, getErrorMessage(caughtError));
@@ -2834,6 +2889,7 @@ export function renderApp(rootElement: HTMLElement) {
       setInpaintResult(generatedResult);
       addHistoryEntry(elements, historyEntries, generatedResult, {
         prompt: elements.inpaintPrompt.value,
+        negativePrompt: elements.inpaintNegativePrompt.value,
         checkpointName,
         modelName: checkpointName,
         workflowPreset: buildResult.preset.id,
@@ -2841,7 +2897,32 @@ export function renderApp(rootElement: HTMLElement) {
         seed: buildResult.seed,
         sizeLabel: "Inpaint",
         dimensions: `${inpaintSource.width} x ${inpaintSource.height}`,
-        sourceMode: getInpaintSourceModeLabel(inpaintSource.sourceMode)
+        sourceMode: getInpaintSourceModeLabel(inpaintSource.sourceMode),
+        sourceBounds: createMetadataBounds(inpaintSource.selection.bounds),
+        contextBounds: createMetadataBounds(inpaintSource.selection.contextBounds),
+        experimental: true,
+        diagnosticsSummary: [
+          inpaintOutputDiagnostics,
+          formatInpaintOutpaintDebugContract({
+            toolType: "inpaint",
+            presetId: buildResult.preset.id,
+            sourceMode: getInpaintSourceModeLabel(inpaintSource.sourceMode),
+            sourceDimensions: {
+              width: inpaintSource.width,
+              height: inpaintSource.height
+            },
+            maskDimensions: inpaintSource.mask
+              ? {
+                width: inpaintSource.mask.width,
+                height: inpaintSource.mask.height
+              }
+              : null,
+            maskPolarity: "white-repaints",
+            contextBounds: createMetadataBounds(inpaintSource.selection.contextBounds),
+            outputKind: "selection context",
+            importMode: "Photoshop layer mask with aligned fallback"
+          })
+        ].filter(Boolean).join(" ")
       });
       setInpaintStatus(elements, "Inpaint generation complete.", "ready");
       setInpaintDiagnostics(
@@ -2932,10 +3013,14 @@ export function renderApp(rootElement: HTMLElement) {
       const importedLayerName = importResult.layerName;
       setInpaintStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
       markHistoryImported(elements, historyEntries, inpaintResult, importedLayerName);
+      const metadataMessage = await writeMetadataForImportedResult(historyEntries, inpaintResult, importedLayerName, (message) => {
+        setInpaintDiagnostics(elements, message);
+      });
       setInpaintDiagnostics(
         elements,
         [
           `Layer created: ${importedLayerName}.`,
+          metadataMessage,
           importResult.message,
           formatInpaintOutputDiagnostics({
             presetId,
@@ -3694,7 +3779,7 @@ export function renderApp(rootElement: HTMLElement) {
 
 function createAppMarkup() {
   return `
-    <main class="app-shell">
+    <main class="app-shell theme-compact" id="app-shell">
       ${createBrandHeaderMarkup()}
       <div class="home-status-row">
         <span>Status:</span>
@@ -3855,6 +3940,13 @@ function createAppMarkup() {
           </div>
           <div class="settings-list diagnostic-list">
             <div><span>Version</span><strong>v${APP_VERSION}</strong></div>
+            <label class="field theme-field">
+              <span class="label">Panel theme</span>
+              <select class="select" id="settings-theme-select">
+                <option value="compact">Compact Adobe Dark</option>
+                <option value="classic">Classic v0.4</option>
+              </select>
+            </label>
             <div><span>Default workflow</span><strong>txt2img-basic</strong></div>
             <div><span>Server URL</span><strong id="settings-url-value">${DEFAULT_SERVER_URL}</strong></div>
             <div><span>Checkpoint count</span><strong id="settings-checkpoint-count">Fallback list</strong></div>
@@ -4516,14 +4608,15 @@ function createToolCardMarkup(card: ToolCard) {
       ${viewAttribute}
       ${disabledAttributes}
     >
-      <div class="tool-card-header">
-        <span class="tool-icon" aria-hidden="true">${createToolIconMarkup(card.icon)}</span>
-        <span class="tool-title">${card.title}</span>
-      </div>
+      <div class="tool-icon" aria-hidden="true">${createToolIconMarkup(card.icon)}</div>
       <div class="tool-card-body">
+        <div class="tool-title-row">
+          <div class="tool-title">${card.title}</div>
+          ${statusMarkup}
+        </div>
         <div class="tool-subtitle">${card.subtitle}</div>
-        ${statusMarkup}
       </div>
+      <div class="tool-arrow" aria-hidden="true">${isEnabled ? "›" : ""}</div>
     </div>
   `;
 }
@@ -4550,6 +4643,7 @@ function createToolIconMarkup(icon: ToolIconName) {
 
 function getAppElements(rootElement: HTMLElement): AppElements {
   return {
+    appShell: getElement<HTMLElement>(rootElement, "app-shell"),
     homeView: getElement<HTMLElement>(rootElement, "home-view"),
     generatorView: getElement<HTMLElement>(rootElement, "generator-view"),
     imageToImageView: getElement<HTMLElement>(rootElement, "image-to-image-view"),
@@ -4726,6 +4820,7 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     settingsLastCheckpoint: getElement<HTMLElement>(rootElement, "settings-last-checkpoint"),
     settingsDocumentStatus: getElement<HTMLElement>(rootElement, "settings-document-status"),
     settingsWorkflowReadiness: getElement<HTMLElement>(rootElement, "settings-workflow-readiness"),
+    settingsThemeSelect: getElement<HTMLSelectElement>(rootElement, "settings-theme-select"),
     settingsGpuName: getElement<HTMLElement>(rootElement, "settings-gpu-name"),
     settingsVramTotal: getElement<HTMLElement>(rootElement, "settings-vram-total"),
     settingsVramFree: getElement<HTMLElement>(rootElement, "settings-vram-free"),
@@ -6137,6 +6232,8 @@ function applyPreferences(elements: AppElements, preferences: Partial<OpenLayerP
     elements.serverUrl.value = preferences.serverUrl;
   }
 
+  elements.settingsThemeSelect.value = preferences.theme || DEFAULT_THEME;
+
   if (preferences.workflow) {
     elements.workflow.value = preferences.workflow;
   }
@@ -6173,6 +6270,7 @@ function applyPreferences(elements: AppElements, preferences: Partial<OpenLayerP
 
 function applyDefaultSettings(elements: AppElements) {
   elements.serverUrl.value = DEFAULT_SERVER_URL;
+  elements.settingsThemeSelect.value = DEFAULT_THEME;
   elements.workflow.value = DEFAULT_WORKFLOW;
   elements.imgWorkflow.value = DEFAULT_IMAGE_WORKFLOW;
   elements.width.value = DEFAULT_WIDTH;
@@ -6224,8 +6322,25 @@ function savePreferencesFromElements(
     steps: elements.steps.value,
     cfg: elements.cfg.value,
     seed: elements.seed.value,
+    theme: readThemeSelection(elements),
     ...overrides
   });
+}
+
+function readThemeSelection(elements: AppElements): OpenLayerTheme {
+  return elements.settingsThemeSelect.value === "classic" ? "classic" : "compact";
+}
+
+function applyTheme(elements: AppElements, theme: OpenLayerTheme) {
+  const nextTheme = theme === "classic" ? "classic" : "compact";
+
+  elements.settingsThemeSelect.value = nextTheme;
+  elements.appShell.classList.toggle("theme-compact", nextTheme === "compact");
+  elements.appShell.classList.toggle("theme-classic", nextTheme === "classic");
+}
+
+function getThemeLabel(theme: OpenLayerTheme) {
+  return theme === "classic" ? "Classic v0.4" : "Compact Adobe Dark";
 }
 
 function updateSettingsReport(elements: AppElements) {
@@ -6527,6 +6642,7 @@ function addHistoryEntry(
   result: GeneratedImageResult,
   details: {
     prompt: string;
+    negativePrompt?: string;
     checkpointName: string;
     modelName: string;
     workflowPreset: string;
@@ -6535,8 +6651,30 @@ function addHistoryEntry(
     sizeLabel: string;
     dimensions: string;
     sourceMode: string;
+    sourceBounds?: OpenLayerLayerBounds;
+    contextBounds?: OpenLayerLayerBounds;
+    experimental?: boolean;
+    diagnosticsSummary?: string;
   }
 ) {
+  const createdAt = new Date();
+  const metadata = createOpenLayerLayerMetadata({
+    openLayerVersion: APP_VERSION,
+    toolType: details.toolType,
+    workflowPresetId: details.workflowPreset,
+    modelName: details.modelName || details.checkpointName,
+    prompt: details.prompt,
+    negativePrompt: details.negativePrompt,
+    seed: details.seed,
+    dimensions: createMetadataDimensions(details.dimensions),
+    sourceMode: details.sourceMode,
+    sourceBounds: details.sourceBounds,
+    contextBounds: details.contextBounds,
+    importTimestamp: createdAt,
+    experimental: details.experimental ?? isWorkflowPresetExperimental(details.workflowPreset),
+    diagnosticsSummary: details.diagnosticsSummary
+  });
+
   historyEntries.unshift({
     id: createHistoryId(),
     result,
@@ -6551,7 +6689,8 @@ function addHistoryEntry(
     dimensions: details.dimensions,
     sourceMode: details.sourceMode,
     importStatus: "not-imported",
-    createdAt: new Date().toLocaleString()
+    createdAt: createdAt.toLocaleString(),
+    metadata
   });
 
   while (historyEntries.length > HISTORY_LIMIT) {
@@ -6652,7 +6791,83 @@ function markHistoryImported(
   entry.importStatus = "imported";
   entry.importedLayerName = importedLayerName;
   entry.importedAt = new Date().toLocaleString();
+  entry.metadata = sanitizeOpenLayerLayerMetadata({
+    ...entry.metadata,
+    importedLayerName,
+    importTimestamp: new Date().toISOString()
+  });
   renderHistory(elements, historyEntries);
+}
+
+async function writeMetadataForImportedResult(
+  historyEntries: HistoryEntry[],
+  result: GeneratedImageResult,
+  importedLayerName: string,
+  onProgress?: (message: string) => void
+) {
+  const entry = historyEntries.find((historyEntry) => historyEntry.result === result);
+
+  if (!entry) {
+    return "No session metadata entry was found for this imported result.";
+  }
+
+  entry.metadata = sanitizeOpenLayerLayerMetadata({
+    ...entry.metadata,
+    importedLayerName,
+    importTimestamp: new Date().toISOString()
+  });
+
+  try {
+    const writeResult = await writeOpenLayerLayerMetadata(entry.metadata, onProgress);
+    return writeResult.message;
+  } catch (caughtError) {
+    return `Layer metadata persistence skipped. ${getErrorMessage(caughtError)}`;
+  }
+}
+
+function createMetadataDimensions(label: string) {
+  const dimensions = readDimensionsFromLabel(label);
+
+  return {
+    ...dimensions,
+    label
+  };
+}
+
+function readDimensionsFromLabel(label: string) {
+  const match = label.match(/(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)/i);
+
+  if (!match) {
+    return {};
+  }
+
+  return {
+    width: Number.parseFloat(match[1]),
+    height: Number.parseFloat(match[2])
+  };
+}
+
+function isWorkflowPresetExperimental(presetId: string) {
+  try {
+    return getWorkflowPreset(presetId).status === "experimental";
+  } catch {
+    return false;
+  }
+}
+
+function createMetadataBounds(bounds: OpenLayerLayerBounds | undefined): OpenLayerLayerBounds | undefined {
+  if (!bounds) {
+    return undefined;
+  }
+
+  return {
+    left: bounds.left,
+    top: bounds.top,
+    right: bounds.right,
+    bottom: bounds.bottom,
+    width: bounds.width ?? bounds.right - bounds.left,
+    height: bounds.height ?? bounds.bottom - bounds.top
+  };
 }
 
 function createHistoryButton(label: string, action: HistoryActionName, historyId: string) {

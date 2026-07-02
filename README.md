@@ -10,13 +10,14 @@ OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop t
 
 ## Alpha Release
 
-`v0.4.10-alpha` is the current Image to Image auto-import and experimental pixel Upscale foundation preview. It is intended for testing the core local workflow, not for production work yet.
+`v0.5.1-alpha` is the current technical stabilization preview. It is intended for testing the core local workflow, AI layer metadata foundation, and workflow diagnostics, not for production work yet.
 
 Included in this alpha:
 
 - Local ComfyUI connection from Photoshop UXP
 - Checkpoint loading from ComfyUI
-- Photoshop-dark Home dashboard with tool cards for current and planned workflows
+- Compact Adobe-style Home launcher with tool rows for current and planned workflows
+- Settings theme selector with `Compact Adobe Dark` as the default and `Classic v0.4` as an optional legacy visual style
 - Text-to-image generation with the `txt2img-basic` preset
 - Experimental Flux1-dev fp8 Text to Image preset using the attached checkpoint-style ComfyUI workflow
 - Experimental image-to-image generation with the `img2img-basic` preset
@@ -50,6 +51,8 @@ Included in this alpha:
 - Friendly Inpaint guardrails when no Photoshop selection exists, mask export fails, or required ComfyUI inpaint nodes are unavailable
 - Automated CI and unit test foundation for workflow, settings, model compatibility, and error helpers
 - Session history for recent generated previews with prompt, model, workflow preset, seed, dimensions, source mode, tool type, timestamp, and import status where available
+- Shared OpenLayer AI layer metadata model for generated/imported results, currently used by session history and prepared for future Photoshop layer persistence
+- Best-effort Photoshop layer metadata writer with an explicit unsupported fallback when the host does not expose safe layer metadata persistence
 - Reuse Settings action for recent generated-image history entries
 - Optional auto-import after generation
 - Responsive panel spacing fixes for narrow and wide Photoshop panels
@@ -57,7 +60,7 @@ Included in this alpha:
 
 ![OpenLayer v0.2.1 Home dashboard](docs/assets/openlayer-v021-dashboard.png)
 
-Known v0.4.10-alpha boundaries:
+Known v0.5.1-alpha boundaries:
 
 - Image to Image is an early foundation path, not a full production workflow yet.
 - Sketch to Image is limited to the first SD 1.x LINECN starter workflow.
@@ -73,11 +76,15 @@ Known v0.4.10-alpha boundaries:
 - Generic Flux diffusion-model-stack Text to Image and Image to Image presets remain disabled until validated API workflow JSON files are added.
 - Cancel Generation uses ComfyUI's interrupt endpoint and stops OpenLayer watchers/polling for active generation tools, but cancellation cannot undo work ComfyUI already completed.
 - The Settings workflow health checker reports local readiness, but it does not auto-fix missing models, missing nodes, or workflow mappings.
+- Workflow Health now gives beginner-friendly next checks for missing models, missing ComfyUI nodes, missing workflow JSON, setup-required presets, and experimental presets.
+- Persistent Photoshop layer metadata is not confirmed safe in this UXP environment yet. OpenLayer keeps structured metadata in session history and prepares a serialized payload for future persistence.
 - Copy Diagnostics prepares a setup report for testers. It does not send data anywhere.
 - Prompt from Layer is experimental and requires `comfyui-florence2`, `comfyui-custom-scripts`, and `Florence-2-base-PromptGen-v2.0`.
 - Outpaint is experimental and currently uses `outpaint-flux-fill-basic` with `flux1-fill-dev.safetensors`, `clip_l.safetensors`, `t5xxl_fp16.safetensors` or the accepted T5 fp8 fallback, and `ae.safetensors`.
 - Upscale is experimental and currently uses a simple pixel/model upscale path. It does not use prompts, latent upscale, tiled diffusion, or creative enhancement.
 - Upscale needs ComfyUI's `UpscaleModelLoader` and `ImageUpscaleWithModel` nodes plus an installed upscale model such as `4x-UltraSharp.pth` or `RealESRGAN_x4plus.pth`.
+- The v0.5.1 stabilization pass does not change ComfyUI workflow behavior, model loading, generation, import, Inpaint, Outpaint, or UI design.
+- Classic v0.4 theme preserves the older visual feel, but it does not duplicate every old layout detail.
 - SDXL, SD3, Flux, and Z_image_Turbo Sketch to Image workflows need dedicated future presets.
 - Workflow node IDs may need adjustment for custom ComfyUI workflows.
 - Dedicated selected-layer PNG file export, selection preservation, aligned regional workflows, advanced ControlNet-style workflows, and generative upscaling are not included yet.
@@ -204,7 +211,7 @@ npm run package
 This creates a zip package from `dist` in the `packages` folder. For the current alpha, the expected package name is:
 
 ```text
-packages/openlayer-v0.4.10-alpha.zip
+packages/openlayer-v0.5.1-alpha.zip
 ```
 
 ## Loading In UXP Developer Tool
@@ -329,7 +336,7 @@ Inpaint output quality, mask interpretation, and Photoshop alignment are still b
 
 ## Pre-release Tester Checklist
 
-Use this quick pass before reporting a v0.4.10-alpha test result:
+Use this quick pass before reporting a v0.5.1-alpha test result:
 
 1. Start ComfyUI on `http://127.0.0.1:8190`.
 2. Build OpenLayer and load `dist/manifest.json` in Adobe UXP Developer Tool.

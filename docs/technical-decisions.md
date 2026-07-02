@@ -33,6 +33,13 @@ This page records current project direction so contributors can make compatible 
 - API workflow validation should explain which preset failed and which node/input mapping needs attention.
 - Diffusion-model-stack presets may declare accepted model-file alternatives, but the selected available file must be written into the runnable API workflow before submit.
 
+## AI Layer Metadata
+
+- OpenLayer should maintain one typed metadata shape for session history and future persistent Photoshop layer metadata.
+- Metadata should include OpenLayer version, tool type, workflow preset, model/checkpoint, prompt, negative prompt, seed, dimensions, source mode, source/context bounds, import timestamp, experimental status, and concise diagnostics.
+- Photoshop layer metadata persistence is currently best-effort only. If the active UXP host does not expose a safe supported layer metadata API, OpenLayer must report the unsupported fallback and keep metadata in session history.
+- Future persistent metadata should prefer a Photoshop-native, reversible, artist-safe storage path over hidden brittle action-manager tricks.
+
 ## Inpainting
 
 - Inpaint/Repaint Selection remains experimental until confirmed by real Photoshop testing.
