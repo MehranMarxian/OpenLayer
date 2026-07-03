@@ -3556,3 +3556,375 @@ a:hover {
 .app-shell.theme-classic .tool-arrow {
   display: none;
 }
+
+/* v0.5.3 narrow-panel cleanup and local PNG icon set. */
+.app-shell.theme-compact .icon-image {
+  display: block;
+  width: 27px;
+  height: 27px;
+  object-fit: contain;
+  opacity: 0.92;
+  filter: grayscale(1);
+}
+
+.app-shell.theme-compact .tool-card.is-coming-soon .icon-image {
+  opacity: 0.48;
+}
+
+.app-shell.theme-compact .ol-row-icon,
+.app-shell.theme-compact .tool-icon {
+  width: 31px;
+  height: 29px;
+  flex: 0 0 31px;
+  margin-right: 7px;
+}
+
+.app-shell.theme-compact .screen-kicker,
+.app-shell.theme-compact .screen-icon {
+  width: 30px;
+  height: 27px;
+  flex-basis: 30px;
+  margin-right: 6px;
+}
+
+.app-shell.theme-compact .screen-kicker .icon-image,
+.app-shell.theme-compact .screen-icon .icon-image {
+  width: 26px;
+  height: 26px;
+}
+
+.app-shell.theme-compact .tool-card {
+  min-height: 38px;
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+
+.app-shell.theme-compact .tool-title,
+.app-shell.theme-compact .ol-row-title {
+  font-size: 12px;
+  line-height: 1.15;
+}
+
+.app-shell.theme-compact .tool-subtitle,
+.app-shell.theme-compact .ol-row-desc {
+  font-size: 10px;
+  line-height: 1.15;
+}
+
+.app-shell.theme-compact .field-label-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  margin: 0;
+}
+
+.app-shell.theme-compact .field-label-row .label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell.theme-compact .info-toggle {
+  display: flex;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  min-height: 18px;
+  flex: 0 0 18px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ol-line);
+  border-radius: 3px;
+  margin: 0;
+  padding: 0;
+  background: #343434;
+  color: #bdbdbd;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.app-shell.theme-compact .info-toggle:hover,
+.app-shell.theme-compact .info-toggle.is-active {
+  border-color: #7a7a7a;
+  background: #3d3d3d;
+  color: #f0f0f0;
+}
+
+.app-shell.theme-compact .info-panel[hidden] {
+  display: none !important;
+}
+
+.app-shell.theme-compact .info-panel,
+.app-shell.theme-compact .compatibility-note.info-panel {
+  max-height: 74px;
+  border: 1px solid #4b4b4b;
+  border-radius: 4px;
+  margin: 1px 0 0 !important;
+  padding: 5px 6px;
+  background: #2b2b2b;
+  color: #cfcfcf;
+  font-size: 10px;
+  line-height: 1.3;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+
+.app-shell.theme-compact .compatibility-note.info-panel.is-warning {
+  border-color: #8b6f2a;
+  background: #332d20;
+  color: #e4c36b;
+}
+
+.app-shell.theme-compact .section-heading[data-openlayer-detail-toggle] {
+  cursor: pointer;
+  user-select: none;
+}
+
+.app-shell.theme-compact .section-heading[data-openlayer-detail-toggle]::before {
+  content: "⌄";
+  display: inline-flex;
+  width: 12px;
+  flex: 0 0 12px;
+  align-items: center;
+  justify-content: center;
+  margin-right: 2px;
+  color: #a9a9a9;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.app-shell.theme-compact .panel-section.is-collapsed > :not(.section-heading) {
+  display: none !important;
+}
+
+.app-shell.theme-compact .panel-section.is-collapsed .section-heading[data-openlayer-detail-toggle]::before {
+  content: "›";
+}
+
+.app-shell.theme-compact .panel-section,
+.app-shell.theme-compact .generator-panel,
+.app-shell.theme-compact .result-panel,
+.app-shell.theme-compact .generation-status-panel,
+.app-shell.theme-compact .history-panel,
+.app-shell.theme-compact .settings-panel {
+  padding: 4px;
+}
+
+.app-shell.theme-compact .field,
+.app-shell.theme-compact .img2img-field,
+.app-shell.theme-compact .ol-field {
+  gap: 3px;
+}
+
+.app-shell.theme-compact .input,
+.app-shell.theme-compact .select,
+.app-shell.theme-compact .ol-input {
+  height: 24px;
+  min-height: 24px;
+  padding: 2px 6px;
+}
+
+.app-shell.theme-compact .button,
+.app-shell.theme-compact .ol-button {
+  min-height: 24px;
+  padding: 2px 6px;
+}
+
+.app-shell.theme-compact .button-primary,
+.app-shell.theme-compact .button-generate,
+.app-shell.theme-compact .button-wide,
+.app-shell.theme-compact .cancel-generation-button {
+  min-height: 26px;
+}
+
+.app-shell.theme-compact .textarea {
+  min-height: 42px;
+  max-height: 78px;
+  padding: 5px 6px;
+}
+
+.app-shell.theme-compact .compact-textarea {
+  min-height: 38px;
+  max-height: 68px;
+}
+
+.app-shell.theme-compact .source-action-row,
+.app-shell.theme-compact .import-actions,
+.app-shell.theme-compact .settings-button-stack {
+  gap: 6px;
+}
+
+.app-shell.theme-compact .source-card {
+  min-height: 44px;
+  padding: 4px;
+}
+
+.app-shell.theme-compact .source-thumb-frame,
+.app-shell.theme-compact .source-thumb-frame img {
+  width: 38px;
+  height: 38px;
+}
+
+.app-shell.theme-compact .source-thumb-frame {
+  flex-basis: 38px;
+  margin-right: 6px;
+}
+
+.app-shell.theme-compact .preview-panel {
+  min-height: 96px;
+  max-height: 150px;
+}
+
+.app-shell.theme-compact .preview-panel img {
+  max-height: 150px;
+}
+
+@media (max-width: 360px) {
+  .app-shell.theme-compact .tool-subtitle,
+  .app-shell.theme-compact .ol-row-desc {
+    display: none;
+  }
+
+  .app-shell.theme-compact .tool-card {
+    min-height: 34px;
+  }
+
+  .app-shell.theme-compact .ol-row-icon,
+  .app-shell.theme-compact .tool-icon {
+    width: 29px;
+    flex-basis: 29px;
+    margin-right: 6px;
+  }
+
+  .app-shell.theme-compact .icon-image {
+    width: 25px;
+    height: 25px;
+  }
+
+  .app-shell.theme-compact .screen-title {
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* v0.5.3 narrow-panel hotfix: UXP paints native controls more reliably
+   when selects are not treated as flex containers. */
+.app-shell.theme-compact .select {
+  display: inline-block !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  border-radius: 3px;
+  padding: 3px 7px !important;
+  color: #f0f0f0 !important;
+  background-color: #242424;
+  font-family: "Segoe UI", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500;
+  line-height: 20px;
+  text-align: left;
+  text-indent: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 1 !important;
+  -webkit-text-fill-color: #f0f0f0;
+}
+
+.app-shell.theme-compact .select option {
+  color: #f0f0f0;
+  background: #242424;
+}
+
+.app-shell.theme-compact .input,
+.app-shell.theme-compact .ol-input {
+  display: block;
+  height: 27px;
+  min-height: 27px;
+  line-height: 19px;
+  text-align: left;
+}
+
+.app-shell.theme-compact .button,
+.app-shell.theme-compact .ol-button {
+  line-height: 1.1;
+}
+
+.app-shell.theme-compact .info-toggle {
+  display: inline-flex;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  min-height: 18px;
+  flex: 0 0 18px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ol-line);
+  border-radius: 3px;
+  padding: 0;
+  background: #343434;
+  color: #dcdcdc;
+  font-size: 12px !important;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+}
+
+.app-shell.theme-compact .info-toggle-glyph {
+  display: block;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+}
+
+.app-shell.theme-compact .info-toggle:hover,
+.app-shell.theme-compact .info-toggle.is-active {
+  border-color: #7a7a7a;
+  background: #3d3d3d;
+  color: #ffffff;
+}
+
+.app-shell.theme-compact .field-label-row {
+  min-height: 18px;
+}
+
+.app-shell.theme-compact .field-label-row .info-toggle {
+  margin-left: auto;
+}
+
+.app-shell.theme-compact .generator-view,
+.app-shell.theme-compact .image-to-image-view,
+.app-shell.theme-compact .settings-view,
+.app-shell.theme-compact .history-view {
+  padding-right: 10px;
+}
+
+.app-shell.theme-compact .panel-section,
+.app-shell.theme-compact .generator-panel,
+.app-shell.theme-compact .result-panel,
+.app-shell.theme-compact .generation-status-panel,
+.app-shell.theme-compact .history-panel,
+.app-shell.theme-compact .settings-panel {
+  max-width: 100%;
+}
+
+@media (max-width: 380px) {
+  .app-shell.theme-compact .generator-view,
+  .app-shell.theme-compact .image-to-image-view,
+  .app-shell.theme-compact .settings-view,
+  .app-shell.theme-compact .history-view {
+    padding-right: 14px;
+  }
+}

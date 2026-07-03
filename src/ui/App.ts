@@ -93,7 +93,7 @@ import {
 } from "./historyMetadata";
 
 const DEFAULT_SERVER_URL = "http://127.0.0.1:8190";
-const APP_VERSION = "0.5.1";
+const APP_VERSION = "0.5.3";
 const DEVELOPER_GITHUB = "https://github.com/MehranMarxian";
 const HISTORY_LIMIT = 5;
 const COMFY_PORT_CANDIDATES = [8190, 8188, 8189, 8191, 8192, 8193, 7860];
@@ -599,6 +599,7 @@ export function renderApp(rootElement: HTMLElement) {
   applyPreferences(elements, preferences);
   applyTheme(elements, preferences.theme || DEFAULT_THEME);
   fillCheckpointOptions(elements, FALLBACK_CHECKPOINTS, preferences.checkpointName || FALLBACK_CHECKPOINTS[0]);
+  ensureCoreSelectDefaults(elements);
 
   const actionHandlers: ActionHandlers = {
     check: createActionRunner(elements, "check", handleCheckComfy),
@@ -704,6 +705,8 @@ export function renderApp(rootElement: HTMLElement) {
   bindDelegatedActions(rootElement, actionHandlers);
   bindDocumentActions(rootElement, actionHandlers);
   bindHomeSectionToggles(rootElement);
+  bindDetailSectionToggles(rootElement);
+  bindInfoToggles(rootElement);
   bindToolCards(rootElement, (view) => setView(view));
   bindHistoryActions(rootElement, handleHistoryAction);
   bindExternalLinks(rootElement);
@@ -3985,6 +3988,10 @@ function createAppMarkup() {
         </div>
 
         <section class="panel-section generator-panel" aria-label="Prompt">
+          <div class="section-heading">
+            <span class="label">Generate</span>
+            <span class="muted-label">Prompt and settings</span>
+          </div>
           <label class="field">
             <span class="label">Prompt</span>
             <textarea class="textarea" id="prompt" placeholder="Describe the image you want to generate..."></textarea>
@@ -4095,6 +4102,10 @@ function createAppMarkup() {
         </section>
 
         <section class="panel-section generator-panel img2img-form-panel" aria-label="Image to Image prompt">
+          <div class="section-heading">
+            <span class="label">Generate</span>
+            <span class="muted-label">Prompt and workflow</span>
+          </div>
           <div class="field img2img-field">
             <span class="label">Prompt</span>
             <textarea class="textarea compact-textarea" id="img-prompt" placeholder="Describe how to reinterpret the active layer..."></textarea>
@@ -4110,11 +4121,14 @@ function createAppMarkup() {
             </select>
           </div>
           <div class="field img2img-field">
-            <span class="label">Model</span>
+            <div class="field-label-row">
+              <span class="label">Model</span>
+              ${createInfoToggleMarkup("img-compatibility-note")}
+            </div>
             <select class="select" id="img-checkpoint">
               ${FALLBACK_CHECKPOINTS.map((checkpoint) => `<option value="${checkpoint}">${checkpoint}</option>`).join("")}
             </select>
-            <span class="compatibility-note" id="img-compatibility-note">img2img-basic is safest with SD 1.x and SDXL checkpoints. SD3 and Flux are experimental.</span>
+            ${createInfoPanelMarkup("img-compatibility-note", "img2img-basic is safest with SD 1.x and SDXL checkpoints. SD3 and Flux are experimental.")}
           </div>
           <button class="button experimental-toggle action-control" id="experimental-checkpoint-toggle" data-openlayer-action="toggleExperimentalCheckpoints" type="button" aria-pressed="false">Experimental Checkpoints Off</button>
           <div class="settings-grid img2img-settings-grid" aria-label="Image to Image settings">
@@ -4194,6 +4208,10 @@ function createAppMarkup() {
         </section>
 
         <section class="panel-section generator-panel img2img-form-panel" aria-label="Sketch to Image prompt">
+          <div class="section-heading">
+            <span class="label">Generate</span>
+            <span class="muted-label">Prompt and LINECN settings</span>
+          </div>
           <div class="field img2img-field">
             <span class="label">Prompt</span>
             <textarea class="textarea compact-textarea" id="sketch-prompt" placeholder="Describe the final image guided by the lineart..."></textarea>
@@ -4209,11 +4227,14 @@ function createAppMarkup() {
             </select>
           </div>
           <div class="field img2img-field">
-            <span class="label">Checkpoint</span>
+            <div class="field-label-row">
+              <span class="label">Checkpoint</span>
+              ${createInfoToggleMarkup("sketch-compatibility-note")}
+            </div>
             <select class="select" id="sketch-checkpoint">
               ${FALLBACK_CHECKPOINTS.map((checkpoint) => `<option value="${checkpoint}">${checkpoint}</option>`).join("")}
             </select>
-            <span class="compatibility-note" id="sketch-compatibility-note">Recommended: epicrealism_naturalSinRC1VAE.safetensors with an SD 1.5 LineArt ControlNet workflow.</span>
+            ${createInfoPanelMarkup("sketch-compatibility-note", "Recommended: epicrealism_naturalSinRC1VAE.safetensors with an SD 1.5 LineArt ControlNet workflow.")}
           </div>
           <div class="settings-grid img2img-settings-grid" aria-label="Sketch to Image settings">
             <div class="field">
@@ -4307,6 +4328,10 @@ function createAppMarkup() {
         </section>
 
         <section class="panel-section generator-panel img2img-form-panel" aria-label="Inpaint prompt">
+          <div class="section-heading">
+            <span class="label">Generate</span>
+            <span class="muted-label">Prompt and mask settings</span>
+          </div>
           <div class="field img2img-field">
             <span class="label">Prompt</span>
             <textarea class="textarea compact-textarea" id="inpaint-prompt" placeholder="Describe what should replace the selected area..."></textarea>
@@ -4322,11 +4347,14 @@ function createAppMarkup() {
             </select>
           </div>
           <div class="field img2img-field">
-            <span class="label">Checkpoint</span>
+            <div class="field-label-row">
+              <span class="label">Checkpoint</span>
+              ${createInfoToggleMarkup("inpaint-compatibility-note")}
+            </div>
             <select class="select" id="inpaint-checkpoint">
               ${FALLBACK_CHECKPOINTS.map((checkpoint) => `<option value="${checkpoint}">${checkpoint}</option>`).join("")}
             </select>
-            <span class="compatibility-note" id="inpaint-compatibility-note">Selection capture is available. Generation needs a mapped inpaint-basic API workflow.</span>
+            ${createInfoPanelMarkup("inpaint-compatibility-note", "Selection capture is available. Generation needs a mapped inpaint-basic API workflow.")}
           </div>
           <div class="settings-grid img2img-settings-grid" aria-label="Inpaint settings">
             <div class="field">
@@ -4407,6 +4435,10 @@ function createAppMarkup() {
         </section>
 
         <section class="panel-section generator-panel img2img-form-panel" aria-label="Outpaint prompt">
+          <div class="section-heading">
+            <span class="label">Generate</span>
+            <span class="muted-label">Prompt and expansion</span>
+          </div>
           <div class="field img2img-field">
             <span class="label">Prompt</span>
             <textarea class="textarea compact-textarea" id="outpaint-prompt" placeholder="Describe what should extend beyond the current image..."></textarea>
@@ -4418,11 +4450,14 @@ function createAppMarkup() {
             </select>
           </div>
           <div class="field img2img-field">
-            <span class="label">Model</span>
+            <div class="field-label-row">
+              <span class="label">Model</span>
+              ${createInfoToggleMarkup("outpaint-compatibility-note")}
+            </div>
             <select class="select" id="outpaint-checkpoint">
               ${FALLBACK_CHECKPOINTS.map((checkpoint) => `<option value="${checkpoint}">${checkpoint}</option>`).join("")}
             </select>
-            <span class="compatibility-note" id="outpaint-compatibility-note">Outpaint uses Flux Fill diffusion models and ImagePadForOutpaint.</span>
+            ${createInfoPanelMarkup("outpaint-compatibility-note", "Outpaint uses Flux Fill diffusion models and ImagePadForOutpaint.")}
           </div>
           <div class="settings-grid img2img-settings-grid" aria-label="Outpaint settings">
             <div class="field">
@@ -4525,6 +4560,10 @@ function createAppMarkup() {
         </section>
 
         <section class="panel-section generator-panel img2img-form-panel" aria-label="Upscale settings">
+          <div class="section-heading">
+            <span class="label">Upscale</span>
+            <span class="muted-label">Model and workflow</span>
+          </div>
           <div class="field img2img-field">
             <span class="label">Workflow</span>
             <select class="select" id="upscale-workflow">
@@ -4532,11 +4571,14 @@ function createAppMarkup() {
             </select>
           </div>
           <div class="field img2img-field">
-            <span class="label">Upscale model</span>
+            <div class="field-label-row">
+              <span class="label">Upscale model</span>
+              ${createInfoToggleMarkup("upscale-compatibility-note")}
+            </div>
             <select class="select" id="upscale-model">
               ${FALLBACK_UPSCALE_MODELS.map((model) => `<option value="${model}">${model}</option>`).join("")}
             </select>
-            <span class="compatibility-note" id="upscale-compatibility-note">upscale-basic needs UpscaleModelLoader and ImageUpscaleWithModel in ComfyUI.</span>
+            ${createInfoPanelMarkup("upscale-compatibility-note", "upscale-basic needs UpscaleModelLoader and ImageUpscaleWithModel in ComfyUI.")}
           </div>
           <button class="button button-primary button-generate button-wide action-control" id="generate-upscale" data-openlayer-action="generateUpscale" type="button">Generate Upscale</button>
           <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
@@ -4655,26 +4697,44 @@ function createHomeToolSectionMarkup(section: { title: string; toolIds: string[]
 
 function createToolIconMarkup(icon: ToolIconName) {
   const icons: Record<ToolIconName, string> = {
-    image: `<rect x="7" y="5" width="12" height="10" rx="1.8" /><rect x="4" y="9" width="12" height="10" rx="1.8" /><path d="M6.5 16l3.1-3.2 2.5 2.5 1.5-1.6 2.1 2.3" /><circle cx="15.8" cy="8.4" r="1.2" />`,
-    imagePlus: `<rect x="7" y="4.7" width="12.5" height="12.5" rx="1.8" /><path d="M10 14.2l2.5-2.7 2.1 2.2 1.5-1.6 2.1 2.3" /><circle cx="16.2" cy="8.1" r="1.1" /><path d="M4.3 8.8h6.4" /><path d="M4.3 12h4.2" /><path d="M4.3 15.2h4.9" /><path d="M4.3 8.8v7.7l-1.5 1.7" />`,
-    brush: `<rect x="5" y="7" width="10.5" height="10.5" rx="1.6" stroke-dasharray="3 2.5" /><path d="M10 18.8l-4.6 1.1 1.1-4.6 10.3-10.3 3.5 3.5L10 18.8z" /><path d="M15.4 6.5l3.5 3.5" />`,
-    expand: `<rect x="6" y="6" width="12" height="12" rx="2" /><rect x="10" y="10" width="4" height="4" rx="0.8" /><path d="M6.2 4.2h6" /><path d="M4.2 6.2v6" /><path d="M17.8 4.2h2v5" /><path d="M19.8 4.2l-5.3 5.3" />`,
-    lineart: `<rect x="5" y="5" width="12.5" height="12.5" rx="1.8" /><path d="M7.5 14l3-3.2 2.3 2.3 1.4-1.6 2.1 2.4" /><path d="M11.2 18.9l-3.7.9.9-3.7 8.2-8.2 2.8 2.8-8.2 8.2z" /><path d="M15.5 9l2.8 2.8" />`,
-    promptFromLayer: `<path d="M5.2 7.2h10.2a2 2 0 0 1 2 2v4.8a2 2 0 0 1-2 2H9.1l-3.9 3.3v-3.3a2 2 0 0 1-2-2V9.2a2 2 0 0 1 2-2z" /><path d="M7.2 10.3h6.2" /><path d="M7.2 13h5" /><path d="M15.9 8.7h4.2v7.7" /><path d="M18 14.4l2.1 2-2.1 2" />`,
-    upscale: `<rect x="5" y="8" width="12" height="12" rx="2" /><path d="M8.5 4h7.5v7.5" /><path d="M16 4l-7.2 7.2" /><rect x="9.1" y="12.1" width="4.5" height="4.5" rx="0.9" />`,
-    style: `<path d="M4.5 15.2l5.5-2.2 5.5 2.2-5.5 2.2-5.5-2.2z" /><path d="M4.5 10.8l5.5-2.2 5.5 2.2" /><path d="M4.5 6.4l5.5-2.2 5.5 2.2" /><path d="M17.5 12l.8 2.4 2.4.8-2.4.8-.8 2.4-.8-2.4-2.4-.8 2.4-.8.8-2.4z" />`,
-    control: `<circle cx="5.8" cy="8" r="1.7" /><circle cx="18.2" cy="8" r="1.7" /><circle cx="7.2" cy="17" r="1.7" /><circle cx="16.8" cy="17" r="1.7" /><path d="M7.5 8h9" /><path d="M6.2 9.6l.7 5.7" /><path d="M17.8 9.6l-.7 5.7" /><path d="M9 17h6" /><path d="M11.1 13.2l1.3 1.3 2.5-3" />`,
-    workflow: `<path d="M4.8 5.8h3.8v3.8H4.8z" /><path d="M15.4 5.8h3.8v3.8h-3.8z" /><path d="M4.8 14.4h3.8v3.8H4.8z" /><path d="M15.4 14.4h3.8v3.8h-3.8z" /><path d="M8.8 7.7h6.4" /><path d="M6.7 9.8v4.4" /><path d="M17.3 9.8v4.4" /><path d="M8.8 16.3h6.4" />`,
-    layers: `<path d="M6.7 5h8.8l3 3v10.8H6.7z" /><path d="M15.5 5v3h3" /><path d="M4.8 7.2v13h10.5" /><path d="M9.2 11h6" /><path d="M9.2 14h6" /><path d="M9.2 17h4.3" />`,
-    history: `<path d="M5 12a7 7 0 1 0 2.1-5" /><path d="M5 5.5v4.4h4.4" /><path d="M12 7.7v4.7l3.2 2" />`,
-    settings: `<circle cx="12" cy="12" r="3.1" /><path d="M12 3.5v2.4" /><path d="M12 18.1v2.4" /><path d="M3.5 12h2.4" /><path d="M18.1 12h2.4" /><path d="M6 6l1.7 1.7" /><path d="M16.3 16.3L18 18" /><path d="M18 6l-1.7 1.7" /><path d="M7.7 16.3L6 18" /><path d="M8.2 4.3l.9 2.1" /><path d="M15.8 19.7l-.9-2.1" />`
+    image: "image-to-image.png",
+    imagePlus: "text-to-image.png",
+    brush: "inpaint.png",
+    expand: "outpaint.png",
+    lineart: "sketch-to-image.png",
+    promptFromLayer: "prompt-from-layer.png",
+    upscale: "upscale.png",
+    style: "style-reference.png",
+    control: "workflow-presets.png",
+    workflow: "workflow.png",
+    layers: "layer-tools.png",
+    history: "history.png",
+    settings: "settings.png"
   };
 
-  return `<svg class="icon-svg" viewBox="0 0 24 24" focusable="false" aria-hidden="true">${icons[icon]}</svg>`;
+  return `<img class="icon-image" src="icons/tools/${icons[icon]}" alt="" aria-hidden="true" />`;
 }
 
 function createScreenIconMarkup(icon: ToolIconName, label: string) {
   return `<span class="screen-kicker screen-icon" aria-label="${label}" title="${label}">${createToolIconMarkup(icon)}</span>`;
+}
+
+function createInfoToggleMarkup(targetId: string) {
+  return `
+    <button
+      class="info-toggle"
+      type="button"
+      aria-label="Show setup note"
+      aria-expanded="false"
+      aria-controls="${targetId}"
+      data-openlayer-info-toggle="${targetId}"
+      title="Show setup note"
+    ><span class="info-toggle-glyph" aria-hidden="true">?</span></button>
+  `;
+}
+
+function createInfoPanelMarkup(targetId: string, text: string) {
+  return `<div class="compatibility-note info-panel" id="${targetId}" hidden>${text}</div>`;
 }
 
 function getAppElements(rootElement: HTMLElement): AppElements {
@@ -5530,6 +5590,118 @@ function bindHomeSectionToggles(rootElement: HTMLElement) {
   });
 }
 
+function bindDetailSectionToggles(rootElement: HTMLElement) {
+  let lastRunAt = 0;
+
+  rootElement.querySelectorAll<HTMLElement>(".panel-section > .section-heading").forEach((header) => {
+    const section = header.parentElement;
+
+    if (!section || section.classList.contains("home-section")) {
+      return;
+    }
+
+    header.setAttribute("role", "button");
+    header.setAttribute("tabindex", "0");
+    header.setAttribute("aria-expanded", "true");
+    header.setAttribute("data-openlayer-detail-toggle", "true");
+    section.classList.add("is-open");
+  });
+
+  const runFromEvent = (event: Event) => {
+    const target = event.target;
+
+    if (!(target instanceof Element)) {
+      return;
+    }
+
+    const header = target.closest("[data-openlayer-detail-toggle]") as HTMLElement | null;
+
+    if (!header || !rootElement.contains(header)) {
+      return;
+    }
+
+    const section = header.parentElement as HTMLElement | null;
+
+    if (!section) {
+      return;
+    }
+
+    const now = Date.now();
+
+    if (now - lastRunAt < 250) {
+      return;
+    }
+
+    lastRunAt = now;
+    event.preventDefault();
+    const isOpen = section.classList.toggle("is-open");
+    section.classList.toggle("is-collapsed", !isOpen);
+    header.setAttribute("aria-expanded", isOpen ? "true" : "false");
+  };
+
+  for (const eventName of ["click", "pointerup", "touchend"]) {
+    rootElement.addEventListener(eventName, runFromEvent, true);
+  }
+
+  rootElement.addEventListener("keydown", (event) => {
+    const key = (event as KeyboardEvent).key;
+
+    if (key === "Enter" || key === " ") {
+      runFromEvent(event);
+    }
+  });
+}
+
+function bindInfoToggles(rootElement: HTMLElement) {
+  let lastRunAt = 0;
+
+  const runFromEvent = (event: Event) => {
+    const target = event.target;
+
+    if (!(target instanceof Element)) {
+      return;
+    }
+
+    const toggle = target.closest("[data-openlayer-info-toggle]") as HTMLElement | null;
+
+    if (!toggle || !rootElement.contains(toggle)) {
+      return;
+    }
+
+    const targetId = toggle.getAttribute("data-openlayer-info-toggle");
+    const panel = targetId ? rootElement.querySelector<HTMLElement>(`#${targetId}`) : null;
+
+    if (!panel) {
+      return;
+    }
+
+    const now = Date.now();
+
+    if (now - lastRunAt < 250) {
+      return;
+    }
+
+    lastRunAt = now;
+    event.preventDefault();
+    const shouldShow = panel.hidden;
+    panel.hidden = !shouldShow;
+    toggle.classList.toggle("is-active", shouldShow);
+    toggle.setAttribute("aria-expanded", shouldShow ? "true" : "false");
+  };
+
+  for (const eventName of ["click", "pointerup", "touchend"]) {
+    rootElement.addEventListener(eventName, runFromEvent, true);
+  }
+
+  rootElement.addEventListener("keydown", (event) => {
+    const key = (event as KeyboardEvent).key;
+
+    if (key === "Enter" || key === " ") {
+      runFromEvent(event);
+    }
+  });
+}
+
 function bindToolCards(rootElement: HTMLElement, setView: (view: AppView) => void) {
   let lastRunAt = 0;
 
@@ -5918,6 +6090,39 @@ function fillSingleCheckpointSelect(select: HTMLSelectElement, checkpoints: stri
     select.value = preferredValue;
   } else {
     select.value = checkpoints[0] ?? "";
+  }
+}
+
+function ensureCoreSelectDefaults(elements: AppElements) {
+  ensureSelectOption(elements.imgWorkflow, DEFAULT_IMAGE_WORKFLOW);
+  ensureSelectOption(elements.sketchWorkflow, DEFAULT_SKETCH_WORKFLOW);
+  ensureSelectOption(elements.inpaintWorkflow, DEFAULT_INPAINT_WORKFLOW);
+  ensureSelectOption(elements.outpaintWorkflow, DEFAULT_OUTPAINT_WORKFLOW);
+  ensureSelectOption(elements.upscaleWorkflow, DEFAULT_UPSCALE_WORKFLOW);
+
+  ensureSelectOption(elements.imgCheckpoint, FALLBACK_CHECKPOINTS[0]);
+  ensureSelectOption(elements.sketchCheckpoint, RECOMMENDED_SKETCH_CHECKPOINT);
+  ensureSelectOption(elements.inpaintCheckpoint, FALLBACK_CHECKPOINTS[0]);
+  ensureSelectOption(elements.outpaintCheckpoint, "flux1-fill-dev.safetensors");
+  ensureSelectOption(elements.upscaleModel, FALLBACK_UPSCALE_MODELS[0]);
+}
+
+function ensureSelectOption(select: HTMLSelectElement, value: string, label = value) {
+  if (!value) {
+    return;
+  }
+
+  const hasOption = Array.from(select.options).some((option) => option.value === value);
+
+  if (!hasOption) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    select.append(option);
+  }
+
+  if (!readSelectValue(select)) {
+    select.value = value;
   }
 }
 
