@@ -219,7 +219,7 @@ const TOOL_CARDS: ToolCard[] = [
     title: "Outpaint",
     subtitle: "Extend canvas content beyond edges",
     icon: "expand",
-    status: "experimental",
+    status: "available",
     view: "outpaint"
   },
   {
@@ -235,7 +235,7 @@ const TOOL_CARDS: ToolCard[] = [
     title: "Upscale",
     subtitle: "Enhance generated or selected layers",
     icon: "upscale",
-    status: "experimental",
+    status: "available",
     view: "upscale"
   },
   {
@@ -281,6 +281,25 @@ const TOOL_CARDS: ToolCard[] = [
     icon: "settings",
     status: "available",
     view: "settings"
+  }
+];
+
+const HOME_TOOL_SECTIONS = [
+  {
+    title: "Generate",
+    toolIds: ["text-to-image", "image-to-image", "lineart", "inpaint", "outpaint", "upscale", "prompt-from-layer"]
+  },
+  {
+    title: "Workflow",
+    toolIds: ["workflow-presets", "workflow", "style-reference"]
+  },
+  {
+    title: "Tools & History",
+    toolIds: ["layer-tools", "history"]
+  },
+  {
+    title: "Preferences",
+    toolIds: ["settings"]
   }
 ];
 
@@ -684,6 +703,7 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.clearHistoryButton, actionHandlers.clearHistory);
   bindDelegatedActions(rootElement, actionHandlers);
   bindDocumentActions(rootElement, actionHandlers);
+  bindHomeSectionToggles(rootElement);
   bindToolCards(rootElement, (view) => setView(view));
   bindHistoryActions(rootElement, handleHistoryAction);
   bindExternalLinks(rootElement);
@@ -3788,16 +3808,14 @@ function createAppMarkup() {
       </div>
 
       <section class="home-view" id="home-view" aria-label="OpenLayer tools">
-        <div class="tool-grid">
-          ${TOOL_CARDS.map(createToolCardMarkup).join("")}
-        </div>
+        ${HOME_TOOL_SECTIONS.map(createHomeToolSectionMarkup).join("")}
       </section>
 
       <section class="prompt-from-layer-view image-to-image-view" id="prompt-from-layer-view" aria-label="Prompt from Layer" hidden>
         <div class="screen-nav">
           <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
           <div class="screen-title-block">
-            <span class="screen-kicker">PFL</span>
+            ${createScreenIconMarkup("promptFromLayer", "Prompt from Layer")}
             <span class="screen-title">Prompt from Layer</span>
           </div>
         </div>
@@ -3862,7 +3880,7 @@ function createAppMarkup() {
         <div class="screen-nav">
           <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
           <div class="screen-title-block">
-            <span class="screen-kicker">SET</span>
+            ${createScreenIconMarkup("settings", "Settings")}
             <span class="screen-title">Settings</span>
           </div>
         </div>
@@ -3961,7 +3979,7 @@ function createAppMarkup() {
         <div class="screen-nav">
           <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
           <div class="screen-title-block">
-            <span class="screen-kicker">TXT</span>
+            ${createScreenIconMarkup("imagePlus", "Text to Image")}
             <span class="screen-title">Text to Image</span>
           </div>
         </div>
@@ -4051,7 +4069,7 @@ function createAppMarkup() {
         <div class="screen-nav">
           <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
           <div class="screen-title-block">
-            <span class="screen-kicker">IMG</span>
+            ${createScreenIconMarkup("image", "Image to Image")}
             <span class="screen-title">Image to Image</span>
           </div>
         </div>
@@ -4150,7 +4168,7 @@ function createAppMarkup() {
         <div class="screen-nav">
           <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
           <div class="screen-title-block">
-            <span class="screen-kicker">SK</span>
+            ${createScreenIconMarkup("lineart", "Sketch to Image")}
             <span class="screen-title">Sketch to Image</span>
           </div>
         </div>
@@ -4250,7 +4268,7 @@ function createAppMarkup() {
         <div class="screen-nav">
           <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
           <div class="screen-title-block">
-            <span class="screen-kicker">INP</span>
+            ${createScreenIconMarkup("brush", "Inpaint")}
             <span class="screen-title">Inpaint</span>
           </div>
         </div>
@@ -4359,7 +4377,7 @@ function createAppMarkup() {
         <div class="screen-nav">
           <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
           <div class="screen-title-block">
-            <span class="screen-kicker">OUT</span>
+            ${createScreenIconMarkup("expand", "Outpaint")}
             <span class="screen-title">Outpaint</span>
           </div>
         </div>
@@ -4477,7 +4495,7 @@ function createAppMarkup() {
         <div class="screen-nav">
           <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
           <div class="screen-title-block">
-            <span class="screen-kicker">UP</span>
+            ${createScreenIconMarkup("upscale", "Upscale")}
             <span class="screen-title">Upscale</span>
           </div>
         </div>
@@ -4552,7 +4570,7 @@ function createAppMarkup() {
         <div class="screen-nav">
           <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
           <div class="screen-title-block">
-            <span class="screen-kicker">HI</span>
+            ${createScreenIconMarkup("history", "History")}
             <span class="screen-title">History</span>
           </div>
         </div>
@@ -4593,52 +4611,70 @@ function createBrandHeaderMarkup() {
 
 function createToolCardMarkup(card: ToolCard) {
   const isEnabled = card.status !== "coming-soon";
-  const statusLabel =
-    card.status === "available" ? "Available" : card.status === "experimental" ? "Experimental" : "Coming Soon";
   const viewAttribute = isEnabled && card.view ? ` data-openlayer-view="${card.view}"` : "";
   const disabledAttributes = isEnabled ? "" : ` aria-disabled="true" tabindex="-1"`;
-  const statusMarkup = `<span class="tool-status ${card.status}">${statusLabel}</span>`;
 
   return `
     <div
-      class="tool-card is-${card.status}"
+      class="tool-card ol-row is-${card.status}"
       role="button"
       tabindex="${isEnabled ? "0" : "-1"}"
       data-tool-id="${card.id}"
       ${viewAttribute}
       ${disabledAttributes}
     >
-      <div class="tool-icon" aria-hidden="true">${createToolIconMarkup(card.icon)}</div>
-      <div class="tool-card-body">
+      <div class="tool-icon ol-row-icon" aria-hidden="true">${createToolIconMarkup(card.icon)}</div>
+      <div class="tool-card-body ol-row-main">
         <div class="tool-title-row">
-          <div class="tool-title">${card.title}</div>
-          ${statusMarkup}
+          <div class="tool-title ol-row-title">${card.title}</div>
         </div>
-        <div class="tool-subtitle">${card.subtitle}</div>
+        <div class="tool-subtitle ol-row-desc">${card.subtitle}</div>
       </div>
-      <div class="tool-arrow" aria-hidden="true">${isEnabled ? "›" : ""}</div>
+      <div class="tool-arrow ol-row-chevron" aria-hidden="true">${isEnabled ? "&rsaquo;" : ""}</div>
     </div>
   `;
 }
 
+function createHomeToolSectionMarkup(section: { title: string; toolIds: string[] }) {
+  const cards = section.toolIds
+    .map((toolId) => TOOL_CARDS.find((card) => card.id === toolId))
+    .filter((card): card is ToolCard => Boolean(card));
+
+  return `
+    <section class="home-section ol-section is-open" aria-label="${section.title}">
+      <div class="home-section-title ol-section-header" role="button" tabindex="0" aria-expanded="true" data-openlayer-section-toggle>
+        <span class="home-section-chevron ol-section-chevron" aria-hidden="true"></span>
+        <span>${section.title}</span>
+      </div>
+      <div class="tool-list ol-section-body">
+        ${cards.map(createToolCardMarkup).join("")}
+      </div>
+    </section>
+  `;
+}
+
 function createToolIconMarkup(icon: ToolIconName) {
-  const labels: Record<ToolIconName, string> = {
-    image: "IMG",
-    imagePlus: "TXT",
-    brush: "INP",
-    expand: "OUT",
-    lineart: "SK",
-    promptFromLayer: "PFL",
-    upscale: "UP",
-    style: "ST",
-    control: "WFP",
-    workflow: "WF",
-    layers: "LY",
-    history: "HI",
-    settings: "SET"
+  const icons: Record<ToolIconName, string> = {
+    image: `<rect x="7" y="5" width="12" height="10" rx="1.8" /><rect x="4" y="9" width="12" height="10" rx="1.8" /><path d="M6.5 16l3.1-3.2 2.5 2.5 1.5-1.6 2.1 2.3" /><circle cx="15.8" cy="8.4" r="1.2" />`,
+    imagePlus: `<rect x="7" y="4.7" width="12.5" height="12.5" rx="1.8" /><path d="M10 14.2l2.5-2.7 2.1 2.2 1.5-1.6 2.1 2.3" /><circle cx="16.2" cy="8.1" r="1.1" /><path d="M4.3 8.8h6.4" /><path d="M4.3 12h4.2" /><path d="M4.3 15.2h4.9" /><path d="M4.3 8.8v7.7l-1.5 1.7" />`,
+    brush: `<rect x="5" y="7" width="10.5" height="10.5" rx="1.6" stroke-dasharray="3 2.5" /><path d="M10 18.8l-4.6 1.1 1.1-4.6 10.3-10.3 3.5 3.5L10 18.8z" /><path d="M15.4 6.5l3.5 3.5" />`,
+    expand: `<rect x="6" y="6" width="12" height="12" rx="2" /><rect x="10" y="10" width="4" height="4" rx="0.8" /><path d="M6.2 4.2h6" /><path d="M4.2 6.2v6" /><path d="M17.8 4.2h2v5" /><path d="M19.8 4.2l-5.3 5.3" />`,
+    lineart: `<rect x="5" y="5" width="12.5" height="12.5" rx="1.8" /><path d="M7.5 14l3-3.2 2.3 2.3 1.4-1.6 2.1 2.4" /><path d="M11.2 18.9l-3.7.9.9-3.7 8.2-8.2 2.8 2.8-8.2 8.2z" /><path d="M15.5 9l2.8 2.8" />`,
+    promptFromLayer: `<path d="M5.2 7.2h10.2a2 2 0 0 1 2 2v4.8a2 2 0 0 1-2 2H9.1l-3.9 3.3v-3.3a2 2 0 0 1-2-2V9.2a2 2 0 0 1 2-2z" /><path d="M7.2 10.3h6.2" /><path d="M7.2 13h5" /><path d="M15.9 8.7h4.2v7.7" /><path d="M18 14.4l2.1 2-2.1 2" />`,
+    upscale: `<rect x="5" y="8" width="12" height="12" rx="2" /><path d="M8.5 4h7.5v7.5" /><path d="M16 4l-7.2 7.2" /><rect x="9.1" y="12.1" width="4.5" height="4.5" rx="0.9" />`,
+    style: `<path d="M4.5 15.2l5.5-2.2 5.5 2.2-5.5 2.2-5.5-2.2z" /><path d="M4.5 10.8l5.5-2.2 5.5 2.2" /><path d="M4.5 6.4l5.5-2.2 5.5 2.2" /><path d="M17.5 12l.8 2.4 2.4.8-2.4.8-.8 2.4-.8-2.4-2.4-.8 2.4-.8.8-2.4z" />`,
+    control: `<circle cx="5.8" cy="8" r="1.7" /><circle cx="18.2" cy="8" r="1.7" /><circle cx="7.2" cy="17" r="1.7" /><circle cx="16.8" cy="17" r="1.7" /><path d="M7.5 8h9" /><path d="M6.2 9.6l.7 5.7" /><path d="M17.8 9.6l-.7 5.7" /><path d="M9 17h6" /><path d="M11.1 13.2l1.3 1.3 2.5-3" />`,
+    workflow: `<path d="M4.8 5.8h3.8v3.8H4.8z" /><path d="M15.4 5.8h3.8v3.8h-3.8z" /><path d="M4.8 14.4h3.8v3.8H4.8z" /><path d="M15.4 14.4h3.8v3.8h-3.8z" /><path d="M8.8 7.7h6.4" /><path d="M6.7 9.8v4.4" /><path d="M17.3 9.8v4.4" /><path d="M8.8 16.3h6.4" />`,
+    layers: `<path d="M6.7 5h8.8l3 3v10.8H6.7z" /><path d="M15.5 5v3h3" /><path d="M4.8 7.2v13h10.5" /><path d="M9.2 11h6" /><path d="M9.2 14h6" /><path d="M9.2 17h4.3" />`,
+    history: `<path d="M5 12a7 7 0 1 0 2.1-5" /><path d="M5 5.5v4.4h4.4" /><path d="M12 7.7v4.7l3.2 2" />`,
+    settings: `<circle cx="12" cy="12" r="3.1" /><path d="M12 3.5v2.4" /><path d="M12 18.1v2.4" /><path d="M3.5 12h2.4" /><path d="M18.1 12h2.4" /><path d="M6 6l1.7 1.7" /><path d="M16.3 16.3L18 18" /><path d="M18 6l-1.7 1.7" /><path d="M7.7 16.3L6 18" /><path d="M8.2 4.3l.9 2.1" /><path d="M15.8 19.7l-.9-2.1" />`
   };
 
-  return `<span class="icon-glyph">${labels[icon]}</span>`;
+  return `<svg class="icon-svg" viewBox="0 0 24 24" focusable="false" aria-hidden="true">${icons[icon]}</svg>`;
+}
+
+function createScreenIconMarkup(icon: ToolIconName, label: string) {
+  return `<span class="screen-kicker screen-icon" aria-label="${label}" title="${label}">${createToolIconMarkup(icon)}</span>`;
 }
 
 function getAppElements(rootElement: HTMLElement): AppElements {
@@ -5452,6 +5488,46 @@ function bindDocumentActions(rootElement: HTMLElement, actionHandlers: ActionHan
       true
     );
   }
+}
+
+function bindHomeSectionToggles(rootElement: HTMLElement) {
+  const runFromEvent = (event: Event) => {
+    const target = event.target;
+
+    if (!(target instanceof Element)) {
+      return;
+    }
+
+    const header = target.closest("[data-openlayer-section-toggle]") as HTMLElement | null;
+
+    if (!header || !rootElement.contains(header)) {
+      return;
+    }
+
+    const section = header.closest(".home-section") as HTMLElement | null;
+    const body = section?.querySelector<HTMLElement>(".ol-section-body");
+
+    if (!section || !body) {
+      return;
+    }
+
+    event.preventDefault();
+    const isOpen = section.classList.toggle("is-open");
+    header.setAttribute("aria-expanded", isOpen ? "true" : "false");
+    body.hidden = !isOpen;
+  };
+
+  for (const eventName of ["click", "pointerup", "touchend"]) {
+    rootElement.addEventListener(eventName, runFromEvent, true);
+  }
+
+  rootElement.addEventListener("keydown", (event) => {
+    const key = (event as KeyboardEvent).key;
+
+    if (key === "Enter" || key === " ") {
+      runFromEvent(event);
+    }
+  });
 }
 
 function bindToolCards(rootElement: HTMLElement, setView: (view: AppView) => void) {

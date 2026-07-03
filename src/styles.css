@@ -1937,23 +1937,35 @@ a:hover {
 /* v0.5.0 alpha compact theme system. Keep this block late so it can safely
    normalize the older v0.4 card-heavy rules without changing behavior. */
 .app-shell.theme-compact {
-  --ol-bg: #2d2d2d;
-  --ol-panel: #323232;
-  --ol-panel-soft: #303030;
+  --ol-bg: #2f2f2f;
+  --ol-panel: #333333;
+  --ol-panel-soft: #292929;
   --ol-panel-raised: #383838;
-  --ol-line: #464646;
-  --ol-line-soft: #3b3b3b;
+  --ol-line: #4a4a4a;
+  --ol-line-soft: #3f3f3f;
   --ol-text: #f0f0f0;
-  --ol-muted: #b8b8b8;
-  --ol-dim: #8f8f8f;
-  --ol-accent: #d5a51f;
-  --ol-accent-soft: #493b15;
+  --ol-muted: #c4c4c4;
+  --ol-dim: #969696;
+  --ol-accent: #d4a72c;
+  --ol-accent-soft: #3f351c;
   --ol-success: #24d54e;
   --ol-danger: #d85a5a;
-  gap: 8px;
-  padding: 10px 12px 14px;
+  gap: 6px;
+  height: 100vh;
+  min-height: 0;
+  max-height: 100vh;
+  padding: 8px 10px 0;
   background: var(--ol-bg);
   color: var(--ol-text);
+  overflow-y: hidden;
+}
+
+.app-shell.theme-compact > section:not([hidden]) {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-bottom: 10px;
 }
 
 .app-shell.theme-classic {
@@ -1977,7 +1989,7 @@ a:hover {
   gap: 8px;
   border-bottom: 1px solid var(--ol-line-soft);
   margin: 0;
-  padding-bottom: 8px;
+  padding-bottom: 6px;
 }
 
 .app-shell.theme-compact .brand-lockup {
@@ -1985,16 +1997,16 @@ a:hover {
 }
 
 .app-shell.theme-compact .brand-icon {
-  width: 34px;
-  height: 34px;
-  margin-right: 10px;
-  border-radius: 8px;
+  width: 30px;
+  height: 30px;
+  margin-right: 8px;
+  border-radius: 6px;
   box-shadow: none;
 }
 
 .app-shell.theme-compact .app-title {
   color: var(--ol-text);
-  font-size: 18px;
+  font-size: 17px;
   line-height: 1.1;
 }
 
@@ -2011,11 +2023,13 @@ a:hover {
 
 .app-shell.theme-compact .home-status-row {
   justify-content: flex-start;
-  min-height: 26px;
+  flex: 0 0 auto;
+  min-height: 22px;
   border-bottom: 1px solid var(--ol-line-soft);
   margin: 0;
-  padding-bottom: 7px;
+  padding-bottom: 5px;
   color: var(--ol-muted);
+  font-size: 11px;
 }
 
 .app-shell.theme-compact .home-status-row strong {
@@ -2023,8 +2037,8 @@ a:hover {
 }
 
 .app-shell.theme-compact .home-status-dot {
-  width: 12px;
-  height: 12px;
+  width: 9px;
+  height: 9px;
 }
 
 .app-shell.theme-compact .home-view,
@@ -2032,7 +2046,7 @@ a:hover {
 .app-shell.theme-compact .image-to-image-view,
 .app-shell.theme-compact .settings-view,
 .app-shell.theme-compact .history-view {
-  gap: 8px;
+  gap: 0;
 }
 
 .app-shell.theme-compact .home-view > *,
@@ -2043,7 +2057,34 @@ a:hover {
   margin-bottom: 8px;
 }
 
-.app-shell.theme-compact .tool-grid {
+.app-shell.theme-compact .home-view {
+  padding-bottom: 12px;
+}
+
+.app-shell.theme-compact .home-section {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin: 0 0 10px;
+}
+
+.app-shell.theme-compact .home-section:last-child {
+  margin-bottom: 0;
+}
+
+.app-shell.theme-compact .home-section-title {
+  margin: 0;
+  border-bottom: 1px solid var(--ol-line-soft);
+  padding: 6px 2px 4px;
+  color: #d6d6d6;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.2;
+}
+
+.app-shell.theme-compact .tool-grid,
+.app-shell.theme-compact .tool-list {
   display: flex;
   width: 100%;
   flex-direction: column;
@@ -2056,14 +2097,14 @@ a:hover {
   display: flex;
   width: 100%;
   min-width: 0;
-  min-height: 48px;
+  min-height: 42px;
   flex: 0 0 auto;
-  align-items: center;
+  align-items: flex-start;
   border: 0;
   border-bottom: 1px solid var(--ol-line-soft);
   border-radius: 0;
   margin: 0;
-  padding: 8px 2px;
+  padding: 5px 2px;
   background: transparent;
   color: var(--ol-text);
 }
@@ -2075,28 +2116,32 @@ a:hover {
 
 .app-shell.theme-compact .tool-card.is-available:hover,
 .app-shell.theme-compact .tool-card.is-experimental:hover {
-  background: #353535;
+  background: #383838;
 }
 
 .app-shell.theme-compact .tool-card.is-coming-soon {
-  opacity: 0.72;
+  opacity: 0.78;
 }
 
 .app-shell.theme-compact .tool-icon {
-  width: 28px;
-  height: 28px;
-  margin-right: 10px;
+  width: 20px;
+  height: 20px;
+  margin-right: 7px;
 }
 
 .app-shell.theme-compact .icon-glyph {
-  width: 22px;
-  height: 22px;
-  border-radius: 5px;
-  font-size: 8px;
-  line-height: 20px;
+  width: 18px;
+  height: 18px;
+  border-color: #868686 !important;
+  border-radius: 3px;
+  background: transparent !important;
+  color: #d8d8d8 !important;
+  font-size: 7px;
+  line-height: 16px;
 }
 
 .app-shell.theme-compact .tool-card-body {
+  min-width: 0;
   flex: 1 1 auto;
   padding-left: 0;
 }
@@ -2105,15 +2150,18 @@ a:hover {
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .app-shell.theme-compact .tool-title {
+  min-width: 0;
   flex: 1 1 auto;
+  overflow: hidden;
   color: var(--ol-text);
-  font-size: 15px;
-  line-height: 1.18;
-  white-space: normal;
+  font-size: 13px;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .app-shell.theme-compact .tool-card.is-available .tool-title,
@@ -2122,42 +2170,55 @@ a:hover {
 }
 
 .app-shell.theme-compact .tool-subtitle {
-  margin-top: 2px;
+  display: block;
+  min-width: 0;
+  margin-top: 1px;
+  overflow: hidden;
   color: var(--ol-muted);
-  font-size: 12px;
-  line-height: 1.25;
+  font-size: 11px;
+  line-height: 1.18;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .app-shell.theme-compact .tool-status {
   flex: 0 0 auto;
-  border-radius: 999px;
+  max-width: 76px;
   margin-top: 0;
-  padding: 2px 6px;
-  background: #3d3d3d;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
   color: var(--ol-muted);
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1.2;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .app-shell.theme-compact .tool-status.available {
-  background: rgba(37, 160, 76, 0.2);
-  color: #9fe0b5;
+  background: transparent;
+  color: #b9d8bd;
 }
 
 .app-shell.theme-compact .tool-status.experimental {
-  background: rgba(213, 165, 31, 0.18);
-  color: #f2ca5a;
+  background: transparent;
+  color: #d8c078;
 }
 
 .app-shell.theme-compact .tool-status.coming-soon {
+  background: transparent;
   color: #9f9f9f;
 }
 
 .app-shell.theme-compact .tool-arrow {
-  width: 16px;
+  width: 12px;
   flex: 0 0 auto;
+  margin-top: 2px;
   color: var(--ol-muted);
-  font-size: 20px;
+  font-size: 16px;
   line-height: 1;
   text-align: right;
 }
@@ -2282,9 +2343,11 @@ a:hover {
 }
 
 .app-shell.theme-compact .app-footer {
+  flex: 0 0 auto;
+  justify-content: flex-end;
   border-top: 1px solid var(--ol-line-soft);
-  margin-top: 6px;
-  padding-top: 8px;
+  margin-top: 0;
+  padding: 6px 0 8px;
   color: var(--ol-dim);
   font-size: 11px;
 }
@@ -2292,6 +2355,1155 @@ a:hover {
 .app-shell.theme-compact .footer-link {
   color: #d8d8d8;
   font-size: 12px;
+}
+
+@media (max-width: 340px) {
+  .app-shell.theme-compact {
+    gap: 5px;
+    padding-right: 7px;
+    padding-left: 7px;
+  }
+
+  .app-shell.theme-compact .app-header {
+    gap: 6px;
+  }
+
+  .app-shell.theme-compact .brand-icon {
+    width: 26px;
+    height: 26px;
+    margin-right: 6px;
+  }
+
+  .app-shell.theme-compact .app-title {
+    font-size: 15px;
+  }
+
+  .app-shell.theme-compact .app-subtitle,
+  .app-shell.theme-compact .version-badge {
+    font-size: 10px;
+  }
+
+  .app-shell.theme-compact .home-status-row {
+    min-height: 20px;
+    font-size: 10px;
+  }
+
+  .app-shell.theme-compact .home-section {
+    margin-bottom: 8px;
+  }
+
+  .app-shell.theme-compact .home-section-title {
+    padding-top: 5px;
+    font-size: 10px;
+  }
+
+  .app-shell.theme-compact .tool-card {
+    min-height: 44px;
+    padding: 5px 0;
+  }
+
+  .app-shell.theme-compact .tool-icon {
+    width: 18px;
+    height: 18px;
+    margin-right: 6px;
+  }
+
+  .app-shell.theme-compact .icon-glyph {
+    width: 16px;
+    height: 16px;
+    font-size: 6px;
+    line-height: 14px;
+  }
+
+  .app-shell.theme-compact .tool-title-row {
+    display: block;
+  }
+
+  .app-shell.theme-compact .tool-title {
+    display: block;
+    font-size: 12px;
+  }
+
+  .app-shell.theme-compact .tool-status {
+    display: block;
+    max-width: none;
+    margin-top: 1px;
+    font-size: 9px;
+    text-align: left;
+  }
+
+  .app-shell.theme-compact .tool-subtitle {
+    margin-top: 1px;
+    font-size: 10px;
+  }
+
+  .app-shell.theme-compact .tool-arrow {
+    display: none;
+  }
+
+  .app-shell.theme-compact .app-footer {
+    justify-content: flex-start;
+    padding-bottom: 6px;
+    font-size: 10px;
+  }
+
+  .app-shell.theme-compact .footer-link {
+    font-size: 11px;
+  }
+}
+
+/* v0.5.2 alpha: compact Photoshop-native layout guardrails. */
+.app-shell.theme-compact .ol-panel,
+.app-shell.theme-compact .panel-section,
+.app-shell.theme-compact .generator-panel,
+.app-shell.theme-compact .result-panel,
+.app-shell.theme-compact .generation-status-panel,
+.app-shell.theme-compact .history-panel,
+.app-shell.theme-compact .settings-panel {
+  border: 1px solid #464646;
+  border-radius: 5px;
+  padding: 7px;
+  background: #303030;
+}
+
+.app-shell.theme-compact .home-view {
+  display: block;
+  padding-bottom: 8px;
+}
+
+.app-shell.theme-compact .home-view > * {
+  margin-bottom: 6px;
+}
+
+.app-shell.theme-compact .ol-section,
+.app-shell.theme-compact .home-section {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin: 0 0 7px;
+  border-bottom: 1px solid #3f3f3f;
+}
+
+.app-shell.theme-compact .home-section:last-child {
+  margin-bottom: 0;
+}
+
+.app-shell.theme-compact .home-section-title,
+.app-shell.theme-compact .ol-section-header {
+  display: flex;
+  min-height: 22px;
+  align-items: center;
+  margin: 0;
+  list-style: none;
+  border: 0;
+  padding: 3px 1px 3px;
+  color: #c9c9c9;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.1;
+  user-select: none;
+}
+
+.app-shell.theme-compact .home-section-title::-webkit-details-marker,
+.app-shell.theme-compact .ol-section-header::-webkit-details-marker {
+  display: none;
+}
+
+.app-shell.theme-compact .home-section-chevron,
+.app-shell.theme-compact .ol-section-chevron {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  margin: 0 7px 1px 2px;
+  border-right: 1px solid #b8b8b8;
+  border-bottom: 1px solid #b8b8b8;
+  transform: rotate(45deg);
+}
+
+.app-shell.theme-compact .home-section:not(.is-open) .home-section-chevron,
+.app-shell.theme-compact .ol-section:not(.is-open) .ol-section-chevron {
+  margin-bottom: 0;
+  transform: rotate(-45deg);
+}
+
+.app-shell.theme-compact .home-section:not(.is-open) .ol-section-body {
+  display: none;
+}
+
+.app-shell.theme-compact .tool-list,
+.app-shell.theme-compact .ol-section-body {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+.app-shell.theme-compact .ol-row,
+.app-shell.theme-compact .tool-card {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  align-items: center;
+  border: 0;
+  border-top: 1px solid #3b3b3b;
+  border-bottom: 0;
+  border-radius: 0;
+  margin: 0;
+  padding: 4px 1px;
+  background: transparent;
+}
+
+.app-shell.theme-compact .tool-card.is-available:hover,
+.app-shell.theme-compact .tool-card.is-experimental:hover {
+  background: #373737;
+}
+
+.app-shell.theme-compact .ol-row-icon,
+.app-shell.theme-compact .tool-icon {
+  display: flex;
+  width: 24px;
+  height: 22px;
+  flex: 0 0 24px;
+  margin: 0 7px 0 0;
+  align-items: center;
+  justify-content: center;
+}
+
+.app-shell.theme-compact .icon-glyph {
+  width: 17px;
+  height: 17px;
+  border: 1px solid #8b8b8b !important;
+  border-radius: 3px;
+  background: transparent !important;
+  color: #d0d0d0 !important;
+  font-size: 6px;
+  font-weight: 700;
+  line-height: 15px;
+}
+
+.app-shell.theme-compact .icon-svg {
+  display: block;
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.65;
+  color: #d8d8d8;
+}
+
+.app-shell.theme-compact .tool-card.is-coming-soon .icon-svg {
+  color: #9f9f9f;
+}
+
+.app-shell.theme-compact .ol-row-main,
+.app-shell.theme-compact .tool-card-body {
+  min-width: 0;
+  flex: 1 1 auto;
+  padding: 0;
+}
+
+.app-shell.theme-compact .tool-title-row {
+  display: block;
+  min-width: 0;
+}
+
+.app-shell.theme-compact .ol-row-title,
+.app-shell.theme-compact .tool-title {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: #eeeeee !important;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.12;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell.theme-compact .ol-row-desc,
+.app-shell.theme-compact .tool-subtitle {
+  display: block;
+  min-width: 0;
+  margin-top: 2px;
+  overflow: hidden;
+  color: #bcbcbc;
+  font-size: 10px;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell.theme-compact .ol-row-status,
+.app-shell.theme-compact .tool-status {
+  width: 60px;
+  flex: 0 0 60px;
+  margin: 0 4px 0 6px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent !important;
+  color: #a9a9a9;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell.theme-compact .tool-status.available {
+  color: #b8d5bc;
+}
+
+.app-shell.theme-compact .tool-status.experimental {
+  color: #d6bf78;
+}
+
+.app-shell.theme-compact .tool-status.coming-soon {
+  color: #9c9c9c;
+}
+
+.app-shell.theme-compact .ol-row-chevron,
+.app-shell.theme-compact .tool-arrow {
+  width: 8px;
+  flex: 0 0 8px;
+  margin: 0;
+  color: #a8a8a8;
+  font-size: 13px;
+  line-height: 1;
+  text-align: right;
+}
+
+.app-shell.theme-compact .screen-nav {
+  min-height: 28px;
+  gap: 6px;
+  padding-bottom: 6px;
+}
+
+.app-shell.theme-compact .screen-title-block {
+  min-width: 0;
+}
+
+.app-shell.theme-compact .screen-kicker {
+  width: 20px;
+  height: 17px;
+  margin-right: 5px;
+  border-radius: 4px;
+  font-size: 7px;
+  line-height: 15px;
+}
+
+.app-shell.theme-compact .screen-title {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell.theme-compact .panel-section,
+.app-shell.theme-compact .generator-panel,
+.app-shell.theme-compact .result-panel,
+.app-shell.theme-compact .generation-status-panel,
+.app-shell.theme-compact .history-panel,
+.app-shell.theme-compact .settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 7px;
+}
+
+.app-shell.theme-compact .panel-section > *,
+.app-shell.theme-compact .generator-panel > *,
+.app-shell.theme-compact .result-panel > *,
+.app-shell.theme-compact .generation-status-panel > *,
+.app-shell.theme-compact .history-panel > *,
+.app-shell.theme-compact .settings-panel > * {
+  margin-bottom: 0;
+}
+
+.app-shell.theme-compact .section-heading {
+  min-height: 18px;
+  align-items: center;
+}
+
+.app-shell.theme-compact .section-heading .label,
+.app-shell.theme-compact .label {
+  min-height: 0;
+  margin: 0 6px 3px 0;
+  color: #dddddd;
+  font-size: 11px;
+  line-height: 1.15;
+}
+
+.app-shell.theme-compact .field {
+  display: block;
+  min-width: 0;
+  margin: 0;
+}
+
+.app-shell.theme-compact .input,
+.app-shell.theme-compact .select,
+.app-shell.theme-compact .button {
+  width: 100%;
+  min-height: 28px;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.app-shell.theme-compact .textarea {
+  width: 100%;
+  min-height: 54px;
+  border-radius: 4px;
+  padding: 7px 8px;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.app-shell.theme-compact .settings-grid,
+.app-shell.theme-compact .img2img-settings-grid,
+.app-shell.theme-compact .source-action-row,
+.app-shell.theme-compact .import-actions {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+}
+
+.app-shell.theme-compact .settings-grid .field,
+.app-shell.theme-compact .img2img-settings-grid .field {
+  min-width: 92px;
+  flex: 1 1 92px;
+  margin: 0;
+}
+
+.app-shell.theme-compact .settings-seed {
+  flex: 1 1 92px;
+}
+
+.app-shell.theme-compact .button-primary,
+.app-shell.theme-compact .button-generate,
+.app-shell.theme-compact .button-wide,
+.app-shell.theme-compact .cancel-generation-button {
+  display: block;
+  width: 100%;
+  min-height: 29px;
+}
+
+.app-shell.theme-compact .source-action-button,
+.app-shell.theme-compact .import-actions .button {
+  flex: 1 1 130px;
+  margin: 0;
+  min-height: 28px;
+}
+
+.app-shell.theme-compact .source-card {
+  min-height: 52px;
+  border-radius: 5px;
+  padding: 5px;
+}
+
+.app-shell.theme-compact .source-thumb-frame,
+.app-shell.theme-compact .source-thumb-frame img {
+  width: 42px;
+  height: 42px;
+}
+
+.app-shell.theme-compact .source-thumb-frame {
+  flex-basis: 42px;
+  margin-right: 7px;
+  border-radius: 4px;
+}
+
+.app-shell.theme-compact .source-title {
+  font-size: 11px;
+  line-height: 1.15;
+}
+
+.app-shell.theme-compact .source-card-meta,
+.app-shell.theme-compact .muted-label,
+.app-shell.theme-compact .diagnostics-line {
+  font-size: 10px;
+  line-height: 1.25;
+}
+
+.app-shell.theme-compact .status-bar {
+  min-height: 28px;
+  border-radius: 5px;
+  padding: 5px 7px;
+}
+
+.app-shell.theme-compact .status-text {
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.app-shell.theme-compact .status-pill {
+  padding: 2px 6px;
+  font-size: 9px;
+}
+
+.app-shell.theme-compact .error-message {
+  border-radius: 5px;
+  padding: 6px 8px;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.app-shell.theme-compact .preview-panel {
+  min-height: 112px;
+  max-height: 175px;
+  border-radius: 5px;
+}
+
+.app-shell.theme-compact .preview-panel img {
+  max-height: 175px;
+}
+
+.app-shell.theme-compact .settings-shortcut {
+  border-radius: 5px;
+  margin: 0;
+  padding: 7px 8px;
+}
+
+.app-shell.theme-compact .shortcut-label {
+  font-size: 11px;
+}
+
+.app-shell.theme-compact .shortcut-note {
+  font-size: 10px;
+}
+
+.app-shell.theme-compact .app-footer {
+  min-height: 26px;
+  gap: 0;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 4px 0 6px;
+  font-size: 10px;
+}
+
+.app-shell.theme-compact .app-footer span,
+.app-shell.theme-compact .footer-link {
+  margin-left: 7px;
+  margin-bottom: 0;
+}
+
+.app-shell.theme-compact .footer-link {
+  font-size: 11px;
+}
+
+@media (max-width: 360px) {
+  .app-shell.theme-compact .tool-card {
+    min-height: 34px;
+  }
+
+  .app-shell.theme-compact .tool-subtitle {
+    display: none;
+  }
+
+  .app-shell.theme-compact .tool-status {
+    width: 50px;
+    flex-basis: 50px;
+    font-size: 8px;
+  }
+
+  .app-shell.theme-compact .settings-grid .field,
+  .app-shell.theme-compact .img2img-settings-grid .field {
+    min-width: 74px;
+    flex-basis: 74px;
+  }
+
+  .app-shell.theme-compact .app-footer span,
+  .app-shell.theme-compact .footer-link {
+    margin-left: 5px;
+  }
+}
+
+@media (max-width: 300px) {
+  .app-shell.theme-compact .tool-status {
+    display: none;
+  }
+
+  .app-shell.theme-compact .settings-grid .field,
+  .app-shell.theme-compact .img2img-settings-grid .field {
+    flex-basis: 100%;
+  }
+}
+
+/* v0.5.2 detail-screen layout repair. Keep this after the first compact pass so
+   older card/form rules cannot collapse into overlapping Photoshop UXP panels. */
+.app-shell.theme-compact .ol-panel {
+  min-width: 0;
+}
+
+.app-shell.theme-compact .generator-view,
+.app-shell.theme-compact .image-to-image-view,
+.app-shell.theme-compact .settings-view,
+.app-shell.theme-compact .history-view {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-bottom: 8px;
+}
+
+.app-shell.theme-compact .screen-nav {
+  display: flex;
+  min-width: 0;
+  min-height: 28px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  border-bottom: 1px solid var(--ol-line-soft);
+  margin: 0 0 6px !important;
+  padding: 0 0 5px;
+}
+
+.app-shell.theme-compact .back-button {
+  width: auto;
+  min-width: 0;
+  min-height: 24px;
+  flex: 0 1 auto;
+  border-radius: 4px;
+  padding: 3px 7px;
+  font-size: 11px;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.app-shell.theme-compact .screen-title-block {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.app-shell.theme-compact .screen-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell.theme-compact .ol-section,
+.app-shell.theme-compact .panel-section,
+.app-shell.theme-compact .generator-panel,
+.app-shell.theme-compact .result-panel,
+.app-shell.theme-compact .generation-status-panel,
+.app-shell.theme-compact .history-panel,
+.app-shell.theme-compact .settings-panel {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid #424242;
+  border-radius: 5px;
+  margin: 0 0 7px !important;
+  padding: 6px;
+  background: #303030;
+}
+
+.app-shell.theme-compact .panel-section > *,
+.app-shell.theme-compact .generator-panel > *,
+.app-shell.theme-compact .result-panel > *,
+.app-shell.theme-compact .generation-status-panel > *,
+.app-shell.theme-compact .history-panel > *,
+.app-shell.theme-compact .settings-panel > *,
+.app-shell.theme-compact .negative-prompt-section > *,
+.app-shell.theme-compact .text-image-shortcuts > * {
+  margin: 0 !important;
+}
+
+.app-shell.theme-compact .negative-prompt-section,
+.app-shell.theme-compact .text-image-shortcuts {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.app-shell.theme-compact .section-heading {
+  display: flex;
+  min-height: 16px;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.app-shell.theme-compact .section-heading .label,
+.app-shell.theme-compact .label {
+  display: block;
+  min-height: 0;
+  margin: 0;
+  overflow: hidden;
+  color: #dcdcdc;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell.theme-compact .muted-label {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 10px;
+  line-height: 1.15;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell.theme-compact .field,
+.app-shell.theme-compact .ol-field,
+.app-shell.theme-compact .img2img-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0 !important;
+}
+
+.app-shell.theme-compact .field > .label,
+.app-shell.theme-compact .img2img-field > .label,
+.app-shell.theme-compact .img2img-settings-grid .label {
+  min-height: 0;
+  margin: 0;
+  line-height: 1.15;
+}
+
+.app-shell.theme-compact .input,
+.app-shell.theme-compact .select,
+.app-shell.theme-compact .button,
+.app-shell.theme-compact .ol-input,
+.app-shell.theme-compact .ol-button {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 28px;
+  max-width: 100%;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  padding: 4px 7px;
+  font-size: 11px;
+  line-height: 1.15;
+}
+
+.app-shell.theme-compact .input,
+.app-shell.theme-compact .select,
+.app-shell.theme-compact .ol-input {
+  height: 28px;
+}
+
+.app-shell.theme-compact .textarea {
+  width: 100%;
+  min-height: 50px;
+  max-height: 92px;
+  min-width: 0;
+  border-radius: 4px;
+  padding: 7px;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.app-shell.theme-compact .compact-textarea {
+  min-height: 44px;
+  max-height: 80px;
+}
+
+.app-shell.theme-compact .settings-grid,
+.app-shell.theme-compact .img2img-settings-grid,
+.app-shell.theme-compact .ol-form-grid {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 0 !important;
+}
+
+.app-shell.theme-compact .settings-grid .field,
+.app-shell.theme-compact .img2img-settings-grid .field,
+.app-shell.theme-compact .ol-form-grid .ol-field {
+  min-width: 0;
+  flex: 1 1 calc(50% - 3px);
+  margin: 0 !important;
+}
+
+.app-shell.theme-compact .settings-seed {
+  flex-basis: calc(50% - 3px);
+}
+
+.app-shell.theme-compact .source-action-row,
+.app-shell.theme-compact .import-actions {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 0 !important;
+}
+
+.app-shell.theme-compact .source-action-button,
+.app-shell.theme-compact .import-actions .button {
+  min-width: 0;
+  min-height: 28px;
+  flex: 1 1 140px;
+  margin: 0 !important;
+  padding: 4px 7px;
+}
+
+.app-shell.theme-compact .button-primary,
+.app-shell.theme-compact .button-generate,
+.app-shell.theme-compact .button-wide,
+.app-shell.theme-compact .cancel-generation-button {
+  display: flex;
+  width: 100%;
+  min-height: 30px;
+  flex: 0 0 auto;
+  margin: 0 !important;
+}
+
+.app-shell.theme-compact .tool-warning,
+.app-shell.theme-compact .compatibility-note {
+  min-width: 0;
+  max-height: 50px;
+  overflow: auto;
+  border-radius: 4px;
+  margin: 0 !important;
+  padding: 5px 7px;
+  font-size: 10px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.app-shell.theme-compact .compatibility-note {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.app-shell.theme-compact .status-bar {
+  min-height: 28px;
+  min-width: 0;
+  border-radius: 4px;
+  padding: 4px 6px;
+  gap: 6px;
+}
+
+.app-shell.theme-compact .status-text {
+  min-width: 0;
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.app-shell.theme-compact .status-pill {
+  min-width: 42px;
+  flex: 0 0 auto;
+  padding: 2px 5px;
+  font-size: 9px;
+  text-align: center;
+}
+
+.app-shell.theme-compact .diagnostics-line {
+  max-height: 34px;
+  min-width: 0;
+  overflow: auto;
+  font-size: 10px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.app-shell.theme-compact .error-message {
+  max-height: 54px;
+  overflow: auto;
+  border-radius: 4px;
+  padding: 5px 7px;
+  font-size: 11px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.app-shell.theme-compact .source-card {
+  min-height: 48px;
+  min-width: 0;
+  border-radius: 4px;
+  padding: 5px;
+}
+
+.app-shell.theme-compact .source-thumb-frame,
+.app-shell.theme-compact .source-thumb-frame img {
+  width: 40px;
+  height: 40px;
+}
+
+.app-shell.theme-compact .source-thumb-frame {
+  flex: 0 0 40px;
+  margin: 0 7px 0 0;
+}
+
+.app-shell.theme-compact .source-card-body {
+  min-width: 0;
+}
+
+.app-shell.theme-compact .source-title,
+.app-shell.theme-compact .source-card-meta {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell.theme-compact .preview-panel {
+  width: 100%;
+  min-height: 112px;
+  max-height: 170px;
+  min-width: 0;
+  border-radius: 4px;
+}
+
+.app-shell.theme-compact .preview-panel img {
+  max-height: 170px;
+  object-fit: contain;
+}
+
+.app-shell.theme-compact .settings-shortcut {
+  min-height: 34px;
+  border-radius: 4px;
+  padding: 6px 7px;
+}
+
+.app-shell.theme-compact .shortcut-label,
+.app-shell.theme-compact .shortcut-note {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell.theme-compact .shortcut-note {
+  margin-top: 2px;
+  font-size: 10px;
+}
+
+.app-shell.theme-compact .app-footer,
+.app-shell.theme-compact .ol-footer {
+  flex: 0 0 auto;
+  min-height: 25px;
+  margin: 0;
+  border-top: 1px solid var(--ol-line-soft);
+  padding: 4px 0 5px;
+}
+
+@media (max-width: 380px) {
+  .app-shell.theme-compact {
+    padding-right: 7px;
+    padding-left: 7px;
+  }
+
+  .app-shell.theme-compact .app-subtitle {
+    display: none;
+  }
+
+  .app-shell.theme-compact .tool-subtitle,
+  .app-shell.theme-compact .ol-row-desc {
+    display: none;
+  }
+
+  .app-shell.theme-compact .settings-grid .field,
+  .app-shell.theme-compact .img2img-settings-grid .field,
+  .app-shell.theme-compact .ol-form-grid .ol-field,
+  .app-shell.theme-compact .settings-seed {
+    flex-basis: 100%;
+  }
+
+  .app-shell.theme-compact .source-action-button,
+  .app-shell.theme-compact .import-actions .button {
+    flex-basis: 100%;
+  }
+
+  .app-shell.theme-compact .muted-label {
+    display: none;
+  }
+}
+
+@media (max-width: 320px) {
+  .app-shell.theme-compact .tool-status,
+  .app-shell.theme-compact .ol-row-status {
+    display: none;
+  }
+
+  .app-shell.theme-compact .brand-icon {
+    width: 26px;
+    height: 26px;
+    margin-right: 6px;
+  }
+
+  .app-shell.theme-compact .app-title {
+    font-size: 15px;
+  }
+}
+
+/* v0.5.2 icon/status polish. Dashboard state is communicated through enabled
+   and disabled row treatment; detail screens keep their warning copy. */
+.app-shell.theme-compact .tool-status,
+.app-shell.theme-compact .ol-row-status {
+  display: none !important;
+}
+
+.app-shell.theme-compact .tool-card {
+  min-height: 40px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.app-shell.theme-compact .tool-card.is-experimental {
+  opacity: 1;
+}
+
+.app-shell.theme-compact .tool-card.is-coming-soon {
+  opacity: 0.43;
+  color: #9c9c9c;
+}
+
+.app-shell.theme-compact .tool-card.is-coming-soon .tool-title,
+.app-shell.theme-compact .tool-card.is-coming-soon .tool-subtitle,
+.app-shell.theme-compact .tool-card.is-coming-soon .icon-svg {
+  color: #9a9a9a !important;
+}
+
+.app-shell.theme-compact .tool-card.is-coming-soon:hover {
+  background: transparent;
+}
+
+.app-shell.theme-compact .ol-row-icon,
+.app-shell.theme-compact .tool-icon {
+  width: 28px;
+  height: 25px;
+  flex-basis: 28px;
+  margin-right: 8px;
+}
+
+.app-shell.theme-compact .icon-svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 1.85;
+  color: #e0e0e0;
+}
+
+.app-shell.theme-compact .tool-arrow {
+  width: 9px;
+  flex-basis: 9px;
+  color: #b6b6b6;
+}
+
+.app-shell.theme-compact .screen-kicker,
+.app-shell.theme-compact .screen-icon {
+  display: flex;
+  width: 26px;
+  height: 24px;
+  flex: 0 0 26px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 0;
+  margin: 0 6px 0 0;
+  padding: 0;
+  background: transparent;
+  color: #dedede;
+  font-size: 0;
+  line-height: 1;
+}
+
+.app-shell.theme-compact .screen-kicker .icon-svg {
+  width: 23px;
+  height: 23px;
+  stroke-width: 1.8;
+}
+
+.app-shell.theme-compact .input,
+.app-shell.theme-compact .select,
+.app-shell.theme-compact .ol-input {
+  height: 26px;
+  min-height: 26px;
+  padding: 3px 7px;
+  font-size: 10.5px;
+}
+
+.app-shell.theme-compact .button,
+.app-shell.theme-compact .ol-button {
+  min-height: 26px;
+  padding: 3px 7px;
+  font-size: 10.5px;
+}
+
+.app-shell.theme-compact .button-primary,
+.app-shell.theme-compact .button-generate,
+.app-shell.theme-compact .button-wide,
+.app-shell.theme-compact .cancel-generation-button {
+  min-height: 28px;
+}
+
+.app-shell.theme-compact .textarea {
+  min-height: 46px;
+  max-height: 84px;
+  padding: 6px 7px;
+  font-size: 10.5px;
+}
+
+.app-shell.theme-compact .compact-textarea {
+  min-height: 40px;
+  max-height: 72px;
+}
+
+.app-shell.theme-compact .settings-grid,
+.app-shell.theme-compact .img2img-settings-grid,
+.app-shell.theme-compact .source-action-row,
+.app-shell.theme-compact .import-actions {
+  gap: 4px;
+}
+
+.app-shell.theme-compact .source-action-button,
+.app-shell.theme-compact .import-actions .button {
+  min-height: 26px;
+}
+
+.app-shell.theme-compact .panel-section,
+.app-shell.theme-compact .generator-panel,
+.app-shell.theme-compact .result-panel,
+.app-shell.theme-compact .generation-status-panel,
+.app-shell.theme-compact .history-panel,
+.app-shell.theme-compact .settings-panel {
+  gap: 5px;
+  padding: 5px;
+}
+
+.app-shell.theme-compact .status-bar {
+  min-height: 26px;
+  padding: 3px 6px;
+}
+
+.app-shell.theme-compact .preview-panel {
+  min-height: 104px;
 }
 
 .app-shell.theme-classic {
