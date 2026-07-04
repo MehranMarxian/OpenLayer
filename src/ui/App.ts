@@ -4628,8 +4628,7 @@ function createAppMarkup() {
       </section>
 
       <footer class="app-footer">
-        <span>OpenLayer v${APP_VERSION}</span>
-        <span>Developer: Mehran Ahmadi 2026</span>
+        <span>OpenLayer v${APP_VERSION} &middot; Developer: Mehran Ahmadi 2026</span>
         <button class="footer-link" data-openlayer-external="${DEVELOPER_GITHUB}" type="button">GitHub</button>
       </footer>
     </main>
@@ -5810,13 +5809,11 @@ function bindExternalLinks(rootElement: HTMLElement) {
 
     lastRunAt = now;
     event.preventDefault();
-    openExternalUrl(url);
+    void openExternalUrl(url);
     console.log(`[OpenLayer] external link opened from ${eventName}: ${url}`);
   };
 
-  for (const eventName of ["click", "mousedown", "mouseup", "pointerup", "touchend"]) {
-    rootElement.addEventListener(eventName, (event) => runFromEvent(eventName, event), true);
-  }
+  rootElement.addEventListener("click", (event) => runFromEvent("click", event), true);
 
   rootElement.addEventListener("keydown", (event) => {
     const key = (event as KeyboardEvent).key;
@@ -5883,12 +5880,12 @@ function findHistoryActionElement(target: EventTarget | null, rootElement: HTMLE
   return null;
 }
 
-function openExternalUrl(url: string) {
+async function openExternalUrl(url: string) {
   try {
     const uxp = require("uxp") as UxpModule;
 
     if (uxp.shell?.openExternal) {
-      void uxp.shell.openExternal(url);
+      await uxp.shell.openExternal(url);
       return;
     }
   } catch {

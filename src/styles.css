@@ -3928,3 +3928,1476 @@ a:hover {
     padding-right: 14px;
   }
 }
+
+/* v0.5.3 Adobe-like tool page polish.
+   Presentation-only layer: keeps existing markup, IDs, and event bindings intact. */
+.app-shell.theme-compact {
+  --ol-bg: #292929;
+  --ol-surface: #2f2f2f;
+  --ol-surface-soft: #343434;
+  --ol-input-bg: #202020;
+  --ol-border: #484848;
+  --ol-border-soft: #3a3a3a;
+  --ol-text: #e7e7e7;
+  --ol-muted: #ababab;
+  --ol-muted-soft: #858585;
+  --ol-blue: #2f6fb9;
+  --ol-blue-border: #4a83cb;
+  --ol-green: #22723b;
+  --ol-green-border: #31944f;
+  --ol-orange: #d98019;
+  --ol-orange-border: #e49b35;
+  --ol-warning-bg: #302815;
+  --ol-warning-border: #8a6b26;
+  --ol-warning-text: #e5bd5d;
+  --ol-ready-bg: #285337;
+  --ol-ready-text: #9ee5b5;
+  --ol-radius: 5px;
+  --ol-gap: 8px;
+  background: var(--ol-bg);
+  color: var(--ol-text);
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 12px;
+  line-height: 1.32;
+}
+
+.app-shell.theme-compact .app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 54px;
+  padding: 7px 8px 8px;
+  border-bottom: 1px solid var(--ol-border-soft);
+  background: #2b2b2b;
+}
+
+.app-shell.theme-compact .brand-lockup {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 8px;
+}
+
+.app-shell.theme-compact .brand-icon {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border-radius: 5px;
+}
+
+.app-shell.theme-compact .app-title {
+  margin: 0;
+  color: #f0f0f0;
+  font-size: 15px;
+  font-weight: 760;
+  letter-spacing: 0;
+  line-height: 17px;
+}
+
+.app-shell.theme-compact .app-subtitle {
+  margin: 1px 0 0;
+  color: var(--ol-muted);
+  font-size: 11px;
+  line-height: 13px;
+}
+
+.app-shell.theme-compact .version-badge {
+  flex: 0 0 auto;
+  margin-left: 6px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #d5d5d5;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.app-shell.theme-compact .home-status-row {
+  min-height: 19px;
+  padding: 2px 8px 5px;
+  border-bottom: 1px solid var(--ol-border-soft);
+  color: var(--ol-muted);
+  font-size: 11px;
+}
+
+.app-shell.theme-compact .home-status-row strong {
+  color: #31d955;
+  font-weight: 700;
+}
+
+.app-shell.theme-compact .home-status-dot {
+  width: 8px;
+  height: 8px;
+  margin-left: 2px;
+}
+
+.app-shell.theme-compact .home-view,
+.app-shell.theme-compact .generator-view,
+.app-shell.theme-compact .image-to-image-view,
+.app-shell.theme-compact .settings-view,
+.app-shell.theme-compact .history-view {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  padding: 8px 10px 8px 8px;
+  overflow-x: hidden;
+}
+
+.app-shell.theme-compact .screen-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 9px;
+  min-width: 0;
+  width: 100%;
+  margin: 0 0 8px;
+  padding: 0 0 8px;
+  border-bottom: 1px solid var(--ol-border-soft);
+}
+
+.app-shell.theme-compact .back-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-height: 26px;
+  height: 26px;
+  max-width: 128px;
+  border: 1px solid #565656;
+  border-radius: var(--ol-radius);
+  padding: 3px 9px;
+  background: #333333;
+  color: #eeeeee;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 16px;
+}
+
+.app-shell.theme-compact .back-button::before {
+  content: "<";
+  margin-right: 5px;
+  color: #d0d0d0;
+  font-weight: 700;
+}
+
+.app-shell.theme-compact .screen-title-block {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  max-width: 58%;
+  gap: 7px;
+  color: #f0f0f0;
+}
+
+.app-shell.theme-compact .screen-kicker,
+.app-shell.theme-compact .screen-icon {
+  display: inline-flex;
+  width: 25px;
+  height: 25px;
+  flex: 0 0 25px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+}
+
+.app-shell.theme-compact .screen-kicker .icon-image,
+.app-shell.theme-compact .screen-icon .icon-image {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+.app-shell.theme-compact .screen-title {
+  min-width: 0;
+  overflow: hidden;
+  color: #f3f3f3;
+  font-size: 13px;
+  font-weight: 760;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell.theme-compact .panel-section,
+.app-shell.theme-compact .generator-panel,
+.app-shell.theme-compact .result-panel,
+.app-shell.theme-compact .generation-status-panel,
+.app-shell.theme-compact .history-panel,
+.app-shell.theme-compact .settings-panel {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0 0 8px;
+  border: 1px solid var(--ol-border);
+  border-radius: var(--ol-radius);
+  padding: 8px;
+  background: var(--ol-surface);
+  box-shadow: none;
+  overflow: visible;
+}
+
+.app-shell.theme-compact .section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 18px;
+  min-width: 0;
+  margin: -1px 0 6px;
+  padding: 0;
+  border: 0;
+  color: var(--ol-text);
+}
+
+.app-shell.theme-compact .section-heading[data-openlayer-detail-toggle] {
+  cursor: pointer;
+}
+
+.app-shell.theme-compact .section-heading[data-openlayer-detail-toggle]::before {
+  content: "v";
+  width: 10px;
+  flex: 0 0 10px;
+  margin-right: 3px;
+  color: #bdbdbd;
+  font-size: 10px;
+  line-height: 14px;
+}
+
+.app-shell.theme-compact .panel-section.is-collapsed .section-heading[data-openlayer-detail-toggle]::before {
+  content: ">";
+}
+
+.app-shell.theme-compact .section-heading .label,
+.app-shell.theme-compact .label,
+.app-shell.theme-compact .ol-label {
+  color: var(--ol-text);
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 15px;
+}
+
+.app-shell.theme-compact .section-heading .muted-label,
+.app-shell.theme-compact .muted-label {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ol-muted);
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 14px;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell.theme-compact .field,
+.app-shell.theme-compact .img2img-field,
+.app-shell.theme-compact .ol-field {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0 0 7px;
+}
+
+.app-shell.theme-compact .field > .label,
+.app-shell.theme-compact .img2img-field > .label,
+.app-shell.theme-compact .field-label-row .label {
+  display: block;
+  margin: 0 0 3px;
+  color: var(--ol-text);
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 15px;
+}
+
+.app-shell.theme-compact .field-label-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 18px;
+  margin: 0 0 3px;
+}
+
+.app-shell.theme-compact .field-label-row .info-toggle {
+  margin-left: auto;
+}
+
+.app-shell.theme-compact .input,
+.app-shell.theme-compact .select,
+.app-shell.theme-compact .textarea,
+.app-shell.theme-compact .ol-input,
+.app-shell.theme-compact .ol-select,
+.app-shell.theme-compact .ol-textarea {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  border: 1px solid var(--ol-border);
+  border-radius: var(--ol-radius);
+  background: var(--ol-input-bg);
+  color: var(--ol-text);
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  outline: none;
+}
+
+.app-shell.theme-compact .input,
+.app-shell.theme-compact .select,
+.app-shell.theme-compact .ol-input,
+.app-shell.theme-compact .ol-select {
+  height: 30px !important;
+  min-height: 30px !important;
+  padding: 4px 8px !important;
+  line-height: 20px;
+}
+
+.app-shell.theme-compact .textarea,
+.app-shell.theme-compact .compact-textarea,
+.app-shell.theme-compact .ol-textarea {
+  min-height: 54px;
+  max-height: none;
+  padding: 8px 10px;
+  line-height: 17px;
+  resize: none;
+}
+
+.app-shell.theme-compact .generator-view .textarea {
+  min-height: 66px;
+}
+
+.app-shell.theme-compact .input:focus,
+.app-shell.theme-compact .select:focus,
+.app-shell.theme-compact .textarea:focus {
+  border-color: #7aa7dd;
+  box-shadow: 0 0 0 1px rgba(122, 167, 221, 0.18);
+}
+
+.app-shell.theme-compact .source-action-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  margin: 0 0 8px;
+}
+
+.app-shell.theme-compact .source-action-button {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 32px;
+  min-height: 32px;
+  margin: 0 !important;
+  border-radius: var(--ol-radius);
+  padding: 4px 6px;
+  overflow: hidden;
+  font-size: 11.5px;
+  font-weight: 740;
+  line-height: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell.theme-compact #capture-image-source,
+.app-shell.theme-compact #capture-sketch-source,
+.app-shell.theme-compact #capture-inpaint-active-layer,
+.app-shell.theme-compact #capture-outpaint-source,
+.app-shell.theme-compact #capture-upscale-source,
+.app-shell.theme-compact #capture-prompt-layer-source {
+  border-color: var(--ol-blue-border);
+  background: linear-gradient(#3377c3, var(--ol-blue));
+  color: #ffffff;
+}
+
+.app-shell.theme-compact #capture-canvas-source,
+.app-shell.theme-compact #capture-sketch-canvas-source,
+.app-shell.theme-compact #capture-inpaint-selection,
+.app-shell.theme-compact #capture-outpaint-canvas-source,
+.app-shell.theme-compact #capture-upscale-canvas-source,
+.app-shell.theme-compact #capture-prompt-canvas-source {
+  border-color: var(--ol-green-border);
+  background: linear-gradient(#278346, var(--ol-green));
+  color: #ffffff;
+}
+
+.app-shell.theme-compact .source-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 54px;
+  border: 1px solid var(--ol-border);
+  border-radius: var(--ol-radius);
+  padding: 7px;
+  background: #262626;
+}
+
+.app-shell.theme-compact .source-thumb-frame {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border: 1px solid #575757;
+  border-radius: 4px;
+  background: #202020;
+}
+
+.app-shell.theme-compact .source-thumb-frame img {
+  width: 100%;
+  height: 100%;
+  border-radius: 3px;
+  object-fit: cover;
+}
+
+.app-shell.theme-compact .source-empty,
+.app-shell.theme-compact .preview-empty {
+  color: var(--ol-muted);
+  font-size: 11px;
+}
+
+.app-shell.theme-compact .source-card-body {
+  min-width: 0;
+}
+
+.app-shell.theme-compact .source-title {
+  display: block;
+  overflow: hidden;
+  color: #eeeeee;
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell.theme-compact .source-card-meta,
+.app-shell.theme-compact .diagnostics-line {
+  display: block;
+  overflow: hidden;
+  color: var(--ol-muted);
+  font-size: 10.5px;
+  line-height: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell.theme-compact .settings-grid,
+.app-shell.theme-compact .img2img-settings-grid,
+.app-shell.theme-compact .ol-form-grid {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin: 2px 0 8px;
+}
+
+.app-shell.theme-compact .settings-grid .field,
+.app-shell.theme-compact .img2img-settings-grid .field,
+.app-shell.theme-compact .ol-form-grid .ol-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 36px;
+  margin: 0;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--ol-border-soft);
+}
+
+.app-shell.theme-compact .settings-grid .field:last-child,
+.app-shell.theme-compact .img2img-settings-grid .field:last-child {
+  border-bottom: 0;
+}
+
+.app-shell.theme-compact .settings-grid .field > .label,
+.app-shell.theme-compact .img2img-settings-grid .field > .label {
+  flex: 1 1 auto;
+  min-width: 64px;
+  margin: 0;
+  color: #d7d7d7;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.app-shell.theme-compact .settings-grid .input,
+.app-shell.theme-compact .img2img-settings-grid .input,
+.app-shell.theme-compact .settings-grid .select,
+.app-shell.theme-compact .img2img-settings-grid .select {
+  flex: 0 0 104px;
+  width: 104px;
+  max-width: 56%;
+}
+
+.app-shell.theme-compact .settings-seed {
+  flex-wrap: nowrap;
+}
+
+.app-shell.theme-compact .button,
+.app-shell.theme-compact .ol-button {
+  box-sizing: border-box;
+  min-height: 30px;
+  border: 1px solid #565656;
+  border-radius: var(--ol-radius);
+  padding: 5px 10px;
+  background: #393939;
+  color: #eeeeee;
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+
+.app-shell.theme-compact .button:hover:not(:disabled):not(.is-disabled) {
+  border-color: #6c6c6c;
+  background: #414141;
+}
+
+.app-shell.theme-compact .button-primary,
+.app-shell.theme-compact .button-generate,
+.app-shell.theme-compact .button-wide {
+  width: 100%;
+}
+
+.app-shell.theme-compact .button-generate,
+.app-shell.theme-compact .button-primary.button-generate {
+  min-height: 34px;
+  border-color: var(--ol-orange-border);
+  background: linear-gradient(#e18d24, var(--ol-orange));
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 780;
+}
+
+.app-shell.theme-compact .button-generate:hover:not(:disabled):not(.is-disabled) {
+  border-color: #f0aa48;
+  background: linear-gradient(#e99a34, #dc851e);
+}
+
+.app-shell.theme-compact .button-generate.is-disabled,
+.app-shell.theme-compact .button-import.is-disabled {
+  border-color: #454545;
+  background: #303030;
+  color: #8d8d8d;
+}
+
+.app-shell.theme-compact .experimental-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 34px;
+  width: 100%;
+  margin: 2px 0 8px;
+  border-color: #6f561d;
+  background: #332b19;
+  color: #e7e0ca;
+  font-size: 12px;
+  font-weight: 650;
+  text-align: left;
+}
+
+.app-shell.theme-compact .experimental-toggle::after {
+  content: "";
+  width: 29px;
+  height: 16px;
+  flex: 0 0 29px;
+  margin-left: 8px;
+  border-radius: 999px;
+  background: #595959;
+  box-shadow: inset 0 0 0 1px #747474;
+}
+
+.app-shell.theme-compact .experimental-toggle.is-active::after {
+  background: var(--ol-orange);
+  box-shadow: inset 0 0 0 1px #f0a83d;
+}
+
+.app-shell.theme-compact .info-toggle {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  min-height: 18px;
+  border-color: #5a5a5a;
+  border-radius: 50%;
+  background: #383838;
+  color: #dcdcdc;
+}
+
+.app-shell.theme-compact .info-panel,
+.app-shell.theme-compact .compatibility-note,
+.app-shell.theme-compact .compatibility-note.info-panel,
+.app-shell.theme-compact .tool-warning {
+  box-sizing: border-box;
+  width: 100%;
+  max-height: none !important;
+  margin: 0 0 8px;
+  border: 1px solid var(--ol-warning-border);
+  border-radius: var(--ol-radius);
+  padding: 8px 9px;
+  overflow: visible !important;
+  background: var(--ol-warning-bg);
+  color: var(--ol-warning-text);
+  font-size: 11px;
+  line-height: 16px;
+  white-space: normal;
+}
+
+.app-shell.theme-compact .compatibility-note.info-panel.is-warning,
+.app-shell.theme-compact .tool-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.app-shell.theme-compact .compatibility-note.info-panel.is-warning::before,
+.app-shell.theme-compact .tool-warning::before {
+  content: "!";
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+  border-radius: 50%;
+  background: #b77717;
+  color: #1f1f1f;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.app-shell.theme-compact .info-panel[hidden],
+.app-shell.theme-compact .compatibility-note[hidden] {
+  display: none !important;
+}
+
+.app-shell.theme-compact .generation-status-panel {
+  padding: 7px;
+}
+
+.app-shell.theme-compact .status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  min-height: 30px;
+  border: 1px solid var(--ol-border);
+  border-radius: var(--ol-radius);
+  padding: 5px 8px;
+  background: #282828;
+}
+
+.app-shell.theme-compact .status-text {
+  min-width: 0;
+  overflow: hidden;
+  color: #efefef;
+  font-size: 12px;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell.theme-compact .status-pill {
+  flex: 0 0 auto;
+  min-height: 20px;
+  border: 0;
+  border-radius: 999px;
+  padding: 3px 9px;
+  background: #444444;
+  color: #d0d0d0;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.app-shell.theme-compact .status-pill.ready,
+.app-shell.theme-compact .ol-pill-ready {
+  background: var(--ol-ready-bg);
+  color: var(--ol-ready-text);
+}
+
+.app-shell.theme-compact .error-message {
+  max-height: none;
+  margin-top: 6px;
+  border-radius: var(--ol-radius);
+  padding: 7px 9px;
+  overflow: visible;
+  font-size: 11px;
+  line-height: 15px;
+  white-space: normal;
+}
+
+.app-shell.theme-compact .preview-panel {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 118px;
+  max-height: 320px;
+  border: 1px solid var(--ol-border);
+  border-radius: var(--ol-radius);
+  background: #262626;
+  overflow: hidden;
+}
+
+.app-shell.theme-compact .preview-panel img {
+  max-width: 100%;
+  max-height: 300px;
+  object-fit: contain;
+}
+
+.app-shell.theme-compact .import-actions {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.app-shell.theme-compact .import-actions .button {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 32px;
+  margin: 0;
+}
+
+.app-shell.theme-compact .button-import-blue {
+  border-color: var(--ol-blue-border);
+  background: linear-gradient(#3d7fc8, var(--ol-blue));
+  color: #ffffff;
+}
+
+.app-shell.theme-compact .auto-import-toggle.is-active {
+  border-color: #d6a135;
+  background: #5b4116;
+  color: #ffd37a;
+}
+
+.app-shell.theme-compact .settings-shortcut {
+  min-height: 34px;
+  border-radius: var(--ol-radius);
+  padding: 7px 9px;
+}
+
+.app-shell.theme-compact .app-footer,
+.app-shell.theme-compact .ol-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 40px;
+  margin-top: auto;
+  border-top: 1px solid var(--ol-border-soft);
+  padding: 8px 10px 10px;
+  background: #292929;
+  color: var(--ol-muted);
+  font-size: 11px;
+  line-height: 15px;
+}
+
+.app-shell.theme-compact .app-footer span {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin: 0;
+  color: var(--ol-muted);
+  white-space: nowrap;
+}
+
+.app-shell.theme-compact .footer-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 25px;
+  margin-left: auto;
+  border: 0;
+  border-radius: var(--ol-radius);
+  padding: 3px 5px;
+  background: transparent;
+  color: #f0f0f0;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.app-shell.theme-compact .footer-link:hover {
+  background: #353535;
+  color: #ffffff;
+}
+
+@media (max-width: 380px) {
+  .app-shell.theme-compact .home-view,
+  .app-shell.theme-compact .generator-view,
+  .app-shell.theme-compact .image-to-image-view,
+  .app-shell.theme-compact .settings-view,
+  .app-shell.theme-compact .history-view {
+    padding-right: 12px;
+  }
+
+  .app-shell.theme-compact .screen-title-block {
+    max-width: 54%;
+    gap: 5px;
+  }
+
+  .app-shell.theme-compact .screen-title {
+    font-size: 12.5px;
+  }
+
+  .app-shell.theme-compact .source-action-row,
+  .app-shell.theme-compact .import-actions {
+    gap: 6px;
+  }
+
+  .app-shell.theme-compact .source-action-button {
+    height: 31px;
+    min-height: 31px;
+    padding-left: 4px;
+    padding-right: 4px;
+    font-size: 11px;
+  }
+
+  .app-shell.theme-compact .settings-grid .input,
+  .app-shell.theme-compact .img2img-settings-grid .input,
+  .app-shell.theme-compact .settings-grid .select,
+  .app-shell.theme-compact .img2img-settings-grid .select {
+    flex-basis: 92px;
+    width: 92px;
+  }
+
+  .app-shell.theme-compact .app-footer {
+    gap: 3px 8px;
+  }
+}
+
+@media (max-width: 330px) {
+  .app-shell.theme-compact .app-subtitle {
+    display: none;
+  }
+
+  .app-shell.theme-compact .screen-nav {
+    gap: 5px;
+  }
+
+  .app-shell.theme-compact .back-button {
+    max-width: 112px;
+    padding-left: 7px;
+    padding-right: 7px;
+  }
+
+  .app-shell.theme-compact .source-action-button {
+    font-size: 10.5px;
+  }
+
+  .app-shell.theme-compact .source-card-meta,
+  .app-shell.theme-compact .diagnostics-line,
+  .app-shell.theme-compact .section-heading .muted-label {
+    white-space: normal;
+  }
+
+  .app-shell.theme-compact .import-actions {
+    flex-direction: column;
+  }
+}
+
+/* v0.5.3 surgical compact form correction.
+   Fixes UXP native control sizing after the Adobe-style pass. */
+.app-shell.theme-compact {
+  --ol-border-subtle: #3d3d3d;
+}
+
+.app-shell.theme-compact .home-view,
+.app-shell.theme-compact .generator-view,
+.app-shell.theme-compact .image-to-image-view,
+.app-shell.theme-compact .settings-view,
+.app-shell.theme-compact .history-view {
+  padding-top: 6px;
+}
+
+.app-shell.theme-compact .panel-section,
+.app-shell.theme-compact .generator-panel,
+.app-shell.theme-compact .result-panel,
+.app-shell.theme-compact .generation-status-panel,
+.app-shell.theme-compact .history-panel,
+.app-shell.theme-compact .settings-panel {
+  margin-bottom: 6px;
+  padding: 6px 8px;
+}
+
+.app-shell.theme-compact .section-heading {
+  justify-content: center;
+  min-height: 16px;
+  margin-bottom: 5px;
+}
+
+.app-shell.theme-compact .section-heading[data-openlayer-detail-toggle] {
+  justify-content: flex-start;
+}
+
+.app-shell.theme-compact .section-heading .muted-label {
+  display: none;
+}
+
+.app-shell.theme-compact .section-heading .label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell.theme-compact .field,
+.app-shell.theme-compact .img2img-field,
+.app-shell.theme-compact .ol-field {
+  display: block;
+  margin-bottom: 6px !important;
+}
+
+.app-shell.theme-compact .input,
+.app-shell.theme-compact .select,
+.app-shell.theme-compact .ol-input,
+.app-shell.theme-compact .ol-select,
+.app-shell.theme-compact input[type="number"],
+.app-shell.theme-compact input[type="text"] {
+  display: block !important;
+  box-sizing: border-box;
+  height: 29px !important;
+  min-height: 29px !important;
+  max-height: 29px !important;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  padding: 4px 8px !important;
+  overflow: hidden;
+  border-radius: 4px;
+  font-size: 12px !important;
+  line-height: 19px !important;
+  text-align: left;
+}
+
+.app-shell.theme-compact .textarea,
+.app-shell.theme-compact .compact-textarea,
+.app-shell.theme-compact .ol-textarea,
+.app-shell.theme-compact textarea {
+  display: block !important;
+  box-sizing: border-box;
+  min-height: 48px;
+  max-height: 74px;
+  padding: 7px 9px;
+  overflow: auto;
+  font-size: 12px !important;
+  line-height: 16px !important;
+}
+
+.app-shell.theme-compact .generator-view .textarea {
+  min-height: 56px;
+}
+
+.app-shell.theme-compact .settings-grid,
+.app-shell.theme-compact .img2img-settings-grid,
+.app-shell.theme-compact .ol-form-grid {
+  display: block;
+  margin: 0 0 6px !important;
+}
+
+.app-shell.theme-compact .ol-setting-row,
+.app-shell.theme-compact .settings-grid .field,
+.app-shell.theme-compact .img2img-settings-grid .field,
+.app-shell.theme-compact .ol-form-grid .ol-field {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(88px, 104px);
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  margin: 0 !important;
+  padding: 4px 0;
+  border-top: 1px solid var(--ol-border-subtle);
+  border-bottom: 0;
+}
+
+.app-shell.theme-compact .settings-grid .field:first-child,
+.app-shell.theme-compact .img2img-settings-grid .field:first-child,
+.app-shell.theme-compact .ol-form-grid .ol-field:first-child {
+  border-top: 0;
+}
+
+.app-shell.theme-compact .settings-grid .field > .label,
+.app-shell.theme-compact .img2img-settings-grid .field > .label,
+.app-shell.theme-compact .ol-form-grid .ol-field > .label {
+  display: block;
+  min-width: 0;
+  margin: 0;
+  color: #dcdcdc;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 16px;
+  text-align: left;
+}
+
+.app-shell.theme-compact .settings-grid .input,
+.app-shell.theme-compact .img2img-settings-grid .input,
+.app-shell.theme-compact .settings-grid .select,
+.app-shell.theme-compact .img2img-settings-grid .select,
+.app-shell.theme-compact .ol-form-grid .input,
+.app-shell.theme-compact .ol-form-grid .select {
+  width: 100%;
+  max-width: 104px;
+  justify-self: end;
+}
+
+.app-shell.theme-compact .source-action-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 7px;
+  margin-bottom: 7px;
+}
+
+.app-shell.theme-compact .source-action-button {
+  height: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+}
+
+.app-shell.theme-compact .field-label-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 3px;
+}
+
+.app-shell.theme-compact .info-toggle {
+  width: 17px;
+  height: 17px;
+  min-width: 17px;
+  min-height: 17px;
+  border-radius: 50%;
+  opacity: 0.85;
+}
+
+.app-shell.theme-compact .info-toggle-glyph {
+  display: block !important;
+  color: #e2e2e2 !important;
+  font-size: 11px !important;
+  font-weight: 800;
+  line-height: 15px !important;
+}
+
+.app-shell.theme-compact .info-panel,
+.app-shell.theme-compact .compatibility-note,
+.app-shell.theme-compact .compatibility-note.info-panel,
+.app-shell.theme-compact .tool-warning {
+  margin-bottom: 5px;
+  padding: 6px 8px;
+  max-height: none !important;
+  overflow: visible !important;
+  font-size: 10.5px;
+  line-height: 15px;
+}
+
+.app-shell.theme-compact .compatibility-note.info-panel.is-warning::before,
+.app-shell.theme-compact .tool-warning::before {
+  width: 15px;
+  height: 15px;
+  flex-basis: 15px;
+  font-size: 11px;
+}
+
+.app-shell.theme-compact .experimental-toggle {
+  min-height: 31px;
+  height: 31px;
+  margin: 0 0 6px;
+  padding: 4px 8px;
+  border-color: #66501d;
+  background: #302816;
+  color: #f0e4c8;
+  font-size: 11.5px;
+  font-weight: 650;
+}
+
+.app-shell.theme-compact .experimental-toggle::after {
+  width: 28px;
+  height: 15px;
+  flex-basis: 28px;
+}
+
+.app-shell.theme-compact .button-generate,
+.app-shell.theme-compact .button-primary.button-generate {
+  height: 34px;
+  min-height: 34px;
+  max-height: 34px;
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+.app-shell.theme-compact .generation-status-panel {
+  padding: 6px;
+}
+
+.app-shell.theme-compact .status-bar {
+  min-height: 28px;
+  padding: 4px 7px;
+}
+
+.app-shell.theme-compact .status-pill {
+  min-height: 18px;
+  padding: 2px 8px;
+  font-size: 10.5px;
+}
+
+.app-shell.theme-compact .app-footer,
+.app-shell.theme-compact .ol-footer {
+  min-height: 36px;
+  gap: 4px;
+  padding: 7px 10px 9px;
+}
+
+.app-shell.theme-compact .app-footer span {
+  white-space: normal;
+}
+
+.app-shell.theme-compact .footer-link {
+  margin-left: auto;
+}
+
+@media (max-width: 340px) {
+  .app-shell.theme-compact .ol-setting-row,
+  .app-shell.theme-compact .settings-grid .field,
+  .app-shell.theme-compact .img2img-settings-grid .field,
+  .app-shell.theme-compact .ol-form-grid .ol-field {
+    grid-template-columns: minmax(0, 1fr) 90px;
+    gap: 6px;
+  }
+
+  .app-shell.theme-compact .settings-grid .input,
+  .app-shell.theme-compact .img2img-settings-grid .input,
+  .app-shell.theme-compact .settings-grid .select,
+  .app-shell.theme-compact .img2img-settings-grid .select,
+  .app-shell.theme-compact .ol-form-grid .input,
+  .app-shell.theme-compact .ol-form-grid .select {
+    max-width: 90px;
+  }
+
+  .app-shell.theme-compact .source-action-row {
+    gap: 6px;
+  }
+}
+
+/* v0.5.3 final surgical form cleanup.
+   Keep this last: it corrects native UXP control sizing without changing markup. */
+.app-shell.theme-compact .panel-section,
+.app-shell.theme-compact .generator-panel,
+.app-shell.theme-compact .result-panel,
+.app-shell.theme-compact .generation-status-panel,
+.app-shell.theme-compact .history-panel,
+.app-shell.theme-compact .settings-panel {
+  gap: 5px;
+  margin-bottom: 6px !important;
+  padding: 6px;
+}
+
+.app-shell.theme-compact .section-heading {
+  min-height: 16px;
+  margin-bottom: 3px;
+  justify-content: center;
+  gap: 5px;
+}
+
+.app-shell.theme-compact .section-heading .muted-label {
+  display: none !important;
+}
+
+.app-shell.theme-compact .field,
+.app-shell.theme-compact .img2img-field,
+.app-shell.theme-compact .ol-field {
+  display: block !important;
+  margin: 0 0 5px !important;
+}
+
+.app-shell.theme-compact .field > .label,
+.app-shell.theme-compact .img2img-field > .label,
+.app-shell.theme-compact .ol-field > .label,
+.app-shell.theme-compact .field-label-row .label {
+  display: block;
+  margin: 0 0 3px !important;
+  color: #dfdfdf;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: left;
+}
+
+.app-shell.theme-compact .input,
+.app-shell.theme-compact .select,
+.app-shell.theme-compact .ol-input,
+.app-shell.theme-compact .ol-select,
+.app-shell.theme-compact input[type="number"],
+.app-shell.theme-compact input[type="text"] {
+  display: block !important;
+  box-sizing: border-box;
+  height: 29px !important;
+  min-height: 29px !important;
+  max-height: 29px !important;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  border-radius: 4px;
+  padding: 4px 8px !important;
+  overflow: hidden;
+  font-size: 12px !important;
+  line-height: 19px !important;
+  text-align: left !important;
+}
+
+.app-shell.theme-compact .textarea,
+.app-shell.theme-compact .compact-textarea,
+.app-shell.theme-compact .ol-textarea,
+.app-shell.theme-compact textarea {
+  display: block !important;
+  box-sizing: border-box;
+  min-height: 46px !important;
+  max-height: 70px !important;
+  padding: 7px 9px !important;
+  overflow: auto;
+  font-size: 12px !important;
+  line-height: 16px !important;
+}
+
+.app-shell.theme-compact .settings-grid,
+.app-shell.theme-compact .img2img-settings-grid,
+.app-shell.theme-compact .ol-form-grid {
+  display: block !important;
+  margin: 0 0 6px !important;
+}
+
+.app-shell.theme-compact .ol-setting-row,
+.app-shell.theme-compact .settings-grid .field,
+.app-shell.theme-compact .img2img-settings-grid .field,
+.app-shell.theme-compact .ol-form-grid .ol-field {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(90px, 106px);
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  margin: 0 !important;
+  padding: 4px 0;
+  border-top: 1px solid var(--ol-border-subtle, #3d3d3d);
+}
+
+.app-shell.theme-compact .settings-grid .field:first-child,
+.app-shell.theme-compact .img2img-settings-grid .field:first-child,
+.app-shell.theme-compact .ol-form-grid .ol-field:first-child {
+  border-top: 0;
+}
+
+.app-shell.theme-compact .settings-grid .field > .label,
+.app-shell.theme-compact .img2img-settings-grid .field > .label,
+.app-shell.theme-compact .ol-form-grid .ol-field > .label {
+  margin: 0 !important;
+  line-height: 16px;
+}
+
+.app-shell.theme-compact .settings-grid .input,
+.app-shell.theme-compact .img2img-settings-grid .input,
+.app-shell.theme-compact .settings-grid .select,
+.app-shell.theme-compact .img2img-settings-grid .select,
+.app-shell.theme-compact .ol-form-grid .input,
+.app-shell.theme-compact .ol-form-grid .select {
+  width: 100%;
+  max-width: 106px;
+  justify-self: end;
+}
+
+.app-shell.theme-compact .source-action-row {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  gap: 7px !important;
+  margin: 0 0 7px !important;
+}
+
+.app-shell.theme-compact .source-action-button {
+  height: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+  flex: 1 1 0;
+  margin: 0 !important;
+  padding: 4px 8px !important;
+}
+
+.app-shell.theme-compact #capture-image-source,
+.app-shell.theme-compact #capture-sketch-source,
+.app-shell.theme-compact #capture-inpaint-active-layer,
+.app-shell.theme-compact #capture-outpaint-source,
+.app-shell.theme-compact #capture-upscale-source,
+.app-shell.theme-compact #capture-prompt-layer-source {
+  border-color: #467fc3;
+  background: linear-gradient(#3478c2, #2d68a8);
+  color: #ffffff;
+}
+
+.app-shell.theme-compact #capture-canvas-source,
+.app-shell.theme-compact #capture-sketch-canvas-source,
+.app-shell.theme-compact #capture-inpaint-selection,
+.app-shell.theme-compact #capture-outpaint-canvas-source,
+.app-shell.theme-compact #capture-upscale-canvas-source,
+.app-shell.theme-compact #capture-prompt-canvas-source {
+  border-color: #2f8a4b;
+  background: linear-gradient(#278243, #216d39);
+  color: #ffffff;
+}
+
+.app-shell.theme-compact .field-label-row {
+  display: flex !important;
+  align-items: center;
+  gap: 6px;
+  min-height: 18px;
+  margin: 0 0 3px !important;
+}
+
+.app-shell.theme-compact .field-label-row .label {
+  min-width: 0;
+  flex: 1 1 auto;
+  margin: 0 !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell.theme-compact .info-toggle {
+  display: inline-flex !important;
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  min-height: 18px !important;
+  flex: 0 0 18px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #626262;
+  border-radius: 50%;
+  margin: 0;
+  padding: 0 !important;
+  background: #363636;
+  color: #e6e6e6;
+}
+
+.app-shell.theme-compact .info-toggle-glyph {
+  display: block !important;
+  color: inherit !important;
+  font-size: 11px !important;
+  font-weight: 800;
+  line-height: 16px !important;
+}
+
+.app-shell.theme-compact .compatibility-note.info-panel,
+.app-shell.theme-compact .tool-warning {
+  box-sizing: border-box;
+  width: 100%;
+  max-height: none !important;
+  margin: 0 0 5px !important;
+  border: 1px solid #7a5f23;
+  border-radius: 4px;
+  padding: 6px 7px !important;
+  overflow: visible !important;
+  background: #302918;
+  color: #e1bd55;
+  font-size: 10.5px !important;
+  line-height: 15px !important;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.app-shell.theme-compact .compatibility-note.info-panel.is-warning::before,
+.app-shell.theme-compact .tool-warning::before {
+  width: 15px !important;
+  height: 15px !important;
+  flex: 0 0 15px !important;
+  margin-top: 0;
+  font-size: 11px !important;
+  line-height: 15px !important;
+}
+
+.app-shell.theme-compact .experimental-toggle {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  height: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+  margin: 0 0 6px !important;
+  border-color: #695423;
+  border-radius: 4px;
+  padding: 4px 8px !important;
+  background: #302918;
+  color: #e8dfc9;
+  font-size: 11.5px !important;
+  line-height: 16px;
+  text-align: left;
+}
+
+.app-shell.theme-compact .experimental-toggle::after {
+  width: 28px !important;
+  height: 15px !important;
+  flex: 0 0 28px !important;
+  margin-left: 8px;
+}
+
+.app-shell.theme-compact .button-generate,
+.app-shell.theme-compact .button-primary.button-generate {
+  height: 34px !important;
+  min-height: 34px !important;
+  max-height: 34px !important;
+  padding: 5px 8px !important;
+}
+
+.app-shell.theme-compact .generation-status-panel {
+  padding: 6px !important;
+}
+
+.app-shell.theme-compact .status-bar {
+  min-height: 28px !important;
+  padding: 4px 7px !important;
+}
+
+.app-shell.theme-compact .status-pill {
+  min-height: 18px;
+  padding: 2px 8px;
+  font-size: 10.5px;
+}
+
+.app-shell.theme-compact .app-footer,
+.app-shell.theme-compact .ol-footer {
+  min-height: 34px;
+  gap: 6px;
+  padding: 7px 10px 8px;
+  font-size: 11px;
+}
+
+.app-shell.theme-compact .app-footer span {
+  min-width: 0;
+  white-space: normal;
+}
+
+.app-shell.theme-compact .footer-link {
+  margin-left: auto;
+}
+
+@media (max-width: 340px) {
+  .app-shell.theme-compact .ol-setting-row,
+  .app-shell.theme-compact .settings-grid .field,
+  .app-shell.theme-compact .img2img-settings-grid .field,
+  .app-shell.theme-compact .ol-form-grid .ol-field {
+    grid-template-columns: minmax(0, 1fr) 92px;
+    gap: 6px;
+  }
+
+  .app-shell.theme-compact .settings-grid .input,
+  .app-shell.theme-compact .img2img-settings-grid .input,
+  .app-shell.theme-compact .settings-grid .select,
+  .app-shell.theme-compact .img2img-settings-grid .select,
+  .app-shell.theme-compact .ol-form-grid .input,
+  .app-shell.theme-compact .ol-form-grid .select {
+    max-width: 92px;
+  }
+
+  .app-shell.theme-compact .source-action-row {
+    gap: 6px !important;
+  }
+}
