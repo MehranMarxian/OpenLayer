@@ -5401,3 +5401,398 @@ a:hover {
     gap: 6px !important;
   }
 }
+
+/* UXP-safe parameter grid rescue.
+   Keep this deliberately simple: no :not(), no descendant trickery that can fail
+   in Photoshop's UXP renderer. These are the real tool value rows. */
+.app-shell.theme-compact .generator-view .settings-grid,
+.app-shell.theme-compact .image-to-image-view .img2img-settings-grid {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  box-sizing: border-box !important;
+  margin: 3px 0 7px !important;
+  padding: 0 !important;
+  overflow: visible !important;
+}
+
+.app-shell.theme-compact .generator-view .settings-grid > .field,
+.app-shell.theme-compact .image-to-image-view .img2img-settings-grid > .field {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 96px !important;
+  align-items: center !important;
+  gap: 8px !important;
+  min-height: 34px !important;
+  height: auto !important;
+  min-width: 0 !important;
+  max-height: none !important;
+  box-sizing: border-box !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  margin: 0 !important;
+  padding: 5px 0 !important;
+  border-top: 1px solid var(--ol-border-subtle, #3d3d3d) !important;
+  overflow: visible !important;
+}
+
+.app-shell.theme-compact .generator-view .settings-grid > .field:first-child,
+.app-shell.theme-compact .image-to-image-view .img2img-settings-grid > .field:first-child {
+  border-top: 0 !important;
+}
+
+.app-shell.theme-compact .generator-view .settings-grid > .field > .label,
+.app-shell.theme-compact .image-to-image-view .img2img-settings-grid > .field > .label {
+  display: block !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  color: var(--ol-text, #e6e6e6) !important;
+  font-size: 12px !important;
+  font-weight: 650 !important;
+  line-height: 16px !important;
+  text-align: left !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.app-shell.theme-compact .generator-view .settings-grid > .field > input,
+.app-shell.theme-compact .generator-view .settings-grid > .field > select,
+.app-shell.theme-compact .image-to-image-view .img2img-settings-grid > .field > input,
+.app-shell.theme-compact .image-to-image-view .img2img-settings-grid > .field > select {
+  display: block !important;
+  justify-self: end !important;
+  width: 96px !important;
+  min-width: 0 !important;
+  max-width: 96px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  max-height: 28px !important;
+  box-sizing: border-box !important;
+  padding: 4px 8px !important;
+  border: 1px solid var(--ol-border, #505050) !important;
+  border-radius: 4px !important;
+  background: var(--ol-input-bg, #202020) !important;
+  color: var(--ol-text, #e6e6e6) !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
+  text-align: left !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  overflow: hidden !important;
+}
+
+.app-shell.theme-compact .source-action-row {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+  column-gap: 8px !important;
+  row-gap: 0 !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  margin: 0 0 8px !important;
+  padding: 0 !important;
+}
+
+.app-shell.theme-compact .source-action-row > .source-action-button {
+  display: inline-flex !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+  flex: none !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  border-radius: 4px !important;
+  padding: 4px 8px !important;
+}
+
+@media (max-width: 340px) {
+  .app-shell.theme-compact .generator-view .settings-grid > .field,
+  .app-shell.theme-compact .image-to-image-view .img2img-settings-grid > .field {
+    grid-template-columns: minmax(0, 1fr) 88px !important;
+    gap: 6px !important;
+  }
+
+  .app-shell.theme-compact .generator-view .settings-grid > .field > input,
+  .app-shell.theme-compact .generator-view .settings-grid > .field > select,
+  .app-shell.theme-compact .image-to-image-view .img2img-settings-grid > .field > input,
+  .app-shell.theme-compact .image-to-image-view .img2img-settings-grid > .field > select {
+    width: 88px !important;
+    max-width: 88px !important;
+  }
+}
+
+/* v0.5.3 UXP recovery: Photoshop UXP can drop grid children in narrow panels.
+   Keep tool controls on boring flex/block layout so buttons and value rows render. */
+.app-shell.theme-compact .generator-view .settings-grid,
+.app-shell.theme-compact .image-to-image-view .img2img-settings-grid {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  width: 100% !important;
+  height: auto !important;
+  max-height: none !important;
+  margin: 4px 0 8px !important;
+  padding: 0 !important;
+  overflow: visible !important;
+}
+
+.app-shell.theme-compact .generator-view .settings-grid > .field,
+.app-shell.theme-compact .image-to-image-view .img2img-settings-grid > .field {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  min-height: 34px !important;
+  height: auto !important;
+  max-height: none !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  margin: 0 !important;
+  padding: 5px 0 !important;
+  border-top: 1px solid var(--ol-border-subtle, #3d3d3d) !important;
+  overflow: visible !important;
+}
+
+.app-shell.theme-compact .generator-view .settings-grid > .field:first-child,
+.app-shell.theme-compact .image-to-image-view .img2img-settings-grid > .field:first-child {
+  border-top: 0 !important;
+}
+
+.app-shell.theme-compact .generator-view .settings-grid > .field > .label,
+.app-shell.theme-compact .image-to-image-view .img2img-settings-grid > .field > .label {
+  display: block !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  color: var(--ol-text, #e6e6e6) !important;
+  font-size: 12px !important;
+  font-weight: 650 !important;
+  line-height: 16px !important;
+  text-align: left !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.app-shell.theme-compact .generator-view .settings-grid > .field > input,
+.app-shell.theme-compact .generator-view .settings-grid > .field > select,
+.app-shell.theme-compact .image-to-image-view .img2img-settings-grid > .field > input,
+.app-shell.theme-compact .image-to-image-view .img2img-settings-grid > .field > select {
+  display: block !important;
+  flex: 0 0 96px !important;
+  width: 96px !important;
+  min-width: 0 !important;
+  max-width: 96px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  max-height: 28px !important;
+  box-sizing: border-box !important;
+  padding: 4px 8px !important;
+  border: 1px solid var(--ol-border, #505050) !important;
+  border-radius: 4px !important;
+  background: var(--ol-input-bg, #202020) !important;
+  color: var(--ol-text, #e6e6e6) !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
+  text-align: left !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  overflow: hidden !important;
+}
+
+.app-shell.theme-compact .source-action-row {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: stretch !important;
+  gap: 8px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  margin: 0 0 8px !important;
+  padding: 0 !important;
+  overflow: visible !important;
+}
+
+.app-shell.theme-compact .source-action-row > .source-action-button {
+  display: inline-flex !important;
+  flex: 1 1 0 !important;
+  width: auto !important;
+  min-width: 0 !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  border-radius: 4px !important;
+  padding: 4px 6px !important;
+  white-space: nowrap !important;
+}
+
+@media (max-width: 340px) {
+  .app-shell.theme-compact .generator-view .settings-grid > .field > input,
+  .app-shell.theme-compact .generator-view .settings-grid > .field > select,
+  .app-shell.theme-compact .image-to-image-view .img2img-settings-grid > .field > input,
+  .app-shell.theme-compact .image-to-image-view .img2img-settings-grid > .field > select {
+    flex-basis: 88px !important;
+    width: 88px !important;
+    max-width: 88px !important;
+  }
+
+  .app-shell.theme-compact .source-action-row {
+    gap: 7px !important;
+  }
+}
+
+/* v0.5.3 emergency UXP visibility fix.
+   The markup and handlers are intact; this keeps Photoshop UXP from dropping
+   source buttons and numeric setting rows in narrow panels. */
+.app-shell.theme-compact .source-action-row {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: stretch !important;
+  justify-content: stretch !important;
+  gap: 8px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: auto !important;
+  min-height: 32px !important;
+  max-height: none !important;
+  margin: 0 0 8px !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.app-shell.theme-compact .source-action-row > .source-action-button {
+  display: inline-flex !important;
+  flex: 1 1 0 !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: auto !important;
+  min-width: 0 !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+  margin: 0 !important;
+  padding: 4px 6px !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.app-shell.theme-compact .settings-grid,
+.app-shell.theme-compact .img2img-settings-grid,
+.app-shell.theme-compact .ol-form-grid {
+  display: block !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  margin: 4px 0 8px !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.app-shell.theme-compact .settings-grid > .field,
+.app-shell.theme-compact .img2img-settings-grid > .field,
+.app-shell.theme-compact .ol-form-grid > .ol-field {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 34px !important;
+  height: auto !important;
+  max-height: none !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  padding: 5px 0 !important;
+  border-top: 1px solid var(--ol-border-subtle, #3d3d3d) !important;
+  overflow: visible !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.app-shell.theme-compact .settings-grid > .field:first-child,
+.app-shell.theme-compact .img2img-settings-grid > .field:first-child,
+.app-shell.theme-compact .ol-form-grid > .ol-field:first-child {
+  border-top: 0 !important;
+}
+
+.app-shell.theme-compact .settings-grid > .field > .label,
+.app-shell.theme-compact .img2img-settings-grid > .field > .label,
+.app-shell.theme-compact .ol-form-grid > .ol-field > .label {
+  display: block !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  font-size: 12px !important;
+  font-weight: 650 !important;
+  line-height: 16px !important;
+  text-align: left !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.app-shell.theme-compact .settings-grid > .field > input,
+.app-shell.theme-compact .settings-grid > .field > select,
+.app-shell.theme-compact .img2img-settings-grid > .field > input,
+.app-shell.theme-compact .img2img-settings-grid > .field > select,
+.app-shell.theme-compact .ol-form-grid > .ol-field > input,
+.app-shell.theme-compact .ol-form-grid > .ol-field > select {
+  display: block !important;
+  flex: 0 0 96px !important;
+  width: 96px !important;
+  min-width: 0 !important;
+  max-width: 96px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  max-height: 28px !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  padding: 4px 8px !important;
+  overflow: hidden !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
+  text-align: left !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+@media (max-width: 340px) {
+  .app-shell.theme-compact .settings-grid > .field > input,
+  .app-shell.theme-compact .settings-grid > .field > select,
+  .app-shell.theme-compact .img2img-settings-grid > .field > input,
+  .app-shell.theme-compact .img2img-settings-grid > .field > select,
+  .app-shell.theme-compact .ol-form-grid > .ol-field > input,
+  .app-shell.theme-compact .ol-form-grid > .ol-field > select {
+    flex-basis: 88px !important;
+    width: 88px !important;
+    max-width: 88px !important;
+  }
+
+  .app-shell.theme-compact .source-action-row {
+    gap: 6px !important;
+  }
+}

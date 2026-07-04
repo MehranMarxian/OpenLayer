@@ -4086,7 +4086,7 @@ function createAppMarkup() {
             <span class="label">Source layer</span>
             <span class="muted-label">Input image</span>
           </div>
-          <div class="source-action-row" aria-label="Source capture actions">
+          <div class="source-action-row ol-capture-actions" aria-label="Source capture actions">
             <button class="button source-action-button action-control" id="capture-image-source" data-openlayer-action="captureImageSource" type="button">Capture Active Layer</button>
             <button class="button source-action-button action-control" id="capture-canvas-source" data-openlayer-action="captureCanvasSource" type="button">Capture Canvas</button>
           </div>
@@ -4132,19 +4132,19 @@ function createAppMarkup() {
           </div>
           <button class="button experimental-toggle action-control" id="experimental-checkpoint-toggle" data-openlayer-action="toggleExperimentalCheckpoints" type="button" aria-pressed="false">Experimental Checkpoints Off</button>
           <div class="settings-grid img2img-settings-grid" aria-label="Image to Image settings">
-            <div class="field">
+            <div class="field ol-setting-row">
               <span class="label">Steps</span>
               <input class="input input-compact" id="img-steps" type="number" min="1" max="150" step="1" value="${DEFAULT_IMG2IMG_STEPS}" />
             </div>
-            <div class="field">
+            <div class="field ol-setting-row">
               <span class="label">CFG</span>
               <input class="input input-compact" id="img-cfg" type="number" min="1" max="30" step="0.5" value="${DEFAULT_CFG}" />
             </div>
-            <div class="field">
+            <div class="field ol-setting-row">
               <span class="label">Denoise</span>
               <input class="input input-compact" id="img-denoise" type="number" min="0.05" max="1" step="0.05" value="${DEFAULT_IMG2IMG_DENOISE}" />
             </div>
-            <div class="field settings-seed">
+            <div class="field settings-seed ol-setting-row">
               <span class="label">Seed</span>
               <input class="input input-compact" id="img-seed" type="number" min="0" placeholder="Random" />
             </div>
