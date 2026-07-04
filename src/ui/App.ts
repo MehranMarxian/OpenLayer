@@ -411,16 +411,22 @@ type AppElements = {
   clearHistoryButton: HTMLElement;
   statusText: HTMLElement;
   statusPill: HTMLElement;
+  statusProgress: HTMLElement;
   imgStatusText: HTMLElement;
   imgStatusPill: HTMLElement;
+  imgStatusProgress: HTMLElement;
   sketchStatusText: HTMLElement;
   sketchStatusPill: HTMLElement;
+  sketchStatusProgress: HTMLElement;
   inpaintStatusText: HTMLElement;
   inpaintStatusPill: HTMLElement;
+  inpaintStatusProgress: HTMLElement;
   promptLayerStatusText: HTMLElement;
   promptLayerStatusPill: HTMLElement;
+  promptLayerStatusProgress: HTMLElement;
   settingsStatusText: HTMLElement;
   settingsStatusPill: HTMLElement;
+  settingsStatusProgress: HTMLElement;
   diagnosticsText: HTMLElement;
   imgDiagnosticsText: HTMLElement;
   imgCompatibilityNote: HTMLElement;
@@ -430,8 +436,10 @@ type AppElements = {
   inpaintCompatibilityNote: HTMLElement;
   outpaintStatusText: HTMLElement;
   outpaintStatusPill: HTMLElement;
+  outpaintStatusProgress: HTMLElement;
   upscaleStatusText: HTMLElement;
   upscaleStatusPill: HTMLElement;
+  upscaleStatusProgress: HTMLElement;
   outpaintDiagnosticsText: HTMLElement;
   outpaintCompatibilityNote: HTMLElement;
   upscaleDiagnosticsText: HTMLElement;
@@ -529,6 +537,8 @@ type ActiveGeneration = {
   watcher: ReturnType<ComfyClient["watchProgress"]> | null;
   isCancelled: boolean;
 };
+
+const statusProgressTimers = new WeakMap<HTMLElement, number>();
 
 export function renderApp(rootElement: HTMLElement) {
   let currentView: AppView = "home";
@@ -3874,6 +3884,7 @@ function createAppMarkup() {
             <span class="status-text" id="prompt-layer-status-text">Foundation ready.</span>
             <span class="status-pill idle" id="prompt-layer-status-pill">Status</span>
           </div>
+          <div class="status-progress" id="prompt-layer-status-progress" hidden><span></span></div>
           <div class="diagnostics-line" id="prompt-layer-diagnostics-text">Capture a source, then generate a Florence-2 PromptGen caption.</div>
           <div class="error-message" id="prompt-layer-error-message" hidden></div>
         </section>
@@ -3918,6 +3929,7 @@ function createAppMarkup() {
             <span class="status-text" id="settings-status-text">Ready.</span>
             <span class="status-pill idle" id="settings-status-pill">Status</span>
           </div>
+          <div class="status-progress" id="settings-status-progress" hidden><span></span></div>
           <div class="diagnostics-line" id="settings-diagnostics-text">Diagnostics ready for v${APP_VERSION}.</div>
           <div class="error-message" id="settings-error-message" hidden></div>
         </section>
@@ -4046,6 +4058,7 @@ function createAppMarkup() {
             <span class="status-text" id="status-text">Ready.</span>
             <span class="status-pill idle" id="status-pill">Status</span>
           </div>
+          <div class="status-progress" id="status-progress" hidden><span></span></div>
           <div class="diagnostics-line" id="diagnostics-text">Click test ready for v${APP_VERSION}.</div>
           <div class="error-message" id="error-message" hidden></div>
         </section>
@@ -4064,12 +4077,6 @@ function createAppMarkup() {
           </div>
         </section>
 
-        <section class="text-image-shortcuts" aria-label="Shortcuts">
-          <div class="settings-shortcut" role="button" tabindex="0" data-openlayer-view="settings">
-            <span class="shortcut-label">Settings</span>
-            <span class="shortcut-note">ComfyUI URL, status, and diagnostics</span>
-          </div>
-        </section>
       </section>
 
       <section class="image-to-image-view" id="image-to-image-view" aria-label="Image to Image" hidden>
@@ -4158,6 +4165,7 @@ function createAppMarkup() {
             <span class="status-text" id="img-status-text">Ready.</span>
             <span class="status-pill idle" id="img-status-pill">Status</span>
           </div>
+          <div class="status-progress" id="img-status-progress" hidden><span></span></div>
           <div class="diagnostics-line" id="img-diagnostics-text">Capture an active layer, then generate with img2img-basic.</div>
           <div class="error-message" id="img-error-message" hidden></div>
         </section>
@@ -4267,6 +4275,7 @@ function createAppMarkup() {
             <span class="status-text" id="sketch-status-text">Ready.</span>
             <span class="status-pill idle" id="sketch-status-pill">Status</span>
           </div>
+          <div class="status-progress" id="sketch-status-progress" hidden><span></span></div>
           <div class="diagnostics-line" id="sketch-diagnostics-text">Capture a source, then use a LINECN workflow preset.</div>
           <div class="error-message" id="sketch-error-message" hidden></div>
         </section>
@@ -4304,7 +4313,7 @@ function createAppMarkup() {
             <span class="muted-label">Photoshop selection</span>
           </div>
           <div class="source-action-row" aria-label="Selection capture actions">
-            <button class="button source-action-button action-control" id="capture-inpaint-selection" data-openlayer-action="captureInpaintSelection" type="button">Capture Visible Canvas</button>
+            <button class="button source-action-button action-control" id="capture-inpaint-selection" data-openlayer-action="captureInpaintSelection" type="button">Capture Visible</button>
             <button class="button source-action-button action-control" id="capture-inpaint-active-layer" data-openlayer-action="captureInpaintActiveLayer" type="button">Capture Active Layer</button>
           </div>
           <div class="source-card">
@@ -4383,6 +4392,7 @@ function createAppMarkup() {
             <span class="status-text" id="inpaint-status-text">Ready.</span>
             <span class="status-pill idle" id="inpaint-status-pill">Status</span>
           </div>
+          <div class="status-progress" id="inpaint-status-progress" hidden><span></span></div>
           <div class="diagnostics-line" id="inpaint-diagnostics-text">Capture a Photoshop selection to prepare inpainting.</div>
           <div class="error-message" id="inpaint-error-message" hidden></div>
         </section>
@@ -4508,6 +4518,7 @@ function createAppMarkup() {
             <span class="status-text" id="outpaint-status-text">Ready.</span>
             <span class="status-pill idle" id="outpaint-status-pill">Status</span>
           </div>
+          <div class="status-progress" id="outpaint-status-progress" hidden><span></span></div>
           <div class="diagnostics-line" id="outpaint-diagnostics-text">Capture a source, then extend it with Flux Fill outpaint.</div>
           <div class="error-message" id="outpaint-error-message" hidden></div>
         </section>
@@ -4589,6 +4600,7 @@ function createAppMarkup() {
             <span class="status-text" id="upscale-status-text">Ready.</span>
             <span class="status-pill idle" id="upscale-status-pill">Status</span>
           </div>
+          <div class="status-progress" id="upscale-status-progress" hidden><span></span></div>
           <div class="diagnostics-line" id="upscale-diagnostics-text">Capture a source, then upscale with a ComfyUI upscale model.</div>
           <div class="error-message" id="upscale-error-message" hidden></div>
         </section>
@@ -4629,7 +4641,6 @@ function createAppMarkup() {
 
       <footer class="app-footer">
         <span>OpenLayer v${APP_VERSION} &middot; Developer: Mehran Ahmadi 2026</span>
-        <button class="footer-link" data-openlayer-external="${DEVELOPER_GITHUB}" type="button">GitHub</button>
       </footer>
     </main>
   `;
@@ -4645,7 +4656,6 @@ function createBrandHeaderMarkup() {
           <p class="app-subtitle">Local AI layers for Photoshop</p>
         </div>
       </div>
-      <span class="version-badge">v${APP_VERSION}</span>
     </header>
   `;
 }
@@ -4845,16 +4855,22 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     clearHistoryButton: getElement<HTMLElement>(rootElement, "clear-history"),
     statusText: getElement<HTMLElement>(rootElement, "status-text"),
     statusPill: getElement<HTMLElement>(rootElement, "status-pill"),
+    statusProgress: getElement<HTMLElement>(rootElement, "status-progress"),
     imgStatusText: getElement<HTMLElement>(rootElement, "img-status-text"),
     imgStatusPill: getElement<HTMLElement>(rootElement, "img-status-pill"),
+    imgStatusProgress: getElement<HTMLElement>(rootElement, "img-status-progress"),
     sketchStatusText: getElement<HTMLElement>(rootElement, "sketch-status-text"),
     sketchStatusPill: getElement<HTMLElement>(rootElement, "sketch-status-pill"),
+    sketchStatusProgress: getElement<HTMLElement>(rootElement, "sketch-status-progress"),
     inpaintStatusText: getElement<HTMLElement>(rootElement, "inpaint-status-text"),
     inpaintStatusPill: getElement<HTMLElement>(rootElement, "inpaint-status-pill"),
+    inpaintStatusProgress: getElement<HTMLElement>(rootElement, "inpaint-status-progress"),
     promptLayerStatusText: getElement<HTMLElement>(rootElement, "prompt-layer-status-text"),
     promptLayerStatusPill: getElement<HTMLElement>(rootElement, "prompt-layer-status-pill"),
+    promptLayerStatusProgress: getElement<HTMLElement>(rootElement, "prompt-layer-status-progress"),
     settingsStatusText: getElement<HTMLElement>(rootElement, "settings-status-text"),
     settingsStatusPill: getElement<HTMLElement>(rootElement, "settings-status-pill"),
+    settingsStatusProgress: getElement<HTMLElement>(rootElement, "settings-status-progress"),
     diagnosticsText: getElement<HTMLElement>(rootElement, "diagnostics-text"),
     imgDiagnosticsText: getElement<HTMLElement>(rootElement, "img-diagnostics-text"),
     imgCompatibilityNote: getElement<HTMLElement>(rootElement, "img-compatibility-note"),
@@ -4864,8 +4880,10 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     inpaintCompatibilityNote: getElement<HTMLElement>(rootElement, "inpaint-compatibility-note"),
     outpaintStatusText: getElement<HTMLElement>(rootElement, "outpaint-status-text"),
     outpaintStatusPill: getElement<HTMLElement>(rootElement, "outpaint-status-pill"),
+    outpaintStatusProgress: getElement<HTMLElement>(rootElement, "outpaint-status-progress"),
     upscaleStatusText: getElement<HTMLElement>(rootElement, "upscale-status-text"),
     upscaleStatusPill: getElement<HTMLElement>(rootElement, "upscale-status-pill"),
+    upscaleStatusProgress: getElement<HTMLElement>(rootElement, "upscale-status-progress"),
     outpaintDiagnosticsText: getElement<HTMLElement>(rootElement, "outpaint-diagnostics-text"),
     outpaintCompatibilityNote: getElement<HTMLElement>(rootElement, "outpaint-compatibility-note"),
     upscaleDiagnosticsText: getElement<HTMLElement>(rootElement, "upscale-diagnostics-text"),
@@ -5058,31 +5076,86 @@ function setCancelGenerationVisible(elements: AppElements, isVisible: boolean) {
   }
 }
 
+function setStatusProgress(progressElement: HTMLElement, status: string, tone: StatusTone) {
+  const normalizedStatus = status.trim().toLowerCase();
+  const isBusy =
+    tone === "idle" &&
+    normalizedStatus !== "ready" &&
+    normalizedStatus !== "ready." &&
+    !normalizedStatus.includes("complete") &&
+    !normalizedStatus.includes("copied") &&
+    !normalizedStatus.includes("saved") &&
+    !normalizedStatus.includes("reset");
+
+  progressElement.hidden = !isBusy;
+  progressElement.className = isBusy ? "status-progress is-active" : "status-progress";
+
+  if (!isBusy) {
+    const existingTimer = statusProgressTimers.get(progressElement);
+    if (existingTimer) {
+      window.clearInterval(existingTimer);
+      statusProgressTimers.delete(progressElement);
+    }
+
+    const inactiveFill = progressElement.firstElementChild as HTMLElement | null;
+    if (inactiveFill) {
+      inactiveFill.style.marginLeft = "";
+    }
+    progressElement.removeAttribute("data-progress-offset");
+    return;
+  }
+
+  if (statusProgressTimers.get(progressElement)) {
+    return;
+  }
+
+  const fill = progressElement.firstElementChild as HTMLElement | null;
+  let offset = -42;
+  const timer = window.setInterval(() => {
+    offset = offset >= 110 ? -42 : offset + 7;
+    progressElement.setAttribute("data-progress-offset", String(offset));
+
+    if (fill) {
+      fill.style.marginLeft = `${offset}%`;
+    }
+  }, 120);
+
+  statusProgressTimers.set(progressElement, timer);
+}
+
 function setStatus(elements: AppElements, status: string, tone: StatusTone) {
   elements.statusText.textContent = status;
   elements.statusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
   elements.statusPill.className = `status-pill ${tone}`;
+  setStatusProgress(elements.statusProgress, status, tone);
   elements.imgStatusText.textContent = status;
   elements.imgStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
   elements.imgStatusPill.className = `status-pill ${tone}`;
+  setStatusProgress(elements.imgStatusProgress, status, tone);
   elements.sketchStatusText.textContent = status;
   elements.sketchStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
   elements.sketchStatusPill.className = `status-pill ${tone}`;
+  setStatusProgress(elements.sketchStatusProgress, status, tone);
   elements.inpaintStatusText.textContent = status;
   elements.inpaintStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
   elements.inpaintStatusPill.className = `status-pill ${tone}`;
+  setStatusProgress(elements.inpaintStatusProgress, status, tone);
   elements.outpaintStatusText.textContent = status;
   elements.outpaintStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
   elements.outpaintStatusPill.className = `status-pill ${tone}`;
+  setStatusProgress(elements.outpaintStatusProgress, status, tone);
   elements.upscaleStatusText.textContent = status;
   elements.upscaleStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
   elements.upscaleStatusPill.className = `status-pill ${tone}`;
+  setStatusProgress(elements.upscaleStatusProgress, status, tone);
   elements.promptLayerStatusText.textContent = status;
   elements.promptLayerStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
   elements.promptLayerStatusPill.className = `status-pill ${tone}`;
+  setStatusProgress(elements.promptLayerStatusProgress, status, tone);
   elements.settingsStatusText.textContent = status;
   elements.settingsStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
   elements.settingsStatusPill.className = `status-pill ${tone}`;
+  setStatusProgress(elements.settingsStatusProgress, status, tone);
   elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
   elements.homeStatusDot.className = `home-status-dot ${tone}`;
 }
@@ -5091,6 +5164,7 @@ function setImageStatus(elements: AppElements, status: string, tone: StatusTone)
   elements.imgStatusText.textContent = status;
   elements.imgStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
   elements.imgStatusPill.className = `status-pill ${tone}`;
+  setStatusProgress(elements.imgStatusProgress, status, tone);
   elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
   elements.homeStatusDot.className = `home-status-dot ${tone}`;
 }
@@ -5099,6 +5173,7 @@ function setSketchStatus(elements: AppElements, status: string, tone: StatusTone
   elements.sketchStatusText.textContent = status;
   elements.sketchStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
   elements.sketchStatusPill.className = `status-pill ${tone}`;
+  setStatusProgress(elements.sketchStatusProgress, status, tone);
   elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
   elements.homeStatusDot.className = `home-status-dot ${tone}`;
 }
@@ -5107,6 +5182,7 @@ function setInpaintStatus(elements: AppElements, status: string, tone: StatusTon
   elements.inpaintStatusText.textContent = status;
   elements.inpaintStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
   elements.inpaintStatusPill.className = `status-pill ${tone}`;
+  setStatusProgress(elements.inpaintStatusProgress, status, tone);
   elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
   elements.homeStatusDot.className = `home-status-dot ${tone}`;
 }
@@ -5115,6 +5191,7 @@ function setOutpaintStatus(elements: AppElements, status: string, tone: StatusTo
   elements.outpaintStatusText.textContent = status;
   elements.outpaintStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
   elements.outpaintStatusPill.className = `status-pill ${tone}`;
+  setStatusProgress(elements.outpaintStatusProgress, status, tone);
   elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
   elements.homeStatusDot.className = `home-status-dot ${tone}`;
 }
@@ -5123,6 +5200,7 @@ function setUpscaleStatus(elements: AppElements, status: string, tone: StatusTon
   elements.upscaleStatusText.textContent = status;
   elements.upscaleStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
   elements.upscaleStatusPill.className = `status-pill ${tone}`;
+  setStatusProgress(elements.upscaleStatusProgress, status, tone);
   elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
   elements.homeStatusDot.className = `home-status-dot ${tone}`;
 }
@@ -5131,6 +5209,7 @@ function setPromptLayerStatus(elements: AppElements, status: string, tone: Statu
   elements.promptLayerStatusText.textContent = status;
   elements.promptLayerStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
   elements.promptLayerStatusPill.className = `status-pill ${tone}`;
+  setStatusProgress(elements.promptLayerStatusProgress, status, tone);
   elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
   elements.homeStatusDot.className = `home-status-dot ${tone}`;
 }
