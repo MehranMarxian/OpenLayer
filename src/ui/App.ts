@@ -5087,8 +5087,12 @@ function setStatusProgress(progressElement: HTMLElement, status: string, tone: S
     !normalizedStatus.includes("saved") &&
     !normalizedStatus.includes("reset");
 
+  const progressPercent = readProgressPercent(status);
+  const fill = progressElement.firstElementChild as HTMLElement | null;
   progressElement.hidden = !isBusy;
-  progressElement.className = isBusy ? "status-progress is-active" : "status-progress";
+  progressElement.className = isBusy
+    ? `status-progress is-active${progressPercent !== null ? " is-determinate" : ""}`
+    : "status-progress";
 
   if (!isBusy) {
     const existingTimer = statusProgressTimers.get(progressElement);
@@ -5097,19 +5101,38 @@ function setStatusProgress(progressElement: HTMLElement, status: string, tone: S
       statusProgressTimers.delete(progressElement);
     }
 
-    const inactiveFill = progressElement.firstElementChild as HTMLElement | null;
-    if (inactiveFill) {
-      inactiveFill.style.marginLeft = "";
+    if (fill) {
+      fill.style.marginLeft = "";
+      fill.style.width = "";
     }
     progressElement.removeAttribute("data-progress-offset");
+    progressElement.removeAttribute("data-progress-label");
     return;
   }
+
+  if (progressPercent !== null) {
+    const existingTimer = statusProgressTimers.get(progressElement);
+    if (existingTimer) {
+      window.clearInterval(existingTimer);
+      statusProgressTimers.delete(progressElement);
+    }
+
+    if (fill) {
+      fill.style.marginLeft = "0";
+      fill.style.width = `${progressPercent}%`;
+    }
+
+    progressElement.removeAttribute("data-progress-offset");
+    progressElement.setAttribute("data-progress-label", `${progressPercent}%`);
+    return;
+  }
+
+  progressElement.removeAttribute("data-progress-label");
 
   if (statusProgressTimers.get(progressElement)) {
     return;
   }
 
-  const fill = progressElement.firstElementChild as HTMLElement | null;
   let offset = -42;
   const timer = window.setInterval(() => {
     offset = offset >= 110 ? -42 : offset + 7;
@@ -5117,10 +5140,51 @@ function setStatusProgress(progressElement: HTMLElement, status: string, tone: S
 
     if (fill) {
       fill.style.marginLeft = `${offset}%`;
+      fill.style.width = "42%";
     }
   }, 120);
 
   statusProgressTimers.set(progressElement, timer);
+}
+
+function readProgressPercent(status: string) {
+  const percentMatch = status.match(/(\d{1,3})(?:\.\d+)?\s*%/);
+
+  if (percentMatch) {
+    return clampProgressPercent(Number(percentMatch[1]));
+  }
+
+  const stepMatch = status.match(/step\s+(\d+)\s+of\s+(\d+)/i);
+
+  if (stepMatch) {
+    const value = Number(stepMatch[1]);
+    const max = Number(stepMatch[2]);
+
+    if (Number.isFinite(value) && Number.isFinite(max) && max > 0) {
+      return clampProgressPercent(Math.round((value / max) * 100));
+    }
+  }
+
+  const fractionMatch = status.match(/\b(\d+)\s*\/\s*(\d+)\b/);
+
+  if (fractionMatch) {
+    const value = Number(fractionMatch[1]);
+    const max = Number(fractionMatch[2]);
+
+    if (Number.isFinite(value) && Number.isFinite(max) && max > 0) {
+      return clampProgressPercent(Math.round((value / max) * 100));
+    }
+  }
+
+  return null;
+}
+
+function clampProgressPercent(value: number) {
+  if (!Number.isFinite(value)) {
+    return null;
+  }
+
+  return Math.max(0, Math.min(100, value));
 }
 
 function setStatus(elements: AppElements, status: string, tone: StatusTone) {
@@ -5629,6 +5693,8 @@ function bindDocumentActions(rootElement: HTMLElement, actionHandlers: ActionHan
 }
 
 function bindHomeSectionToggles(rootElement: HTMLElement) {
+  let lastRunAt = 0;
+
   const runFromEvent = (event: Event) => {
     const target = event.target;
 
@@ -5649,7 +5715,15 @@ function bindHomeSectionToggles(rootElement: HTMLElement) {
       return;
     }
 
+    const now = Date.now();
+
+    if (now - lastRunAt < 220) {
+      return;
+    }
+
+    lastRunAt = now;
     event.preventDefault();
+    event.stopPropagation();
     const isOpen = section.classList.toggle("is-open");
     header.setAttribute("aria-expanded", isOpen ? "true" : "false");
     body.hidden = !isOpen;

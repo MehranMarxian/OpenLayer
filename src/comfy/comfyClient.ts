@@ -681,7 +681,8 @@ export class ComfyClient {
       const max = readNumber(message.data?.max);
 
       if (value !== null && max !== null && max > 0) {
-        options.onStatus?.(`Generating step ${value} of ${max}...`);
+        const percent = Math.max(0, Math.min(100, Math.round((value / max) * 100)));
+        options.onStatus?.(`Generating step ${value} of ${max} (${percent}%)...`);
       }
     } else if (message.type === "executing") {
       const node = readString(message.data?.node);

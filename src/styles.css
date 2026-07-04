@@ -6759,3 +6759,28 @@ body,
 .app-shell.theme-compact .version-badge {
   display: none !important;
 }
+
+/* v0.5.3 compact header and determinate ComfyUI progress polish. */
+.app-shell.theme-compact .app-header {
+  padding-top: 4px !important;
+  padding-bottom: 4px !important;
+  min-height: 0 !important;
+}
+
+.app-shell.theme-compact .brand-lockup {
+  min-height: 42px !important;
+}
+
+.app-shell.theme-compact .status-progress.is-determinate > span {
+  margin-left: 0 !important;
+  transition: width 0.16s ease-out !important;
+}
+
+.app-shell.theme-compact .status-progress.is-determinate::after {
+  content: attr(data-progress-label);
+  float: right;
+  margin-top: -14px;
+  color: var(--ol-muted);
+  font-size: 9px;
+  line-height: 10px;
+}
