@@ -6,11 +6,11 @@
     <title>OpenLayer - Open Source Photoshop ComfyUI Plugin</title>
     <meta
       name="description"
-      content="OpenLayer v0.5.1-alpha is an open-source Photoshop UXP plugin for local ComfyUI workflows, including compact Adobe-style UI testing, text-to-image, image-to-image, sketch-to-image, pixel upscale testing, PNG/lossless source capture, workflow health diagnostics, AI layer metadata foundations, global cancel safety, history metadata, and experimental inpaint testing."
+      content="OpenLayer v0.5.3-alpha is an open-source Photoshop UXP plugin for local ComfyUI workflows, including text-to-image, image-to-image, Z_image_Turbo, Flux txt2img testing, Prompt from Layer, Upscale, Workflow Health, Cancel Generation, History metadata, and experimental Flux Inpaint and Outpaint testing."
     >
     <meta name="theme-color" content="#2b2b2b">
     <meta property="og:title" content="OpenLayer - Open Source Photoshop ComfyUI Plugin">
-    <meta property="og:description" content="OpenLayer v0.5.1-alpha is an open-source Photoshop UXP plugin for local ComfyUI text-to-image, image-to-image, sketch-to-image, pixel upscale testing, compact Adobe-style UI testing, diagnostics, AI layer metadata foundations, global cancel safety, history metadata, and experimental layer workflows.">
+    <meta property="og:description" content="OpenLayer v0.5.3-alpha is an open-source Photoshop UXP plugin for local ComfyUI text-to-image, image-to-image, Z_image_Turbo, Flux txt2img testing, Prompt from Layer, Upscale, diagnostics, Cancel Generation, History metadata, and experimental layer workflows.">
     <meta property="og:image" content="assets/openlayer-photoshop-mvp.png">
     <meta property="og:type" content="website">
     <link rel="icon" href="assets/openlayer-icon.png">
@@ -37,18 +37,19 @@
         <div class="hero-content">
           <div class="hero-mark">
             <img src="assets/openlayer-icon.png" alt="" width="72" height="72">
-            <span>Alpha v0.5.1</span>
+            <span>Alpha v0.5.3</span>
           </div>
           <h1 id="hero-title">OpenLayer - Open Source Photoshop ComfyUI Plugin</h1>
           <p class="hero-lede">
             OpenLayer is an open-source Photoshop UXP plugin for local ComfyUI
             workflows. The current alpha supports text-to-image, image-to-image,
-            sketch-to-image, experimental pixel upscale, compact Adobe-style UI testing, PNG/lossless Photoshop source capture,
-            workflow health diagnostics, global cancel safety, session history metadata, and
-            experimental layer tools for testing.
+            Z_image_Turbo, experimental Flux txt2img, Prompt from Layer, Upscale,
+            compact Photoshop-style UI testing, PNG/lossless Photoshop source capture,
+            workflow health diagnostics, global cancel safety, session history metadata,
+            and experimental Flux Inpaint and Outpaint testing.
           </p>
           <p class="alpha-note">
-            Current release: <strong>v0.5.1-alpha</strong>. Built for testing, not production work yet.
+            Current release: <strong>v0.5.3-alpha</strong>. Built for testing, not production work yet.
           </p>
           <div class="hero-actions">
             <a class="button button-primary" href="https://github.com/MehranMarxian/OpenLayer">View on GitHub</a>
@@ -124,6 +125,14 @@
               <p>Selection capture and mask export are available for testing. Output quality and Photoshop alignment are not confirmed stable yet.</p>
             </article>
             <article class="feature-card">
+              <h3>Experimental Outpaint</h3>
+              <p>Flux Fill Outpaint can expand captured Photoshop content for testing, but it is still experimental and should be checked on duplicate layers first.</p>
+            </article>
+            <article class="feature-card">
+              <h3>Upscale</h3>
+              <p>Use a local pixel/model upscale workflow with ComfyUI upscale models such as <code>4x-UltraSharp.pth</code>.</p>
+            </article>
+            <article class="feature-card">
               <h3>Experimental checkpoint mode</h3>
               <p>Keep SD3 and Flux-style checkpoints visible with compatibility warnings while keeping <code>img2img-basic</code> focused on SD 1.x and SDXL.</p>
             </article>
@@ -175,8 +184,8 @@
           </div>
           <div class="screenshot-grid screenshot-grid-three">
             <figure>
-              <img src="assets/openlayer-v021-dashboard.png" alt="OpenLayer v0.2.1 Home dashboard showing available Text to Image, Image to Image, Sketch to Image, History, and Settings tools.">
-              <figcaption>The v0.2.1 dashboard exposes current tools and future workflow areas.</figcaption>
+              <img src="assets/openlayer-v021-dashboard.png" alt="OpenLayer Home dashboard showing available tools and future workflow areas.">
+              <figcaption>The Home dashboard exposes current tools and future workflow areas.</figcaption>
             </figure>
             <figure>
               <img src="assets/openlayer-preview-panel.png" alt="OpenLayer panel showing a generated preview inside Photoshop.">
@@ -254,7 +263,7 @@ npm run build</code></pre>
           <div class="status-grid">
             <article class="status-card">
               <h3>Testing alpha</h3>
-              <p>OpenLayer v0.5.1-alpha is for local testing and feedback. It is not production-ready yet.</p>
+              <p>OpenLayer v0.5.3-alpha is for local testing and feedback. It is not production-ready yet.</p>
             </article>
             <article class="status-card">
               <h3>Inpaint is experimental</h3>
@@ -262,7 +271,11 @@ npm run build</code></pre>
             </article>
             <article class="status-card">
               <h3>Flux Fill is experimental</h3>
-              <p>Flux1-dev fp8 Text to Image is available for experimental testing. Flux Fill and generic Flux workflows still need careful validation and tuning.</p>
+              <p>Flux1-dev fp8 Text to Image is available for experimental testing. Flux Fill Inpaint and Outpaint still need careful validation and tuning.</p>
+            </article>
+            <article class="status-card">
+              <h3>Outpaint is experimental</h3>
+              <p>Outpaint is available for testing with the Flux Fill stack, but it is not a production canvas-expansion workflow yet.</p>
             </article>
             <article class="status-card">
               <h3>Prompt from Layer</h3>
@@ -295,9 +308,10 @@ npm run build</code></pre>
             <li>Generated images are placed as Photoshop layers; advanced alignment is future work.</li>
             <li>Inpaint is experimental: source and mask export are available, but output quality and Photoshop alignment are still being tested.</li>
             <li>Flux Fill is experimental and not a fully validated production workflow.</li>
-            <li>Prompt from Layer is experimental and requires the local Florence-2 PromptGen model plus text-output custom nodes.</li>
-            <li>Upscale is experimental and uses pixel/model upscale only. Generative upscale, tiled diffusion, and creative enhancement are future work.</li>
-            <li>Custom workflow import, LoRA browser, batch variants, and true persistent Photoshop AI layer metadata are future work. v0.5.1 adds the shared metadata foundation and session-history wiring.</li>
+            <li>Prompt from Layer requires the local Florence-2 PromptGen model plus text-output custom nodes.</li>
+            <li>Outpaint is experimental and should be tested on duplicate layers first.</li>
+            <li>Upscale uses pixel/model upscale only. Generative upscale, tiled diffusion, and creative enhancement are future work.</li>
+            <li>Custom workflow import, LoRA browser, batch variants, and true persistent Photoshop AI layer metadata are future work. v0.5.3 keeps the shared metadata foundation and session-history wiring.</li>
             <li>CI does not run Photoshop, UXP, or ComfyUI integration tests.</li>
             <li>The browser dev server is only for UI preview. Photoshop APIs run inside UXP.</li>
             <li>Responsive panel spacing has been improved for testing, but final visual polish is still in progress.</li>
@@ -316,8 +330,13 @@ npm run build</code></pre>
             <li>Load <code>dist/manifest.json</code> in Adobe UXP Developer Tool.</li>
             <li>Open Photoshop, launch OpenLayer, and click <code>Check ComfyUI</code>.</li>
             <li>Generate one text-to-image result and import it as a new layer.</li>
+            <li>If installed, test <code>txt2img-z-image-turbo</code> and <code>txt2img-flux1-dev-fp8</code> once each.</li>
             <li>Capture an active layer or canvas, run Image to Image, and import the result.</li>
             <li>Capture an active layer or canvas, run Sketch to Image with <code>sketch2img-linecn-basic</code>, and import the result.</li>
+            <li>Run Prompt from Layer and Upscale if the required local models are installed.</li>
+            <li>Test Flux Fill Inpaint and Outpaint as experimental workflows only.</li>
+            <li>Start and cancel one longer generation; confirm the next generation still works.</li>
+            <li>Open History and confirm workflow, model, seed, dimensions, source mode, and import status are recorded when available.</li>
             <li>Resize the panel narrow and wide; confirm cards, buttons, previews, header, and footer remain reachable.</li>
           </ol>
         </div>
@@ -339,8 +358,8 @@ npm run build</code></pre>
               <p>Image-to-image starter workflow, Sketch to Image LINECN foundation, active-layer and canvas source preview, ComfyUI upload, experimental checkpoint warnings, and result import.</p>
             </article>
             <article>
-              <h3>v0.4 alpha</h3>
-              <p>PNG/lossless capture, GPU diagnostics, Workflow Health, Z_image_Turbo experiments, Flux1-dev fp8 Text to Image, experimental Prompt from Layer, and experimental Inpaint/Repaint Selection.</p>
+              <h3>v0.4-v0.5 alpha</h3>
+              <p>PNG/lossless capture, GPU diagnostics, Workflow Health, Z_image_Turbo experiments, Flux1-dev fp8 Text to Image, Prompt from Layer, Upscale, Cancel Generation, History metadata, and experimental Inpaint/Outpaint.</p>
             </article>
             <article>
               <h3>Future artist tools</h3>
@@ -364,7 +383,7 @@ npm run build</code></pre>
     </main>
 
     <footer class="site-footer">
-      <p>OpenLayer v0.5.1-alpha. Developed by Mehran Ahmadi, 2026.</p>
+      <p>OpenLayer v0.5.3-alpha. Developed by Mehran Ahmadi, 2026.</p>
       <p>
         <a href="https://github.com/MehranMarxian">GitHub</a>
       </p>

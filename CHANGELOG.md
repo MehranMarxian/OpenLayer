@@ -1,6 +1,30 @@
 # Changelog
 
-## Unreleased / v0.5.1-alpha draft - 2026-07-02
+## v0.5.3-alpha - 2026-07-05
+
+Release checkpoint for the current public alpha package and landing page.
+
+### Release status
+
+- Verified package and manifest metadata are aligned at `0.5.3`.
+- Synced README, landing page copy, release checklist, and release notes around `v0.5.3-alpha`.
+- Confirmed the current tester focus: Text to Image, Image to Image, Z_image_Turbo, experimental Flux1-dev fp8 Text to Image, Prompt from Layer, Upscale, Workflow Health, Cancel Generation, session History metadata, and experimental Flux Fill Inpaint.
+- Kept Outpaint clearly marked Experimental.
+
+### Known limitations
+
+- Inpaint and Outpaint remain experimental and should be tested on duplicate layers or disposable documents.
+- `inpaint-basic` may not match the source as reliably as the experimental Flux Fill path.
+- Prompt from Layer requires the local Florence-2 PromptGen workflow, custom nodes, and model files.
+- Upscale is pixel/model upscale only. It does not include latent upscale, tiled diffusion, prompt-based enhancement, or creative upscale yet.
+- Custom workflow import, LoRA browser, batch variants, ControlNet panels, and true persistent Photoshop layer metadata remain future work.
+- CI does not run Photoshop, UXP Developer Tool, or ComfyUI integration tests.
+
+### Not changed
+
+- No generation logic, workflow JSON, ComfyUI client behavior, model loading, Photoshop import behavior, Inpaint/Outpaint behavior, or UI redesign changes are included in this checkpoint.
+
+## v0.5.1-alpha - 2026-07-02
 
 Technical stabilization for AI layer metadata and setup diagnostics.
 
