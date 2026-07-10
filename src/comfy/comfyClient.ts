@@ -21,7 +21,9 @@ import {
 } from "./workflowModelRequirements";
 import {
   createComfyInterruptRequest,
-  createGenerationCancelledError
+  createComfyQueueDeleteRequest,
+  createGenerationCancelledError,
+  GenerationCancelResult
 } from "./generationCancel";
 import { createOpenLayerError, getNestedErrorMessage } from "../utils/errors";
 
@@ -378,6 +380,47 @@ export class ComfyClient {
       throw createOpenLayerError(
         "COMFY_HTTP",
         `ComfyUI interrupt failed with HTTP ${response.status}.`,
+        message
+      );
+    }
+  }
+
+  async cancelPrompt(promptId?: string): Promise<GenerationCancelResult> {
+    if (!promptId) {
+      await this.interruptGeneration();
+      return "interrupted";
+    }
+
+    let queue: ComfyQueueResponse | null = null;
+
+    try {
+      queue = await this.getQueue();
+    } catch {
+      // Queue inspection is best-effort; interrupt below still cancels a running prompt.
+    }
+
+    if (queue && findPromptIndex(queue.queue_pending, promptId) >= 0) {
+      try {
+        await this.deleteQueuedPrompt(promptId);
+        return "dequeued";
+      } catch {
+        // ComfyUI may have started the prompt between the queue read and the delete.
+      }
+    }
+
+    await this.interruptGeneration();
+    return "interrupted";
+  }
+
+  private async deleteQueuedPrompt(promptId: string) {
+    const request = createComfyQueueDeleteRequest(this.serverUrl, promptId);
+    const response = await fetch(request.url, request.init);
+
+    if (!response.ok) {
+      const message = await readResponseText(response);
+      throw createOpenLayerError(
+        "COMFY_HTTP",
+        `ComfyUI queue delete failed with HTTP ${response.status}.`,
         message
       );
     }
@@ -920,12 +963,25 @@ async function readResponseText(response: Response) {
   }
 }
 
-function findPromptIndex(entries: unknown[] | undefined, promptId: string) {
+export function findPromptIndex(entries: unknown[] | undefined, promptId: string) {
   if (!Array.isArray(entries)) {
     return -1;
   }
 
-  return entries.findIndex((entry) => JSON.stringify(entry).includes(promptId));
+  return entries.findIndex((entry) => {
+    const entryPromptId = readQueueEntryPromptId(entry);
+
+    if (entryPromptId !== null) {
+      return entryPromptId === promptId;
+    }
+
+    return JSON.stringify(entry).includes(promptId);
+  });
+}
+
+function readQueueEntryPromptId(entry: unknown) {
+  // ComfyUI queue entries are tuples shaped like [number, prompt_id, prompt, extra, outputs].
+  return Array.isArray(entry) && typeof entry[1] === "string" ? entry[1] : null;
 }
 
 type ProgressJsonMessage = {

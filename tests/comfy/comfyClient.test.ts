@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findImageOutput, readComfyModelNameList } from "../../src/comfy/comfyClient";
+import { findImageOutput, findPromptIndex, readComfyModelNameList } from "../../src/comfy/comfyClient";
 
 describe("ComfyClient output selection", () => {
   it("uses the preferred SaveImage node instead of the first history image", () => {
@@ -48,6 +48,34 @@ describe("ComfyClient output selection", () => {
     );
 
     expect(image).toBeNull();
+  });
+});
+
+describe("ComfyClient queue prompt matching", () => {
+  it("matches queue entries by the prompt id tuple field", () => {
+    const entries = [
+      [0, "prompt-aaa", {}, {}, []],
+      [1, "prompt-bbb", {}, {}, []]
+    ];
+
+    expect(findPromptIndex(entries, "prompt-bbb")).toBe(1);
+    expect(findPromptIndex(entries, "prompt-zzz")).toBe(-1);
+  });
+
+  it("does not match a prompt id that only appears inside another entry's payload", () => {
+    const entries = [
+      [0, "prompt-aaa", { previousPromptId: "prompt-bbb" }, {}, []],
+      [1, "prompt-bbb", {}, {}, []]
+    ];
+
+    expect(findPromptIndex(entries, "prompt-bbb")).toBe(1);
+  });
+
+  it("falls back to substring matching for unknown queue entry shapes", () => {
+    const entries = [{ prompt_id: "prompt-ccc" }];
+
+    expect(findPromptIndex(entries, "prompt-ccc")).toBe(0);
+    expect(findPromptIndex(undefined, "prompt-ccc")).toBe(-1);
   });
 });
 

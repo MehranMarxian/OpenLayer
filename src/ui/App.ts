@@ -12,6 +12,7 @@ import { createFluxFillEmbeddedMaskSource } from "../comfy/fluxFillMaskBridge";
 import { formatFluxFillReferenceDefaults } from "../comfy/fluxFillDefaults";
 import {
   formatCancelDiagnostic,
+  formatCancelResultDiagnostic,
   isGenerationCancelledError
 } from "../comfy/generationCancel";
 import {
@@ -1214,8 +1215,11 @@ export function renderApp(rootElement: HTMLElement) {
     setCancelGenerationVisible(elements, false);
 
     try {
-      await generation.client.interruptGeneration();
-      setGenerationToolDiagnostics(generation.toolType, formatCancelDiagnostic(generation.promptId));
+      const cancelResult = await generation.client.cancelPrompt(generation.promptId);
+      setGenerationToolDiagnostics(
+        generation.toolType,
+        formatCancelResultDiagnostic(cancelResult, generation.promptId)
+      );
     } catch (caughtError) {
       setGenerationToolDiagnostics(
         generation.toolType,
