@@ -29,7 +29,12 @@ import {
   sanitizeOpenLayerLayerMetadata
 } from "../metadata/layerMetadata";
 import { getCheckpointCompatibility } from "../comfy/modelCompatibility";
-import { getWorkflowPreset, listRunnableWorkflowPresets, listWorkflowPresets } from "../comfy/presetRegistry";
+import {
+  getRecommendedPresetSettings,
+  getWorkflowPreset,
+  listRunnableWorkflowPresets,
+  listWorkflowPresets
+} from "../comfy/presetRegistry";
 import {
   validateGenerationSettings,
   validateImageToImageSettings,
@@ -108,7 +113,7 @@ const FALLBACK_UPSCALE_MODELS = ["4x-UltraSharp.pth", "RealESRGAN_x4plus.pth"];
 const RECOMMENDED_SKETCH_CHECKPOINT = "epicrealism_naturalSinRC1VAE.safetensors";
 const DEFAULT_WIDTH = "512";
 const DEFAULT_HEIGHT = "512";
-const DEFAULT_STEPS = "4";
+const DEFAULT_STEPS = "20";
 const DEFAULT_CFG = "7";
 const DEFAULT_IMG2IMG_STEPS = "12";
 const DEFAULT_IMG2IMG_DENOISE = "0.55";
@@ -759,6 +764,7 @@ export function renderApp(rootElement: HTMLElement) {
   void loadInitialCheckpoints();
 
   elements.workflow.addEventListener("change", () => {
+    applyRecommendedPresetSettings(elements.workflow, DEFAULT_WORKFLOW, elements.steps, elements.cfg);
     void refreshTextModelOptionsForSelectedPreset(elements).then(() => updateTextCheckpointCompatibility(elements));
   });
 
@@ -767,6 +773,7 @@ export function renderApp(rootElement: HTMLElement) {
   });
 
   elements.imgWorkflow.addEventListener("change", () => {
+    applyRecommendedPresetSettings(elements.imgWorkflow, DEFAULT_IMAGE_WORKFLOW, elements.imgSteps, elements.imgCfg);
     void refreshImageModelOptionsForSelectedPreset(elements).then(() => (
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource)
     ));
@@ -777,6 +784,7 @@ export function renderApp(rootElement: HTMLElement) {
   });
 
   elements.sketchWorkflow.addEventListener("change", () => {
+    applyRecommendedPresetSettings(elements.sketchWorkflow, DEFAULT_SKETCH_WORKFLOW, elements.sketchSteps, elements.sketchCfg);
     updateSketchCheckpointCompatibility(elements, sketchSource);
   });
 
@@ -785,6 +793,7 @@ export function renderApp(rootElement: HTMLElement) {
   });
 
   elements.inpaintWorkflow.addEventListener("change", () => {
+    applyRecommendedPresetSettings(elements.inpaintWorkflow, DEFAULT_INPAINT_WORKFLOW, elements.inpaintSteps, elements.inpaintCfg);
     void refreshInpaintModelOptionsForSelectedPreset(elements);
     updateInpaintCheckpointCompatibility(elements, inpaintSource);
   });
@@ -794,6 +803,7 @@ export function renderApp(rootElement: HTMLElement) {
   });
 
   elements.outpaintWorkflow.addEventListener("change", () => {
+    applyRecommendedPresetSettings(elements.outpaintWorkflow, DEFAULT_OUTPAINT_WORKFLOW, elements.outpaintSteps, elements.outpaintGuidance);
     void refreshOutpaintModelOptionsForSelectedPreset(elements);
     updateOutpaintCheckpointCompatibility(elements, outpaintSource);
   });
@@ -6567,6 +6577,18 @@ function readSelectValue(select: HTMLSelectElement, fallback = "") {
   const optionValue = option?.value?.trim() || option?.textContent?.trim() || "";
 
   return optionValue || fallback;
+}
+
+function applyRecommendedPresetSettings(
+  workflowSelect: HTMLSelectElement,
+  defaultPresetId: string,
+  stepsInput: HTMLInputElement,
+  cfgInput: HTMLInputElement
+) {
+  const recommended = getRecommendedPresetSettings(readSelectValue(workflowSelect, defaultPresetId));
+
+  stepsInput.value = String(recommended.steps);
+  cfgInput.value = String(recommended.cfg);
 }
 
 function setSelectValueIfPresent(select: HTMLSelectElement, value: string) {

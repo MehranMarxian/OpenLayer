@@ -666,6 +666,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     workflowFile: "workflows/api/txt2img-basic.json",
     sourceWorkflowFile: "workflows/source/txt2img-basic.workflow.json",
     status: "stable",
+    recommendedSettings: { steps: 20, cfg: 7 },
     supportedModelFamilies: ["sd1", "sdxl", "unknown"],
     experimentalModelFamilies: ["sd3", "flux", "zImage"],
     modelSource: CHECKPOINT_MODEL_SOURCE,
@@ -713,6 +714,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     workflowFile: "workflows/api/txt2img-flux1-dev-fp8.json",
     sourceWorkflowFile: "workflows/source/txt2img-flux1-dev-fp8.workflow.json",
     status: "experimental",
+    recommendedSettings: { steps: 20, cfg: 3.5 },
     supportedModelFamilies: ["flux"],
     experimentalModelFamilies: ["sd1", "sdxl", "sd3", "zImage", "unknown"],
     modelSource: CHECKPOINT_MODEL_SOURCE,
@@ -772,6 +774,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     workflowFile: "workflows/api/img2img-basic.json",
     sourceWorkflowFile: "workflows/source/img2img-basic.workflow.json",
     status: "stable",
+    recommendedSettings: { steps: 20, cfg: 7 },
     supportedModelFamilies: ["sd1", "sdxl", "unknown"],
     experimentalModelFamilies: ["sd3", "flux", "zImage"],
     modelSource: CHECKPOINT_MODEL_SOURCE,
@@ -902,6 +905,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     workflowFile: "workflows/api/sketch2img-linecn-basic.json",
     sourceWorkflowFile: "workflows/source/sketch2img-linecn-basic.workflow.json",
     status: "experimental",
+    recommendedSettings: { steps: 16, cfg: 7 },
     supportedModelFamilies: ["sd1"],
     experimentalModelFamilies: ["sdxl", "sd3", "flux", "zImage"],
     modelSource: CHECKPOINT_MODEL_SOURCE,
@@ -980,6 +984,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     workflowFile: "workflows/api/inpaint-basic.json",
     sourceWorkflowFile: "workflows/source/inpaint-basic.workflow.json",
     status: "experimental",
+    recommendedSettings: { steps: 16, cfg: 7 },
     supportedModelFamilies: ["sd1"],
     experimentalModelFamilies: ["sdxl", "sd3", "flux", "zImage", "unknown"],
     modelSource: CHECKPOINT_MODEL_SOURCE,
@@ -1047,6 +1052,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     description: "Experimental Flux Fill inpainting workflow using a diffusion model stack.",
     workflowFile: "workflows/api/inpaint-flux-fill-basic.json",
     status: "experimental",
+    recommendedSettings: { steps: 20, cfg: 30 },
     supportedModelFamilies: ["flux"],
     experimentalModelFamilies: ["sd1", "sdxl", "sd3", "zImage", "unknown"],
     modelSource: DIFFUSION_MODEL_SOURCE,
@@ -1127,6 +1133,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     workflowFile: "workflows/api/outpaint-flux-fill-basic.json",
     sourceWorkflowFile: "workflows/source/outpaint-flux-fill-basic.workflow.json",
     status: "experimental",
+    recommendedSettings: { steps: 20, cfg: 30 },
     supportedModelFamilies: ["flux"],
     experimentalModelFamilies: ["sd1", "sdxl", "sd3", "zImage", "unknown"],
     modelSource: DIFFUSION_MODEL_SOURCE,
@@ -1212,6 +1219,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     workflowFile: "workflows/api/txt2img-z-image-turbo.json",
     sourceWorkflowFile: "workflows/source/txt2img-z-image-turbo.workflow.json",
     status: "experimental",
+    recommendedSettings: { steps: 8, cfg: 1 },
     supportedModelFamilies: ["zImage"],
     experimentalModelFamilies: ["unknown"],
     modelSource: DIFFUSION_MODEL_SOURCE,
@@ -1282,6 +1290,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     workflowFile: "workflows/api/img2img-z-image-turbo.json",
     sourceWorkflowFile: "workflows/source/img2img-z-image-turbo.workflow.json",
     status: "experimental",
+    recommendedSettings: { steps: 8, cfg: 1 },
     supportedModelFamilies: ["zImage"],
     experimentalModelFamilies: ["unknown"],
     modelSource: DIFFUSION_MODEL_SOURCE,
@@ -1444,6 +1453,25 @@ export function getWorkflowPreset(presetId: string): WorkflowPresetDefinition {
 
 export function isWorkflowPreset(presetId: string): presetId is WorkflowPreset {
   return WORKFLOW_PRESETS.some((preset) => preset.id === presetId);
+}
+
+export type RecommendedPresetSettings = {
+  steps: number;
+  cfg: number;
+};
+
+const FALLBACK_RECOMMENDED_PRESET_SETTINGS: RecommendedPresetSettings = {
+  steps: 20,
+  cfg: 7
+};
+
+export function getRecommendedPresetSettings(presetId: string): RecommendedPresetSettings {
+  const preset = WORKFLOW_PRESETS.find((candidate) => candidate.id === presetId);
+
+  return {
+    steps: preset?.recommendedSettings?.steps ?? FALLBACK_RECOMMENDED_PRESET_SETTINGS.steps,
+    cfg: preset?.recommendedSettings?.cfg ?? FALLBACK_RECOMMENDED_PRESET_SETTINGS.cfg
+  };
 }
 
 export function getPresetInputTarget(
