@@ -1,5 +1,35 @@
 # Changelog
 
+## v0.5.5-alpha - 2026-07-11
+
+Correctness and trust release: working inpaint uploads, safe cancel, aligned inpaint context, and honest status copy.
+
+### Fixed
+
+- Fixed ComfyUI uploads losing their filenames in Photoshop UXP. UXP's FormData saved every upload as a file named `blob`, so the Inpaint mask upload overwrote the source upload and both LoadImage nodes read the mask. Uploads now build the multipart body manually with an explicit filename per file, and inpaint-basic composites over the real captured source again.
+- Fixed the Photoshop "Make is not currently available" alert during Inpaint Import to Layers. Photoshop's place command clears the active selection, so the layer mask import now restores a selection from the captured Inpaint bounds and falls back to aligned context import cleanly when no selection can be restored.
+- Fixed inpaint misalignment caused by ComfyUI VAE rounding: the captured inpaint context now snaps to multiples of 8 so the generated result matches the captured context size exactly.
+- Fixed multipart encoding to work without TextEncoder, which Photoshop UXP does not expose.
+
+### Added
+
+- Added per-preset recommended generation defaults. `txt2img-basic` now starts at 20 steps, and switching workflow presets applies that preset's recommended steps and CFG/guidance values.
+- Added queue-aware Cancel Generation: prompts still waiting in the ComfyUI queue are removed with a queue delete instead of interrupting whatever job is currently running, and diagnostics report whether the prompt was dequeued or interrupted.
+- Added a 16-megapixel capture guard so very large layer/canvas/mask captures fail fast with a friendly message instead of risking UXP memory failures.
+- Added the `clipboard` and `launchProcess` manifest permissions used by Copy Diagnostics, Copy Prompt, and the footer links.
+
+### Changed
+
+- ComfyUI WebSocket preview frames are now received as arraybuffer for UXP reliability. Live KSampler step previews appear in the result preview when ComfyUI is started with `--preview-method auto`.
+- The Outpaint and Sketch to Image tool cards now show the Experimental badge to match their preset status, and Z_image_Turbo warnings plus the hardware advisor no longer claim those presets are disabled.
+- Bumped plugin/package metadata to `0.5.5`.
+
+### Known limitations
+
+- Live sampler previews require ComfyUI to be started with `--preview-method auto`, and the preview panel may flicker between steps until the planned UI polish pass.
+- Capture is limited to 16 megapixels (4096 x 4096) until a downscale option is added.
+- Inpaint and Outpaint remain experimental and should be tested on duplicate layers or disposable documents.
+
 ## v0.5.3-alpha - 2026-07-05
 
 Release checkpoint for the current public alpha package and landing page.

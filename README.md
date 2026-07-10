@@ -10,7 +10,17 @@ OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop t
 
 ## Alpha Release
 
-`v0.5.3-alpha` is the current public alpha checkpoint. It is intended for testing the core local workflows, compact Photoshop-style panel, workflow diagnostics, cancellation safety, and AI layer metadata foundation, not for production work yet.
+`v0.5.5-alpha` is the current public alpha checkpoint. It is intended for testing the core local workflows, compact Photoshop-style panel, workflow diagnostics, cancellation safety, and AI layer metadata foundation, not for production work yet.
+
+New in `v0.5.5-alpha`:
+
+- Fixed ComfyUI uploads losing filenames in UXP, which made the Inpaint mask overwrite the Inpaint source. inpaint-basic now composites over the real captured source.
+- Fixed the Photoshop "Make is not currently available" alert during Inpaint import by restoring the selection before the layer mask step.
+- Inpaint context capture now snaps to multiples of 8 so results align with the document again.
+- Cancel Generation is queue-aware: pending prompts are dequeued instead of interrupting another running job on a shared ComfyUI server.
+- Switching workflow presets applies per-preset recommended steps and CFG defaults, and `txt2img-basic` starts at 20 steps.
+- Live KSampler step previews render in the result preview when ComfyUI is started with `--preview-method auto`.
+- Very large captures fail fast at the new 16-megapixel capture limit instead of risking UXP memory failures.
 
 Included in this alpha:
 
@@ -60,15 +70,17 @@ Included in this alpha:
 
 ![OpenLayer Home dashboard](docs/assets/openlayer-v021-dashboard.png)
 
-v0.5.3-alpha tester focus:
+v0.5.5-alpha tester focus:
 
 - Confirm Text to Image, Image to Image, Z_image_Turbo, and experimental Flux1-dev fp8 Text to Image generation.
 - Confirm Prompt from Layer with the local Florence-2 PromptGen workflow.
 - Confirm Upscale with a local pixel/model upscale model such as `4x-UltraSharp.pth`.
 - Confirm Workflow Health, Cancel Generation, session History metadata, and Reuse Settings.
 - Test Flux Fill Inpaint and Flux Fill Outpaint as experimental workflows only.
+- Confirm inpaint-basic and Flux Fill Inpaint after the v0.5.5 upload filename and alignment fixes, including Import to Layers.
+- Confirm Cancel Generation on both a running prompt and a queued prompt when ComfyUI is busy.
 
-Known v0.5.3-alpha boundaries:
+Known v0.5.5-alpha boundaries:
 
 - Image to Image is an early foundation path, not a full production workflow yet.
 - Sketch to Image is limited to the first SD 1.x LINECN starter workflow.
@@ -91,7 +103,9 @@ Known v0.5.3-alpha boundaries:
 - Outpaint is experimental and currently uses `outpaint-flux-fill-basic` with `flux1-fill-dev.safetensors`, `clip_l.safetensors`, `t5xxl_fp16.safetensors` or the accepted T5 fp8 fallback, and `ae.safetensors`.
 - Upscale currently uses a simple pixel/model upscale path. It does not use prompts, latent upscale, tiled diffusion, or creative enhancement.
 - Upscale needs ComfyUI's `UpscaleModelLoader` and `ImageUpscaleWithModel` nodes plus an installed upscale model such as `4x-UltraSharp.pth` or `RealESRGAN_x4plus.pth`.
-- The v0.5.3 release checkpoint does not change ComfyUI workflow behavior, model loading, generation, import, Inpaint, Outpaint, or UI design.
+- The v0.5.5 release focuses on correctness: upload filenames, queue-aware cancel, inpaint context alignment, capture size guarding, and per-preset defaults. The UI design is unchanged.
+- Layer, canvas, and mask capture is limited to 16 megapixels (4096 x 4096) until a downscale option is added.
+- Live sampler previews require ComfyUI to be started with `--preview-method auto`, and the preview panel may flicker between steps until a future UI polish pass.
 - Classic v0.4 theme preserves the older visual feel, but it does not duplicate every old layout detail.
 - SDXL, SD3, Flux, and Z_image_Turbo Sketch to Image workflows need dedicated future presets.
 - Workflow node IDs may need adjustment for custom ComfyUI workflows.
@@ -219,7 +233,7 @@ npm run package
 This creates a zip package from `dist` in the `packages` folder. For the current alpha, the expected package name is:
 
 ```text
-packages/openlayer-v0.5.3-alpha.zip
+packages/openlayer-v0.5.5-alpha.zip
 ```
 
 ## Loading In UXP Developer Tool
@@ -249,8 +263,10 @@ OpenLayer uses port `8190` by default so it does not interfere with another plug
 If your other plugin is already using ComfyUI on `8188`, start a second ComfyUI instance for OpenLayer on `8190`, for example:
 
 ```bash
-python main.py --listen 127.0.0.1 --port 8190
+python main.py --listen 127.0.0.1 --port 8190 --preview-method auto
 ```
+
+`--preview-method auto` is optional but recommended: it makes ComfyUI stream live KSampler step previews into the OpenLayer result preview while generating.
 
 Click `Check ComfyUI` before generating.
 
@@ -344,7 +360,7 @@ Inpaint output quality, mask interpretation, and Photoshop alignment are still b
 
 ## Pre-release Tester Checklist
 
-Use this quick pass before reporting a v0.5.3-alpha test result:
+Use this quick pass before reporting a v0.5.5-alpha test result:
 
 1. Start ComfyUI on `http://127.0.0.1:8190`.
 2. Build OpenLayer and load `dist/manifest.json` in Adobe UXP Developer Tool.
