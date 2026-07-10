@@ -3050,6 +3050,7 @@ export function renderApp(rootElement: HTMLElement) {
       const importResult = await importImageAlignedToSelectionWithLayerMask({
         blob: inpaintResult.blob,
         bounds: inpaintSource.selection.contextBounds,
+        selectionBounds: inpaintSource.selection.bounds,
         layerName,
         onProgress: (message) => {
           setInpaintStatus(elements, message, "idle");

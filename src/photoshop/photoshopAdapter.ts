@@ -125,6 +125,7 @@ export type SelectedRegionSourceImage = ExportedSourceImage & {
 export type AlignedRegionalImportOptions = {
   blob: Blob;
   bounds: SelectionBounds;
+  selectionBounds?: SelectionBounds;
   layerName?: string;
   onProgress?: ImportProgress;
 };
@@ -436,9 +437,16 @@ export async function importImageAlignedToSelectionWithLayerMask(
 
         try {
           options.onProgress?.("Applying Photoshop selection as a layer mask...");
-          await createLayerMaskFromActiveSelection(photoshop);
-          maskApplied = true;
-          maskMessage = "Imported with a Photoshop layer mask from the active selection.";
+          const maskSelectionAvailable = await ensureSelectionForLayerMask(photoshop, options.selectionBounds);
+
+          if (maskSelectionAvailable) {
+            await createLayerMaskFromActiveSelection(photoshop);
+            maskApplied = true;
+            maskMessage = "Imported with a Photoshop layer mask from the active selection.";
+          } else {
+            maskMessage =
+              "Layer mask skipped because Photoshop no longer had an active selection after placing the result. Aligned context import used.";
+          }
         } catch (caughtError) {
           maskMessage = `Layer mask import fallback used. ${getErrorMessage(caughtError)}`;
         }
@@ -969,6 +977,74 @@ async function renameActiveLayer(photoshop: PhotoshopModule, layerName: string) 
         to: {
           _obj: "layer",
           name: layerName
+        },
+        _options: {
+          dialogOptions: "dontDisplay"
+        }
+      }
+    ],
+    {}
+  );
+}
+
+async function ensureSelectionForLayerMask(
+  photoshop: PhotoshopModule,
+  fallbackBounds?: SelectionBounds
+) {
+  // Photoshop's place command clears the active selection, so the original
+  // Inpaint selection is usually gone by the time the layer mask is created.
+  if (await hasActiveSelectionBounds(photoshop)) {
+    return true;
+  }
+
+  if (!fallbackBounds) {
+    return false;
+  }
+
+  await setRectangularSelection(photoshop, normalizeSelectionBounds(fallbackBounds));
+  return hasActiveSelectionBounds(photoshop);
+}
+
+async function hasActiveSelectionBounds(photoshop: PhotoshopModule) {
+  try {
+    return Boolean(readSelectionBounds(await getSelectionDescriptor(photoshop)));
+  } catch {
+    return false;
+  }
+}
+
+async function setRectangularSelection(
+  photoshop: PhotoshopModule,
+  bounds: NormalizedSelectionBounds
+) {
+  await photoshop.action.batchPlay(
+    [
+      {
+        _obj: "set",
+        _target: [
+          {
+            _ref: "channel",
+            _property: "selection"
+          }
+        ],
+        to: {
+          _obj: "rectangle",
+          top: {
+            _unit: "pixelsUnit",
+            _value: bounds.top
+          },
+          left: {
+            _unit: "pixelsUnit",
+            _value: bounds.left
+          },
+          bottom: {
+            _unit: "pixelsUnit",
+            _value: bounds.bottom
+          },
+          right: {
+            _unit: "pixelsUnit",
+            _value: bounds.right
+          }
         },
         _options: {
           dialogOptions: "dontDisplay"
