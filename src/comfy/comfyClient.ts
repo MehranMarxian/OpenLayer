@@ -607,7 +607,9 @@ export class ComfyClient {
 
     try {
       socket = new WebSocket(this.createWebSocketUrl());
-      socket.binaryType = "blob";
+      // UXP WebSocket binary support is most reliable with arraybuffer, and
+      // handleProgressMessage accepts both ArrayBuffer and Blob frames.
+      socket.binaryType = "arraybuffer";
     } catch (caughtError) {
       options.onError?.(
         `Could not open ComfyUI progress stream. Continuing with history polling. ${getNestedErrorMessage(caughtError)}`
