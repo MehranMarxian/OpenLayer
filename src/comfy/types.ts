@@ -249,6 +249,11 @@ export type WorkflowRequiredModel = WorkflowModelSource & {
   setupHint?: string;
 };
 
+export type WorkflowRecommendedSettings = {
+  steps?: number;
+  cfg?: number;
+};
+
 export type WorkflowPresetDefinition = {
   id: WorkflowPreset;
   label: string;
@@ -257,6 +262,7 @@ export type WorkflowPresetDefinition = {
   workflowFile: string;
   sourceWorkflowFile?: string;
   status: "stable" | "experimental" | "todo";
+  recommendedSettings?: WorkflowRecommendedSettings;
   supportedModelFamilies: ModelFamily[];
   experimentalModelFamilies: ModelFamily[];
   modelSource: WorkflowModelSource;

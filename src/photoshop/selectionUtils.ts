@@ -73,6 +73,54 @@ export function createPaddedSelectionBounds(
   });
 }
 
+export function snapBoundsToMultiple(
+  bounds: SelectionBounds,
+  documentSize: DocumentSize,
+  multiple: number
+): NormalizedSelectionBounds {
+  const selection = normalizeSelectionBounds(bounds);
+  const documentWidth = Math.round(documentSize.width);
+  const documentHeight = Math.round(documentSize.height);
+  const normalizedMultiple = Math.max(1, Math.round(multiple));
+
+  if (
+    !isFiniteNumber(documentWidth) ||
+    !isFiniteNumber(documentHeight) ||
+    documentWidth <= 0 ||
+    documentHeight <= 0
+  ) {
+    throw new Error("Document size must contain visible pixel dimensions.");
+  }
+
+  const horizontal = snapAxisToMultiple(selection.left, selection.right, documentWidth, normalizedMultiple);
+  const vertical = snapAxisToMultiple(selection.top, selection.bottom, documentHeight, normalizedMultiple);
+
+  return normalizeSelectionBounds({
+    left: horizontal.start,
+    top: vertical.start,
+    right: horizontal.end,
+    bottom: vertical.end
+  });
+}
+
+function snapAxisToMultiple(start: number, end: number, documentLength: number, multiple: number) {
+  const size = end - start;
+  const expandedSize = Math.ceil(size / multiple) * multiple;
+  const largestFit = Math.floor(documentLength / multiple) * multiple;
+  const targetSize = Math.min(expandedSize, largestFit);
+
+  if (targetSize <= 0 || targetSize === size) {
+    return { start, end };
+  }
+
+  const nextEnd = Math.min(documentLength, start + targetSize);
+
+  return {
+    start: nextEnd - targetSize,
+    end: nextEnd
+  };
+}
+
 export function formatSelectionBounds(bounds: SelectionBounds) {
   const normalized = normalizeSelectionBounds(bounds);
   return `${normalized.width} x ${normalized.height} at ${normalized.left}, ${normalized.top}`;

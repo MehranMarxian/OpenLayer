@@ -246,7 +246,7 @@ function getZImageTurboMessage(inventory: ComfyModelInventory) {
   const hasVae = inventory.vaeModels.some((name) => name.toLowerCase().includes("ae.safetensors"));
 
   if (hasModel && hasClip && hasVae) {
-    return "Z_image_Turbo stack detected: diffusion model, qwen_3_4b CLIP, and ae.safetensors VAE are available. It still needs a dedicated OpenLayer workflow JSON before generation is enabled.";
+    return "Z_image_Turbo stack detected: diffusion model, qwen_3_4b CLIP, and ae.safetensors VAE are available. The experimental Z_image_Turbo Text to Image and Image to Image presets can use this stack.";
   }
 
   if (hasModel) {

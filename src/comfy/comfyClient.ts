@@ -21,9 +21,12 @@ import {
 } from "./workflowModelRequirements";
 import {
   createComfyInterruptRequest,
-  createGenerationCancelledError
+  createComfyQueueDeleteRequest,
+  createGenerationCancelledError,
+  GenerationCancelResult
 } from "./generationCancel";
 import { createOpenLayerError, getNestedErrorMessage } from "../utils/errors";
+import { createMultipartBoundary, createMultipartRequestBody } from "../utils/multipart";
 
 const MODEL_INVENTORY_SOURCES = {
   checkpoints: [
@@ -302,14 +305,32 @@ export class ComfyClient {
       throw createOpenLayerError("COMFY_UPLOAD_FAILED", "The source image is empty.");
     }
 
-    const formData = new FormData();
-    formData.append("image", blob, fileName);
-    formData.append("type", "input");
-    formData.append("overwrite", "true");
+    // UXP's FormData drops the filename on Blob parts, so ComfyUI saved every
+    // upload as "blob" and a second upload in the same run overwrote the first.
+    // Building the multipart body manually keeps each upload's unique filename.
+    const boundary = createMultipartBoundary();
+    const body = createMultipartRequestBody(
+      boundary,
+      [
+        {
+          name: "image",
+          filename: fileName,
+          contentType: blob.type || "image/png",
+          data: new Uint8Array(await blob.arrayBuffer())
+        }
+      ],
+      [
+        { name: "type", value: "input" },
+        { name: "overwrite", value: "true" }
+      ]
+    );
 
     const response = await fetch(`${this.serverUrl}/upload/image`, {
       method: "POST",
-      body: formData
+      headers: {
+        "Content-Type": `multipart/form-data; boundary=${boundary}`
+      },
+      body: toRequestArrayBuffer(body)
     });
 
     if (!response.ok) {
@@ -328,7 +349,7 @@ export class ComfyClient {
       throw createOpenLayerError("COMFY_UPLOAD_FAILED", "ComfyUI did not return an uploaded image name.");
     }
 
-    return uploadedName;
+    return data.subfolder ? `${data.subfolder}/${uploadedName}` : uploadedName;
   }
 
   async submitPrompt(workflow: ComfyWorkflow): Promise<string> {
@@ -378,6 +399,47 @@ export class ComfyClient {
       throw createOpenLayerError(
         "COMFY_HTTP",
         `ComfyUI interrupt failed with HTTP ${response.status}.`,
+        message
+      );
+    }
+  }
+
+  async cancelPrompt(promptId?: string): Promise<GenerationCancelResult> {
+    if (!promptId) {
+      await this.interruptGeneration();
+      return "interrupted";
+    }
+
+    let queue: ComfyQueueResponse | null = null;
+
+    try {
+      queue = await this.getQueue();
+    } catch {
+      // Queue inspection is best-effort; interrupt below still cancels a running prompt.
+    }
+
+    if (queue && findPromptIndex(queue.queue_pending, promptId) >= 0) {
+      try {
+        await this.deleteQueuedPrompt(promptId);
+        return "dequeued";
+      } catch {
+        // ComfyUI may have started the prompt between the queue read and the delete.
+      }
+    }
+
+    await this.interruptGeneration();
+    return "interrupted";
+  }
+
+  private async deleteQueuedPrompt(promptId: string) {
+    const request = createComfyQueueDeleteRequest(this.serverUrl, promptId);
+    const response = await fetch(request.url, request.init);
+
+    if (!response.ok) {
+      const message = await readResponseText(response);
+      throw createOpenLayerError(
+        "COMFY_HTTP",
+        `ComfyUI queue delete failed with HTTP ${response.status}.`,
         message
       );
     }
@@ -545,7 +607,9 @@ export class ComfyClient {
 
     try {
       socket = new WebSocket(this.createWebSocketUrl());
-      socket.binaryType = "blob";
+      // UXP WebSocket binary support is most reliable with arraybuffer, and
+      // handleProgressMessage accepts both ArrayBuffer and Blob frames.
+      socket.binaryType = "arraybuffer";
     } catch (caughtError) {
       options.onError?.(
         `Could not open ComfyUI progress stream. Continuing with history polling. ${getNestedErrorMessage(caughtError)}`
@@ -912,6 +976,10 @@ function delay(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
+function toRequestArrayBuffer(bytes: Uint8Array) {
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
 async function readResponseText(response: Response) {
   try {
     return await response.text();
@@ -920,12 +988,25 @@ async function readResponseText(response: Response) {
   }
 }
 
-function findPromptIndex(entries: unknown[] | undefined, promptId: string) {
+export function findPromptIndex(entries: unknown[] | undefined, promptId: string) {
   if (!Array.isArray(entries)) {
     return -1;
   }
 
-  return entries.findIndex((entry) => JSON.stringify(entry).includes(promptId));
+  return entries.findIndex((entry) => {
+    const entryPromptId = readQueueEntryPromptId(entry);
+
+    if (entryPromptId !== null) {
+      return entryPromptId === promptId;
+    }
+
+    return JSON.stringify(entry).includes(promptId);
+  });
+}
+
+function readQueueEntryPromptId(entry: unknown) {
+  // ComfyUI queue entries are tuples shaped like [number, prompt_id, prompt, extra, outputs].
+  return Array.isArray(entry) && typeof entry[1] === "string" ? entry[1] : null;
 }
 
 type ProgressJsonMessage = {

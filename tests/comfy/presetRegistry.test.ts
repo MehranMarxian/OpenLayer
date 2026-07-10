@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  getRecommendedPresetSettings,
   getWorkflowPreset,
   listRunnableWorkflowPresets,
   listWorkflowPresets,
@@ -141,6 +142,35 @@ describe("presetRegistry", () => {
     expect(preset.modelStack?.some((model) => model.modelName === "z_image_turbo_bf16.safetensors")).toBe(true);
     expect(preset.requiredModels?.some((model) => model.modelName === "qwen_3_4b.safetensors")).toBe(true);
     expect(preset.requiredNodes.some((node) => node.classType === "ModelSamplingAuraFlow")).toBe(true);
+  });
+
+  it("returns recommended generation settings within validation ranges for every runnable preset", () => {
+    for (const preset of listRunnableWorkflowPresets()) {
+      const recommended = getRecommendedPresetSettings(preset.id);
+
+      expect(Number.isInteger(recommended.steps)).toBe(true);
+      expect(recommended.steps).toBeGreaterThanOrEqual(1);
+      expect(recommended.steps).toBeLessThanOrEqual(150);
+      expect(recommended.cfg).toBeGreaterThanOrEqual(1);
+      expect(recommended.cfg).toBeLessThanOrEqual(30);
+    }
+  });
+
+  it("returns preset-specific recommended settings for checkpoint, Flux, and turbo workflows", () => {
+    expect(getRecommendedPresetSettings("txt2img-basic")).toEqual({ steps: 20, cfg: 7 });
+    expect(getRecommendedPresetSettings("img2img-basic")).toEqual({ steps: 20, cfg: 7 });
+    expect(getRecommendedPresetSettings("txt2img-flux1-dev-fp8")).toEqual({ steps: 20, cfg: 3.5 });
+    expect(getRecommendedPresetSettings("txt2img-z-image-turbo")).toEqual({ steps: 8, cfg: 1 });
+    expect(getRecommendedPresetSettings("img2img-z-image-turbo")).toEqual({ steps: 8, cfg: 1 });
+    expect(getRecommendedPresetSettings("sketch2img-linecn-basic")).toEqual({ steps: 16, cfg: 7 });
+    expect(getRecommendedPresetSettings("inpaint-basic")).toEqual({ steps: 16, cfg: 7 });
+    expect(getRecommendedPresetSettings("inpaint-flux-fill-basic")).toEqual({ steps: 20, cfg: 30 });
+    expect(getRecommendedPresetSettings("outpaint-flux-fill-basic")).toEqual({ steps: 20, cfg: 30 });
+  });
+
+  it("falls back to safe recommended settings for unknown preset ids", () => {
+    expect(getRecommendedPresetSettings("not-a-real-preset")).toEqual({ steps: 20, cfg: 7 });
+    expect(getRecommendedPresetSettings("")).toEqual({ steps: 20, cfg: 7 });
   });
 
   it("reports missing workflow inputs with remapping guidance", () => {

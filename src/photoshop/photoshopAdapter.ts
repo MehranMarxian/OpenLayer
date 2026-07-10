@@ -5,7 +5,8 @@ import {
   createPaddedSelectionBounds,
   normalizeSelectionBounds,
   NormalizedSelectionBounds,
-  SelectionBounds
+  SelectionBounds,
+  snapBoundsToMultiple
 } from "./selectionUtils";
 import {
   createInpaintSourceModeWarning,
@@ -72,6 +73,23 @@ type ImportProgress = (message: string) => void;
 type BatchPlayCommand = Record<string, unknown>;
 const MIN_INPAINT_CONTEXT_PADDING = 96;
 const INPAINT_CONTEXT_PADDING_RATIO = 0.75;
+// ComfyUI VAE encoding rounds image dimensions down to multiples of 8, so a
+// non-multiple context comes back smaller than captured and breaks the
+// translate-only aligned import.
+const INPAINT_CONTEXT_MULTIPLE = 8;
+// Uncompressed PNG capture costs about 4 bytes per pixel, so very large
+// captures can exhaust UXP panel memory before the upload even starts.
+export const MAX_CAPTURE_PIXELS = 4096 * 4096;
+
+export function assertCaptureSizeWithinLimit(width: number, height: number) {
+  if (width * height > MAX_CAPTURE_PIXELS) {
+    throw createOpenLayerError(
+      "PHOTOSHOP_EXPORT_FAILED",
+      `This capture is ${Math.round(width)} x ${Math.round(height)}, which is larger than OpenLayer's current 16-megapixel capture limit. Crop the document, use a smaller layer, or make a smaller selection, then capture again.`,
+      "Uncompressed PNG capture above 4096 x 4096 risks UXP memory failures. A downscale option is planned."
+    );
+  }
+}
 
 export type ActiveDocumentInfo = {
   name: string;
@@ -120,6 +138,7 @@ export type SelectedRegionSourceImage = ExportedSourceImage & {
 export type AlignedRegionalImportOptions = {
   blob: Blob;
   bounds: SelectionBounds;
+  selectionBounds?: SelectionBounds;
   layerName?: string;
   onProgress?: ImportProgress;
 };
@@ -431,9 +450,16 @@ export async function importImageAlignedToSelectionWithLayerMask(
 
         try {
           options.onProgress?.("Applying Photoshop selection as a layer mask...");
-          await createLayerMaskFromActiveSelection(photoshop);
-          maskApplied = true;
-          maskMessage = "Imported with a Photoshop layer mask from the active selection.";
+          const maskSelectionAvailable = await ensureSelectionForLayerMask(photoshop, options.selectionBounds);
+
+          if (maskSelectionAvailable) {
+            await createLayerMaskFromActiveSelection(photoshop);
+            maskApplied = true;
+            maskMessage = "Imported with a Photoshop layer mask from the active selection.";
+          } else {
+            maskMessage =
+              "Layer mask skipped because Photoshop no longer had an active selection after placing the result. Aligned context import used.";
+          }
         } catch (caughtError) {
           maskMessage = `Layer mask import fallback used. ${getErrorMessage(caughtError)}`;
         }
@@ -585,11 +611,15 @@ function createInpaintContextBounds(
     MIN_INPAINT_CONTEXT_PADDING,
     Math.round(Math.max(selectionBounds.width, selectionBounds.height) * INPAINT_CONTEXT_PADDING_RATIO)
   );
-
-  return createPaddedSelectionBounds(selectionBounds, {
+  const paddedBounds = createPaddedSelectionBounds(selectionBounds, {
     width: documentWidth,
     height: documentHeight
   }, adaptivePadding);
+
+  return snapBoundsToMultiple(paddedBounds, {
+    width: documentWidth,
+    height: documentHeight
+  }, INPAINT_CONTEXT_MULTIPLE);
 }
 
 async function captureSelectionMaskSourceImage(
@@ -970,6 +1000,74 @@ async function renameActiveLayer(photoshop: PhotoshopModule, layerName: string) 
   );
 }
 
+async function ensureSelectionForLayerMask(
+  photoshop: PhotoshopModule,
+  fallbackBounds?: SelectionBounds
+) {
+  // Photoshop's place command clears the active selection, so the original
+  // Inpaint selection is usually gone by the time the layer mask is created.
+  if (await hasActiveSelectionBounds(photoshop)) {
+    return true;
+  }
+
+  if (!fallbackBounds) {
+    return false;
+  }
+
+  await setRectangularSelection(photoshop, normalizeSelectionBounds(fallbackBounds));
+  return hasActiveSelectionBounds(photoshop);
+}
+
+async function hasActiveSelectionBounds(photoshop: PhotoshopModule) {
+  try {
+    return Boolean(readSelectionBounds(await getSelectionDescriptor(photoshop)));
+  } catch {
+    return false;
+  }
+}
+
+async function setRectangularSelection(
+  photoshop: PhotoshopModule,
+  bounds: NormalizedSelectionBounds
+) {
+  await photoshop.action.batchPlay(
+    [
+      {
+        _obj: "set",
+        _target: [
+          {
+            _ref: "channel",
+            _property: "selection"
+          }
+        ],
+        to: {
+          _obj: "rectangle",
+          top: {
+            _unit: "pixelsUnit",
+            _value: bounds.top
+          },
+          left: {
+            _unit: "pixelsUnit",
+            _value: bounds.left
+          },
+          bottom: {
+            _unit: "pixelsUnit",
+            _value: bounds.bottom
+          },
+          right: {
+            _unit: "pixelsUnit",
+            _value: bounds.right
+          }
+        },
+        _options: {
+          dialogOptions: "dontDisplay"
+        }
+      }
+    ],
+    {}
+  );
+}
+
 async function createLayerMaskFromActiveSelection(photoshop: PhotoshopModule) {
   await photoshop.action.batchPlay(
     [
@@ -1212,6 +1310,8 @@ async function encodeSourceImageDataAsPng(imageData: PhotoshopImageData) {
     throw new Error("Photoshop returned source image data without valid dimensions.");
   }
 
+  assertCaptureSizeWithinLimit(width, height);
+
   if (componentSize !== 8) {
     throw new Error(`OpenLayer expected 8-bit source pixels, but Photoshop returned ${componentSize}-bit data.`);
   }
@@ -1281,6 +1381,8 @@ async function encodeSelectionMaskImageDataAsPng(imageData: PhotoshopImageData) 
   if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
     throw new Error("Photoshop returned selection mask data without valid dimensions.");
   }
+
+  assertCaptureSizeWithinLimit(width, height);
 
   if (componentSize !== 8) {
     throw new Error(`OpenLayer expected 8-bit mask pixels, but Photoshop returned ${componentSize}-bit data.`);

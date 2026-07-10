@@ -12,6 +12,7 @@ import { createFluxFillEmbeddedMaskSource } from "../comfy/fluxFillMaskBridge";
 import { formatFluxFillReferenceDefaults } from "../comfy/fluxFillDefaults";
 import {
   formatCancelDiagnostic,
+  formatCancelResultDiagnostic,
   isGenerationCancelledError
 } from "../comfy/generationCancel";
 import {
@@ -29,7 +30,12 @@ import {
   sanitizeOpenLayerLayerMetadata
 } from "../metadata/layerMetadata";
 import { getCheckpointCompatibility } from "../comfy/modelCompatibility";
-import { getWorkflowPreset, listRunnableWorkflowPresets, listWorkflowPresets } from "../comfy/presetRegistry";
+import {
+  getRecommendedPresetSettings,
+  getWorkflowPreset,
+  listRunnableWorkflowPresets,
+  listWorkflowPresets
+} from "../comfy/presetRegistry";
 import {
   validateGenerationSettings,
   validateImageToImageSettings,
@@ -93,7 +99,7 @@ import {
 } from "./historyMetadata";
 
 const DEFAULT_SERVER_URL = "http://127.0.0.1:8190";
-const APP_VERSION = "0.5.3";
+const APP_VERSION = "0.5.5";
 const DEVELOPER_GITHUB = "https://github.com/MehranMarxian";
 const HISTORY_LIMIT = 5;
 const COMFY_PORT_CANDIDATES = [8190, 8188, 8189, 8191, 8192, 8193, 7860];
@@ -108,7 +114,7 @@ const FALLBACK_UPSCALE_MODELS = ["4x-UltraSharp.pth", "RealESRGAN_x4plus.pth"];
 const RECOMMENDED_SKETCH_CHECKPOINT = "epicrealism_naturalSinRC1VAE.safetensors";
 const DEFAULT_WIDTH = "512";
 const DEFAULT_HEIGHT = "512";
-const DEFAULT_STEPS = "4";
+const DEFAULT_STEPS = "20";
 const DEFAULT_CFG = "7";
 const DEFAULT_IMG2IMG_STEPS = "12";
 const DEFAULT_IMG2IMG_DENOISE = "0.55";
@@ -219,7 +225,7 @@ const TOOL_CARDS: ToolCard[] = [
     title: "Outpaint",
     subtitle: "Extend canvas content beyond edges",
     icon: "expand",
-    status: "available",
+    status: "experimental",
     view: "outpaint"
   },
   {
@@ -227,7 +233,7 @@ const TOOL_CARDS: ToolCard[] = [
     title: "Sketch to Image",
     subtitle: "Guide generation with lineart",
     icon: "lineart",
-    status: "available",
+    status: "experimental",
     view: "sketch-to-image"
   },
   {
@@ -759,6 +765,7 @@ export function renderApp(rootElement: HTMLElement) {
   void loadInitialCheckpoints();
 
   elements.workflow.addEventListener("change", () => {
+    applyRecommendedPresetSettings(elements.workflow, DEFAULT_WORKFLOW, elements.steps, elements.cfg);
     void refreshTextModelOptionsForSelectedPreset(elements).then(() => updateTextCheckpointCompatibility(elements));
   });
 
@@ -767,6 +774,7 @@ export function renderApp(rootElement: HTMLElement) {
   });
 
   elements.imgWorkflow.addEventListener("change", () => {
+    applyRecommendedPresetSettings(elements.imgWorkflow, DEFAULT_IMAGE_WORKFLOW, elements.imgSteps, elements.imgCfg);
     void refreshImageModelOptionsForSelectedPreset(elements).then(() => (
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource)
     ));
@@ -777,6 +785,7 @@ export function renderApp(rootElement: HTMLElement) {
   });
 
   elements.sketchWorkflow.addEventListener("change", () => {
+    applyRecommendedPresetSettings(elements.sketchWorkflow, DEFAULT_SKETCH_WORKFLOW, elements.sketchSteps, elements.sketchCfg);
     updateSketchCheckpointCompatibility(elements, sketchSource);
   });
 
@@ -785,6 +794,7 @@ export function renderApp(rootElement: HTMLElement) {
   });
 
   elements.inpaintWorkflow.addEventListener("change", () => {
+    applyRecommendedPresetSettings(elements.inpaintWorkflow, DEFAULT_INPAINT_WORKFLOW, elements.inpaintSteps, elements.inpaintCfg);
     void refreshInpaintModelOptionsForSelectedPreset(elements);
     updateInpaintCheckpointCompatibility(elements, inpaintSource);
   });
@@ -794,6 +804,7 @@ export function renderApp(rootElement: HTMLElement) {
   });
 
   elements.outpaintWorkflow.addEventListener("change", () => {
+    applyRecommendedPresetSettings(elements.outpaintWorkflow, DEFAULT_OUTPAINT_WORKFLOW, elements.outpaintSteps, elements.outpaintGuidance);
     void refreshOutpaintModelOptionsForSelectedPreset(elements);
     updateOutpaintCheckpointCompatibility(elements, outpaintSource);
   });
@@ -1204,8 +1215,11 @@ export function renderApp(rootElement: HTMLElement) {
     setCancelGenerationVisible(elements, false);
 
     try {
-      await generation.client.interruptGeneration();
-      setGenerationToolDiagnostics(generation.toolType, formatCancelDiagnostic(generation.promptId));
+      const cancelResult = await generation.client.cancelPrompt(generation.promptId);
+      setGenerationToolDiagnostics(
+        generation.toolType,
+        formatCancelResultDiagnostic(cancelResult, generation.promptId)
+      );
     } catch (caughtError) {
       setGenerationToolDiagnostics(
         generation.toolType,
@@ -3036,6 +3050,7 @@ export function renderApp(rootElement: HTMLElement) {
       const importResult = await importImageAlignedToSelectionWithLayerMask({
         blob: inpaintResult.blob,
         bounds: inpaintSource.selection.contextBounds,
+        selectionBounds: inpaintSource.selection.bounds,
         layerName,
         onProgress: (message) => {
           setInpaintStatus(elements, message, "idle");
@@ -6567,6 +6582,18 @@ function readSelectValue(select: HTMLSelectElement, fallback = "") {
   const optionValue = option?.value?.trim() || option?.textContent?.trim() || "";
 
   return optionValue || fallback;
+}
+
+function applyRecommendedPresetSettings(
+  workflowSelect: HTMLSelectElement,
+  defaultPresetId: string,
+  stepsInput: HTMLInputElement,
+  cfgInput: HTMLInputElement
+) {
+  const recommended = getRecommendedPresetSettings(readSelectValue(workflowSelect, defaultPresetId));
+
+  stepsInput.value = String(recommended.steps);
+  cfgInput.value = String(recommended.cfg);
 }
 
 function setSelectValueIfPresent(select: HTMLSelectElement, value: string) {
