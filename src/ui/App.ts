@@ -225,7 +225,7 @@ const TOOL_CARDS: ToolCard[] = [
     title: "Outpaint",
     subtitle: "Extend canvas content beyond edges",
     icon: "expand",
-    status: "available",
+    status: "experimental",
     view: "outpaint"
   },
   {
@@ -233,7 +233,7 @@ const TOOL_CARDS: ToolCard[] = [
     title: "Sketch to Image",
     subtitle: "Guide generation with lineart",
     icon: "lineart",
-    status: "available",
+    status: "experimental",
     view: "sketch-to-image"
   },
   {

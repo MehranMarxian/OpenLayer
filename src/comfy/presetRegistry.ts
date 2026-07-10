@@ -553,7 +553,7 @@ const Z_IMAGE_TURBO_TXT2IMG_CAPABILITY: WorkflowCapability = {
     showModelSelector: true,
     modelSelectorLabel: "Z_image_Turbo model",
     primaryActionLabel: "Generate",
-    warning: "Z_image_Turbo needs a validated diffusion-model-stack workflow before generation is enabled."
+    warning: "Z_image_Turbo is experimental. Confirm the diffusion model, CLIP, and VAE stack with Check Workflow Health before relying on results."
   }
 };
 
@@ -573,7 +573,7 @@ const Z_IMAGE_TURBO_IMG2IMG_CAPABILITY: WorkflowCapability = {
     showModelSelector: true,
     modelSelectorLabel: "Z_image_Turbo model",
     primaryActionLabel: "Generate Image to Image",
-    warning: "Z_image_Turbo Image to Image needs a validated source-image workflow before generation is enabled."
+    warning: "Z_image_Turbo Image to Image is experimental. Confirm the diffusion model, CLIP, and VAE stack with Check Workflow Health before relying on results."
   }
 };
 
