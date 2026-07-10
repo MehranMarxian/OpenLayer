@@ -5,7 +5,8 @@ import {
   createPaddedSelectionBounds,
   normalizeSelectionBounds,
   NormalizedSelectionBounds,
-  SelectionBounds
+  SelectionBounds,
+  snapBoundsToMultiple
 } from "./selectionUtils";
 import {
   createInpaintSourceModeWarning,
@@ -72,6 +73,10 @@ type ImportProgress = (message: string) => void;
 type BatchPlayCommand = Record<string, unknown>;
 const MIN_INPAINT_CONTEXT_PADDING = 96;
 const INPAINT_CONTEXT_PADDING_RATIO = 0.75;
+// ComfyUI VAE encoding rounds image dimensions down to multiples of 8, so a
+// non-multiple context comes back smaller than captured and breaks the
+// translate-only aligned import.
+const INPAINT_CONTEXT_MULTIPLE = 8;
 
 export type ActiveDocumentInfo = {
   name: string;
@@ -585,11 +590,15 @@ function createInpaintContextBounds(
     MIN_INPAINT_CONTEXT_PADDING,
     Math.round(Math.max(selectionBounds.width, selectionBounds.height) * INPAINT_CONTEXT_PADDING_RATIO)
   );
-
-  return createPaddedSelectionBounds(selectionBounds, {
+  const paddedBounds = createPaddedSelectionBounds(selectionBounds, {
     width: documentWidth,
     height: documentHeight
   }, adaptivePadding);
+
+  return snapBoundsToMultiple(paddedBounds, {
+    width: documentWidth,
+    height: documentHeight
+  }, INPAINT_CONTEXT_MULTIPLE);
 }
 
 async function captureSelectionMaskSourceImage(
