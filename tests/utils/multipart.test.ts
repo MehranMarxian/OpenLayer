@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createMultipartBoundary,
   createMultipartRequestBody,
+  encodeUtf8,
   sanitizeMultipartToken
 } from "../../src/utils/multipart";
 
@@ -55,6 +56,12 @@ describe("multipart", () => {
 
   it("sanitizes quotes and line breaks out of multipart tokens", () => {
     expect(sanitizeMultipartToken('bad"name\r\n.png')).toBe("bad_name__.png");
+  });
+
+  it("encodes text as UTF-8 without relying on TextEncoder", () => {
+    expect([...encodeUtf8("ab")]).toEqual([0x61, 0x62]);
+    expect([...encodeUtf8("café")]).toEqual([...new TextEncoder().encode("café")]);
+    expect([...encodeUtf8("画像🎨")]).toEqual([...new TextEncoder().encode("画像🎨")]);
   });
 
   it("creates unique-looking boundaries", () => {

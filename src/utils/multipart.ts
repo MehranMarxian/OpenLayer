@@ -21,12 +21,11 @@ export function createMultipartRequestBody(
   files: readonly MultipartFilePart[],
   fields: readonly MultipartField[]
 ): Uint8Array {
-  const encoder = new TextEncoder();
   const parts: Uint8Array[] = [];
 
   for (const field of fields) {
     parts.push(
-      encoder.encode(
+      encodeUtf8(
         `--${boundary}${CRLF}` +
           `Content-Disposition: form-data; name="${sanitizeMultipartToken(field.name)}"${CRLF}${CRLF}` +
           `${field.value}${CRLF}`
@@ -36,19 +35,50 @@ export function createMultipartRequestBody(
 
   for (const file of files) {
     parts.push(
-      encoder.encode(
+      encodeUtf8(
         `--${boundary}${CRLF}` +
           `Content-Disposition: form-data; name="${sanitizeMultipartToken(file.name)}"; filename="${sanitizeMultipartToken(file.filename)}"${CRLF}` +
           `Content-Type: ${sanitizeMultipartToken(file.contentType)}${CRLF}${CRLF}`
       )
     );
     parts.push(file.data);
-    parts.push(encoder.encode(CRLF));
+    parts.push(encodeUtf8(CRLF));
   }
 
-  parts.push(encoder.encode(`--${boundary}--${CRLF}`));
+  parts.push(encodeUtf8(`--${boundary}--${CRLF}`));
 
   return concatBytes(parts);
+}
+
+// Photoshop's UXP environment does not expose TextEncoder, so multipart
+// header text is UTF-8 encoded manually.
+export function encodeUtf8(text: string): Uint8Array {
+  const bytes: number[] = [];
+
+  for (const character of text) {
+    const codePoint = character.codePointAt(0) ?? 0;
+
+    if (codePoint <= 0x7f) {
+      bytes.push(codePoint);
+    } else if (codePoint <= 0x7ff) {
+      bytes.push(0xc0 | (codePoint >> 6), 0x80 | (codePoint & 0x3f));
+    } else if (codePoint <= 0xffff) {
+      bytes.push(
+        0xe0 | (codePoint >> 12),
+        0x80 | ((codePoint >> 6) & 0x3f),
+        0x80 | (codePoint & 0x3f)
+      );
+    } else {
+      bytes.push(
+        0xf0 | (codePoint >> 18),
+        0x80 | ((codePoint >> 12) & 0x3f),
+        0x80 | ((codePoint >> 6) & 0x3f),
+        0x80 | (codePoint & 0x3f)
+      );
+    }
+  }
+
+  return new Uint8Array(bytes);
 }
 
 export function sanitizeMultipartToken(value: string) {
