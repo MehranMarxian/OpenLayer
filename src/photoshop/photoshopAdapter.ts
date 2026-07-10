@@ -77,6 +77,19 @@ const INPAINT_CONTEXT_PADDING_RATIO = 0.75;
 // non-multiple context comes back smaller than captured and breaks the
 // translate-only aligned import.
 const INPAINT_CONTEXT_MULTIPLE = 8;
+// Uncompressed PNG capture costs about 4 bytes per pixel, so very large
+// captures can exhaust UXP panel memory before the upload even starts.
+export const MAX_CAPTURE_PIXELS = 4096 * 4096;
+
+export function assertCaptureSizeWithinLimit(width: number, height: number) {
+  if (width * height > MAX_CAPTURE_PIXELS) {
+    throw createOpenLayerError(
+      "PHOTOSHOP_EXPORT_FAILED",
+      `This capture is ${Math.round(width)} x ${Math.round(height)}, which is larger than OpenLayer's current 16-megapixel capture limit. Crop the document, use a smaller layer, or make a smaller selection, then capture again.`,
+      "Uncompressed PNG capture above 4096 x 4096 risks UXP memory failures. A downscale option is planned."
+    );
+  }
+}
 
 export type ActiveDocumentInfo = {
   name: string;
@@ -1297,6 +1310,8 @@ async function encodeSourceImageDataAsPng(imageData: PhotoshopImageData) {
     throw new Error("Photoshop returned source image data without valid dimensions.");
   }
 
+  assertCaptureSizeWithinLimit(width, height);
+
   if (componentSize !== 8) {
     throw new Error(`OpenLayer expected 8-bit source pixels, but Photoshop returned ${componentSize}-bit data.`);
   }
@@ -1366,6 +1381,8 @@ async function encodeSelectionMaskImageDataAsPng(imageData: PhotoshopImageData) 
   if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
     throw new Error("Photoshop returned selection mask data without valid dimensions.");
   }
+
+  assertCaptureSizeWithinLimit(width, height);
 
   if (componentSize !== 8) {
     throw new Error(`OpenLayer expected 8-bit mask pixels, but Photoshop returned ${componentSize}-bit data.`);
