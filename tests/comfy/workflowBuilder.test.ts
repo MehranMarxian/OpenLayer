@@ -118,22 +118,29 @@ describe("workflowBuilder", () => {
     expect(result.workflow["9"].inputs.images).toEqual(["12", 0]);
   });
 
-  it("injects ControlNet strength into sketch2img-linecn-basic", async () => {
+  it("injects sketch size and ControlNet strength into the txt2img-style sketch2img-linecn-basic", async () => {
     const result = await buildSketchToImageWorkflow({
       presetId: "sketch2img-linecn-basic",
       prompt: "clean lineart guided portrait",
       negativePrompt: "blur",
       checkpointName: "epicrealism_naturalSinRC1VAE.safetensors",
       sourceImageName: "openlayer-sketch.png",
-      steps: 12,
+      width: 768,
+      height: 960,
+      steps: 20,
       cfg: 5,
-      denoise: 0.6,
+      denoise: 1,
       controlStrength: 0.9,
       seed: 99
     });
 
     expect(result.workflow["10"].inputs.image).toBe("openlayer-sketch.png");
     expect(result.workflow["14"].inputs.strength).toBe(0.9);
+    expect(result.workflow["5"].class_type).toBe("EmptyLatentImage");
+    expect(result.workflow["5"].inputs.width).toBe(768);
+    expect(result.workflow["5"].inputs.height).toBe(960);
+    expect(result.workflow["3"].inputs.latent_image).toEqual(["5", 0]);
+    expect(result.workflow["3"].inputs.denoise).toBe(1);
   });
 
   it("injects source image, mask image, and denoise into inpaint-basic", async () => {
@@ -269,11 +276,59 @@ describe("workflowBuilder", () => {
     expect(result.workflow["3"].inputs.steps).toBe(20);
     expect(result.workflow["3"].inputs.cfg).toBe(1);
     expect(result.workflow["3"].inputs.sampler_name).toBe("euler");
-    expect(result.workflow["3"].inputs.scheduler).toBe("normal");
+    expect(result.workflow["3"].inputs.scheduler).toBe("simple");
     expect(result.workflow["3"].inputs.denoise).toBe(1);
     expect(result.workflow["38"].inputs.pixels).toEqual(["44", 0]);
     expect(result.workflow["38"].inputs.mask).toEqual(["44", 1]);
     expect(result.workflow["9"].inputs.images).toEqual(["8", 0]);
+  });
+
+  it("injects Krea-2 Turbo text-to-image settings while preserving the turbo sampler", async () => {
+    const result = await buildTxt2ImgWorkflow({
+      presetId: "txt2img-krea2-turbo",
+      prompt: "a cozy cabin in a snowy forest at dusk",
+      negativePrompt: "",
+      checkpointName: "krea2_turbo_fp8_scaled.safetensors",
+      width: 1024,
+      height: 768,
+      steps: 8,
+      cfg: 1,
+      seed: 55
+    });
+
+    expect(result.preset.id).toBe("txt2img-krea2-turbo");
+    expect(result.workflow["20"].inputs.unet_name).toBe("krea2_turbo_fp8_scaled.safetensors");
+    expect(result.workflow["21"].inputs.clip_name).toBe("qwen3vl_4b_fp8_scaled.safetensors");
+    expect(result.workflow["21"].inputs.type).toBe("krea2");
+    expect(result.workflow["22"].inputs.vae_name).toBe("qwen_image_vae.safetensors");
+    expect(result.workflow["6"].inputs.text).toBe("a cozy cabin in a snowy forest at dusk");
+    expect(result.workflow["5"].inputs.width).toBe(1024);
+    expect(result.workflow["5"].inputs.height).toBe(768);
+    expect(result.workflow["3"].inputs.steps).toBe(8);
+    expect(result.workflow["3"].inputs.cfg).toBe(1);
+    expect(result.workflow["3"].inputs.sampler_name).toBe("euler");
+    expect(result.workflow["3"].inputs.scheduler).toBe("simple");
+    expect(result.workflow["3"].inputs.seed).toBe(55);
+  });
+
+  it("injects Krea-2 Turbo image-to-image source and denoise", async () => {
+    const result = await buildImg2ImgWorkflow({
+      presetId: "img2img-krea2-turbo",
+      prompt: "the same cabin in golden autumn forest",
+      negativePrompt: "",
+      checkpointName: "krea2_turbo_fp8_scaled.safetensors",
+      sourceImageName: "openlayer-krea2-source.png",
+      steps: 8,
+      cfg: 1,
+      denoise: 0.7,
+      seed: 66
+    });
+
+    expect(result.preset.id).toBe("img2img-krea2-turbo");
+    expect(result.workflow["20"].inputs.unet_name).toBe("krea2_turbo_fp8_scaled.safetensors");
+    expect(result.workflow["10"].inputs.image).toBe("openlayer-krea2-source.png");
+    expect(result.workflow["3"].inputs.latent_image).toEqual(["11", 0]);
+    expect(result.workflow["3"].inputs.denoise).toBe(0.7);
   });
 
   it("injects Z_image_Turbo text-to-image settings into the diffusion stack workflow", async () => {

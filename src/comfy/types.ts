@@ -6,6 +6,8 @@ export type WorkflowPreset =
   | "img2img-flux1-dev"
   | "txt2img-z-image-turbo"
   | "img2img-z-image-turbo"
+  | "txt2img-krea2-turbo"
+  | "img2img-krea2-turbo"
   | "prompt-from-layer-florence2"
   | "sketch2img-linecn-basic"
   | "inpaint-basic"
@@ -155,6 +157,8 @@ export type BuildImageToImageWorkflowOptions = {
 
 export type BuildSketchToImageWorkflowOptions = BuildImageToImageWorkflowOptions & {
   controlStrength: number;
+  width: number;
+  height: number;
 };
 
 export type BuildInpaintWorkflowOptions = BuildImageToImageWorkflowOptions & {

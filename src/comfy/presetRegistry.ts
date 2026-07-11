@@ -64,6 +64,33 @@ const Z_IMAGE_TURBO_STACK = [
   }
 ] as const;
 
+const KREA2_TURBO_STACK = [
+  {
+    kind: "diffusion-model-stack",
+    objectInfoNode: "UNETLoader",
+    inputName: "unet_name",
+    label: "Krea-2 Turbo diffusion model",
+    modelName: "krea2_turbo_fp8_scaled.safetensors",
+    setupHint: "Install krea2_turbo_fp8_scaled.safetensors where ComfyUI's UNETLoader can find it."
+  },
+  {
+    kind: "clip",
+    objectInfoNode: "CLIPLoader",
+    inputName: "clip_name",
+    label: "Krea-2 text encoder",
+    modelName: "qwen3vl_4b_fp8_scaled.safetensors",
+    setupHint: "Install qwen3vl_4b_fp8_scaled.safetensors in ComfyUI models/text_encoders."
+  },
+  {
+    kind: "vae",
+    objectInfoNode: "VAELoader",
+    inputName: "vae_name",
+    label: "Qwen image VAE",
+    modelName: "qwen_image_vae.safetensors",
+    setupHint: "Install qwen_image_vae.safetensors where ComfyUI's VAELoader can find it."
+  }
+] as const;
+
 const FLUX1_DEV_STACK = [
   {
     kind: "diffusion-model-stack",
@@ -138,7 +165,7 @@ const SKETCH2IMG_LINECN_BASIC_NODES = {
   loadImage: "10",
   positivePrompt: "6",
   negativePrompt: "7",
-  vaeEncode: "11",
+  latentImage: "5",
   lineArtPreprocessor: "12",
   controlNetLoader: "13",
   controlNetApply: "14",
@@ -217,6 +244,31 @@ const Z_IMAGE_TURBO_IMG2IMG_NODES = {
   saveImage: "9"
 } as const;
 
+const KREA2_TURBO_TXT2IMG_NODES = {
+  diffusionModelLoader: "20",
+  clipLoader: "21",
+  vaeLoader: "22",
+  latentImage: "5",
+  positivePrompt: "6",
+  negativePrompt: "7",
+  sampler: "3",
+  decode: "8",
+  saveImage: "9"
+} as const;
+
+const KREA2_TURBO_IMG2IMG_NODES = {
+  diffusionModelLoader: "20",
+  clipLoader: "21",
+  vaeLoader: "22",
+  loadImage: "10",
+  vaeEncode: "11",
+  positivePrompt: "6",
+  negativePrompt: "7",
+  sampler: "3",
+  decode: "8",
+  saveImage: "9"
+} as const;
+
 const PROMPT_FROM_LAYER_FLORENCE2_NODES = {
   modelLoader: "39",
   loadImage: "42",
@@ -269,6 +321,8 @@ const SKETCH2IMG_LINECN_BASIC_INJECTIONS = {
   sourceImage: target(SKETCH2IMG_LINECN_BASIC_NODES.loadImage, "image"),
   positivePrompt: target(SKETCH2IMG_LINECN_BASIC_NODES.positivePrompt, "text"),
   negativePrompt: target(SKETCH2IMG_LINECN_BASIC_NODES.negativePrompt, "text"),
+  width: target(SKETCH2IMG_LINECN_BASIC_NODES.latentImage, "width"),
+  height: target(SKETCH2IMG_LINECN_BASIC_NODES.latentImage, "height"),
   seed: target(SKETCH2IMG_LINECN_BASIC_NODES.sampler, "seed"),
   steps: target(SKETCH2IMG_LINECN_BASIC_NODES.sampler, "steps"),
   cfg: target(SKETCH2IMG_LINECN_BASIC_NODES.sampler, "cfg"),
@@ -333,6 +387,28 @@ const Z_IMAGE_TURBO_IMG2IMG_INJECTIONS = {
   steps: target(Z_IMAGE_TURBO_IMG2IMG_NODES.sampler, "steps"),
   cfg: target(Z_IMAGE_TURBO_IMG2IMG_NODES.sampler, "cfg"),
   denoise: target(Z_IMAGE_TURBO_IMG2IMG_NODES.sampler, "denoise")
+} as const;
+
+const KREA2_TURBO_TXT2IMG_INJECTIONS = {
+  checkpoint: target(KREA2_TURBO_TXT2IMG_NODES.diffusionModelLoader, "unet_name"),
+  positivePrompt: target(KREA2_TURBO_TXT2IMG_NODES.positivePrompt, "text"),
+  negativePrompt: target(KREA2_TURBO_TXT2IMG_NODES.negativePrompt, "text"),
+  width: target(KREA2_TURBO_TXT2IMG_NODES.latentImage, "width"),
+  height: target(KREA2_TURBO_TXT2IMG_NODES.latentImage, "height"),
+  seed: target(KREA2_TURBO_TXT2IMG_NODES.sampler, "seed"),
+  steps: target(KREA2_TURBO_TXT2IMG_NODES.sampler, "steps"),
+  cfg: target(KREA2_TURBO_TXT2IMG_NODES.sampler, "cfg")
+} as const;
+
+const KREA2_TURBO_IMG2IMG_INJECTIONS = {
+  checkpoint: target(KREA2_TURBO_IMG2IMG_NODES.diffusionModelLoader, "unet_name"),
+  sourceImage: target(KREA2_TURBO_IMG2IMG_NODES.loadImage, "image"),
+  positivePrompt: target(KREA2_TURBO_IMG2IMG_NODES.positivePrompt, "text"),
+  negativePrompt: target(KREA2_TURBO_IMG2IMG_NODES.negativePrompt, "text"),
+  seed: target(KREA2_TURBO_IMG2IMG_NODES.sampler, "seed"),
+  steps: target(KREA2_TURBO_IMG2IMG_NODES.sampler, "steps"),
+  cfg: target(KREA2_TURBO_IMG2IMG_NODES.sampler, "cfg"),
+  denoise: target(KREA2_TURBO_IMG2IMG_NODES.sampler, "denoise")
 } as const;
 
 const PROMPT_FROM_LAYER_FLORENCE2_INJECTIONS = {
@@ -574,6 +650,48 @@ const Z_IMAGE_TURBO_IMG2IMG_CAPABILITY: WorkflowCapability = {
     modelSelectorLabel: "Z_image_Turbo model",
     primaryActionLabel: "Generate Image to Image",
     warning: "Z_image_Turbo Image to Image is experimental. Confirm the diffusion model, CLIP, and VAE stack with Check Workflow Health before relying on results."
+  }
+};
+
+const KREA2_TURBO_TXT2IMG_CAPABILITY: WorkflowCapability = {
+  toolType: "txt2img",
+  loaderType: "diffusion-model-stack",
+  artistLabel: "Text to Image",
+  technicalLabel: "txt2img-krea2-turbo",
+  requiredPhotoshopInputs: [],
+  controls: ["prompt", "negativePrompt", "width", "height", "steps", "cfg", "seed"],
+  output: {
+    kind: "full-image",
+    size: "preset",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Krea-2 model",
+    primaryActionLabel: "Generate",
+    experimentalNote:
+      "Krea-2 Turbo follows the official ComfyUI template: 8 steps at CFG 1 with the euler/simple sampler. The negative prompt has no effect at CFG 1."
+  }
+};
+
+const KREA2_TURBO_IMG2IMG_CAPABILITY: WorkflowCapability = {
+  toolType: "img2img",
+  loaderType: "diffusion-model-stack",
+  artistLabel: "Image to Image",
+  technicalLabel: "img2img-krea2-turbo",
+  requiredPhotoshopInputs: [{ anyOf: ["active-layer", "canvas"], label: "an active layer or captured canvas" }],
+  controls: ["prompt", "negativePrompt", "steps", "cfg", "denoise", "seed"],
+  output: {
+    kind: "source-sized-image",
+    size: "source",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Krea-2 model",
+    primaryActionLabel: "Generate Image to Image",
+    experimentalNote:
+      "Krea-2 Turbo Image to Image runs 8 steps at CFG 1. Use denoise around 0.6-0.8 to balance the source against the prompt."
   }
 };
 
@@ -905,14 +1023,14 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     workflowFile: "workflows/api/sketch2img-linecn-basic.json",
     sourceWorkflowFile: "workflows/source/sketch2img-linecn-basic.workflow.json",
     status: "experimental",
-    recommendedSettings: { steps: 16, cfg: 7 },
+    recommendedSettings: { steps: 20, cfg: 7 },
     supportedModelFamilies: ["sd1"],
     experimentalModelFamilies: ["sdxl", "sd3", "flux", "zImage"],
     modelSource: CHECKPOINT_MODEL_SOURCE,
     capability: SKETCH2IMG_LINECN_BASIC_CAPABILITY,
     injections: SKETCH2IMG_LINECN_BASIC_INJECTIONS,
     compatibilityNote:
-      "sketch2img-linecn-basic is a starter SD 1.x LineArt ControlNet workflow. Use an SD 1.x checkpoint and an SD 1.5 LineArt ControlNet model.",
+      "sketch2img-linecn-basic generates from an empty latent at the sketch size while the SD 1.5 LineArt ControlNet guides structure, so colors render fully instead of inheriting the white sketch paper. Keep denoise at 1 for a full render, or lower it only when blending with a colored source.",
     requiredModels: [
       {
         kind: "controlnet",
@@ -945,9 +1063,9 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
         requiredInputs: ["text", "clip"]
       },
       {
-        id: SKETCH2IMG_LINECN_BASIC_NODES.vaeEncode,
-        classType: "VAEEncode",
-        requiredInputs: ["pixels", "vae"]
+        id: SKETCH2IMG_LINECN_BASIC_NODES.latentImage,
+        classType: "EmptyLatentImage",
+        requiredInputs: ["width", "height", "batch_size"]
       },
       {
         id: SKETCH2IMG_LINECN_BASIC_NODES.lineArtPreprocessor,
@@ -1133,7 +1251,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     workflowFile: "workflows/api/outpaint-flux-fill-basic.json",
     sourceWorkflowFile: "workflows/source/outpaint-flux-fill-basic.workflow.json",
     status: "experimental",
-    recommendedSettings: { steps: 20, cfg: 30 },
+    recommendedSettings: { steps: 20, cfg: 10 },
     supportedModelFamilies: ["flux"],
     experimentalModelFamilies: ["sd1", "sdxl", "sd3", "zImage", "unknown"],
     modelSource: DIFFUSION_MODEL_SOURCE,
@@ -1357,6 +1475,141 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     ],
     compatibilityNote:
       "Z_image_Turbo image-to-image uses a diffusion-model stack plus PNG source upload and VAE encoding."
+  },
+  {
+    id: "txt2img-krea2-turbo",
+    label: "txt2img-krea2-turbo",
+    mode: "txt2img",
+    description: "Experimental text-to-image preset for the Krea-2 Turbo diffusion model stack.",
+    workflowFile: "workflows/api/txt2img-krea2-turbo.json",
+    status: "experimental",
+    recommendedSettings: { steps: 8, cfg: 1 },
+    supportedModelFamilies: ["unknown"],
+    experimentalModelFamilies: ["sd1", "sdxl", "sd3", "flux", "zImage"],
+    modelSource: DIFFUSION_MODEL_SOURCE,
+    capability: KREA2_TURBO_TXT2IMG_CAPABILITY,
+    modelStack: [...KREA2_TURBO_STACK],
+    requiredModels: [...KREA2_TURBO_STACK],
+    injections: KREA2_TURBO_TXT2IMG_INJECTIONS,
+    requiredNodes: [
+      {
+        id: KREA2_TURBO_TXT2IMG_NODES.diffusionModelLoader,
+        classType: "UNETLoader",
+        requiredInputs: ["unet_name", "weight_dtype"]
+      },
+      {
+        id: KREA2_TURBO_TXT2IMG_NODES.clipLoader,
+        classType: "CLIPLoader",
+        requiredInputs: ["clip_name", "type"]
+      },
+      {
+        id: KREA2_TURBO_TXT2IMG_NODES.vaeLoader,
+        classType: "VAELoader",
+        requiredInputs: ["vae_name"]
+      },
+      {
+        id: KREA2_TURBO_TXT2IMG_NODES.positivePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: KREA2_TURBO_TXT2IMG_NODES.negativePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: KREA2_TURBO_TXT2IMG_NODES.latentImage,
+        classType: "EmptyLatentImage",
+        requiredInputs: ["width", "height", "batch_size"]
+      },
+      {
+        id: KREA2_TURBO_TXT2IMG_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["model", "seed", "steps", "cfg", "sampler_name", "scheduler", "positive", "negative", "latent_image", "denoise"]
+      },
+      {
+        id: KREA2_TURBO_TXT2IMG_NODES.decode,
+        classType: "VAEDecode",
+        requiredInputs: ["samples", "vae"]
+      },
+      {
+        id: KREA2_TURBO_TXT2IMG_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images", "filename_prefix"]
+      }
+    ],
+    compatibilityNote:
+      "txt2img-krea2-turbo follows the official ComfyUI Krea-2 Turbo template: UNETLoader with krea2_turbo_fp8_scaled, CLIPLoader with the qwen3vl text encoder in krea2 mode, the Qwen image VAE, and an 8-step CFG 1 euler/simple sampler."
+  },
+  {
+    id: "img2img-krea2-turbo",
+    label: "img2img-krea2-turbo",
+    mode: "img2img",
+    description: "Experimental image-to-image preset for the Krea-2 Turbo diffusion model stack.",
+    workflowFile: "workflows/api/img2img-krea2-turbo.json",
+    status: "experimental",
+    recommendedSettings: { steps: 8, cfg: 1 },
+    supportedModelFamilies: ["unknown"],
+    experimentalModelFamilies: ["sd1", "sdxl", "sd3", "flux", "zImage"],
+    modelSource: DIFFUSION_MODEL_SOURCE,
+    capability: KREA2_TURBO_IMG2IMG_CAPABILITY,
+    modelStack: [...KREA2_TURBO_STACK],
+    requiredModels: [...KREA2_TURBO_STACK],
+    injections: KREA2_TURBO_IMG2IMG_INJECTIONS,
+    requiredNodes: [
+      {
+        id: KREA2_TURBO_IMG2IMG_NODES.diffusionModelLoader,
+        classType: "UNETLoader",
+        requiredInputs: ["unet_name", "weight_dtype"]
+      },
+      {
+        id: KREA2_TURBO_IMG2IMG_NODES.clipLoader,
+        classType: "CLIPLoader",
+        requiredInputs: ["clip_name", "type"]
+      },
+      {
+        id: KREA2_TURBO_IMG2IMG_NODES.vaeLoader,
+        classType: "VAELoader",
+        requiredInputs: ["vae_name"]
+      },
+      {
+        id: KREA2_TURBO_IMG2IMG_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: KREA2_TURBO_IMG2IMG_NODES.vaeEncode,
+        classType: "VAEEncode",
+        requiredInputs: ["pixels", "vae"]
+      },
+      {
+        id: KREA2_TURBO_IMG2IMG_NODES.positivePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: KREA2_TURBO_IMG2IMG_NODES.negativePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: KREA2_TURBO_IMG2IMG_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["model", "seed", "steps", "cfg", "sampler_name", "scheduler", "positive", "negative", "latent_image", "denoise"]
+      },
+      {
+        id: KREA2_TURBO_IMG2IMG_NODES.decode,
+        classType: "VAEDecode",
+        requiredInputs: ["samples", "vae"]
+      },
+      {
+        id: KREA2_TURBO_IMG2IMG_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images", "filename_prefix"]
+      }
+    ],
+    compatibilityNote:
+      "img2img-krea2-turbo uses the Krea-2 Turbo stack plus PNG source upload and VAE encoding. Denoise balances the captured source against the prompt."
   },
   {
     id: "txt2img-flux1-dev",

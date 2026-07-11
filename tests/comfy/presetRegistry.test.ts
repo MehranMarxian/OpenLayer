@@ -25,9 +25,14 @@ describe("presetRegistry", () => {
     expect(allTxt2ImgIds).toContain("txt2img-z-image-turbo");
     expect(allTxt2ImgIds).toContain("txt2img-flux1-dev-fp8");
     expect(allTxt2ImgIds).toContain("txt2img-flux1-dev");
-    expect(runnableTxt2ImgIds).toEqual(["txt2img-basic", "txt2img-flux1-dev-fp8", "txt2img-z-image-turbo"]);
+    expect(runnableTxt2ImgIds).toEqual([
+      "txt2img-basic",
+      "txt2img-flux1-dev-fp8",
+      "txt2img-z-image-turbo",
+      "txt2img-krea2-turbo"
+    ]);
     expect(allImg2ImgIds).toContain("img2img-z-image-turbo");
-    expect(runnableImg2ImgIds).toEqual(["img2img-basic", "img2img-z-image-turbo"]);
+    expect(runnableImg2ImgIds).toEqual(["img2img-basic", "img2img-z-image-turbo", "img2img-krea2-turbo"]);
     expect(runnablePromptIds).toEqual(["prompt-from-layer-florence2"]);
     expect(allInpaintIds).toEqual(["inpaint-basic", "inpaint-flux-fill-basic"]);
     expect(runnableInpaintIds).toEqual(["inpaint-basic", "inpaint-flux-fill-basic"]);
@@ -134,6 +139,18 @@ describe("presetRegistry", () => {
     expect(preset.injections.outpaintFeathering).toEqual({ nodeId: "44", inputName: "feathering" });
   });
 
+  it("marks Krea-2 Turbo as a diffusion model stack preset", () => {
+    const preset = getWorkflowPreset("txt2img-krea2-turbo");
+
+    expect(preset.status).toBe("experimental");
+    expect(preset.modelSource.kind).toBe("diffusion-model-stack");
+    expect(preset.modelStack?.some((model) => model.modelName === "krea2_turbo_fp8_scaled.safetensors")).toBe(true);
+    expect(preset.requiredModels?.some((model) => model.modelName === "qwen3vl_4b_fp8_scaled.safetensors")).toBe(true);
+    expect(preset.requiredModels?.some((model) => model.modelName === "qwen_image_vae.safetensors")).toBe(true);
+    expect(preset.requiredNodes.some((node) => node.classType === "CLIPLoader")).toBe(true);
+    expect(preset.injections.width).toEqual({ nodeId: "5", inputName: "width" });
+  });
+
   it("marks Z_image_Turbo as a diffusion model stack preset", () => {
     const preset = getWorkflowPreset("txt2img-z-image-turbo");
 
@@ -162,10 +179,12 @@ describe("presetRegistry", () => {
     expect(getRecommendedPresetSettings("txt2img-flux1-dev-fp8")).toEqual({ steps: 20, cfg: 3.5 });
     expect(getRecommendedPresetSettings("txt2img-z-image-turbo")).toEqual({ steps: 8, cfg: 1 });
     expect(getRecommendedPresetSettings("img2img-z-image-turbo")).toEqual({ steps: 8, cfg: 1 });
-    expect(getRecommendedPresetSettings("sketch2img-linecn-basic")).toEqual({ steps: 16, cfg: 7 });
+    expect(getRecommendedPresetSettings("sketch2img-linecn-basic")).toEqual({ steps: 20, cfg: 7 });
+    expect(getRecommendedPresetSettings("txt2img-krea2-turbo")).toEqual({ steps: 8, cfg: 1 });
+    expect(getRecommendedPresetSettings("img2img-krea2-turbo")).toEqual({ steps: 8, cfg: 1 });
     expect(getRecommendedPresetSettings("inpaint-basic")).toEqual({ steps: 16, cfg: 7 });
     expect(getRecommendedPresetSettings("inpaint-flux-fill-basic")).toEqual({ steps: 20, cfg: 30 });
-    expect(getRecommendedPresetSettings("outpaint-flux-fill-basic")).toEqual({ steps: 20, cfg: 30 });
+    expect(getRecommendedPresetSettings("outpaint-flux-fill-basic")).toEqual({ steps: 20, cfg: 10 });
   });
 
   it("falls back to safe recommended settings for unknown preset ids", () => {
