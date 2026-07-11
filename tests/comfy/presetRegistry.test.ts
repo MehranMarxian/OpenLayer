@@ -184,7 +184,7 @@ describe("presetRegistry", () => {
     expect(getRecommendedPresetSettings("img2img-krea2-turbo")).toEqual({ steps: 8, cfg: 1 });
     expect(getRecommendedPresetSettings("inpaint-basic")).toEqual({ steps: 16, cfg: 7 });
     expect(getRecommendedPresetSettings("inpaint-flux-fill-basic")).toEqual({ steps: 20, cfg: 30 });
-    expect(getRecommendedPresetSettings("outpaint-flux-fill-basic")).toEqual({ steps: 20, cfg: 30 });
+    expect(getRecommendedPresetSettings("outpaint-flux-fill-basic")).toEqual({ steps: 20, cfg: 10 });
   });
 
   it("falls back to safe recommended settings for unknown preset ids", () => {
