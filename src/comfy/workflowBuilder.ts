@@ -3,6 +3,8 @@ import img2imgBasicWorkflow from "../workflows/api/img2img-basic.json";
 import txt2imgFlux1DevFp8Workflow from "../workflows/api/txt2img-flux1-dev-fp8.json";
 import txt2imgZImageTurboWorkflow from "../workflows/api/txt2img-z-image-turbo.json";
 import img2imgZImageTurboWorkflow from "../workflows/api/img2img-z-image-turbo.json";
+import txt2imgKrea2TurboWorkflow from "../workflows/api/txt2img-krea2-turbo.json";
+import img2imgKrea2TurboWorkflow from "../workflows/api/img2img-krea2-turbo.json";
 import promptFromLayerFlorence2Workflow from "../workflows/api/prompt-from-layer-florence2.json";
 import sketch2imgLinecnBasicWorkflow from "../workflows/api/sketch2img-linecn-basic.json";
 import inpaintBasicWorkflow from "../workflows/api/inpaint-basic.json";
@@ -34,6 +36,8 @@ const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
   "txt2img-flux1-dev-fp8": txt2imgFlux1DevFp8Workflow as ComfyWorkflow,
   "txt2img-z-image-turbo": txt2imgZImageTurboWorkflow as ComfyWorkflow,
   "img2img-z-image-turbo": img2imgZImageTurboWorkflow as ComfyWorkflow,
+  "txt2img-krea2-turbo": txt2imgKrea2TurboWorkflow as ComfyWorkflow,
+  "img2img-krea2-turbo": img2imgKrea2TurboWorkflow as ComfyWorkflow,
   "prompt-from-layer-florence2": promptFromLayerFlorence2Workflow as ComfyWorkflow,
   "sketch2img-linecn-basic": sketch2imgLinecnBasicWorkflow as ComfyWorkflow,
   "inpaint-basic": inpaintBasicWorkflow as ComfyWorkflow,
@@ -127,6 +131,8 @@ export async function buildSketchToImageWorkflow(
   setPresetInput(workflow, preset, "sourceImage", options.sourceImageName, true);
   setPresetInput(workflow, preset, "positivePrompt", options.prompt, true);
   setPresetInput(workflow, preset, "negativePrompt", options.negativePrompt ?? "", true);
+  setPresetInput(workflow, preset, "width", options.width, true);
+  setPresetInput(workflow, preset, "height", options.height, true);
   setPresetInput(workflow, preset, "seed", seed, true);
   setPresetInput(workflow, preset, "steps", options.steps, true);
   setPresetInput(workflow, preset, "cfg", options.cfg, true);

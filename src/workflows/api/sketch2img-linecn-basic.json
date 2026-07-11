@@ -14,7 +14,7 @@
     },
     "class_type": "LoadImage",
     "_meta": {
-      "title": "Load Source Image"
+      "title": "Load Sketch Source"
     }
   },
   "6": {
@@ -45,12 +45,12 @@
   },
   "12": {
     "inputs": {
+      "coarse": "disable",
+      "resolution": 512,
       "image": [
         "10",
         0
-      ],
-      "coarse": "disable",
-      "resolution": 512
+      ]
     },
     "class_type": "LineArtPreprocessor",
     "_meta": {
@@ -68,6 +68,9 @@
   },
   "14": {
     "inputs": {
+      "strength": 0.8,
+      "start_percent": 0,
+      "end_percent": 1,
       "positive": [
         "6",
         0
@@ -83,40 +86,32 @@
       "image": [
         "12",
         0
-      ],
-      "strength": 0.8,
-      "start_percent": 0,
-      "end_percent": 1
+      ]
     },
     "class_type": "ControlNetApplyAdvanced",
     "_meta": {
       "title": "Apply LineArt ControlNet"
     }
   },
-  "11": {
+  "5": {
     "inputs": {
-      "pixels": [
-        "10",
-        0
-      ],
-      "vae": [
-        "4",
-        2
-      ]
+      "width": 512,
+      "height": 512,
+      "batch_size": 1
     },
-    "class_type": "VAEEncode",
+    "class_type": "EmptyLatentImage",
     "_meta": {
-      "title": "VAE Encode Source"
+      "title": "Empty Latent At Sketch Size"
     }
   },
   "3": {
     "inputs": {
       "seed": 1,
-      "steps": 12,
+      "steps": 20,
       "cfg": 7,
       "sampler_name": "euler",
       "scheduler": "normal",
-      "denoise": 0.55,
+      "denoise": 1,
       "model": [
         "4",
         0
@@ -130,7 +125,7 @@
         1
       ],
       "latent_image": [
-        "11",
+        "5",
         0
       ]
     },

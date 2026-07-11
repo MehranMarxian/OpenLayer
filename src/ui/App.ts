@@ -118,8 +118,8 @@ const DEFAULT_STEPS = "20";
 const DEFAULT_CFG = "7";
 const DEFAULT_IMG2IMG_STEPS = "12";
 const DEFAULT_IMG2IMG_DENOISE = "0.55";
-const DEFAULT_SKETCH_STEPS = "16";
-const DEFAULT_SKETCH_DENOISE = "0.65";
+const DEFAULT_SKETCH_STEPS = "20";
+const DEFAULT_SKETCH_DENOISE = "1";
 const DEFAULT_SKETCH_CONTROL_STRENGTH = "0.8";
 const DEFAULT_INPAINT_STEPS = "16";
 const DEFAULT_INPAINT_DENOISE = "0.75";
@@ -2508,6 +2508,8 @@ export function renderApp(rootElement: HTMLElement) {
         negativePrompt: elements.sketchNegativePrompt.value,
         checkpointName,
         sourceImageName,
+        width: snapDimensionToLatentGrid(sketchSource.width),
+        height: snapDimensionToLatentGrid(sketchSource.height),
         steps: settings.steps,
         cfg: settings.cfg,
         seed: settings.seed,
@@ -5556,6 +5558,10 @@ function readPromptLayerNumBeams(elements: AppElements) {
 
 function createRandomSeed() {
   return Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
+}
+
+function snapDimensionToLatentGrid(value: number) {
+  return Math.max(64, Math.round(value / 8) * 8);
 }
 
 function formatSourceCaptureLabel(_source: ExportedSourceImage) {
