@@ -7,7 +7,7 @@ export const FLUX_FILL_REFERENCE_DEFAULTS = {
   steps: 20,
   cfg: 1,
   samplerName: "euler",
-  scheduler: "normal",
+  scheduler: "simple",
   denoise: 1,
   differentialDiffusionStrength: 1
 } as const;

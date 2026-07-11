@@ -63,7 +63,7 @@
       "top": 0,
       "right": 400,
       "bottom": 400,
-      "feathering": 24
+      "feathering": 40
     },
     "_meta": {
       "title": "ImagePadForOutpaint"
@@ -89,7 +89,7 @@
         "23",
         0
       ],
-      "guidance": 30
+      "guidance": 10
     },
     "_meta": {
       "title": "FluxGuidance"
@@ -148,7 +148,7 @@
       "steps": 20,
       "cfg": 1,
       "sampler_name": "euler",
-      "scheduler": "normal",
+      "scheduler": "simple",
       "positive": [
         "38",
         0

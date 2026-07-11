@@ -1251,7 +1251,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     workflowFile: "workflows/api/outpaint-flux-fill-basic.json",
     sourceWorkflowFile: "workflows/source/outpaint-flux-fill-basic.workflow.json",
     status: "experimental",
-    recommendedSettings: { steps: 20, cfg: 30 },
+    recommendedSettings: { steps: 20, cfg: 10 },
     supportedModelFamilies: ["flux"],
     experimentalModelFamilies: ["sd1", "sdxl", "sd3", "zImage", "unknown"],
     modelSource: DIFFUSION_MODEL_SOURCE,

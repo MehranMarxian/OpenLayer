@@ -276,7 +276,7 @@ describe("workflowBuilder", () => {
     expect(result.workflow["3"].inputs.steps).toBe(20);
     expect(result.workflow["3"].inputs.cfg).toBe(1);
     expect(result.workflow["3"].inputs.sampler_name).toBe("euler");
-    expect(result.workflow["3"].inputs.scheduler).toBe("normal");
+    expect(result.workflow["3"].inputs.scheduler).toBe("simple");
     expect(result.workflow["3"].inputs.denoise).toBe(1);
     expect(result.workflow["38"].inputs.pixels).toEqual(["44", 0]);
     expect(result.workflow["38"].inputs.mask).toEqual(["44", 1]);
