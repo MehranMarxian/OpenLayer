@@ -97,6 +97,7 @@ import {
   HistoryImportStatus,
   HistoryToolType
 } from "./historyMetadata";
+import { LivePaintingSession } from "./livePaintingSession";
 
 const DEFAULT_SERVER_URL = "http://127.0.0.1:8190";
 const APP_VERSION = "0.5.5";
@@ -159,6 +160,7 @@ type AppView =
   | "outpaint"
   | "prompt-from-layer"
   | "upscale"
+  | "live-painting"
   | "settings"
   | "history";
 type ToolCardStatus = "available" | "experimental" | "coming-soon";
@@ -245,6 +247,14 @@ const TOOL_CARDS: ToolCard[] = [
     view: "upscale"
   },
   {
+    id: "live-painting",
+    title: "Live Painting",
+    subtitle: "Paint and watch AI respond (spike)",
+    icon: "style",
+    status: "experimental",
+    view: "live-painting"
+  },
+  {
     id: "style-reference",
     title: "Style Reference",
     subtitle: "Match mood, color, or visual language",
@@ -293,7 +303,7 @@ const TOOL_CARDS: ToolCard[] = [
 const HOME_TOOL_SECTIONS = [
   {
     title: "Generate",
-    toolIds: ["text-to-image", "image-to-image", "lineart", "inpaint", "outpaint", "upscale", "prompt-from-layer"]
+    toolIds: ["text-to-image", "image-to-image", "lineart", "inpaint", "outpaint", "upscale", "prompt-from-layer", "live-painting"]
   },
   {
     title: "Workflow",
@@ -506,6 +516,14 @@ type AppElements = {
   settingsWorkflowHealthSummary: HTMLElement;
   settingsWorkflowHealthList: HTMLElement;
   settingsDiagnosticsReport: HTMLTextAreaElement;
+  livePaintingView: HTMLElement;
+  livePrompt: HTMLTextAreaElement;
+  liveDenoise: HTMLInputElement;
+  liveStartButton: HTMLElement;
+  liveStopButton: HTMLElement;
+  liveStatusText: HTMLElement;
+  liveTimingsText: HTMLElement;
+  liveResultPreviewPanel: HTMLElement;
 };
 
 type HistoryEntry = {
@@ -586,6 +604,9 @@ export function renderApp(rootElement: HTMLElement) {
   let isNegativePromptOpen = false;
   let allowExperimentalCheckpoints = false;
   let activeGeneration: ActiveGeneration | null = null;
+  let livePaintingSession: LivePaintingSession | null = null;
+  let livePreviewImage: HTMLImageElement | null = null;
+  let livePreviewObjectUrl = "";
   let hardwareReport: HardwareRecommendationReport | null = null;
   let workflowHealthReport: WorkflowHealthReport | null = null;
   const historyEntries: HistoryEntry[] = [];
@@ -674,7 +695,9 @@ export function renderApp(rootElement: HTMLElement) {
     generateUpscale: createActionRunner(elements, "generateUpscale", handleGenerateUpscale),
     importUpscale: createActionRunner(elements, "importUpscale", handleImportUpscale),
     toggleUpscaleAutoImport: createActionRunner(elements, "toggleUpscaleAutoImport", handleToggleUpscaleAutoImport),
-    clearHistory: createActionRunner(elements, "clearHistory", handleClearHistory)
+    clearHistory: createActionRunner(elements, "clearHistory", handleClearHistory),
+    startLivePainting: createActionRunner(elements, "startLivePainting", handleStartLivePainting),
+    stopLivePainting: createActionRunner(elements, "stopLivePainting", handleStopLivePainting)
   };
 
   bindActionControl(elements.checkButton, actionHandlers.check);
@@ -718,6 +741,8 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.importUpscaleButton, actionHandlers.importUpscale);
   bindActionControl(elements.upscaleAutoImportToggle, actionHandlers.toggleUpscaleAutoImport);
   bindActionControl(elements.clearHistoryButton, actionHandlers.clearHistory);
+  bindActionControl(elements.liveStartButton, actionHandlers.startLivePainting);
+  bindActionControl(elements.liveStopButton, actionHandlers.stopLivePainting);
   bindDelegatedActions(rootElement, actionHandlers);
   bindDocumentActions(rootElement, actionHandlers);
   bindHomeSectionToggles(rootElement);
@@ -762,6 +787,7 @@ export function renderApp(rootElement: HTMLElement) {
   renderHardwareReport(elements, hardwareReport);
   renderWorkflowHealthReport(elements, workflowHealthReport);
   renderHistory(elements, historyEntries);
+  updateLiveButtons(false);
   void loadInitialCheckpoints();
 
   elements.workflow.addEventListener("change", () => {
@@ -3246,6 +3272,103 @@ export function renderApp(rootElement: HTMLElement) {
     updateTextCheckpointCompatibility(elements);
   }
 
+  async function handleStartLivePainting() {
+    if (livePaintingSession?.isRunning()) {
+      setLiveStatus("A live session is already running.");
+      return;
+    }
+
+    const prompt = elements.livePrompt.value.trim();
+
+    if (!prompt) {
+      setLiveStatus("Enter a prompt before starting the live session.");
+      return;
+    }
+
+    const checkpointName = readSelectValue(elements.checkpoint);
+
+    if (!checkpointName) {
+      setLiveStatus("Choose a checkpoint on the Text to Image screen first.");
+      return;
+    }
+
+    const denoise = Number(elements.liveDenoise.value);
+    const session = new LivePaintingSession(
+      {
+        serverUrl: elements.serverUrl.value,
+        checkpointName,
+        prompt,
+        denoise: Number.isFinite(denoise) ? denoise : 0.6
+      },
+      {
+        onStatus: (message) => setLiveStatus(message),
+        onTimings: (message) => {
+          elements.liveTimingsText.textContent = message;
+        },
+        onPreviewBlob: (blob) => updateLivePreview(blob),
+        onStopped: (reason) => {
+          setLiveStatus(reason);
+          updateLiveButtons(false);
+        }
+      }
+    );
+
+    livePaintingSession = session;
+    updateLiveButtons(true);
+
+    try {
+      await session.start();
+    } catch (caughtError) {
+      if (session.isRunning()) {
+        session.stop("Live session stopped after a startup error.");
+      }
+
+      livePaintingSession = null;
+      updateLiveButtons(false);
+      setLiveStatus(getErrorMessage(caughtError));
+      elements.liveTimingsText.textContent = getTechnicalErrorDetails(caughtError);
+    }
+  }
+
+  function handleStopLivePainting() {
+    if (!livePaintingSession) {
+      setLiveStatus("No live session is running.");
+      return;
+    }
+
+    livePaintingSession.stop("Live session stopped.");
+    livePaintingSession = null;
+    updateLiveButtons(false);
+  }
+
+  function setLiveStatus(message: string) {
+    elements.liveStatusText.textContent = message;
+  }
+
+  function updateLiveButtons(isLive: boolean) {
+    setActionDisabled(elements.liveStartButton, isLive);
+    setActionDisabled(elements.liveStopButton, !isLive);
+  }
+
+  function updateLivePreview(blob: Blob) {
+    // One persistent img element: swapping src avoids the rebuild flicker the
+    // per-frame progress previews show elsewhere in the panel.
+    if (!livePreviewImage) {
+      elements.liveResultPreviewPanel.innerHTML = "";
+      livePreviewImage = document.createElement("img");
+      livePreviewImage.alt = "Live Painting preview";
+      elements.liveResultPreviewPanel.append(livePreviewImage);
+    }
+
+    const previousUrl = livePreviewObjectUrl;
+    livePreviewObjectUrl = URL.createObjectURL(blob);
+    livePreviewImage.src = livePreviewObjectUrl;
+
+    if (previousUrl) {
+      URL.revokeObjectURL(previousUrl);
+    }
+  }
+
   function setResult(nextResult: GeneratedImageResult | null) {
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
@@ -3814,6 +3937,7 @@ export function renderApp(rootElement: HTMLElement) {
     elements.outpaintView.hidden = currentView !== "outpaint";
     elements.promptFromLayerView.hidden = currentView !== "prompt-from-layer";
     elements.upscaleView.hidden = currentView !== "upscale";
+    elements.livePaintingView.hidden = currentView !== "live-painting";
     elements.settingsView.hidden = currentView !== "settings";
     elements.historyView.hidden = currentView !== "history";
 
@@ -3904,6 +4028,55 @@ function createAppMarkup() {
           <div class="status-progress" id="prompt-layer-status-progress" hidden><span></span></div>
           <div class="diagnostics-line" id="prompt-layer-diagnostics-text">Capture a source, then generate a Florence-2 PromptGen caption.</div>
           <div class="error-message" id="prompt-layer-error-message" hidden></div>
+        </section>
+      </section>
+
+      <section class="live-painting-view image-to-image-view" id="live-painting-view" aria-label="Live Painting" hidden>
+        <div class="screen-nav">
+          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
+          <div class="screen-title-block">
+            ${createScreenIconMarkup("style", "Live Painting")}
+            <span class="screen-title">Live Painting</span>
+          </div>
+        </div>
+
+        <section class="panel-section generator-panel" aria-label="Live Painting session">
+          <div class="section-heading">
+            <span class="label">Live session</span>
+            <span class="muted-label">Spike build</span>
+          </div>
+          <div class="diagnostics-line">
+            Experimental stroke-sync test. Uses the Text to Image checkpoint with the local SD 1.5 LCM LoRA.
+            Start a session, then paint in the document and watch the preview follow your strokes.
+          </div>
+          <label class="field">
+            <span class="label">Prompt</span>
+            <textarea class="textarea" id="live-prompt" placeholder="Describe what your painting should become..."></textarea>
+          </label>
+          <label class="field">
+            <span class="label">Strength (denoise)</span>
+            <input class="input input-compact" id="live-denoise" type="number" min="0.2" max="0.95" step="0.05" value="0.6" />
+          </label>
+          <button class="button button-primary button-generate button-wide action-control" id="start-live-painting" data-openlayer-action="startLivePainting" type="button">Start Live Session</button>
+          <button class="button button-wide action-control" id="stop-live-painting" data-openlayer-action="stopLivePainting" type="button">Stop Live Session</button>
+        </section>
+
+        <section class="panel-section generator-panel" aria-label="Live Painting preview">
+          <div class="section-heading">
+            <span class="label">Live preview</span>
+            <span class="muted-label">Updates as you paint</span>
+          </div>
+          <div class="preview-panel" id="live-result-preview-panel">
+            <span class="preview-empty">Start a session, then paint a stroke</span>
+          </div>
+        </section>
+
+        <section class="generation-status-panel" aria-label="Live Painting status">
+          <div class="status-bar" role="status">
+            <span class="status-text" id="live-status-text">Live Painting spike ready.</span>
+            <span class="status-pill idle">Spike</span>
+          </div>
+          <div class="diagnostics-line" id="live-timings-text">Cycle timings will appear here.</div>
         </section>
       </section>
 
@@ -4960,7 +5133,15 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     settingsModelRecommendations: getElement<HTMLElement>(rootElement, "settings-model-recommendations"),
     settingsWorkflowHealthSummary: getElement<HTMLElement>(rootElement, "settings-workflow-health-summary"),
     settingsWorkflowHealthList: getElement<HTMLElement>(rootElement, "settings-workflow-health-list"),
-    settingsDiagnosticsReport: getElement<HTMLTextAreaElement>(rootElement, "settings-diagnostics-report")
+    settingsDiagnosticsReport: getElement<HTMLTextAreaElement>(rootElement, "settings-diagnostics-report"),
+    livePaintingView: getElement<HTMLElement>(rootElement, "live-painting-view"),
+    livePrompt: getElement<HTMLTextAreaElement>(rootElement, "live-prompt"),
+    liveDenoise: getElement<HTMLInputElement>(rootElement, "live-denoise"),
+    liveStartButton: getElement<HTMLElement>(rootElement, "start-live-painting"),
+    liveStopButton: getElement<HTMLElement>(rootElement, "stop-live-painting"),
+    liveStatusText: getElement<HTMLElement>(rootElement, "live-status-text"),
+    liveTimingsText: getElement<HTMLElement>(rootElement, "live-timings-text"),
+    liveResultPreviewPanel: getElement<HTMLElement>(rootElement, "live-result-preview-panel")
   };
 }
 
@@ -5609,7 +5790,9 @@ type ActionName =
   | "generateUpscale"
   | "importUpscale"
   | "toggleUpscaleAutoImport"
-  | "clearHistory";
+  | "clearHistory"
+  | "startLivePainting"
+  | "stopLivePainting";
 type HistoryActionName = "preview" | "import" | "reuse";
 type ActionRunner = (eventName: string) => void;
 type ActionHandlers = Record<ActionName, ActionRunner>;

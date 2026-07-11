@@ -186,6 +186,10 @@ export class ComfyClient {
     return this.getModelNamesFromObjectInfo("CheckpointLoaderSimple", "ckpt_name");
   }
 
+  async getLoraNames(): Promise<string[]> {
+    return this.getModelNamesFromObjectInfo("LoraLoader", "lora_name");
+  }
+
   async getModelNamesForPreset(preset: WorkflowPresetDefinition): Promise<string[]> {
     return this.getModelNamesFromObjectInfo(preset.modelSource.objectInfoNode, preset.modelSource.inputName);
   }
