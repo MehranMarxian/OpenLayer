@@ -6893,3 +6893,23 @@ body,
   animation: none !important;
   background: linear-gradient(90deg, #2f8fe0, #56b0f0) !important;
 }
+
+/* v0.6 fix #2: sticky screen headers.
+   Pin the back-button + title row to the top of each tool screen so it
+   stays visible while the form scrolls underneath. The tool view itself
+   is the scroll container, so the sticky is scoped to it. */
+.app-shell.theme-compact .generator-view,
+.app-shell.theme-compact .image-to-image-view,
+.app-shell.theme-compact .settings-view,
+.app-shell.theme-compact .history-view {
+  padding-top: 0 !important;
+}
+
+.app-shell.theme-compact .screen-nav {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  margin: 0 -10px 8px -8px;
+  padding: 8px 10px 8px 8px;
+  background: var(--ol-bg);
+}
