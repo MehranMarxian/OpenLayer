@@ -4911,7 +4911,7 @@ function createBrandHeaderMarkup() {
   return `
     <header class="app-header">
       <div class="brand-lockup">
-        <img class="brand-icon" src="icons/openlayer.png" alt="" width="48" height="48" />
+        <img class="brand-icon" src="icons/openlayer-icon.png" alt="" width="48" height="48" />
         <div>
           <h1 class="app-title">OpenLayer</h1>
           <p class="app-subtitle">Local AI layers for Photoshop</p>
@@ -4953,9 +4953,8 @@ function createHomeToolSectionMarkup(section: { title: string; toolIds: string[]
     .filter((card): card is ToolCard => Boolean(card));
 
   return `
-    <section class="home-section ol-section is-open" aria-label="${section.title}">
-      <div class="home-section-title ol-section-header" role="button" tabindex="0" aria-expanded="true" data-openlayer-section-toggle>
-        <span class="home-section-chevron ol-section-chevron" aria-hidden="true"></span>
+    <section class="home-section ol-section is-open is-static" aria-label="${section.title}">
+      <div class="home-section-title ol-section-header is-static">
         <span>${section.title}</span>
       </div>
       <div class="tool-list ol-section-body">

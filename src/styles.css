@@ -6792,3 +6792,92 @@ body,
   font-size: 9px;
   line-height: 10px;
 }
+
+/* ============================================================
+   v0.6 compact dashboard redesign (Phase 2, fix #1)
+   Appended last so it wins source-order ties over the legacy
+   duplicate home-dashboard rules above. Consolidate in v0.7.
+   ============================================================ */
+
+.app-shell.theme-compact .home-view {
+  padding: 4px 0 8px;
+  background: var(--ol-bg);
+}
+
+/* Solid, seamless dashboard: no section divider lines. */
+.app-shell.theme-compact .home-view > *,
+.app-shell.theme-compact .ol-section,
+.app-shell.theme-compact .home-section {
+  margin: 0 0 2px;
+  border: 0;
+  background: transparent;
+}
+
+/* Section headers are static labels now, not collapsible dropdowns. */
+.app-shell.theme-compact .home-section-title.is-static,
+.app-shell.theme-compact .ol-section-header.is-static {
+  cursor: default;
+  padding: 9px 2px 3px;
+  color: #8f8f8f;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.app-shell.theme-compact .home-section:first-child .home-section-title.is-static {
+  padding-top: 3px;
+}
+
+/* No horizontal rules between rows. */
+.app-shell.theme-compact .ol-row,
+.app-shell.theme-compact .tool-card {
+  min-height: 46px;
+  border: 0;
+  border-radius: 6px;
+  padding: 5px 6px;
+}
+
+.app-shell.theme-compact .tool-card.is-available:hover,
+.app-shell.theme-compact .tool-card.is-experimental:hover {
+  background: #3a3a3a;
+}
+
+/* Bigger, richer tool icons. */
+.app-shell.theme-compact .ol-row-icon,
+.app-shell.theme-compact .tool-icon {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  margin-right: 10px;
+}
+
+.app-shell.theme-compact .icon-image {
+  width: 36px;
+  height: 36px;
+  opacity: 1;
+  filter: none;
+}
+
+.app-shell.theme-compact .tool-card.is-coming-soon .icon-image {
+  opacity: 0.4;
+  filter: grayscale(1);
+}
+
+/* Smaller text. */
+.app-shell.theme-compact .tool-title,
+.app-shell.theme-compact .ol-row-title {
+  font-size: 11px;
+  line-height: 1.15;
+}
+
+.app-shell.theme-compact .tool-subtitle,
+.app-shell.theme-compact .ol-row-desc {
+  font-size: 9px;
+  line-height: 1.15;
+  color: #9a9a9a;
+}
+
+.app-shell.theme-compact .home-status-row {
+  border-bottom: 0;
+}
