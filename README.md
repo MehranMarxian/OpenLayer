@@ -538,3 +538,5 @@ Open a Photoshop document before importing. OpenLayer imports into the active do
 ## License
 
 MIT
+
+OpenLayer™ — the OpenLayer name and logo may not be used by derivative works without permission.

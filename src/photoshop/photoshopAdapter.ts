@@ -1418,7 +1418,7 @@ async function readImageDataBytes(imageData: PhotoshopImageData) {
   }
 }
 
-function convertPixelsToRgba(rawPixels: Uint8Array, width: number, height: number, components: number) {
+export function convertPixelsToRgba(rawPixels: Uint8Array, width: number, height: number, components: number) {
   const pixelCount = width * height;
   const expectedBytes = pixelCount * components;
 
