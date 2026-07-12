@@ -5970,13 +5970,8 @@ function bindActionControl(element: HTMLElement, run: ActionRunner) {
     run(eventName);
   };
 
-  element.onmousedown = (event) => runFromEvent("onmousedown", event);
-  element.onmouseup = (event) => runFromEvent("onmouseup", event);
-  element.onclick = (event) => runFromEvent("onclick", event);
-
-  for (const eventName of ["click", "mousedown", "mouseup", "pointerup", "touchend"]) {
-    element.addEventListener(eventName, (event) => runFromEvent(eventName, event));
-  }
+  // A single "click" binding avoids the old pointerup+click double-fire.
+  element.addEventListener("click", (event) => runFromEvent("click", event));
 
   element.addEventListener("keydown", (event) => {
     const key = (event as KeyboardEvent).key;
@@ -5989,53 +5984,49 @@ function bindActionControl(element: HTMLElement, run: ActionRunner) {
 }
 
 function bindDelegatedActions(rootElement: HTMLElement, actionHandlers: ActionHandlers) {
-  for (const eventName of ["click", "mousedown", "mouseup", "pointerup", "touchend"]) {
-    rootElement.addEventListener(
-      eventName,
-      (event) => {
-        const actionElement = findActionElement(event.target, rootElement);
+  rootElement.addEventListener(
+    "click",
+    (event) => {
+      const actionElement = findActionElement(event.target, rootElement);
 
-        if (!actionElement || isActionDisabled(actionElement)) {
-          return;
-        }
+      if (!actionElement || isActionDisabled(actionElement)) {
+        return;
+      }
 
-        const actionName = actionElement.getAttribute("data-openlayer-action") as ActionName | null;
+      const actionName = actionElement.getAttribute("data-openlayer-action") as ActionName | null;
 
-        if (!actionName || !(actionName in actionHandlers)) {
-          return;
-        }
+      if (!actionName || !(actionName in actionHandlers)) {
+        return;
+      }
 
-        event.preventDefault();
-        actionHandlers[actionName](eventName);
-      },
-      true
-    );
-  }
+      event.preventDefault();
+      actionHandlers[actionName]("click");
+    },
+    true
+  );
 }
 
 function bindDocumentActions(rootElement: HTMLElement, actionHandlers: ActionHandlers) {
-  for (const eventName of ["click", "mousedown", "mouseup", "pointerup", "touchend"]) {
-    document.addEventListener(
-      eventName,
-      (event) => {
-        const actionElement = findActionElement(event.target, rootElement);
+  document.addEventListener(
+    "click",
+    (event) => {
+      const actionElement = findActionElement(event.target, rootElement);
 
-        if (!actionElement || isActionDisabled(actionElement)) {
-          return;
-        }
+      if (!actionElement || isActionDisabled(actionElement)) {
+        return;
+      }
 
-        const actionName = actionElement.getAttribute("data-openlayer-action") as ActionName | null;
+      const actionName = actionElement.getAttribute("data-openlayer-action") as ActionName | null;
 
-        if (!actionName || !(actionName in actionHandlers)) {
-          return;
-        }
+      if (!actionName || !(actionName in actionHandlers)) {
+        return;
+      }
 
-        event.preventDefault();
-        actionHandlers[actionName](`document:${eventName}`);
-      },
-      true
-    );
-  }
+      event.preventDefault();
+      actionHandlers[actionName]("document:click");
+    },
+    true
+  );
 }
 
 function bindHomeSectionToggles(rootElement: HTMLElement) {
@@ -6075,9 +6066,7 @@ function bindHomeSectionToggles(rootElement: HTMLElement) {
     body.hidden = !isOpen;
   };
 
-  for (const eventName of ["click", "pointerup", "touchend"]) {
-    rootElement.addEventListener(eventName, runFromEvent, true);
-  }
+  rootElement.addEventListener("click", runFromEvent, true);
 
   rootElement.addEventListener("keydown", (event) => {
     const key = (event as KeyboardEvent).key;
@@ -6137,9 +6126,7 @@ function bindDetailSectionToggles(rootElement: HTMLElement) {
     header.setAttribute("aria-expanded", isOpen ? "true" : "false");
   };
 
-  for (const eventName of ["click", "pointerup", "touchend"]) {
-    rootElement.addEventListener(eventName, runFromEvent, true);
-  }
+  rootElement.addEventListener("click", runFromEvent, true);
 
   rootElement.addEventListener("keydown", (event) => {
     const key = (event as KeyboardEvent).key;
@@ -6187,9 +6174,7 @@ function bindInfoToggles(rootElement: HTMLElement) {
     toggle.setAttribute("aria-expanded", shouldShow ? "true" : "false");
   };
 
-  for (const eventName of ["click", "pointerup", "touchend"]) {
-    rootElement.addEventListener(eventName, runFromEvent, true);
-  }
+  rootElement.addEventListener("click", runFromEvent, true);
 
   rootElement.addEventListener("keydown", (event) => {
     const key = (event as KeyboardEvent).key;
@@ -6227,9 +6212,7 @@ function bindToolCards(rootElement: HTMLElement, setView: (view: AppView) => voi
     setView(nextView);
   };
 
-  for (const eventName of ["click", "mousedown", "mouseup", "pointerup", "touchend"]) {
-    rootElement.addEventListener(eventName, (event) => runFromEvent(eventName, event), true);
-  }
+  rootElement.addEventListener("click", (event) => runFromEvent("click", event), true);
 
   rootElement.addEventListener("keydown", (event) => {
     const key = (event as KeyboardEvent).key;
@@ -6271,9 +6254,7 @@ function bindHistoryActions(
     handleHistoryAction(action, historyId);
   };
 
-  for (const eventName of ["click", "mousedown", "mouseup", "pointerup", "touchend"]) {
-    rootElement.addEventListener(eventName, (event) => runFromEvent(eventName, event), true);
-  }
+  rootElement.addEventListener("click", (event) => runFromEvent("click", event), true);
 
   rootElement.addEventListener("keydown", (event) => {
     const key = (event as KeyboardEvent).key;
