@@ -1353,6 +1353,7 @@ export function renderApp(rootElement: HTMLElement) {
             setProgressPreview(elements, message);
           }
         },
+        onProgress: (value, max) => applyDeterminateProgress(elements.statusProgress, value, max),
         onPreviewBlob: (blob) => {
           hasLivePreview = true;
           setProgressPreview(elements, "Live ComfyUI preview...", blob);
@@ -1773,6 +1774,7 @@ export function renderApp(rootElement: HTMLElement) {
             setImageProgressPreview(elements, message);
           }
         },
+        onProgress: (value, max) => applyDeterminateProgress(elements.imgStatusProgress, value, max),
         onPreviewBlob: (blob) => {
           hasLivePreview = true;
           setImageProgressPreview(elements, "Live ComfyUI preview...", blob);
@@ -2013,6 +2015,7 @@ export function renderApp(rootElement: HTMLElement) {
             setUpscaleProgressPreview(elements, message);
           }
         },
+        onProgress: (value, max) => applyDeterminateProgress(elements.upscaleStatusProgress, value, max),
         onPreviewBlob: (blob) => {
           hasLivePreview = true;
           setUpscaleProgressPreview(elements, "Live ComfyUI preview...", blob);
@@ -2293,6 +2296,7 @@ export function renderApp(rootElement: HTMLElement) {
             setOutpaintProgressPreview(elements, message);
           }
         },
+        onProgress: (value, max) => applyDeterminateProgress(elements.outpaintStatusProgress, value, max),
         onPreviewBlob: (blob) => {
           hasLivePreview = true;
           setOutpaintProgressPreview(elements, "Live ComfyUI Outpaint preview...", blob);
@@ -2574,6 +2578,7 @@ export function renderApp(rootElement: HTMLElement) {
             setSketchProgressPreview(elements, message);
           }
         },
+        onProgress: (value, max) => applyDeterminateProgress(elements.sketchStatusProgress, value, max),
         onPreviewBlob: (blob) => {
           hasLivePreview = true;
           setSketchProgressPreview(elements, "Live ComfyUI preview...", blob);
@@ -2920,6 +2925,7 @@ export function renderApp(rootElement: HTMLElement) {
             setInpaintProgressPreview(elements, message);
           }
         },
+        onProgress: (value, max) => applyDeterminateProgress(elements.inpaintStatusProgress, value, max),
         onPreviewBlob: (blob) => {
           hasLivePreview = true;
           setInpaintProgressPreview(elements, "Live ComfyUI preview...", blob);
@@ -5392,25 +5398,7 @@ function setStatusProgress(progressElement: HTMLElement, status: string, tone: S
   progressElement.className = `status-progress is-active${stickyPercent !== null ? " is-determinate" : ""}`;
 
   if (stickyPercent !== null) {
-    statusProgressLastPercent.set(progressElement, stickyPercent);
-
-    const existingTimer = statusProgressTimers.get(progressElement);
-    if (existingTimer) {
-      window.clearInterval(existingTimer);
-      statusProgressTimers.delete(progressElement);
-    }
-
-    // The determinate fill width is driven by a CSS variable so it beats the
-    // legacy "width: 42% !important" indeterminate rule without inline hacks.
-    progressElement.style.setProperty("--ol-progress", `${stickyPercent}%`);
-
-    if (fill) {
-      fill.style.marginLeft = "";
-      fill.style.width = "";
-    }
-
-    progressElement.removeAttribute("data-progress-offset");
-    progressElement.setAttribute("data-progress-label", `${stickyPercent}%`);
+    renderDeterminateProgress(progressElement, stickyPercent);
     return;
   }
 
@@ -5434,6 +5422,41 @@ function setStatusProgress(progressElement: HTMLElement, status: string, tone: S
   }, 120);
 
   statusProgressTimers.set(progressElement, timer);
+}
+
+function renderDeterminateProgress(progressElement: HTMLElement, percent: number) {
+  const fill = progressElement.firstElementChild as HTMLElement | null;
+  const existingTimer = statusProgressTimers.get(progressElement);
+
+  if (existingTimer) {
+    window.clearInterval(existingTimer);
+    statusProgressTimers.delete(progressElement);
+  }
+
+  statusProgressLastPercent.set(progressElement, percent);
+  progressElement.hidden = false;
+  progressElement.className = "status-progress is-active is-determinate";
+  // The determinate fill width is driven by a CSS variable so it beats the
+  // legacy "width: 42% !important" indeterminate rule without inline hacks.
+  progressElement.style.setProperty("--ol-progress", `${percent}%`);
+
+  if (fill) {
+    fill.style.marginLeft = "";
+    fill.style.width = "";
+  }
+
+  progressElement.removeAttribute("data-progress-offset");
+  progressElement.setAttribute("data-progress-label", `${percent}%`);
+}
+
+// Dedicated numeric progress entry point driven by the ComfyUI WebSocket
+// progress channel, independent of the human-readable status text.
+function applyDeterminateProgress(progressElement: HTMLElement, value: number, max: number) {
+  if (!Number.isFinite(value) || !Number.isFinite(max) || max <= 0) {
+    return;
+  }
+
+  renderDeterminateProgress(progressElement, Math.max(0, Math.min(100, Math.round((value / max) * 100))));
 }
 
 export type StatusProgressState = {
