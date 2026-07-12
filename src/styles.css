@@ -1526,6 +1526,14 @@ a:hover {
   object-fit: contain;
 }
 
+.preview-panel.preview-zoomed {
+  max-height: 520px;
+}
+
+.preview-panel.preview-zoomed img {
+  max-height: 520px;
+}
+
 .source-preview-panel {
   align-items: stretch;
   min-height: 112px;

@@ -524,6 +524,9 @@ type AppElements = {
   liveStatusText: HTMLElement;
   liveTimingsText: HTMLElement;
   liveResultPreviewPanel: HTMLElement;
+  liveZoomToggle: HTMLElement;
+  importLiveButton: HTMLElement;
+  liveAutoImportToggle: HTMLElement;
 };
 
 type HistoryEntry = {
@@ -607,6 +610,9 @@ export function renderApp(rootElement: HTMLElement) {
   let livePaintingSession: LivePaintingSession | null = null;
   let livePreviewImage: HTMLImageElement | null = null;
   let livePreviewObjectUrl = "";
+  let liveLastResult: Blob | null = null;
+  let liveImportAutomatically = false;
+  let livePreviewZoomed = false;
   let hardwareReport: HardwareRecommendationReport | null = null;
   let workflowHealthReport: WorkflowHealthReport | null = null;
   const historyEntries: HistoryEntry[] = [];
@@ -697,7 +703,10 @@ export function renderApp(rootElement: HTMLElement) {
     toggleUpscaleAutoImport: createActionRunner(elements, "toggleUpscaleAutoImport", handleToggleUpscaleAutoImport),
     clearHistory: createActionRunner(elements, "clearHistory", handleClearHistory),
     startLivePainting: createActionRunner(elements, "startLivePainting", handleStartLivePainting),
-    stopLivePainting: createActionRunner(elements, "stopLivePainting", handleStopLivePainting)
+    stopLivePainting: createActionRunner(elements, "stopLivePainting", handleStopLivePainting),
+    toggleLiveZoom: createActionRunner(elements, "toggleLiveZoom", handleToggleLiveZoom),
+    importLiveResult: createActionRunner(elements, "importLiveResult", handleImportLiveResult),
+    toggleLiveAutoImport: createActionRunner(elements, "toggleLiveAutoImport", handleToggleLiveAutoImport)
   };
 
   bindActionControl(elements.checkButton, actionHandlers.check);
@@ -743,6 +752,9 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.clearHistoryButton, actionHandlers.clearHistory);
   bindActionControl(elements.liveStartButton, actionHandlers.startLivePainting);
   bindActionControl(elements.liveStopButton, actionHandlers.stopLivePainting);
+  bindActionControl(elements.liveZoomToggle, actionHandlers.toggleLiveZoom);
+  bindActionControl(elements.importLiveButton, actionHandlers.importLiveResult);
+  bindActionControl(elements.liveAutoImportToggle, actionHandlers.toggleLiveAutoImport);
   bindDelegatedActions(rootElement, actionHandlers);
   bindDocumentActions(rootElement, actionHandlers);
   bindHomeSectionToggles(rootElement);
@@ -788,6 +800,8 @@ export function renderApp(rootElement: HTMLElement) {
   renderWorkflowHealthReport(elements, workflowHealthReport);
   renderHistory(elements, historyEntries);
   updateLiveButtons(false);
+  setActionDisabled(elements.importLiveButton, true);
+  updateLiveAutoImportToggle(liveImportAutomatically);
   void loadInitialCheckpoints();
 
   elements.workflow.addEventListener("change", () => {
@@ -3339,6 +3353,53 @@ export function renderApp(rootElement: HTMLElement) {
     livePaintingSession.stop("Live session stopped.");
     livePaintingSession = null;
     updateLiveButtons(false);
+
+    if (liveImportAutomatically && liveLastResult) {
+      void handleImportLiveResult();
+    }
+  }
+
+  function handleToggleLiveZoom() {
+    livePreviewZoomed = !livePreviewZoomed;
+    elements.liveResultPreviewPanel.classList.toggle("preview-zoomed", livePreviewZoomed);
+    elements.liveZoomToggle.textContent = livePreviewZoomed ? "\u{1F50D} 1x" : "\u{1F50D} 2x";
+    elements.liveZoomToggle.setAttribute("aria-pressed", String(livePreviewZoomed));
+  }
+
+  async function handleImportLiveResult() {
+    if (!liveLastResult) {
+      setLiveStatus("Generate a live result before importing.");
+      return;
+    }
+
+    setLiveStatus("Importing live result into Photoshop...");
+
+    try {
+      const importedLayerName = await importGeneratedImageAsLayer(
+        liveLastResult,
+        createLayerName("OpenLayer_Live"),
+        (message) => setLiveStatus(message)
+      );
+      setLiveStatus(`Imported layer: ${importedLayerName}`);
+    } catch (caughtError) {
+      setLiveStatus(getErrorMessage(caughtError));
+    }
+  }
+
+  function handleToggleLiveAutoImport() {
+    liveImportAutomatically = !liveImportAutomatically;
+    updateLiveAutoImportToggle(liveImportAutomatically);
+    setLiveStatus(
+      liveImportAutomatically
+        ? "The latest live result will import automatically when the session stops."
+        : "Live auto import is off."
+    );
+  }
+
+  function updateLiveAutoImportToggle(isEnabled: boolean) {
+    elements.liveAutoImportToggle.textContent = isEnabled ? "Auto Import On" : "Import Automatically";
+    elements.liveAutoImportToggle.setAttribute("aria-pressed", String(isEnabled));
+    elements.liveAutoImportToggle.classList.toggle("is-active", isEnabled);
   }
 
   function setLiveStatus(message: string) {
@@ -3367,6 +3428,9 @@ export function renderApp(rootElement: HTMLElement) {
     if (previousUrl) {
       URL.revokeObjectURL(previousUrl);
     }
+
+    liveLastResult = blob;
+    setActionDisabled(elements.importLiveButton, false);
   }
 
   function setResult(nextResult: GeneratedImageResult | null) {
@@ -4064,10 +4128,17 @@ function createAppMarkup() {
         <section class="panel-section generator-panel" aria-label="Live Painting preview">
           <div class="section-heading">
             <span class="label">Live preview</span>
-            <span class="muted-label">Updates as you paint</span>
+            <button class="button action-control" id="live-zoom-toggle" data-openlayer-action="toggleLiveZoom" type="button" aria-pressed="false">&#128270; 2x</button>
           </div>
           <div class="preview-panel" id="live-result-preview-panel">
             <span class="preview-empty">Start a session, then paint a stroke</span>
+          </div>
+          <div class="import-actions">
+            <button class="button action-control" id="import-live-result" data-openlayer-action="importLiveResult" type="button">Import to Layers</button>
+            <button class="button action-control" id="live-auto-import-toggle" data-openlayer-action="toggleLiveAutoImport" type="button" aria-pressed="false">Import Automatically</button>
+          </div>
+          <div class="diagnostics-line">
+            Import Automatically brings the latest live result into Photoshop as a new layer when you stop the session.
           </div>
         </section>
 
@@ -5141,7 +5212,10 @@ function getAppElements(rootElement: HTMLElement): AppElements {
     liveStopButton: getElement<HTMLElement>(rootElement, "stop-live-painting"),
     liveStatusText: getElement<HTMLElement>(rootElement, "live-status-text"),
     liveTimingsText: getElement<HTMLElement>(rootElement, "live-timings-text"),
-    liveResultPreviewPanel: getElement<HTMLElement>(rootElement, "live-result-preview-panel")
+    liveResultPreviewPanel: getElement<HTMLElement>(rootElement, "live-result-preview-panel"),
+    liveZoomToggle: getElement<HTMLElement>(rootElement, "live-zoom-toggle"),
+    importLiveButton: getElement<HTMLElement>(rootElement, "import-live-result"),
+    liveAutoImportToggle: getElement<HTMLElement>(rootElement, "live-auto-import-toggle")
   };
 }
 
@@ -5792,7 +5866,10 @@ type ActionName =
   | "toggleUpscaleAutoImport"
   | "clearHistory"
   | "startLivePainting"
-  | "stopLivePainting";
+  | "stopLivePainting"
+  | "toggleLiveZoom"
+  | "importLiveResult"
+  | "toggleLiveAutoImport";
 type HistoryActionName = "preview" | "import" | "reuse";
 type ActionRunner = (eventName: string) => void;
 type ActionHandlers = Record<ActionName, ActionRunner>;
