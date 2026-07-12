@@ -6881,3 +6881,15 @@ body,
 .app-shell.theme-compact .home-status-row {
   border-bottom: 0;
 }
+
+/* v0.6 fix #3: real determinate ComfyUI progress bar.
+   Drive the fill width from --ol-progress so it overrides the legacy
+   "width: 42% !important" indeterminate rule and shows true remaining
+   progress instead of a fixed-width animated sweep. */
+.app-shell.theme-compact .status-progress.is-determinate > span {
+  width: var(--ol-progress, 0%) !important;
+  margin-left: 0 !important;
+  transition: width 0.2s ease-out !important;
+  animation: none !important;
+  background: linear-gradient(90deg, #2f8fe0, #56b0f0) !important;
+}

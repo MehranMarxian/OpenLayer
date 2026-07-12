@@ -566,6 +566,10 @@ type ActiveGeneration = {
 };
 
 const statusProgressTimers = new WeakMap<HTMLElement, number>();
+// Remembers the last real step percentage per progress bar so percent-less
+// status updates (e.g. the history poll tick) cannot reset a determinate bar
+// back to the indeterminate warm-up animation mid-run.
+const statusProgressLastPercent = new WeakMap<HTMLElement, number>();
 
 export function renderApp(rootElement: HTMLElement) {
   let currentView: AppView = "home";
@@ -5358,19 +5362,20 @@ function setStatusProgress(progressElement: HTMLElement, status: string, tone: S
     !normalizedStatus.includes("saved") &&
     !normalizedStatus.includes("reset");
 
-  const progressPercent = readProgressPercent(status);
   const fill = progressElement.firstElementChild as HTMLElement | null;
-  progressElement.hidden = !isBusy;
-  progressElement.className = isBusy
-    ? `status-progress is-active${progressPercent !== null ? " is-determinate" : ""}`
-    : "status-progress";
+  const resolved = resolveStatusProgress(status, isBusy, statusProgressLastPercent.get(progressElement) ?? null);
 
-  if (!isBusy) {
+  if (!resolved.isBusy) {
     const existingTimer = statusProgressTimers.get(progressElement);
     if (existingTimer) {
       window.clearInterval(existingTimer);
       statusProgressTimers.delete(progressElement);
     }
+
+    statusProgressLastPercent.delete(progressElement);
+    progressElement.hidden = true;
+    progressElement.className = "status-progress";
+    progressElement.style.removeProperty("--ol-progress");
 
     if (fill) {
       fill.style.marginLeft = "";
@@ -5381,22 +5386,35 @@ function setStatusProgress(progressElement: HTMLElement, status: string, tone: S
     return;
   }
 
-  if (progressPercent !== null) {
+  const stickyPercent = resolved.percent;
+
+  progressElement.hidden = false;
+  progressElement.className = `status-progress is-active${stickyPercent !== null ? " is-determinate" : ""}`;
+
+  if (stickyPercent !== null) {
+    statusProgressLastPercent.set(progressElement, stickyPercent);
+
     const existingTimer = statusProgressTimers.get(progressElement);
     if (existingTimer) {
       window.clearInterval(existingTimer);
       statusProgressTimers.delete(progressElement);
     }
 
+    // The determinate fill width is driven by a CSS variable so it beats the
+    // legacy "width: 42% !important" indeterminate rule without inline hacks.
+    progressElement.style.setProperty("--ol-progress", `${stickyPercent}%`);
+
     if (fill) {
-      fill.style.marginLeft = "0";
-      fill.style.width = `${progressPercent}%`;
+      fill.style.marginLeft = "";
+      fill.style.width = "";
     }
 
     progressElement.removeAttribute("data-progress-offset");
-    progressElement.setAttribute("data-progress-label", `${progressPercent}%`);
+    progressElement.setAttribute("data-progress-label", `${stickyPercent}%`);
     return;
   }
+
+  progressElement.style.removeProperty("--ol-progress");
 
   progressElement.removeAttribute("data-progress-label");
 
@@ -5416,6 +5434,31 @@ function setStatusProgress(progressElement: HTMLElement, status: string, tone: S
   }, 120);
 
   statusProgressTimers.set(progressElement, timer);
+}
+
+export type StatusProgressState = {
+  isBusy: boolean;
+  // null while busy = indeterminate warm-up animation; a number = determinate fill.
+  percent: number | null;
+};
+
+// Pure resolver for the progress bar. Keeps a determinate bar determinate once
+// real step progress has arrived: percent-less status updates (the history
+// poll tick, "Retrieving image...") hold the last known percent instead of
+// collapsing the bar back to the indeterminate warm-up animation.
+export function resolveStatusProgress(
+  status: string,
+  isBusy: boolean,
+  lastPercent: number | null
+): StatusProgressState {
+  if (!isBusy) {
+    return { isBusy: false, percent: null };
+  }
+
+  const parsedPercent = readProgressPercent(status);
+  const percent = parsedPercent ?? lastPercent;
+
+  return { isBusy: true, percent: percent ?? null };
 }
 
 function readProgressPercent(status: string) {
