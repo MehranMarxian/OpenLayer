@@ -4962,6 +4962,24 @@ function createHomeToolSectionMarkup(section: { title: string; toolIds: string[]
     .map((toolId) => TOOL_CARDS.find((card) => card.id === toolId))
     .filter((card): card is ToolCard => Boolean(card));
 
+  // Only the Workflow group is collapsible (and starts collapsed); the other
+  // groups are static labels for a flat, compact dashboard.
+  const isCollapsible = section.title === "Workflow";
+
+  if (isCollapsible) {
+    return `
+    <section class="home-section ol-section is-collapsible" aria-label="${section.title}">
+      <div class="home-section-title ol-section-header" role="button" tabindex="0" aria-expanded="false" data-openlayer-section-toggle>
+        <span class="home-section-chevron ol-section-chevron" aria-hidden="true"></span>
+        <span>${section.title}</span>
+      </div>
+      <div class="tool-list ol-section-body">
+        ${cards.map(createToolCardMarkup).join("")}
+      </div>
+    </section>
+  `;
+  }
+
   return `
     <section class="home-section ol-section is-open is-static" aria-label="${section.title}">
       <div class="home-section-title ol-section-header is-static">

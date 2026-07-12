@@ -6913,3 +6913,34 @@ body,
   padding: 8px 10px 8px 8px;
   background: var(--ol-bg);
 }
+
+/* v0.6 batch: dashboard + header colors, collapsible Workflow group. */
+
+/* #2: dashboard blends into the panel shell color. */
+.app-shell.theme-compact .home-view {
+  background: #535353;
+}
+
+/* #1: pinned screen header uses the shell color so it blends. */
+.app-shell.theme-compact .screen-nav {
+  background: #535353;
+}
+
+/* #11: the Workflow group header is a collapsible dropdown again. */
+.app-shell.theme-compact .home-section-title:not(.is-static) {
+  cursor: pointer;
+  padding: 9px 2px 3px;
+  color: #8f8f8f;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.app-shell.theme-compact .home-section-title:not(.is-static):hover {
+  color: #c9c9c9;
+}
+
+.app-shell.theme-compact .ol-section.is-collapsible:not(.is-open) .ol-section-body {
+  display: none;
+}
