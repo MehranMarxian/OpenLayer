@@ -770,6 +770,7 @@ export function renderApp(rootElement: HTMLElement) {
   bindExternalLinks(rootElement);
   bindAutoGrowTextareas(rootElement);
   bindAdvancedToggles(rootElement);
+  bindToolWarnings(rootElement);
   bindStickyProgress(rootElement);
   elements.settingsThemeSelect.addEventListener("change", () => {
     applyTheme(elements, readThemeSelection(elements));
@@ -3384,7 +3385,7 @@ export function renderApp(rootElement: HTMLElement) {
   function handleToggleLiveZoom() {
     livePreviewZoomed = !livePreviewZoomed;
     elements.liveResultPreviewPanel.classList.toggle("preview-zoomed", livePreviewZoomed);
-    elements.liveZoomToggle.textContent = livePreviewZoomed ? "\u{1F50D} 1x" : "\u{1F50D} 2x";
+    elements.liveZoomToggle.textContent = livePreviewZoomed ? "Zoom 1x" : "Zoom 2x";
     elements.liveZoomToggle.setAttribute("aria-pressed", String(livePreviewZoomed));
   }
 
@@ -4151,7 +4152,7 @@ function createAppMarkup() {
         <section class="panel-section generator-panel" aria-label="Live Painting preview">
           <div class="section-heading">
             <span class="label">Live preview</span>
-            <button class="button action-control" id="live-zoom-toggle" data-openlayer-action="toggleLiveZoom" type="button" aria-pressed="false">&#128270; 2x</button>
+            <button class="button action-control" id="live-zoom-toggle" data-openlayer-action="toggleLiveZoom" type="button" aria-pressed="false">Zoom 2x</button>
           </div>
           <div class="preview-panel" id="live-result-preview-panel">
             <span class="preview-empty">Start a session, then paint a stroke</span>
@@ -6324,6 +6325,38 @@ function bindHistoryActions(
   });
 }
 
+function bindToolWarnings(rootElement: HTMLElement) {
+  // Replace the always-on orange experimental banner with a small orange info
+  // button in the screen header that reveals the note only when clicked.
+  const warnings = Array.from(rootElement.querySelectorAll<HTMLElement>(".tool-warning"));
+
+  for (const warning of warnings) {
+    const view = warning.closest("section");
+    const titleBlock = view?.querySelector<HTMLElement>(".screen-title-block");
+
+    if (!titleBlock) {
+      continue;
+    }
+
+    warning.hidden = true;
+
+    const info = document.createElement("button");
+    info.type = "button";
+    info.className = "tool-info-button";
+    info.textContent = "i";
+    info.setAttribute("aria-label", "Show experimental notes");
+    info.setAttribute("aria-expanded", "false");
+    titleBlock.appendChild(info);
+
+    info.addEventListener("click", () => {
+      const show = warning.hidden;
+      warning.hidden = !show;
+      info.setAttribute("aria-expanded", String(show));
+      info.classList.toggle("is-active", show);
+    });
+  }
+}
+
 function bindStickyProgress(rootElement: HTMLElement) {
   // Wrap each screen's back/title nav and its progress bar in one sticky
   // header so live progress stays visible even after scrolling down the form.
@@ -6367,7 +6400,8 @@ function bindAdvancedToggles(rootElement: HTMLElement) {
     toggle.type = "button";
     toggle.className = "advanced-toggle";
     toggle.setAttribute("aria-expanded", "false");
-    toggle.textContent = "Advanced settings";
+    // Plain-text caret (UXP does not render triangle/emoji glyphs reliably).
+    toggle.textContent = "+ Advanced settings";
 
     const body = document.createElement("div");
     body.className = "advanced-body";
@@ -6383,6 +6417,7 @@ function bindAdvancedToggles(rootElement: HTMLElement) {
       body.hidden = !shouldOpen;
       toggle.setAttribute("aria-expanded", String(shouldOpen));
       toggle.classList.toggle("is-open", shouldOpen);
+      toggle.textContent = shouldOpen ? "− Advanced settings" : "+ Advanced settings";
     });
   }
 }
@@ -6399,7 +6434,16 @@ function bindAutoGrowTextareas(rootElement: HTMLElement) {
   const textareas = Array.from(rootElement.querySelectorAll<HTMLTextAreaElement>("textarea.textarea"));
 
   for (const textarea of textareas) {
-    textarea.addEventListener("input", () => resize(textarea));
+    // UXP does not always fire "input", so listen broadly and defer one tick
+    // so scrollHeight reflects the just-entered character.
+    const scheduleResize = () => {
+      resize(textarea);
+      window.setTimeout(() => resize(textarea), 0);
+    };
+
+    for (const eventName of ["input", "keyup", "change", "paste", "cut"]) {
+      textarea.addEventListener(eventName, scheduleResize);
+    }
     resize(textarea);
   }
 

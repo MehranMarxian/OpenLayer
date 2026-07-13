@@ -6955,11 +6955,12 @@ body,
   color: #f0c479 !important;
 }
 
-/* #5: auto-import / experimental toggles read as real pill chips that
-   fill when on, alongside the existing switch knob. */
+/* #5: auto-import / experimental toggles read as buttons that fill gold
+   when on. A modest radius (not a full pill) avoids stretched ellipses on
+   wide full-width buttons. */
 .app-shell.theme-compact button[aria-pressed] {
   border: 1px solid var(--ol-line) !important;
-  border-radius: 999px !important;
+  border-radius: 7px !important;
   background: transparent !important;
   color: var(--ol-muted) !important;
   font-weight: 650 !important;
@@ -6998,39 +6999,23 @@ body,
 
 /* v0.6 #8: collapsible "Advanced settings" disclosure for sampler tuning. */
 .app-shell.theme-compact .advanced-toggle {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  width: 100%;
-  margin: 2px 0 6px;
-  padding: 5px 2px;
-  border: 0;
-  background: transparent;
-  color: var(--ol-muted);
+  display: block !important;
+  width: 100% !important;
+  margin: 2px 0 6px !important;
+  padding: 6px 4px !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--ol-muted) !important;
   cursor: pointer;
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 10px !important;
+  font-weight: 700 !important;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  text-align: left;
-}
-
-.app-shell.theme-compact .advanced-toggle::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-right: 1px solid currentColor;
-  border-bottom: 1px solid currentColor;
-  transform: rotate(-45deg);
-  transition: transform 0.15s ease;
-}
-
-.app-shell.theme-compact .advanced-toggle.is-open::before {
-  transform: rotate(45deg);
+  text-align: left !important;
 }
 
 .app-shell.theme-compact .advanced-toggle:hover {
-  color: var(--text);
+  color: var(--text) !important;
 }
 
 /* v0.6 #3: sticky screen header wraps the nav and the progress bar so live
@@ -7072,4 +7057,56 @@ body,
 .app-shell.theme-compact .generator-panel > .settings-grid,
 .app-shell.theme-compact .img2img-form-panel > .settings-grid {
   margin-bottom: 0 !important;
+}
+
+/* v0.6 UXP fixes: header spacing, info button, live zoom, header progress. */
+
+/* #1: breathing room between the icon, title, and back button. */
+.app-shell.theme-compact .screen-title-block {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-shell.theme-compact .screen-nav {
+  gap: 12px;
+}
+
+/* #5: small orange (i) button that reveals the experimental note. */
+.app-shell.theme-compact .tool-info-button {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin-left: 4px;
+  padding: 0;
+  border: 1px solid rgba(240, 177, 83, 0.6);
+  border-radius: 50%;
+  background: rgba(240, 177, 83, 0.14);
+  color: #f0b153;
+  font-size: 11px;
+  font-weight: 700;
+  font-style: italic;
+  line-height: 16px;
+  cursor: pointer;
+}
+
+.app-shell.theme-compact .tool-info-button.is-active {
+  background: #f0b153;
+  color: #1b1200;
+}
+
+/* #6: live-painting zoom actually enlarges the preview. */
+.app-shell.theme-compact .preview-panel.preview-zoomed {
+  max-height: 560px !important;
+}
+
+.app-shell.theme-compact .preview-panel.preview-zoomed img {
+  max-height: 552px !important;
+}
+
+/* #7: the header progress bar renders as one clean full-width bar. */
+.app-shell.theme-compact .screen-head .status-progress {
+  width: 100% !important;
+  margin: 0 0 6px !important;
+  border-radius: 999px !important;
 }
