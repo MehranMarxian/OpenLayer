@@ -570,7 +570,6 @@ const statusProgressTimers = new WeakMap<HTMLElement, number>();
 // status updates (e.g. the history poll tick) cannot reset a determinate bar
 // back to the indeterminate warm-up animation mid-run.
 const statusProgressLastPercent = new WeakMap<HTMLElement, number>();
-let autoGrowResizers: Array<() => void> = [];
 
 export function renderApp(rootElement: HTMLElement) {
   let currentView: AppView = "home";
@@ -768,7 +767,6 @@ export function renderApp(rootElement: HTMLElement) {
   bindToolCards(rootElement, (view) => setView(view));
   bindHistoryActions(rootElement, handleHistoryAction);
   bindExternalLinks(rootElement);
-  bindAutoGrowTextareas(rootElement);
   bindAdvancedToggles(rootElement);
   bindToolWarnings(rootElement);
   bindStickyProgress(rootElement);
@@ -3254,7 +3252,6 @@ export function renderApp(rootElement: HTMLElement) {
       });
 
       elements.promptLayerGeneratedText.value = generatedText;
-      refreshAutoGrowTextareas();
       setPromptLayerStatus(elements, "Prompt text generated.", "ready");
       setPromptLayerDiagnostics(
         elements,
@@ -3303,7 +3300,6 @@ export function renderApp(rootElement: HTMLElement) {
     }
 
     elements.prompt.value = generatedText;
-    refreshAutoGrowTextareas();
     setPromptLayerError(elements, "");
     setView("text-to-image");
     updateTextCheckpointCompatibility(elements);
@@ -6419,42 +6415,6 @@ function bindAdvancedToggles(rootElement: HTMLElement) {
       toggle.classList.toggle("is-open", shouldOpen);
       toggle.textContent = shouldOpen ? "− Advanced settings" : "+ Advanced settings";
     });
-  }
-}
-
-function bindAutoGrowTextareas(rootElement: HTMLElement) {
-  const maxHeight = 168; // roughly 8 lines before the textarea starts scrolling.
-
-  const resize = (textarea: HTMLTextAreaElement) => {
-    textarea.style.height = "auto";
-    textarea.style.height = `${Math.min(textarea.scrollHeight, maxHeight)}px`;
-    textarea.style.overflowY = textarea.scrollHeight > maxHeight ? "auto" : "hidden";
-  };
-
-  const textareas = Array.from(rootElement.querySelectorAll<HTMLTextAreaElement>("textarea.textarea"));
-
-  for (const textarea of textareas) {
-    // UXP does not always fire "input", so listen broadly and defer one tick
-    // so scrollHeight reflects the just-entered character.
-    const scheduleResize = () => {
-      resize(textarea);
-      window.setTimeout(() => resize(textarea), 0);
-    };
-
-    for (const eventName of ["input", "keyup", "change", "paste", "cut"]) {
-      textarea.addEventListener(eventName, scheduleResize);
-    }
-    resize(textarea);
-  }
-
-  // Programmatic value changes (Prompt from Layer output, Reuse Settings) do not
-  // fire "input", so expose a resize hook other code can call after setting value.
-  autoGrowResizers = textareas.map((textarea) => () => resize(textarea));
-}
-
-function refreshAutoGrowTextareas() {
-  for (const resize of autoGrowResizers) {
-    resize();
   }
 }
 

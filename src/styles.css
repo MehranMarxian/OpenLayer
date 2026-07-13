@@ -6984,13 +6984,6 @@ body,
   animation: openlayer-import-flash 0.85s ease-out 1;
 }
 
-/* v0.6 #9: auto-grow textareas (JS drives the height up to ~8 lines). */
-.app-shell.theme-compact .textarea,
-.app-shell.theme-compact .compact-textarea {
-  resize: none;
-  max-height: 168px;
-}
-
 /* v0.6 (original #4): the Prompt from Layer output box starts taller so
    generated captions are easy to read without scrolling. */
 .app-shell.theme-compact #prompt-layer-generated-text {
@@ -7109,4 +7102,143 @@ body,
   width: 100% !important;
   margin: 0 0 6px !important;
   border-radius: 999px !important;
+}
+
+/* v0.6 final UXP hardening.
+   Keep these rules deliberately simple: Photoshop's UXP renderer is more
+   reliable with explicit margins, pixel radii, and fixed textarea heights. */
+.app-shell.theme-compact,
+.app-shell.theme-compact button,
+.app-shell.theme-compact input,
+.app-shell.theme-compact select,
+.app-shell.theme-compact textarea {
+  font-family: Arial, sans-serif !important;
+}
+
+/* UXP does not consistently honor flex gap. Use explicit margins so the back
+   control, tool icon, title, and optional info control cannot touch. */
+.app-shell.theme-compact .screen-head .screen-nav {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  min-height: 38px !important;
+  padding: 0 0 9px !important;
+  overflow: hidden !important;
+}
+
+.app-shell.theme-compact .screen-head .back-button {
+  flex: 0 0 auto !important;
+  margin: 0 14px 0 0 !important;
+}
+
+.app-shell.theme-compact .screen-head .screen-title-block {
+  display: flex !important;
+  flex: 1 1 auto !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+}
+
+.app-shell.theme-compact .screen-head .screen-icon {
+  flex: 0 0 28px !important;
+  width: 28px !important;
+  height: 28px !important;
+  margin: 0 9px 0 0 !important;
+}
+
+.app-shell.theme-compact .screen-head .screen-icon .icon-image {
+  display: block !important;
+  width: 26px !important;
+  height: 26px !important;
+}
+
+.app-shell.theme-compact .screen-head .screen-title {
+  flex: 0 1 auto !important;
+  max-width: none !important;
+  margin: 0 !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+
+.app-shell.theme-compact .screen-head .tool-info-button {
+  margin: 0 0 0 9px !important;
+}
+
+/* A bordered four-pixel track is more stable in UXP than a border-radius
+   pill. Remove the legacy percentage pseudo-label from the tiny track. */
+.app-shell.theme-compact .screen-head .status-progress {
+  display: block !important;
+  clear: both !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  min-width: 100% !important;
+  max-width: 100% !important;
+  height: 6px !important;
+  margin: 0 0 8px !important;
+  padding: 1px !important;
+  overflow: hidden !important;
+  border: 1px solid #696969 !important;
+  border-radius: 3px !important;
+  background: #343434 !important;
+}
+
+.app-shell.theme-compact .screen-head .status-progress[hidden] {
+  display: none !important;
+}
+
+.app-shell.theme-compact .screen-head .status-progress > span {
+  display: block !important;
+  height: 2px !important;
+  border-radius: 1px !important;
+}
+
+.app-shell.theme-compact .screen-head .status-progress.is-determinate::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* Textareas have no HTML character limit. Removing the compact max-height and
+   giving prompts a larger fixed viewport avoids the UXP scrolling failure
+   that can make a long field appear to stop accepting text. */
+.app-shell.theme-compact textarea.textarea,
+.app-shell.theme-compact textarea.compact-textarea {
+  box-sizing: border-box !important;
+  min-height: 92px !important;
+  height: 92px !important;
+  max-height: none !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  resize: vertical !important;
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+}
+
+.app-shell.theme-compact #prompt-layer-generated-text {
+  min-height: 162px !important;
+  height: 162px !important;
+  max-height: none !important;
+}
+
+/* Unavailable dashboard tools need to read as unavailable even when UXP does
+   not support image filters. Apply opacity directly to both row and artwork. */
+.app-shell.theme-compact .tool-card.is-coming-soon {
+  opacity: 0.5 !important;
+}
+
+.app-shell.theme-compact .tool-card.is-coming-soon .tool-icon,
+.app-shell.theme-compact .tool-card.is-coming-soon .icon-image,
+.app-shell.theme-compact .tool-card.is-coming-soon img,
+.app-shell.theme-compact .tool-card.is-coming-soon svg {
+  opacity: 0.28 !important;
+  filter: grayscale(1) !important;
+}
+
+.app-shell.theme-compact .tool-card.is-coming-soon .tool-title,
+.app-shell.theme-compact .tool-card.is-coming-soon .tool-subtitle {
+  color: #777777 !important;
 }
