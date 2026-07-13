@@ -6944,3 +6944,41 @@ body,
 .app-shell.theme-compact .ol-section.is-collapsible:not(.is-open) .ol-section-body {
   display: none;
 }
+
+/* v0.6 batch: status pill "working", toggle chips, import flash. */
+
+/* #10: amber pill while a generation is running. Needs !important to beat
+   the base theme-compact ".status-pill { color: ... !important }" rule. */
+.status-pill.working,
+.app-shell.theme-compact .status-pill.working {
+  background: rgba(240, 177, 83, 0.26) !important;
+  color: #f0c479 !important;
+}
+
+/* #5: auto-import / experimental toggles read as real pill chips that
+   fill when on, alongside the existing switch knob. */
+.app-shell.theme-compact button[aria-pressed] {
+  border: 1px solid var(--ol-line) !important;
+  border-radius: 999px !important;
+  background: transparent !important;
+  color: var(--ol-muted) !important;
+  font-weight: 650 !important;
+}
+
+.app-shell.theme-compact button[aria-pressed="true"] {
+  border-color: rgba(255, 198, 41, 0.55) !important;
+  background: rgba(255, 198, 41, 0.16) !important;
+  color: var(--ol-gold) !important;
+}
+
+/* #4: brief green pulse behind import-success text. */
+@keyframes openlayer-import-flash {
+  0% { background-color: rgba(88, 195, 134, 0); }
+  25% { background-color: rgba(88, 195, 134, 0.42); }
+  100% { background-color: rgba(88, 195, 134, 0); }
+}
+
+.app-shell.theme-compact .ol-import-flash {
+  border-radius: 6px;
+  animation: openlayer-import-flash 0.85s ease-out 1;
+}

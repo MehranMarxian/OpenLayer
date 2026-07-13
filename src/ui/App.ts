@@ -1598,6 +1598,7 @@ export function renderApp(rootElement: HTMLElement) {
         setDiagnostics(elements, message);
       });
       setStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
+      flashImported(elements.statusText);
       markHistoryImported(elements, historyEntries, result, importedLayerName);
       const metadataMessage = await writeMetadataForImportedResult(historyEntries, result, importedLayerName, (message) => {
         setDiagnostics(elements, message);
@@ -1876,6 +1877,7 @@ export function renderApp(rootElement: HTMLElement) {
         setImageDiagnostics(elements, message);
       });
       setImageStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
+      flashImported(elements.imgStatusText);
       markHistoryImported(elements, historyEntries, imageResult, importedLayerName);
       const metadataMessage = await writeMetadataForImportedResult(historyEntries, imageResult, importedLayerName, (message) => {
         setImageDiagnostics(elements, message);
@@ -2116,6 +2118,7 @@ export function renderApp(rootElement: HTMLElement) {
         setUpscaleDiagnostics(elements, message);
       });
       setUpscaleStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
+      flashImported(elements.upscaleStatusText);
       markHistoryImported(elements, historyEntries, upscaleResult, importedLayerName);
       const metadataMessage = await writeMetadataForImportedResult(historyEntries, upscaleResult, importedLayerName, (message) => {
         setUpscaleDiagnostics(elements, message);
@@ -2396,6 +2399,7 @@ export function renderApp(rootElement: HTMLElement) {
         setOutpaintDiagnostics(elements, message);
       });
       setOutpaintStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
+      flashImported(elements.outpaintStatusText);
       markHistoryImported(elements, historyEntries, outpaintResult, importedLayerName);
       const metadataMessage = await writeMetadataForImportedResult(historyEntries, outpaintResult, importedLayerName, (message) => {
         setOutpaintDiagnostics(elements, message);
@@ -2668,6 +2672,7 @@ export function renderApp(rootElement: HTMLElement) {
         setSketchDiagnostics(elements, message);
       });
       setSketchStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
+      flashImported(elements.sketchStatusText);
       markHistoryImported(elements, historyEntries, sketchResult, importedLayerName);
       const metadataMessage = await writeMetadataForImportedResult(historyEntries, sketchResult, importedLayerName, (message) => {
         setSketchDiagnostics(elements, message);
@@ -3112,6 +3117,7 @@ export function renderApp(rootElement: HTMLElement) {
       importMode = importResult.maskApplied ? "transparent-outside-mask" : "aligned-context-fallback";
       const importedLayerName = importResult.layerName;
       setInpaintStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
+      flashImported(elements.inpaintStatusText);
       markHistoryImported(elements, historyEntries, inpaintResult, importedLayerName);
       const metadataMessage = await writeMetadataForImportedResult(historyEntries, inpaintResult, importedLayerName, (message) => {
         setInpaintDiagnostics(elements, message);
@@ -3391,6 +3397,7 @@ export function renderApp(rootElement: HTMLElement) {
         (message) => setLiveStatus(message)
       );
       setLiveStatus(`Imported layer: ${importedLayerName}`);
+      flashImported(elements.liveStatusText);
     } catch (caughtError) {
       setLiveStatus(getErrorMessage(caughtError));
     }
@@ -5542,38 +5549,72 @@ function clampProgressPercent(value: number) {
   return Math.max(0, Math.min(100, value));
 }
 
+function flashImported(statusTextElement: HTMLElement) {
+  const target = (statusTextElement.closest(".status-bar") as HTMLElement | null) ?? statusTextElement;
+  target.classList.remove("ol-import-flash");
+  void target.offsetWidth;
+  target.classList.add("ol-import-flash");
+  window.setTimeout(() => target.classList.remove("ol-import-flash"), 900);
+}
+
+function applyStatusPill(pill: HTMLElement, status: string, tone: StatusTone) {
+  if (tone === "error") {
+    pill.textContent = "Error";
+    pill.className = "status-pill error";
+    return;
+  }
+
+  if (tone === "ready") {
+    pill.textContent = "Ready";
+    pill.className = "status-pill ready";
+    return;
+  }
+
+  const normalized = status.trim().toLowerCase();
+  const isWorking =
+    normalized !== "" &&
+    normalized !== "ready" &&
+    normalized !== "ready." &&
+    !normalized.includes("complete") &&
+    !normalized.includes("copied") &&
+    !normalized.includes("saved") &&
+    !normalized.includes("reset") &&
+    !normalized.includes("cancelled");
+
+  if (isWorking) {
+    pill.textContent = "Working";
+    pill.className = "status-pill working";
+    return;
+  }
+
+  pill.textContent = "Ready";
+  pill.className = "status-pill idle";
+}
+
 function setStatus(elements: AppElements, status: string, tone: StatusTone) {
   elements.statusText.textContent = status;
-  elements.statusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
-  elements.statusPill.className = `status-pill ${tone}`;
+  applyStatusPill(elements.statusPill, status, tone);
   setStatusProgress(elements.statusProgress, status, tone);
   elements.imgStatusText.textContent = status;
-  elements.imgStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
-  elements.imgStatusPill.className = `status-pill ${tone}`;
+  applyStatusPill(elements.imgStatusPill, status, tone);
   setStatusProgress(elements.imgStatusProgress, status, tone);
   elements.sketchStatusText.textContent = status;
-  elements.sketchStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
-  elements.sketchStatusPill.className = `status-pill ${tone}`;
+  applyStatusPill(elements.sketchStatusPill, status, tone);
   setStatusProgress(elements.sketchStatusProgress, status, tone);
   elements.inpaintStatusText.textContent = status;
-  elements.inpaintStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
-  elements.inpaintStatusPill.className = `status-pill ${tone}`;
+  applyStatusPill(elements.inpaintStatusPill, status, tone);
   setStatusProgress(elements.inpaintStatusProgress, status, tone);
   elements.outpaintStatusText.textContent = status;
-  elements.outpaintStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
-  elements.outpaintStatusPill.className = `status-pill ${tone}`;
+  applyStatusPill(elements.outpaintStatusPill, status, tone);
   setStatusProgress(elements.outpaintStatusProgress, status, tone);
   elements.upscaleStatusText.textContent = status;
-  elements.upscaleStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
-  elements.upscaleStatusPill.className = `status-pill ${tone}`;
+  applyStatusPill(elements.upscaleStatusPill, status, tone);
   setStatusProgress(elements.upscaleStatusProgress, status, tone);
   elements.promptLayerStatusText.textContent = status;
-  elements.promptLayerStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
-  elements.promptLayerStatusPill.className = `status-pill ${tone}`;
+  applyStatusPill(elements.promptLayerStatusPill, status, tone);
   setStatusProgress(elements.promptLayerStatusProgress, status, tone);
   elements.settingsStatusText.textContent = status;
-  elements.settingsStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
-  elements.settingsStatusPill.className = `status-pill ${tone}`;
+  applyStatusPill(elements.settingsStatusPill, status, tone);
   setStatusProgress(elements.settingsStatusProgress, status, tone);
   elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
   elements.homeStatusDot.className = `home-status-dot ${tone}`;
@@ -5581,8 +5622,7 @@ function setStatus(elements: AppElements, status: string, tone: StatusTone) {
 
 function setImageStatus(elements: AppElements, status: string, tone: StatusTone) {
   elements.imgStatusText.textContent = status;
-  elements.imgStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
-  elements.imgStatusPill.className = `status-pill ${tone}`;
+  applyStatusPill(elements.imgStatusPill, status, tone);
   setStatusProgress(elements.imgStatusProgress, status, tone);
   elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
   elements.homeStatusDot.className = `home-status-dot ${tone}`;
@@ -5590,8 +5630,7 @@ function setImageStatus(elements: AppElements, status: string, tone: StatusTone)
 
 function setSketchStatus(elements: AppElements, status: string, tone: StatusTone) {
   elements.sketchStatusText.textContent = status;
-  elements.sketchStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
-  elements.sketchStatusPill.className = `status-pill ${tone}`;
+  applyStatusPill(elements.sketchStatusPill, status, tone);
   setStatusProgress(elements.sketchStatusProgress, status, tone);
   elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
   elements.homeStatusDot.className = `home-status-dot ${tone}`;
@@ -5599,8 +5638,7 @@ function setSketchStatus(elements: AppElements, status: string, tone: StatusTone
 
 function setInpaintStatus(elements: AppElements, status: string, tone: StatusTone) {
   elements.inpaintStatusText.textContent = status;
-  elements.inpaintStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
-  elements.inpaintStatusPill.className = `status-pill ${tone}`;
+  applyStatusPill(elements.inpaintStatusPill, status, tone);
   setStatusProgress(elements.inpaintStatusProgress, status, tone);
   elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
   elements.homeStatusDot.className = `home-status-dot ${tone}`;
@@ -5608,8 +5646,7 @@ function setInpaintStatus(elements: AppElements, status: string, tone: StatusTon
 
 function setOutpaintStatus(elements: AppElements, status: string, tone: StatusTone) {
   elements.outpaintStatusText.textContent = status;
-  elements.outpaintStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
-  elements.outpaintStatusPill.className = `status-pill ${tone}`;
+  applyStatusPill(elements.outpaintStatusPill, status, tone);
   setStatusProgress(elements.outpaintStatusProgress, status, tone);
   elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
   elements.homeStatusDot.className = `home-status-dot ${tone}`;
@@ -5617,8 +5654,7 @@ function setOutpaintStatus(elements: AppElements, status: string, tone: StatusTo
 
 function setUpscaleStatus(elements: AppElements, status: string, tone: StatusTone) {
   elements.upscaleStatusText.textContent = status;
-  elements.upscaleStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
-  elements.upscaleStatusPill.className = `status-pill ${tone}`;
+  applyStatusPill(elements.upscaleStatusPill, status, tone);
   setStatusProgress(elements.upscaleStatusProgress, status, tone);
   elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
   elements.homeStatusDot.className = `home-status-dot ${tone}`;
@@ -5626,8 +5662,7 @@ function setUpscaleStatus(elements: AppElements, status: string, tone: StatusTon
 
 function setPromptLayerStatus(elements: AppElements, status: string, tone: StatusTone) {
   elements.promptLayerStatusText.textContent = status;
-  elements.promptLayerStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
-  elements.promptLayerStatusPill.className = `status-pill ${tone}`;
+  applyStatusPill(elements.promptLayerStatusPill, status, tone);
   setStatusProgress(elements.promptLayerStatusProgress, status, tone);
   elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
   elements.homeStatusDot.className = `home-status-dot ${tone}`;
