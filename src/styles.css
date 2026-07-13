@@ -7032,3 +7032,26 @@ body,
 .app-shell.theme-compact .advanced-toggle:hover {
   color: var(--text);
 }
+
+/* v0.6 #3: sticky screen header wraps the nav and the progress bar so live
+   progress stays visible while scrolling the form. The wrapper handles the
+   stickiness now instead of the nav itself. */
+.app-shell.theme-compact .screen-head {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  margin: 0 -10px 8px -8px;
+  padding: 8px 10px 0 8px;
+  background: #535353;
+}
+
+.app-shell.theme-compact .screen-head .screen-nav {
+  position: static;
+  margin: 0;
+  padding: 0 0 8px;
+  background: transparent;
+}
+
+.app-shell.theme-compact .screen-head .status-progress {
+  margin: 0 0 7px !important;
+}

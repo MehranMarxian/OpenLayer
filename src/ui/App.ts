@@ -770,6 +770,7 @@ export function renderApp(rootElement: HTMLElement) {
   bindExternalLinks(rootElement);
   bindAutoGrowTextareas(rootElement);
   bindAdvancedToggles(rootElement);
+  bindStickyProgress(rootElement);
   elements.settingsThemeSelect.addEventListener("change", () => {
     applyTheme(elements, readThemeSelection(elements));
     savePreferencesFromElements(elements);
@@ -6321,6 +6322,31 @@ function bindHistoryActions(
       runFromEvent(`keyboard:${key === " " ? "space" : key}`, event);
     }
   });
+}
+
+function bindStickyProgress(rootElement: HTMLElement) {
+  // Wrap each screen's back/title nav and its progress bar in one sticky
+  // header so live progress stays visible even after scrolling down the form.
+  const navs = Array.from(rootElement.querySelectorAll<HTMLElement>(".screen-nav"));
+
+  for (const nav of navs) {
+    const view = nav.closest("section");
+
+    if (!view) {
+      continue;
+    }
+
+    const head = document.createElement("div");
+    head.className = "screen-head";
+    nav.before(head);
+    head.appendChild(nav);
+
+    const progress = view.querySelector<HTMLElement>(".status-progress");
+
+    if (progress) {
+      head.appendChild(progress);
+    }
+  }
 }
 
 function bindAdvancedToggles(rootElement: HTMLElement) {
