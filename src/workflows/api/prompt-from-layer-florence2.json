@@ -39,8 +39,7 @@
       "num_beams": 12,
       "do_sample": true,
       "output_mask_select": "",
-      "seed": 284075328336101,
-      "control_after_generate": "randomize"
+      "seed": 284075328336101
     },
     "_meta": {
       "title": "Run Florence-2 PromptGen"
