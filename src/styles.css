@@ -7055,3 +7055,21 @@ body,
 .app-shell.theme-compact .screen-head .status-progress {
   margin: 0 0 7px !important;
 }
+
+/* v0.6 #6: one consistent form gutter. Drive spacing purely from the panel
+   flex gap and zero out per-field margins so every screen has the same
+   rhythm instead of the old 8/9/12px drift. */
+.app-shell.theme-compact .generator-panel,
+.app-shell.theme-compact .img2img-form-panel,
+.app-shell.theme-compact .settings-panel {
+  gap: 12px !important;
+}
+
+.app-shell.theme-compact .generator-panel > .field,
+.app-shell.theme-compact .generator-panel > .img2img-field,
+.app-shell.theme-compact .img2img-form-panel > .field,
+.app-shell.theme-compact .img2img-form-panel > .img2img-field,
+.app-shell.theme-compact .generator-panel > .settings-grid,
+.app-shell.theme-compact .img2img-form-panel > .settings-grid {
+  margin-bottom: 0 !important;
+}
