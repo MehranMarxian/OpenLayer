@@ -6982,3 +6982,53 @@ body,
   border-radius: 6px;
   animation: openlayer-import-flash 0.85s ease-out 1;
 }
+
+/* v0.6 #9: auto-grow textareas (JS drives the height up to ~8 lines). */
+.app-shell.theme-compact .textarea,
+.app-shell.theme-compact .compact-textarea {
+  resize: none;
+  max-height: 168px;
+}
+
+/* v0.6 (original #4): the Prompt from Layer output box starts taller so
+   generated captions are easy to read without scrolling. */
+.app-shell.theme-compact #prompt-layer-generated-text {
+  min-height: 112px;
+}
+
+/* v0.6 #8: collapsible "Advanced settings" disclosure for sampler tuning. */
+.app-shell.theme-compact .advanced-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  margin: 2px 0 6px;
+  padding: 5px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--ol-muted);
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-align: left;
+}
+
+.app-shell.theme-compact .advanced-toggle::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-right: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+}
+
+.app-shell.theme-compact .advanced-toggle.is-open::before {
+  transform: rotate(45deg);
+}
+
+.app-shell.theme-compact .advanced-toggle:hover {
+  color: var(--text);
+}

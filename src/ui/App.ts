@@ -570,6 +570,7 @@ const statusProgressTimers = new WeakMap<HTMLElement, number>();
 // status updates (e.g. the history poll tick) cannot reset a determinate bar
 // back to the indeterminate warm-up animation mid-run.
 const statusProgressLastPercent = new WeakMap<HTMLElement, number>();
+let autoGrowResizers: Array<() => void> = [];
 
 export function renderApp(rootElement: HTMLElement) {
   let currentView: AppView = "home";
@@ -767,6 +768,8 @@ export function renderApp(rootElement: HTMLElement) {
   bindToolCards(rootElement, (view) => setView(view));
   bindHistoryActions(rootElement, handleHistoryAction);
   bindExternalLinks(rootElement);
+  bindAutoGrowTextareas(rootElement);
+  bindAdvancedToggles(rootElement);
   elements.settingsThemeSelect.addEventListener("change", () => {
     applyTheme(elements, readThemeSelection(elements));
     savePreferencesFromElements(elements);
@@ -3249,6 +3252,7 @@ export function renderApp(rootElement: HTMLElement) {
       });
 
       elements.promptLayerGeneratedText.value = generatedText;
+      refreshAutoGrowTextareas();
       setPromptLayerStatus(elements, "Prompt text generated.", "ready");
       setPromptLayerDiagnostics(
         elements,
@@ -3297,6 +3301,7 @@ export function renderApp(rootElement: HTMLElement) {
     }
 
     elements.prompt.value = generatedText;
+    refreshAutoGrowTextareas();
     setPromptLayerError(elements, "");
     setView("text-to-image");
     updateTextCheckpointCompatibility(elements);
@@ -6316,6 +6321,71 @@ function bindHistoryActions(
       runFromEvent(`keyboard:${key === " " ? "space" : key}`, event);
     }
   });
+}
+
+function bindAdvancedToggles(rootElement: HTMLElement) {
+  // Hide the sampler-tuning grid (steps/CFG/seed and friends) behind an
+  // "Advanced settings" disclosure so each screen leads with prompt + model.
+  const grids = Array.from(rootElement.querySelectorAll<HTMLElement>(".settings-grid")).filter((grid) =>
+    grid.querySelector('input[id$="steps"], input[id$="cfg"], input[id$="seed"], input[id$="guidance"]')
+  );
+
+  for (const grid of grids) {
+    const parent = grid.parentElement;
+
+    if (!parent) {
+      continue;
+    }
+
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "advanced-toggle";
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.textContent = "Advanced settings";
+
+    const body = document.createElement("div");
+    body.className = "advanced-body";
+    body.hidden = true;
+
+    parent.insertBefore(toggle, grid);
+    parent.insertBefore(body, grid);
+    body.appendChild(grid);
+
+    // A sibling expansion grid (Outpaint padding stays visible) is left in place.
+    toggle.addEventListener("click", () => {
+      const shouldOpen = body.hidden;
+      body.hidden = !shouldOpen;
+      toggle.setAttribute("aria-expanded", String(shouldOpen));
+      toggle.classList.toggle("is-open", shouldOpen);
+    });
+  }
+}
+
+function bindAutoGrowTextareas(rootElement: HTMLElement) {
+  const maxHeight = 168; // roughly 8 lines before the textarea starts scrolling.
+
+  const resize = (textarea: HTMLTextAreaElement) => {
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.min(textarea.scrollHeight, maxHeight)}px`;
+    textarea.style.overflowY = textarea.scrollHeight > maxHeight ? "auto" : "hidden";
+  };
+
+  const textareas = Array.from(rootElement.querySelectorAll<HTMLTextAreaElement>("textarea.textarea"));
+
+  for (const textarea of textareas) {
+    textarea.addEventListener("input", () => resize(textarea));
+    resize(textarea);
+  }
+
+  // Programmatic value changes (Prompt from Layer output, Reuse Settings) do not
+  // fire "input", so expose a resize hook other code can call after setting value.
+  autoGrowResizers = textareas.map((textarea) => () => resize(textarea));
+}
+
+function refreshAutoGrowTextareas() {
+  for (const resize of autoGrowResizers) {
+    resize();
+  }
 }
 
 function bindExternalLinks(rootElement: HTMLElement) {
