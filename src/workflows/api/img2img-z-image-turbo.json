@@ -97,7 +97,6 @@
     "class_type": "KSampler",
     "inputs": {
       "seed": 1,
-      "control_after_generate": "randomize",
       "steps": 4,
       "cfg": 1,
       "sampler_name": "res_multistep",

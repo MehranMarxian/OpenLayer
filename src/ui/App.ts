@@ -566,6 +566,10 @@ type ActiveGeneration = {
 };
 
 const statusProgressTimers = new WeakMap<HTMLElement, number>();
+// Remembers the last real step percentage per progress bar so percent-less
+// status updates (e.g. the history poll tick) cannot reset a determinate bar
+// back to the indeterminate warm-up animation mid-run.
+const statusProgressLastPercent = new WeakMap<HTMLElement, number>();
 
 export function renderApp(rootElement: HTMLElement) {
   let currentView: AppView = "home";
@@ -763,6 +767,9 @@ export function renderApp(rootElement: HTMLElement) {
   bindToolCards(rootElement, (view) => setView(view));
   bindHistoryActions(rootElement, handleHistoryAction);
   bindExternalLinks(rootElement);
+  bindAdvancedToggles(rootElement);
+  bindToolWarnings(rootElement);
+  bindStickyProgress(rootElement);
   elements.settingsThemeSelect.addEventListener("change", () => {
     applyTheme(elements, readThemeSelection(elements));
     savePreferencesFromElements(elements);
@@ -1349,6 +1356,7 @@ export function renderApp(rootElement: HTMLElement) {
             setProgressPreview(elements, message);
           }
         },
+        onProgress: (value, max) => applyDeterminateProgress(elements.statusProgress, value, max),
         onPreviewBlob: (blob) => {
           hasLivePreview = true;
           setProgressPreview(elements, "Live ComfyUI preview...", blob);
@@ -1593,6 +1601,7 @@ export function renderApp(rootElement: HTMLElement) {
         setDiagnostics(elements, message);
       });
       setStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
+      flashImported(elements.statusText);
       markHistoryImported(elements, historyEntries, result, importedLayerName);
       const metadataMessage = await writeMetadataForImportedResult(historyEntries, result, importedLayerName, (message) => {
         setDiagnostics(elements, message);
@@ -1769,6 +1778,7 @@ export function renderApp(rootElement: HTMLElement) {
             setImageProgressPreview(elements, message);
           }
         },
+        onProgress: (value, max) => applyDeterminateProgress(elements.imgStatusProgress, value, max),
         onPreviewBlob: (blob) => {
           hasLivePreview = true;
           setImageProgressPreview(elements, "Live ComfyUI preview...", blob);
@@ -1870,6 +1880,7 @@ export function renderApp(rootElement: HTMLElement) {
         setImageDiagnostics(elements, message);
       });
       setImageStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
+      flashImported(elements.imgStatusText);
       markHistoryImported(elements, historyEntries, imageResult, importedLayerName);
       const metadataMessage = await writeMetadataForImportedResult(historyEntries, imageResult, importedLayerName, (message) => {
         setImageDiagnostics(elements, message);
@@ -2009,6 +2020,7 @@ export function renderApp(rootElement: HTMLElement) {
             setUpscaleProgressPreview(elements, message);
           }
         },
+        onProgress: (value, max) => applyDeterminateProgress(elements.upscaleStatusProgress, value, max),
         onPreviewBlob: (blob) => {
           hasLivePreview = true;
           setUpscaleProgressPreview(elements, "Live ComfyUI preview...", blob);
@@ -2109,6 +2121,7 @@ export function renderApp(rootElement: HTMLElement) {
         setUpscaleDiagnostics(elements, message);
       });
       setUpscaleStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
+      flashImported(elements.upscaleStatusText);
       markHistoryImported(elements, historyEntries, upscaleResult, importedLayerName);
       const metadataMessage = await writeMetadataForImportedResult(historyEntries, upscaleResult, importedLayerName, (message) => {
         setUpscaleDiagnostics(elements, message);
@@ -2289,6 +2302,7 @@ export function renderApp(rootElement: HTMLElement) {
             setOutpaintProgressPreview(elements, message);
           }
         },
+        onProgress: (value, max) => applyDeterminateProgress(elements.outpaintStatusProgress, value, max),
         onPreviewBlob: (blob) => {
           hasLivePreview = true;
           setOutpaintProgressPreview(elements, "Live ComfyUI Outpaint preview...", blob);
@@ -2388,6 +2402,7 @@ export function renderApp(rootElement: HTMLElement) {
         setOutpaintDiagnostics(elements, message);
       });
       setOutpaintStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
+      flashImported(elements.outpaintStatusText);
       markHistoryImported(elements, historyEntries, outpaintResult, importedLayerName);
       const metadataMessage = await writeMetadataForImportedResult(historyEntries, outpaintResult, importedLayerName, (message) => {
         setOutpaintDiagnostics(elements, message);
@@ -2570,6 +2585,7 @@ export function renderApp(rootElement: HTMLElement) {
             setSketchProgressPreview(elements, message);
           }
         },
+        onProgress: (value, max) => applyDeterminateProgress(elements.sketchStatusProgress, value, max),
         onPreviewBlob: (blob) => {
           hasLivePreview = true;
           setSketchProgressPreview(elements, "Live ComfyUI preview...", blob);
@@ -2659,6 +2675,7 @@ export function renderApp(rootElement: HTMLElement) {
         setSketchDiagnostics(elements, message);
       });
       setSketchStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
+      flashImported(elements.sketchStatusText);
       markHistoryImported(elements, historyEntries, sketchResult, importedLayerName);
       const metadataMessage = await writeMetadataForImportedResult(historyEntries, sketchResult, importedLayerName, (message) => {
         setSketchDiagnostics(elements, message);
@@ -2916,6 +2933,7 @@ export function renderApp(rootElement: HTMLElement) {
             setInpaintProgressPreview(elements, message);
           }
         },
+        onProgress: (value, max) => applyDeterminateProgress(elements.inpaintStatusProgress, value, max),
         onPreviewBlob: (blob) => {
           hasLivePreview = true;
           setInpaintProgressPreview(elements, "Live ComfyUI preview...", blob);
@@ -3102,6 +3120,7 @@ export function renderApp(rootElement: HTMLElement) {
       importMode = importResult.maskApplied ? "transparent-outside-mask" : "aligned-context-fallback";
       const importedLayerName = importResult.layerName;
       setInpaintStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
+      flashImported(elements.inpaintStatusText);
       markHistoryImported(elements, historyEntries, inpaintResult, importedLayerName);
       const metadataMessage = await writeMetadataForImportedResult(historyEntries, inpaintResult, importedLayerName, (message) => {
         setInpaintDiagnostics(elements, message);
@@ -3362,7 +3381,7 @@ export function renderApp(rootElement: HTMLElement) {
   function handleToggleLiveZoom() {
     livePreviewZoomed = !livePreviewZoomed;
     elements.liveResultPreviewPanel.classList.toggle("preview-zoomed", livePreviewZoomed);
-    elements.liveZoomToggle.textContent = livePreviewZoomed ? "\u{1F50D} 1x" : "\u{1F50D} 2x";
+    elements.liveZoomToggle.textContent = livePreviewZoomed ? "Zoom 1x" : "Zoom 2x";
     elements.liveZoomToggle.setAttribute("aria-pressed", String(livePreviewZoomed));
   }
 
@@ -3381,6 +3400,7 @@ export function renderApp(rootElement: HTMLElement) {
         (message) => setLiveStatus(message)
       );
       setLiveStatus(`Imported layer: ${importedLayerName}`);
+      flashImported(elements.liveStatusText);
     } catch (caughtError) {
       setLiveStatus(getErrorMessage(caughtError));
     }
@@ -4128,7 +4148,7 @@ function createAppMarkup() {
         <section class="panel-section generator-panel" aria-label="Live Painting preview">
           <div class="section-heading">
             <span class="label">Live preview</span>
-            <button class="button action-control" id="live-zoom-toggle" data-openlayer-action="toggleLiveZoom" type="button" aria-pressed="false">&#128270; 2x</button>
+            <button class="button action-control" id="live-zoom-toggle" data-openlayer-action="toggleLiveZoom" type="button" aria-pressed="false">Zoom 2x</button>
           </div>
           <div class="preview-panel" id="live-result-preview-panel">
             <span class="preview-empty">Start a session, then paint a stroke</span>
@@ -4911,7 +4931,7 @@ function createBrandHeaderMarkup() {
   return `
     <header class="app-header">
       <div class="brand-lockup">
-        <img class="brand-icon" src="icons/openlayer.png" alt="" width="48" height="48" />
+        <img class="brand-icon" src="icons/openlayer-icon.png" alt="" width="48" height="48" />
         <div>
           <h1 class="app-title">OpenLayer</h1>
           <p class="app-subtitle">Local AI layers for Photoshop</p>
@@ -4952,10 +4972,27 @@ function createHomeToolSectionMarkup(section: { title: string; toolIds: string[]
     .map((toolId) => TOOL_CARDS.find((card) => card.id === toolId))
     .filter((card): card is ToolCard => Boolean(card));
 
-  return `
-    <section class="home-section ol-section is-open" aria-label="${section.title}">
-      <div class="home-section-title ol-section-header" role="button" tabindex="0" aria-expanded="true" data-openlayer-section-toggle>
+  // Only the Workflow group is collapsible (and starts collapsed); the other
+  // groups are static labels for a flat, compact dashboard.
+  const isCollapsible = section.title === "Workflow";
+
+  if (isCollapsible) {
+    return `
+    <section class="home-section ol-section is-collapsible" aria-label="${section.title}">
+      <div class="home-section-title ol-section-header" role="button" tabindex="0" aria-expanded="false" data-openlayer-section-toggle>
         <span class="home-section-chevron ol-section-chevron" aria-hidden="true"></span>
+        <span>${section.title}</span>
+      </div>
+      <div class="tool-list ol-section-body">
+        ${cards.map(createToolCardMarkup).join("")}
+      </div>
+    </section>
+  `;
+  }
+
+  return `
+    <section class="home-section ol-section is-open is-static" aria-label="${section.title}">
+      <div class="home-section-title ol-section-header is-static">
         <span>${section.title}</span>
       </div>
       <div class="tool-list ol-section-body">
@@ -5359,19 +5396,20 @@ function setStatusProgress(progressElement: HTMLElement, status: string, tone: S
     !normalizedStatus.includes("saved") &&
     !normalizedStatus.includes("reset");
 
-  const progressPercent = readProgressPercent(status);
   const fill = progressElement.firstElementChild as HTMLElement | null;
-  progressElement.hidden = !isBusy;
-  progressElement.className = isBusy
-    ? `status-progress is-active${progressPercent !== null ? " is-determinate" : ""}`
-    : "status-progress";
+  const resolved = resolveStatusProgress(status, isBusy, statusProgressLastPercent.get(progressElement) ?? null);
 
-  if (!isBusy) {
+  if (!resolved.isBusy) {
     const existingTimer = statusProgressTimers.get(progressElement);
     if (existingTimer) {
       window.clearInterval(existingTimer);
       statusProgressTimers.delete(progressElement);
     }
+
+    statusProgressLastPercent.delete(progressElement);
+    progressElement.hidden = true;
+    progressElement.className = "status-progress";
+    progressElement.style.removeProperty("--ol-progress");
 
     if (fill) {
       fill.style.marginLeft = "";
@@ -5382,22 +5420,17 @@ function setStatusProgress(progressElement: HTMLElement, status: string, tone: S
     return;
   }
 
-  if (progressPercent !== null) {
-    const existingTimer = statusProgressTimers.get(progressElement);
-    if (existingTimer) {
-      window.clearInterval(existingTimer);
-      statusProgressTimers.delete(progressElement);
-    }
+  const stickyPercent = resolved.percent;
 
-    if (fill) {
-      fill.style.marginLeft = "0";
-      fill.style.width = `${progressPercent}%`;
-    }
+  progressElement.hidden = false;
+  progressElement.className = `status-progress is-active${stickyPercent !== null ? " is-determinate" : ""}`;
 
-    progressElement.removeAttribute("data-progress-offset");
-    progressElement.setAttribute("data-progress-label", `${progressPercent}%`);
+  if (stickyPercent !== null) {
+    renderDeterminateProgress(progressElement, stickyPercent);
     return;
   }
+
+  progressElement.style.removeProperty("--ol-progress");
 
   progressElement.removeAttribute("data-progress-label");
 
@@ -5417,6 +5450,66 @@ function setStatusProgress(progressElement: HTMLElement, status: string, tone: S
   }, 120);
 
   statusProgressTimers.set(progressElement, timer);
+}
+
+function renderDeterminateProgress(progressElement: HTMLElement, percent: number) {
+  const fill = progressElement.firstElementChild as HTMLElement | null;
+  const existingTimer = statusProgressTimers.get(progressElement);
+
+  if (existingTimer) {
+    window.clearInterval(existingTimer);
+    statusProgressTimers.delete(progressElement);
+  }
+
+  statusProgressLastPercent.set(progressElement, percent);
+  progressElement.hidden = false;
+  progressElement.className = "status-progress is-active is-determinate";
+  // The determinate fill width is driven by a CSS variable so it beats the
+  // legacy "width: 42% !important" indeterminate rule without inline hacks.
+  progressElement.style.setProperty("--ol-progress", `${percent}%`);
+
+  if (fill) {
+    fill.style.marginLeft = "";
+    fill.style.width = "";
+  }
+
+  progressElement.removeAttribute("data-progress-offset");
+  progressElement.setAttribute("data-progress-label", `${percent}%`);
+}
+
+// Dedicated numeric progress entry point driven by the ComfyUI WebSocket
+// progress channel, independent of the human-readable status text.
+function applyDeterminateProgress(progressElement: HTMLElement, value: number, max: number) {
+  if (!Number.isFinite(value) || !Number.isFinite(max) || max <= 0) {
+    return;
+  }
+
+  renderDeterminateProgress(progressElement, Math.max(0, Math.min(100, Math.round((value / max) * 100))));
+}
+
+export type StatusProgressState = {
+  isBusy: boolean;
+  // null while busy = indeterminate warm-up animation; a number = determinate fill.
+  percent: number | null;
+};
+
+// Pure resolver for the progress bar. Keeps a determinate bar determinate once
+// real step progress has arrived: percent-less status updates (the history
+// poll tick, "Retrieving image...") hold the last known percent instead of
+// collapsing the bar back to the indeterminate warm-up animation.
+export function resolveStatusProgress(
+  status: string,
+  isBusy: boolean,
+  lastPercent: number | null
+): StatusProgressState {
+  if (!isBusy) {
+    return { isBusy: false, percent: null };
+  }
+
+  const parsedPercent = readProgressPercent(status);
+  const percent = parsedPercent ?? lastPercent;
+
+  return { isBusy: true, percent: percent ?? null };
 }
 
 function readProgressPercent(status: string) {
@@ -5459,38 +5552,72 @@ function clampProgressPercent(value: number) {
   return Math.max(0, Math.min(100, value));
 }
 
+function flashImported(statusTextElement: HTMLElement) {
+  const target = (statusTextElement.closest(".status-bar") as HTMLElement | null) ?? statusTextElement;
+  target.classList.remove("ol-import-flash");
+  void target.offsetWidth;
+  target.classList.add("ol-import-flash");
+  window.setTimeout(() => target.classList.remove("ol-import-flash"), 900);
+}
+
+function applyStatusPill(pill: HTMLElement, status: string, tone: StatusTone) {
+  if (tone === "error") {
+    pill.textContent = "Error";
+    pill.className = "status-pill error";
+    return;
+  }
+
+  if (tone === "ready") {
+    pill.textContent = "Ready";
+    pill.className = "status-pill ready";
+    return;
+  }
+
+  const normalized = status.trim().toLowerCase();
+  const isWorking =
+    normalized !== "" &&
+    normalized !== "ready" &&
+    normalized !== "ready." &&
+    !normalized.includes("complete") &&
+    !normalized.includes("copied") &&
+    !normalized.includes("saved") &&
+    !normalized.includes("reset") &&
+    !normalized.includes("cancelled");
+
+  if (isWorking) {
+    pill.textContent = "Working";
+    pill.className = "status-pill working";
+    return;
+  }
+
+  pill.textContent = "Ready";
+  pill.className = "status-pill idle";
+}
+
 function setStatus(elements: AppElements, status: string, tone: StatusTone) {
   elements.statusText.textContent = status;
-  elements.statusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
-  elements.statusPill.className = `status-pill ${tone}`;
+  applyStatusPill(elements.statusPill, status, tone);
   setStatusProgress(elements.statusProgress, status, tone);
   elements.imgStatusText.textContent = status;
-  elements.imgStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
-  elements.imgStatusPill.className = `status-pill ${tone}`;
+  applyStatusPill(elements.imgStatusPill, status, tone);
   setStatusProgress(elements.imgStatusProgress, status, tone);
   elements.sketchStatusText.textContent = status;
-  elements.sketchStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
-  elements.sketchStatusPill.className = `status-pill ${tone}`;
+  applyStatusPill(elements.sketchStatusPill, status, tone);
   setStatusProgress(elements.sketchStatusProgress, status, tone);
   elements.inpaintStatusText.textContent = status;
-  elements.inpaintStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
-  elements.inpaintStatusPill.className = `status-pill ${tone}`;
+  applyStatusPill(elements.inpaintStatusPill, status, tone);
   setStatusProgress(elements.inpaintStatusProgress, status, tone);
   elements.outpaintStatusText.textContent = status;
-  elements.outpaintStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
-  elements.outpaintStatusPill.className = `status-pill ${tone}`;
+  applyStatusPill(elements.outpaintStatusPill, status, tone);
   setStatusProgress(elements.outpaintStatusProgress, status, tone);
   elements.upscaleStatusText.textContent = status;
-  elements.upscaleStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
-  elements.upscaleStatusPill.className = `status-pill ${tone}`;
+  applyStatusPill(elements.upscaleStatusPill, status, tone);
   setStatusProgress(elements.upscaleStatusProgress, status, tone);
   elements.promptLayerStatusText.textContent = status;
-  elements.promptLayerStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
-  elements.promptLayerStatusPill.className = `status-pill ${tone}`;
+  applyStatusPill(elements.promptLayerStatusPill, status, tone);
   setStatusProgress(elements.promptLayerStatusProgress, status, tone);
   elements.settingsStatusText.textContent = status;
-  elements.settingsStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
-  elements.settingsStatusPill.className = `status-pill ${tone}`;
+  applyStatusPill(elements.settingsStatusPill, status, tone);
   setStatusProgress(elements.settingsStatusProgress, status, tone);
   elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
   elements.homeStatusDot.className = `home-status-dot ${tone}`;
@@ -5498,8 +5625,7 @@ function setStatus(elements: AppElements, status: string, tone: StatusTone) {
 
 function setImageStatus(elements: AppElements, status: string, tone: StatusTone) {
   elements.imgStatusText.textContent = status;
-  elements.imgStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
-  elements.imgStatusPill.className = `status-pill ${tone}`;
+  applyStatusPill(elements.imgStatusPill, status, tone);
   setStatusProgress(elements.imgStatusProgress, status, tone);
   elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
   elements.homeStatusDot.className = `home-status-dot ${tone}`;
@@ -5507,8 +5633,7 @@ function setImageStatus(elements: AppElements, status: string, tone: StatusTone)
 
 function setSketchStatus(elements: AppElements, status: string, tone: StatusTone) {
   elements.sketchStatusText.textContent = status;
-  elements.sketchStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
-  elements.sketchStatusPill.className = `status-pill ${tone}`;
+  applyStatusPill(elements.sketchStatusPill, status, tone);
   setStatusProgress(elements.sketchStatusProgress, status, tone);
   elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
   elements.homeStatusDot.className = `home-status-dot ${tone}`;
@@ -5516,8 +5641,7 @@ function setSketchStatus(elements: AppElements, status: string, tone: StatusTone
 
 function setInpaintStatus(elements: AppElements, status: string, tone: StatusTone) {
   elements.inpaintStatusText.textContent = status;
-  elements.inpaintStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
-  elements.inpaintStatusPill.className = `status-pill ${tone}`;
+  applyStatusPill(elements.inpaintStatusPill, status, tone);
   setStatusProgress(elements.inpaintStatusProgress, status, tone);
   elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
   elements.homeStatusDot.className = `home-status-dot ${tone}`;
@@ -5525,8 +5649,7 @@ function setInpaintStatus(elements: AppElements, status: string, tone: StatusTon
 
 function setOutpaintStatus(elements: AppElements, status: string, tone: StatusTone) {
   elements.outpaintStatusText.textContent = status;
-  elements.outpaintStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
-  elements.outpaintStatusPill.className = `status-pill ${tone}`;
+  applyStatusPill(elements.outpaintStatusPill, status, tone);
   setStatusProgress(elements.outpaintStatusProgress, status, tone);
   elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
   elements.homeStatusDot.className = `home-status-dot ${tone}`;
@@ -5534,8 +5657,7 @@ function setOutpaintStatus(elements: AppElements, status: string, tone: StatusTo
 
 function setUpscaleStatus(elements: AppElements, status: string, tone: StatusTone) {
   elements.upscaleStatusText.textContent = status;
-  elements.upscaleStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
-  elements.upscaleStatusPill.className = `status-pill ${tone}`;
+  applyStatusPill(elements.upscaleStatusPill, status, tone);
   setStatusProgress(elements.upscaleStatusProgress, status, tone);
   elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
   elements.homeStatusDot.className = `home-status-dot ${tone}`;
@@ -5543,8 +5665,7 @@ function setUpscaleStatus(elements: AppElements, status: string, tone: StatusTon
 
 function setPromptLayerStatus(elements: AppElements, status: string, tone: StatusTone) {
   elements.promptLayerStatusText.textContent = status;
-  elements.promptLayerStatusPill.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : "Status";
-  elements.promptLayerStatusPill.className = `status-pill ${tone}`;
+  applyStatusPill(elements.promptLayerStatusPill, status, tone);
   setStatusProgress(elements.promptLayerStatusProgress, status, tone);
   elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
   elements.homeStatusDot.className = `home-status-dot ${tone}`;
@@ -5905,13 +6026,8 @@ function bindActionControl(element: HTMLElement, run: ActionRunner) {
     run(eventName);
   };
 
-  element.onmousedown = (event) => runFromEvent("onmousedown", event);
-  element.onmouseup = (event) => runFromEvent("onmouseup", event);
-  element.onclick = (event) => runFromEvent("onclick", event);
-
-  for (const eventName of ["click", "mousedown", "mouseup", "pointerup", "touchend"]) {
-    element.addEventListener(eventName, (event) => runFromEvent(eventName, event));
-  }
+  // A single "click" binding avoids the old pointerup+click double-fire.
+  element.addEventListener("click", (event) => runFromEvent("click", event));
 
   element.addEventListener("keydown", (event) => {
     const key = (event as KeyboardEvent).key;
@@ -5924,53 +6040,49 @@ function bindActionControl(element: HTMLElement, run: ActionRunner) {
 }
 
 function bindDelegatedActions(rootElement: HTMLElement, actionHandlers: ActionHandlers) {
-  for (const eventName of ["click", "mousedown", "mouseup", "pointerup", "touchend"]) {
-    rootElement.addEventListener(
-      eventName,
-      (event) => {
-        const actionElement = findActionElement(event.target, rootElement);
+  rootElement.addEventListener(
+    "click",
+    (event) => {
+      const actionElement = findActionElement(event.target, rootElement);
 
-        if (!actionElement || isActionDisabled(actionElement)) {
-          return;
-        }
+      if (!actionElement || isActionDisabled(actionElement)) {
+        return;
+      }
 
-        const actionName = actionElement.getAttribute("data-openlayer-action") as ActionName | null;
+      const actionName = actionElement.getAttribute("data-openlayer-action") as ActionName | null;
 
-        if (!actionName || !(actionName in actionHandlers)) {
-          return;
-        }
+      if (!actionName || !(actionName in actionHandlers)) {
+        return;
+      }
 
-        event.preventDefault();
-        actionHandlers[actionName](eventName);
-      },
-      true
-    );
-  }
+      event.preventDefault();
+      actionHandlers[actionName]("click");
+    },
+    true
+  );
 }
 
 function bindDocumentActions(rootElement: HTMLElement, actionHandlers: ActionHandlers) {
-  for (const eventName of ["click", "mousedown", "mouseup", "pointerup", "touchend"]) {
-    document.addEventListener(
-      eventName,
-      (event) => {
-        const actionElement = findActionElement(event.target, rootElement);
+  document.addEventListener(
+    "click",
+    (event) => {
+      const actionElement = findActionElement(event.target, rootElement);
 
-        if (!actionElement || isActionDisabled(actionElement)) {
-          return;
-        }
+      if (!actionElement || isActionDisabled(actionElement)) {
+        return;
+      }
 
-        const actionName = actionElement.getAttribute("data-openlayer-action") as ActionName | null;
+      const actionName = actionElement.getAttribute("data-openlayer-action") as ActionName | null;
 
-        if (!actionName || !(actionName in actionHandlers)) {
-          return;
-        }
+      if (!actionName || !(actionName in actionHandlers)) {
+        return;
+      }
 
-        event.preventDefault();
-        actionHandlers[actionName](`document:${eventName}`);
-      },
-      true
-    );
-  }
+      event.preventDefault();
+      actionHandlers[actionName]("document:click");
+    },
+    true
+  );
 }
 
 function bindHomeSectionToggles(rootElement: HTMLElement) {
@@ -6010,9 +6122,7 @@ function bindHomeSectionToggles(rootElement: HTMLElement) {
     body.hidden = !isOpen;
   };
 
-  for (const eventName of ["click", "pointerup", "touchend"]) {
-    rootElement.addEventListener(eventName, runFromEvent, true);
-  }
+  rootElement.addEventListener("click", runFromEvent, true);
 
   rootElement.addEventListener("keydown", (event) => {
     const key = (event as KeyboardEvent).key;
@@ -6072,9 +6182,7 @@ function bindDetailSectionToggles(rootElement: HTMLElement) {
     header.setAttribute("aria-expanded", isOpen ? "true" : "false");
   };
 
-  for (const eventName of ["click", "pointerup", "touchend"]) {
-    rootElement.addEventListener(eventName, runFromEvent, true);
-  }
+  rootElement.addEventListener("click", runFromEvent, true);
 
   rootElement.addEventListener("keydown", (event) => {
     const key = (event as KeyboardEvent).key;
@@ -6122,9 +6230,7 @@ function bindInfoToggles(rootElement: HTMLElement) {
     toggle.setAttribute("aria-expanded", shouldShow ? "true" : "false");
   };
 
-  for (const eventName of ["click", "pointerup", "touchend"]) {
-    rootElement.addEventListener(eventName, runFromEvent, true);
-  }
+  rootElement.addEventListener("click", runFromEvent, true);
 
   rootElement.addEventListener("keydown", (event) => {
     const key = (event as KeyboardEvent).key;
@@ -6162,9 +6268,7 @@ function bindToolCards(rootElement: HTMLElement, setView: (view: AppView) => voi
     setView(nextView);
   };
 
-  for (const eventName of ["click", "mousedown", "mouseup", "pointerup", "touchend"]) {
-    rootElement.addEventListener(eventName, (event) => runFromEvent(eventName, event), true);
-  }
+  rootElement.addEventListener("click", (event) => runFromEvent("click", event), true);
 
   rootElement.addEventListener("keydown", (event) => {
     const key = (event as KeyboardEvent).key;
@@ -6206,9 +6310,7 @@ function bindHistoryActions(
     handleHistoryAction(action, historyId);
   };
 
-  for (const eventName of ["click", "mousedown", "mouseup", "pointerup", "touchend"]) {
-    rootElement.addEventListener(eventName, (event) => runFromEvent(eventName, event), true);
-  }
+  rootElement.addEventListener("click", (event) => runFromEvent("click", event), true);
 
   rootElement.addEventListener("keydown", (event) => {
     const key = (event as KeyboardEvent).key;
@@ -6217,6 +6319,103 @@ function bindHistoryActions(
       runFromEvent(`keyboard:${key === " " ? "space" : key}`, event);
     }
   });
+}
+
+function bindToolWarnings(rootElement: HTMLElement) {
+  // Replace the always-on orange experimental banner with a small orange info
+  // button in the screen header that reveals the note only when clicked.
+  const warnings = Array.from(rootElement.querySelectorAll<HTMLElement>(".tool-warning"));
+
+  for (const warning of warnings) {
+    const view = warning.closest("section");
+    const titleBlock = view?.querySelector<HTMLElement>(".screen-title-block");
+
+    if (!titleBlock) {
+      continue;
+    }
+
+    warning.hidden = true;
+
+    const info = document.createElement("button");
+    info.type = "button";
+    info.className = "tool-info-button";
+    info.textContent = "i";
+    info.setAttribute("aria-label", "Show experimental notes");
+    info.setAttribute("aria-expanded", "false");
+    titleBlock.appendChild(info);
+
+    info.addEventListener("click", () => {
+      const show = warning.hidden;
+      warning.hidden = !show;
+      info.setAttribute("aria-expanded", String(show));
+      info.classList.toggle("is-active", show);
+    });
+  }
+}
+
+function bindStickyProgress(rootElement: HTMLElement) {
+  // Wrap each screen's back/title nav and its progress bar in one sticky
+  // header so live progress stays visible even after scrolling down the form.
+  const navs = Array.from(rootElement.querySelectorAll<HTMLElement>(".screen-nav"));
+
+  for (const nav of navs) {
+    const view = nav.closest("section");
+
+    if (!view) {
+      continue;
+    }
+
+    const head = document.createElement("div");
+    head.className = "screen-head";
+    nav.before(head);
+    head.appendChild(nav);
+
+    const progress = view.querySelector<HTMLElement>(".status-progress");
+
+    if (progress) {
+      head.appendChild(progress);
+    }
+  }
+}
+
+function bindAdvancedToggles(rootElement: HTMLElement) {
+  // Hide the sampler-tuning grid (steps/CFG/seed and friends) behind an
+  // "Advanced settings" disclosure so each screen leads with prompt + model.
+  const grids = Array.from(rootElement.querySelectorAll<HTMLElement>(".settings-grid")).filter((grid) =>
+    grid.querySelector('input[id$="steps"], input[id$="cfg"], input[id$="seed"], input[id$="guidance"]')
+  );
+
+  for (const grid of grids) {
+    const parent = grid.parentElement;
+
+    if (!parent) {
+      continue;
+    }
+
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "advanced-toggle";
+    toggle.setAttribute("aria-expanded", "false");
+    // Plain-text caret (UXP does not render triangle/emoji glyphs reliably).
+    toggle.textContent = "+ Advanced settings";
+
+    const body = document.createElement("div");
+    body.className = "advanced-body";
+    body.hidden = true;
+
+    parent.insertBefore(toggle, grid);
+    parent.insertBefore(body, grid);
+    body.appendChild(grid);
+
+    // A sibling expansion grid (Outpaint padding stays visible) is left in place.
+    toggle.addEventListener("click", () => {
+      const shouldOpen = body.hidden;
+      body.hidden = !shouldOpen;
+      toggle.setAttribute("aria-expanded", String(shouldOpen));
+      toggle.classList.toggle("is-open", shouldOpen);
+      toggle.textContent = shouldOpen ? "− Advanced settings" : "+ Advanced settings";
+    });
+  }
 }
 
 function bindExternalLinks(rootElement: HTMLElement) {

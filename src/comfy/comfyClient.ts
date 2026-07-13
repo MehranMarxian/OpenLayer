@@ -67,6 +67,7 @@ type PollOptions = {
 
 type ProgressWatcherOptions = {
   onStatus?: (message: string) => void;
+  onProgress?: (value: number, max: number) => void;
   onPreviewBlob?: (blob: Blob) => void;
   onError?: (message: string) => void;
 };
@@ -744,22 +745,18 @@ export class ComfyClient {
       return;
     }
 
-    if (message.type === "progress") {
-      const value = readNumber(message.data?.value);
-      const max = readNumber(message.data?.max);
+    if (message.type === "progress" || message.type === "progress_state") {
+      const progress = readComfyProgress(message);
 
-      if (value !== null && max !== null && max > 0) {
-        const percent = Math.max(0, Math.min(100, Math.round((value / max) * 100)));
-        options.onStatus?.(`Generating step ${value} of ${max} (${percent}%)...`);
+      if (progress) {
+        // Drive the determinate progress bar through a dedicated numeric channel
+        // so it is never clobbered by percent-less status text (node execution
+        // labels, history poll ticks).
+        options.onProgress?.(progress.value, progress.max);
+        options.onStatus?.(
+          `Generating step ${progress.value} of ${progress.max} (${progress.percent}%)...`
+        );
       }
-    } else if (message.type === "executing") {
-      const node = readString(message.data?.node);
-
-      if (node) {
-        options.onStatus?.(`Executing ComfyUI node ${node}...`);
-      }
-    } else if (message.type === "execution_cached") {
-      options.onStatus?.("ComfyUI is using cached workflow nodes...");
     } else if (message.type === "execution_error") {
       options.onError?.("ComfyUI reported an execution error. Waiting for final history...");
     }
@@ -1032,6 +1029,47 @@ function readString(value: unknown) {
 
 function readNumber(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+type ComfyStepProgress = { value: number; max: number; percent: number };
+
+// Reads live sampling progress from either the classic "progress" message
+// (data.value/data.max) or the newer "progress_state" message
+// (data.nodes[id].value/max). Only multi-step counters (max > 1) are used so
+// per-node 0/1 markers do not report bogus 0% progress.
+export function readComfyProgress(message: ProgressJsonMessage): ComfyStepProgress | null {
+  const data = readObject(message.data);
+  const direct = toStepProgress(readNumber(data.value), readNumber(data.max));
+
+  if (direct) {
+    return direct;
+  }
+
+  const nodes = readObject(data.nodes);
+  let best: ComfyStepProgress | null = null;
+
+  for (const node of Object.values(nodes)) {
+    const nodeData = readObject(node);
+    const candidate = toStepProgress(readNumber(nodeData.value), readNumber(nodeData.max));
+
+    if (candidate && (!best || candidate.max > best.max)) {
+      best = candidate;
+    }
+  }
+
+  return best;
+}
+
+function toStepProgress(value: number | null, max: number | null): ComfyStepProgress | null {
+  if (value === null || max === null || max <= 1) {
+    return null;
+  }
+
+  return {
+    value,
+    max,
+    percent: Math.max(0, Math.min(100, Math.round((value / max) * 100)))
+  };
 }
 
 async function decodeComfyPreviewBlob(blob: Blob | ArrayBuffer) {

@@ -88,7 +88,6 @@
         2
       ],
       "seed": 1,
-      "control_after_generate": "randomize",
       "steps": 20,
       "cfg": 1,
       "sampler_name": "euler",

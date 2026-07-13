@@ -144,7 +144,6 @@
         0
       ],
       "seed": 164211176398261,
-      "control_after_generate": "randomize",
       "steps": 20,
       "cfg": 1,
       "sampler_name": "euler",

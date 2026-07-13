@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ComfyClient, findImageOutput, findPromptIndex, readComfyModelNameList } from "../../src/comfy/comfyClient";
+import {
+  ComfyClient,
+  findImageOutput,
+  findPromptIndex,
+  readComfyModelNameList,
+  readComfyProgress
+} from "../../src/comfy/comfyClient";
 
 describe("ComfyClient output selection", () => {
   it("uses the preferred SaveImage node instead of the first history image", () => {
@@ -101,6 +107,36 @@ describe("ComfyClient image upload", () => {
     );
 
     expect(uploadedName).toBe("openlayer/source.png");
+  });
+});
+
+describe("ComfyClient live progress parsing", () => {
+  it("reads the classic progress message value and max", () => {
+    expect(
+      readComfyProgress({ type: "progress", data: { value: 5, max: 20, node: "3" } })
+    ).toEqual({ value: 5, max: 20, percent: 25 });
+  });
+
+  it("reads step progress from the newer progress_state nodes", () => {
+    const progress = readComfyProgress({
+      type: "progress_state",
+      data: {
+        prompt_id: "abc",
+        nodes: {
+          "4": { value: 0, max: 1, state: "finished" },
+          "3": { value: 18, max: 20, state: "running" }
+        }
+      }
+    });
+
+    expect(progress).toEqual({ value: 18, max: 20, percent: 90 });
+  });
+
+  it("ignores single-step node markers that would report a bogus 0 percent", () => {
+    expect(
+      readComfyProgress({ type: "progress_state", data: { nodes: { "4": { value: 0, max: 1 } } } })
+    ).toBeNull();
+    expect(readComfyProgress({ type: "progress", data: {} })).toBeNull();
   });
 });
 
