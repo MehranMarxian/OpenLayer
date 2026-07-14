@@ -13,7 +13,7 @@ npm run package
 
 `npm run build` writes the production plugin to `dist` and copies UXP assets such as `manifest.json` and workflow JSON files.
 
-`npm run package` zips the contents of `dist` into `packages/openlayer-v0.3.0-alpha.zip`.
+`npm run package` derives the alpha label from `package.json` and zips `dist` into `packages/openlayer-v0.6.0-alpha.zip` for this release.
 
 ## ComfyUI Workflow Development
 

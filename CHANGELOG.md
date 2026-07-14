@@ -1,5 +1,36 @@
 # Changelog
 
+## v0.6.0-alpha - 2026-07-13
+
+UXP interface release focused on a denser Photoshop-native workflow, dependable progress feedback, and final real-panel rendering fixes.
+
+### Added
+
+- Added a compact Adobe-style dashboard with grouped tool rows, richer icons, clearer availability states, and a restored Workflow disclosure.
+- Added sticky tool headers and determinate ComfyUI progress driven by the dedicated numeric WebSocket progress channel.
+- Added collapsible Advanced settings, status-pill tones, toggle chips, import success feedback, and compact experimental-info controls.
+
+### Changed
+
+- Standardized form gutters, panel spacing, tool-screen headers, preview zoom behavior, and progress placement across the compact theme.
+- Enlarged prompt editors for Photoshop UXP, including a three-times-taller Prompt from Layer generated-text field, while retaining normal scrolling and manual resize behavior.
+- Dimmed unavailable dashboard tools more clearly and switched compact controls to UXP-safe typography and explicit pixel spacing.
+- Removed obsolete `control_after_generate` fields from bundled workflow JSON files.
+- Bumped plugin, package, visible UI, landing page, and archive metadata to `0.6.0` / `v0.6.0-alpha`.
+
+### Fixed
+
+- Fixed panel actions firing twice from overlapping UXP click and pointer events.
+- Fixed UXP header icons, titles, and Back to Tools controls touching or collapsing together.
+- Fixed the header progress bar rendering as a short or malformed strip in Photoshop.
+- Removed unreliable textarea auto-grow behavior that could make long prompt entry appear to stop accepting text in UXP.
+
+### Known limitations
+
+- Inpaint and Outpaint remain experimental and should be tested on duplicate layers or disposable documents.
+- Prompt from Layer still requires the local Florence-2 PromptGen workflow, custom nodes, and model files.
+- CI covers pure TypeScript behavior but does not run Photoshop, UXP Developer Tool, or ComfyUI integration tests.
+
 ## v0.5.5-alpha - 2026-07-11
 
 Correctness and trust release: working inpaint uploads, safe cancel, aligned inpaint context, and honest status copy.
