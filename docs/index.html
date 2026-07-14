@@ -9,17 +9,21 @@
       content="OpenLayer is a free, open-source Photoshop UXP plugin that connects to your local ComfyUI server. Generate with Stable Diffusion, SDXL, and Flux inside Photoshop: text to image, image to image, sketch to image, inpaint, outpaint, and upscale — 100% local, no cloud, no subscription."
     >
     <link rel="canonical" href="https://mehran-ahmadi.com/OpenLayer/">
-    <meta name="theme-color" content="#0b0c10">
+    <meta name="theme-color" content="#000000">
     <meta property="og:title" content="OpenLayer — Free Photoshop Plugin for ComfyUI">
     <meta property="og:description" content="Local AI layers for Photoshop. Generate with Stable Diffusion, SDXL, and Flux through your own ComfyUI server — text to image, inpaint, outpaint, upscale. Open source, no cloud, no subscription.">
-    <meta property="og:image" content="https://mehran-ahmadi.com/OpenLayer/assets/openlayer-v055-home.png">
+    <meta property="og:image" content="https://mehran-ahmadi.com/OpenLayer/assets/openlayer-v060-social.jpg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="OpenLayer v0.6 generating a local Text to Image result inside Photoshop">
     <meta property="og:url" content="https://mehran-ahmadi.com/OpenLayer/">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="OpenLayer — Free Photoshop Plugin for ComfyUI">
     <meta name="twitter:description" content="Local AI layers for Photoshop. Stable Diffusion, SDXL, and Flux through your own ComfyUI server. Open source, no cloud.">
-    <meta name="twitter:image" content="https://mehran-ahmadi.com/OpenLayer/assets/openlayer-v055-home.png">
-    <link rel="icon" href="assets/openlayer-icon.png">
+    <meta name="twitter:image" content="https://mehran-ahmadi.com/OpenLayer/assets/openlayer-v060-social.jpg">
+    <link rel="icon" href="assets/openlayer-icon-152.png">
+    <link rel="preload" as="image" href="assets/v060/text-to-image-photoshop.webp" type="image/webp">
     <link rel="stylesheet" href="styles.css">
     <script type="application/ld+json">
     {
@@ -29,7 +33,7 @@
       "operatingSystem": "Windows, macOS",
       "applicationCategory": "DesignApplication",
       "applicationSubCategory": "Adobe Photoshop plugin",
-      "softwareVersion": "0.5.5-alpha",
+      "softwareVersion": "0.6.0-alpha",
       "description": "Open-source Photoshop UXP plugin that connects to a local ComfyUI server for AI image generation: text to image, image to image, sketch to image, inpaint, outpaint, and upscale with Stable Diffusion, SDXL, and Flux models.",
       "url": "https://mehran-ahmadi.com/OpenLayer/",
       "downloadUrl": "https://github.com/MehranMarxian/OpenLayer/releases",
@@ -43,12 +47,13 @@
 
     <header class="site-header" aria-label="Primary navigation">
       <a class="brand" href="#top" aria-label="OpenLayer home">
-        <img src="assets/openlayer-icon.png" alt="" width="34" height="34">
+        <img src="assets/openlayer-icon-152.png" alt="" width="34" height="34">
         <span>OpenLayer</span>
       </a>
       <nav>
         <a href="#features">Features</a>
         <a href="#showcase">Screenshots</a>
+        <a href="#evolution">UI evolution</a>
         <a href="#setup">Setup</a>
         <a href="#status">Status</a>
         <a href="#roadmap">Roadmap</a>
@@ -59,7 +64,7 @@
     <main id="top">
       <section class="hero" aria-labelledby="hero-title">
         <div class="hero-copy">
-          <p class="hero-badge"><span class="pulse-dot" aria-hidden="true"></span> Alpha v0.5.5 · free &amp; open source</p>
+          <p class="hero-badge"><span class="pulse-dot" aria-hidden="true"></span> Alpha v0.6.0 · free &amp; open source</p>
           <h1 id="hero-title">Local AI layers,<br><span class="grad">inside Photoshop.</span></h1>
           <p class="hero-lede">
             OpenLayer connects Photoshop to <strong>your own ComfyUI server</strong>.
@@ -78,20 +83,22 @@
             <li>ComfyUI powered</li>
           </ul>
         </div>
-        <div class="hero-shot" aria-hidden="true">
-          <img src="assets/openlayer-v055-txt2img.png" alt="OpenLayer panel generating an image inside Photoshop" loading="eager">
-        </div>
+        <figure class="hero-shot">
+          <img src="assets/v060/text-to-image-photoshop.webp" alt="OpenLayer v0.6 Text to Image generating and importing a comic-style result inside Adobe Photoshop." width="1440" height="1067" loading="eager" decoding="async" fetchpriority="high">
+          <figcaption><strong>Text to Image, where the work happens.</strong> Generate locally, preview in OpenLayer, and keep every result as an editable Photoshop layer.</figcaption>
+        </figure>
       </section>
 
       <section class="intro" aria-labelledby="intro-title">
         <div class="section-inner">
-          <p class="eyebrow">Artist-first foundation</p>
-          <h2 id="intro-title">A focused, honest step toward local generation in Photoshop.</h2>
+          <p class="eyebrow">v0.6 artist-first interface</p>
+          <h2 id="intro-title">Local generation that now feels at home inside Photoshop.</h2>
           <p class="intro-lede">
             OpenLayer starts with dependable local workflows — text to image, image to image,
             sketch to image, experimental inpaint and outpaint, pixel upscale, lossless PNG
             source capture, live previews, diagnostics, and clean import into the active document.
-            A solid base that grows into deeper layer, mask, and selection workflows without faking features.
+            v0.6 adds a denser Adobe-style launcher, sticky tool headers, real generation progress,
+            clearer availability states, and UXP-safe prompt editing without hiding the experimental edges.
           </p>
         </div>
       </section>
@@ -168,27 +175,74 @@
       <section id="showcase" class="section" aria-labelledby="showcase-title">
         <div class="section-inner">
           <div class="section-heading">
-            <p class="eyebrow">Current build · v0.5.5</p>
-            <h2 id="showcase-title">The panel, in Photoshop</h2>
+            <p class="eyebrow">Current build · v0.6.0</p>
+            <h2 id="showcase-title">Proof from the real Photoshop panel</h2>
+            <p class="section-lede">Each view below is a real local workflow, compressed for the web and loaded only when it approaches the viewport.</p>
           </div>
-          <div class="shot-grid">
-            <figure>
-              <img src="assets/openlayer-v055-home.png" alt="OpenLayer Home dashboard with tool cards for Text to Image, Image to Image, Sketch, Inpaint, Outpaint, Upscale, and Prompt from Layer." loading="lazy">
-              <figcaption>Home — every tool one tap away</figcaption>
+          <div class="shot-grid shot-grid-v060">
+            <figure class="shot-tall">
+              <img src="assets/v060/dashboard.webp" alt="OpenLayer v0.6 compact dashboard with available, experimental, and unavailable tools clearly grouped." width="278" height="841" loading="lazy" decoding="async">
+              <figcaption><strong>The v0.6 dashboard</strong><span>A compact launcher keeps generation tools close, groups workflow and history utilities, and dims features that are not ready yet.</span></figcaption>
             </figure>
-            <figure>
-              <img src="assets/openlayer-v055-txt2img.png" alt="Text to Image screen with prompt, workflow, model, and a generated preview." loading="lazy">
-              <figcaption>Generate and preview without leaving Photoshop</figcaption>
+            <figure class="shot-tall">
+              <img src="assets/v060/text-to-image-panel.webp" alt="OpenLayer v0.6 Text to Image controls and generated comic preview." width="454" height="767" loading="lazy" decoding="async">
+              <figcaption><strong>Focused Text to Image</strong><span>Prompt, model, sampler controls, status, preview, and import remain readable in a narrow docked panel.</span></figcaption>
             </figure>
-            <figure>
-              <img src="assets/openlayer-v055-prompt.png" alt="Prompt from Layer screen describing a captured layer into prompt text." loading="lazy">
-              <figcaption>Turn any layer into a prompt</figcaption>
+            <figure class="shot-wide">
+              <img src="assets/v060/upscale-photoshop.webp" alt="OpenLayer Upscale result displayed in Photoshop with generated layers visible in the Layers panel." width="1200" height="778" loading="lazy" decoding="async">
+              <figcaption><strong>Upscale stays layer-native</strong><span>Local model upscaling returns to the active document as a named Photoshop layer instead of a detached download.</span></figcaption>
             </figure>
-            <figure>
-              <img src="assets/openlayer-v055-health.png" alt="Settings screen with hardware advisor and workflow health cards." loading="lazy">
-              <figcaption>Hardware advisor &amp; workflow health</figcaption>
+            <figure class="shot-wide">
+              <img src="assets/v060/sticky-live-painting.webp" alt="OpenLayer Live Painting with a sticky tool header and preview beside the active Photoshop canvas." width="1000" height="920" loading="lazy" decoding="async">
+              <figcaption><strong>Context that stays pinned</strong><span>The v0.6 tool header keeps Back to Tools and the current workflow visible while longer panels scroll beneath it.</span></figcaption>
+            </figure>
+            <figure class="shot-wide">
+              <img src="assets/v060/live-painting-child.webp" alt="A simple painted figure in Photoshop transformed into a local AI preview through OpenLayer Live Painting." width="1200" height="811" loading="lazy" decoding="async">
+              <figcaption><strong>Paint, capture, respond</strong><span>The Live Painting spike turns rough color blocking into a local preview while preserving the Photoshop document as the source of truth.</span></figcaption>
             </figure>
           </div>
+        </div>
+      </section>
+
+      <section id="evolution" class="section evolution-section" aria-labelledby="evolution-title">
+        <div class="section-inner">
+          <div class="section-heading">
+            <p class="eyebrow">Oldest to newest</p>
+            <h2 id="evolution-title">How the OpenLayer interface evolved</h2>
+            <p class="section-lede">The visual language stayed dark, local, and Photoshop-aware. Each release removed friction while preserving the original goal: make AI output behave like editable layer work.</p>
+          </div>
+          <ol class="evolution-list">
+            <li>
+              <figure>
+                <img src="assets/v060/early-dashboard.webp" alt="Early OpenLayer dashboard with large tool cards and status badges." width="461" height="812" loading="lazy" decoding="async">
+                <figcaption><strong>1 · The first launcher</strong><span>The earliest README dashboard established the tool-card model and made unfinished workflows explicit, but used much more vertical space.</span></figcaption>
+              </figure>
+            </li>
+            <li>
+              <figure>
+                <img src="assets/v060/brand-foundation.webp" alt="Earlier OpenLayer landing-page closing section with the gold layered logo and project mission." width="865" height="503" loading="lazy" decoding="async">
+                <figcaption><strong>2 · A durable visual identity</strong><span>The black canvas, gold layer mark, and careful-step message became the design foundation retained by the v0.6 page.</span></figcaption>
+              </figure>
+            </li>
+            <li>
+              <figure>
+                <img src="assets/v060/prompt-from-layer.webp" alt="Earlier Prompt from Layer screen with captured image and generated description." width="411" height="678" loading="lazy" decoding="async">
+                <figcaption><strong>3 · Workflows became complete screens</strong><span>Prompt from Layer connected capture, local Florence-2 description, editing, copying, and handoff to Text to Image.</span></figcaption>
+              </figure>
+            </li>
+            <li>
+              <figure>
+                <img src="assets/v060/live-painting-monster.webp" alt="OpenLayer Live Painting turning a rough orange monster sketch into a local AI preview in Photoshop." width="1440" height="765" loading="lazy" decoding="async">
+                <figcaption><strong>4 · The panel began responding to the canvas</strong><span>The Live Painting experiment proved that repeated local capture and generation could follow fast Photoshop sketch changes.</span></figcaption>
+              </figure>
+            </li>
+            <li>
+              <figure>
+                <img src="assets/v060/dashboard.webp" alt="Current OpenLayer v0.6 compact dashboard." width="278" height="841" loading="lazy" decoding="async">
+                <figcaption><strong>5 · v0.6 compact UXP interface</strong><span>Today the dashboard is denser, clearer, and more honest about availability, with stable UXP typography and room for the next artist tools.</span></figcaption>
+              </figure>
+            </li>
+          </ol>
         </div>
       </section>
 
@@ -250,13 +304,17 @@ npm run build</code></pre>
             <h2 id="status-title">What this release is honest about</h2>
           </div>
           <div class="status-grid">
+            <article class="status-card status-card-ready">
+              <h3>v0.6 interface is ready to test</h3>
+              <p>The compact dashboard, sticky headers, real progress track, larger prompt fields, and unavailable-tool states have passed a real Photoshop UXP smoke test.</p>
+            </article>
             <article class="status-card">
               <h3>Testing alpha</h3>
-              <p>OpenLayer v0.5.5-alpha is for local testing and feedback. It is not production-ready yet.</p>
+              <p>OpenLayer v0.6.0-alpha is for local testing and feedback. It is not production-ready yet.</p>
             </article>
             <article class="status-card">
               <h3>Inpaint is experimental</h3>
-              <p>v0.5.5 fixed upload and alignment issues, but output quality across checkpoints is still being validated by testers.</p>
+              <p>v0.6.0 retains the upload and alignment fixes while output quality across checkpoints continues to be validated by testers.</p>
             </article>
             <article class="status-card">
               <h3>Flux Fill is experimental</h3>
@@ -279,7 +337,7 @@ npm run build</code></pre>
               <li>Inpaint and Outpaint should be tested on duplicate layers first.</li>
               <li>Prompt from Layer requires the local Florence-2 PromptGen model plus text-output custom nodes.</li>
               <li>Upscale uses pixel/model upscale only. Generative upscale, tiled diffusion, and creative enhancement are future work.</li>
-              <li>Custom workflow import, LoRA browser, batch variants, and true persistent Photoshop AI layer metadata are future work. v0.5.5 keeps the shared metadata foundation and session-history wiring.</li>
+              <li>Custom workflow import, LoRA browser, batch variants, and true persistent Photoshop AI layer metadata are future work. v0.6.0 keeps the shared metadata foundation and session-history wiring.</li>
               <li>CI does not run Photoshop, UXP, or ComfyUI integration tests.</li>
               <li>Live sampler previews require ComfyUI to be started with <code>--preview-method auto</code>.</li>
             </ul>
@@ -295,20 +353,24 @@ npm run build</code></pre>
           </div>
           <div class="roadmap-grid">
             <article>
-              <h3>v0.1–v0.2</h3>
-              <p>Text to image, preview, import, checkpoint selection, image-to-image and Sketch LINECN foundations, source capture, and setup docs.</p>
+              <h3>v0.1–v0.2 · Foundation</h3>
+              <p>Text to Image, preview, import, checkpoint selection, Image to Image, Sketch LINECN, source capture, and setup documentation.</p>
             </article>
             <article>
-              <h3>v0.4–v0.5</h3>
-              <p>PNG/lossless capture, GPU diagnostics, Workflow Health, Z-Image-Turbo and Flux experiments, Prompt from Layer, Upscale, queue-aware Cancel, History metadata, live previews, and working experimental Inpaint/Outpaint.</p>
+              <h3>v0.4–v0.5 · Working workflows</h3>
+              <p>PNG capture, diagnostics, Prompt from Layer, Upscale, queue-aware Cancel, History metadata, live previews, and experimental Inpaint and Outpaint.</p>
             </article>
             <article>
-              <h3>v0.6 — next</h3>
-              <p>UI polish pass, architecture cleanup, reliable inpaint finishing, and outpaint canvas expansion.</p>
+              <h3>v0.6 · Compact UXP interface</h3>
+              <p>A denser dashboard, sticky headers, determinate progress, Advanced settings, clearer availability, and prompt fields hardened in the real Photoshop renderer.</p>
+            </article>
+            <article>
+              <h3>Next · Reliability and artist control</h3>
+              <p>Finish Inpaint and Outpaint alignment, strengthen workflow validation, and turn the metadata foundation into repeatable layer-level iteration.</p>
             </article>
             <article>
               <h3>Future artist tools</h3>
-              <p>Custom workflow import, ControlNet panels, LoRA browser, batch variants, persistent AI layer metadata, and live-preview generation experiments.</p>
+              <p>Guided custom workflow import, ControlNet panels, LoRA browsing, batch variants, persistent AI layer metadata, and faster live-preview generation.</p>
             </article>
           </div>
         </div>
@@ -316,7 +378,7 @@ npm run build</code></pre>
 
       <section class="closing" aria-labelledby="closing-title">
         <div class="section-inner closing-inner">
-          <img src="assets/openlayer-icon.png" alt="" width="76" height="76">
+          <img src="assets/openlayer-icon-152.png" alt="" width="76" height="76">
           <h2 id="closing-title">Build local AI layers, one careful step at a time.</h2>
           <p>
             OpenLayer is early, practical, and open for contributors who care about
@@ -328,7 +390,7 @@ npm run build</code></pre>
     </main>
 
     <footer class="site-footer">
-      <p>OpenLayer v0.5.5-alpha. Developed by Mehran Ahmadi, 2026.</p>
+      <p>OpenLayer v0.6.0-alpha. Developed by Mehran Ahmadi, 2026.</p>
       <p>
         <a href="https://github.com/MehranMarxian">GitHub</a>
       </p>

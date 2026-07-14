@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="src/icons/openlayer.png" alt="OpenLayer icon" width="96" height="96">
+  <img src="docs/assets/openlayer-icon-152.png" alt="OpenLayer icon" width="96" height="96">
 </p>
 
 # OpenLayer - Open Source Photoshop ComfyUI Plugin
@@ -10,17 +10,17 @@ OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop t
 
 ## Alpha Release
 
-`v0.5.5-alpha` is the current public alpha checkpoint. It is intended for testing the core local workflows, compact Photoshop-style panel, workflow diagnostics, cancellation safety, and AI layer metadata foundation, not for production work yet.
+`v0.6.0-alpha` is the current public alpha checkpoint. It is intended for testing the core local workflows and the refreshed compact Photoshop UXP interface, not for production work yet.
 
-New in `v0.5.5-alpha`:
+New in `v0.6.0-alpha`:
 
-- Fixed ComfyUI uploads losing filenames in UXP, which made the Inpaint mask overwrite the Inpaint source. inpaint-basic now composites over the real captured source.
-- Fixed the Photoshop "Make is not currently available" alert during Inpaint import by restoring the selection before the layer mask step.
-- Inpaint context capture now snaps to multiples of 8 so results align with the document again.
-- Cancel Generation is queue-aware: pending prompts are dequeued instead of interrupting another running job on a shared ComfyUI server.
-- Switching workflow presets applies per-preset recommended steps and CFG defaults, and `txt2img-basic` starts at 20 steps.
-- Live KSampler step previews render in the result preview when ComfyUI is started with `--preview-method auto`.
-- Very large captures fail fast at the new 16-megapixel capture limit instead of risking UXP memory failures.
+- Redesigned the Home dashboard into a compact Adobe-style tool launcher with clearer available, experimental, and unavailable states.
+- Added sticky tool headers and a determinate ComfyUI progress bar driven by numeric generation progress.
+- Added collapsible Advanced settings, status tones, toggle feedback, import success feedback, and compact experimental-info controls.
+- Standardized form gutters and panel spacing across tool screens.
+- Hardened header spacing, progress geometry, typography, preview zoom, and long textarea behavior for the real Photoshop UXP renderer.
+- Enlarged prompt editors and made the Prompt from Layer generated-text field three times taller without unreliable auto-grow behavior.
+- Removed obsolete `control_after_generate` fields from bundled workflow JSON files.
 
 Included in this alpha:
 
@@ -68,19 +68,37 @@ Included in this alpha:
 - Responsive panel spacing fixes for narrow and wide Photoshop panels
 - Official OpenLayer icon and GitHub Pages landing page
 
-![OpenLayer Home dashboard](docs/assets/openlayer-v021-dashboard.png)
+### v0.6 interface
 
-v0.5.5-alpha tester focus:
+<p align="center">
+  <img src="docs/assets/v060/dashboard.webp" alt="OpenLayer v0.6 compact dashboard" width="278">
+</p>
 
+The v0.6 dashboard is denser, clearer about tool availability, and designed for narrow Photoshop panels. The accepted UXP layout adds sticky tool headers, determinate generation progress, larger prompt editors, and consistent spacing without changing the local workflow engine.
+
+![OpenLayer v0.6 Text to Image generating and importing a result inside Photoshop](docs/assets/v060/text-to-image-photoshop.webp)
+
+<details>
+<summary>See the earlier dashboard design</summary>
+
+![Earlier OpenLayer Home dashboard](docs/assets/openlayer-v021-dashboard.png)
+
+The earlier card-based dashboard established OpenLayer's honest available/experimental/coming-soon model. v0.6 keeps that information architecture while using less space and fitting Photoshop more naturally.
+
+</details>
+
+v0.6.0-alpha tester focus:
+
+- Confirm the compact dashboard, sticky tool headers, progress bar, Advanced settings, long prompt entry, and unavailable-tool dimming in Photoshop UXP.
 - Confirm Text to Image, Image to Image, Z_image_Turbo, and experimental Flux1-dev fp8 Text to Image generation.
 - Confirm Prompt from Layer with the local Florence-2 PromptGen workflow.
 - Confirm Upscale with a local pixel/model upscale model such as `4x-UltraSharp.pth`.
 - Confirm Workflow Health, Cancel Generation, session History metadata, and Reuse Settings.
 - Test Flux Fill Inpaint and Flux Fill Outpaint as experimental workflows only.
-- Confirm inpaint-basic and Flux Fill Inpaint after the v0.5.5 upload filename and alignment fixes, including Import to Layers.
+- Confirm inpaint-basic and Flux Fill Inpaint retain the v0.5.5 upload filename and alignment fixes, including Import to Layers.
 - Confirm Cancel Generation on both a running prompt and a queued prompt when ComfyUI is busy.
 
-Known v0.5.5-alpha boundaries:
+Known v0.6.0-alpha boundaries:
 
 - Image to Image is an early foundation path, not a full production workflow yet.
 - Sketch to Image is limited to the first SD 1.x LINECN starter workflow.
@@ -103,7 +121,7 @@ Known v0.5.5-alpha boundaries:
 - Outpaint is experimental and currently uses `outpaint-flux-fill-basic` with `flux1-fill-dev.safetensors`, `clip_l.safetensors`, `t5xxl_fp16.safetensors` or the accepted T5 fp8 fallback, and `ae.safetensors`.
 - Upscale currently uses a simple pixel/model upscale path. It does not use prompts, latent upscale, tiled diffusion, or creative enhancement.
 - Upscale needs ComfyUI's `UpscaleModelLoader` and `ImageUpscaleWithModel` nodes plus an installed upscale model such as `4x-UltraSharp.pth` or `RealESRGAN_x4plus.pth`.
-- The v0.5.5 release focuses on correctness: upload filenames, queue-aware cancel, inpaint context alignment, capture size guarding, and per-preset defaults. The UI design is unchanged.
+- The v0.6.0 release focuses on the compact UXP interface. Generation and Photoshop integration behavior should remain compatible with v0.5.5.
 - Layer, canvas, and mask capture is limited to 16 megapixels (4096 x 4096) until a downscale option is added.
 - Live sampler previews require ComfyUI to be started with `--preview-method auto`, and the preview panel may flicker between steps until a future UI polish pass.
 - Classic v0.4 theme preserves the older visual feel, but it does not duplicate every old layout detail.
@@ -233,7 +251,7 @@ npm run package
 This creates a zip package from `dist` in the `packages` folder. For the current alpha, the expected package name is:
 
 ```text
-packages/openlayer-v0.5.5-alpha.zip
+packages/openlayer-v0.6.0-alpha.zip
 ```
 
 ## Loading In UXP Developer Tool
@@ -360,27 +378,30 @@ Inpaint output quality, mask interpretation, and Photoshop alignment are still b
 
 ## Pre-release Tester Checklist
 
-Use this quick pass before reporting a v0.5.5-alpha test result:
+Use this quick pass before reporting a v0.6.0-alpha test result:
 
 1. Start ComfyUI on `http://127.0.0.1:8190`.
 2. Build OpenLayer and load `dist/manifest.json` in Adobe UXP Developer Tool.
 3. Open Photoshop, create or open a document, and launch OpenLayer.
-4. Open Settings and click `Check ComfyUI`; confirm checkpoints load.
-5. Click `Check Workflow Health`; confirm each registered preset shows Ready, Experimental, Missing model, Missing ComfyUI node, Missing workflow JSON, or Setup required.
-6. Confirm Settings shows readable summary counts and collapsed technical details without overlapping cards.
-7. Click `Copy Diagnostics`; confirm the report is copied or appears in the read-only diagnostics box.
-8. Generate one `txt2img-basic` image and import it as a new layer.
-9. Select `txt2img-flux1-dev-fp8` with `flux1-dev-fp8.safetensors` if available, generate once, and confirm the result preview appears.
-10. Start one Text to Image generation and click `Cancel Generation`; confirm the status changes to `Generation cancelled.` and the next generation still works.
-11. Open `Image to Image`, capture either the active layer or canvas, generate with `img2img-basic`, and click `Import to Layers`.
-12. Toggle Image to Image `Import Automatically`, generate once, and confirm the result imports as a new Photoshop layer.
-13. Open `Upscale`, capture either the active layer or canvas, choose `4x-UltraSharp.pth` or another listed upscale model, generate, and click `Import to Layers`.
-14. Open `Sketch to Image`, capture either the active layer or canvas, generate with `sketch2img-linecn-basic`, and click `Import to Layers`.
-15. Open `Inpaint`, make a Photoshop selection, click `Capture Selection`, and confirm the selected-region preview and mask preview appear.
-16. Generate with `inpaint-flux-fill-basic` if your Flux Fill stack is installed, then click `Import to Layers`; keep `inpaint-basic` as experimental/debug-only if it does not match the source.
-17. Start and cancel one longer Image to Image, Sketch, Outpaint, Inpaint, Prompt from Layer, or Upscale run if your ComfyUI setup supports it; confirm the next generation still works.
-18. Open History after a generation; confirm prompt, model, workflow, seed, dimensions, source mode, tool type, timestamp, import status, Preview, Import, and Reuse Settings are visible.
-19. Resize the panel narrow and wide; confirm Settings, workflow health cards, buttons, preview, and footer remain readable and reachable.
+4. Confirm unavailable dashboard tools are visibly dimmer than available and experimental tools.
+5. Open two tool screens; confirm the Back to Tools control, icon, title, and progress track have clear spacing and remain visible while scrolling.
+6. Paste a long prompt, confirm it remains editable and scrollable, and confirm the Prompt from Layer generated-text field is substantially taller than other fields.
+7. Open Settings and click `Check ComfyUI`; confirm checkpoints load.
+8. Click `Check Workflow Health`; confirm each registered preset shows Ready, Experimental, Missing model, Missing ComfyUI node, Missing workflow JSON, or Setup required.
+9. Confirm Settings shows readable summary counts and collapsed technical details without overlapping cards.
+10. Click `Copy Diagnostics`; confirm the report is copied or appears in the read-only diagnostics box.
+11. Generate one `txt2img-basic` image and import it as a new layer; confirm the determinate progress bar advances cleanly.
+12. Select `txt2img-flux1-dev-fp8` with `flux1-dev-fp8.safetensors` if available, generate once, and confirm the result preview appears.
+13. Start one Text to Image generation and click `Cancel Generation`; confirm the status changes to `Generation cancelled.` and the next generation still works.
+14. Open `Image to Image`, capture either the active layer or canvas, generate with `img2img-basic`, and click `Import to Layers`.
+15. Toggle Image to Image `Import Automatically`, generate once, and confirm the result imports as a new Photoshop layer.
+16. Open `Upscale`, capture either the active layer or canvas, choose `4x-UltraSharp.pth` or another listed upscale model, generate, and click `Import to Layers`.
+17. Open `Sketch to Image`, capture either the active layer or canvas, generate with `sketch2img-linecn-basic`, and click `Import to Layers`.
+18. Open `Inpaint`, make a Photoshop selection, click `Capture Selection`, and confirm the selected-region preview and mask preview appear.
+19. Generate with `inpaint-flux-fill-basic` if your Flux Fill stack is installed, then click `Import to Layers`; keep `inpaint-basic` as experimental/debug-only if it does not match the source.
+20. Start and cancel one longer Image to Image, Sketch, Outpaint, Inpaint, Prompt from Layer, or Upscale run if your ComfyUI setup supports it; confirm the next generation still works.
+21. Open History after a generation; confirm prompt, model, workflow, seed, dimensions, source mode, tool type, timestamp, import status, Preview, Import, and Reuse Settings are visible.
+22. Resize the panel narrow and wide; confirm Settings, workflow health cards, buttons, preview, and footer remain readable and reachable.
 
 ## Testing Checklist
 

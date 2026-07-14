@@ -41,7 +41,16 @@ OpenLayer is a local-first Photoshop UXP plugin for artist-friendly ComfyUI work
 - Preserve and restore selection state
 - Add cleaner transparency/layer-mask options for imported inpaint patches
 
-## v0.5 Custom Workflow Importer
+## v0.6 Compact UXP Interface
+
+- Compact Adobe-style dashboard with grouped tool rows and clearer unavailable states
+- Sticky tool headers with stable spacing in the real Photoshop UXP renderer
+- Determinate ComfyUI progress driven by the numeric WebSocket progress channel
+- Collapsible Advanced settings and compact experimental-info controls
+- Larger, scrollable prompt fields without unreliable auto-grow behavior
+- Consistent form gutters, status tones, toggle feedback, and import success feedback
+
+## Future Custom Workflow Importer
 
 - Guided API workflow import
 - Node mapping UI for prompts, model inputs, source image, seed, steps, CFG, denoise, and outputs

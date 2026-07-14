@@ -31,7 +31,7 @@ npm run package
 Expected result:
 
 - A package is created in `packages`.
-- For this version, the package should be named `openlayer-v0.3.0-alpha.zip`.
+- For this version, the package should be named `openlayer-v0.6.0-alpha.zip`.
 
 If this fails:
 
@@ -262,6 +262,10 @@ If this fails:
 Expected result:
 
 - Tool cards have visible gutters and remain clickable.
+- Unavailable tool rows and icons are clearly dimmer than available tools.
+- Back to Tools, the tool icon, and the screen title have visible spacing.
+- The sticky header and determinate progress track remain correctly shaped while scrolling and generating.
+- Long prompts remain editable and scrollable, and the Prompt from Layer output field is visibly taller.
 - Header, status row, and footer remain readable.
 - Buttons do not clip outside the panel.
 - Preview panels do not hide import buttons.
