@@ -5535,7 +5535,8 @@ function setStatusProgress(progressElement: HTMLElement, status: string, tone: S
     !normalizedStatus.includes("complete") &&
     !normalizedStatus.includes("copied") &&
     !normalizedStatus.includes("saved") &&
-    !normalizedStatus.includes("reset");
+    !normalizedStatus.includes("reset") &&
+    !normalizedStatus.includes("cancel");
 
   const fill = progressElement.firstElementChild as HTMLElement | null;
   const resolved = resolveStatusProgress(status, isBusy, statusProgressLastPercent.get(progressElement) ?? null);
