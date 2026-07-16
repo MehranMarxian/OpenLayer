@@ -21,6 +21,7 @@ import {
   shouldFinalizeActiveRun,
   validateGenerationCommit
 } from "./generationIntegrity";
+import { createObjectUrlRegistry, ObjectUrlRegistry } from "./objectUrlRegistry";
 import {
   formatInpaintOutputDiagnostics,
   ImageDimensions,
@@ -647,6 +648,13 @@ export function renderApp(rootElement: HTMLElement) {
   let hardwareReport: HardwareRecommendationReport | null = null;
   let workflowHealthReport: WorkflowHealthReport | null = null;
   const historyEntries: HistoryEntry[] = [];
+  const objectUrls = createObjectUrlRegistry();
+  // Route every panel-owned preview URL through one registry while retaining
+  // the familiar URL.createObjectURL/revokeObjectURL call sites below.
+  const URL = {
+    createObjectURL: objectUrls.create,
+    revokeObjectURL: objectUrls.revoke
+  };
 
   function syncBusy() {
     setBusy(
@@ -669,6 +677,36 @@ export function renderApp(rootElement: HTMLElement) {
   rootElement.innerHTML = createAppMarkup();
 
   const elements = getAppElements(rootElement);
+  let resourceObserver: MutationObserver | null = null;
+  let resourcesDisposed = false;
+  const disposeAppResources = () => {
+    if (resourcesDisposed) return;
+    resourcesDisposed = true;
+    activeGeneration?.watcher?.close();
+    livePaintingSession?.stop("Live session stopped because the OpenLayer panel closed.");
+    for (const progressElement of [
+      elements.statusProgress,
+      elements.imgStatusProgress,
+      elements.sketchStatusProgress,
+      elements.inpaintStatusProgress,
+      elements.outpaintStatusProgress,
+      elements.upscaleStatusProgress
+    ]) {
+      setStatusProgress(progressElement, "Panel closed.", "ready");
+    }
+    objectUrls.revokeAll();
+    livePreviewObjectUrl = "";
+    window.removeEventListener("unload", disposeAppResources);
+    resourceObserver?.disconnect();
+    resourceObserver = null;
+  };
+  window.addEventListener("unload", disposeAppResources, { once: true });
+  if (typeof MutationObserver === "function") {
+    resourceObserver = new MutationObserver(() => {
+      if (!rootElement.isConnected) disposeAppResources();
+    });
+    resourceObserver.observe(document, { childList: true, subtree: true });
+  }
   const preferences = loadOpenLayerPreferences();
   applyPreferences(elements, preferences);
   applyTheme(elements, preferences.theme || DEFAULT_THEME);
@@ -1158,8 +1196,26 @@ export function renderApp(rootElement: HTMLElement) {
     activeRun?.watcher?.close();
 
     if (activeRun && shouldFinalizeActiveRun(activeRun, activeGeneration)) {
+      releaseGenerationLivePreview(activeRun.toolType);
       activeGeneration = null;
       setCancelGenerationVisible(elements, false);
+    }
+  }
+
+  function releaseGenerationLivePreview(toolType: HistoryToolType) {
+    const release = (url: string) => {
+      if (url) URL.revokeObjectURL(url);
+      return "";
+    };
+
+    switch (toolType) {
+      case "image-to-image": imageLivePreviewUrl = release(imageLivePreviewUrl); return;
+      case "sketch-to-image": sketchLivePreviewUrl = release(sketchLivePreviewUrl); return;
+      case "inpaint": inpaintLivePreviewUrl = release(inpaintLivePreviewUrl); return;
+      case "outpaint": outpaintLivePreviewUrl = release(outpaintLivePreviewUrl); return;
+      case "upscale": upscaleLivePreviewUrl = release(upscaleLivePreviewUrl); return;
+      case "text-to-image": livePreviewUrl = release(livePreviewUrl); return;
+      case "prompt-from-layer": return;
     }
   }
 
@@ -1439,7 +1495,7 @@ export function renderApp(rootElement: HTMLElement) {
       );
       ensureGenerationCanCommit(activeRun);
       setResult(generatedResult);
-      addHistoryEntry(elements, historyEntries, generatedResult, {
+      addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
         prompt: elements.prompt.value,
         negativePrompt: elements.negativePrompt.value,
         checkpointName,
@@ -1484,7 +1540,7 @@ export function renderApp(rootElement: HTMLElement) {
   }
 
   function handleClearHistory() {
-    clearHistoryEntries(historyEntries);
+    clearHistoryEntries(historyEntries, objectUrls);
     renderHistory(elements, historyEntries);
     setStatus(elements, "History cleared.", "ready");
     setDiagnostics(elements, "Recent session history cleared.");
@@ -1872,7 +1928,7 @@ export function renderApp(rootElement: HTMLElement) {
       );
       ensureGenerationCanCommit(activeRun);
       setImageResult(generatedResult);
-      addHistoryEntry(elements, historyEntries, generatedResult, {
+      addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
         prompt: elements.imgPrompt.value,
         negativePrompt: elements.imgNegativePrompt.value,
         checkpointName,
@@ -2127,7 +2183,7 @@ export function renderApp(rootElement: HTMLElement) {
       );
       ensureGenerationCanCommit(activeRun);
       setUpscaleResult(generatedResult);
-      addHistoryEntry(elements, historyEntries, generatedResult, {
+      addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
         prompt: `Upscale ${upscaleSource.sourceName}`,
         checkpointName: modelName,
         modelName,
@@ -2422,7 +2478,7 @@ export function renderApp(rootElement: HTMLElement) {
       );
       ensureGenerationCanCommit(activeRun);
       setOutpaintResult(generatedResult);
-      addHistoryEntry(elements, historyEntries, generatedResult, {
+      addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
         prompt: elements.outpaintPrompt.value,
         checkpointName,
         modelName: checkpointName,
@@ -2718,7 +2774,7 @@ export function renderApp(rootElement: HTMLElement) {
       );
       ensureGenerationCanCommit(activeRun);
       setSketchResult(generatedResult);
-      addHistoryEntry(elements, historyEntries, generatedResult, {
+      addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
         prompt: elements.sketchPrompt.value,
         negativePrompt: elements.sketchNegativePrompt.value,
         checkpointName,
@@ -3114,7 +3170,7 @@ export function renderApp(rootElement: HTMLElement) {
 
       activeInpaintImportContext = generatedImportContext;
       setInpaintResult(generatedResult);
-      addHistoryEntry(elements, historyEntries, generatedResult, {
+      addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
         prompt: elements.inpaintPrompt.value,
         negativePrompt: elements.inpaintNegativePrompt.value,
         checkpointName,
@@ -3641,6 +3697,11 @@ export function renderApp(rootElement: HTMLElement) {
       return;
     }
 
+    if (livePreviewUrl) {
+      URL.revokeObjectURL(livePreviewUrl);
+      livePreviewUrl = "";
+    }
+
     const progress = document.createElement("span");
     progress.className = "preview-empty";
     progress.textContent = message;
@@ -3730,6 +3791,11 @@ export function renderApp(rootElement: HTMLElement) {
       return;
     }
 
+    if (imageLivePreviewUrl) {
+      URL.revokeObjectURL(imageLivePreviewUrl);
+      imageLivePreviewUrl = "";
+    }
+
     const progress = document.createElement("span");
     progress.className = "preview-empty";
     progress.textContent = message;
@@ -3817,6 +3883,11 @@ export function renderApp(rootElement: HTMLElement) {
       image.alt = "Live ComfyUI Sketch to Image preview";
       elements.sketchResultPreviewPanel.append(image);
       return;
+    }
+
+    if (sketchLivePreviewUrl) {
+      URL.revokeObjectURL(sketchLivePreviewUrl);
+      sketchLivePreviewUrl = "";
     }
 
     const progress = document.createElement("span");
@@ -3940,6 +4011,11 @@ export function renderApp(rootElement: HTMLElement) {
       return;
     }
 
+    if (inpaintLivePreviewUrl) {
+      URL.revokeObjectURL(inpaintLivePreviewUrl);
+      inpaintLivePreviewUrl = "";
+    }
+
     const progress = document.createElement("span");
     progress.className = "preview-empty";
     progress.textContent = message;
@@ -4029,6 +4105,11 @@ export function renderApp(rootElement: HTMLElement) {
       return;
     }
 
+    if (outpaintLivePreviewUrl) {
+      URL.revokeObjectURL(outpaintLivePreviewUrl);
+      outpaintLivePreviewUrl = "";
+    }
+
     const progress = document.createElement("span");
     progress.className = "preview-empty";
     progress.textContent = message;
@@ -4116,6 +4197,11 @@ export function renderApp(rootElement: HTMLElement) {
       image.alt = "Live ComfyUI Upscale preview";
       elements.upscaleResultPreviewPanel.append(image);
       return;
+    }
+
+    if (upscaleLivePreviewUrl) {
+      URL.revokeObjectURL(upscaleLivePreviewUrl);
+      upscaleLivePreviewUrl = "";
     }
 
     const progress = document.createElement("span");
@@ -7704,6 +7790,7 @@ async function refreshDocumentStatus(elements: AppElements) {
 function addHistoryEntry(
   elements: AppElements,
   historyEntries: HistoryEntry[],
+  objectUrls: ObjectUrlRegistry,
   result: AppGeneratedImageResult,
   details: {
     prompt: string;
@@ -7746,7 +7833,7 @@ function addHistoryEntry(
     result,
     originatingDocument: result.originatingDocument,
     inpaintImportContext: details.inpaintImportContext,
-    previewUrl: URL.createObjectURL(result.blob),
+    previewUrl: objectUrls.create(result.blob),
     prompt: details.prompt.trim() || "Untitled prompt",
     checkpointName: details.checkpointName,
     modelName: details.modelName,
@@ -7765,7 +7852,7 @@ function addHistoryEntry(
     const removedEntry = historyEntries.pop();
 
     if (removedEntry) {
-      URL.revokeObjectURL(removedEntry.previewUrl);
+      objectUrls.revoke(removedEntry.previewUrl);
     }
   }
 
@@ -7948,9 +8035,9 @@ function createHistoryButton(label: string, action: HistoryActionName, historyId
   return button;
 }
 
-function clearHistoryEntries(historyEntries: HistoryEntry[]) {
+function clearHistoryEntries(historyEntries: HistoryEntry[], objectUrls: ObjectUrlRegistry) {
   for (const entry of historyEntries) {
-    URL.revokeObjectURL(entry.previewUrl);
+    objectUrls.revoke(entry.previewUrl);
   }
 
   historyEntries.splice(0, historyEntries.length);
