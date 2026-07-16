@@ -13,8 +13,14 @@ import { formatFluxFillReferenceDefaults } from "../comfy/fluxFillDefaults";
 import {
   formatCancelDiagnostic,
   formatCancelResultDiagnostic,
+  createGenerationCancelledError,
   isGenerationCancelledError
 } from "../comfy/generationCancel";
+import {
+  canPublishGenerationUpdate,
+  shouldFinalizeActiveRun,
+  validateGenerationCommit
+} from "./generationIntegrity";
 import {
   formatInpaintOutputDiagnostics,
   ImageDimensions,
@@ -576,6 +582,7 @@ type AppInpaintImportContext = InpaintImportContext<SelectedRegionSourceImage, A
 type LiveGeneratedImageResult = DocumentContextBound<{ blob: Blob }>;
 
 type ActiveGeneration = {
+  runId: number;
   toolType: HistoryToolType;
   client: ComfyClient;
   promptId?: string;
@@ -630,6 +637,7 @@ export function renderApp(rootElement: HTMLElement) {
   let isNegativePromptOpen = false;
   let allowExperimentalCheckpoints = false;
   let activeGeneration: ActiveGeneration | null = null;
+  let generationRunSequence = 0;
   let livePaintingSession: LivePaintingSession | null = null;
   let livePreviewImage: HTMLImageElement | null = null;
   let livePreviewObjectUrl = "";
@@ -1133,6 +1141,7 @@ export function renderApp(rootElement: HTMLElement) {
 
   function beginActiveGeneration(toolType: HistoryToolType, client: ComfyClient, promptId: string): ActiveGeneration {
     const activeRun: ActiveGeneration = {
+      runId: ++generationRunSequence,
       toolType,
       client,
       promptId,
@@ -1148,11 +1157,20 @@ export function renderApp(rootElement: HTMLElement) {
   function finishActiveGeneration(activeRun: ActiveGeneration | null) {
     activeRun?.watcher?.close();
 
-    if (activeRun && activeGeneration === activeRun) {
+    if (activeRun && shouldFinalizeActiveRun(activeRun, activeGeneration)) {
       activeGeneration = null;
+      setCancelGenerationVisible(elements, false);
     }
+  }
 
-    setCancelGenerationVisible(elements, false);
+  function ensureGenerationCanCommit(activeRun: ActiveGeneration | null) {
+    if (!activeRun) throw createGenerationCancelledError();
+    const validation = validateGenerationCommit(activeRun, activeGeneration);
+    if (!validation.ok) throw createGenerationCancelledError();
+  }
+
+  function publishGenerationUpdate(activeRun: ActiveGeneration | null, update: () => void) {
+    if (activeRun && canPublishGenerationUpdate(activeRun, activeGeneration)) update();
   }
 
   function setGenerationToolStatus(toolType: HistoryToolType, status: string, tone: StatusTone) {
@@ -1282,15 +1300,19 @@ export function renderApp(rootElement: HTMLElement) {
 
     try {
       const cancelResult = await generation.client.cancelPrompt(generation.promptId);
-      setGenerationToolDiagnostics(
-        generation.toolType,
-        formatCancelResultDiagnostic(cancelResult, generation.promptId)
-      );
+      if (shouldFinalizeActiveRun(generation, activeGeneration)) {
+        setGenerationToolDiagnostics(
+          generation.toolType,
+          formatCancelResultDiagnostic(cancelResult, generation.promptId)
+        );
+      }
     } catch (caughtError) {
-      setGenerationToolDiagnostics(
-        generation.toolType,
-        `Cancel requested locally. ComfyUI interrupt may already be complete or unavailable. ${getTechnicalErrorDetails(caughtError)}`
-      );
+      if (shouldFinalizeActiveRun(generation, activeGeneration)) {
+        setGenerationToolDiagnostics(
+          generation.toolType,
+          `Cancel requested locally. ComfyUI interrupt may already be complete or unavailable. ${getTechnicalErrorDetails(caughtError)}`
+        );
+      }
     }
   }
 
@@ -1370,18 +1392,20 @@ export function renderApp(rootElement: HTMLElement) {
       let hasLivePreview = false;
       progressWatcher = client.watchProgress(promptId, {
         onStatus: (message) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           setStatus(elements, message, "idle");
 
           if (!hasLivePreview) {
             setProgressPreview(elements, message);
           }
         },
-        onProgress: (value, max) => applyDeterminateProgress(elements.statusProgress, value, max),
+        onProgress: (value, max) => publishGenerationUpdate(activeRun, () => applyDeterminateProgress(elements.statusProgress, value, max)),
         onPreviewBlob: (blob) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           hasLivePreview = true;
           setProgressPreview(elements, "Live ComfyUI preview...", blob);
         },
-        onError: (message) => setDiagnostics(elements, message)
+        onError: (message) => publishGenerationUpdate(activeRun, () => setDiagnostics(elements, message))
       });
       activeRun.watcher = progressWatcher;
 
@@ -1391,6 +1415,7 @@ export function renderApp(rootElement: HTMLElement) {
         promptId,
         {
           onTick: (message) => {
+            if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
             setStatus(elements, message, "idle");
 
             if (!hasLivePreview) {
@@ -1412,6 +1437,7 @@ export function renderApp(rootElement: HTMLElement) {
         }),
         originatingDocument
       );
+      ensureGenerationCanCommit(activeRun);
       setResult(generatedResult);
       addHistoryEntry(elements, historyEntries, generatedResult, {
         prompt: elements.prompt.value,
@@ -1426,6 +1452,8 @@ export function renderApp(rootElement: HTMLElement) {
         sourceMode: "Prompt only",
         experimental: buildResult.preset.status === "experimental"
       });
+      finishActiveGeneration(activeRun);
+      activeRun = null;
 
       if (importAutomatically) {
         setStatus(elements, "Generation complete. Auto-importing...", "idle");
@@ -1440,7 +1468,7 @@ export function renderApp(rootElement: HTMLElement) {
       updateSettingsReport(elements);
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
-        showGenerationCancelled("text-to-image", activeRun?.promptId);
+        if (!activeRun || shouldFinalizeActiveRun(activeRun, activeGeneration)) showGenerationCancelled("text-to-image", activeRun?.promptId);
         return;
       }
 
@@ -1800,18 +1828,20 @@ export function renderApp(rootElement: HTMLElement) {
       let hasLivePreview = false;
       progressWatcher = client.watchProgress(promptId, {
         onStatus: (message) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           setImageStatus(elements, message, "idle");
 
           if (!hasLivePreview) {
             setImageProgressPreview(elements, message);
           }
         },
-        onProgress: (value, max) => applyDeterminateProgress(elements.imgStatusProgress, value, max),
+        onProgress: (value, max) => publishGenerationUpdate(activeRun, () => applyDeterminateProgress(elements.imgStatusProgress, value, max)),
         onPreviewBlob: (blob) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           hasLivePreview = true;
           setImageProgressPreview(elements, "Live ComfyUI preview...", blob);
         },
-        onError: (message) => setImageDiagnostics(elements, message)
+        onError: (message) => publishGenerationUpdate(activeRun, () => setImageDiagnostics(elements, message))
       });
       activeRun.watcher = progressWatcher;
 
@@ -1819,6 +1849,7 @@ export function renderApp(rootElement: HTMLElement) {
       setImageProgressPreview(elements, "Generating image...");
       const history = await client.pollUntilComplete(promptId, {
         onTick: (message) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           setImageStatus(elements, message, "idle");
 
           if (!hasLivePreview) {
@@ -1839,6 +1870,7 @@ export function renderApp(rootElement: HTMLElement) {
         }),
         imageSource.originatingDocument
       );
+      ensureGenerationCanCommit(activeRun);
       setImageResult(generatedResult);
       addHistoryEntry(elements, historyEntries, generatedResult, {
         prompt: elements.imgPrompt.value,
@@ -1853,6 +1885,8 @@ export function renderApp(rootElement: HTMLElement) {
         sourceMode: imageSource.sourceName,
         experimental: buildResult.preset.status === "experimental"
       });
+      finishActiveGeneration(activeRun);
+      activeRun = null;
       setImageStatus(elements, "Image to Image generation complete.", "ready");
       setImageDiagnostics(
         elements,
@@ -1866,7 +1900,7 @@ export function renderApp(rootElement: HTMLElement) {
       }
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
-        showGenerationCancelled("image-to-image", activeRun?.promptId);
+        if (!activeRun || shouldFinalizeActiveRun(activeRun, activeGeneration)) showGenerationCancelled("image-to-image", activeRun?.promptId);
         return;
       }
 
@@ -2049,18 +2083,20 @@ export function renderApp(rootElement: HTMLElement) {
       let hasLivePreview = false;
       progressWatcher = client.watchProgress(promptId, {
         onStatus: (message) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           setUpscaleStatus(elements, message, "idle");
 
           if (!hasLivePreview) {
             setUpscaleProgressPreview(elements, message);
           }
         },
-        onProgress: (value, max) => applyDeterminateProgress(elements.upscaleStatusProgress, value, max),
+        onProgress: (value, max) => publishGenerationUpdate(activeRun, () => applyDeterminateProgress(elements.upscaleStatusProgress, value, max)),
         onPreviewBlob: (blob) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           hasLivePreview = true;
           setUpscaleProgressPreview(elements, "Live ComfyUI preview...", blob);
         },
-        onError: (message) => setUpscaleDiagnostics(elements, message)
+        onError: (message) => publishGenerationUpdate(activeRun, () => setUpscaleDiagnostics(elements, message))
       });
       activeRun.watcher = progressWatcher;
 
@@ -2068,6 +2104,7 @@ export function renderApp(rootElement: HTMLElement) {
       setUpscaleProgressPreview(elements, "Upscaling image...");
       const history = await client.pollUntilComplete(promptId, {
         onTick: (message) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           setUpscaleStatus(elements, message, "idle");
 
           if (!hasLivePreview) {
@@ -2088,6 +2125,7 @@ export function renderApp(rootElement: HTMLElement) {
         }),
         upscaleSource.originatingDocument
       );
+      ensureGenerationCanCommit(activeRun);
       setUpscaleResult(generatedResult);
       addHistoryEntry(elements, historyEntries, generatedResult, {
         prompt: `Upscale ${upscaleSource.sourceName}`,
@@ -2101,6 +2139,8 @@ export function renderApp(rootElement: HTMLElement) {
         sourceMode: upscaleSource.sourceName,
         experimental: buildResult.preset.status === "experimental"
       });
+      finishActiveGeneration(activeRun);
+      activeRun = null;
       setUpscaleStatus(elements, "Upscale generation complete.", "ready");
       setUpscaleDiagnostics(
         elements,
@@ -2114,7 +2154,7 @@ export function renderApp(rootElement: HTMLElement) {
       }
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
-        showGenerationCancelled("upscale", activeRun?.promptId);
+        if (!activeRun || shouldFinalizeActiveRun(activeRun, activeGeneration)) showGenerationCancelled("upscale", activeRun?.promptId);
         return;
       }
 
@@ -2338,18 +2378,20 @@ export function renderApp(rootElement: HTMLElement) {
       let hasLivePreview = false;
       progressWatcher = client.watchProgress(promptId, {
         onStatus: (message) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           setOutpaintStatus(elements, message, "idle");
 
           if (!hasLivePreview) {
             setOutpaintProgressPreview(elements, message);
           }
         },
-        onProgress: (value, max) => applyDeterminateProgress(elements.outpaintStatusProgress, value, max),
+        onProgress: (value, max) => publishGenerationUpdate(activeRun, () => applyDeterminateProgress(elements.outpaintStatusProgress, value, max)),
         onPreviewBlob: (blob) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           hasLivePreview = true;
           setOutpaintProgressPreview(elements, "Live ComfyUI Outpaint preview...", blob);
         },
-        onError: (message) => setOutpaintDiagnostics(elements, message)
+        onError: (message) => publishGenerationUpdate(activeRun, () => setOutpaintDiagnostics(elements, message))
       });
       activeRun.watcher = progressWatcher;
 
@@ -2357,6 +2399,7 @@ export function renderApp(rootElement: HTMLElement) {
       setOutpaintProgressPreview(elements, "Generating outpaint...");
       const history = await client.pollUntilComplete(promptId, {
         onTick: (message) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           setOutpaintStatus(elements, message, "idle");
 
           if (!hasLivePreview) {
@@ -2377,6 +2420,7 @@ export function renderApp(rootElement: HTMLElement) {
         }),
         outpaintSource.originatingDocument
       );
+      ensureGenerationCanCommit(activeRun);
       setOutpaintResult(generatedResult);
       addHistoryEntry(elements, historyEntries, generatedResult, {
         prompt: elements.outpaintPrompt.value,
@@ -2401,6 +2445,8 @@ export function renderApp(rootElement: HTMLElement) {
           importMode: "new layer"
         })
       });
+      finishActiveGeneration(activeRun);
+      activeRun = null;
       setOutpaintStatus(elements, "Outpaint generation complete.", "ready");
       setOutpaintDiagnostics(
         elements,
@@ -2408,7 +2454,7 @@ export function renderApp(rootElement: HTMLElement) {
       );
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
-        showGenerationCancelled("outpaint", activeRun?.promptId);
+        if (!activeRun || shouldFinalizeActiveRun(activeRun, activeGeneration)) showGenerationCancelled("outpaint", activeRun?.promptId);
         return;
       }
 
@@ -2628,18 +2674,20 @@ export function renderApp(rootElement: HTMLElement) {
       let hasLivePreview = false;
       progressWatcher = client.watchProgress(promptId, {
         onStatus: (message) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           setSketchStatus(elements, message, "idle");
 
           if (!hasLivePreview) {
             setSketchProgressPreview(elements, message);
           }
         },
-        onProgress: (value, max) => applyDeterminateProgress(elements.sketchStatusProgress, value, max),
+        onProgress: (value, max) => publishGenerationUpdate(activeRun, () => applyDeterminateProgress(elements.sketchStatusProgress, value, max)),
         onPreviewBlob: (blob) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           hasLivePreview = true;
           setSketchProgressPreview(elements, "Live ComfyUI preview...", blob);
         },
-        onError: (message) => setSketchDiagnostics(elements, message)
+        onError: (message) => publishGenerationUpdate(activeRun, () => setSketchDiagnostics(elements, message))
       });
       activeRun.watcher = progressWatcher;
 
@@ -2647,6 +2695,7 @@ export function renderApp(rootElement: HTMLElement) {
       setSketchProgressPreview(elements, "Generating image...");
       const history = await client.pollUntilComplete(promptId, {
         onTick: (message) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           setSketchStatus(elements, message, "idle");
 
           if (!hasLivePreview) {
@@ -2667,6 +2716,7 @@ export function renderApp(rootElement: HTMLElement) {
         }),
         sketchSource.originatingDocument
       );
+      ensureGenerationCanCommit(activeRun);
       setSketchResult(generatedResult);
       addHistoryEntry(elements, historyEntries, generatedResult, {
         prompt: elements.sketchPrompt.value,
@@ -2681,6 +2731,8 @@ export function renderApp(rootElement: HTMLElement) {
         sourceMode: sketchSource.sourceName,
         experimental: buildResult.preset.status === "experimental"
       });
+      finishActiveGeneration(activeRun);
+      activeRun = null;
       setSketchStatus(elements, "Sketch to Image generation complete.", "ready");
       setSketchDiagnostics(
         elements,
@@ -2688,7 +2740,7 @@ export function renderApp(rootElement: HTMLElement) {
       );
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
-        showGenerationCancelled("sketch-to-image", activeRun?.promptId);
+        if (!activeRun || shouldFinalizeActiveRun(activeRun, activeGeneration)) showGenerationCancelled("sketch-to-image", activeRun?.promptId);
         return;
       }
 
@@ -2983,18 +3035,20 @@ export function renderApp(rootElement: HTMLElement) {
       let hasLivePreview = false;
       progressWatcher = client.watchProgress(promptId, {
         onStatus: (message) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           setInpaintStatus(elements, message, "idle");
 
           if (!hasLivePreview) {
             setInpaintProgressPreview(elements, message);
           }
         },
-        onProgress: (value, max) => applyDeterminateProgress(elements.inpaintStatusProgress, value, max),
+        onProgress: (value, max) => publishGenerationUpdate(activeRun, () => applyDeterminateProgress(elements.inpaintStatusProgress, value, max)),
         onPreviewBlob: (blob) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           hasLivePreview = true;
           setInpaintProgressPreview(elements, "Live ComfyUI preview...", blob);
         },
-        onError: (message) => setInpaintDiagnostics(elements, message)
+        onError: (message) => publishGenerationUpdate(activeRun, () => setInpaintDiagnostics(elements, message))
       });
       activeRun.watcher = progressWatcher;
 
@@ -3002,6 +3056,7 @@ export function renderApp(rootElement: HTMLElement) {
       setInpaintProgressPreview(elements, "Generating image...");
       const history = await client.pollUntilComplete(promptId, {
         onTick: (message) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           setInpaintStatus(elements, message, "idle");
 
           if (!hasLivePreview) {
@@ -3022,6 +3077,7 @@ export function renderApp(rootElement: HTMLElement) {
         }),
         inpaintSource.originatingDocument
       );
+      ensureGenerationCanCommit(activeRun);
       const generatedImportContext = createInpaintImportContext(
         createInpaintSourceSnapshot(inpaintSource),
         generatedResult
@@ -3096,6 +3152,8 @@ export function renderApp(rootElement: HTMLElement) {
           })
         ].filter(Boolean).join(" ")
       });
+      finishActiveGeneration(activeRun);
+      activeRun = null;
       setInpaintStatus(elements, "Inpaint generation complete.", "ready");
       setInpaintDiagnostics(
         elements,
@@ -3109,7 +3167,7 @@ export function renderApp(rootElement: HTMLElement) {
       );
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
-        showGenerationCancelled("inpaint", activeRun?.promptId);
+        if (!activeRun || shouldFinalizeActiveRun(activeRun, activeGeneration)) showGenerationCancelled("inpaint", activeRun?.promptId);
         return;
       }
 
@@ -3319,14 +3377,17 @@ export function renderApp(rootElement: HTMLElement) {
       activeRun = beginActiveGeneration("prompt-from-layer", client, promptId);
       const historyItem = await client.pollUntilTextComplete(promptId, {
         preferredNodeId: textOutputNodeId,
-        onTick: (message) => setPromptLayerStatus(elements, message, "idle"),
+        onTick: (message) => publishGenerationUpdate(activeRun, () => setPromptLayerStatus(elements, message, "idle")),
         isCancelled: () => Boolean(activeRun?.isCancelled)
       });
       const generatedText = await client.retrieveFirstOutputText(promptId, historyItem, {
         preferredNodeId: textOutputNodeId
       });
+      ensureGenerationCanCommit(activeRun);
 
       elements.promptLayerGeneratedText.value = generatedText;
+      finishActiveGeneration(activeRun);
+      activeRun = null;
       setPromptLayerStatus(elements, "Prompt text generated.", "ready");
       setPromptLayerDiagnostics(
         elements,
@@ -3334,7 +3395,7 @@ export function renderApp(rootElement: HTMLElement) {
       );
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
-        showGenerationCancelled("prompt-from-layer", activeRun?.promptId);
+        if (!activeRun || shouldFinalizeActiveRun(activeRun, activeGeneration)) showGenerationCancelled("prompt-from-layer", activeRun?.promptId);
         return;
       }
 
