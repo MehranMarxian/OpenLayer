@@ -69,10 +69,16 @@ import {
   captureSelectionForInpainting,
   exportActiveLayerForImageToImage,
   exportCanvasForImageToImage,
+  getActiveDocumentIdentity,
   getActiveDocumentInfo,
   importGeneratedImageAsLayer,
   importImageAlignedToSelectionWithLayerMask
 } from "../photoshop/photoshopAdapter";
+import {
+  bindDocumentContext,
+  DocumentContextBound,
+  PhotoshopDocumentIdentity
+} from "../photoshop/documentContext";
 import {
   createInpaintSourceModeDiagnostic,
   getInpaintSourceModeLabel,
@@ -98,6 +104,12 @@ import {
   HistoryToolType
 } from "./historyMetadata";
 import { LivePaintingSession } from "./livePaintingSession";
+import {
+  createInpaintImportContext,
+  createInpaintSourceSnapshot,
+  InpaintImportContext,
+  resolveInpaintImportContext
+} from "./inpaintImportContext";
 
 const DEFAULT_SERVER_URL = "http://127.0.0.1:8190";
 const APP_VERSION = "0.6.0";
@@ -531,7 +543,9 @@ type AppElements = {
 
 type HistoryEntry = {
   id: string;
-  result: GeneratedImageResult;
+  result: AppGeneratedImageResult;
+  originatingDocument: PhotoshopDocumentIdentity | null;
+  inpaintImportContext?: AppInpaintImportContext;
   previewUrl: string;
   prompt: string;
   checkpointName: string;
@@ -557,6 +571,10 @@ type InpaintSourceState = SelectedRegionSourceImage & {
   previewUrl: string;
 };
 
+type AppGeneratedImageResult = DocumentContextBound<GeneratedImageResult>;
+type AppInpaintImportContext = InpaintImportContext<SelectedRegionSourceImage, AppGeneratedImageResult>;
+type LiveGeneratedImageResult = DocumentContextBound<{ blob: Blob }>;
+
 type ActiveGeneration = {
   toolType: HistoryToolType;
   client: ComfyClient;
@@ -574,32 +592,33 @@ const statusProgressLastPercent = new WeakMap<HTMLElement, number>();
 export function renderApp(rootElement: HTMLElement) {
   let currentView: AppView = "home";
   let isBusy = false;
-  let result: GeneratedImageResult | null = null;
+  let result: AppGeneratedImageResult | null = null;
   let previewUrl = "";
   let livePreviewUrl = "";
   let imageSource: ImageSourceState | null = null;
-  let imageResult: GeneratedImageResult | null = null;
+  let imageResult: AppGeneratedImageResult | null = null;
   let imageSourcePreviewUrl = "";
   let imageResultPreviewUrl = "";
   let imageLivePreviewUrl = "";
   let sketchSource: ImageSourceState | null = null;
-  let sketchResult: GeneratedImageResult | null = null;
+  let sketchResult: AppGeneratedImageResult | null = null;
   let sketchSourcePreviewUrl = "";
   let sketchResultPreviewUrl = "";
   let sketchLivePreviewUrl = "";
   let inpaintSource: InpaintSourceState | null = null;
-  let inpaintResult: GeneratedImageResult | null = null;
+  let inpaintResult: AppGeneratedImageResult | null = null;
+  let activeInpaintImportContext: AppInpaintImportContext | null = null;
   let inpaintSourcePreviewUrl = "";
   let inpaintMaskPreviewUrl = "";
   let inpaintResultPreviewUrl = "";
   let inpaintLivePreviewUrl = "";
   let outpaintSource: ImageSourceState | null = null;
-  let outpaintResult: GeneratedImageResult | null = null;
+  let outpaintResult: AppGeneratedImageResult | null = null;
   let outpaintSourcePreviewUrl = "";
   let outpaintResultPreviewUrl = "";
   let outpaintLivePreviewUrl = "";
   let upscaleSource: ImageSourceState | null = null;
-  let upscaleResult: GeneratedImageResult | null = null;
+  let upscaleResult: AppGeneratedImageResult | null = null;
   let upscaleSourcePreviewUrl = "";
   let upscaleResultPreviewUrl = "";
   let upscaleLivePreviewUrl = "";
@@ -614,7 +633,7 @@ export function renderApp(rootElement: HTMLElement) {
   let livePaintingSession: LivePaintingSession | null = null;
   let livePreviewImage: HTMLImageElement | null = null;
   let livePreviewObjectUrl = "";
-  let liveLastResult: Blob | null = null;
+  let liveLastResult: LiveGeneratedImageResult | null = null;
   let liveImportAutomatically = false;
   let livePreviewZoomed = false;
   let hardwareReport: HardwareRecommendationReport | null = null;
@@ -1294,6 +1313,7 @@ export function renderApp(rootElement: HTMLElement) {
     let activeRun: ActiveGeneration | null = null;
 
     try {
+      const originatingDocument = getActiveDocumentIdentity();
       const workflowPreset = readSelectValue(elements.workflow, DEFAULT_WORKFLOW);
       const preset = getWorkflowPreset(workflowPreset);
       const checkpointName = readSelectValue(elements.checkpoint);
@@ -1386,9 +1406,12 @@ export function renderApp(rootElement: HTMLElement) {
 
       setStatus(elements, "Retrieving image...", "idle");
       setProgressPreview(elements, "Retrieving final image...");
-      const generatedResult = await client.retrieveFirstOutputImage(promptId, history, {
-        preferredNodeId: getSaveImageNodeId(buildResult.preset)
-      });
+      const generatedResult = bindDocumentContext(
+        await client.retrieveFirstOutputImage(promptId, history, {
+          preferredNodeId: getSaveImageNodeId(buildResult.preset)
+        }),
+        originatingDocument
+      );
       setResult(generatedResult);
       addHistoryEntry(elements, historyEntries, generatedResult, {
         prompt: elements.prompt.value,
@@ -1487,6 +1510,7 @@ export function renderApp(rootElement: HTMLElement) {
         setView("sketch-to-image");
         return;
       case "inpaint":
+        activeInpaintImportContext = entry.inpaintImportContext ?? null;
         setInpaintResult(entry.result);
         setView("inpaint");
         return;
@@ -1514,7 +1538,7 @@ export function renderApp(rootElement: HTMLElement) {
         await handleImportSketch();
         return;
       case "inpaint":
-        await handleImportInpaint();
+        await handleImportInpaint(entry.inpaintImportContext);
         return;
       case "outpaint":
         await handleImportOutpaint();
@@ -1592,13 +1616,17 @@ export function renderApp(rootElement: HTMLElement) {
     setStatus(elements, "Importing image into Photoshop...", "idle");
 
     try {
-      const documentInfo = await getActiveDocumentInfo();
       const layerName = createLayerName("OpenLayer_Generated");
 
-      setDiagnostics(elements, `Importing into ${documentInfo.name || "active document"}...`);
-      const importedLayerName = await importGeneratedImageAsLayer(result.blob, layerName, (message) => {
-        setStatus(elements, message, "idle");
-        setDiagnostics(elements, message);
+      setDiagnostics(elements, `Importing into ${result.originatingDocument?.name || "the originating document"}...`);
+      const importedLayerName = await importGeneratedImageAsLayer({
+        blob: result.blob,
+        originatingDocument: result.originatingDocument,
+        layerName,
+        onProgress: (message) => {
+          setStatus(elements, message, "idle");
+          setDiagnostics(elements, message);
+        }
       });
       setStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
       flashImported(elements.statusText);
@@ -1805,9 +1833,12 @@ export function renderApp(rootElement: HTMLElement) {
 
       setImageStatus(elements, "Retrieving Image to Image result...", "idle");
       setImageProgressPreview(elements, "Retrieving final image...");
-      const generatedResult = await client.retrieveFirstOutputImage(promptId, history, {
-        preferredNodeId: getSaveImageNodeId(buildResult.preset)
-      });
+      const generatedResult = bindDocumentContext(
+        await client.retrieveFirstOutputImage(promptId, history, {
+          preferredNodeId: getSaveImageNodeId(buildResult.preset)
+        }),
+        imageSource.originatingDocument
+      );
       setImageResult(generatedResult);
       addHistoryEntry(elements, historyEntries, generatedResult, {
         prompt: elements.imgPrompt.value,
@@ -1871,13 +1902,17 @@ export function renderApp(rootElement: HTMLElement) {
     setImageStatus(elements, "Importing Image to Image result into Photoshop...", "idle");
 
     try {
-      const documentInfo = await getActiveDocumentInfo();
       const layerName = createLayerName("OpenLayer_Img2Img");
 
-      setImageDiagnostics(elements, `Importing into ${documentInfo.name || "active document"}...`);
-      const importedLayerName = await importGeneratedImageAsLayer(imageResult.blob, layerName, (message) => {
-        setImageStatus(elements, message, "idle");
-        setImageDiagnostics(elements, message);
+      setImageDiagnostics(elements, `Importing into ${imageResult.originatingDocument?.name || "the originating document"}...`);
+      const importedLayerName = await importGeneratedImageAsLayer({
+        blob: imageResult.blob,
+        originatingDocument: imageResult.originatingDocument,
+        layerName,
+        onProgress: (message) => {
+          setImageStatus(elements, message, "idle");
+          setImageDiagnostics(elements, message);
+        }
       });
       setImageStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
       flashImported(elements.imgStatusText);
@@ -2047,9 +2082,12 @@ export function renderApp(rootElement: HTMLElement) {
 
       setUpscaleStatus(elements, "Retrieving Upscale result...", "idle");
       setUpscaleProgressPreview(elements, "Retrieving final image...");
-      const generatedResult = await client.retrieveFirstOutputImage(promptId, history, {
-        preferredNodeId: getSaveImageNodeId(buildResult.preset)
-      });
+      const generatedResult = bindDocumentContext(
+        await client.retrieveFirstOutputImage(promptId, history, {
+          preferredNodeId: getSaveImageNodeId(buildResult.preset)
+        }),
+        upscaleSource.originatingDocument
+      );
       setUpscaleResult(generatedResult);
       addHistoryEntry(elements, historyEntries, generatedResult, {
         prompt: `Upscale ${upscaleSource.sourceName}`,
@@ -2112,13 +2150,17 @@ export function renderApp(rootElement: HTMLElement) {
     setUpscaleStatus(elements, "Importing Upscale result into Photoshop...", "idle");
 
     try {
-      const documentInfo = await getActiveDocumentInfo();
       const layerName = createLayerName("OpenLayer_Upscale");
 
-      setUpscaleDiagnostics(elements, `Importing into ${documentInfo.name || "active document"}...`);
-      const importedLayerName = await importGeneratedImageAsLayer(upscaleResult.blob, layerName, (message) => {
-        setUpscaleStatus(elements, message, "idle");
-        setUpscaleDiagnostics(elements, message);
+      setUpscaleDiagnostics(elements, `Importing into ${upscaleResult.originatingDocument?.name || "the originating document"}...`);
+      const importedLayerName = await importGeneratedImageAsLayer({
+        blob: upscaleResult.blob,
+        originatingDocument: upscaleResult.originatingDocument,
+        layerName,
+        onProgress: (message) => {
+          setUpscaleStatus(elements, message, "idle");
+          setUpscaleDiagnostics(elements, message);
+        }
       });
       setUpscaleStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
       flashImported(elements.upscaleStatusText);
@@ -2329,9 +2371,12 @@ export function renderApp(rootElement: HTMLElement) {
 
       setOutpaintStatus(elements, "Retrieving Outpaint result...", "idle");
       setOutpaintProgressPreview(elements, "Retrieving final image...");
-      const generatedResult = await client.retrieveFirstOutputImage(promptId, history, {
-        preferredNodeId: getSaveImageNodeId(buildResult.preset)
-      });
+      const generatedResult = bindDocumentContext(
+        await client.retrieveFirstOutputImage(promptId, history, {
+          preferredNodeId: getSaveImageNodeId(buildResult.preset)
+        }),
+        outpaintSource.originatingDocument
+      );
       setOutpaintResult(generatedResult);
       addHistoryEntry(elements, historyEntries, generatedResult, {
         prompt: elements.outpaintPrompt.value,
@@ -2393,13 +2438,17 @@ export function renderApp(rootElement: HTMLElement) {
     setOutpaintStatus(elements, "Importing Outpaint result into Photoshop...", "idle");
 
     try {
-      const documentInfo = await getActiveDocumentInfo();
       const layerName = createLayerName("OpenLayer_Outpaint");
 
-      setOutpaintDiagnostics(elements, `Importing into ${documentInfo.name || "active document"}...`);
-      const importedLayerName = await importGeneratedImageAsLayer(outpaintResult.blob, layerName, (message) => {
-        setOutpaintStatus(elements, message, "idle");
-        setOutpaintDiagnostics(elements, message);
+      setOutpaintDiagnostics(elements, `Importing into ${outpaintResult.originatingDocument?.name || "the originating document"}...`);
+      const importedLayerName = await importGeneratedImageAsLayer({
+        blob: outpaintResult.blob,
+        originatingDocument: outpaintResult.originatingDocument,
+        layerName,
+        onProgress: (message) => {
+          setOutpaintStatus(elements, message, "idle");
+          setOutpaintDiagnostics(elements, message);
+        }
       });
       setOutpaintStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
       flashImported(elements.outpaintStatusText);
@@ -2612,9 +2661,12 @@ export function renderApp(rootElement: HTMLElement) {
 
       setSketchStatus(elements, "Retrieving Sketch to Image result...", "idle");
       setSketchProgressPreview(elements, "Retrieving final image...");
-      const generatedResult = await client.retrieveFirstOutputImage(promptId, history, {
-        preferredNodeId: getSaveImageNodeId(buildResult.preset)
-      });
+      const generatedResult = bindDocumentContext(
+        await client.retrieveFirstOutputImage(promptId, history, {
+          preferredNodeId: getSaveImageNodeId(buildResult.preset)
+        }),
+        sketchSource.originatingDocument
+      );
       setSketchResult(generatedResult);
       addHistoryEntry(elements, historyEntries, generatedResult, {
         prompt: elements.sketchPrompt.value,
@@ -2666,13 +2718,17 @@ export function renderApp(rootElement: HTMLElement) {
     setSketchStatus(elements, "Importing Sketch to Image result into Photoshop...", "idle");
 
     try {
-      const documentInfo = await getActiveDocumentInfo();
       const layerName = createLayerName("OpenLayer_Sketch");
 
-      setSketchDiagnostics(elements, `Importing into ${documentInfo.name || "active document"}...`);
-      const importedLayerName = await importGeneratedImageAsLayer(sketchResult.blob, layerName, (message) => {
-        setSketchStatus(elements, message, "idle");
-        setSketchDiagnostics(elements, message);
+      setSketchDiagnostics(elements, `Importing into ${sketchResult.originatingDocument?.name || "the originating document"}...`);
+      const importedLayerName = await importGeneratedImageAsLayer({
+        blob: sketchResult.blob,
+        originatingDocument: sketchResult.originatingDocument,
+        layerName,
+        onProgress: (message) => {
+          setSketchStatus(elements, message, "idle");
+          setSketchDiagnostics(elements, message);
+        }
       });
       setSketchStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
       flashImported(elements.sketchStatusText);
@@ -2960,9 +3016,16 @@ export function renderApp(rootElement: HTMLElement) {
 
       setInpaintStatus(elements, "Retrieving Inpaint result...", "idle");
       setInpaintProgressPreview(elements, "Retrieving final image...");
-      const generatedResult = await client.retrieveFirstOutputImage(promptId, history, {
-        preferredNodeId: getSaveImageNodeId(buildResult.preset)
-      });
+      const generatedResult = bindDocumentContext(
+        await client.retrieveFirstOutputImage(promptId, history, {
+          preferredNodeId: getSaveImageNodeId(buildResult.preset)
+        }),
+        inpaintSource.originatingDocument
+      );
+      const generatedImportContext = createInpaintImportContext(
+        createInpaintSourceSnapshot(inpaintSource),
+        generatedResult
+      );
       const resultDimensions = await readImageDimensionsFromBlob(generatedResult.blob);
       const inpaintOutputDiagnostics = formatInpaintOutputDiagnostics({
         presetId: buildResult.preset.id,
@@ -2993,6 +3056,7 @@ export function renderApp(rootElement: HTMLElement) {
         debugExportMessage = ` Debug copy export unavailable: ${getErrorMessage(debugError)}.`;
       }
 
+      activeInpaintImportContext = generatedImportContext;
       setInpaintResult(generatedResult);
       addHistoryEntry(elements, historyEntries, generatedResult, {
         prompt: elements.inpaintPrompt.value,
@@ -3007,6 +3071,7 @@ export function renderApp(rootElement: HTMLElement) {
         sourceMode: getInpaintSourceModeLabel(inpaintSource.sourceMode),
         sourceBounds: createMetadataBounds(inpaintSource.selection.bounds),
         contextBounds: createMetadataBounds(inpaintSource.selection.contextBounds),
+        inpaintImportContext: generatedImportContext,
         experimental: true,
         diagnosticsSummary: [
           inpaintOutputDiagnostics,
@@ -3060,21 +3125,20 @@ export function renderApp(rootElement: HTMLElement) {
     }
   }
 
-  async function handleImportInpaint() {
+  async function handleImportInpaint(savedHistoryContext?: AppInpaintImportContext) {
     setInpaintDiagnostics(elements, "Inpaint import pressed.");
+    const importContext = resolveInpaintImportContext(savedHistoryContext, activeInpaintImportContext);
 
-    if (!inpaintResult) {
+    if (!importContext) {
       setInpaintError(elements, "Generate an Inpaint result before importing.");
       return;
     }
 
-    if (!inpaintSource) {
-      setInpaintError(elements, "Capture the Photoshop selection again before importing this Inpaint result.");
-      return;
-    }
+    const importSource = importContext.source;
+    const importResultImage = importContext.result;
 
-    if (!inpaintSource.mask) {
-      setInpaintError(elements, "Capture the Photoshop selection mask again before importing this Inpaint result.");
+    if (!importSource.mask) {
+      setInpaintError(elements, "The saved selection mask for this Inpaint result is unavailable. Generate the result again from a captured selection.");
       return;
     }
 
@@ -3084,33 +3148,44 @@ export function renderApp(rootElement: HTMLElement) {
     setInpaintStatus(elements, "Importing Inpaint result into Photoshop...", "idle");
 
     try {
-      const documentInfo = await getActiveDocumentInfo();
       const layerName = createLayerName("OpenLayer_Inpaint");
       const presetId = readSelectValue(elements.inpaintWorkflow, DEFAULT_INPAINT_WORKFLOW);
       const sourceDimensions = {
-        width: inpaintSource.width,
-        height: inpaintSource.height
+        width: importSource.width,
+        height: importSource.height
       };
       const maskDimensions = {
-        width: inpaintSource.mask.width,
-        height: inpaintSource.mask.height
+        width: importSource.mask.width,
+        height: importSource.mask.height
       };
-      const resultDimensions = await readImageDimensionsFromBlob(inpaintResult.blob);
+      const resultDimensions = await readImageDimensionsFromBlob(importResultImage.blob);
       let importMode: InpaintImportMode = "aligned-context-fallback";
 
-      setInpaintDiagnostics(elements, `Importing into ${documentInfo.name || "active document"}...`);
+      if (!resultDimensions || !dimensionsMatchForUi(resultDimensions, sourceDimensions)) {
+        throw new Error("The generated Inpaint result dimensions do not match the saved source context. Generate this result again before importing.");
+      }
+
+      setInpaintDiagnostics(
+        elements,
+        `Importing into ${importResultImage.originatingDocument?.name || "the originating document"}...`
+      );
       setInpaintStatus(elements, "Importing with Photoshop layer mask...", "idle");
       setInpaintDiagnostics(
         elements,
-        resultDimensions && dimensionsMatchForUi(resultDimensions, sourceDimensions)
-          ? "Attempting native Photoshop layer mask import."
-          : "Raw inpaint result dimensions do not match the captured source context. Layer mask import will still be attempted, with aligned fallback if needed."
+        "Applying the exact saved Photoshop selection mask."
       );
 
       const importResult = await importImageAlignedToSelectionWithLayerMask({
-        blob: inpaintResult.blob,
-        bounds: inpaintSource.selection.contextBounds,
-        selectionBounds: inpaintSource.selection.bounds,
+        blob: importResultImage.blob,
+        originatingDocument: importResultImage.originatingDocument,
+        bounds: importSource.selection.contextBounds,
+        mask: {
+          blob: importSource.mask.blob,
+          width: importSource.mask.width,
+          height: importSource.mask.height
+        },
+        sourceDimensions,
+        resultDimensions,
         layerName,
         onProgress: (message) => {
           setInpaintStatus(elements, message, "idle");
@@ -3121,8 +3196,8 @@ export function renderApp(rootElement: HTMLElement) {
       const importedLayerName = importResult.layerName;
       setInpaintStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
       flashImported(elements.inpaintStatusText);
-      markHistoryImported(elements, historyEntries, inpaintResult, importedLayerName);
-      const metadataMessage = await writeMetadataForImportedResult(historyEntries, inpaintResult, importedLayerName, (message) => {
+      markHistoryImported(elements, historyEntries, importResultImage, importedLayerName);
+      const metadataMessage = await writeMetadataForImportedResult(historyEntries, importResultImage, importedLayerName, (message) => {
         setInpaintDiagnostics(elements, message);
       });
       setInpaintDiagnostics(
@@ -3338,7 +3413,7 @@ export function renderApp(rootElement: HTMLElement) {
         onTimings: (message) => {
           elements.liveTimingsText.textContent = message;
         },
-        onPreviewBlob: (blob) => updateLivePreview(blob),
+        onPreviewBlob: (blob, originatingDocument) => updateLivePreview(blob, originatingDocument),
         onStopped: (reason) => {
           setLiveStatus(reason);
           updateLiveButtons(false);
@@ -3394,11 +3469,12 @@ export function renderApp(rootElement: HTMLElement) {
     setLiveStatus("Importing live result into Photoshop...");
 
     try {
-      const importedLayerName = await importGeneratedImageAsLayer(
-        liveLastResult,
-        createLayerName("OpenLayer_Live"),
-        (message) => setLiveStatus(message)
-      );
+      const importedLayerName = await importGeneratedImageAsLayer({
+        blob: liveLastResult.blob,
+        originatingDocument: liveLastResult.originatingDocument,
+        layerName: createLayerName("OpenLayer_Live"),
+        onProgress: (message) => setLiveStatus(message)
+      });
       setLiveStatus(`Imported layer: ${importedLayerName}`);
       flashImported(elements.liveStatusText);
     } catch (caughtError) {
@@ -3431,7 +3507,7 @@ export function renderApp(rootElement: HTMLElement) {
     setActionDisabled(elements.liveStopButton, !isLive);
   }
 
-  function updateLivePreview(blob: Blob) {
+  function updateLivePreview(blob: Blob, originatingDocument: PhotoshopDocumentIdentity) {
     // One persistent img element: swapping src avoids the rebuild flicker the
     // per-frame progress previews show elsewhere in the panel.
     if (!livePreviewImage) {
@@ -3449,11 +3525,11 @@ export function renderApp(rootElement: HTMLElement) {
       URL.revokeObjectURL(previousUrl);
     }
 
-    liveLastResult = blob;
+    liveLastResult = bindDocumentContext({ blob }, originatingDocument);
     setActionDisabled(elements.importLiveButton, false);
   }
 
-  function setResult(nextResult: GeneratedImageResult | null) {
+  function setResult(nextResult: AppGeneratedImageResult | null) {
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
       previewUrl = "";
@@ -3542,7 +3618,7 @@ export function renderApp(rootElement: HTMLElement) {
     syncBusy();
   }
 
-  function setImageResult(nextResult: GeneratedImageResult | null) {
+  function setImageResult(nextResult: AppGeneratedImageResult | null) {
     if (imageResultPreviewUrl) {
       URL.revokeObjectURL(imageResultPreviewUrl);
       imageResultPreviewUrl = "";
@@ -3631,7 +3707,7 @@ export function renderApp(rootElement: HTMLElement) {
     syncBusy();
   }
 
-  function setSketchResult(nextResult: GeneratedImageResult | null) {
+  function setSketchResult(nextResult: AppGeneratedImageResult | null) {
     if (sketchResultPreviewUrl) {
       URL.revokeObjectURL(sketchResultPreviewUrl);
       sketchResultPreviewUrl = "";
@@ -3748,7 +3824,11 @@ export function renderApp(rootElement: HTMLElement) {
     syncBusy();
   }
 
-  function setInpaintResult(nextResult: GeneratedImageResult | null) {
+  function setInpaintResult(nextResult: AppGeneratedImageResult | null) {
+    if (!nextResult) {
+      activeInpaintImportContext = null;
+    }
+
     if (inpaintResultPreviewUrl) {
       URL.revokeObjectURL(inpaintResultPreviewUrl);
       inpaintResultPreviewUrl = "";
@@ -3837,7 +3917,7 @@ export function renderApp(rootElement: HTMLElement) {
     syncBusy();
   }
 
-  function setOutpaintResult(nextResult: GeneratedImageResult | null) {
+  function setOutpaintResult(nextResult: AppGeneratedImageResult | null) {
     if (outpaintResultPreviewUrl) {
       URL.revokeObjectURL(outpaintResultPreviewUrl);
       outpaintResultPreviewUrl = "";
@@ -3926,7 +4006,7 @@ export function renderApp(rootElement: HTMLElement) {
     syncBusy();
   }
 
-  function setUpscaleResult(nextResult: GeneratedImageResult | null) {
+  function setUpscaleResult(nextResult: AppGeneratedImageResult | null) {
     if (upscaleResultPreviewUrl) {
       URL.revokeObjectURL(upscaleResultPreviewUrl);
       upscaleResultPreviewUrl = "";
@@ -5269,16 +5349,16 @@ function getElement<T extends HTMLElement>(rootElement: HTMLElement, id: string)
 function setBusy(
   elements: AppElements,
   isBusy: boolean,
-  result: GeneratedImageResult | null,
-  imageResult: GeneratedImageResult | null = null,
+  result: AppGeneratedImageResult | null,
+  imageResult: AppGeneratedImageResult | null = null,
   imageSource: ImageSourceState | null = null,
-  sketchResult: GeneratedImageResult | null = null,
+  sketchResult: AppGeneratedImageResult | null = null,
   sketchSource: ImageSourceState | null = null,
-  inpaintResult: GeneratedImageResult | null = null,
+  inpaintResult: AppGeneratedImageResult | null = null,
   inpaintSource: InpaintSourceState | null = null,
-  outpaintResult: GeneratedImageResult | null = null,
+  outpaintResult: AppGeneratedImageResult | null = null,
   outpaintSource: ImageSourceState | null = null,
-  upscaleResult: GeneratedImageResult | null = null,
+  upscaleResult: AppGeneratedImageResult | null = null,
   upscaleSource: ImageSourceState | null = null
 ) {
   elements.serverUrl.disabled = isBusy;
@@ -7562,7 +7642,7 @@ async function refreshDocumentStatus(elements: AppElements) {
 function addHistoryEntry(
   elements: AppElements,
   historyEntries: HistoryEntry[],
-  result: GeneratedImageResult,
+  result: AppGeneratedImageResult,
   details: {
     prompt: string;
     negativePrompt?: string;
@@ -7576,6 +7656,7 @@ function addHistoryEntry(
     sourceMode: string;
     sourceBounds?: OpenLayerLayerBounds;
     contextBounds?: OpenLayerLayerBounds;
+    inpaintImportContext?: AppInpaintImportContext;
     experimental?: boolean;
     diagnosticsSummary?: string;
   }
@@ -7601,6 +7682,8 @@ function addHistoryEntry(
   historyEntries.unshift({
     id: createHistoryId(),
     result,
+    originatingDocument: result.originatingDocument,
+    inpaintImportContext: details.inpaintImportContext,
     previewUrl: URL.createObjectURL(result.blob),
     prompt: details.prompt.trim() || "Untitled prompt",
     checkpointName: details.checkpointName,
@@ -7702,7 +7785,7 @@ function renderHistory(elements: AppElements, historyEntries: HistoryEntry[]) {
 function markHistoryImported(
   elements: AppElements,
   historyEntries: HistoryEntry[],
-  result: GeneratedImageResult,
+  result: AppGeneratedImageResult,
   importedLayerName: string
 ) {
   const entry = historyEntries.find((historyEntry) => historyEntry.result === result);
@@ -7724,7 +7807,7 @@ function markHistoryImported(
 
 async function writeMetadataForImportedResult(
   historyEntries: HistoryEntry[],
-  result: GeneratedImageResult,
+  result: AppGeneratedImageResult,
   importedLayerName: string,
   onProgress?: (message: string) => void
 ) {
