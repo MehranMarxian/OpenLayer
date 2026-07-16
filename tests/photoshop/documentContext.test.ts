@@ -27,6 +27,14 @@ describe("Photoshop document context", () => {
     expect(validation.message).toContain("References.psd");
   });
 
+  it("detects an originating-document change during an import transaction", () => {
+    expect(validateDocumentImportContext(origin, origin, [origin, other]).ok).toBe(true);
+    expect(validateDocumentImportContext(origin, other, [origin, other])).toMatchObject({
+      ok: false,
+      reason: "different-active-document"
+    });
+  });
+
   it("blocks import when the originating document has been closed", () => {
     const validation = validateDocumentImportContext(origin, other, [other]);
 
