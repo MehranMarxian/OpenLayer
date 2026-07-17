@@ -4,10 +4,7 @@ import {
   formatHardwareReport,
   HardwareRecommendationReport
 } from "../comfy/hardwareAdvisor";
-import {
-  createFluxFillInpaintDebugSummary,
-  validateFluxFillInpaintSource
-} from "../comfy/inpaintValidation";
+import { createFluxFillInpaintDebugSummary } from "../comfy/inpaintValidation";
 import { createFluxFillEmbeddedMaskSource } from "../comfy/fluxFillMaskBridge";
 import { formatFluxFillReferenceDefaults } from "../comfy/fluxFillDefaults";
 import {
@@ -22,6 +19,12 @@ import {
   validateGenerationCommit
 } from "./generationIntegrity";
 import { createObjectUrlRegistry, ObjectUrlRegistry } from "./objectUrlRegistry";
+import {
+  evaluateInpaintReadiness,
+  formatInpaintReadinessDiagnostic,
+  getInpaintReadinessStatusLabel,
+  InpaintReadiness
+} from "./inpaintReadiness";
 import {
   formatInpaintOutputDiagnostics,
   ImageDimensions,
@@ -2894,46 +2897,78 @@ export function renderApp(rootElement: HTMLElement) {
     }
   }
 
+  // One readiness gate for the whole panel: it names the single thing to fix and
+  // reports it the same way whichever prerequisite is missing. Generate passes
+  // the workflow context an artist needs to interpret the block; import has no
+  // workflow, so it passes none.
+  function reportInpaintNotReady(
+    readiness: Extract<InpaintReadiness, { ok: false }>,
+    workflowContext = ""
+  ) {
+    setInpaintError(elements, readiness.message);
+    setInpaintStatus(elements, getInpaintReadinessStatusLabel(readiness.reason), "error");
+    setInpaintDiagnostics(
+      elements,
+      [formatInpaintReadinessDiagnostic(readiness), workflowContext].filter(Boolean).join(" ")
+    );
+  }
+
+  function createInpaintWorkflowContext() {
+    const preset = resolveInpaintPreset(readSelectValue(elements.inpaintWorkflow, DEFAULT_INPAINT_WORKFLOW));
+
+    if (!preset) {
+      return "";
+    }
+
+    return createWorkflowDiagnostics(preset, readSelectValue(elements.inpaintCheckpoint), {
+      selection: Boolean(inpaintSource),
+      "selection-mask": Boolean(inpaintSource?.mask)
+    });
+  }
+
+  function resolveInpaintPreset(presetId: string) {
+    try {
+      return getWorkflowPreset(presetId);
+    } catch {
+      return null;
+    }
+  }
+
   async function handleGenerateInpaint() {
     setInpaintDiagnostics(elements, `Inpaint generate pressed at ${new Date().toLocaleTimeString()}.`);
 
-    if (!inpaintSource) {
-      setInpaintError(elements, "Make a Photoshop selection, then click Capture Selection before generating Inpaint.");
-      setInpaintStatus(elements, "Selection required.", "error");
-      setInpaintDiagnostics(
-        elements,
-        createWorkflowDiagnostics(
-          getWorkflowPreset(readSelectValue(elements.inpaintWorkflow, DEFAULT_INPAINT_WORKFLOW)),
-          readSelectValue(elements.inpaintCheckpoint),
-          {
-            selection: false,
-            "selection-mask": false
-          }
-        )
-      );
+    const presetId = readSelectValue(elements.inpaintWorkflow, DEFAULT_INPAINT_WORKFLOW);
+    // Evaluated before the client exists, so a missing selection or prompt is
+    // reported instantly instead of behind a ComfyUI round trip.
+    const localReadiness = evaluateInpaintReadiness({
+      mode: "generate",
+      source: inpaintSource,
+      preset: resolveInpaintPreset(presetId),
+      presetId,
+      checkpointName: readSelectValue(elements.inpaintCheckpoint),
+      prompt: elements.inpaintPrompt.value
+    });
+
+    if (!localReadiness.ok) {
+      reportInpaintNotReady(localReadiness, createInpaintWorkflowContext());
       return;
     }
 
-    if (!elements.inpaintPrompt.value.trim()) {
-      setInpaintError(elements, getErrorMessage(createOpenLayerError("PROMPT_REQUIRED", "Enter a prompt before generating Inpaint.")));
-      setInpaintStatus(elements, "Prompt required.", "error");
-      return;
-    }
+    // Snapshot the capture the moment it passes the gate. Everything downstream
+    // reads this frozen copy, so a selection captured while ComfyUI is still
+    // generating cannot pair a new source with this run's result.
+    const submittedSource = createInpaintSourceSnapshot(inpaintSource!);
+    const submittedMask = submittedSource.mask;
 
-    if (!inpaintSource.mask) {
-      setInpaintError(elements, inpaintSource.maskMessage || "Capture Selection did not produce a mask image.");
-      setInpaintStatus(elements, "Mask required.", "error");
-      setInpaintDiagnostics(
-        elements,
-        createWorkflowDiagnostics(
-          getWorkflowPreset(readSelectValue(elements.inpaintWorkflow, DEFAULT_INPAINT_WORKFLOW)),
-          readSelectValue(elements.inpaintCheckpoint),
-          {
-            selection: true,
-            "selection-mask": false
-          }
-        )
-      );
+    // Readiness already proved the mask is present; this keeps the compiler
+    // honest without a non-null assertion on every use below.
+    if (!submittedMask) {
+      reportInpaintNotReady({
+        ok: false,
+        reason: "mask-missing",
+        message: "Capture Selection did not produce a mask image.",
+        warnings: []
+      }, createInpaintWorkflowContext());
       return;
     }
 
@@ -2947,8 +2982,7 @@ export function renderApp(rootElement: HTMLElement) {
     let activeRun: ActiveGeneration | null = null;
 
     try {
-      const workflowPreset = readSelectValue(elements.inpaintWorkflow, DEFAULT_INPAINT_WORKFLOW);
-      const preset = getWorkflowPreset(workflowPreset);
+      const preset = getWorkflowPreset(presetId);
       const checkpointName = readSelectValue(elements.inpaintCheckpoint);
       const { settings, warnings } = validateImageToImageSettings({
         steps: elements.inpaintSteps.value,
@@ -2959,50 +2993,28 @@ export function renderApp(rootElement: HTMLElement) {
       const client = new ComfyClient(elements.serverUrl.value);
       const fluxDebugSummary = createFluxFillInpaintDebugSummary({
         presetId: preset.id,
-        hasSourceImage: Boolean(inpaintSource),
-        hasMaskImage: Boolean(inpaintSource.mask),
-        sourceWidth: inpaintSource.width,
-        sourceHeight: inpaintSource.height,
-        maskWidth: inpaintSource.mask.width,
-        maskHeight: inpaintSource.mask.height,
-        hasSelectionContextBounds: Boolean(inpaintSource.selection.contextBounds),
+        hasSourceImage: true,
+        hasMaskImage: true,
+        sourceWidth: submittedSource.width,
+        sourceHeight: submittedSource.height,
+        maskWidth: submittedMask.width,
+        maskHeight: submittedMask.height,
+        hasSelectionContextBounds: Boolean(submittedSource.selection.contextBounds),
         selectedFluxModelName: checkpointName
       });
-      const fluxSourceProblems = validateFluxFillInpaintSource({
-        presetId: preset.id,
-        hasSourceImage: Boolean(inpaintSource),
-        hasMaskImage: Boolean(inpaintSource.mask),
-        sourceWidth: inpaintSource.width,
-        sourceHeight: inpaintSource.height,
-        maskWidth: inpaintSource.mask.width,
-        maskHeight: inpaintSource.mask.height,
-        hasSelectionContextBounds: Boolean(inpaintSource.selection.contextBounds)
-      });
-
-      if (fluxSourceProblems.length > 0) {
-        throw createOpenLayerError(
-          "INPAINT_SOURCE_INVALID",
-          fluxSourceProblems[0],
-          fluxSourceProblems.join(" ")
-        );
-      }
 
       applyValidatedInpaintSettings(elements, settings);
       const workflowDiagnostics = warnings.length > 0
         ? warnings.join(" ")
         : createWorkflowDiagnostics(preset, checkpointName, {
-          selection: Boolean(inpaintSource),
-          "selection-mask": Boolean(inpaintSource?.mask)
+          selection: true,
+          "selection-mask": true
         });
       setInpaintDiagnostics(
         elements,
         [workflowDiagnostics, fluxDebugSummary].filter(Boolean).join(" ")
       );
       await client.checkOnline();
-
-      if (!checkpointName) {
-        throw createOpenLayerError("CHECKPOINT_REQUIRED", "Choose a ComfyUI checkpoint before generating Inpaint.");
-      }
 
       const compatibility = getCheckpointCompatibility(checkpointName, preset);
 
@@ -3021,12 +3033,22 @@ export function renderApp(rootElement: HTMLElement) {
 
       setInpaintStatus(elements, "Checking selected checkpoint...", "idle");
       setInpaintProgressPreview(elements, "Checking selected checkpoint...");
+      // Re-run the contract now that the server can answer which models it has.
+      // This replaces the ad hoc hasModelForPreset check with the same rule set
+      // the local gate used, so both report failures identically.
+      const serverReadiness = evaluateInpaintReadiness({
+        mode: "generate",
+        source: submittedSource,
+        preset,
+        presetId: preset.id,
+        checkpointName,
+        prompt: elements.inpaintPrompt.value,
+        installedModelNames: await client.getModelNamesForPreset(preset)
+      });
 
-      if (!(await client.hasModelForPreset(checkpointName, preset))) {
-        throw createOpenLayerError(
-          "CHECKPOINT_REQUIRED",
-          `The ${preset.modelSource.label.toLowerCase()} "${checkpointName}" was not found in ComfyUI. Click Check ComfyUI and choose an available model.`
-        );
+      if (!serverReadiness.ok) {
+        reportInpaintNotReady(serverReadiness, workflowDiagnostics);
+        return;
       }
 
       setInpaintStatus(elements, "Checking Inpaint nodes...", "idle");
@@ -3035,16 +3057,16 @@ export function renderApp(rootElement: HTMLElement) {
 
       setInpaintStatus(elements, "Uploading source and mask to ComfyUI...", "idle");
       setInpaintProgressPreview(elements, "Uploading source and mask...");
-      let sourceUploadBlob = inpaintSource.blob;
-      let sourceUploadFilename = inpaintSource.filename;
-      let maskUploadBlob = inpaintSource.mask.blob;
-      let maskUploadFilename = inpaintSource.mask.filename;
+      let sourceUploadBlob = submittedSource.blob;
+      let sourceUploadFilename = submittedSource.filename;
+      let maskUploadBlob = submittedMask.blob;
+      let maskUploadFilename = submittedMask.filename;
       let fluxEmbeddedMaskMessage = "";
 
       if (preset.id === "inpaint-flux-fill-basic") {
         setInpaintStatus(elements, "Preparing Flux Fill masked source...", "idle");
         setInpaintProgressPreview(elements, "Embedding mask into Flux Fill source...");
-        const embeddedSource = await createFluxFillEmbeddedMaskSource(inpaintSource.blob, inpaintSource.mask.blob);
+        const embeddedSource = await createFluxFillEmbeddedMaskSource(submittedSource.blob, submittedMask.blob);
         sourceUploadBlob = embeddedSource.blob;
         sourceUploadFilename = embeddedSource.filename;
         maskUploadBlob = embeddedSource.blob;
@@ -3068,8 +3090,8 @@ export function renderApp(rootElement: HTMLElement) {
         cfg: settings.cfg,
         seed: settings.seed,
         denoise: settings.denoise,
-        width: Math.round(inpaintSource.width),
-        height: Math.round(inpaintSource.height),
+        width: Math.round(submittedSource.width),
+        height: Math.round(submittedSource.height),
         requiredModelSelections
       });
 
@@ -3131,26 +3153,21 @@ export function renderApp(rootElement: HTMLElement) {
         await client.retrieveFirstOutputImage(promptId, history, {
           preferredNodeId: getSaveImageNodeId(buildResult.preset)
         }),
-        inpaintSource.originatingDocument
+        submittedSource.originatingDocument
       );
       ensureGenerationCanCommit(activeRun);
-      const generatedImportContext = createInpaintImportContext(
-        createInpaintSourceSnapshot(inpaintSource),
-        generatedResult
-      );
+      const generatedImportContext = createInpaintImportContext(submittedSource, generatedResult);
       const resultDimensions = await readImageDimensionsFromBlob(generatedResult.blob);
       const inpaintOutputDiagnostics = formatInpaintOutputDiagnostics({
         presetId: buildResult.preset.id,
         sourceDimensions: {
-          width: inpaintSource.width,
-          height: inpaintSource.height
+          width: submittedSource.width,
+          height: submittedSource.height
         },
-        maskDimensions: inpaintSource.mask
-          ? {
-            width: inpaintSource.mask.width,
-            height: inpaintSource.mask.height
-          }
-          : null,
+        maskDimensions: {
+          width: submittedMask.width,
+          height: submittedMask.height
+        },
         resultDimensions,
         importMode: "aligned-context-fallback",
         maskPolarity: "white-repaints"
@@ -3159,8 +3176,8 @@ export function renderApp(rootElement: HTMLElement) {
 
       try {
         const debugFiles = await saveInpaintDebugBlobsToTemporaryFiles({
-          sourceBlob: inpaintSource.blob,
-          maskBlob: inpaintSource.mask.blob,
+          sourceBlob: submittedSource.blob,
+          maskBlob: submittedMask.blob,
           resultBlob: generatedResult.blob
         });
         debugExportMessage = ` Debug copies saved in the UXP temporary folder: ${debugFiles.join(", ")}.`;
@@ -3179,10 +3196,10 @@ export function renderApp(rootElement: HTMLElement) {
         toolType: "inpaint",
         seed: buildResult.seed,
         sizeLabel: "Inpaint",
-        dimensions: `${inpaintSource.width} x ${inpaintSource.height}`,
-        sourceMode: getInpaintSourceModeLabel(inpaintSource.sourceMode),
-        sourceBounds: createMetadataBounds(inpaintSource.selection.bounds),
-        contextBounds: createMetadataBounds(inpaintSource.selection.contextBounds),
+        dimensions: `${submittedSource.width} x ${submittedSource.height}`,
+        sourceMode: getInpaintSourceModeLabel(submittedSource.sourceMode),
+        sourceBounds: createMetadataBounds(submittedSource.selection.bounds),
+        contextBounds: createMetadataBounds(submittedSource.selection.contextBounds),
         inpaintImportContext: generatedImportContext,
         experimental: true,
         diagnosticsSummary: [
@@ -3190,19 +3207,17 @@ export function renderApp(rootElement: HTMLElement) {
           formatInpaintOutpaintDebugContract({
             toolType: "inpaint",
             presetId: buildResult.preset.id,
-            sourceMode: getInpaintSourceModeLabel(inpaintSource.sourceMode),
+            sourceMode: getInpaintSourceModeLabel(submittedSource.sourceMode),
             sourceDimensions: {
-              width: inpaintSource.width,
-              height: inpaintSource.height
+              width: submittedSource.width,
+              height: submittedSource.height
             },
-            maskDimensions: inpaintSource.mask
-              ? {
-                width: inpaintSource.mask.width,
-                height: inpaintSource.mask.height
-              }
-              : null,
+            maskDimensions: {
+              width: submittedMask.width,
+              height: submittedMask.height
+            },
             maskPolarity: "white-repaints",
-            contextBounds: createMetadataBounds(inpaintSource.selection.contextBounds),
+            contextBounds: createMetadataBounds(submittedSource.selection.contextBounds),
             outputKind: "selection context",
             importMode: "Photoshop layer mask with aligned fallback"
           })
@@ -3250,9 +3265,28 @@ export function renderApp(rootElement: HTMLElement) {
 
     const importSource = importContext.source;
     const importResultImage = importContext.result;
+    // The result carries the exact capture it was generated from, so import
+    // readiness re-checks that saved pair rather than whatever is on screen now.
+    const importReadiness = evaluateInpaintReadiness({
+      mode: "import",
+      source: importSource,
+      resultDimensions: await readImageDimensionsFromBlob(importResultImage.blob)
+    });
 
-    if (!importSource.mask) {
-      setInpaintError(elements, "The saved selection mask for this Inpaint result is unavailable. Generate the result again from a captured selection.");
+    if (!importReadiness.ok) {
+      reportInpaintNotReady(importReadiness);
+      return;
+    }
+
+    const importMask = importSource.mask;
+
+    if (!importMask) {
+      reportInpaintNotReady({
+        ok: false,
+        reason: "mask-missing",
+        message: "The saved selection mask for this Inpaint result is unavailable. Generate the result again from a captured selection.",
+        warnings: []
+      });
       return;
     }
 
@@ -3269,15 +3303,11 @@ export function renderApp(rootElement: HTMLElement) {
         height: importSource.height
       };
       const maskDimensions = {
-        width: importSource.mask.width,
-        height: importSource.mask.height
+        width: importMask.width,
+        height: importMask.height
       };
-      const resultDimensions = await readImageDimensionsFromBlob(importResultImage.blob);
+      const resultDimensions = { width: importSource.width, height: importSource.height };
       let importMode: InpaintImportMode = "aligned-context-fallback";
-
-      if (!resultDimensions || !dimensionsMatchForUi(resultDimensions, sourceDimensions)) {
-        throw new Error("The generated Inpaint result dimensions do not match the saved source context. Generate this result again before importing.");
-      }
 
       setInpaintDiagnostics(
         elements,
@@ -3294,9 +3324,9 @@ export function renderApp(rootElement: HTMLElement) {
         originatingDocument: importResultImage.originatingDocument,
         bounds: importSource.selection.contextBounds,
         mask: {
-          blob: importSource.mask.blob,
-          width: importSource.mask.width,
-          height: importSource.mask.height
+          blob: importMask.blob,
+          width: importMask.width,
+          height: importMask.height
         },
         sourceDimensions,
         resultDimensions,
@@ -6129,10 +6159,6 @@ function createSourceCaptureMessage(source: ExportedSourceImage, suffix = "") {
 function createSourceMetaText(source: ExportedSourceImage) {
   const size = `${Math.round(source.width)} x ${Math.round(source.height)}`;
   return `${size} | ${formatSourceCaptureLabel(source)} source`;
-}
-
-function dimensionsMatchForUi(first: ImageDimensions, second: ImageDimensions) {
-  return Math.round(first.width) === Math.round(second.width) && Math.round(first.height) === Math.round(second.height);
 }
 
 function getSaveImageNodeId(preset: WorkflowPresetDefinition) {

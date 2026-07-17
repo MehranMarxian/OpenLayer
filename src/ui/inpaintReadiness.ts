@@ -57,6 +57,10 @@ export type InpaintReadinessInput = Readonly<{
   checkpointName?: string;
   prompt?: string;
   compatibilityContext?: WorkflowCompatibilityContext;
+  // The model names the ComfyUI server actually offers for this preset's model
+  // source. Omitted when the list could not be read, because an unreachable or
+  // unlisted server must not block generation on a guess.
+  installedModelNames?: readonly string[];
   // Flux Fill embeds the mask in the source PNG's alpha channel instead of
   // uploading a separate mask image.
   maskBridgeAvailable?: boolean;
@@ -195,7 +199,7 @@ function evaluateWorkflowReadiness(
   // requiredModels, so a freely chosen checkpoint is never compared against the
   // server there. A stale dropdown or a deleted model would otherwise reach the
   // upload before ComfyUI rejected it.
-  const installedModelNames = getSelectableModelNames(input, preset);
+  const installedModelNames = input.installedModelNames ?? [];
 
   if (installedModelNames.length > 0 && !installedModelNames.includes(checkpointName)) {
     return blocked(
@@ -290,30 +294,6 @@ function blocked(
   technicalMessage?: string
 ): InpaintReadiness {
   return { ok: false, reason, message, technicalMessage, warnings: [...warnings] };
-}
-
-// Only the bucket the preset actually selects from, and only when it was
-// enumerated successfully: an unreachable or unlisted server must not block
-// generation on a guess.
-function getSelectableModelNames(input: InpaintReadinessInput, preset: WorkflowPresetDefinition) {
-  const inventory = input.compatibilityContext?.availableModels;
-
-  if (!inventory) {
-    return [];
-  }
-
-  switch (preset.modelSource.kind) {
-    case "checkpoint":
-      return inventory.checkpoints ?? [];
-    case "diffusion-model-stack":
-      return inventory.diffusionModels ?? [];
-    case "upscale":
-      return inventory.upscaleModels ?? [];
-    case "vision-language":
-      return inventory.visionLanguageModels ?? [];
-    default:
-      return [];
-  }
 }
 
 function sameDimensions(left: PixelDimensions, right: PixelDimensions) {

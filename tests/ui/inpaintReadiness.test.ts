@@ -80,11 +80,10 @@ function createAvailableNodes(preset: typeof basicPreset) {
 const readyContext: WorkflowCompatibilityContext = {
   selectedModelName: "epicrealism_naturalSinRC1VAE-inpainting.safetensors",
   selectedModelFamily: "sd1",
-  availableNodes: createAvailableNodes(basicPreset),
-  availableModels: {
-    checkpoints: ["epicrealism_naturalSinRC1VAE-inpainting.safetensors"]
-  }
+  availableNodes: createAvailableNodes(basicPreset)
 };
+
+const installedCheckpoints = ["epicrealism_naturalSinRC1VAE-inpainting.safetensors"];
 
 function evaluateBasic(overrides: Partial<InpaintReadinessInput> = {}) {
   return evaluateInpaintReadiness({
@@ -95,6 +94,7 @@ function evaluateBasic(overrides: Partial<InpaintReadinessInput> = {}) {
     checkpointName: "epicrealism_naturalSinRC1VAE-inpainting.safetensors",
     prompt: "a cat holding a mouse",
     compatibilityContext: readyContext,
+    installedModelNames: installedCheckpoints,
     ...overrides
   });
 }
@@ -264,11 +264,8 @@ describe("Inpaint readiness contract", () => {
 
   it("blocks a checkpoint the ComfyUI server does not have installed", () => {
     const readiness = evaluateBasic({
-      compatibilityContext: {
-        ...readyContext,
-        selectedModelName: "not-installed.safetensors",
-        availableModels: { checkpoints: ["something-else.safetensors"] }
-      },
+      compatibilityContext: { ...readyContext, selectedModelName: "not-installed.safetensors" },
+      installedModelNames: ["something-else.safetensors"],
       checkpointName: "not-installed.safetensors"
     });
 
@@ -277,11 +274,8 @@ describe("Inpaint readiness contract", () => {
   });
 
   it("does not guess about installed models when the server list is unavailable", () => {
-    const readiness = evaluateBasic({
-      compatibilityContext: { ...readyContext, availableModels: undefined }
-    });
-
-    expect(readiness.ok).toBe(true);
+    expect(evaluateBasic({ installedModelNames: undefined }).ok).toBe(true);
+    expect(evaluateBasic({ installedModelNames: [] }).ok).toBe(true);
   });
 
   it("blocks Flux Fill when the mask cannot be embedded into the source PNG", () => {
