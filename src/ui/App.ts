@@ -20,6 +20,19 @@ import {
 } from "./generationIntegrity";
 import { createObjectUrlRegistry, ObjectUrlRegistry } from "./objectUrlRegistry";
 import {
+  BUSY_DISABLED_ACTIONS,
+  BUSY_DISABLED_FIELDS,
+  BUSY_GATED_ACTIONS,
+  BusyGateName
+} from "./toolDescriptors";
+import {
+  createOwnedObjectUrl,
+  createResultPreviewPanel,
+  createSourcePreviewPanel,
+  renderPreviewImage,
+  renderPreviewMessage
+} from "./previewState";
+import {
   evaluateInpaintReadiness,
   formatInpaintReadinessDiagnostic,
   getInpaintReadinessStatusLabel,
@@ -120,436 +133,50 @@ import {
   InpaintImportContext,
   resolveInpaintImportContext
 } from "./inpaintImportContext";
+import {
+  APP_VERSION,
+  AppView,
+  COMFY_PORT_CANDIDATES,
+  DEFAULT_CFG,
+  DEFAULT_HEIGHT,
+  DEFAULT_IMAGE_WORKFLOW,
+  DEFAULT_IMG2IMG_DENOISE,
+  DEFAULT_IMG2IMG_STEPS,
+  DEFAULT_INPAINT_DENOISE,
+  DEFAULT_INPAINT_STEPS,
+  DEFAULT_INPAINT_WORKFLOW,
+  DEFAULT_OUTPAINT_BOTTOM,
+  DEFAULT_OUTPAINT_DENOISE,
+  DEFAULT_OUTPAINT_FEATHERING,
+  DEFAULT_OUTPAINT_GUIDANCE,
+  DEFAULT_OUTPAINT_LEFT,
+  DEFAULT_OUTPAINT_RIGHT,
+  DEFAULT_OUTPAINT_STEPS,
+  DEFAULT_OUTPAINT_TOP,
+  DEFAULT_OUTPAINT_WORKFLOW,
+  DEFAULT_PROMPT_LAYER_NUM_BEAMS,
+  DEFAULT_PROMPT_LAYER_TASK,
+  DEFAULT_SERVER_URL,
+  DEFAULT_SKETCH_CONTROL_STRENGTH,
+  DEFAULT_SKETCH_DENOISE,
+  DEFAULT_SKETCH_STEPS,
+  DEFAULT_SKETCH_WORKFLOW,
+  DEFAULT_STEPS,
+  DEFAULT_THEME,
+  DEFAULT_UPSCALE_WORKFLOW,
+  DEFAULT_WIDTH,
+  DEFAULT_WORKFLOW,
+  FALLBACK_CHECKPOINTS,
+  FALLBACK_UPSCALE_MODELS,
+  HISTORY_LIMIT,
+  PROMPT_LAYER_TASKS,
+  RECOMMENDED_SKETCH_CHECKPOINT
+} from "./appConstants";
+import { AppElements, createAppMarkup, getAppElements } from "./appMarkup";
 
-const DEFAULT_SERVER_URL = "http://127.0.0.1:8190";
-const APP_VERSION = "0.6.0";
-const DEVELOPER_GITHUB = "https://github.com/MehranMarxian";
-const HISTORY_LIMIT = 5;
-const COMFY_PORT_CANDIDATES = [8190, 8188, 8189, 8191, 8192, 8193, 7860];
-const DEFAULT_WORKFLOW = "txt2img-basic";
-const DEFAULT_IMAGE_WORKFLOW = "img2img-basic";
-const DEFAULT_SKETCH_WORKFLOW = "sketch2img-linecn-basic";
-const DEFAULT_INPAINT_WORKFLOW = "inpaint-basic";
-const DEFAULT_OUTPAINT_WORKFLOW = "outpaint-flux-fill-basic";
-const DEFAULT_THEME: OpenLayerTheme = "compact";
-const DEFAULT_UPSCALE_WORKFLOW = "upscale-basic";
-const FALLBACK_UPSCALE_MODELS = ["4x-UltraSharp.pth", "RealESRGAN_x4plus.pth"];
-const RECOMMENDED_SKETCH_CHECKPOINT = "epicrealism_naturalSinRC1VAE.safetensors";
-const DEFAULT_WIDTH = "512";
-const DEFAULT_HEIGHT = "512";
-const DEFAULT_STEPS = "20";
-const DEFAULT_CFG = "7";
-const DEFAULT_IMG2IMG_STEPS = "12";
-const DEFAULT_IMG2IMG_DENOISE = "0.55";
-const DEFAULT_SKETCH_STEPS = "20";
-const DEFAULT_SKETCH_DENOISE = "1";
-const DEFAULT_SKETCH_CONTROL_STRENGTH = "0.8";
-const DEFAULT_INPAINT_STEPS = "16";
-const DEFAULT_INPAINT_DENOISE = "0.75";
-const DEFAULT_OUTPAINT_STEPS = "20";
-const DEFAULT_OUTPAINT_GUIDANCE = "10";
-const DEFAULT_OUTPAINT_DENOISE = "1";
-const DEFAULT_OUTPAINT_LEFT = "400";
-const DEFAULT_OUTPAINT_TOP = "0";
-const DEFAULT_OUTPAINT_RIGHT = "400";
-const DEFAULT_OUTPAINT_BOTTOM = "400";
-const DEFAULT_OUTPAINT_FEATHERING = "40";
-const DEFAULT_PROMPT_LAYER_TASK = "detailed_caption";
-const DEFAULT_PROMPT_LAYER_NUM_BEAMS = "12";
-const PROMPT_LAYER_TASKS = [
-  { value: "detailed_caption", label: "Detailed caption" },
-  { value: "caption", label: "Caption" },
-  { value: "more_detailed_caption", label: "More detailed caption" }
-];
-const FALLBACK_CHECKPOINTS = [
-  "epicrealism_naturalSinRC1VAE.safetensors",
-  "epicrealism_pureEvolutionV5-inpainting.safetensors",
-  "flux1-dev-fp8.safetensors",
-  "model.safetensors",
-  "sd3.5_large.safetensors",
-  "sd3_medium_incl_clips_t5xxlfp8.safetensors",
-  "sd_xl_base_1.0.safetensors",
-  "sd_xl_refiner_1.0.safetensors"
-];
 
 type StatusTone = "idle" | "ready" | "error";
-type AppView =
-  | "home"
-  | "text-to-image"
-  | "image-to-image"
-  | "sketch-to-image"
-  | "inpaint"
-  | "outpaint"
-  | "prompt-from-layer"
-  | "upscale"
-  | "live-painting"
-  | "settings"
-  | "history";
-type ToolCardStatus = "available" | "experimental" | "coming-soon";
 
-type ToolCard = {
-  id: string;
-  title: string;
-  subtitle: string;
-  icon: ToolIconName;
-  status: ToolCardStatus;
-  view?: AppView;
-};
-
-type ToolIconName =
-  | "image"
-  | "imagePlus"
-  | "brush"
-  | "expand"
-  | "lineart"
-  | "promptFromLayer"
-  | "upscale"
-  | "style"
-  | "control"
-  | "workflow"
-  | "layers"
-  | "history"
-  | "settings";
-
-const TOOL_CARDS: ToolCard[] = [
-  {
-    id: "text-to-image",
-    title: "Text to Image",
-    subtitle: "Generate a new layer from a prompt",
-    icon: "imagePlus",
-    status: "available",
-    view: "text-to-image"
-  },
-  {
-    id: "image-to-image",
-    title: "Image to Image",
-    subtitle: "Use the active layer as visual input",
-    icon: "image",
-    status: "available",
-    view: "image-to-image"
-  },
-  {
-    id: "inpaint",
-    title: "Inpaint",
-    subtitle: "Selection repaint is in testing",
-    icon: "brush",
-    status: "experimental",
-    view: "inpaint"
-  },
-  {
-    id: "prompt-from-layer",
-    title: "Prompt from Layer",
-    subtitle: "Describe a layer into prompt text",
-    icon: "promptFromLayer",
-    status: "available",
-    view: "prompt-from-layer"
-  },
-  {
-    id: "outpaint",
-    title: "Outpaint",
-    subtitle: "Extend canvas content beyond edges",
-    icon: "expand",
-    status: "experimental",
-    view: "outpaint"
-  },
-  {
-    id: "lineart",
-    title: "Sketch to Image",
-    subtitle: "Guide generation with lineart",
-    icon: "lineart",
-    status: "experimental",
-    view: "sketch-to-image"
-  },
-  {
-    id: "upscale",
-    title: "Upscale",
-    subtitle: "Enhance generated or selected layers",
-    icon: "upscale",
-    status: "available",
-    view: "upscale"
-  },
-  {
-    id: "live-painting",
-    title: "Live Painting",
-    subtitle: "Paint and watch AI respond (spike)",
-    icon: "style",
-    status: "experimental",
-    view: "live-painting"
-  },
-  {
-    id: "style-reference",
-    title: "Style Reference",
-    subtitle: "Match mood, color, or visual language",
-    icon: "style",
-    status: "coming-soon"
-  },
-  {
-    id: "workflow-presets",
-    title: "Workflow Presets",
-    subtitle: "Manage reusable ComfyUI workflows",
-    icon: "control",
-    status: "coming-soon"
-  },
-  {
-    id: "workflow",
-    title: "Workflow",
-    subtitle: "Build and test custom ComfyUI graphs",
-    icon: "workflow",
-    status: "coming-soon"
-  },
-  {
-    id: "layer-tools",
-    title: "Layer Tools",
-    subtitle: "Export layers, selections, and masks",
-    icon: "layers",
-    status: "coming-soon"
-  },
-  {
-    id: "history",
-    title: "History",
-    subtitle: "Review recent generations",
-    icon: "history",
-    status: "available",
-    view: "history"
-  },
-  {
-    id: "settings",
-    title: "Settings",
-    subtitle: "Defaults, ports, paths, and diagnostics",
-    icon: "settings",
-    status: "available",
-    view: "settings"
-  }
-];
-
-const HOME_TOOL_SECTIONS = [
-  {
-    title: "Generate",
-    toolIds: ["text-to-image", "image-to-image", "lineart", "inpaint", "outpaint", "upscale", "prompt-from-layer", "live-painting"]
-  },
-  {
-    title: "Workflow",
-    toolIds: ["workflow-presets", "workflow", "style-reference"]
-  },
-  {
-    title: "Tools & History",
-    toolIds: ["layer-tools", "history"]
-  },
-  {
-    title: "Preferences",
-    toolIds: ["settings"]
-  }
-];
-
-type AppElements = {
-  appShell: HTMLElement;
-  homeView: HTMLElement;
-  generatorView: HTMLElement;
-  imageToImageView: HTMLElement;
-  sketchToImageView: HTMLElement;
-  inpaintView: HTMLElement;
-  outpaintView: HTMLElement;
-  promptFromLayerView: HTMLElement;
-  upscaleView: HTMLElement;
-  settingsView: HTMLElement;
-  historyView: HTMLElement;
-  homeStatusText: HTMLElement;
-  homeStatusDot: HTMLElement;
-  serverUrl: HTMLInputElement;
-  prompt: HTMLTextAreaElement;
-  negativePrompt: HTMLTextAreaElement;
-  workflow: HTMLSelectElement;
-  checkpoint: HTMLSelectElement;
-  width: HTMLInputElement;
-  height: HTMLInputElement;
-  steps: HTMLInputElement;
-  cfg: HTMLInputElement;
-  seed: HTMLInputElement;
-  checkButton: HTMLElement;
-  findPortButton: HTMLElement;
-  detectHardwareButton: HTMLElement;
-  checkWorkflowHealthButton: HTMLElement;
-  copyDiagnosticsButton: HTMLElement;
-  saveSettingsButton: HTMLElement;
-  resetSettingsButton: HTMLElement;
-  generateButton: HTMLElement;
-  cancelGenerateButton: HTMLElement;
-  cancelGenerationButtons: HTMLElement[];
-  importButton: HTMLElement;
-  autoImportToggle: HTMLElement;
-  imgPrompt: HTMLTextAreaElement;
-  imgNegativePrompt: HTMLTextAreaElement;
-  imgWorkflow: HTMLSelectElement;
-  imgCheckpoint: HTMLSelectElement;
-  imgSteps: HTMLInputElement;
-  imgCfg: HTMLInputElement;
-  imgSeed: HTMLInputElement;
-  imgDenoise: HTMLInputElement;
-  captureLayerButton: HTMLElement;
-  captureCanvasButton: HTMLElement;
-  generateImg2ImgButton: HTMLElement;
-  importImg2ImgButton: HTMLElement;
-  sketchPrompt: HTMLTextAreaElement;
-  sketchNegativePrompt: HTMLTextAreaElement;
-  sketchWorkflow: HTMLSelectElement;
-  sketchCheckpoint: HTMLSelectElement;
-  sketchSteps: HTMLInputElement;
-  sketchCfg: HTMLInputElement;
-  sketchSeed: HTMLInputElement;
-  sketchDenoise: HTMLInputElement;
-  sketchControlStrength: HTMLInputElement;
-  captureSketchLayerButton: HTMLElement;
-  captureSketchCanvasButton: HTMLElement;
-  generateSketchButton: HTMLElement;
-  importSketchButton: HTMLElement;
-  inpaintPrompt: HTMLTextAreaElement;
-  inpaintNegativePrompt: HTMLTextAreaElement;
-  inpaintWorkflow: HTMLSelectElement;
-  inpaintCheckpoint: HTMLSelectElement;
-  inpaintSteps: HTMLInputElement;
-  inpaintCfg: HTMLInputElement;
-  inpaintSeed: HTMLInputElement;
-  inpaintDenoise: HTMLInputElement;
-  captureInpaintSelectionButton: HTMLElement;
-  captureInpaintActiveLayerButton: HTMLElement;
-  generateInpaintButton: HTMLElement;
-  importInpaintButton: HTMLElement;
-  outpaintPrompt: HTMLTextAreaElement;
-  outpaintWorkflow: HTMLSelectElement;
-  outpaintCheckpoint: HTMLSelectElement;
-  outpaintSteps: HTMLInputElement;
-  outpaintGuidance: HTMLInputElement;
-  outpaintSeed: HTMLInputElement;
-  outpaintDenoise: HTMLInputElement;
-  outpaintLeft: HTMLInputElement;
-  outpaintTop: HTMLInputElement;
-  outpaintRight: HTMLInputElement;
-  outpaintBottom: HTMLInputElement;
-  outpaintFeathering: HTMLInputElement;
-  captureOutpaintLayerButton: HTMLElement;
-  captureOutpaintCanvasButton: HTMLElement;
-  generateOutpaintButton: HTMLElement;
-  importOutpaintButton: HTMLElement;
-  capturePromptLayerButton: HTMLElement;
-  capturePromptCanvasButton: HTMLElement;
-  generatePromptLayerButton: HTMLElement;
-  copyPromptLayerButton: HTMLElement;
-  sendPromptLayerButton: HTMLElement;
-  upscaleWorkflow: HTMLSelectElement;
-  upscaleModel: HTMLSelectElement;
-  captureUpscaleLayerButton: HTMLElement;
-  captureUpscaleCanvasButton: HTMLElement;
-  generateUpscaleButton: HTMLElement;
-  importUpscaleButton: HTMLElement;
-  upscaleAutoImportToggle: HTMLElement;
-  imgAutoImportToggle: HTMLElement;
-  experimentalCheckpointToggle: HTMLElement;
-  negativePromptToggle: HTMLElement;
-  negativePromptField: HTMLElement;
-  clearHistoryButton: HTMLElement;
-  statusText: HTMLElement;
-  statusPill: HTMLElement;
-  statusProgress: HTMLElement;
-  imgStatusText: HTMLElement;
-  imgStatusPill: HTMLElement;
-  imgStatusProgress: HTMLElement;
-  sketchStatusText: HTMLElement;
-  sketchStatusPill: HTMLElement;
-  sketchStatusProgress: HTMLElement;
-  inpaintStatusText: HTMLElement;
-  inpaintStatusPill: HTMLElement;
-  inpaintStatusProgress: HTMLElement;
-  promptLayerStatusText: HTMLElement;
-  promptLayerStatusPill: HTMLElement;
-  promptLayerStatusProgress: HTMLElement;
-  settingsStatusText: HTMLElement;
-  settingsStatusPill: HTMLElement;
-  settingsStatusProgress: HTMLElement;
-  diagnosticsText: HTMLElement;
-  imgDiagnosticsText: HTMLElement;
-  imgCompatibilityNote: HTMLElement;
-  sketchDiagnosticsText: HTMLElement;
-  sketchCompatibilityNote: HTMLElement;
-  inpaintDiagnosticsText: HTMLElement;
-  inpaintCompatibilityNote: HTMLElement;
-  outpaintStatusText: HTMLElement;
-  outpaintStatusPill: HTMLElement;
-  outpaintStatusProgress: HTMLElement;
-  upscaleStatusText: HTMLElement;
-  upscaleStatusPill: HTMLElement;
-  upscaleStatusProgress: HTMLElement;
-  outpaintDiagnosticsText: HTMLElement;
-  outpaintCompatibilityNote: HTMLElement;
-  upscaleDiagnosticsText: HTMLElement;
-  upscaleCompatibilityNote: HTMLElement;
-  promptLayerDiagnosticsText: HTMLElement;
-  settingsDiagnosticsText: HTMLElement;
-  errorMessage: HTMLElement;
-  imgErrorMessage: HTMLElement;
-  sketchErrorMessage: HTMLElement;
-  inpaintErrorMessage: HTMLElement;
-  outpaintErrorMessage: HTMLElement;
-  upscaleErrorMessage: HTMLElement;
-  promptLayerErrorMessage: HTMLElement;
-  settingsErrorMessage: HTMLElement;
-  previewPanel: HTMLElement;
-  imageSourcePreviewPanel: HTMLElement;
-  imageSourceTitle: HTMLElement;
-  imageSourceMeta: HTMLElement;
-  imageResultPreviewPanel: HTMLElement;
-  sketchSourcePreviewPanel: HTMLElement;
-  sketchSourceTitle: HTMLElement;
-  sketchSourceMeta: HTMLElement;
-  sketchResultPreviewPanel: HTMLElement;
-  inpaintSourcePreviewPanel: HTMLElement;
-  inpaintSourceTitle: HTMLElement;
-  inpaintSourceMeta: HTMLElement;
-  inpaintMaskPreviewPanel: HTMLElement;
-  inpaintMaskMeta: HTMLElement;
-  inpaintResultPreviewPanel: HTMLElement;
-  outpaintSourcePreviewPanel: HTMLElement;
-  outpaintSourceTitle: HTMLElement;
-  outpaintSourceMeta: HTMLElement;
-  outpaintResultPreviewPanel: HTMLElement;
-  upscaleSourcePreviewPanel: HTMLElement;
-  upscaleSourceTitle: HTMLElement;
-  upscaleSourceMeta: HTMLElement;
-  upscaleResultPreviewPanel: HTMLElement;
-  promptLayerSourcePreviewPanel: HTMLElement;
-  promptLayerSourceTitle: HTMLElement;
-  promptLayerSourceMeta: HTMLElement;
-  promptLayerTask: HTMLSelectElement;
-  promptLayerNumBeams: HTMLInputElement;
-  promptLayerGeneratedText: HTMLTextAreaElement;
-  historyList: HTMLElement;
-  settingsUrlValue: HTMLElement;
-  settingsCheckpointCount: HTMLElement;
-  settingsLastCheckpoint: HTMLElement;
-  settingsDocumentStatus: HTMLElement;
-  settingsWorkflowReadiness: HTMLElement;
-  settingsThemeSelect: HTMLSelectElement;
-  settingsGpuName: HTMLElement;
-  settingsVramTotal: HTMLElement;
-  settingsVramFree: HTMLElement;
-  settingsVramTier: HTMLElement;
-  settingsModelFamilies: HTMLElement;
-  settingsZImageTurbo: HTMLElement;
-  settingsModelRecommendations: HTMLElement;
-  settingsWorkflowHealthSummary: HTMLElement;
-  settingsWorkflowHealthList: HTMLElement;
-  settingsDiagnosticsReport: HTMLTextAreaElement;
-  livePaintingView: HTMLElement;
-  livePrompt: HTMLTextAreaElement;
-  liveDenoise: HTMLInputElement;
-  liveStartButton: HTMLElement;
-  liveStopButton: HTMLElement;
-  liveStatusText: HTMLElement;
-  liveTimingsText: HTMLElement;
-  liveResultPreviewPanel: HTMLElement;
-  liveZoomToggle: HTMLElement;
-  importLiveButton: HTMLElement;
-  liveAutoImportToggle: HTMLElement;
-};
 
 type HistoryEntry = {
   id: string;
@@ -604,37 +231,18 @@ export function renderApp(rootElement: HTMLElement) {
   let currentView: AppView = "home";
   let isBusy = false;
   let result: AppGeneratedImageResult | null = null;
-  let previewUrl = "";
-  let livePreviewUrl = "";
   let imageSource: ImageSourceState | null = null;
   let imageResult: AppGeneratedImageResult | null = null;
-  let imageSourcePreviewUrl = "";
-  let imageResultPreviewUrl = "";
-  let imageLivePreviewUrl = "";
   let sketchSource: ImageSourceState | null = null;
   let sketchResult: AppGeneratedImageResult | null = null;
-  let sketchSourcePreviewUrl = "";
-  let sketchResultPreviewUrl = "";
-  let sketchLivePreviewUrl = "";
   let inpaintSource: InpaintSourceState | null = null;
   let inpaintResult: AppGeneratedImageResult | null = null;
   let activeInpaintImportContext: AppInpaintImportContext | null = null;
-  let inpaintSourcePreviewUrl = "";
-  let inpaintMaskPreviewUrl = "";
-  let inpaintResultPreviewUrl = "";
-  let inpaintLivePreviewUrl = "";
   let outpaintSource: ImageSourceState | null = null;
   let outpaintResult: AppGeneratedImageResult | null = null;
-  let outpaintSourcePreviewUrl = "";
-  let outpaintResultPreviewUrl = "";
-  let outpaintLivePreviewUrl = "";
   let upscaleSource: ImageSourceState | null = null;
   let upscaleResult: AppGeneratedImageResult | null = null;
-  let upscaleSourcePreviewUrl = "";
-  let upscaleResultPreviewUrl = "";
-  let upscaleLivePreviewUrl = "";
   let promptLayerSource: ImageSourceState | null = null;
-  let promptLayerSourcePreviewUrl = "";
   let importAutomatically = false;
   let imageImportAutomatically = false;
   let upscaleImportAutomatically = false;
@@ -652,17 +260,9 @@ export function renderApp(rootElement: HTMLElement) {
   let workflowHealthReport: WorkflowHealthReport | null = null;
   const historyEntries: HistoryEntry[] = [];
   const objectUrls = createObjectUrlRegistry();
-  // Route every panel-owned preview URL through one registry while retaining
-  // the familiar URL.createObjectURL/revokeObjectURL call sites below.
-  const URL = {
-    createObjectURL: objectUrls.create,
-    revokeObjectURL: objectUrls.revoke
-  };
 
   function syncBusy() {
-    setBusy(
-      elements,
-      isBusy,
+    setBusy(elements, isBusy, {
       result,
       imageResult,
       imageSource,
@@ -674,12 +274,99 @@ export function renderApp(rootElement: HTMLElement) {
       outpaintSource,
       upscaleResult,
       upscaleSource
-    );
+    });
   }
 
   rootElement.innerHTML = createAppMarkup();
 
   const elements = getAppElements(rootElement);
+  const resultPanel = createResultPreviewPanel({
+    urls: objectUrls,
+    panel: elements.previewPanel,
+    emptyText: "No result yet",
+    resultAlt: "Generated OpenLayer preview",
+    liveAlt: "Live ComfyUI generation preview"
+  });
+  const imageResultPanel = createResultPreviewPanel({
+    urls: objectUrls,
+    panel: elements.imageResultPreviewPanel,
+    emptyText: "No Image to Image result yet",
+    resultAlt: "Generated Image to Image preview",
+    liveAlt: "Live ComfyUI Image to Image preview"
+  });
+  const sketchResultPanel = createResultPreviewPanel({
+    urls: objectUrls,
+    panel: elements.sketchResultPreviewPanel,
+    emptyText: "No Sketch to Image result yet",
+    resultAlt: "Generated Sketch to Image preview",
+    liveAlt: "Live ComfyUI Sketch to Image preview"
+  });
+  const inpaintResultPanel = createResultPreviewPanel({
+    urls: objectUrls,
+    panel: elements.inpaintResultPreviewPanel,
+    emptyText: "No Inpaint result yet",
+    resultAlt: "Generated Inpaint preview",
+    liveAlt: "Live ComfyUI Inpaint preview"
+  });
+  const outpaintResultPanel = createResultPreviewPanel({
+    urls: objectUrls,
+    panel: elements.outpaintResultPreviewPanel,
+    emptyText: "No Outpaint result yet",
+    resultAlt: "Generated Outpaint preview",
+    liveAlt: "Live ComfyUI Outpaint preview"
+  });
+  const upscaleResultPanel = createResultPreviewPanel({
+    urls: objectUrls,
+    panel: elements.upscaleResultPreviewPanel,
+    emptyText: "No Upscale result yet",
+    resultAlt: "Generated Upscale preview",
+    liveAlt: "Live ComfyUI Upscale preview"
+  });
+  const imageSourcePanel = createSourcePreviewPanel({
+    urls: objectUrls,
+    panel: elements.imageSourcePreviewPanel,
+    titleElement: elements.imageSourceTitle,
+    metaElement: elements.imageSourceMeta,
+    imageAlt: "Captured active Photoshop layer"
+  });
+  const sketchSourcePanel = createSourcePreviewPanel({
+    urls: objectUrls,
+    panel: elements.sketchSourcePreviewPanel,
+    titleElement: elements.sketchSourceTitle,
+    metaElement: elements.sketchSourceMeta,
+    imageAlt: "Captured Photoshop source for Sketch to Image"
+  });
+  const inpaintSourcePanel = createSourcePreviewPanel({
+    urls: objectUrls,
+    panel: elements.inpaintSourcePreviewPanel,
+    titleElement: elements.inpaintSourceTitle,
+    metaElement: elements.inpaintSourceMeta,
+    imageAlt: "Captured Photoshop selection for Inpaint",
+    emptyTitle: "No selection captured",
+    emptyMeta: "Make a Photoshop selection first."
+  });
+  const outpaintSourcePanel = createSourcePreviewPanel({
+    urls: objectUrls,
+    panel: elements.outpaintSourcePreviewPanel,
+    titleElement: elements.outpaintSourceTitle,
+    metaElement: elements.outpaintSourceMeta,
+    imageAlt: "Captured Photoshop source for Outpaint"
+  });
+  const upscaleSourcePanel = createSourcePreviewPanel({
+    urls: objectUrls,
+    panel: elements.upscaleSourcePreviewPanel,
+    titleElement: elements.upscaleSourceTitle,
+    metaElement: elements.upscaleSourceMeta,
+    imageAlt: "Captured Photoshop source for Upscale"
+  });
+  const promptLayerSourcePanel = createSourcePreviewPanel({
+    urls: objectUrls,
+    panel: elements.promptLayerSourcePreviewPanel,
+    titleElement: elements.promptLayerSourceTitle,
+    metaElement: elements.promptLayerSourceMeta,
+    imageAlt: "Captured Photoshop source for Prompt from Layer"
+  });
+  const inpaintMaskUrl = createOwnedObjectUrl(objectUrls);
   let resourceObserver: MutationObserver | null = null;
   let resourcesDisposed = false;
   const disposeAppResources = () => {
@@ -1222,18 +909,13 @@ export function renderApp(rootElement: HTMLElement) {
   }
 
   function releaseGenerationLivePreview(toolType: HistoryToolType) {
-    const release = (url: string) => {
-      if (url) URL.revokeObjectURL(url);
-      return "";
-    };
-
     switch (toolType) {
-      case "image-to-image": imageLivePreviewUrl = release(imageLivePreviewUrl); return;
-      case "sketch-to-image": sketchLivePreviewUrl = release(sketchLivePreviewUrl); return;
-      case "inpaint": inpaintLivePreviewUrl = release(inpaintLivePreviewUrl); return;
-      case "outpaint": outpaintLivePreviewUrl = release(outpaintLivePreviewUrl); return;
-      case "upscale": upscaleLivePreviewUrl = release(upscaleLivePreviewUrl); return;
-      case "text-to-image": livePreviewUrl = release(livePreviewUrl); return;
+      case "image-to-image": imageResultPanel.releaseLivePreviewUrl(); return;
+      case "sketch-to-image": sketchResultPanel.releaseLivePreviewUrl(); return;
+      case "inpaint": inpaintResultPanel.releaseLivePreviewUrl(); return;
+      case "outpaint": outpaintResultPanel.releaseLivePreviewUrl(); return;
+      case "upscale": upscaleResultPanel.releaseLivePreviewUrl(); return;
+      case "text-to-image": resultPanel.releaseLivePreviewUrl(); return;
       case "prompt-from-layer": return;
     }
   }
@@ -1248,107 +930,38 @@ export function renderApp(rootElement: HTMLElement) {
     if (activeRun && canPublishGenerationUpdate(activeRun, activeGeneration)) update();
   }
 
+  // One row per tool: how each generation surface reports status, diagnostics,
+  // progress, and errors. The switch dispatchers this replaces restated these
+  // pairings four times.
+  const generationToolUi: Record<HistoryToolType, {
+    status: (elements: AppElements, status: string, tone: StatusTone) => void;
+    diagnostics: (elements: AppElements, message: string) => void;
+    error: (elements: AppElements, message: string) => void;
+    progress?: (elements: AppElements, message: string, blob?: Blob) => void;
+  }> = {
+    "text-to-image": { status: setStatus, diagnostics: setDiagnostics, error: setError, progress: setProgressPreview },
+    "image-to-image": { status: setImageStatus, diagnostics: setImageDiagnostics, error: setImageError, progress: setImageProgressPreview },
+    "sketch-to-image": { status: setSketchStatus, diagnostics: setSketchDiagnostics, error: setSketchError, progress: setSketchProgressPreview },
+    inpaint: { status: setInpaintStatus, diagnostics: setInpaintDiagnostics, error: setInpaintError, progress: setInpaintProgressPreview },
+    outpaint: { status: setOutpaintStatus, diagnostics: setOutpaintDiagnostics, error: setOutpaintError, progress: setOutpaintProgressPreview },
+    upscale: { status: setUpscaleStatus, diagnostics: setUpscaleDiagnostics, error: setUpscaleError, progress: setUpscaleProgressPreview },
+    "prompt-from-layer": { status: setPromptLayerStatus, diagnostics: setPromptLayerDiagnostics, error: setPromptLayerError }
+  };
+
   function setGenerationToolStatus(toolType: HistoryToolType, status: string, tone: StatusTone) {
-    switch (toolType) {
-      case "image-to-image":
-        setImageStatus(elements, status, tone);
-        return;
-      case "sketch-to-image":
-        setSketchStatus(elements, status, tone);
-        return;
-      case "inpaint":
-        setInpaintStatus(elements, status, tone);
-        return;
-      case "outpaint":
-        setOutpaintStatus(elements, status, tone);
-        return;
-      case "upscale":
-        setUpscaleStatus(elements, status, tone);
-        return;
-      case "prompt-from-layer":
-        setPromptLayerStatus(elements, status, tone);
-        return;
-      case "text-to-image":
-      default:
-        setStatus(elements, status, tone);
-    }
+    generationToolUi[toolType].status(elements, status, tone);
   }
 
   function setGenerationToolDiagnostics(toolType: HistoryToolType, message: string) {
-    switch (toolType) {
-      case "image-to-image":
-        setImageDiagnostics(elements, message);
-        return;
-      case "sketch-to-image":
-        setSketchDiagnostics(elements, message);
-        return;
-      case "inpaint":
-        setInpaintDiagnostics(elements, message);
-        return;
-      case "outpaint":
-        setOutpaintDiagnostics(elements, message);
-        return;
-      case "upscale":
-        setUpscaleDiagnostics(elements, message);
-        return;
-      case "prompt-from-layer":
-        setPromptLayerDiagnostics(elements, message);
-        return;
-      case "text-to-image":
-      default:
-        setDiagnostics(elements, message);
-    }
+    generationToolUi[toolType].diagnostics(elements, message);
   }
 
   function setGenerationToolProgress(toolType: HistoryToolType, message: string) {
-    switch (toolType) {
-      case "image-to-image":
-        setImageProgressPreview(elements, message);
-        return;
-      case "sketch-to-image":
-        setSketchProgressPreview(elements, message);
-        return;
-      case "inpaint":
-        setInpaintProgressPreview(elements, message);
-        return;
-      case "outpaint":
-        setOutpaintProgressPreview(elements, message);
-        return;
-      case "upscale":
-        setUpscaleProgressPreview(elements, message);
-        return;
-      case "prompt-from-layer":
-        return;
-      case "text-to-image":
-      default:
-        setProgressPreview(elements, message);
-    }
+    generationToolUi[toolType].progress?.(elements, message);
   }
 
   function clearGenerationToolError(toolType: HistoryToolType) {
-    switch (toolType) {
-      case "image-to-image":
-        setImageError(elements, "");
-        return;
-      case "sketch-to-image":
-        setSketchError(elements, "");
-        return;
-      case "inpaint":
-        setInpaintError(elements, "");
-        return;
-      case "outpaint":
-        setOutpaintError(elements, "");
-        return;
-      case "upscale":
-        setUpscaleError(elements, "");
-        return;
-      case "prompt-from-layer":
-        setPromptLayerError(elements, "");
-        return;
-      case "text-to-image":
-      default:
-        setError(elements, "");
-    }
+    generationToolUi[toolType].error(elements, "");
   }
 
   function showGenerationCancelled(toolType: HistoryToolType, promptId?: string) {
@@ -1779,7 +1392,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     try {
       const exportedSource = await options.capture();
-      const sourcePreview = URL.createObjectURL(exportedSource.blob);
+      const sourcePreview = objectUrls.create(exportedSource.blob);
       setImageSource({
         ...exportedSource,
         previewUrl: sourcePreview
@@ -2073,7 +1686,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     try {
       const exportedSource = await options.capture();
-      const sourcePreview = URL.createObjectURL(exportedSource.blob);
+      const sourcePreview = objectUrls.create(exportedSource.blob);
       setUpscaleSource({
         ...exportedSource,
         previewUrl: sourcePreview
@@ -2327,7 +1940,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     try {
       const exportedSource = await options.capture();
-      const sourcePreview = URL.createObjectURL(exportedSource.blob);
+      const sourcePreview = objectUrls.create(exportedSource.blob);
       setOutpaintSource({
         ...exportedSource,
         previewUrl: sourcePreview
@@ -2619,7 +2232,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     try {
       const exportedSource = await options.capture();
-      const sourcePreview = URL.createObjectURL(exportedSource.blob);
+      const sourcePreview = objectUrls.create(exportedSource.blob);
       setSketchSource({
         ...exportedSource,
         previewUrl: sourcePreview
@@ -2883,7 +2496,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     try {
       const exportedSource = await captureSelectionForInpainting(sourceMode);
-      const sourcePreview = URL.createObjectURL(exportedSource.blob);
+      const sourcePreview = objectUrls.create(exportedSource.blob);
       setInpaintSource({
         ...exportedSource,
         previewUrl: sourcePreview
@@ -3417,7 +3030,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     try {
       const exportedSource = await options.capture();
-      const sourcePreview = URL.createObjectURL(exportedSource.blob);
+      const sourcePreview = objectUrls.create(exportedSource.blob);
       setPromptLayerSource({
         ...exportedSource,
         previewUrl: sourcePreview
@@ -3681,11 +3294,11 @@ export function renderApp(rootElement: HTMLElement) {
     }
 
     const previousUrl = livePreviewObjectUrl;
-    livePreviewObjectUrl = URL.createObjectURL(blob);
+    livePreviewObjectUrl = objectUrls.create(blob);
     livePreviewImage.src = livePreviewObjectUrl;
 
     if (previousUrl) {
-      URL.revokeObjectURL(previousUrl);
+      objectUrls.revoke(previousUrl);
     }
 
     liveLastResult = bindDocumentContext({ blob }, originatingDocument);
@@ -3693,308 +3306,79 @@ export function renderApp(rootElement: HTMLElement) {
   }
 
   function setResult(nextResult: AppGeneratedImageResult | null) {
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-      previewUrl = "";
-    }
-
-    if (livePreviewUrl) {
-      URL.revokeObjectURL(livePreviewUrl);
-      livePreviewUrl = "";
-    }
-
     result = nextResult;
-    elements.previewPanel.innerHTML = "";
-
-    if (!result) {
-      const empty = document.createElement("span");
-      empty.className = "preview-empty";
-      empty.textContent = "No result yet";
-      elements.previewPanel.append(empty);
-      syncBusy();
-      return;
-    }
-
-    previewUrl = URL.createObjectURL(result.blob);
-    const image = document.createElement("img");
-    image.src = previewUrl;
-    image.alt = "Generated OpenLayer preview";
-    elements.previewPanel.append(image);
+    resultPanel.showResult(result?.blob ?? null);
     syncBusy();
   }
 
   function setProgressPreview(elements: AppElements, message: string, blob?: Blob) {
-    if (result) {
-      return;
-    }
-
-    elements.previewPanel.innerHTML = "";
-
-    if (blob) {
-      if (livePreviewUrl) {
-        URL.revokeObjectURL(livePreviewUrl);
-      }
-
-      livePreviewUrl = URL.createObjectURL(blob);
-      const image = document.createElement("img");
-      image.src = livePreviewUrl;
-      image.alt = "Live ComfyUI generation preview";
-      elements.previewPanel.append(image);
-      return;
-    }
-
-    if (livePreviewUrl) {
-      URL.revokeObjectURL(livePreviewUrl);
-      livePreviewUrl = "";
-    }
-
-    const progress = document.createElement("span");
-    progress.className = "preview-empty";
-    progress.textContent = message;
-    elements.previewPanel.append(progress);
+    resultPanel.showProgress(message, blob);
   }
 
   function setImageSource(nextSource: ImageSourceState | null) {
-    if (imageSourcePreviewUrl) {
-      URL.revokeObjectURL(imageSourcePreviewUrl);
-      imageSourcePreviewUrl = "";
-    }
-
     imageSource = nextSource;
-    elements.imageSourcePreviewPanel.innerHTML = "";
-
-    if (!imageSource) {
-      const empty = document.createElement("span");
-      empty.className = "source-empty";
-      empty.textContent = "None";
-      elements.imageSourcePreviewPanel.append(empty);
-      elements.imageSourceTitle.textContent = "No source captured";
-      elements.imageSourceMeta.textContent = "Choose active layer or full canvas.";
-      updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
-      syncBusy();
-      return;
-    }
-
-    imageSourcePreviewUrl = imageSource.previewUrl;
-    const image = document.createElement("img");
-    image.src = imageSourcePreviewUrl;
-    image.alt = "Captured active Photoshop layer";
-    elements.imageSourcePreviewPanel.append(image);
-    elements.imageSourceTitle.textContent = imageSource.sourceName;
-    elements.imageSourceMeta.textContent = createSourceMetaText(imageSource);
+    imageSourcePanel.show(imageSource && {
+      previewUrl: imageSource.previewUrl,
+      title: imageSource.sourceName,
+      meta: createSourceMetaText(imageSource)
+    });
     updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
     syncBusy();
   }
 
   function setImageResult(nextResult: AppGeneratedImageResult | null) {
-    if (imageResultPreviewUrl) {
-      URL.revokeObjectURL(imageResultPreviewUrl);
-      imageResultPreviewUrl = "";
-    }
-
-    if (imageLivePreviewUrl) {
-      URL.revokeObjectURL(imageLivePreviewUrl);
-      imageLivePreviewUrl = "";
-    }
-
     imageResult = nextResult;
-    elements.imageResultPreviewPanel.innerHTML = "";
-
-    if (!imageResult) {
-      const empty = document.createElement("span");
-      empty.className = "preview-empty";
-      empty.textContent = "No Image to Image result yet";
-      elements.imageResultPreviewPanel.append(empty);
-      syncBusy();
-      return;
-    }
-
-    imageResultPreviewUrl = URL.createObjectURL(imageResult.blob);
-    const image = document.createElement("img");
-    image.src = imageResultPreviewUrl;
-    image.alt = "Generated Image to Image preview";
-    elements.imageResultPreviewPanel.append(image);
+    imageResultPanel.showResult(imageResult?.blob ?? null);
     syncBusy();
   }
 
   function setImageProgressPreview(elements: AppElements, message: string, blob?: Blob) {
-    if (imageResult) {
-      return;
-    }
-
-    elements.imageResultPreviewPanel.innerHTML = "";
-
-    if (blob) {
-      if (imageLivePreviewUrl) {
-        URL.revokeObjectURL(imageLivePreviewUrl);
-      }
-
-      imageLivePreviewUrl = URL.createObjectURL(blob);
-      const image = document.createElement("img");
-      image.src = imageLivePreviewUrl;
-      image.alt = "Live ComfyUI Image to Image preview";
-      elements.imageResultPreviewPanel.append(image);
-      return;
-    }
-
-    if (imageLivePreviewUrl) {
-      URL.revokeObjectURL(imageLivePreviewUrl);
-      imageLivePreviewUrl = "";
-    }
-
-    const progress = document.createElement("span");
-    progress.className = "preview-empty";
-    progress.textContent = message;
-    elements.imageResultPreviewPanel.append(progress);
+    imageResultPanel.showProgress(message, blob);
   }
 
   function setSketchSource(nextSource: ImageSourceState | null) {
-    if (sketchSourcePreviewUrl) {
-      URL.revokeObjectURL(sketchSourcePreviewUrl);
-      sketchSourcePreviewUrl = "";
-    }
-
     sketchSource = nextSource;
-    elements.sketchSourcePreviewPanel.innerHTML = "";
-
-    if (!sketchSource) {
-      const empty = document.createElement("span");
-      empty.className = "source-empty";
-      empty.textContent = "None";
-      elements.sketchSourcePreviewPanel.append(empty);
-      elements.sketchSourceTitle.textContent = "No source captured";
-      elements.sketchSourceMeta.textContent = "Choose active layer or full canvas.";
-      updateSketchCheckpointCompatibility(elements, sketchSource);
-      syncBusy();
-      return;
-    }
-
-    sketchSourcePreviewUrl = sketchSource.previewUrl;
-    const image = document.createElement("img");
-    image.src = sketchSourcePreviewUrl;
-    image.alt = "Captured Photoshop source for Sketch to Image";
-    elements.sketchSourcePreviewPanel.append(image);
-    elements.sketchSourceTitle.textContent = sketchSource.sourceName;
-    elements.sketchSourceMeta.textContent = createSourceMetaText(sketchSource);
+    sketchSourcePanel.show(sketchSource && {
+      previewUrl: sketchSource.previewUrl,
+      title: sketchSource.sourceName,
+      meta: createSourceMetaText(sketchSource)
+    });
     updateSketchCheckpointCompatibility(elements, sketchSource);
     syncBusy();
   }
 
   function setSketchResult(nextResult: AppGeneratedImageResult | null) {
-    if (sketchResultPreviewUrl) {
-      URL.revokeObjectURL(sketchResultPreviewUrl);
-      sketchResultPreviewUrl = "";
-    }
-
-    if (sketchLivePreviewUrl) {
-      URL.revokeObjectURL(sketchLivePreviewUrl);
-      sketchLivePreviewUrl = "";
-    }
-
     sketchResult = nextResult;
-    elements.sketchResultPreviewPanel.innerHTML = "";
-
-    if (!sketchResult) {
-      const empty = document.createElement("span");
-      empty.className = "preview-empty";
-      empty.textContent = "No Sketch to Image result yet";
-      elements.sketchResultPreviewPanel.append(empty);
-      syncBusy();
-      return;
-    }
-
-    sketchResultPreviewUrl = URL.createObjectURL(sketchResult.blob);
-    const image = document.createElement("img");
-    image.src = sketchResultPreviewUrl;
-    image.alt = "Generated Sketch to Image preview";
-    elements.sketchResultPreviewPanel.append(image);
+    sketchResultPanel.showResult(sketchResult?.blob ?? null);
     syncBusy();
   }
 
   function setSketchProgressPreview(elements: AppElements, message: string, blob?: Blob) {
-    if (sketchResult) {
-      return;
-    }
-
-    elements.sketchResultPreviewPanel.innerHTML = "";
-
-    if (blob) {
-      if (sketchLivePreviewUrl) {
-        URL.revokeObjectURL(sketchLivePreviewUrl);
-      }
-
-      sketchLivePreviewUrl = URL.createObjectURL(blob);
-      const image = document.createElement("img");
-      image.src = sketchLivePreviewUrl;
-      image.alt = "Live ComfyUI Sketch to Image preview";
-      elements.sketchResultPreviewPanel.append(image);
-      return;
-    }
-
-    if (sketchLivePreviewUrl) {
-      URL.revokeObjectURL(sketchLivePreviewUrl);
-      sketchLivePreviewUrl = "";
-    }
-
-    const progress = document.createElement("span");
-    progress.className = "preview-empty";
-    progress.textContent = message;
-    elements.sketchResultPreviewPanel.append(progress);
+    sketchResultPanel.showProgress(message, blob);
   }
 
   function setInpaintSource(nextSource: InpaintSourceState | null) {
-    if (inpaintSourcePreviewUrl) {
-      URL.revokeObjectURL(inpaintSourcePreviewUrl);
-      inpaintSourcePreviewUrl = "";
-    }
-
-    if (inpaintMaskPreviewUrl) {
-      URL.revokeObjectURL(inpaintMaskPreviewUrl);
-      inpaintMaskPreviewUrl = "";
-    }
-
     inpaintSource = nextSource;
-    elements.inpaintSourcePreviewPanel.innerHTML = "";
-    elements.inpaintMaskPreviewPanel.innerHTML = "";
+    inpaintSourcePanel.show(inpaintSource && {
+      previewUrl: inpaintSource.previewUrl,
+      title: inpaintSource.sourceName,
+      meta: `${getInpaintSourceModeLabel(inpaintSource.sourceMode)} | ${createSourceMetaText(inpaintSource)} | Selection ${formatSelectionBounds(inpaintSource.selection.bounds)} | Context ${formatSelectionBounds(inpaintSource.selection.contextBounds)} | ${inpaintSource.sourceWarning}`
+    });
 
     if (!inpaintSource) {
-      const sourceEmpty = document.createElement("span");
-      sourceEmpty.className = "source-empty";
-      sourceEmpty.textContent = "None";
-      elements.inpaintSourcePreviewPanel.append(sourceEmpty);
-      elements.inpaintSourceTitle.textContent = "No selection captured";
-      elements.inpaintSourceMeta.textContent = "Make a Photoshop selection first.";
-
-      const maskEmpty = document.createElement("span");
-      maskEmpty.className = "source-empty";
-      maskEmpty.textContent = "Mask";
-      elements.inpaintMaskPreviewPanel.append(maskEmpty);
+      inpaintMaskUrl.release();
+      renderPreviewMessage(elements.inpaintMaskPreviewPanel, "source-empty", "Mask");
       elements.inpaintMaskMeta.textContent = "Mask export not available yet.";
-      updateInpaintCheckpointCompatibility(elements, inpaintSource);
-      syncBusy();
-      return;
-    }
-
-    inpaintSourcePreviewUrl = inpaintSource.previewUrl;
-    const image = document.createElement("img");
-    image.src = inpaintSourcePreviewUrl;
-    image.alt = "Captured Photoshop selection for Inpaint";
-    elements.inpaintSourcePreviewPanel.append(image);
-    elements.inpaintSourceTitle.textContent = inpaintSource.sourceName;
-    elements.inpaintSourceMeta.textContent = `${getInpaintSourceModeLabel(inpaintSource.sourceMode)} | ${createSourceMetaText(inpaintSource)} | Selection ${formatSelectionBounds(inpaintSource.selection.bounds)} | Context ${formatSelectionBounds(inpaintSource.selection.contextBounds)} | ${inpaintSource.sourceWarning}`;
-
-    if (inpaintSource.mask) {
-      inpaintMaskPreviewUrl = URL.createObjectURL(inpaintSource.mask.blob);
-      const maskImage = document.createElement("img");
-      maskImage.src = inpaintMaskPreviewUrl;
-      maskImage.alt = "Captured Photoshop selection mask";
-      elements.inpaintMaskPreviewPanel.append(maskImage);
+    } else if (inpaintSource.mask) {
+      renderPreviewImage(
+        elements.inpaintMaskPreviewPanel,
+        inpaintMaskUrl.createFrom(inpaintSource.mask.blob),
+        "Captured Photoshop selection mask"
+      );
       elements.inpaintMaskMeta.textContent = `${inpaintSource.mask.width} x ${inpaintSource.mask.height} | PNG/lossless mask`;
     } else {
-      const maskEmpty = document.createElement("span");
-      maskEmpty.className = "source-empty";
-      maskEmpty.textContent = "N/A";
-      elements.inpaintMaskPreviewPanel.append(maskEmpty);
+      inpaintMaskUrl.release();
+      renderPreviewMessage(elements.inpaintMaskPreviewPanel, "source-empty", "N/A");
       elements.inpaintMaskMeta.textContent = inpaintSource.maskMessage;
     }
 
@@ -4007,281 +3391,64 @@ export function renderApp(rootElement: HTMLElement) {
       activeInpaintImportContext = null;
     }
 
-    if (inpaintResultPreviewUrl) {
-      URL.revokeObjectURL(inpaintResultPreviewUrl);
-      inpaintResultPreviewUrl = "";
-    }
-
-    if (inpaintLivePreviewUrl) {
-      URL.revokeObjectURL(inpaintLivePreviewUrl);
-      inpaintLivePreviewUrl = "";
-    }
-
     inpaintResult = nextResult;
-    elements.inpaintResultPreviewPanel.innerHTML = "";
-
-    if (!inpaintResult) {
-      const empty = document.createElement("span");
-      empty.className = "preview-empty";
-      empty.textContent = "No Inpaint result yet";
-      elements.inpaintResultPreviewPanel.append(empty);
-      syncBusy();
-      return;
-    }
-
-    inpaintResultPreviewUrl = URL.createObjectURL(inpaintResult.blob);
-    const image = document.createElement("img");
-    image.src = inpaintResultPreviewUrl;
-    image.alt = "Generated Inpaint preview";
-    elements.inpaintResultPreviewPanel.append(image);
+    inpaintResultPanel.showResult(inpaintResult?.blob ?? null);
     syncBusy();
   }
 
   function setInpaintProgressPreview(elements: AppElements, message: string, blob?: Blob) {
-    if (inpaintResult) {
-      return;
-    }
-
-    elements.inpaintResultPreviewPanel.innerHTML = "";
-
-    if (blob) {
-      if (inpaintLivePreviewUrl) {
-        URL.revokeObjectURL(inpaintLivePreviewUrl);
-      }
-
-      inpaintLivePreviewUrl = URL.createObjectURL(blob);
-      const image = document.createElement("img");
-      image.src = inpaintLivePreviewUrl;
-      image.alt = "Live ComfyUI Inpaint preview";
-      elements.inpaintResultPreviewPanel.append(image);
-      return;
-    }
-
-    if (inpaintLivePreviewUrl) {
-      URL.revokeObjectURL(inpaintLivePreviewUrl);
-      inpaintLivePreviewUrl = "";
-    }
-
-    const progress = document.createElement("span");
-    progress.className = "preview-empty";
-    progress.textContent = message;
-    elements.inpaintResultPreviewPanel.append(progress);
+    inpaintResultPanel.showProgress(message, blob);
   }
 
   function setOutpaintSource(nextSource: ImageSourceState | null) {
-    if (outpaintSourcePreviewUrl) {
-      URL.revokeObjectURL(outpaintSourcePreviewUrl);
-      outpaintSourcePreviewUrl = "";
-    }
-
     outpaintSource = nextSource;
-    elements.outpaintSourcePreviewPanel.innerHTML = "";
-
-    if (!outpaintSource) {
-      const empty = document.createElement("span");
-      empty.className = "source-empty";
-      empty.textContent = "None";
-      elements.outpaintSourcePreviewPanel.append(empty);
-      elements.outpaintSourceTitle.textContent = "No source captured";
-      elements.outpaintSourceMeta.textContent = "Choose active layer or full canvas.";
-      updateOutpaintCheckpointCompatibility(elements, outpaintSource);
-      syncBusy();
-      return;
-    }
-
-    outpaintSourcePreviewUrl = outpaintSource.previewUrl;
-    const image = document.createElement("img");
-    image.src = outpaintSourcePreviewUrl;
-    image.alt = "Captured Photoshop source for Outpaint";
-    elements.outpaintSourcePreviewPanel.append(image);
-    elements.outpaintSourceTitle.textContent = outpaintSource.sourceName;
-    elements.outpaintSourceMeta.textContent = createSourceMetaText(outpaintSource);
+    outpaintSourcePanel.show(outpaintSource && {
+      previewUrl: outpaintSource.previewUrl,
+      title: outpaintSource.sourceName,
+      meta: createSourceMetaText(outpaintSource)
+    });
     updateOutpaintCheckpointCompatibility(elements, outpaintSource);
     syncBusy();
   }
 
   function setOutpaintResult(nextResult: AppGeneratedImageResult | null) {
-    if (outpaintResultPreviewUrl) {
-      URL.revokeObjectURL(outpaintResultPreviewUrl);
-      outpaintResultPreviewUrl = "";
-    }
-
-    if (outpaintLivePreviewUrl) {
-      URL.revokeObjectURL(outpaintLivePreviewUrl);
-      outpaintLivePreviewUrl = "";
-    }
-
     outpaintResult = nextResult;
-    elements.outpaintResultPreviewPanel.innerHTML = "";
-
-    if (!outpaintResult) {
-      const empty = document.createElement("span");
-      empty.className = "preview-empty";
-      empty.textContent = "No Outpaint result yet";
-      elements.outpaintResultPreviewPanel.append(empty);
-      syncBusy();
-      return;
-    }
-
-    outpaintResultPreviewUrl = URL.createObjectURL(outpaintResult.blob);
-    const image = document.createElement("img");
-    image.src = outpaintResultPreviewUrl;
-    image.alt = "Generated Outpaint preview";
-    elements.outpaintResultPreviewPanel.append(image);
+    outpaintResultPanel.showResult(outpaintResult?.blob ?? null);
     syncBusy();
   }
 
   function setOutpaintProgressPreview(elements: AppElements, message: string, blob?: Blob) {
-    if (outpaintResult) {
-      return;
-    }
-
-    elements.outpaintResultPreviewPanel.innerHTML = "";
-
-    if (blob) {
-      if (outpaintLivePreviewUrl) {
-        URL.revokeObjectURL(outpaintLivePreviewUrl);
-      }
-
-      outpaintLivePreviewUrl = URL.createObjectURL(blob);
-      const image = document.createElement("img");
-      image.src = outpaintLivePreviewUrl;
-      image.alt = "Live ComfyUI Outpaint preview";
-      elements.outpaintResultPreviewPanel.append(image);
-      return;
-    }
-
-    if (outpaintLivePreviewUrl) {
-      URL.revokeObjectURL(outpaintLivePreviewUrl);
-      outpaintLivePreviewUrl = "";
-    }
-
-    const progress = document.createElement("span");
-    progress.className = "preview-empty";
-    progress.textContent = message;
-    elements.outpaintResultPreviewPanel.append(progress);
+    outpaintResultPanel.showProgress(message, blob);
   }
 
   function setUpscaleSource(nextSource: ImageSourceState | null) {
-    if (upscaleSourcePreviewUrl) {
-      URL.revokeObjectURL(upscaleSourcePreviewUrl);
-      upscaleSourcePreviewUrl = "";
-    }
-
     upscaleSource = nextSource;
-    elements.upscaleSourcePreviewPanel.innerHTML = "";
-
-    if (!upscaleSource) {
-      const empty = document.createElement("span");
-      empty.className = "source-empty";
-      empty.textContent = "None";
-      elements.upscaleSourcePreviewPanel.append(empty);
-      elements.upscaleSourceTitle.textContent = "No source captured";
-      elements.upscaleSourceMeta.textContent = "Choose active layer or full canvas.";
-      updateUpscaleCompatibility(elements, upscaleSource);
-      syncBusy();
-      return;
-    }
-
-    upscaleSourcePreviewUrl = upscaleSource.previewUrl;
-    const image = document.createElement("img");
-    image.src = upscaleSourcePreviewUrl;
-    image.alt = "Captured Photoshop source for Upscale";
-    elements.upscaleSourcePreviewPanel.append(image);
-    elements.upscaleSourceTitle.textContent = upscaleSource.sourceName;
-    elements.upscaleSourceMeta.textContent = createSourceMetaText(upscaleSource);
+    upscaleSourcePanel.show(upscaleSource && {
+      previewUrl: upscaleSource.previewUrl,
+      title: upscaleSource.sourceName,
+      meta: createSourceMetaText(upscaleSource)
+    });
     updateUpscaleCompatibility(elements, upscaleSource);
     syncBusy();
   }
 
   function setUpscaleResult(nextResult: AppGeneratedImageResult | null) {
-    if (upscaleResultPreviewUrl) {
-      URL.revokeObjectURL(upscaleResultPreviewUrl);
-      upscaleResultPreviewUrl = "";
-    }
-
-    if (upscaleLivePreviewUrl) {
-      URL.revokeObjectURL(upscaleLivePreviewUrl);
-      upscaleLivePreviewUrl = "";
-    }
-
     upscaleResult = nextResult;
-    elements.upscaleResultPreviewPanel.innerHTML = "";
-
-    if (!upscaleResult) {
-      const empty = document.createElement("span");
-      empty.className = "preview-empty";
-      empty.textContent = "No Upscale result yet";
-      elements.upscaleResultPreviewPanel.append(empty);
-      syncBusy();
-      return;
-    }
-
-    upscaleResultPreviewUrl = URL.createObjectURL(upscaleResult.blob);
-    const image = document.createElement("img");
-    image.src = upscaleResultPreviewUrl;
-    image.alt = "Generated Upscale preview";
-    elements.upscaleResultPreviewPanel.append(image);
+    upscaleResultPanel.showResult(upscaleResult?.blob ?? null);
     syncBusy();
   }
 
   function setUpscaleProgressPreview(elements: AppElements, message: string, blob?: Blob) {
-    if (upscaleResult) {
-      return;
-    }
-
-    elements.upscaleResultPreviewPanel.innerHTML = "";
-
-    if (blob) {
-      if (upscaleLivePreviewUrl) {
-        URL.revokeObjectURL(upscaleLivePreviewUrl);
-      }
-
-      upscaleLivePreviewUrl = URL.createObjectURL(blob);
-      const image = document.createElement("img");
-      image.src = upscaleLivePreviewUrl;
-      image.alt = "Live ComfyUI Upscale preview";
-      elements.upscaleResultPreviewPanel.append(image);
-      return;
-    }
-
-    if (upscaleLivePreviewUrl) {
-      URL.revokeObjectURL(upscaleLivePreviewUrl);
-      upscaleLivePreviewUrl = "";
-    }
-
-    const progress = document.createElement("span");
-    progress.className = "preview-empty";
-    progress.textContent = message;
-    elements.upscaleResultPreviewPanel.append(progress);
+    upscaleResultPanel.showProgress(message, blob);
   }
 
   function setPromptLayerSource(nextSource: ImageSourceState | null) {
-    if (promptLayerSourcePreviewUrl) {
-      URL.revokeObjectURL(promptLayerSourcePreviewUrl);
-      promptLayerSourcePreviewUrl = "";
-    }
-
     promptLayerSource = nextSource;
-    elements.promptLayerSourcePreviewPanel.innerHTML = "";
-
-    if (!promptLayerSource) {
-      const empty = document.createElement("span");
-      empty.className = "source-empty";
-      empty.textContent = "None";
-      elements.promptLayerSourcePreviewPanel.append(empty);
-      elements.promptLayerSourceTitle.textContent = "No source captured";
-      elements.promptLayerSourceMeta.textContent = "Choose active layer or full canvas.";
-      return;
-    }
-
-    promptLayerSourcePreviewUrl = promptLayerSource.previewUrl;
-    const image = document.createElement("img");
-    image.src = promptLayerSourcePreviewUrl;
-    image.alt = "Captured Photoshop source for Prompt from Layer";
-    elements.promptLayerSourcePreviewPanel.append(image);
-    elements.promptLayerSourceTitle.textContent = promptLayerSource.sourceName;
-    elements.promptLayerSourceMeta.textContent = createSourceMetaText(promptLayerSource);
+    promptLayerSourcePanel.show(promptLayerSource && {
+      previewUrl: promptLayerSource.previewUrl,
+      title: promptLayerSource.sourceName,
+      meta: createSourceMetaText(promptLayerSource)
+    });
   }
 
   function setView(view: AppView) {
@@ -4308,1347 +3475,23 @@ export function renderApp(rootElement: HTMLElement) {
   }
 }
 
-function createAppMarkup() {
-  return `
-    <main class="app-shell theme-compact" id="app-shell">
-      ${createBrandHeaderMarkup()}
-      <div class="home-status-row">
-        <span>Status:</span>
-        <strong id="home-status-text">Ready</strong>
-        <span class="home-status-dot idle" id="home-status-dot" aria-hidden="true"></span>
-      </div>
 
-      <section class="home-view" id="home-view" aria-label="OpenLayer tools">
-        ${HOME_TOOL_SECTIONS.map(createHomeToolSectionMarkup).join("")}
-      </section>
-
-      <section class="prompt-from-layer-view image-to-image-view" id="prompt-from-layer-view" aria-label="Prompt from Layer" hidden>
-        <div class="screen-nav">
-          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
-          <div class="screen-title-block">
-            ${createScreenIconMarkup("promptFromLayer", "Prompt from Layer")}
-            <span class="screen-title">Prompt from Layer</span>
-          </div>
-        </div>
-
-        <section class="panel-section generator-panel source-panel" aria-label="Prompt from Layer source">
-          <div class="section-heading">
-            <span class="label">Source layer</span>
-            <span class="muted-label">Vision input</span>
-          </div>
-          <div class="source-action-row" aria-label="Prompt from Layer source capture actions">
-            <button class="button source-action-button action-control" id="capture-prompt-layer-source" data-openlayer-action="capturePromptLayerSource" type="button">Capture Active Layer</button>
-            <button class="button source-action-button action-control" id="capture-prompt-canvas-source" data-openlayer-action="capturePromptCanvasSource" type="button">Capture Canvas</button>
-          </div>
-          <div class="source-card">
-            <div class="source-thumb-frame" id="prompt-layer-source-preview-panel">
-              <span class="source-empty">None</span>
-            </div>
-            <div class="source-card-body">
-              <span class="source-title" id="prompt-layer-source-title">No source captured</span>
-              <span class="source-card-meta" id="prompt-layer-source-meta">Choose active layer or full canvas.</span>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel-section generator-panel" aria-label="Prompt from Layer text">
-          <div class="section-heading">
-            <span class="label">Generated prompt</span>
-            <span class="muted-label">Florence-2 PromptGen</span>
-          </div>
-          <div class="settings-grid" aria-label="Prompt from Layer settings">
-            <label class="field">
-              <span class="label">Task</span>
-              <select class="select" id="prompt-layer-task">
-                ${PROMPT_LAYER_TASKS.map((task) => `<option value="${task.value}"${task.value === DEFAULT_PROMPT_LAYER_TASK ? " selected" : ""}>${task.label}</option>`).join("")}
-              </select>
-            </label>
-            <label class="field">
-              <span class="label">Num beams</span>
-              <input class="input input-compact" id="prompt-layer-num-beams" type="number" min="1" max="32" step="1" value="${DEFAULT_PROMPT_LAYER_NUM_BEAMS}" />
-            </label>
-          </div>
-          <textarea class="textarea compact-textarea" id="prompt-layer-generated-text" placeholder="Generated prompt text will appear here..."></textarea>
-          <button class="button button-primary button-generate button-wide action-control" id="generate-prompt-from-layer" data-openlayer-action="generatePromptFromLayer" type="button">Generate Text from Layer</button>
-          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
-          <div class="import-actions">
-            <button class="button action-control" id="copy-prompt-from-layer" data-openlayer-action="copyPromptFromLayer" type="button">Copy Prompt</button>
-            <button class="button action-control" id="send-prompt-to-text-to-image" data-openlayer-action="sendPromptToTextToImage" type="button">Send to Text to Image</button>
-          </div>
-        </section>
-
-        <section class="generation-status-panel" aria-label="Prompt from Layer status">
-          <div class="status-bar" role="status">
-            <span class="status-text" id="prompt-layer-status-text">Foundation ready.</span>
-            <span class="status-pill idle" id="prompt-layer-status-pill">Status</span>
-          </div>
-          <div class="status-progress" id="prompt-layer-status-progress" hidden><span></span></div>
-          <div class="diagnostics-line" id="prompt-layer-diagnostics-text">Capture a source, then generate a Florence-2 PromptGen caption.</div>
-          <div class="error-message" id="prompt-layer-error-message" hidden></div>
-        </section>
-      </section>
-
-      <section class="live-painting-view image-to-image-view" id="live-painting-view" aria-label="Live Painting" hidden>
-        <div class="screen-nav">
-          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
-          <div class="screen-title-block">
-            ${createScreenIconMarkup("style", "Live Painting")}
-            <span class="screen-title">Live Painting</span>
-          </div>
-        </div>
-
-        <section class="panel-section generator-panel" aria-label="Live Painting session">
-          <div class="section-heading">
-            <span class="label">Live session</span>
-            <span class="muted-label">Spike build</span>
-          </div>
-          <div class="diagnostics-line">
-            Experimental stroke-sync test. Uses the Text to Image checkpoint with the local SD 1.5 LCM LoRA.
-            Start a session, then paint in the document and watch the preview follow your strokes.
-          </div>
-          <label class="field">
-            <span class="label">Prompt</span>
-            <textarea class="textarea" id="live-prompt" placeholder="Describe what your painting should become..."></textarea>
-          </label>
-          <label class="field">
-            <span class="label">Strength (denoise)</span>
-            <input class="input input-compact" id="live-denoise" type="number" min="0.2" max="0.95" step="0.05" value="0.6" />
-          </label>
-          <button class="button button-primary button-generate button-wide action-control" id="start-live-painting" data-openlayer-action="startLivePainting" type="button">Start Live Session</button>
-          <button class="button button-wide action-control" id="stop-live-painting" data-openlayer-action="stopLivePainting" type="button">Stop Live Session</button>
-        </section>
-
-        <section class="panel-section generator-panel" aria-label="Live Painting preview">
-          <div class="section-heading">
-            <span class="label">Live preview</span>
-            <button class="button action-control" id="live-zoom-toggle" data-openlayer-action="toggleLiveZoom" type="button" aria-pressed="false">Zoom 2x</button>
-          </div>
-          <div class="preview-panel" id="live-result-preview-panel">
-            <span class="preview-empty">Start a session, then paint a stroke</span>
-          </div>
-          <div class="import-actions">
-            <button class="button action-control" id="import-live-result" data-openlayer-action="importLiveResult" type="button">Import to Layers</button>
-            <button class="button action-control" id="live-auto-import-toggle" data-openlayer-action="toggleLiveAutoImport" type="button" aria-pressed="false">Import Automatically</button>
-          </div>
-          <div class="diagnostics-line">
-            Import Automatically brings the latest live result into Photoshop as a new layer when you stop the session.
-          </div>
-        </section>
-
-        <section class="generation-status-panel" aria-label="Live Painting status">
-          <div class="status-bar" role="status">
-            <span class="status-text" id="live-status-text">Live Painting spike ready.</span>
-            <span class="status-pill idle">Spike</span>
-          </div>
-          <div class="diagnostics-line" id="live-timings-text">Cycle timings will appear here.</div>
-        </section>
-      </section>
-
-      <section class="settings-view" id="settings-view" aria-label="Settings" hidden>
-        <div class="screen-nav">
-          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
-          <div class="screen-title-block">
-            ${createScreenIconMarkup("settings", "Settings")}
-            <span class="screen-title">Settings</span>
-          </div>
-        </div>
-
-        <section class="panel-section settings-panel diagnostic-section diagnostic-scroll-safe" aria-label="ComfyUI settings">
-          <div class="section-heading">
-            <span class="label">ComfyUI</span>
-            <span class="muted-label">Local server</span>
-          </div>
-          <label class="field">
-            <span class="label">ComfyUI server URL</span>
-            <input class="input" id="server-url" value="${DEFAULT_SERVER_URL}" placeholder="${DEFAULT_SERVER_URL}" />
-          </label>
-          <div class="settings-button-stack diagnostic-action-stack" aria-label="ComfyUI diagnostic actions">
-            <button class="button action-control" id="check-comfy" data-openlayer-action="check" type="button">Check ComfyUI</button>
-            <button class="button action-control" id="find-comfy-port" data-openlayer-action="findPort" type="button">Find ComfyUI Active Port</button>
-            <button class="button action-control" id="detect-gpu" data-openlayer-action="detectHardware" type="button">Detect GPU &amp; Recommend Models</button>
-            <button class="button action-control" id="check-workflow-health" data-openlayer-action="checkWorkflowHealth" type="button">Check Workflow Health</button>
-            <button class="button action-control" id="copy-diagnostics" data-openlayer-action="copyDiagnostics" type="button">Copy Diagnostics</button>
-            <button class="button action-control" id="save-settings" data-openlayer-action="saveSettings" type="button">Save Settings</button>
-            <button class="button action-control" id="reset-settings" data-openlayer-action="resetSettings" type="button">Reset Defaults</button>
-          </div>
-          <textarea class="textarea compact-textarea diagnostics-report" id="settings-diagnostics-report" readonly hidden></textarea>
-        </section>
-
-        <section class="panel-section settings-panel diagnostic-section diagnostic-scroll-safe" aria-label="Status report">
-          <div class="section-heading">
-            <span class="label">Status report</span>
-            <span class="muted-label">Runtime</span>
-          </div>
-          <div class="status-bar" role="status">
-            <span class="status-text" id="settings-status-text">Ready.</span>
-            <span class="status-pill idle" id="settings-status-pill">Status</span>
-          </div>
-          <div class="status-progress" id="settings-status-progress" hidden><span></span></div>
-          <div class="diagnostics-line" id="settings-diagnostics-text">Diagnostics ready for v${APP_VERSION}.</div>
-          <div class="error-message" id="settings-error-message" hidden></div>
-        </section>
-
-        <section class="panel-section settings-panel diagnostic-section diagnostic-scroll-safe" aria-label="Hardware advisor">
-          <div class="section-heading">
-            <span class="label">Hardware advisor</span>
-            <span class="muted-label">Model guidance</span>
-          </div>
-          <div class="settings-list diagnostic-list hardware-list">
-            <div><span>GPU</span><strong id="settings-gpu-name">Not detected</strong></div>
-            <div><span>Total VRAM</span><strong id="settings-vram-total">Not detected</strong></div>
-            <div><span>Free VRAM</span><strong id="settings-vram-free">Not detected</strong></div>
-            <div><span>Recommendation tier</span><strong id="settings-vram-tier">Run detection</strong></div>
-            <div><span>Detected model families</span><strong id="settings-model-families">Run detection</strong></div>
-            <div><span>Z_image_Turbo</span><strong id="settings-z-image-turbo">Run detection</strong></div>
-          </div>
-          <div class="diagnostics-line hardware-recommendations" id="settings-model-recommendations">
-            Click Detect GPU &amp; Recommend Models to get local hardware-aware suggestions.
-          </div>
-          <div class="diagnostics-line model-stack-note">
-            Z_image_Turbo is not a checkpoint. It uses a diffusion model stack. Flux1-dev fp8 is a checkpoint-style exception; generic Flux presets still need dedicated workflow JSON.
-          </div>
-        </section>
-
-        <section class="panel-section settings-panel diagnostic-section diagnostic-scroll-safe" aria-label="Workflow health">
-          <div class="section-heading">
-            <span class="label">Workflow health</span>
-            <span class="muted-label">Local ComfyUI</span>
-          </div>
-          <div class="diagnostic-summary-grid" id="settings-workflow-health-summary" aria-label="Workflow health summary"></div>
-          <div class="workflow-health-list" id="settings-workflow-health-list">
-            <div class="diagnostics-line">Click Check Workflow Health to inspect local workflow readiness.</div>
-          </div>
-        </section>
-
-        <section class="panel-section settings-panel diagnostic-section diagnostic-scroll-safe" aria-label="Plugin settings">
-          <div class="section-heading">
-            <span class="label">Plugin</span>
-            <span class="muted-label">MVP defaults</span>
-          </div>
-          <div class="settings-list diagnostic-list">
-            <div><span>Version</span><strong>v${APP_VERSION}</strong></div>
-            <label class="field theme-field">
-              <span class="label">Panel theme</span>
-              <select class="select" id="settings-theme-select">
-                <option value="compact">Compact Adobe Dark</option>
-                <option value="classic">Classic v0.4</option>
-              </select>
-            </label>
-            <div><span>Default workflow</span><strong>txt2img-basic</strong></div>
-            <div><span>Server URL</span><strong id="settings-url-value">${DEFAULT_SERVER_URL}</strong></div>
-            <div><span>Checkpoint count</span><strong id="settings-checkpoint-count">Fallback list</strong></div>
-            <div><span>Last checkpoint</span><strong id="settings-last-checkpoint">Not checked</strong></div>
-            <div><span>Photoshop document</span><strong id="settings-document-status">Not checked</strong></div>
-            <div><span>Workflow readiness</span><strong id="settings-workflow-readiness">Not checked</strong></div>
-          </div>
-        </section>
-      </section>
-
-      <section class="generator-view" id="generator-view" aria-label="Text to Image" hidden>
-        <div class="screen-nav">
-          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
-          <div class="screen-title-block">
-            ${createScreenIconMarkup("imagePlus", "Text to Image")}
-            <span class="screen-title">Text to Image</span>
-          </div>
-        </div>
-
-        <section class="panel-section generator-panel" aria-label="Prompt">
-          <div class="section-heading">
-            <span class="label">Generate</span>
-            <span class="muted-label">Prompt and settings</span>
-          </div>
-          <label class="field">
-            <span class="label">Prompt</span>
-            <textarea class="textarea" id="prompt" placeholder="Describe the image you want to generate..."></textarea>
-          </label>
-          <section class="negative-prompt-section" aria-label="Negative prompt">
-            <button class="button disclosure-button action-control" id="negative-prompt-toggle" data-openlayer-action="toggleNegativePrompt" type="button">Show Negative Prompt</button>
-            <label class="field negative-prompt-field" id="negative-prompt-field" hidden>
-              <span class="label">Negative prompt</span>
-              <textarea class="textarea" id="negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
-            </label>
-          </section>
-          <label class="field">
-            <span class="label">Workflow</span>
-            <select class="select" id="workflow">
-              ${listRunnableWorkflowPresets("txt2img").map((preset) => `<option value="${preset.id}">${preset.label}</option>`).join("")}
-            </select>
-          </label>
-          <label class="field">
-            <span class="label">Model</span>
-            <select class="select" id="checkpoint">
-              ${FALLBACK_CHECKPOINTS.map((checkpoint) => `<option value="${checkpoint}">${checkpoint}</option>`).join("")}
-            </select>
-          </label>
-          <div class="settings-grid" aria-label="Generation settings">
-            <label class="field">
-              <span class="label">Width</span>
-              <input class="input input-compact" id="width" type="number" min="64" step="64" value="${DEFAULT_WIDTH}" />
-            </label>
-            <label class="field">
-              <span class="label">Height</span>
-              <input class="input input-compact" id="height" type="number" min="64" step="64" value="${DEFAULT_HEIGHT}" />
-            </label>
-            <label class="field">
-              <span class="label">Steps</span>
-              <input class="input input-compact" id="steps" type="number" min="1" max="150" step="1" value="${DEFAULT_STEPS}" />
-            </label>
-            <label class="field">
-              <span class="label">CFG</span>
-              <input class="input input-compact" id="cfg" type="number" min="1" max="30" step="0.5" value="${DEFAULT_CFG}" />
-            </label>
-            <label class="field settings-seed">
-              <span class="label">Seed</span>
-              <input class="input input-compact" id="seed" type="number" min="0" placeholder="Random" />
-            </label>
-          </div>
-          <button class="button button-primary button-generate button-wide action-control" id="generate" data-openlayer-action="generate" type="button">Generate</button>
-          <button class="button button-wide action-control cancel-generation-button" id="cancel-generation" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
-        </section>
-
-        <section class="generation-status-panel" aria-label="Generation status">
-          <div class="status-bar" role="status">
-            <span class="status-text" id="status-text">Ready.</span>
-            <span class="status-pill idle" id="status-pill">Status</span>
-          </div>
-          <div class="status-progress" id="status-progress" hidden><span></span></div>
-          <div class="diagnostics-line" id="diagnostics-text">Click test ready for v${APP_VERSION}.</div>
-          <div class="error-message" id="error-message" hidden></div>
-        </section>
-
-        <section class="panel-section result-panel" aria-label="Result">
-          <div class="section-heading">
-            <span class="label">Preview</span>
-            <span class="muted-label">Result appears here after generation</span>
-          </div>
-          <div class="preview-panel" id="preview-panel">
-            <span class="preview-empty">No result yet</span>
-          </div>
-          <div class="import-actions">
-            <button class="button button-import action-control is-disabled" id="import-result" data-openlayer-action="import" type="button" tabindex="-1" aria-disabled="true">Import Result as New Layer</button>
-            <button class="button auto-import-toggle action-control" id="auto-import-toggle" data-openlayer-action="toggleAutoImport" type="button" aria-pressed="false">Import Result Automatically</button>
-          </div>
-        </section>
-
-      </section>
-
-      <section class="image-to-image-view" id="image-to-image-view" aria-label="Image to Image" hidden>
-        <div class="screen-nav">
-          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
-          <div class="screen-title-block">
-            ${createScreenIconMarkup("image", "Image to Image")}
-            <span class="screen-title">Image to Image</span>
-          </div>
-        </div>
-
-        <section class="panel-section generator-panel source-panel" aria-label="Image source">
-          <div class="section-heading">
-            <span class="label">Source layer</span>
-            <span class="muted-label">Input image</span>
-          </div>
-          <div class="source-action-row ol-capture-actions" aria-label="Source capture actions">
-            <button class="button source-action-button action-control" id="capture-image-source" data-openlayer-action="captureImageSource" type="button">Capture Active Layer</button>
-            <button class="button source-action-button action-control" id="capture-canvas-source" data-openlayer-action="captureCanvasSource" type="button">Capture Canvas</button>
-          </div>
-          <div class="source-card">
-            <div class="source-thumb-frame" id="image-source-preview-panel">
-              <span class="source-empty">None</span>
-            </div>
-            <div class="source-card-body">
-              <span class="source-title" id="image-source-title">No source captured</span>
-              <span class="source-card-meta" id="image-source-meta">Choose active layer or full canvas.</span>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel-section generator-panel img2img-form-panel" aria-label="Image to Image prompt">
-          <div class="section-heading">
-            <span class="label">Generate</span>
-            <span class="muted-label">Prompt and workflow</span>
-          </div>
-          <div class="field img2img-field">
-            <span class="label">Prompt</span>
-            <textarea class="textarea compact-textarea" id="img-prompt" placeholder="Describe how to reinterpret the active layer..."></textarea>
-          </div>
-          <div class="field img2img-field">
-            <span class="label">Negative prompt</span>
-            <textarea class="textarea compact-textarea" id="img-negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
-          </div>
-          <div class="field img2img-field">
-            <span class="label">Workflow</span>
-            <select class="select" id="img-workflow">
-              ${listRunnableWorkflowPresets("img2img").map((preset) => `<option value="${preset.id}">${preset.label}</option>`).join("")}
-            </select>
-          </div>
-          <div class="field img2img-field">
-            <div class="field-label-row">
-              <span class="label">Model</span>
-              ${createInfoToggleMarkup("img-compatibility-note")}
-            </div>
-            <select class="select" id="img-checkpoint">
-              ${FALLBACK_CHECKPOINTS.map((checkpoint) => `<option value="${checkpoint}">${checkpoint}</option>`).join("")}
-            </select>
-            ${createInfoPanelMarkup("img-compatibility-note", "img2img-basic is safest with SD 1.x and SDXL checkpoints. SD3 and Flux are experimental.")}
-          </div>
-          <button class="button experimental-toggle action-control" id="experimental-checkpoint-toggle" data-openlayer-action="toggleExperimentalCheckpoints" type="button" aria-pressed="false">Experimental Checkpoints Off</button>
-          <div class="settings-grid img2img-settings-grid" aria-label="Image to Image settings">
-            <div class="field ol-setting-row">
-              <span class="label">Steps</span>
-              <input class="input input-compact" id="img-steps" type="number" min="1" max="150" step="1" value="${DEFAULT_IMG2IMG_STEPS}" />
-            </div>
-            <div class="field ol-setting-row">
-              <span class="label">CFG</span>
-              <input class="input input-compact" id="img-cfg" type="number" min="1" max="30" step="0.5" value="${DEFAULT_CFG}" />
-            </div>
-            <div class="field ol-setting-row">
-              <span class="label">Denoise</span>
-              <input class="input input-compact" id="img-denoise" type="number" min="0.05" max="1" step="0.05" value="${DEFAULT_IMG2IMG_DENOISE}" />
-            </div>
-            <div class="field settings-seed ol-setting-row">
-              <span class="label">Seed</span>
-              <input class="input input-compact" id="img-seed" type="number" min="0" placeholder="Random" />
-            </div>
-          </div>
-          <button class="button button-primary button-generate button-wide action-control" id="generate-img2img" data-openlayer-action="generateImg2Img" type="button">Generate Image to Image</button>
-          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
-        </section>
-
-        <section class="generation-status-panel img2img-status-panel" aria-label="Image to Image status">
-          <div class="status-bar" role="status">
-            <span class="status-text" id="img-status-text">Ready.</span>
-            <span class="status-pill idle" id="img-status-pill">Status</span>
-          </div>
-          <div class="status-progress" id="img-status-progress" hidden><span></span></div>
-          <div class="diagnostics-line" id="img-diagnostics-text">Capture an active layer, then generate with img2img-basic.</div>
-          <div class="error-message" id="img-error-message" hidden></div>
-        </section>
-
-        <section class="panel-section result-panel img2img-result-panel" aria-label="Image to Image result">
-          <div class="section-heading">
-            <span class="label">Result preview</span>
-            <span class="muted-label">Generated result appears here</span>
-          </div>
-          <div class="preview-panel" id="image-result-preview-panel">
-            <span class="preview-empty">No Image to Image result yet</span>
-          </div>
-          <div class="import-actions">
-            <button class="button button-import button-import-blue action-control is-disabled" id="import-img2img-result" data-openlayer-action="importImg2Img" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
-            <button class="button auto-import-toggle action-control" id="img2img-auto-import-toggle" data-openlayer-action="toggleImg2ImgAutoImport" type="button" aria-pressed="false">Import Automatically</button>
-          </div>
-        </section>
-
-      </section>
-
-      <section class="sketch-to-image-view image-to-image-view" id="sketch-to-image-view" aria-label="Sketch to Image" hidden>
-        <div class="screen-nav">
-          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
-          <div class="screen-title-block">
-            ${createScreenIconMarkup("lineart", "Sketch to Image")}
-            <span class="screen-title">Sketch to Image</span>
-          </div>
-        </div>
-
-        <section class="panel-section generator-panel source-panel" aria-label="Sketch source">
-          <div class="section-heading">
-            <span class="label">Source layer</span>
-            <span class="muted-label">LINECN input</span>
-          </div>
-          <div class="source-action-row" aria-label="Sketch source capture actions">
-            <button class="button source-action-button action-control" id="capture-sketch-source" data-openlayer-action="captureSketchSource" type="button">Capture Active Layer</button>
-            <button class="button source-action-button action-control" id="capture-sketch-canvas-source" data-openlayer-action="captureSketchCanvasSource" type="button">Capture Canvas</button>
-          </div>
-          <div class="source-card">
-            <div class="source-thumb-frame" id="sketch-source-preview-panel">
-              <span class="source-empty">None</span>
-            </div>
-            <div class="source-card-body">
-              <span class="source-title" id="sketch-source-title">No source captured</span>
-              <span class="source-card-meta" id="sketch-source-meta">ComfyUI LineArtPreprocessor creates the guide.</span>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel-section generator-panel img2img-form-panel" aria-label="Sketch to Image prompt">
-          <div class="section-heading">
-            <span class="label">Generate</span>
-            <span class="muted-label">Prompt and LINECN settings</span>
-          </div>
-          <div class="field img2img-field">
-            <span class="label">Prompt</span>
-            <textarea class="textarea compact-textarea" id="sketch-prompt" placeholder="Describe the final image guided by the lineart..."></textarea>
-          </div>
-          <div class="field img2img-field">
-            <span class="label">Negative prompt</span>
-            <textarea class="textarea compact-textarea" id="sketch-negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
-          </div>
-          <div class="field img2img-field">
-            <span class="label">Workflow</span>
-            <select class="select" id="sketch-workflow">
-              ${listRunnableWorkflowPresets("sketch2img").map((preset) => `<option value="${preset.id}">${preset.label}</option>`).join("")}
-            </select>
-          </div>
-          <div class="field img2img-field">
-            <div class="field-label-row">
-              <span class="label">Checkpoint</span>
-              ${createInfoToggleMarkup("sketch-compatibility-note")}
-            </div>
-            <select class="select" id="sketch-checkpoint">
-              ${FALLBACK_CHECKPOINTS.map((checkpoint) => `<option value="${checkpoint}">${checkpoint}</option>`).join("")}
-            </select>
-            ${createInfoPanelMarkup("sketch-compatibility-note", "Recommended: epicrealism_naturalSinRC1VAE.safetensors with an SD 1.5 LineArt ControlNet workflow.")}
-          </div>
-          <div class="settings-grid img2img-settings-grid" aria-label="Sketch to Image settings">
-            <div class="field">
-              <span class="label">Steps</span>
-              <input class="input input-compact" id="sketch-steps" type="number" min="1" max="150" step="1" value="${DEFAULT_SKETCH_STEPS}" />
-            </div>
-            <div class="field">
-              <span class="label">CFG</span>
-              <input class="input input-compact" id="sketch-cfg" type="number" min="1" max="30" step="0.5" value="${DEFAULT_CFG}" />
-            </div>
-            <div class="field">
-              <span class="label">Denoise</span>
-              <input class="input input-compact" id="sketch-denoise" type="number" min="0.05" max="1" step="0.05" value="${DEFAULT_SKETCH_DENOISE}" />
-            </div>
-            <div class="field">
-              <span class="label">Strength</span>
-              <input class="input input-compact" id="sketch-control-strength" type="number" min="0" max="2" step="0.05" value="${DEFAULT_SKETCH_CONTROL_STRENGTH}" />
-            </div>
-            <div class="field settings-seed">
-              <span class="label">Seed</span>
-              <input class="input input-compact" id="sketch-seed" type="number" min="0" placeholder="Random" />
-            </div>
-          </div>
-          <button class="button button-primary button-generate button-wide action-control" id="generate-sketch" data-openlayer-action="generateSketch" type="button">Generate Sketch to Image</button>
-          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
-        </section>
-
-        <section class="generation-status-panel img2img-status-panel" aria-label="Sketch to Image status">
-          <div class="status-bar" role="status">
-            <span class="status-text" id="sketch-status-text">Ready.</span>
-            <span class="status-pill idle" id="sketch-status-pill">Status</span>
-          </div>
-          <div class="status-progress" id="sketch-status-progress" hidden><span></span></div>
-          <div class="diagnostics-line" id="sketch-diagnostics-text">Capture a source, then use a LINECN workflow preset.</div>
-          <div class="error-message" id="sketch-error-message" hidden></div>
-        </section>
-
-        <section class="panel-section result-panel img2img-result-panel" aria-label="Sketch to Image result">
-          <div class="section-heading">
-            <span class="label">Result preview</span>
-            <span class="muted-label">Generated result appears here</span>
-          </div>
-          <div class="preview-panel" id="sketch-result-preview-panel">
-            <span class="preview-empty">No Sketch to Image result yet</span>
-          </div>
-          <div class="import-actions">
-            <button class="button button-import button-import-blue action-control is-disabled" id="import-sketch-result" data-openlayer-action="importSketch" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
-          </div>
-        </section>
-      </section>
-
-      <section class="inpaint-view image-to-image-view" id="inpaint-view" aria-label="Inpaint" hidden>
-        <div class="screen-nav">
-          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
-          <div class="screen-title-block">
-            ${createScreenIconMarkup("brush", "Inpaint")}
-            <span class="screen-title">Inpaint</span>
-          </div>
-        </div>
-
-        <div class="tool-warning" role="note">
-          Experimental: Inpaint output quality and Photoshop alignment are still being tested. Use this for debugging, not production work yet.
-        </div>
-
-        <section class="panel-section generator-panel source-panel" aria-label="Inpaint selection source">
-          <div class="section-heading">
-            <span class="label">Selection source</span>
-            <span class="muted-label">Photoshop selection</span>
-          </div>
-          <div class="source-action-row" aria-label="Selection capture actions">
-            <button class="button source-action-button action-control" id="capture-inpaint-selection" data-openlayer-action="captureInpaintSelection" type="button">Capture Visible</button>
-            <button class="button source-action-button action-control" id="capture-inpaint-active-layer" data-openlayer-action="captureInpaintActiveLayer" type="button">Capture Active Layer</button>
-          </div>
-          <div class="source-card">
-            <div class="source-thumb-frame" id="inpaint-source-preview-panel">
-              <span class="source-empty">None</span>
-            </div>
-            <div class="source-card-body">
-              <span class="source-title" id="inpaint-source-title">No selection captured</span>
-              <span class="source-card-meta" id="inpaint-source-meta">Make a Photoshop selection first.</span>
-            </div>
-          </div>
-          <div class="source-card">
-            <div class="source-thumb-frame" id="inpaint-mask-preview-panel">
-              <span class="source-empty">Mask</span>
-            </div>
-            <div class="source-card-body">
-              <span class="source-title">Mask preview</span>
-              <span class="source-card-meta" id="inpaint-mask-meta">Mask export not available yet.</span>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel-section generator-panel img2img-form-panel" aria-label="Inpaint prompt">
-          <div class="section-heading">
-            <span class="label">Generate</span>
-            <span class="muted-label">Prompt and mask settings</span>
-          </div>
-          <div class="field img2img-field">
-            <span class="label">Prompt</span>
-            <textarea class="textarea compact-textarea" id="inpaint-prompt" placeholder="Describe what should replace the selected area..."></textarea>
-          </div>
-          <div class="field img2img-field">
-            <span class="label">Negative prompt</span>
-            <textarea class="textarea compact-textarea" id="inpaint-negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
-          </div>
-          <div class="field img2img-field">
-            <span class="label">Workflow</span>
-            <select class="select" id="inpaint-workflow">
-              ${listWorkflowPresets("inpaint").map((preset) => `<option value="${preset.id}">${preset.label}${preset.status === "todo" ? " (setup required)" : ""}</option>`).join("")}
-            </select>
-          </div>
-          <div class="field img2img-field">
-            <div class="field-label-row">
-              <span class="label">Checkpoint</span>
-              ${createInfoToggleMarkup("inpaint-compatibility-note")}
-            </div>
-            <select class="select" id="inpaint-checkpoint">
-              ${FALLBACK_CHECKPOINTS.map((checkpoint) => `<option value="${checkpoint}">${checkpoint}</option>`).join("")}
-            </select>
-            ${createInfoPanelMarkup("inpaint-compatibility-note", "Selection capture is available. Generation needs a mapped inpaint-basic API workflow.")}
-          </div>
-          <div class="settings-grid img2img-settings-grid" aria-label="Inpaint settings">
-            <div class="field">
-              <span class="label">Steps</span>
-              <input class="input input-compact" id="inpaint-steps" type="number" min="1" max="150" step="1" value="${DEFAULT_INPAINT_STEPS}" />
-            </div>
-            <div class="field">
-              <span class="label">CFG</span>
-              <input class="input input-compact" id="inpaint-cfg" type="number" min="1" max="30" step="0.5" value="${DEFAULT_CFG}" />
-            </div>
-            <div class="field">
-              <span class="label">Denoise</span>
-              <input class="input input-compact" id="inpaint-denoise" type="number" min="0.05" max="1" step="0.05" value="${DEFAULT_INPAINT_DENOISE}" />
-            </div>
-            <div class="field settings-seed">
-              <span class="label">Seed</span>
-              <input class="input input-compact" id="inpaint-seed" type="number" min="0" placeholder="Random" />
-            </div>
-          </div>
-          <button class="button button-primary button-generate button-wide action-control" id="generate-inpaint" data-openlayer-action="generateInpaint" type="button">Generate Inpaint</button>
-          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
-        </section>
-
-        <section class="generation-status-panel img2img-status-panel" aria-label="Inpaint status">
-          <div class="status-bar" role="status">
-            <span class="status-text" id="inpaint-status-text">Ready.</span>
-            <span class="status-pill idle" id="inpaint-status-pill">Status</span>
-          </div>
-          <div class="status-progress" id="inpaint-status-progress" hidden><span></span></div>
-          <div class="diagnostics-line" id="inpaint-diagnostics-text">Capture a Photoshop selection to prepare inpainting.</div>
-          <div class="error-message" id="inpaint-error-message" hidden></div>
-        </section>
-
-        <section class="panel-section result-panel img2img-result-panel" aria-label="Inpaint result">
-          <div class="section-heading">
-            <span class="label">Result preview</span>
-            <span class="muted-label">Generated result appears here</span>
-          </div>
-          <div class="preview-panel" id="inpaint-result-preview-panel">
-            <span class="preview-empty">No Inpaint result yet</span>
-          </div>
-          <div class="import-actions">
-            <button class="button button-import button-import-blue action-control is-disabled" id="import-inpaint-result" data-openlayer-action="importInpaint" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
-          </div>
-        </section>
-      </section>
-
-      <section class="outpaint-view image-to-image-view" id="outpaint-view" aria-label="Outpaint" hidden>
-        <div class="screen-nav">
-          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
-          <div class="screen-title-block">
-            ${createScreenIconMarkup("expand", "Outpaint")}
-            <span class="screen-title">Outpaint</span>
-          </div>
-        </div>
-
-        <div class="tool-warning" role="note">
-          Experimental: Outpaint uses Flux Fill and ImagePadForOutpaint to expand captured Photoshop content. Test on duplicate layers first.
-        </div>
-
-        <section class="panel-section generator-panel source-panel" aria-label="Outpaint source">
-          <div class="section-heading">
-            <span class="label">Source layer</span>
-            <span class="muted-label">Flux Fill input</span>
-          </div>
-          <div class="source-action-row" aria-label="Outpaint source capture actions">
-            <button class="button source-action-button action-control" id="capture-outpaint-source" data-openlayer-action="captureOutpaintSource" type="button">Capture Active Layer</button>
-            <button class="button source-action-button action-control" id="capture-outpaint-canvas-source" data-openlayer-action="captureOutpaintCanvasSource" type="button">Capture Canvas</button>
-          </div>
-          <div class="source-card">
-            <div class="source-thumb-frame" id="outpaint-source-preview-panel">
-              <span class="source-empty">None</span>
-            </div>
-            <div class="source-card-body">
-              <span class="source-title" id="outpaint-source-title">No source captured</span>
-              <span class="source-card-meta" id="outpaint-source-meta">Choose active layer or full canvas.</span>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel-section generator-panel img2img-form-panel" aria-label="Outpaint prompt">
-          <div class="section-heading">
-            <span class="label">Generate</span>
-            <span class="muted-label">Prompt and expansion</span>
-          </div>
-          <div class="field img2img-field">
-            <span class="label">Prompt</span>
-            <textarea class="textarea compact-textarea" id="outpaint-prompt" placeholder="Describe what should extend beyond the current image..."></textarea>
-          </div>
-          <div class="field img2img-field">
-            <span class="label">Workflow</span>
-            <select class="select" id="outpaint-workflow">
-              ${listRunnableWorkflowPresets("outpaint").map((preset) => `<option value="${preset.id}">${preset.label}</option>`).join("")}
-            </select>
-          </div>
-          <div class="field img2img-field">
-            <div class="field-label-row">
-              <span class="label">Model</span>
-              ${createInfoToggleMarkup("outpaint-compatibility-note")}
-            </div>
-            <select class="select" id="outpaint-checkpoint">
-              ${FALLBACK_CHECKPOINTS.map((checkpoint) => `<option value="${checkpoint}">${checkpoint}</option>`).join("")}
-            </select>
-            ${createInfoPanelMarkup("outpaint-compatibility-note", "Outpaint uses Flux Fill diffusion models and ImagePadForOutpaint.")}
-          </div>
-          <div class="settings-grid img2img-settings-grid" aria-label="Outpaint settings">
-            <div class="field">
-              <span class="label">Steps</span>
-              <input class="input input-compact" id="outpaint-steps" type="number" min="1" max="150" step="1" value="${DEFAULT_OUTPAINT_STEPS}" />
-            </div>
-            <div class="field">
-              <span class="label">Guidance</span>
-              <input class="input input-compact" id="outpaint-guidance" type="number" min="0" max="60" step="0.5" value="${DEFAULT_OUTPAINT_GUIDANCE}" />
-            </div>
-            <div class="field">
-              <span class="label">Denoise</span>
-              <input class="input input-compact" id="outpaint-denoise" type="number" min="0.05" max="1" step="0.05" value="${DEFAULT_OUTPAINT_DENOISE}" />
-            </div>
-            <div class="field settings-seed">
-              <span class="label">Seed</span>
-              <input class="input input-compact" id="outpaint-seed" type="number" min="0" placeholder="Random" />
-            </div>
-          </div>
-          <div class="settings-grid img2img-settings-grid" aria-label="Outpaint expansion settings">
-            <div class="field">
-              <span class="label">Left</span>
-              <input class="input input-compact" id="outpaint-left" type="number" min="0" max="2048" step="8" value="${DEFAULT_OUTPAINT_LEFT}" />
-            </div>
-            <div class="field">
-              <span class="label">Top</span>
-              <input class="input input-compact" id="outpaint-top" type="number" min="0" max="2048" step="8" value="${DEFAULT_OUTPAINT_TOP}" />
-            </div>
-            <div class="field">
-              <span class="label">Right</span>
-              <input class="input input-compact" id="outpaint-right" type="number" min="0" max="2048" step="8" value="${DEFAULT_OUTPAINT_RIGHT}" />
-            </div>
-            <div class="field">
-              <span class="label">Bottom</span>
-              <input class="input input-compact" id="outpaint-bottom" type="number" min="0" max="2048" step="8" value="${DEFAULT_OUTPAINT_BOTTOM}" />
-            </div>
-            <div class="field">
-              <span class="label">Feather</span>
-              <input class="input input-compact" id="outpaint-feathering" type="number" min="0" max="256" step="1" value="${DEFAULT_OUTPAINT_FEATHERING}" />
-            </div>
-          </div>
-          <button class="button button-primary button-generate button-wide action-control" id="generate-outpaint" data-openlayer-action="generateOutpaint" type="button">Generate Outpaint</button>
-          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
-        </section>
-
-        <section class="generation-status-panel img2img-status-panel" aria-label="Outpaint status">
-          <div class="status-bar" role="status">
-            <span class="status-text" id="outpaint-status-text">Ready.</span>
-            <span class="status-pill idle" id="outpaint-status-pill">Status</span>
-          </div>
-          <div class="status-progress" id="outpaint-status-progress" hidden><span></span></div>
-          <div class="diagnostics-line" id="outpaint-diagnostics-text">Capture a source, then extend it with Flux Fill outpaint.</div>
-          <div class="error-message" id="outpaint-error-message" hidden></div>
-        </section>
-
-        <section class="panel-section result-panel img2img-result-panel" aria-label="Outpaint result">
-          <div class="section-heading">
-            <span class="label">Result preview</span>
-            <span class="muted-label">Generated result appears here</span>
-          </div>
-          <div class="preview-panel" id="outpaint-result-preview-panel">
-            <span class="preview-empty">No Outpaint result yet</span>
-          </div>
-          <div class="import-actions">
-            <button class="button button-import button-import-blue action-control is-disabled" id="import-outpaint-result" data-openlayer-action="importOutpaint" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
-          </div>
-        </section>
-      </section>
-
-      <section class="upscale-view image-to-image-view" id="upscale-view" aria-label="Upscale" hidden>
-        <div class="screen-nav">
-          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
-          <div class="screen-title-block">
-            ${createScreenIconMarkup("upscale", "Upscale")}
-            <span class="screen-title">Upscale</span>
-          </div>
-        </div>
-
-        <div class="tool-warning" role="note">
-          Experimental: Upscale uses pixel/model enlargement only. It does not reinterpret prompts or run diffusion sampling.
-        </div>
-
-        <section class="panel-section generator-panel source-panel" aria-label="Upscale source">
-          <div class="section-heading">
-            <span class="label">Source layer</span>
-            <span class="muted-label">Pixel upscale input</span>
-          </div>
-          <div class="source-action-row" aria-label="Upscale source capture actions">
-            <button class="button source-action-button action-control" id="capture-upscale-source" data-openlayer-action="captureUpscaleSource" type="button">Capture Active Layer</button>
-            <button class="button source-action-button action-control" id="capture-upscale-canvas-source" data-openlayer-action="captureUpscaleCanvasSource" type="button">Capture Canvas</button>
-          </div>
-          <div class="source-card">
-            <div class="source-thumb-frame" id="upscale-source-preview-panel">
-              <span class="source-empty">None</span>
-            </div>
-            <div class="source-card-body">
-              <span class="source-title" id="upscale-source-title">No source captured</span>
-              <span class="source-card-meta" id="upscale-source-meta">Choose active layer or full canvas.</span>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel-section generator-panel img2img-form-panel" aria-label="Upscale settings">
-          <div class="section-heading">
-            <span class="label">Upscale</span>
-            <span class="muted-label">Model and workflow</span>
-          </div>
-          <div class="field img2img-field">
-            <span class="label">Workflow</span>
-            <select class="select" id="upscale-workflow">
-              ${listRunnableWorkflowPresets("upscale").map((preset) => `<option value="${preset.id}">${preset.label}</option>`).join("")}
-            </select>
-          </div>
-          <div class="field img2img-field">
-            <div class="field-label-row">
-              <span class="label">Upscale model</span>
-              ${createInfoToggleMarkup("upscale-compatibility-note")}
-            </div>
-            <select class="select" id="upscale-model">
-              ${FALLBACK_UPSCALE_MODELS.map((model) => `<option value="${model}">${model}</option>`).join("")}
-            </select>
-            ${createInfoPanelMarkup("upscale-compatibility-note", "upscale-basic needs UpscaleModelLoader and ImageUpscaleWithModel in ComfyUI.")}
-          </div>
-          <button class="button button-primary button-generate button-wide action-control" id="generate-upscale" data-openlayer-action="generateUpscale" type="button">Generate Upscale</button>
-          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
-        </section>
-
-        <section class="generation-status-panel img2img-status-panel" aria-label="Upscale status">
-          <div class="status-bar" role="status">
-            <span class="status-text" id="upscale-status-text">Ready.</span>
-            <span class="status-pill idle" id="upscale-status-pill">Status</span>
-          </div>
-          <div class="status-progress" id="upscale-status-progress" hidden><span></span></div>
-          <div class="diagnostics-line" id="upscale-diagnostics-text">Capture a source, then upscale with a ComfyUI upscale model.</div>
-          <div class="error-message" id="upscale-error-message" hidden></div>
-        </section>
-
-        <section class="panel-section result-panel img2img-result-panel" aria-label="Upscale result">
-          <div class="section-heading">
-            <span class="label">Result preview</span>
-            <span class="muted-label">Generated upscale appears here</span>
-          </div>
-          <div class="preview-panel" id="upscale-result-preview-panel">
-            <span class="preview-empty">No Upscale result yet</span>
-          </div>
-          <div class="import-actions">
-            <button class="button button-import button-import-blue action-control is-disabled" id="import-upscale-result" data-openlayer-action="importUpscale" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
-            <button class="button auto-import-toggle action-control" id="upscale-auto-import-toggle" data-openlayer-action="toggleUpscaleAutoImport" type="button" aria-pressed="false">Import Automatically</button>
-          </div>
-        </section>
-      </section>
-
-      <section class="history-view" id="history-view" aria-label="History" hidden>
-        <div class="screen-nav">
-          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
-          <div class="screen-title-block">
-            ${createScreenIconMarkup("history", "History")}
-            <span class="screen-title">History</span>
-          </div>
-        </div>
-
-        <section class="panel-section history-panel" aria-label="Recent generations">
-          <div class="section-heading">
-            <span class="label">Recent generations</span>
-            <span class="muted-label">Current session</span>
-          </div>
-          <div class="history-list" id="history-list"></div>
-          <button class="button action-control" id="clear-history" data-openlayer-action="clearHistory" type="button">Clear History</button>
-        </section>
-      </section>
-
-      <footer class="app-footer">
-        <span>OpenLayer v${APP_VERSION} &middot; Developer: Mehran Ahmadi 2026</span>
-      </footer>
-    </main>
-  `;
-}
-
-function createBrandHeaderMarkup() {
-  return `
-    <header class="app-header">
-      <div class="brand-lockup">
-        <img class="brand-icon" src="icons/openlayer-icon.png" alt="" width="48" height="48" />
-        <div>
-          <h1 class="app-title">OpenLayer</h1>
-          <p class="app-subtitle">Local AI layers for Photoshop</p>
-        </div>
-      </div>
-    </header>
-  `;
-}
-
-function createToolCardMarkup(card: ToolCard) {
-  const isEnabled = card.status !== "coming-soon";
-  const viewAttribute = isEnabled && card.view ? ` data-openlayer-view="${card.view}"` : "";
-  const disabledAttributes = isEnabled ? "" : ` aria-disabled="true" tabindex="-1"`;
-
-  return `
-    <div
-      class="tool-card ol-row is-${card.status}"
-      role="button"
-      tabindex="${isEnabled ? "0" : "-1"}"
-      data-tool-id="${card.id}"
-      ${viewAttribute}
-      ${disabledAttributes}
-    >
-      <div class="tool-icon ol-row-icon" aria-hidden="true">${createToolIconMarkup(card.icon)}</div>
-      <div class="tool-card-body ol-row-main">
-        <div class="tool-title-row">
-          <div class="tool-title ol-row-title">${card.title}</div>
-        </div>
-        <div class="tool-subtitle ol-row-desc">${card.subtitle}</div>
-      </div>
-      <div class="tool-arrow ol-row-chevron" aria-hidden="true">${isEnabled ? "&rsaquo;" : ""}</div>
-    </div>
-  `;
-}
-
-function createHomeToolSectionMarkup(section: { title: string; toolIds: string[] }) {
-  const cards = section.toolIds
-    .map((toolId) => TOOL_CARDS.find((card) => card.id === toolId))
-    .filter((card): card is ToolCard => Boolean(card));
-
-  // Only the Workflow group is collapsible (and starts collapsed); the other
-  // groups are static labels for a flat, compact dashboard.
-  const isCollapsible = section.title === "Workflow";
-
-  if (isCollapsible) {
-    return `
-    <section class="home-section ol-section is-collapsible" aria-label="${section.title}">
-      <div class="home-section-title ol-section-header" role="button" tabindex="0" aria-expanded="false" data-openlayer-section-toggle>
-        <span class="home-section-chevron ol-section-chevron" aria-hidden="true"></span>
-        <span>${section.title}</span>
-      </div>
-      <div class="tool-list ol-section-body">
-        ${cards.map(createToolCardMarkup).join("")}
-      </div>
-    </section>
-  `;
+function setBusy(elements: AppElements, isBusy: boolean, gates: Record<BusyGateName, unknown>) {
+  for (const fieldKey of BUSY_DISABLED_FIELDS) {
+    elements[fieldKey].disabled = isBusy;
   }
 
-  return `
-    <section class="home-section ol-section is-open is-static" aria-label="${section.title}">
-      <div class="home-section-title ol-section-header is-static">
-        <span>${section.title}</span>
-      </div>
-      <div class="tool-list ol-section-body">
-        ${cards.map(createToolCardMarkup).join("")}
-      </div>
-    </section>
-  `;
-}
-
-function createToolIconMarkup(icon: ToolIconName) {
-  const icons: Record<ToolIconName, string> = {
-    image: "image-to-image.png",
-    imagePlus: "text-to-image.png",
-    brush: "inpaint.png",
-    expand: "outpaint.png",
-    lineart: "sketch-to-image.png",
-    promptFromLayer: "prompt-from-layer.png",
-    upscale: "upscale.png",
-    style: "style-reference.png",
-    control: "workflow-presets.png",
-    workflow: "workflow.png",
-    layers: "layer-tools.png",
-    history: "history.png",
-    settings: "settings.png"
-  };
-
-  return `<img class="icon-image" src="icons/tools/${icons[icon]}" alt="" aria-hidden="true" />`;
-}
-
-function createScreenIconMarkup(icon: ToolIconName, label: string) {
-  return `<span class="screen-kicker screen-icon" aria-label="${label}" title="${label}">${createToolIconMarkup(icon)}</span>`;
-}
-
-function createInfoToggleMarkup(targetId: string) {
-  return `
-    <button
-      class="info-toggle"
-      type="button"
-      aria-label="Show setup note"
-      aria-expanded="false"
-      aria-controls="${targetId}"
-      data-openlayer-info-toggle="${targetId}"
-      title="Show setup note"
-    ><span class="info-toggle-glyph" aria-hidden="true">?</span></button>
-  `;
-}
-
-function createInfoPanelMarkup(targetId: string, text: string) {
-  return `<div class="compatibility-note info-panel" id="${targetId}" hidden>${text}</div>`;
-}
-
-function getAppElements(rootElement: HTMLElement): AppElements {
-  return {
-    appShell: getElement<HTMLElement>(rootElement, "app-shell"),
-    homeView: getElement<HTMLElement>(rootElement, "home-view"),
-    generatorView: getElement<HTMLElement>(rootElement, "generator-view"),
-    imageToImageView: getElement<HTMLElement>(rootElement, "image-to-image-view"),
-    sketchToImageView: getElement<HTMLElement>(rootElement, "sketch-to-image-view"),
-    inpaintView: getElement<HTMLElement>(rootElement, "inpaint-view"),
-    outpaintView: getElement<HTMLElement>(rootElement, "outpaint-view"),
-    promptFromLayerView: getElement<HTMLElement>(rootElement, "prompt-from-layer-view"),
-    upscaleView: getElement<HTMLElement>(rootElement, "upscale-view"),
-    settingsView: getElement<HTMLElement>(rootElement, "settings-view"),
-    historyView: getElement<HTMLElement>(rootElement, "history-view"),
-    homeStatusText: getElement<HTMLElement>(rootElement, "home-status-text"),
-    homeStatusDot: getElement<HTMLElement>(rootElement, "home-status-dot"),
-    serverUrl: getElement<HTMLInputElement>(rootElement, "server-url"),
-    prompt: getElement<HTMLTextAreaElement>(rootElement, "prompt"),
-    negativePrompt: getElement<HTMLTextAreaElement>(rootElement, "negative-prompt"),
-    workflow: getElement<HTMLSelectElement>(rootElement, "workflow"),
-    checkpoint: getElement<HTMLSelectElement>(rootElement, "checkpoint"),
-    width: getElement<HTMLInputElement>(rootElement, "width"),
-    height: getElement<HTMLInputElement>(rootElement, "height"),
-    steps: getElement<HTMLInputElement>(rootElement, "steps"),
-    cfg: getElement<HTMLInputElement>(rootElement, "cfg"),
-    seed: getElement<HTMLInputElement>(rootElement, "seed"),
-    checkButton: getElement<HTMLElement>(rootElement, "check-comfy"),
-    findPortButton: getElement<HTMLElement>(rootElement, "find-comfy-port"),
-    detectHardwareButton: getElement<HTMLElement>(rootElement, "detect-gpu"),
-    checkWorkflowHealthButton: getElement<HTMLElement>(rootElement, "check-workflow-health"),
-    copyDiagnosticsButton: getElement<HTMLElement>(rootElement, "copy-diagnostics"),
-    saveSettingsButton: getElement<HTMLElement>(rootElement, "save-settings"),
-    resetSettingsButton: getElement<HTMLElement>(rootElement, "reset-settings"),
-    generateButton: getElement<HTMLElement>(rootElement, "generate"),
-    cancelGenerateButton: getElement<HTMLElement>(rootElement, "cancel-generation"),
-    cancelGenerationButtons: Array.from(rootElement.querySelectorAll<HTMLElement>(".cancel-generation-button")),
-    importButton: getElement<HTMLElement>(rootElement, "import-result"),
-    autoImportToggle: getElement<HTMLElement>(rootElement, "auto-import-toggle"),
-    imgPrompt: getElement<HTMLTextAreaElement>(rootElement, "img-prompt"),
-    imgNegativePrompt: getElement<HTMLTextAreaElement>(rootElement, "img-negative-prompt"),
-    imgWorkflow: getElement<HTMLSelectElement>(rootElement, "img-workflow"),
-    imgCheckpoint: getElement<HTMLSelectElement>(rootElement, "img-checkpoint"),
-    imgSteps: getElement<HTMLInputElement>(rootElement, "img-steps"),
-    imgCfg: getElement<HTMLInputElement>(rootElement, "img-cfg"),
-    imgSeed: getElement<HTMLInputElement>(rootElement, "img-seed"),
-    imgDenoise: getElement<HTMLInputElement>(rootElement, "img-denoise"),
-    captureLayerButton: getElement<HTMLElement>(rootElement, "capture-image-source"),
-    captureCanvasButton: getElement<HTMLElement>(rootElement, "capture-canvas-source"),
-    generateImg2ImgButton: getElement<HTMLElement>(rootElement, "generate-img2img"),
-    importImg2ImgButton: getElement<HTMLElement>(rootElement, "import-img2img-result"),
-    sketchPrompt: getElement<HTMLTextAreaElement>(rootElement, "sketch-prompt"),
-    sketchNegativePrompt: getElement<HTMLTextAreaElement>(rootElement, "sketch-negative-prompt"),
-    sketchWorkflow: getElement<HTMLSelectElement>(rootElement, "sketch-workflow"),
-    sketchCheckpoint: getElement<HTMLSelectElement>(rootElement, "sketch-checkpoint"),
-    sketchSteps: getElement<HTMLInputElement>(rootElement, "sketch-steps"),
-    sketchCfg: getElement<HTMLInputElement>(rootElement, "sketch-cfg"),
-    sketchSeed: getElement<HTMLInputElement>(rootElement, "sketch-seed"),
-    sketchDenoise: getElement<HTMLInputElement>(rootElement, "sketch-denoise"),
-    sketchControlStrength: getElement<HTMLInputElement>(rootElement, "sketch-control-strength"),
-    captureSketchLayerButton: getElement<HTMLElement>(rootElement, "capture-sketch-source"),
-    captureSketchCanvasButton: getElement<HTMLElement>(rootElement, "capture-sketch-canvas-source"),
-    generateSketchButton: getElement<HTMLElement>(rootElement, "generate-sketch"),
-    importSketchButton: getElement<HTMLElement>(rootElement, "import-sketch-result"),
-    inpaintPrompt: getElement<HTMLTextAreaElement>(rootElement, "inpaint-prompt"),
-    inpaintNegativePrompt: getElement<HTMLTextAreaElement>(rootElement, "inpaint-negative-prompt"),
-    inpaintWorkflow: getElement<HTMLSelectElement>(rootElement, "inpaint-workflow"),
-    inpaintCheckpoint: getElement<HTMLSelectElement>(rootElement, "inpaint-checkpoint"),
-    inpaintSteps: getElement<HTMLInputElement>(rootElement, "inpaint-steps"),
-    inpaintCfg: getElement<HTMLInputElement>(rootElement, "inpaint-cfg"),
-    inpaintSeed: getElement<HTMLInputElement>(rootElement, "inpaint-seed"),
-    inpaintDenoise: getElement<HTMLInputElement>(rootElement, "inpaint-denoise"),
-    captureInpaintSelectionButton: getElement<HTMLElement>(rootElement, "capture-inpaint-selection"),
-    captureInpaintActiveLayerButton: getElement<HTMLElement>(rootElement, "capture-inpaint-active-layer"),
-    generateInpaintButton: getElement<HTMLElement>(rootElement, "generate-inpaint"),
-    importInpaintButton: getElement<HTMLElement>(rootElement, "import-inpaint-result"),
-    outpaintPrompt: getElement<HTMLTextAreaElement>(rootElement, "outpaint-prompt"),
-    outpaintWorkflow: getElement<HTMLSelectElement>(rootElement, "outpaint-workflow"),
-    outpaintCheckpoint: getElement<HTMLSelectElement>(rootElement, "outpaint-checkpoint"),
-    outpaintSteps: getElement<HTMLInputElement>(rootElement, "outpaint-steps"),
-    outpaintGuidance: getElement<HTMLInputElement>(rootElement, "outpaint-guidance"),
-    outpaintSeed: getElement<HTMLInputElement>(rootElement, "outpaint-seed"),
-    outpaintDenoise: getElement<HTMLInputElement>(rootElement, "outpaint-denoise"),
-    outpaintLeft: getElement<HTMLInputElement>(rootElement, "outpaint-left"),
-    outpaintTop: getElement<HTMLInputElement>(rootElement, "outpaint-top"),
-    outpaintRight: getElement<HTMLInputElement>(rootElement, "outpaint-right"),
-    outpaintBottom: getElement<HTMLInputElement>(rootElement, "outpaint-bottom"),
-    outpaintFeathering: getElement<HTMLInputElement>(rootElement, "outpaint-feathering"),
-    captureOutpaintLayerButton: getElement<HTMLElement>(rootElement, "capture-outpaint-source"),
-    captureOutpaintCanvasButton: getElement<HTMLElement>(rootElement, "capture-outpaint-canvas-source"),
-    generateOutpaintButton: getElement<HTMLElement>(rootElement, "generate-outpaint"),
-    importOutpaintButton: getElement<HTMLElement>(rootElement, "import-outpaint-result"),
-    capturePromptLayerButton: getElement<HTMLElement>(rootElement, "capture-prompt-layer-source"),
-    capturePromptCanvasButton: getElement<HTMLElement>(rootElement, "capture-prompt-canvas-source"),
-    generatePromptLayerButton: getElement<HTMLElement>(rootElement, "generate-prompt-from-layer"),
-    copyPromptLayerButton: getElement<HTMLElement>(rootElement, "copy-prompt-from-layer"),
-    sendPromptLayerButton: getElement<HTMLElement>(rootElement, "send-prompt-to-text-to-image"),
-    upscaleWorkflow: getElement<HTMLSelectElement>(rootElement, "upscale-workflow"),
-    upscaleModel: getElement<HTMLSelectElement>(rootElement, "upscale-model"),
-    captureUpscaleLayerButton: getElement<HTMLElement>(rootElement, "capture-upscale-source"),
-    captureUpscaleCanvasButton: getElement<HTMLElement>(rootElement, "capture-upscale-canvas-source"),
-    generateUpscaleButton: getElement<HTMLElement>(rootElement, "generate-upscale"),
-    importUpscaleButton: getElement<HTMLElement>(rootElement, "import-upscale-result"),
-    upscaleAutoImportToggle: getElement<HTMLElement>(rootElement, "upscale-auto-import-toggle"),
-    imgAutoImportToggle: getElement<HTMLElement>(rootElement, "img2img-auto-import-toggle"),
-    experimentalCheckpointToggle: getElement<HTMLElement>(rootElement, "experimental-checkpoint-toggle"),
-    negativePromptToggle: getElement<HTMLElement>(rootElement, "negative-prompt-toggle"),
-    negativePromptField: getElement<HTMLElement>(rootElement, "negative-prompt-field"),
-    clearHistoryButton: getElement<HTMLElement>(rootElement, "clear-history"),
-    statusText: getElement<HTMLElement>(rootElement, "status-text"),
-    statusPill: getElement<HTMLElement>(rootElement, "status-pill"),
-    statusProgress: getElement<HTMLElement>(rootElement, "status-progress"),
-    imgStatusText: getElement<HTMLElement>(rootElement, "img-status-text"),
-    imgStatusPill: getElement<HTMLElement>(rootElement, "img-status-pill"),
-    imgStatusProgress: getElement<HTMLElement>(rootElement, "img-status-progress"),
-    sketchStatusText: getElement<HTMLElement>(rootElement, "sketch-status-text"),
-    sketchStatusPill: getElement<HTMLElement>(rootElement, "sketch-status-pill"),
-    sketchStatusProgress: getElement<HTMLElement>(rootElement, "sketch-status-progress"),
-    inpaintStatusText: getElement<HTMLElement>(rootElement, "inpaint-status-text"),
-    inpaintStatusPill: getElement<HTMLElement>(rootElement, "inpaint-status-pill"),
-    inpaintStatusProgress: getElement<HTMLElement>(rootElement, "inpaint-status-progress"),
-    promptLayerStatusText: getElement<HTMLElement>(rootElement, "prompt-layer-status-text"),
-    promptLayerStatusPill: getElement<HTMLElement>(rootElement, "prompt-layer-status-pill"),
-    promptLayerStatusProgress: getElement<HTMLElement>(rootElement, "prompt-layer-status-progress"),
-    settingsStatusText: getElement<HTMLElement>(rootElement, "settings-status-text"),
-    settingsStatusPill: getElement<HTMLElement>(rootElement, "settings-status-pill"),
-    settingsStatusProgress: getElement<HTMLElement>(rootElement, "settings-status-progress"),
-    diagnosticsText: getElement<HTMLElement>(rootElement, "diagnostics-text"),
-    imgDiagnosticsText: getElement<HTMLElement>(rootElement, "img-diagnostics-text"),
-    imgCompatibilityNote: getElement<HTMLElement>(rootElement, "img-compatibility-note"),
-    sketchDiagnosticsText: getElement<HTMLElement>(rootElement, "sketch-diagnostics-text"),
-    sketchCompatibilityNote: getElement<HTMLElement>(rootElement, "sketch-compatibility-note"),
-    inpaintDiagnosticsText: getElement<HTMLElement>(rootElement, "inpaint-diagnostics-text"),
-    inpaintCompatibilityNote: getElement<HTMLElement>(rootElement, "inpaint-compatibility-note"),
-    outpaintStatusText: getElement<HTMLElement>(rootElement, "outpaint-status-text"),
-    outpaintStatusPill: getElement<HTMLElement>(rootElement, "outpaint-status-pill"),
-    outpaintStatusProgress: getElement<HTMLElement>(rootElement, "outpaint-status-progress"),
-    upscaleStatusText: getElement<HTMLElement>(rootElement, "upscale-status-text"),
-    upscaleStatusPill: getElement<HTMLElement>(rootElement, "upscale-status-pill"),
-    upscaleStatusProgress: getElement<HTMLElement>(rootElement, "upscale-status-progress"),
-    outpaintDiagnosticsText: getElement<HTMLElement>(rootElement, "outpaint-diagnostics-text"),
-    outpaintCompatibilityNote: getElement<HTMLElement>(rootElement, "outpaint-compatibility-note"),
-    upscaleDiagnosticsText: getElement<HTMLElement>(rootElement, "upscale-diagnostics-text"),
-    upscaleCompatibilityNote: getElement<HTMLElement>(rootElement, "upscale-compatibility-note"),
-    promptLayerDiagnosticsText: getElement<HTMLElement>(rootElement, "prompt-layer-diagnostics-text"),
-    settingsDiagnosticsText: getElement<HTMLElement>(rootElement, "settings-diagnostics-text"),
-    errorMessage: getElement<HTMLElement>(rootElement, "error-message"),
-    imgErrorMessage: getElement<HTMLElement>(rootElement, "img-error-message"),
-    sketchErrorMessage: getElement<HTMLElement>(rootElement, "sketch-error-message"),
-    inpaintErrorMessage: getElement<HTMLElement>(rootElement, "inpaint-error-message"),
-    outpaintErrorMessage: getElement<HTMLElement>(rootElement, "outpaint-error-message"),
-    upscaleErrorMessage: getElement<HTMLElement>(rootElement, "upscale-error-message"),
-    promptLayerErrorMessage: getElement<HTMLElement>(rootElement, "prompt-layer-error-message"),
-    settingsErrorMessage: getElement<HTMLElement>(rootElement, "settings-error-message"),
-    previewPanel: getElement<HTMLElement>(rootElement, "preview-panel"),
-    imageSourcePreviewPanel: getElement<HTMLElement>(rootElement, "image-source-preview-panel"),
-    imageSourceTitle: getElement<HTMLElement>(rootElement, "image-source-title"),
-    imageSourceMeta: getElement<HTMLElement>(rootElement, "image-source-meta"),
-    imageResultPreviewPanel: getElement<HTMLElement>(rootElement, "image-result-preview-panel"),
-    sketchSourcePreviewPanel: getElement<HTMLElement>(rootElement, "sketch-source-preview-panel"),
-    sketchSourceTitle: getElement<HTMLElement>(rootElement, "sketch-source-title"),
-    sketchSourceMeta: getElement<HTMLElement>(rootElement, "sketch-source-meta"),
-    sketchResultPreviewPanel: getElement<HTMLElement>(rootElement, "sketch-result-preview-panel"),
-    inpaintSourcePreviewPanel: getElement<HTMLElement>(rootElement, "inpaint-source-preview-panel"),
-    inpaintSourceTitle: getElement<HTMLElement>(rootElement, "inpaint-source-title"),
-    inpaintSourceMeta: getElement<HTMLElement>(rootElement, "inpaint-source-meta"),
-    inpaintMaskPreviewPanel: getElement<HTMLElement>(rootElement, "inpaint-mask-preview-panel"),
-    inpaintMaskMeta: getElement<HTMLElement>(rootElement, "inpaint-mask-meta"),
-    inpaintResultPreviewPanel: getElement<HTMLElement>(rootElement, "inpaint-result-preview-panel"),
-    outpaintSourcePreviewPanel: getElement<HTMLElement>(rootElement, "outpaint-source-preview-panel"),
-    outpaintSourceTitle: getElement<HTMLElement>(rootElement, "outpaint-source-title"),
-    outpaintSourceMeta: getElement<HTMLElement>(rootElement, "outpaint-source-meta"),
-    outpaintResultPreviewPanel: getElement<HTMLElement>(rootElement, "outpaint-result-preview-panel"),
-    upscaleSourcePreviewPanel: getElement<HTMLElement>(rootElement, "upscale-source-preview-panel"),
-    upscaleSourceTitle: getElement<HTMLElement>(rootElement, "upscale-source-title"),
-    upscaleSourceMeta: getElement<HTMLElement>(rootElement, "upscale-source-meta"),
-    upscaleResultPreviewPanel: getElement<HTMLElement>(rootElement, "upscale-result-preview-panel"),
-    promptLayerSourcePreviewPanel: getElement<HTMLElement>(rootElement, "prompt-layer-source-preview-panel"),
-    promptLayerSourceTitle: getElement<HTMLElement>(rootElement, "prompt-layer-source-title"),
-    promptLayerSourceMeta: getElement<HTMLElement>(rootElement, "prompt-layer-source-meta"),
-    promptLayerTask: getElement<HTMLSelectElement>(rootElement, "prompt-layer-task"),
-    promptLayerNumBeams: getElement<HTMLInputElement>(rootElement, "prompt-layer-num-beams"),
-    promptLayerGeneratedText: getElement<HTMLTextAreaElement>(rootElement, "prompt-layer-generated-text"),
-    historyList: getElement<HTMLElement>(rootElement, "history-list"),
-    settingsUrlValue: getElement<HTMLElement>(rootElement, "settings-url-value"),
-    settingsCheckpointCount: getElement<HTMLElement>(rootElement, "settings-checkpoint-count"),
-    settingsLastCheckpoint: getElement<HTMLElement>(rootElement, "settings-last-checkpoint"),
-    settingsDocumentStatus: getElement<HTMLElement>(rootElement, "settings-document-status"),
-    settingsWorkflowReadiness: getElement<HTMLElement>(rootElement, "settings-workflow-readiness"),
-    settingsThemeSelect: getElement<HTMLSelectElement>(rootElement, "settings-theme-select"),
-    settingsGpuName: getElement<HTMLElement>(rootElement, "settings-gpu-name"),
-    settingsVramTotal: getElement<HTMLElement>(rootElement, "settings-vram-total"),
-    settingsVramFree: getElement<HTMLElement>(rootElement, "settings-vram-free"),
-    settingsVramTier: getElement<HTMLElement>(rootElement, "settings-vram-tier"),
-    settingsModelFamilies: getElement<HTMLElement>(rootElement, "settings-model-families"),
-    settingsZImageTurbo: getElement<HTMLElement>(rootElement, "settings-z-image-turbo"),
-    settingsModelRecommendations: getElement<HTMLElement>(rootElement, "settings-model-recommendations"),
-    settingsWorkflowHealthSummary: getElement<HTMLElement>(rootElement, "settings-workflow-health-summary"),
-    settingsWorkflowHealthList: getElement<HTMLElement>(rootElement, "settings-workflow-health-list"),
-    settingsDiagnosticsReport: getElement<HTMLTextAreaElement>(rootElement, "settings-diagnostics-report"),
-    livePaintingView: getElement<HTMLElement>(rootElement, "live-painting-view"),
-    livePrompt: getElement<HTMLTextAreaElement>(rootElement, "live-prompt"),
-    liveDenoise: getElement<HTMLInputElement>(rootElement, "live-denoise"),
-    liveStartButton: getElement<HTMLElement>(rootElement, "start-live-painting"),
-    liveStopButton: getElement<HTMLElement>(rootElement, "stop-live-painting"),
-    liveStatusText: getElement<HTMLElement>(rootElement, "live-status-text"),
-    liveTimingsText: getElement<HTMLElement>(rootElement, "live-timings-text"),
-    liveResultPreviewPanel: getElement<HTMLElement>(rootElement, "live-result-preview-panel"),
-    liveZoomToggle: getElement<HTMLElement>(rootElement, "live-zoom-toggle"),
-    importLiveButton: getElement<HTMLElement>(rootElement, "import-live-result"),
-    liveAutoImportToggle: getElement<HTMLElement>(rootElement, "live-auto-import-toggle")
-  };
-}
-
-function getElement<T extends HTMLElement>(rootElement: HTMLElement, id: string) {
-  const element = rootElement.querySelector(`#${id}`);
-
-  if (!element || typeof (element as HTMLElement).setAttribute !== "function") {
-    throw new Error(`OpenLayer UI element #${id} was not found.`);
+  for (const actionKey of BUSY_DISABLED_ACTIONS) {
+    setActionDisabled(elements[actionKey], isBusy);
   }
 
-  return element as T;
-}
-
-function setBusy(
-  elements: AppElements,
-  isBusy: boolean,
-  result: AppGeneratedImageResult | null,
-  imageResult: AppGeneratedImageResult | null = null,
-  imageSource: ImageSourceState | null = null,
-  sketchResult: AppGeneratedImageResult | null = null,
-  sketchSource: ImageSourceState | null = null,
-  inpaintResult: AppGeneratedImageResult | null = null,
-  inpaintSource: InpaintSourceState | null = null,
-  outpaintResult: AppGeneratedImageResult | null = null,
-  outpaintSource: ImageSourceState | null = null,
-  upscaleResult: AppGeneratedImageResult | null = null,
-  upscaleSource: ImageSourceState | null = null
-) {
-  elements.serverUrl.disabled = isBusy;
-  elements.prompt.disabled = isBusy;
-  elements.negativePrompt.disabled = isBusy;
-  elements.workflow.disabled = isBusy;
-  elements.checkpoint.disabled = isBusy;
-  elements.width.disabled = isBusy;
-  elements.height.disabled = isBusy;
-  elements.steps.disabled = isBusy;
-  elements.cfg.disabled = isBusy;
-  elements.seed.disabled = isBusy;
-  elements.imgPrompt.disabled = isBusy;
-  elements.imgNegativePrompt.disabled = isBusy;
-  elements.imgWorkflow.disabled = isBusy;
-  elements.imgCheckpoint.disabled = isBusy;
-  elements.imgSteps.disabled = isBusy;
-  elements.imgCfg.disabled = isBusy;
-  elements.imgSeed.disabled = isBusy;
-  elements.imgDenoise.disabled = isBusy;
-  elements.sketchPrompt.disabled = isBusy;
-  elements.sketchNegativePrompt.disabled = isBusy;
-  elements.sketchWorkflow.disabled = isBusy;
-  elements.sketchCheckpoint.disabled = isBusy;
-  elements.sketchSteps.disabled = isBusy;
-  elements.sketchCfg.disabled = isBusy;
-  elements.sketchSeed.disabled = isBusy;
-  elements.sketchDenoise.disabled = isBusy;
-  elements.sketchControlStrength.disabled = isBusy;
-  elements.inpaintPrompt.disabled = isBusy;
-  elements.inpaintNegativePrompt.disabled = isBusy;
-  elements.inpaintWorkflow.disabled = isBusy;
-  elements.inpaintCheckpoint.disabled = isBusy;
-  elements.inpaintSteps.disabled = isBusy;
-  elements.inpaintCfg.disabled = isBusy;
-  elements.inpaintSeed.disabled = isBusy;
-  elements.inpaintDenoise.disabled = isBusy;
-  elements.outpaintPrompt.disabled = isBusy;
-  elements.outpaintWorkflow.disabled = isBusy;
-  elements.outpaintCheckpoint.disabled = isBusy;
-  elements.outpaintSteps.disabled = isBusy;
-  elements.outpaintGuidance.disabled = isBusy;
-  elements.outpaintSeed.disabled = isBusy;
-  elements.outpaintDenoise.disabled = isBusy;
-  elements.outpaintLeft.disabled = isBusy;
-  elements.outpaintTop.disabled = isBusy;
-  elements.outpaintRight.disabled = isBusy;
-  elements.outpaintBottom.disabled = isBusy;
-  elements.outpaintFeathering.disabled = isBusy;
-  elements.upscaleWorkflow.disabled = isBusy;
-  elements.upscaleModel.disabled = isBusy;
-  elements.promptLayerTask.disabled = isBusy;
-  elements.promptLayerNumBeams.disabled = isBusy;
-  elements.promptLayerGeneratedText.disabled = isBusy;
-  setActionDisabled(elements.checkButton, isBusy);
-  setActionDisabled(elements.findPortButton, isBusy);
-  setActionDisabled(elements.detectHardwareButton, isBusy);
-  setActionDisabled(elements.checkWorkflowHealthButton, isBusy);
-  setActionDisabled(elements.copyDiagnosticsButton, isBusy);
-  setActionDisabled(elements.saveSettingsButton, isBusy);
-  setActionDisabled(elements.resetSettingsButton, isBusy);
-  setActionDisabled(elements.negativePromptToggle, isBusy);
-  setActionDisabled(elements.autoImportToggle, isBusy);
-  setActionDisabled(elements.imgAutoImportToggle, isBusy);
-  setActionDisabled(elements.upscaleAutoImportToggle, isBusy);
-  setActionDisabled(elements.generateButton, isBusy);
   for (const cancelButton of elements.cancelGenerationButtons) {
     setActionDisabled(cancelButton, !isBusy || cancelButton.hidden);
   }
-  setActionDisabled(elements.importButton, isBusy || !result);
-  setActionDisabled(elements.captureLayerButton, isBusy);
-  setActionDisabled(elements.captureCanvasButton, isBusy);
-  setActionDisabled(elements.experimentalCheckpointToggle, isBusy);
-  setActionDisabled(elements.generateImg2ImgButton, isBusy || !imageSource);
-  setActionDisabled(elements.importImg2ImgButton, isBusy || !imageResult);
-  setActionDisabled(elements.captureSketchLayerButton, isBusy);
-  setActionDisabled(elements.captureSketchCanvasButton, isBusy);
-  setActionDisabled(elements.generateSketchButton, isBusy || !sketchSource);
-  setActionDisabled(elements.importSketchButton, isBusy || !sketchResult);
-  setActionDisabled(elements.captureInpaintSelectionButton, isBusy);
-  setActionDisabled(elements.captureInpaintActiveLayerButton, isBusy);
-  setActionDisabled(elements.generateInpaintButton, isBusy || !inpaintSource);
-  setActionDisabled(elements.importInpaintButton, isBusy || !inpaintResult);
-  setActionDisabled(elements.captureOutpaintLayerButton, isBusy);
-  setActionDisabled(elements.captureOutpaintCanvasButton, isBusy);
-  setActionDisabled(elements.generateOutpaintButton, isBusy || !outpaintSource);
-  setActionDisabled(elements.importOutpaintButton, isBusy || !outpaintResult);
-  setActionDisabled(elements.captureUpscaleLayerButton, isBusy);
-  setActionDisabled(elements.captureUpscaleCanvasButton, isBusy);
-  setActionDisabled(elements.generateUpscaleButton, isBusy || !upscaleSource);
-  setActionDisabled(elements.importUpscaleButton, isBusy || !upscaleResult);
-  setActionDisabled(elements.capturePromptLayerButton, isBusy);
-  setActionDisabled(elements.capturePromptCanvasButton, isBusy);
-  setActionDisabled(elements.generatePromptLayerButton, isBusy);
-  setActionDisabled(elements.copyPromptLayerButton, isBusy);
-  setActionDisabled(elements.sendPromptLayerButton, isBusy);
-  setActionDisabled(elements.clearHistoryButton, isBusy);
+
+  for (const { button, gate } of BUSY_GATED_ACTIONS) {
+    setActionDisabled(elements[button], isBusy || !gates[gate]);
+  }
 }
 
 function setCancelGenerationVisible(elements: AppElements, isVisible: boolean) {
@@ -5868,118 +3711,97 @@ function applyStatusPill(pill: HTMLElement, status: string, tone: StatusTone) {
   pill.className = "status-pill idle";
 }
 
+function updateHomeStatus(elements: AppElements, status: string, tone: StatusTone) {
+  elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
+  elements.homeStatusDot.className = `home-status-dot ${tone}`;
+}
+
+function applyToolStatus(
+  elements: AppElements,
+  text: HTMLElement,
+  pill: HTMLElement,
+  progress: HTMLElement,
+  status: string,
+  tone: StatusTone
+) {
+  text.textContent = status;
+  applyStatusPill(pill, status, tone);
+  setStatusProgress(progress, status, tone);
+  updateHomeStatus(elements, status, tone);
+}
+
+// The Text to Image status doubles as the global one: it broadcasts to every
+// tool's status bar plus the settings screen. The per-tool setters below touch
+// only their own bar and the home indicator.
 function setStatus(elements: AppElements, status: string, tone: StatusTone) {
   elements.statusText.textContent = status;
   applyStatusPill(elements.statusPill, status, tone);
   setStatusProgress(elements.statusProgress, status, tone);
-  elements.imgStatusText.textContent = status;
-  applyStatusPill(elements.imgStatusPill, status, tone);
-  setStatusProgress(elements.imgStatusProgress, status, tone);
-  elements.sketchStatusText.textContent = status;
-  applyStatusPill(elements.sketchStatusPill, status, tone);
-  setStatusProgress(elements.sketchStatusProgress, status, tone);
-  elements.inpaintStatusText.textContent = status;
-  applyStatusPill(elements.inpaintStatusPill, status, tone);
-  setStatusProgress(elements.inpaintStatusProgress, status, tone);
-  elements.outpaintStatusText.textContent = status;
-  applyStatusPill(elements.outpaintStatusPill, status, tone);
-  setStatusProgress(elements.outpaintStatusProgress, status, tone);
-  elements.upscaleStatusText.textContent = status;
-  applyStatusPill(elements.upscaleStatusPill, status, tone);
-  setStatusProgress(elements.upscaleStatusProgress, status, tone);
-  elements.promptLayerStatusText.textContent = status;
-  applyStatusPill(elements.promptLayerStatusPill, status, tone);
-  setStatusProgress(elements.promptLayerStatusProgress, status, tone);
-  elements.settingsStatusText.textContent = status;
-  applyStatusPill(elements.settingsStatusPill, status, tone);
-  setStatusProgress(elements.settingsStatusProgress, status, tone);
-  elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
-  elements.homeStatusDot.className = `home-status-dot ${tone}`;
+  applyToolStatus(elements, elements.imgStatusText, elements.imgStatusPill, elements.imgStatusProgress, status, tone);
+  applyToolStatus(elements, elements.sketchStatusText, elements.sketchStatusPill, elements.sketchStatusProgress, status, tone);
+  applyToolStatus(elements, elements.inpaintStatusText, elements.inpaintStatusPill, elements.inpaintStatusProgress, status, tone);
+  applyToolStatus(elements, elements.outpaintStatusText, elements.outpaintStatusPill, elements.outpaintStatusProgress, status, tone);
+  applyToolStatus(elements, elements.upscaleStatusText, elements.upscaleStatusPill, elements.upscaleStatusProgress, status, tone);
+  applyToolStatus(elements, elements.promptLayerStatusText, elements.promptLayerStatusPill, elements.promptLayerStatusProgress, status, tone);
+  applyToolStatus(elements, elements.settingsStatusText, elements.settingsStatusPill, elements.settingsStatusProgress, status, tone);
 }
 
 function setImageStatus(elements: AppElements, status: string, tone: StatusTone) {
-  elements.imgStatusText.textContent = status;
-  applyStatusPill(elements.imgStatusPill, status, tone);
-  setStatusProgress(elements.imgStatusProgress, status, tone);
-  elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
-  elements.homeStatusDot.className = `home-status-dot ${tone}`;
+  applyToolStatus(elements, elements.imgStatusText, elements.imgStatusPill, elements.imgStatusProgress, status, tone);
 }
 
 function setSketchStatus(elements: AppElements, status: string, tone: StatusTone) {
-  elements.sketchStatusText.textContent = status;
-  applyStatusPill(elements.sketchStatusPill, status, tone);
-  setStatusProgress(elements.sketchStatusProgress, status, tone);
-  elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
-  elements.homeStatusDot.className = `home-status-dot ${tone}`;
+  applyToolStatus(elements, elements.sketchStatusText, elements.sketchStatusPill, elements.sketchStatusProgress, status, tone);
 }
 
 function setInpaintStatus(elements: AppElements, status: string, tone: StatusTone) {
-  elements.inpaintStatusText.textContent = status;
-  applyStatusPill(elements.inpaintStatusPill, status, tone);
-  setStatusProgress(elements.inpaintStatusProgress, status, tone);
-  elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
-  elements.homeStatusDot.className = `home-status-dot ${tone}`;
+  applyToolStatus(elements, elements.inpaintStatusText, elements.inpaintStatusPill, elements.inpaintStatusProgress, status, tone);
 }
 
 function setOutpaintStatus(elements: AppElements, status: string, tone: StatusTone) {
-  elements.outpaintStatusText.textContent = status;
-  applyStatusPill(elements.outpaintStatusPill, status, tone);
-  setStatusProgress(elements.outpaintStatusProgress, status, tone);
-  elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
-  elements.homeStatusDot.className = `home-status-dot ${tone}`;
+  applyToolStatus(elements, elements.outpaintStatusText, elements.outpaintStatusPill, elements.outpaintStatusProgress, status, tone);
 }
 
 function setUpscaleStatus(elements: AppElements, status: string, tone: StatusTone) {
-  elements.upscaleStatusText.textContent = status;
-  applyStatusPill(elements.upscaleStatusPill, status, tone);
-  setStatusProgress(elements.upscaleStatusProgress, status, tone);
-  elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
-  elements.homeStatusDot.className = `home-status-dot ${tone}`;
+  applyToolStatus(elements, elements.upscaleStatusText, elements.upscaleStatusPill, elements.upscaleStatusProgress, status, tone);
 }
 
 function setPromptLayerStatus(elements: AppElements, status: string, tone: StatusTone) {
-  elements.promptLayerStatusText.textContent = status;
-  applyStatusPill(elements.promptLayerStatusPill, status, tone);
-  setStatusProgress(elements.promptLayerStatusProgress, status, tone);
-  elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
-  elements.homeStatusDot.className = `home-status-dot ${tone}`;
+  applyToolStatus(elements, elements.promptLayerStatusText, elements.promptLayerStatusPill, elements.promptLayerStatusProgress, status, tone);
+}
+
+function applyToolError(errorMessage: HTMLElement, message: string) {
+  errorMessage.textContent = message;
+  errorMessage.hidden = !message;
 }
 
 function setError(elements: AppElements, message: string) {
-  elements.errorMessage.textContent = message;
-  elements.errorMessage.hidden = !message;
-  elements.settingsErrorMessage.textContent = message;
-  elements.settingsErrorMessage.hidden = !message;
+  applyToolError(elements.errorMessage, message);
+  applyToolError(elements.settingsErrorMessage, message);
 }
 
 function setImageError(elements: AppElements, message: string) {
-  elements.imgErrorMessage.textContent = message;
-  elements.imgErrorMessage.hidden = !message;
+  applyToolError(elements.imgErrorMessage, message);
 }
 
 function setSketchError(elements: AppElements, message: string) {
-  elements.sketchErrorMessage.textContent = message;
-  elements.sketchErrorMessage.hidden = !message;
+  applyToolError(elements.sketchErrorMessage, message);
 }
 
 function setInpaintError(elements: AppElements, message: string) {
-  elements.inpaintErrorMessage.textContent = message;
-  elements.inpaintErrorMessage.hidden = !message;
+  applyToolError(elements.inpaintErrorMessage, message);
 }
 
 function setOutpaintError(elements: AppElements, message: string) {
-  elements.outpaintErrorMessage.textContent = message;
-  elements.outpaintErrorMessage.hidden = !message;
+  applyToolError(elements.outpaintErrorMessage, message);
 }
 
 function setUpscaleError(elements: AppElements, message: string) {
-  elements.upscaleErrorMessage.textContent = message;
-  elements.upscaleErrorMessage.hidden = !message;
+  applyToolError(elements.upscaleErrorMessage, message);
 }
 
 function setPromptLayerError(elements: AppElements, message: string) {
-  elements.promptLayerErrorMessage.textContent = message;
-  elements.promptLayerErrorMessage.hidden = !message;
+  applyToolError(elements.promptLayerErrorMessage, message);
 }
 
 function setDiagnostics(elements: AppElements, message: string) {
