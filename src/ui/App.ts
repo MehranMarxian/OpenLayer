@@ -685,6 +685,10 @@ export function renderApp(rootElement: HTMLElement) {
   const disposeAppResources = () => {
     if (resourcesDisposed) return;
     resourcesDisposed = true;
+    // isCancelled must be set before closing the watcher: pollUntilComplete only
+    // checks isCancelled() between polls, so closing the watcher alone leaves an
+    // in-flight poll loop running against ComfyUI after the panel is gone.
+    if (activeGeneration) activeGeneration.isCancelled = true;
     activeGeneration?.watcher?.close();
     livePaintingSession?.stop("Live session stopped because the OpenLayer panel closed.");
     for (const progressElement of [
