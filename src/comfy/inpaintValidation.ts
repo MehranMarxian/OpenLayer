@@ -1,6 +1,6 @@
 import { WorkflowPreset } from "./types";
 
-export type FluxFillInpaintSourceValidationInput = {
+export type FluxFillInpaintSourceInfo = {
   presetId: WorkflowPreset | string;
   hasSourceImage: boolean;
   hasMaskImage: boolean;
@@ -11,54 +11,13 @@ export type FluxFillInpaintSourceValidationInput = {
   hasSelectionContextBounds: boolean;
 };
 
-export type FluxFillInpaintDebugInput = FluxFillInpaintSourceValidationInput & {
+export type FluxFillInpaintDebugInput = FluxFillInpaintSourceInfo & {
   selectedFluxModelName?: string;
   t5TextEncoderName?: string;
   t5FallbackName?: string;
   clipLName?: string;
   vaeName?: string;
 };
-
-export function validateFluxFillInpaintSource(input: FluxFillInpaintSourceValidationInput) {
-  if (input.presetId !== "inpaint-flux-fill-basic") {
-    return [];
-  }
-
-  const problems: string[] = [];
-
-  if (!input.hasSourceImage) {
-    problems.push("Capture a Photoshop selection source before running Flux Fill.");
-  }
-
-  if (!input.hasMaskImage) {
-    problems.push("Capture a Photoshop selection mask before running Flux Fill.");
-  }
-
-  if (!input.hasSelectionContextBounds) {
-    problems.push("Flux Fill needs the captured selection context bounds before generation.");
-  }
-
-  if (!hasKnownDimensions(input.sourceWidth, input.sourceHeight)) {
-    problems.push("Flux Fill needs known source image dimensions before generation.");
-  }
-
-  if (!hasKnownDimensions(input.maskWidth, input.maskHeight)) {
-    problems.push("Flux Fill needs known mask image dimensions before generation.");
-  }
-
-  if (
-    hasKnownDimensions(input.sourceWidth, input.sourceHeight) &&
-    hasKnownDimensions(input.maskWidth, input.maskHeight) &&
-    (Math.round(Number(input.sourceWidth)) !== Math.round(Number(input.maskWidth)) ||
-      Math.round(Number(input.sourceHeight)) !== Math.round(Number(input.maskHeight)))
-  ) {
-    problems.push(
-      `Flux Fill source and mask must match. Source is ${Math.round(Number(input.sourceWidth))} x ${Math.round(Number(input.sourceHeight))}, mask is ${Math.round(Number(input.maskWidth))} x ${Math.round(Number(input.maskHeight))}.`
-    );
-  }
-
-  return problems;
-}
 
 export function createFluxFillInpaintDebugSummary(input: FluxFillInpaintDebugInput) {
   if (input.presetId !== "inpaint-flux-fill-basic") {
