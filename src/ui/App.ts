@@ -20,6 +20,12 @@ import {
 } from "./generationIntegrity";
 import { createObjectUrlRegistry, ObjectUrlRegistry } from "./objectUrlRegistry";
 import {
+  BUSY_DISABLED_ACTIONS,
+  BUSY_DISABLED_FIELDS,
+  BUSY_GATED_ACTIONS,
+  BusyGateName
+} from "./toolDescriptors";
+import {
   createOwnedObjectUrl,
   createResultPreviewPanel,
   createSourcePreviewPanel,
@@ -256,9 +262,7 @@ export function renderApp(rootElement: HTMLElement) {
   const objectUrls = createObjectUrlRegistry();
 
   function syncBusy() {
-    setBusy(
-      elements,
-      isBusy,
+    setBusy(elements, isBusy, {
       result,
       imageResult,
       imageSource,
@@ -270,7 +274,7 @@ export function renderApp(rootElement: HTMLElement) {
       outpaintSource,
       upscaleResult,
       upscaleSource
-    );
+    });
   }
 
   rootElement.innerHTML = createAppMarkup();
@@ -926,107 +930,38 @@ export function renderApp(rootElement: HTMLElement) {
     if (activeRun && canPublishGenerationUpdate(activeRun, activeGeneration)) update();
   }
 
+  // One row per tool: how each generation surface reports status, diagnostics,
+  // progress, and errors. The switch dispatchers this replaces restated these
+  // pairings four times.
+  const generationToolUi: Record<HistoryToolType, {
+    status: (elements: AppElements, status: string, tone: StatusTone) => void;
+    diagnostics: (elements: AppElements, message: string) => void;
+    error: (elements: AppElements, message: string) => void;
+    progress?: (elements: AppElements, message: string, blob?: Blob) => void;
+  }> = {
+    "text-to-image": { status: setStatus, diagnostics: setDiagnostics, error: setError, progress: setProgressPreview },
+    "image-to-image": { status: setImageStatus, diagnostics: setImageDiagnostics, error: setImageError, progress: setImageProgressPreview },
+    "sketch-to-image": { status: setSketchStatus, diagnostics: setSketchDiagnostics, error: setSketchError, progress: setSketchProgressPreview },
+    inpaint: { status: setInpaintStatus, diagnostics: setInpaintDiagnostics, error: setInpaintError, progress: setInpaintProgressPreview },
+    outpaint: { status: setOutpaintStatus, diagnostics: setOutpaintDiagnostics, error: setOutpaintError, progress: setOutpaintProgressPreview },
+    upscale: { status: setUpscaleStatus, diagnostics: setUpscaleDiagnostics, error: setUpscaleError, progress: setUpscaleProgressPreview },
+    "prompt-from-layer": { status: setPromptLayerStatus, diagnostics: setPromptLayerDiagnostics, error: setPromptLayerError }
+  };
+
   function setGenerationToolStatus(toolType: HistoryToolType, status: string, tone: StatusTone) {
-    switch (toolType) {
-      case "image-to-image":
-        setImageStatus(elements, status, tone);
-        return;
-      case "sketch-to-image":
-        setSketchStatus(elements, status, tone);
-        return;
-      case "inpaint":
-        setInpaintStatus(elements, status, tone);
-        return;
-      case "outpaint":
-        setOutpaintStatus(elements, status, tone);
-        return;
-      case "upscale":
-        setUpscaleStatus(elements, status, tone);
-        return;
-      case "prompt-from-layer":
-        setPromptLayerStatus(elements, status, tone);
-        return;
-      case "text-to-image":
-      default:
-        setStatus(elements, status, tone);
-    }
+    generationToolUi[toolType].status(elements, status, tone);
   }
 
   function setGenerationToolDiagnostics(toolType: HistoryToolType, message: string) {
-    switch (toolType) {
-      case "image-to-image":
-        setImageDiagnostics(elements, message);
-        return;
-      case "sketch-to-image":
-        setSketchDiagnostics(elements, message);
-        return;
-      case "inpaint":
-        setInpaintDiagnostics(elements, message);
-        return;
-      case "outpaint":
-        setOutpaintDiagnostics(elements, message);
-        return;
-      case "upscale":
-        setUpscaleDiagnostics(elements, message);
-        return;
-      case "prompt-from-layer":
-        setPromptLayerDiagnostics(elements, message);
-        return;
-      case "text-to-image":
-      default:
-        setDiagnostics(elements, message);
-    }
+    generationToolUi[toolType].diagnostics(elements, message);
   }
 
   function setGenerationToolProgress(toolType: HistoryToolType, message: string) {
-    switch (toolType) {
-      case "image-to-image":
-        setImageProgressPreview(elements, message);
-        return;
-      case "sketch-to-image":
-        setSketchProgressPreview(elements, message);
-        return;
-      case "inpaint":
-        setInpaintProgressPreview(elements, message);
-        return;
-      case "outpaint":
-        setOutpaintProgressPreview(elements, message);
-        return;
-      case "upscale":
-        setUpscaleProgressPreview(elements, message);
-        return;
-      case "prompt-from-layer":
-        return;
-      case "text-to-image":
-      default:
-        setProgressPreview(elements, message);
-    }
+    generationToolUi[toolType].progress?.(elements, message);
   }
 
   function clearGenerationToolError(toolType: HistoryToolType) {
-    switch (toolType) {
-      case "image-to-image":
-        setImageError(elements, "");
-        return;
-      case "sketch-to-image":
-        setSketchError(elements, "");
-        return;
-      case "inpaint":
-        setInpaintError(elements, "");
-        return;
-      case "outpaint":
-        setOutpaintError(elements, "");
-        return;
-      case "upscale":
-        setUpscaleError(elements, "");
-        return;
-      case "prompt-from-layer":
-        setPromptLayerError(elements, "");
-        return;
-      case "text-to-image":
-      default:
-        setError(elements, "");
-    }
+    generationToolUi[toolType].error(elements, "");
   }
 
   function showGenerationCancelled(toolType: HistoryToolType, promptId?: string) {
@@ -3541,116 +3476,22 @@ export function renderApp(rootElement: HTMLElement) {
 }
 
 
-function setBusy(
-  elements: AppElements,
-  isBusy: boolean,
-  result: AppGeneratedImageResult | null,
-  imageResult: AppGeneratedImageResult | null = null,
-  imageSource: ImageSourceState | null = null,
-  sketchResult: AppGeneratedImageResult | null = null,
-  sketchSource: ImageSourceState | null = null,
-  inpaintResult: AppGeneratedImageResult | null = null,
-  inpaintSource: InpaintSourceState | null = null,
-  outpaintResult: AppGeneratedImageResult | null = null,
-  outpaintSource: ImageSourceState | null = null,
-  upscaleResult: AppGeneratedImageResult | null = null,
-  upscaleSource: ImageSourceState | null = null
-) {
-  elements.serverUrl.disabled = isBusy;
-  elements.prompt.disabled = isBusy;
-  elements.negativePrompt.disabled = isBusy;
-  elements.workflow.disabled = isBusy;
-  elements.checkpoint.disabled = isBusy;
-  elements.width.disabled = isBusy;
-  elements.height.disabled = isBusy;
-  elements.steps.disabled = isBusy;
-  elements.cfg.disabled = isBusy;
-  elements.seed.disabled = isBusy;
-  elements.imgPrompt.disabled = isBusy;
-  elements.imgNegativePrompt.disabled = isBusy;
-  elements.imgWorkflow.disabled = isBusy;
-  elements.imgCheckpoint.disabled = isBusy;
-  elements.imgSteps.disabled = isBusy;
-  elements.imgCfg.disabled = isBusy;
-  elements.imgSeed.disabled = isBusy;
-  elements.imgDenoise.disabled = isBusy;
-  elements.sketchPrompt.disabled = isBusy;
-  elements.sketchNegativePrompt.disabled = isBusy;
-  elements.sketchWorkflow.disabled = isBusy;
-  elements.sketchCheckpoint.disabled = isBusy;
-  elements.sketchSteps.disabled = isBusy;
-  elements.sketchCfg.disabled = isBusy;
-  elements.sketchSeed.disabled = isBusy;
-  elements.sketchDenoise.disabled = isBusy;
-  elements.sketchControlStrength.disabled = isBusy;
-  elements.inpaintPrompt.disabled = isBusy;
-  elements.inpaintNegativePrompt.disabled = isBusy;
-  elements.inpaintWorkflow.disabled = isBusy;
-  elements.inpaintCheckpoint.disabled = isBusy;
-  elements.inpaintSteps.disabled = isBusy;
-  elements.inpaintCfg.disabled = isBusy;
-  elements.inpaintSeed.disabled = isBusy;
-  elements.inpaintDenoise.disabled = isBusy;
-  elements.outpaintPrompt.disabled = isBusy;
-  elements.outpaintWorkflow.disabled = isBusy;
-  elements.outpaintCheckpoint.disabled = isBusy;
-  elements.outpaintSteps.disabled = isBusy;
-  elements.outpaintGuidance.disabled = isBusy;
-  elements.outpaintSeed.disabled = isBusy;
-  elements.outpaintDenoise.disabled = isBusy;
-  elements.outpaintLeft.disabled = isBusy;
-  elements.outpaintTop.disabled = isBusy;
-  elements.outpaintRight.disabled = isBusy;
-  elements.outpaintBottom.disabled = isBusy;
-  elements.outpaintFeathering.disabled = isBusy;
-  elements.upscaleWorkflow.disabled = isBusy;
-  elements.upscaleModel.disabled = isBusy;
-  elements.promptLayerTask.disabled = isBusy;
-  elements.promptLayerNumBeams.disabled = isBusy;
-  elements.promptLayerGeneratedText.disabled = isBusy;
-  setActionDisabled(elements.checkButton, isBusy);
-  setActionDisabled(elements.findPortButton, isBusy);
-  setActionDisabled(elements.detectHardwareButton, isBusy);
-  setActionDisabled(elements.checkWorkflowHealthButton, isBusy);
-  setActionDisabled(elements.copyDiagnosticsButton, isBusy);
-  setActionDisabled(elements.saveSettingsButton, isBusy);
-  setActionDisabled(elements.resetSettingsButton, isBusy);
-  setActionDisabled(elements.negativePromptToggle, isBusy);
-  setActionDisabled(elements.autoImportToggle, isBusy);
-  setActionDisabled(elements.imgAutoImportToggle, isBusy);
-  setActionDisabled(elements.upscaleAutoImportToggle, isBusy);
-  setActionDisabled(elements.generateButton, isBusy);
+function setBusy(elements: AppElements, isBusy: boolean, gates: Record<BusyGateName, unknown>) {
+  for (const fieldKey of BUSY_DISABLED_FIELDS) {
+    elements[fieldKey].disabled = isBusy;
+  }
+
+  for (const actionKey of BUSY_DISABLED_ACTIONS) {
+    setActionDisabled(elements[actionKey], isBusy);
+  }
+
   for (const cancelButton of elements.cancelGenerationButtons) {
     setActionDisabled(cancelButton, !isBusy || cancelButton.hidden);
   }
-  setActionDisabled(elements.importButton, isBusy || !result);
-  setActionDisabled(elements.captureLayerButton, isBusy);
-  setActionDisabled(elements.captureCanvasButton, isBusy);
-  setActionDisabled(elements.experimentalCheckpointToggle, isBusy);
-  setActionDisabled(elements.generateImg2ImgButton, isBusy || !imageSource);
-  setActionDisabled(elements.importImg2ImgButton, isBusy || !imageResult);
-  setActionDisabled(elements.captureSketchLayerButton, isBusy);
-  setActionDisabled(elements.captureSketchCanvasButton, isBusy);
-  setActionDisabled(elements.generateSketchButton, isBusy || !sketchSource);
-  setActionDisabled(elements.importSketchButton, isBusy || !sketchResult);
-  setActionDisabled(elements.captureInpaintSelectionButton, isBusy);
-  setActionDisabled(elements.captureInpaintActiveLayerButton, isBusy);
-  setActionDisabled(elements.generateInpaintButton, isBusy || !inpaintSource);
-  setActionDisabled(elements.importInpaintButton, isBusy || !inpaintResult);
-  setActionDisabled(elements.captureOutpaintLayerButton, isBusy);
-  setActionDisabled(elements.captureOutpaintCanvasButton, isBusy);
-  setActionDisabled(elements.generateOutpaintButton, isBusy || !outpaintSource);
-  setActionDisabled(elements.importOutpaintButton, isBusy || !outpaintResult);
-  setActionDisabled(elements.captureUpscaleLayerButton, isBusy);
-  setActionDisabled(elements.captureUpscaleCanvasButton, isBusy);
-  setActionDisabled(elements.generateUpscaleButton, isBusy || !upscaleSource);
-  setActionDisabled(elements.importUpscaleButton, isBusy || !upscaleResult);
-  setActionDisabled(elements.capturePromptLayerButton, isBusy);
-  setActionDisabled(elements.capturePromptCanvasButton, isBusy);
-  setActionDisabled(elements.generatePromptLayerButton, isBusy);
-  setActionDisabled(elements.copyPromptLayerButton, isBusy);
-  setActionDisabled(elements.sendPromptLayerButton, isBusy);
-  setActionDisabled(elements.clearHistoryButton, isBusy);
+
+  for (const { button, gate } of BUSY_GATED_ACTIONS) {
+    setActionDisabled(elements[button], isBusy || !gates[gate]);
+  }
 }
 
 function setCancelGenerationVisible(elements: AppElements, isVisible: boolean) {
@@ -3870,118 +3711,97 @@ function applyStatusPill(pill: HTMLElement, status: string, tone: StatusTone) {
   pill.className = "status-pill idle";
 }
 
+function updateHomeStatus(elements: AppElements, status: string, tone: StatusTone) {
+  elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
+  elements.homeStatusDot.className = `home-status-dot ${tone}`;
+}
+
+function applyToolStatus(
+  elements: AppElements,
+  text: HTMLElement,
+  pill: HTMLElement,
+  progress: HTMLElement,
+  status: string,
+  tone: StatusTone
+) {
+  text.textContent = status;
+  applyStatusPill(pill, status, tone);
+  setStatusProgress(progress, status, tone);
+  updateHomeStatus(elements, status, tone);
+}
+
+// The Text to Image status doubles as the global one: it broadcasts to every
+// tool's status bar plus the settings screen. The per-tool setters below touch
+// only their own bar and the home indicator.
 function setStatus(elements: AppElements, status: string, tone: StatusTone) {
   elements.statusText.textContent = status;
   applyStatusPill(elements.statusPill, status, tone);
   setStatusProgress(elements.statusProgress, status, tone);
-  elements.imgStatusText.textContent = status;
-  applyStatusPill(elements.imgStatusPill, status, tone);
-  setStatusProgress(elements.imgStatusProgress, status, tone);
-  elements.sketchStatusText.textContent = status;
-  applyStatusPill(elements.sketchStatusPill, status, tone);
-  setStatusProgress(elements.sketchStatusProgress, status, tone);
-  elements.inpaintStatusText.textContent = status;
-  applyStatusPill(elements.inpaintStatusPill, status, tone);
-  setStatusProgress(elements.inpaintStatusProgress, status, tone);
-  elements.outpaintStatusText.textContent = status;
-  applyStatusPill(elements.outpaintStatusPill, status, tone);
-  setStatusProgress(elements.outpaintStatusProgress, status, tone);
-  elements.upscaleStatusText.textContent = status;
-  applyStatusPill(elements.upscaleStatusPill, status, tone);
-  setStatusProgress(elements.upscaleStatusProgress, status, tone);
-  elements.promptLayerStatusText.textContent = status;
-  applyStatusPill(elements.promptLayerStatusPill, status, tone);
-  setStatusProgress(elements.promptLayerStatusProgress, status, tone);
-  elements.settingsStatusText.textContent = status;
-  applyStatusPill(elements.settingsStatusPill, status, tone);
-  setStatusProgress(elements.settingsStatusProgress, status, tone);
-  elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
-  elements.homeStatusDot.className = `home-status-dot ${tone}`;
+  applyToolStatus(elements, elements.imgStatusText, elements.imgStatusPill, elements.imgStatusProgress, status, tone);
+  applyToolStatus(elements, elements.sketchStatusText, elements.sketchStatusPill, elements.sketchStatusProgress, status, tone);
+  applyToolStatus(elements, elements.inpaintStatusText, elements.inpaintStatusPill, elements.inpaintStatusProgress, status, tone);
+  applyToolStatus(elements, elements.outpaintStatusText, elements.outpaintStatusPill, elements.outpaintStatusProgress, status, tone);
+  applyToolStatus(elements, elements.upscaleStatusText, elements.upscaleStatusPill, elements.upscaleStatusProgress, status, tone);
+  applyToolStatus(elements, elements.promptLayerStatusText, elements.promptLayerStatusPill, elements.promptLayerStatusProgress, status, tone);
+  applyToolStatus(elements, elements.settingsStatusText, elements.settingsStatusPill, elements.settingsStatusProgress, status, tone);
 }
 
 function setImageStatus(elements: AppElements, status: string, tone: StatusTone) {
-  elements.imgStatusText.textContent = status;
-  applyStatusPill(elements.imgStatusPill, status, tone);
-  setStatusProgress(elements.imgStatusProgress, status, tone);
-  elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
-  elements.homeStatusDot.className = `home-status-dot ${tone}`;
+  applyToolStatus(elements, elements.imgStatusText, elements.imgStatusPill, elements.imgStatusProgress, status, tone);
 }
 
 function setSketchStatus(elements: AppElements, status: string, tone: StatusTone) {
-  elements.sketchStatusText.textContent = status;
-  applyStatusPill(elements.sketchStatusPill, status, tone);
-  setStatusProgress(elements.sketchStatusProgress, status, tone);
-  elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
-  elements.homeStatusDot.className = `home-status-dot ${tone}`;
+  applyToolStatus(elements, elements.sketchStatusText, elements.sketchStatusPill, elements.sketchStatusProgress, status, tone);
 }
 
 function setInpaintStatus(elements: AppElements, status: string, tone: StatusTone) {
-  elements.inpaintStatusText.textContent = status;
-  applyStatusPill(elements.inpaintStatusPill, status, tone);
-  setStatusProgress(elements.inpaintStatusProgress, status, tone);
-  elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
-  elements.homeStatusDot.className = `home-status-dot ${tone}`;
+  applyToolStatus(elements, elements.inpaintStatusText, elements.inpaintStatusPill, elements.inpaintStatusProgress, status, tone);
 }
 
 function setOutpaintStatus(elements: AppElements, status: string, tone: StatusTone) {
-  elements.outpaintStatusText.textContent = status;
-  applyStatusPill(elements.outpaintStatusPill, status, tone);
-  setStatusProgress(elements.outpaintStatusProgress, status, tone);
-  elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
-  elements.homeStatusDot.className = `home-status-dot ${tone}`;
+  applyToolStatus(elements, elements.outpaintStatusText, elements.outpaintStatusPill, elements.outpaintStatusProgress, status, tone);
 }
 
 function setUpscaleStatus(elements: AppElements, status: string, tone: StatusTone) {
-  elements.upscaleStatusText.textContent = status;
-  applyStatusPill(elements.upscaleStatusPill, status, tone);
-  setStatusProgress(elements.upscaleStatusProgress, status, tone);
-  elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
-  elements.homeStatusDot.className = `home-status-dot ${tone}`;
+  applyToolStatus(elements, elements.upscaleStatusText, elements.upscaleStatusPill, elements.upscaleStatusProgress, status, tone);
 }
 
 function setPromptLayerStatus(elements: AppElements, status: string, tone: StatusTone) {
-  elements.promptLayerStatusText.textContent = status;
-  applyStatusPill(elements.promptLayerStatusPill, status, tone);
-  setStatusProgress(elements.promptLayerStatusProgress, status, tone);
-  elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
-  elements.homeStatusDot.className = `home-status-dot ${tone}`;
+  applyToolStatus(elements, elements.promptLayerStatusText, elements.promptLayerStatusPill, elements.promptLayerStatusProgress, status, tone);
+}
+
+function applyToolError(errorMessage: HTMLElement, message: string) {
+  errorMessage.textContent = message;
+  errorMessage.hidden = !message;
 }
 
 function setError(elements: AppElements, message: string) {
-  elements.errorMessage.textContent = message;
-  elements.errorMessage.hidden = !message;
-  elements.settingsErrorMessage.textContent = message;
-  elements.settingsErrorMessage.hidden = !message;
+  applyToolError(elements.errorMessage, message);
+  applyToolError(elements.settingsErrorMessage, message);
 }
 
 function setImageError(elements: AppElements, message: string) {
-  elements.imgErrorMessage.textContent = message;
-  elements.imgErrorMessage.hidden = !message;
+  applyToolError(elements.imgErrorMessage, message);
 }
 
 function setSketchError(elements: AppElements, message: string) {
-  elements.sketchErrorMessage.textContent = message;
-  elements.sketchErrorMessage.hidden = !message;
+  applyToolError(elements.sketchErrorMessage, message);
 }
 
 function setInpaintError(elements: AppElements, message: string) {
-  elements.inpaintErrorMessage.textContent = message;
-  elements.inpaintErrorMessage.hidden = !message;
+  applyToolError(elements.inpaintErrorMessage, message);
 }
 
 function setOutpaintError(elements: AppElements, message: string) {
-  elements.outpaintErrorMessage.textContent = message;
-  elements.outpaintErrorMessage.hidden = !message;
+  applyToolError(elements.outpaintErrorMessage, message);
 }
 
 function setUpscaleError(elements: AppElements, message: string) {
-  elements.upscaleErrorMessage.textContent = message;
-  elements.upscaleErrorMessage.hidden = !message;
+  applyToolError(elements.upscaleErrorMessage, message);
 }
 
 function setPromptLayerError(elements: AppElements, message: string) {
-  elements.promptLayerErrorMessage.textContent = message;
-  elements.promptLayerErrorMessage.hidden = !message;
+  applyToolError(elements.promptLayerErrorMessage, message);
 }
 
 function setDiagnostics(elements: AppElements, message: string) {
