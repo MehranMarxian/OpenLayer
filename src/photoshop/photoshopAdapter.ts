@@ -1,4 +1,4 @@
-import { createLayerName, saveBlobToTemporaryFile } from "../utils/fileUtils";
+import { createLayerName, deleteTemporaryFileBestEffort, saveBlobToTemporaryFile } from "../utils/fileUtils";
 import { createOpenLayerError, getErrorMessage } from "../utils/errors";
 import { encodeRgbaPng } from "../utils/png";
 import { calculatePlacementOffset, createOpaqueGrayscaleMaskPng, PixelDimensions } from "./exactInpaintMask";
@@ -237,6 +237,7 @@ export async function importGeneratedImageAsLayer(
 ) {
   const photoshop = getPhotoshop();
   const layerName = options.layerName ?? createLayerName("OpenLayer_Generated");
+  let file: UxpFile | undefined;
 
   try {
     assertActiveDocumentMatchesOrigin(photoshop, options.originatingDocument);
@@ -246,7 +247,7 @@ export async function importGeneratedImageAsLayer(
     }
 
     options.onProgress?.("Saving generated image to a temporary PNG...");
-    const file = await saveBlobToTemporaryFile(options.blob, `${layerName}.png`);
+    file = await saveBlobToTemporaryFile(options.blob, `${layerName}.png`);
     const uxp = getUxp();
     options.onProgress?.("Creating Photoshop file token...");
     const token = await uxp.storage.localFileSystem.createSessionToken(file);
@@ -269,6 +270,10 @@ export async function importGeneratedImageAsLayer(
       "PHOTOSHOP_IMPORT_FAILED",
       `Could not import the generated image as a Photoshop layer. ${getErrorMessage(caughtError)}`
     );
+  } finally {
+    // placeEvent has already read the file by the time executeAsModal returns
+    // or throws, so nothing further needs it whichever way the import went.
+    await deleteTemporaryFileBestEffort(file);
   }
 }
 
@@ -488,6 +493,8 @@ export async function importImageAlignedToSelectionWithLayerMask(
   options: ExactInpaintImportOptions
 ): Promise<InpaintLayerMaskImportResult> {
   const photoshop = getPhotoshop();
+  let file: UxpFile | undefined;
+  let maskFile: UxpFile | undefined;
 
   try {
     assertActiveDocumentMatchesOrigin(photoshop, options.originatingDocument);
@@ -506,9 +513,9 @@ export async function importImageAlignedToSelectionWithLayerMask(
     });
 
     options.onProgress?.("Saving inpaint result to a temporary PNG...");
-    const file = await saveBlobToTemporaryFile(options.blob, `${layerName}.png`);
+    file = await saveBlobToTemporaryFile(options.blob, `${layerName}.png`);
     const maskLayerName = `__OpenLayer_InpaintMask_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-    const maskFile = await saveBlobToTemporaryFile(opaqueMaskBlob, `${maskLayerName}.png`);
+    maskFile = await saveBlobToTemporaryFile(opaqueMaskBlob, `${maskLayerName}.png`);
     const uxp = getUxp();
     options.onProgress?.("Creating Photoshop file token...");
     const token = await uxp.storage.localFileSystem.createSessionToken(file);
@@ -722,6 +729,9 @@ export async function importImageAlignedToSelectionWithLayerMask(
       "PHOTOSHOP_IMPORT_FAILED",
       `Could not import the generated inpaint result aligned to the selection. ${getErrorMessage(caughtError)}`
     );
+  } finally {
+    await deleteTemporaryFileBestEffort(file);
+    await deleteTemporaryFileBestEffort(maskFile);
   }
 }
 
@@ -774,6 +784,7 @@ export async function exportSelectionMask(): Promise<SelectionMaskExport> {
 
 export async function importImageAlignedToSelection(options: AlignedRegionalImportOptions): Promise<string> {
   const photoshop = getPhotoshop();
+  let file: UxpFile | undefined;
 
   try {
     assertActiveDocumentMatchesOrigin(photoshop, options.originatingDocument);
@@ -786,7 +797,7 @@ export async function importImageAlignedToSelection(options: AlignedRegionalImpo
     const layerName = options.layerName ?? createLayerName("OpenLayer_Inpaint");
 
     options.onProgress?.("Saving inpaint result to a temporary PNG...");
-    const file = await saveBlobToTemporaryFile(options.blob, `${layerName}.png`);
+    file = await saveBlobToTemporaryFile(options.blob, `${layerName}.png`);
     const uxp = getUxp();
     options.onProgress?.("Creating Photoshop file token...");
     const token = await uxp.storage.localFileSystem.createSessionToken(file);
@@ -810,6 +821,8 @@ export async function importImageAlignedToSelection(options: AlignedRegionalImpo
       "PHOTOSHOP_IMPORT_FAILED",
       `Could not import the generated inpaint result aligned to the selection. ${getErrorMessage(caughtError)}`
     );
+  } finally {
+    await deleteTemporaryFileBestEffort(file);
   }
 }
 

@@ -97,7 +97,7 @@ import {
 import { writeOpenLayerLayerMetadata } from "../photoshop/layerMetadata";
 import { formatSelectionBounds } from "../photoshop/selectionUtils";
 import { createOpenLayerError, getErrorMessage, getTechnicalErrorDetails } from "../utils/errors";
-import { createLayerName } from "../utils/fileUtils";
+import { createLayerName, sweepStaleTemporaryFiles } from "../utils/fileUtils";
 import {
   clearOpenLayerPreferences,
   loadOpenLayerPreferences,
@@ -714,6 +714,18 @@ export function renderApp(rootElement: HTMLElement) {
     });
     resourceObserver.observe(document, { childList: true, subtree: true });
   }
+  // Runs once per panel session, in the background. Import-flow temp files are
+  // already deleted right after use; this only catches what an earlier session
+  // left behind (a crash, a force-quit) plus this session's own Inpaint debug
+  // copies, which stay around deliberately so an artist can open them after a
+  // generation and only get swept up the next time the panel starts.
+  void sweepStaleTemporaryFiles().then((result) => {
+    if (result.removed.length > 0 || result.failed.length > 0) {
+      console.log(
+        `[OpenLayer] Startup temporary file sweep removed ${result.removed.length}, failed ${result.failed.length}.`
+      );
+    }
+  });
   const preferences = loadOpenLayerPreferences();
   applyPreferences(elements, preferences);
   applyTheme(elements, preferences.theme || DEFAULT_THEME);

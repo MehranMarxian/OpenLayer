@@ -16,8 +16,17 @@ type UxpModule = {
   };
 };
 
+type UxpFileSystemEntry = {
+  name: string;
+  isFile: boolean;
+  delete: () => Promise<void>;
+};
+
+type UxpFile = UxpFileSystemEntry & {
+  write: (data: ArrayBuffer, options: { format: unknown }) => Promise<void>;
+};
+
 type UxpFolder = {
-  createFile: (name: string, options?: { overwrite?: boolean }) => Promise<{
-    write: (data: ArrayBuffer, options: { format: unknown }) => Promise<void>;
-  }>;
+  createFile: (name: string, options?: { overwrite?: boolean }) => Promise<UxpFile>;
+  getEntries: () => Promise<UxpFileSystemEntry[]>;
 };
