@@ -5,19 +5,32 @@ import {
 } from "../../src/utils/temporaryFileCleanup";
 
 describe("temporary file sweep eligibility", () => {
-  it("matches every real OpenLayer temporary file name pattern", () => {
-    // From fileUtils.createLayerName() + saveBlobToTemporaryFile() call sites.
-    expect(isSweepableTemporaryFileName("OpenLayer_Generated_20260716_2010.png")).toBe(true);
-    expect(isSweepableTemporaryFileName("OpenLayer_Inpaint_20260716_2010.png")).toBe(true);
-    expect(isSweepableTemporaryFileName("OpenLayer_Source_20260716_2010.png")).toBe(true);
-    expect(isSweepableTemporaryFileName("OpenLayer_Canvas_20260716_2010.png")).toBe(true);
-    expect(isSweepableTemporaryFileName("OpenLayer_Live_20260716_2010.png")).toBe(true);
-    // From importImageAlignedToSelectionWithLayerMask's mask file.
+  // Every createLayerName() prefix that reaches saveBlobToTemporaryFile, whether
+  // the name is built inside the adapter or passed down from a panel handler.
+  it.each([
+    "OpenLayer_Generated_20260716_2010.png",
+    "OpenLayer_Img2Img_20260716_2010.png",
+    "OpenLayer_Inpaint_20260716_2010.png",
+    "OpenLayer_Outpaint_20260716_2010.png",
+    "OpenLayer_Sketch_20260716_2010.png",
+    "OpenLayer_Upscale_20260716_2010.png",
+    "OpenLayer_Live_20260716_2010.png"
+  ])("sweeps the import temporary file %s", (name) => {
+    expect(isSweepableTemporaryFileName(name)).toBe(true);
+  });
+
+  it("sweeps the exact-mask import's double-underscore mask file", () => {
     expect(isSweepableTemporaryFileName("__OpenLayer_InpaintMask_1737054000000_ab12cd.png")).toBe(true);
-    // From saveInpaintDebugBlobsToTemporaryFiles.
-    expect(isSweepableTemporaryFileName("OpenLayer_Inpaint_Debug_20260716_2010_source.png")).toBe(true);
-    expect(isSweepableTemporaryFileName("OpenLayer_Inpaint_Debug_20260716_2010_mask.png")).toBe(true);
-    expect(isSweepableTemporaryFileName("OpenLayer_Inpaint_Debug_20260716_2010_raw-result.png")).toBe(true);
+  });
+
+  // These outlive their generation on purpose, so the startup sweep is the only
+  // thing that ever removes them.
+  it.each([
+    "OpenLayer_Inpaint_Debug_20260716_2010_source.png",
+    "OpenLayer_Inpaint_Debug_20260716_2010_mask.png",
+    "OpenLayer_Inpaint_Debug_20260716_2010_raw-result.png"
+  ])("sweeps the Inpaint debug copy %s", (name) => {
+    expect(isSweepableTemporaryFileName(name)).toBe(true);
   });
 
   it("does not match a file that only happens to contain the word OpenLayer", () => {
