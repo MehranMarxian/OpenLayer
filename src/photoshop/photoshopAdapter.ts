@@ -1920,7 +1920,21 @@ export function convertPixelsToRgba(rawPixels: Uint8Array, width: number, height
   throw new Error(`OpenLayer cannot convert ${components}-component Photoshop pixels to PNG yet.`);
 }
 
-function convertMaskPixelsToRgba(rawPixels: Uint8Array, width: number, height: number, components: number) {
+// Feather strength is carried in the mask layer's own alpha, not its RGB: the
+// captured layer starts fully transparent, then gets filled white through the
+// original selection and black through its inverse (captureSelectionMaskSourceImage).
+// Painting through a feathered selection onto transparent pixels composites
+// paint_alpha = selection strength, so the two complementary fills between them
+// cover the full document and leave alpha close to 255 at every pixel Photoshop
+// actually painted, including every real feather gradient. Alpha only drops near
+// zero for a pixel neither fill touched, which should not happen inside the
+// captured context bounds but can if getPixels returns stale or uninitialized
+// data at the capture edge. ALPHA_TRUST_THRESHOLD forces those pixels to a
+// "do not repaint" 0 instead of trusting whatever luminance happens to be there;
+// it is a defensive floor against capture artifacts, not part of the feather math.
+const MASK_ALPHA_TRUST_THRESHOLD = 8;
+
+export function convertMaskPixelsToRgba(rawPixels: Uint8Array, width: number, height: number, components: number) {
   const pixelCount = width * height;
   const expectedBytes = pixelCount * components;
 
@@ -1946,7 +1960,7 @@ function convertMaskPixelsToRgba(rawPixels: Uint8Array, width: number, height: n
         ? rawPixels[sourceOffset + 3] ?? 255
         : 255;
     const luminance = Math.round((red + green + blue) / 3);
-    const maskValue = alpha > 8 ? luminance : 0;
+    const maskValue = alpha > MASK_ALPHA_TRUST_THRESHOLD ? luminance : 0;
 
     rgba[targetOffset] = maskValue;
     rgba[targetOffset + 1] = maskValue;
