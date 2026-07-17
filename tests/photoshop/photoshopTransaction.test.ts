@@ -3,6 +3,7 @@ import {
   formatCleanupFailures,
   isMaskSandwichTopmost,
   planImportFinalization,
+  planImportRecovery,
   runCleanupTasks
 } from "../../src/photoshop/photoshopTransaction";
 
@@ -15,25 +16,35 @@ const completeState = {
 };
 
 describe("Photoshop import transaction finalization", () => {
-  it("restores selection and leaves the imported result active after success", () => {
+  it("restores selection and channels and leaves the imported result active after success", () => {
     expect(planImportFinalization(completeState, "success")).toEqual([
       "delete-temporary-mask-layer",
       "delete-temporary-black-layer",
       "restore-selection",
       "delete-selection-snapshot-channel",
+      "restore-channel-targeting",
       "select-result-layer"
     ]);
   });
 
-  it("removes the result and restores selection and previous layer after failure", () => {
+  it("removes the result and restores selection, channels, and previous layer after failure", () => {
     expect(planImportFinalization(completeState, "failure")).toEqual([
       "delete-temporary-mask-layer",
       "delete-temporary-black-layer",
       "delete-result-layer",
       "restore-selection",
       "delete-selection-snapshot-channel",
+      "restore-channel-targeting",
       "restore-previous-layer"
     ]);
+  });
+
+  it("restores the selection before dropping the channel that holds it", () => {
+    const actions = planImportFinalization(completeState, "success");
+
+    expect(actions.indexOf("restore-selection")).toBeLessThan(
+      actions.indexOf("delete-selection-snapshot-channel")
+    );
   });
 
   it("restores a no-selection state without requiring a snapshot channel", () => {
@@ -49,8 +60,13 @@ describe("Photoshop import transaction finalization", () => {
       "delete-temporary-black-layer",
       "delete-result-layer",
       "restore-selection",
+      "restore-channel-targeting",
       "restore-previous-layer"
     ]);
+  });
+
+  it("never deletes the imported result on the success path", () => {
+    expect(planImportFinalization(completeState, "success")).not.toContain("delete-result-layer");
   });
 
   it("attempts every cleanup task and aggregates multiple failures", async () => {
@@ -63,6 +79,50 @@ describe("Photoshop import transaction finalization", () => {
 
     expect(attempted).toEqual(["mask", "result", "selection"]);
     expect(formatCleanupFailures(failures)).toBe("mask: mask failed; result: result failed");
+  });
+});
+
+describe("Photoshop import transaction recovery", () => {
+  const survivingState = {
+    temporaryMaskLayerPresent: true,
+    temporaryBlackLayerPresent: true,
+    resultLayerPresent: true,
+    selectionRestored: false,
+    selectionSnapshotChannelPresent: true,
+    previousLayerAvailable: true
+  };
+
+  it("abandons the import and restores the host when finalization failed", () => {
+    expect(planImportRecovery(survivingState)).toEqual([
+      "retry-delete-temporary-mask-layer",
+      "retry-delete-temporary-black-layer",
+      "roll-back-result-layer",
+      "retry-restore-selection",
+      "delete-selection-snapshot-channel",
+      "restore-channel-targeting",
+      "restore-previous-layer"
+    ]);
+  });
+
+  it("only retries what the first pass left behind", () => {
+    expect(planImportRecovery({
+      temporaryMaskLayerPresent: false,
+      temporaryBlackLayerPresent: false,
+      resultLayerPresent: false,
+      selectionRestored: true,
+      selectionSnapshotChannelPresent: false,
+      previousLayerAvailable: false
+    })).toEqual(["restore-channel-targeting"]);
+  });
+
+  it("does not retry a selection the first pass already restored", () => {
+    expect(planImportRecovery({ ...survivingState, selectionRestored: true }))
+      .not.toContain("retry-restore-selection");
+  });
+
+  it("rolls back a result layer even when the operation itself succeeded", () => {
+    // Reached only when finalization failed, so the result cannot be trusted.
+    expect(planImportRecovery(survivingState)).toContain("roll-back-result-layer");
   });
 });
 

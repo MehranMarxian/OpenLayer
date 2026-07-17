@@ -18,7 +18,16 @@ import {
   PhotoshopDocumentIdentity,
   validateDocumentImportContext
 } from "./documentContext";
-import { formatCleanupFailures, isMaskSandwichTopmost, runCleanupTasks } from "./photoshopTransaction";
+import {
+  CleanupTask,
+  formatCleanupFailures,
+  ImportFinalizationAction,
+  ImportRecoveryAction,
+  isMaskSandwichTopmost,
+  planImportFinalization,
+  planImportRecovery,
+  runCleanupTasks
+} from "./photoshopTransaction";
 
 type PhotoshopModule = {
   app: {
@@ -567,95 +576,123 @@ export async function importImageAlignedToSelectionWithLayerMask(
           }
         }
 
-        const cleanupFailures = await runCleanupTasks([
-          ...(temporaryMaskLayerId === undefined ? [] : [{
+        // planImportFinalization owns which steps run and in what order; the
+        // handlers below own how each one talks to Photoshop. Keeping the order
+        // in one pure, tested place is what stops a future edit here from
+        // silently changing the transaction's guarantees.
+        const finalizationHandlers: Record<ImportFinalizationAction, CleanupTask> = {
+          "delete-temporary-mask-layer": {
             label: "remove temporary mask layer",
             run: async () => {
               await deleteLayerById(photoshop, temporaryMaskLayerId!, false);
               temporaryMaskLayerId = undefined;
             }
-          }]),
-          ...(temporaryBlackLayerId === undefined ? [] : [{
+          },
+          "delete-temporary-black-layer": {
             label: "remove temporary black backing layer",
             run: async () => {
               await deleteLayerById(photoshop, temporaryBlackLayerId!, false);
               temporaryBlackLayerId = undefined;
             }
-          }]),
-          ...(operationError && resultLayerId !== undefined ? [{
+          },
+          "delete-result-layer": {
             label: "remove partially imported result layer",
             run: async () => {
               await deleteLayerById(photoshop, resultLayerId!, false);
               resultLayerId = undefined;
             }
-          }] : []),
-          {
+          },
+          "restore-selection": {
             label: "restore the artist's selection",
             run: async () => {
               await restoreSelectionSnapshot(photoshop, transactionDocument, selectionSnapshot);
               selectionRestored = true;
             }
           },
-          ...(selectionSnapshot.channel ? [{
+          "delete-selection-snapshot-channel": {
             label: "remove selection snapshot channel",
             run: async () => {
               if (!selectionRestored) throw new Error("Selection was not restored; snapshot channel retained for recovery.");
               await removeSelectionSnapshotChannel(selectionSnapshot);
               selectionSnapshotRemoved = true;
             }
-          }] : []),
-          {
+          },
+          "restore-channel-targeting": {
             label: "restore channel targeting",
             run: () => restoreActiveChannels(transactionDocument, selectionSnapshot)
           },
-          ...(!operationError && resultLayerId !== undefined ? [{
+          "select-result-layer": {
             label: "activate imported result layer",
             run: () => selectLayerById(photoshop, resultLayerId!, false)
-          }] : []),
-          ...(operationError && previousLayerId !== undefined ? [{
+          },
+          "restore-previous-layer": {
             label: "restore previously active layer",
-            run: () => selectLayerById(photoshop, previousLayerId, false)
-          }] : [])
-        ]);
+            run: () => selectLayerById(photoshop, previousLayerId!, false)
+          }
+        };
+
+        const cleanupFailures = await runCleanupTasks(
+          planImportFinalization(
+            {
+              resultLayerCreated: resultLayerId !== undefined,
+              temporaryMaskLayerCreated: temporaryMaskLayerId !== undefined,
+              temporaryBlackLayerCreated: temporaryBlackLayerId !== undefined,
+              selectionSnapshotChannelCreated: Boolean(selectionSnapshot.channel),
+              previousLayerAvailable: previousLayerId !== undefined
+            },
+            operationError ? "failure" : "success"
+          ).map((action) => finalizationHandlers[action])
+        );
 
         let recoveryFailures: Awaited<ReturnType<typeof runCleanupTasks>> = [];
         if (cleanupFailures.length > 0) {
-          recoveryFailures = await runCleanupTasks([
-            ...(temporaryMaskLayerId === undefined ? [] : [{
+          const recoveryHandlers: Record<ImportRecoveryAction, CleanupTask> = {
+            "retry-delete-temporary-mask-layer": {
               label: "retry temporary mask layer removal",
               run: () => deleteLayerById(photoshop, temporaryMaskLayerId!, false)
-            }]),
-            ...(temporaryBlackLayerId === undefined ? [] : [{
+            },
+            "retry-delete-temporary-black-layer": {
               label: "retry temporary black layer removal",
               run: () => deleteLayerById(photoshop, temporaryBlackLayerId!, false)
-            }]),
-            ...(resultLayerId === undefined ? [] : [{
+            },
+            "roll-back-result-layer": {
               label: "roll back imported result layer",
               run: () => deleteLayerById(photoshop, resultLayerId!, false)
-            }]),
-            ...(!selectionRestored ? [{
+            },
+            "retry-restore-selection": {
               label: "retry artist selection restoration",
               run: async () => {
                 await restoreSelectionSnapshot(photoshop, transactionDocument, selectionSnapshot);
                 selectionRestored = true;
               }
-            }] : []),
-            ...(selectionSnapshot.channel && !selectionSnapshotRemoved ? [{
+            },
+            "delete-selection-snapshot-channel": {
               label: "remove selection snapshot channel after rollback",
               run: async () => {
                 if (!selectionRestored) throw new Error("Selection restoration still failed; snapshot channel retained.");
                 await removeSelectionSnapshotChannel(selectionSnapshot);
               }
-            }] : []),
-            {
+            },
+            "restore-channel-targeting": {
               label: "restore channel targeting after rollback",
               run: () => restoreActiveChannels(transactionDocument, selectionSnapshot)
             },
-            ...(previousLayerId === undefined ? [] : [{
+            "restore-previous-layer": {
               label: "restore previously active layer after rollback",
-              run: () => selectLayerById(photoshop, previousLayerId, false)
-            }])
-          ]);
+              run: () => selectLayerById(photoshop, previousLayerId!, false)
+            }
+          };
+
+          recoveryFailures = await runCleanupTasks(
+            planImportRecovery({
+              temporaryMaskLayerPresent: temporaryMaskLayerId !== undefined,
+              temporaryBlackLayerPresent: temporaryBlackLayerId !== undefined,
+              resultLayerPresent: resultLayerId !== undefined,
+              selectionRestored,
+              selectionSnapshotChannelPresent: Boolean(selectionSnapshot.channel) && !selectionSnapshotRemoved,
+              previousLayerAvailable: previousLayerId !== undefined
+            }).map((action) => recoveryHandlers[action])
+          );
           if (!operationError) {
             throw new Error(`Photoshop could not safely finalize the import. ${formatCleanupFailures([...cleanupFailures, ...recoveryFailures])}`);
           }
