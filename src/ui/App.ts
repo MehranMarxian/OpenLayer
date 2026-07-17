@@ -13,8 +13,15 @@ import { formatFluxFillReferenceDefaults } from "../comfy/fluxFillDefaults";
 import {
   formatCancelDiagnostic,
   formatCancelResultDiagnostic,
+  createGenerationCancelledError,
   isGenerationCancelledError
 } from "../comfy/generationCancel";
+import {
+  canPublishGenerationUpdate,
+  shouldFinalizeActiveRun,
+  validateGenerationCommit
+} from "./generationIntegrity";
+import { createObjectUrlRegistry, ObjectUrlRegistry } from "./objectUrlRegistry";
 import {
   formatInpaintOutputDiagnostics,
   ImageDimensions,
@@ -69,10 +76,16 @@ import {
   captureSelectionForInpainting,
   exportActiveLayerForImageToImage,
   exportCanvasForImageToImage,
+  getActiveDocumentIdentity,
   getActiveDocumentInfo,
   importGeneratedImageAsLayer,
   importImageAlignedToSelectionWithLayerMask
 } from "../photoshop/photoshopAdapter";
+import {
+  bindDocumentContext,
+  DocumentContextBound,
+  PhotoshopDocumentIdentity
+} from "../photoshop/documentContext";
 import {
   createInpaintSourceModeDiagnostic,
   getInpaintSourceModeLabel,
@@ -98,6 +111,12 @@ import {
   HistoryToolType
 } from "./historyMetadata";
 import { LivePaintingSession } from "./livePaintingSession";
+import {
+  createInpaintImportContext,
+  createInpaintSourceSnapshot,
+  InpaintImportContext,
+  resolveInpaintImportContext
+} from "./inpaintImportContext";
 
 const DEFAULT_SERVER_URL = "http://127.0.0.1:8190";
 const APP_VERSION = "0.6.0";
@@ -531,7 +550,9 @@ type AppElements = {
 
 type HistoryEntry = {
   id: string;
-  result: GeneratedImageResult;
+  result: AppGeneratedImageResult;
+  originatingDocument: PhotoshopDocumentIdentity | null;
+  inpaintImportContext?: AppInpaintImportContext;
   previewUrl: string;
   prompt: string;
   checkpointName: string;
@@ -557,7 +578,12 @@ type InpaintSourceState = SelectedRegionSourceImage & {
   previewUrl: string;
 };
 
+type AppGeneratedImageResult = DocumentContextBound<GeneratedImageResult>;
+type AppInpaintImportContext = InpaintImportContext<SelectedRegionSourceImage, AppGeneratedImageResult>;
+type LiveGeneratedImageResult = DocumentContextBound<{ blob: Blob }>;
+
 type ActiveGeneration = {
+  runId: number;
   toolType: HistoryToolType;
   client: ComfyClient;
   promptId?: string;
@@ -574,32 +600,33 @@ const statusProgressLastPercent = new WeakMap<HTMLElement, number>();
 export function renderApp(rootElement: HTMLElement) {
   let currentView: AppView = "home";
   let isBusy = false;
-  let result: GeneratedImageResult | null = null;
+  let result: AppGeneratedImageResult | null = null;
   let previewUrl = "";
   let livePreviewUrl = "";
   let imageSource: ImageSourceState | null = null;
-  let imageResult: GeneratedImageResult | null = null;
+  let imageResult: AppGeneratedImageResult | null = null;
   let imageSourcePreviewUrl = "";
   let imageResultPreviewUrl = "";
   let imageLivePreviewUrl = "";
   let sketchSource: ImageSourceState | null = null;
-  let sketchResult: GeneratedImageResult | null = null;
+  let sketchResult: AppGeneratedImageResult | null = null;
   let sketchSourcePreviewUrl = "";
   let sketchResultPreviewUrl = "";
   let sketchLivePreviewUrl = "";
   let inpaintSource: InpaintSourceState | null = null;
-  let inpaintResult: GeneratedImageResult | null = null;
+  let inpaintResult: AppGeneratedImageResult | null = null;
+  let activeInpaintImportContext: AppInpaintImportContext | null = null;
   let inpaintSourcePreviewUrl = "";
   let inpaintMaskPreviewUrl = "";
   let inpaintResultPreviewUrl = "";
   let inpaintLivePreviewUrl = "";
   let outpaintSource: ImageSourceState | null = null;
-  let outpaintResult: GeneratedImageResult | null = null;
+  let outpaintResult: AppGeneratedImageResult | null = null;
   let outpaintSourcePreviewUrl = "";
   let outpaintResultPreviewUrl = "";
   let outpaintLivePreviewUrl = "";
   let upscaleSource: ImageSourceState | null = null;
-  let upscaleResult: GeneratedImageResult | null = null;
+  let upscaleResult: AppGeneratedImageResult | null = null;
   let upscaleSourcePreviewUrl = "";
   let upscaleResultPreviewUrl = "";
   let upscaleLivePreviewUrl = "";
@@ -611,15 +638,23 @@ export function renderApp(rootElement: HTMLElement) {
   let isNegativePromptOpen = false;
   let allowExperimentalCheckpoints = false;
   let activeGeneration: ActiveGeneration | null = null;
+  let generationRunSequence = 0;
   let livePaintingSession: LivePaintingSession | null = null;
   let livePreviewImage: HTMLImageElement | null = null;
   let livePreviewObjectUrl = "";
-  let liveLastResult: Blob | null = null;
+  let liveLastResult: LiveGeneratedImageResult | null = null;
   let liveImportAutomatically = false;
   let livePreviewZoomed = false;
   let hardwareReport: HardwareRecommendationReport | null = null;
   let workflowHealthReport: WorkflowHealthReport | null = null;
   const historyEntries: HistoryEntry[] = [];
+  const objectUrls = createObjectUrlRegistry();
+  // Route every panel-owned preview URL through one registry while retaining
+  // the familiar URL.createObjectURL/revokeObjectURL call sites below.
+  const URL = {
+    createObjectURL: objectUrls.create,
+    revokeObjectURL: objectUrls.revoke
+  };
 
   function syncBusy() {
     setBusy(
@@ -642,6 +677,36 @@ export function renderApp(rootElement: HTMLElement) {
   rootElement.innerHTML = createAppMarkup();
 
   const elements = getAppElements(rootElement);
+  let resourceObserver: MutationObserver | null = null;
+  let resourcesDisposed = false;
+  const disposeAppResources = () => {
+    if (resourcesDisposed) return;
+    resourcesDisposed = true;
+    activeGeneration?.watcher?.close();
+    livePaintingSession?.stop("Live session stopped because the OpenLayer panel closed.");
+    for (const progressElement of [
+      elements.statusProgress,
+      elements.imgStatusProgress,
+      elements.sketchStatusProgress,
+      elements.inpaintStatusProgress,
+      elements.outpaintStatusProgress,
+      elements.upscaleStatusProgress
+    ]) {
+      setStatusProgress(progressElement, "Panel closed.", "ready");
+    }
+    objectUrls.revokeAll();
+    livePreviewObjectUrl = "";
+    window.removeEventListener("unload", disposeAppResources);
+    resourceObserver?.disconnect();
+    resourceObserver = null;
+  };
+  window.addEventListener("unload", disposeAppResources, { once: true });
+  if (typeof MutationObserver === "function") {
+    resourceObserver = new MutationObserver(() => {
+      if (!rootElement.isConnected) disposeAppResources();
+    });
+    resourceObserver.observe(document, { childList: true, subtree: true });
+  }
   const preferences = loadOpenLayerPreferences();
   applyPreferences(elements, preferences);
   applyTheme(elements, preferences.theme || DEFAULT_THEME);
@@ -1114,6 +1179,7 @@ export function renderApp(rootElement: HTMLElement) {
 
   function beginActiveGeneration(toolType: HistoryToolType, client: ComfyClient, promptId: string): ActiveGeneration {
     const activeRun: ActiveGeneration = {
+      runId: ++generationRunSequence,
       toolType,
       client,
       promptId,
@@ -1129,11 +1195,38 @@ export function renderApp(rootElement: HTMLElement) {
   function finishActiveGeneration(activeRun: ActiveGeneration | null) {
     activeRun?.watcher?.close();
 
-    if (activeRun && activeGeneration === activeRun) {
+    if (activeRun && shouldFinalizeActiveRun(activeRun, activeGeneration)) {
+      releaseGenerationLivePreview(activeRun.toolType);
       activeGeneration = null;
+      setCancelGenerationVisible(elements, false);
     }
+  }
 
-    setCancelGenerationVisible(elements, false);
+  function releaseGenerationLivePreview(toolType: HistoryToolType) {
+    const release = (url: string) => {
+      if (url) URL.revokeObjectURL(url);
+      return "";
+    };
+
+    switch (toolType) {
+      case "image-to-image": imageLivePreviewUrl = release(imageLivePreviewUrl); return;
+      case "sketch-to-image": sketchLivePreviewUrl = release(sketchLivePreviewUrl); return;
+      case "inpaint": inpaintLivePreviewUrl = release(inpaintLivePreviewUrl); return;
+      case "outpaint": outpaintLivePreviewUrl = release(outpaintLivePreviewUrl); return;
+      case "upscale": upscaleLivePreviewUrl = release(upscaleLivePreviewUrl); return;
+      case "text-to-image": livePreviewUrl = release(livePreviewUrl); return;
+      case "prompt-from-layer": return;
+    }
+  }
+
+  function ensureGenerationCanCommit(activeRun: ActiveGeneration | null) {
+    if (!activeRun) throw createGenerationCancelledError();
+    const validation = validateGenerationCommit(activeRun, activeGeneration);
+    if (!validation.ok) throw createGenerationCancelledError();
+  }
+
+  function publishGenerationUpdate(activeRun: ActiveGeneration | null, update: () => void) {
+    if (activeRun && canPublishGenerationUpdate(activeRun, activeGeneration)) update();
   }
 
   function setGenerationToolStatus(toolType: HistoryToolType, status: string, tone: StatusTone) {
@@ -1263,15 +1356,19 @@ export function renderApp(rootElement: HTMLElement) {
 
     try {
       const cancelResult = await generation.client.cancelPrompt(generation.promptId);
-      setGenerationToolDiagnostics(
-        generation.toolType,
-        formatCancelResultDiagnostic(cancelResult, generation.promptId)
-      );
+      if (shouldFinalizeActiveRun(generation, activeGeneration)) {
+        setGenerationToolDiagnostics(
+          generation.toolType,
+          formatCancelResultDiagnostic(cancelResult, generation.promptId)
+        );
+      }
     } catch (caughtError) {
-      setGenerationToolDiagnostics(
-        generation.toolType,
-        `Cancel requested locally. ComfyUI interrupt may already be complete or unavailable. ${getTechnicalErrorDetails(caughtError)}`
-      );
+      if (shouldFinalizeActiveRun(generation, activeGeneration)) {
+        setGenerationToolDiagnostics(
+          generation.toolType,
+          `Cancel requested locally. ComfyUI interrupt may already be complete or unavailable. ${getTechnicalErrorDetails(caughtError)}`
+        );
+      }
     }
   }
 
@@ -1294,6 +1391,7 @@ export function renderApp(rootElement: HTMLElement) {
     let activeRun: ActiveGeneration | null = null;
 
     try {
+      const originatingDocument = getActiveDocumentIdentity();
       const workflowPreset = readSelectValue(elements.workflow, DEFAULT_WORKFLOW);
       const preset = getWorkflowPreset(workflowPreset);
       const checkpointName = readSelectValue(elements.checkpoint);
@@ -1350,18 +1448,20 @@ export function renderApp(rootElement: HTMLElement) {
       let hasLivePreview = false;
       progressWatcher = client.watchProgress(promptId, {
         onStatus: (message) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           setStatus(elements, message, "idle");
 
           if (!hasLivePreview) {
             setProgressPreview(elements, message);
           }
         },
-        onProgress: (value, max) => applyDeterminateProgress(elements.statusProgress, value, max),
+        onProgress: (value, max) => publishGenerationUpdate(activeRun, () => applyDeterminateProgress(elements.statusProgress, value, max)),
         onPreviewBlob: (blob) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           hasLivePreview = true;
           setProgressPreview(elements, "Live ComfyUI preview...", blob);
         },
-        onError: (message) => setDiagnostics(elements, message)
+        onError: (message) => publishGenerationUpdate(activeRun, () => setDiagnostics(elements, message))
       });
       activeRun.watcher = progressWatcher;
 
@@ -1371,6 +1471,7 @@ export function renderApp(rootElement: HTMLElement) {
         promptId,
         {
           onTick: (message) => {
+            if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
             setStatus(elements, message, "idle");
 
             if (!hasLivePreview) {
@@ -1386,11 +1487,15 @@ export function renderApp(rootElement: HTMLElement) {
 
       setStatus(elements, "Retrieving image...", "idle");
       setProgressPreview(elements, "Retrieving final image...");
-      const generatedResult = await client.retrieveFirstOutputImage(promptId, history, {
-        preferredNodeId: getSaveImageNodeId(buildResult.preset)
-      });
+      const generatedResult = bindDocumentContext(
+        await client.retrieveFirstOutputImage(promptId, history, {
+          preferredNodeId: getSaveImageNodeId(buildResult.preset)
+        }),
+        originatingDocument
+      );
+      ensureGenerationCanCommit(activeRun);
       setResult(generatedResult);
-      addHistoryEntry(elements, historyEntries, generatedResult, {
+      addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
         prompt: elements.prompt.value,
         negativePrompt: elements.negativePrompt.value,
         checkpointName,
@@ -1403,6 +1508,8 @@ export function renderApp(rootElement: HTMLElement) {
         sourceMode: "Prompt only",
         experimental: buildResult.preset.status === "experimental"
       });
+      finishActiveGeneration(activeRun);
+      activeRun = null;
 
       if (importAutomatically) {
         setStatus(elements, "Generation complete. Auto-importing...", "idle");
@@ -1417,7 +1524,7 @@ export function renderApp(rootElement: HTMLElement) {
       updateSettingsReport(elements);
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
-        showGenerationCancelled("text-to-image", activeRun?.promptId);
+        if (!activeRun || shouldFinalizeActiveRun(activeRun, activeGeneration)) showGenerationCancelled("text-to-image", activeRun?.promptId);
         return;
       }
 
@@ -1433,7 +1540,7 @@ export function renderApp(rootElement: HTMLElement) {
   }
 
   function handleClearHistory() {
-    clearHistoryEntries(historyEntries);
+    clearHistoryEntries(historyEntries, objectUrls);
     renderHistory(elements, historyEntries);
     setStatus(elements, "History cleared.", "ready");
     setDiagnostics(elements, "Recent session history cleared.");
@@ -1487,6 +1594,7 @@ export function renderApp(rootElement: HTMLElement) {
         setView("sketch-to-image");
         return;
       case "inpaint":
+        activeInpaintImportContext = entry.inpaintImportContext ?? null;
         setInpaintResult(entry.result);
         setView("inpaint");
         return;
@@ -1514,7 +1622,7 @@ export function renderApp(rootElement: HTMLElement) {
         await handleImportSketch();
         return;
       case "inpaint":
-        await handleImportInpaint();
+        await handleImportInpaint(entry.inpaintImportContext);
         return;
       case "outpaint":
         await handleImportOutpaint();
@@ -1592,13 +1700,17 @@ export function renderApp(rootElement: HTMLElement) {
     setStatus(elements, "Importing image into Photoshop...", "idle");
 
     try {
-      const documentInfo = await getActiveDocumentInfo();
       const layerName = createLayerName("OpenLayer_Generated");
 
-      setDiagnostics(elements, `Importing into ${documentInfo.name || "active document"}...`);
-      const importedLayerName = await importGeneratedImageAsLayer(result.blob, layerName, (message) => {
-        setStatus(elements, message, "idle");
-        setDiagnostics(elements, message);
+      setDiagnostics(elements, `Importing into ${result.originatingDocument?.name || "the originating document"}...`);
+      const importedLayerName = await importGeneratedImageAsLayer({
+        blob: result.blob,
+        originatingDocument: result.originatingDocument,
+        layerName,
+        onProgress: (message) => {
+          setStatus(elements, message, "idle");
+          setDiagnostics(elements, message);
+        }
       });
       setStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
       flashImported(elements.statusText);
@@ -1772,18 +1884,20 @@ export function renderApp(rootElement: HTMLElement) {
       let hasLivePreview = false;
       progressWatcher = client.watchProgress(promptId, {
         onStatus: (message) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           setImageStatus(elements, message, "idle");
 
           if (!hasLivePreview) {
             setImageProgressPreview(elements, message);
           }
         },
-        onProgress: (value, max) => applyDeterminateProgress(elements.imgStatusProgress, value, max),
+        onProgress: (value, max) => publishGenerationUpdate(activeRun, () => applyDeterminateProgress(elements.imgStatusProgress, value, max)),
         onPreviewBlob: (blob) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           hasLivePreview = true;
           setImageProgressPreview(elements, "Live ComfyUI preview...", blob);
         },
-        onError: (message) => setImageDiagnostics(elements, message)
+        onError: (message) => publishGenerationUpdate(activeRun, () => setImageDiagnostics(elements, message))
       });
       activeRun.watcher = progressWatcher;
 
@@ -1791,6 +1905,7 @@ export function renderApp(rootElement: HTMLElement) {
       setImageProgressPreview(elements, "Generating image...");
       const history = await client.pollUntilComplete(promptId, {
         onTick: (message) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           setImageStatus(elements, message, "idle");
 
           if (!hasLivePreview) {
@@ -1805,11 +1920,15 @@ export function renderApp(rootElement: HTMLElement) {
 
       setImageStatus(elements, "Retrieving Image to Image result...", "idle");
       setImageProgressPreview(elements, "Retrieving final image...");
-      const generatedResult = await client.retrieveFirstOutputImage(promptId, history, {
-        preferredNodeId: getSaveImageNodeId(buildResult.preset)
-      });
+      const generatedResult = bindDocumentContext(
+        await client.retrieveFirstOutputImage(promptId, history, {
+          preferredNodeId: getSaveImageNodeId(buildResult.preset)
+        }),
+        imageSource.originatingDocument
+      );
+      ensureGenerationCanCommit(activeRun);
       setImageResult(generatedResult);
-      addHistoryEntry(elements, historyEntries, generatedResult, {
+      addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
         prompt: elements.imgPrompt.value,
         negativePrompt: elements.imgNegativePrompt.value,
         checkpointName,
@@ -1822,6 +1941,8 @@ export function renderApp(rootElement: HTMLElement) {
         sourceMode: imageSource.sourceName,
         experimental: buildResult.preset.status === "experimental"
       });
+      finishActiveGeneration(activeRun);
+      activeRun = null;
       setImageStatus(elements, "Image to Image generation complete.", "ready");
       setImageDiagnostics(
         elements,
@@ -1835,7 +1956,7 @@ export function renderApp(rootElement: HTMLElement) {
       }
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
-        showGenerationCancelled("image-to-image", activeRun?.promptId);
+        if (!activeRun || shouldFinalizeActiveRun(activeRun, activeGeneration)) showGenerationCancelled("image-to-image", activeRun?.promptId);
         return;
       }
 
@@ -1871,13 +1992,17 @@ export function renderApp(rootElement: HTMLElement) {
     setImageStatus(elements, "Importing Image to Image result into Photoshop...", "idle");
 
     try {
-      const documentInfo = await getActiveDocumentInfo();
       const layerName = createLayerName("OpenLayer_Img2Img");
 
-      setImageDiagnostics(elements, `Importing into ${documentInfo.name || "active document"}...`);
-      const importedLayerName = await importGeneratedImageAsLayer(imageResult.blob, layerName, (message) => {
-        setImageStatus(elements, message, "idle");
-        setImageDiagnostics(elements, message);
+      setImageDiagnostics(elements, `Importing into ${imageResult.originatingDocument?.name || "the originating document"}...`);
+      const importedLayerName = await importGeneratedImageAsLayer({
+        blob: imageResult.blob,
+        originatingDocument: imageResult.originatingDocument,
+        layerName,
+        onProgress: (message) => {
+          setImageStatus(elements, message, "idle");
+          setImageDiagnostics(elements, message);
+        }
       });
       setImageStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
       flashImported(elements.imgStatusText);
@@ -2014,18 +2139,20 @@ export function renderApp(rootElement: HTMLElement) {
       let hasLivePreview = false;
       progressWatcher = client.watchProgress(promptId, {
         onStatus: (message) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           setUpscaleStatus(elements, message, "idle");
 
           if (!hasLivePreview) {
             setUpscaleProgressPreview(elements, message);
           }
         },
-        onProgress: (value, max) => applyDeterminateProgress(elements.upscaleStatusProgress, value, max),
+        onProgress: (value, max) => publishGenerationUpdate(activeRun, () => applyDeterminateProgress(elements.upscaleStatusProgress, value, max)),
         onPreviewBlob: (blob) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           hasLivePreview = true;
           setUpscaleProgressPreview(elements, "Live ComfyUI preview...", blob);
         },
-        onError: (message) => setUpscaleDiagnostics(elements, message)
+        onError: (message) => publishGenerationUpdate(activeRun, () => setUpscaleDiagnostics(elements, message))
       });
       activeRun.watcher = progressWatcher;
 
@@ -2033,6 +2160,7 @@ export function renderApp(rootElement: HTMLElement) {
       setUpscaleProgressPreview(elements, "Upscaling image...");
       const history = await client.pollUntilComplete(promptId, {
         onTick: (message) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           setUpscaleStatus(elements, message, "idle");
 
           if (!hasLivePreview) {
@@ -2047,11 +2175,15 @@ export function renderApp(rootElement: HTMLElement) {
 
       setUpscaleStatus(elements, "Retrieving Upscale result...", "idle");
       setUpscaleProgressPreview(elements, "Retrieving final image...");
-      const generatedResult = await client.retrieveFirstOutputImage(promptId, history, {
-        preferredNodeId: getSaveImageNodeId(buildResult.preset)
-      });
+      const generatedResult = bindDocumentContext(
+        await client.retrieveFirstOutputImage(promptId, history, {
+          preferredNodeId: getSaveImageNodeId(buildResult.preset)
+        }),
+        upscaleSource.originatingDocument
+      );
+      ensureGenerationCanCommit(activeRun);
       setUpscaleResult(generatedResult);
-      addHistoryEntry(elements, historyEntries, generatedResult, {
+      addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
         prompt: `Upscale ${upscaleSource.sourceName}`,
         checkpointName: modelName,
         modelName,
@@ -2063,6 +2195,8 @@ export function renderApp(rootElement: HTMLElement) {
         sourceMode: upscaleSource.sourceName,
         experimental: buildResult.preset.status === "experimental"
       });
+      finishActiveGeneration(activeRun);
+      activeRun = null;
       setUpscaleStatus(elements, "Upscale generation complete.", "ready");
       setUpscaleDiagnostics(
         elements,
@@ -2076,7 +2210,7 @@ export function renderApp(rootElement: HTMLElement) {
       }
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
-        showGenerationCancelled("upscale", activeRun?.promptId);
+        if (!activeRun || shouldFinalizeActiveRun(activeRun, activeGeneration)) showGenerationCancelled("upscale", activeRun?.promptId);
         return;
       }
 
@@ -2112,13 +2246,17 @@ export function renderApp(rootElement: HTMLElement) {
     setUpscaleStatus(elements, "Importing Upscale result into Photoshop...", "idle");
 
     try {
-      const documentInfo = await getActiveDocumentInfo();
       const layerName = createLayerName("OpenLayer_Upscale");
 
-      setUpscaleDiagnostics(elements, `Importing into ${documentInfo.name || "active document"}...`);
-      const importedLayerName = await importGeneratedImageAsLayer(upscaleResult.blob, layerName, (message) => {
-        setUpscaleStatus(elements, message, "idle");
-        setUpscaleDiagnostics(elements, message);
+      setUpscaleDiagnostics(elements, `Importing into ${upscaleResult.originatingDocument?.name || "the originating document"}...`);
+      const importedLayerName = await importGeneratedImageAsLayer({
+        blob: upscaleResult.blob,
+        originatingDocument: upscaleResult.originatingDocument,
+        layerName,
+        onProgress: (message) => {
+          setUpscaleStatus(elements, message, "idle");
+          setUpscaleDiagnostics(elements, message);
+        }
       });
       setUpscaleStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
       flashImported(elements.upscaleStatusText);
@@ -2296,18 +2434,20 @@ export function renderApp(rootElement: HTMLElement) {
       let hasLivePreview = false;
       progressWatcher = client.watchProgress(promptId, {
         onStatus: (message) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           setOutpaintStatus(elements, message, "idle");
 
           if (!hasLivePreview) {
             setOutpaintProgressPreview(elements, message);
           }
         },
-        onProgress: (value, max) => applyDeterminateProgress(elements.outpaintStatusProgress, value, max),
+        onProgress: (value, max) => publishGenerationUpdate(activeRun, () => applyDeterminateProgress(elements.outpaintStatusProgress, value, max)),
         onPreviewBlob: (blob) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           hasLivePreview = true;
           setOutpaintProgressPreview(elements, "Live ComfyUI Outpaint preview...", blob);
         },
-        onError: (message) => setOutpaintDiagnostics(elements, message)
+        onError: (message) => publishGenerationUpdate(activeRun, () => setOutpaintDiagnostics(elements, message))
       });
       activeRun.watcher = progressWatcher;
 
@@ -2315,6 +2455,7 @@ export function renderApp(rootElement: HTMLElement) {
       setOutpaintProgressPreview(elements, "Generating outpaint...");
       const history = await client.pollUntilComplete(promptId, {
         onTick: (message) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           setOutpaintStatus(elements, message, "idle");
 
           if (!hasLivePreview) {
@@ -2329,11 +2470,15 @@ export function renderApp(rootElement: HTMLElement) {
 
       setOutpaintStatus(elements, "Retrieving Outpaint result...", "idle");
       setOutpaintProgressPreview(elements, "Retrieving final image...");
-      const generatedResult = await client.retrieveFirstOutputImage(promptId, history, {
-        preferredNodeId: getSaveImageNodeId(buildResult.preset)
-      });
+      const generatedResult = bindDocumentContext(
+        await client.retrieveFirstOutputImage(promptId, history, {
+          preferredNodeId: getSaveImageNodeId(buildResult.preset)
+        }),
+        outpaintSource.originatingDocument
+      );
+      ensureGenerationCanCommit(activeRun);
       setOutpaintResult(generatedResult);
-      addHistoryEntry(elements, historyEntries, generatedResult, {
+      addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
         prompt: elements.outpaintPrompt.value,
         checkpointName,
         modelName: checkpointName,
@@ -2356,6 +2501,8 @@ export function renderApp(rootElement: HTMLElement) {
           importMode: "new layer"
         })
       });
+      finishActiveGeneration(activeRun);
+      activeRun = null;
       setOutpaintStatus(elements, "Outpaint generation complete.", "ready");
       setOutpaintDiagnostics(
         elements,
@@ -2363,7 +2510,7 @@ export function renderApp(rootElement: HTMLElement) {
       );
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
-        showGenerationCancelled("outpaint", activeRun?.promptId);
+        if (!activeRun || shouldFinalizeActiveRun(activeRun, activeGeneration)) showGenerationCancelled("outpaint", activeRun?.promptId);
         return;
       }
 
@@ -2393,13 +2540,17 @@ export function renderApp(rootElement: HTMLElement) {
     setOutpaintStatus(elements, "Importing Outpaint result into Photoshop...", "idle");
 
     try {
-      const documentInfo = await getActiveDocumentInfo();
       const layerName = createLayerName("OpenLayer_Outpaint");
 
-      setOutpaintDiagnostics(elements, `Importing into ${documentInfo.name || "active document"}...`);
-      const importedLayerName = await importGeneratedImageAsLayer(outpaintResult.blob, layerName, (message) => {
-        setOutpaintStatus(elements, message, "idle");
-        setOutpaintDiagnostics(elements, message);
+      setOutpaintDiagnostics(elements, `Importing into ${outpaintResult.originatingDocument?.name || "the originating document"}...`);
+      const importedLayerName = await importGeneratedImageAsLayer({
+        blob: outpaintResult.blob,
+        originatingDocument: outpaintResult.originatingDocument,
+        layerName,
+        onProgress: (message) => {
+          setOutpaintStatus(elements, message, "idle");
+          setOutpaintDiagnostics(elements, message);
+        }
       });
       setOutpaintStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
       flashImported(elements.outpaintStatusText);
@@ -2579,18 +2730,20 @@ export function renderApp(rootElement: HTMLElement) {
       let hasLivePreview = false;
       progressWatcher = client.watchProgress(promptId, {
         onStatus: (message) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           setSketchStatus(elements, message, "idle");
 
           if (!hasLivePreview) {
             setSketchProgressPreview(elements, message);
           }
         },
-        onProgress: (value, max) => applyDeterminateProgress(elements.sketchStatusProgress, value, max),
+        onProgress: (value, max) => publishGenerationUpdate(activeRun, () => applyDeterminateProgress(elements.sketchStatusProgress, value, max)),
         onPreviewBlob: (blob) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           hasLivePreview = true;
           setSketchProgressPreview(elements, "Live ComfyUI preview...", blob);
         },
-        onError: (message) => setSketchDiagnostics(elements, message)
+        onError: (message) => publishGenerationUpdate(activeRun, () => setSketchDiagnostics(elements, message))
       });
       activeRun.watcher = progressWatcher;
 
@@ -2598,6 +2751,7 @@ export function renderApp(rootElement: HTMLElement) {
       setSketchProgressPreview(elements, "Generating image...");
       const history = await client.pollUntilComplete(promptId, {
         onTick: (message) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           setSketchStatus(elements, message, "idle");
 
           if (!hasLivePreview) {
@@ -2612,11 +2766,15 @@ export function renderApp(rootElement: HTMLElement) {
 
       setSketchStatus(elements, "Retrieving Sketch to Image result...", "idle");
       setSketchProgressPreview(elements, "Retrieving final image...");
-      const generatedResult = await client.retrieveFirstOutputImage(promptId, history, {
-        preferredNodeId: getSaveImageNodeId(buildResult.preset)
-      });
+      const generatedResult = bindDocumentContext(
+        await client.retrieveFirstOutputImage(promptId, history, {
+          preferredNodeId: getSaveImageNodeId(buildResult.preset)
+        }),
+        sketchSource.originatingDocument
+      );
+      ensureGenerationCanCommit(activeRun);
       setSketchResult(generatedResult);
-      addHistoryEntry(elements, historyEntries, generatedResult, {
+      addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
         prompt: elements.sketchPrompt.value,
         negativePrompt: elements.sketchNegativePrompt.value,
         checkpointName,
@@ -2629,6 +2787,8 @@ export function renderApp(rootElement: HTMLElement) {
         sourceMode: sketchSource.sourceName,
         experimental: buildResult.preset.status === "experimental"
       });
+      finishActiveGeneration(activeRun);
+      activeRun = null;
       setSketchStatus(elements, "Sketch to Image generation complete.", "ready");
       setSketchDiagnostics(
         elements,
@@ -2636,7 +2796,7 @@ export function renderApp(rootElement: HTMLElement) {
       );
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
-        showGenerationCancelled("sketch-to-image", activeRun?.promptId);
+        if (!activeRun || shouldFinalizeActiveRun(activeRun, activeGeneration)) showGenerationCancelled("sketch-to-image", activeRun?.promptId);
         return;
       }
 
@@ -2666,13 +2826,17 @@ export function renderApp(rootElement: HTMLElement) {
     setSketchStatus(elements, "Importing Sketch to Image result into Photoshop...", "idle");
 
     try {
-      const documentInfo = await getActiveDocumentInfo();
       const layerName = createLayerName("OpenLayer_Sketch");
 
-      setSketchDiagnostics(elements, `Importing into ${documentInfo.name || "active document"}...`);
-      const importedLayerName = await importGeneratedImageAsLayer(sketchResult.blob, layerName, (message) => {
-        setSketchStatus(elements, message, "idle");
-        setSketchDiagnostics(elements, message);
+      setSketchDiagnostics(elements, `Importing into ${sketchResult.originatingDocument?.name || "the originating document"}...`);
+      const importedLayerName = await importGeneratedImageAsLayer({
+        blob: sketchResult.blob,
+        originatingDocument: sketchResult.originatingDocument,
+        layerName,
+        onProgress: (message) => {
+          setSketchStatus(elements, message, "idle");
+          setSketchDiagnostics(elements, message);
+        }
       });
       setSketchStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
       flashImported(elements.sketchStatusText);
@@ -2927,18 +3091,20 @@ export function renderApp(rootElement: HTMLElement) {
       let hasLivePreview = false;
       progressWatcher = client.watchProgress(promptId, {
         onStatus: (message) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           setInpaintStatus(elements, message, "idle");
 
           if (!hasLivePreview) {
             setInpaintProgressPreview(elements, message);
           }
         },
-        onProgress: (value, max) => applyDeterminateProgress(elements.inpaintStatusProgress, value, max),
+        onProgress: (value, max) => publishGenerationUpdate(activeRun, () => applyDeterminateProgress(elements.inpaintStatusProgress, value, max)),
         onPreviewBlob: (blob) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           hasLivePreview = true;
           setInpaintProgressPreview(elements, "Live ComfyUI preview...", blob);
         },
-        onError: (message) => setInpaintDiagnostics(elements, message)
+        onError: (message) => publishGenerationUpdate(activeRun, () => setInpaintDiagnostics(elements, message))
       });
       activeRun.watcher = progressWatcher;
 
@@ -2946,6 +3112,7 @@ export function renderApp(rootElement: HTMLElement) {
       setInpaintProgressPreview(elements, "Generating image...");
       const history = await client.pollUntilComplete(promptId, {
         onTick: (message) => {
+          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
           setInpaintStatus(elements, message, "idle");
 
           if (!hasLivePreview) {
@@ -2960,9 +3127,17 @@ export function renderApp(rootElement: HTMLElement) {
 
       setInpaintStatus(elements, "Retrieving Inpaint result...", "idle");
       setInpaintProgressPreview(elements, "Retrieving final image...");
-      const generatedResult = await client.retrieveFirstOutputImage(promptId, history, {
-        preferredNodeId: getSaveImageNodeId(buildResult.preset)
-      });
+      const generatedResult = bindDocumentContext(
+        await client.retrieveFirstOutputImage(promptId, history, {
+          preferredNodeId: getSaveImageNodeId(buildResult.preset)
+        }),
+        inpaintSource.originatingDocument
+      );
+      ensureGenerationCanCommit(activeRun);
+      const generatedImportContext = createInpaintImportContext(
+        createInpaintSourceSnapshot(inpaintSource),
+        generatedResult
+      );
       const resultDimensions = await readImageDimensionsFromBlob(generatedResult.blob);
       const inpaintOutputDiagnostics = formatInpaintOutputDiagnostics({
         presetId: buildResult.preset.id,
@@ -2993,8 +3168,9 @@ export function renderApp(rootElement: HTMLElement) {
         debugExportMessage = ` Debug copy export unavailable: ${getErrorMessage(debugError)}.`;
       }
 
+      activeInpaintImportContext = generatedImportContext;
       setInpaintResult(generatedResult);
-      addHistoryEntry(elements, historyEntries, generatedResult, {
+      addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
         prompt: elements.inpaintPrompt.value,
         negativePrompt: elements.inpaintNegativePrompt.value,
         checkpointName,
@@ -3007,6 +3183,7 @@ export function renderApp(rootElement: HTMLElement) {
         sourceMode: getInpaintSourceModeLabel(inpaintSource.sourceMode),
         sourceBounds: createMetadataBounds(inpaintSource.selection.bounds),
         contextBounds: createMetadataBounds(inpaintSource.selection.contextBounds),
+        inpaintImportContext: generatedImportContext,
         experimental: true,
         diagnosticsSummary: [
           inpaintOutputDiagnostics,
@@ -3031,6 +3208,8 @@ export function renderApp(rootElement: HTMLElement) {
           })
         ].filter(Boolean).join(" ")
       });
+      finishActiveGeneration(activeRun);
+      activeRun = null;
       setInpaintStatus(elements, "Inpaint generation complete.", "ready");
       setInpaintDiagnostics(
         elements,
@@ -3044,7 +3223,7 @@ export function renderApp(rootElement: HTMLElement) {
       );
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
-        showGenerationCancelled("inpaint", activeRun?.promptId);
+        if (!activeRun || shouldFinalizeActiveRun(activeRun, activeGeneration)) showGenerationCancelled("inpaint", activeRun?.promptId);
         return;
       }
 
@@ -3060,21 +3239,20 @@ export function renderApp(rootElement: HTMLElement) {
     }
   }
 
-  async function handleImportInpaint() {
+  async function handleImportInpaint(savedHistoryContext?: AppInpaintImportContext) {
     setInpaintDiagnostics(elements, "Inpaint import pressed.");
+    const importContext = resolveInpaintImportContext(savedHistoryContext, activeInpaintImportContext);
 
-    if (!inpaintResult) {
+    if (!importContext) {
       setInpaintError(elements, "Generate an Inpaint result before importing.");
       return;
     }
 
-    if (!inpaintSource) {
-      setInpaintError(elements, "Capture the Photoshop selection again before importing this Inpaint result.");
-      return;
-    }
+    const importSource = importContext.source;
+    const importResultImage = importContext.result;
 
-    if (!inpaintSource.mask) {
-      setInpaintError(elements, "Capture the Photoshop selection mask again before importing this Inpaint result.");
+    if (!importSource.mask) {
+      setInpaintError(elements, "The saved selection mask for this Inpaint result is unavailable. Generate the result again from a captured selection.");
       return;
     }
 
@@ -3084,33 +3262,44 @@ export function renderApp(rootElement: HTMLElement) {
     setInpaintStatus(elements, "Importing Inpaint result into Photoshop...", "idle");
 
     try {
-      const documentInfo = await getActiveDocumentInfo();
       const layerName = createLayerName("OpenLayer_Inpaint");
       const presetId = readSelectValue(elements.inpaintWorkflow, DEFAULT_INPAINT_WORKFLOW);
       const sourceDimensions = {
-        width: inpaintSource.width,
-        height: inpaintSource.height
+        width: importSource.width,
+        height: importSource.height
       };
       const maskDimensions = {
-        width: inpaintSource.mask.width,
-        height: inpaintSource.mask.height
+        width: importSource.mask.width,
+        height: importSource.mask.height
       };
-      const resultDimensions = await readImageDimensionsFromBlob(inpaintResult.blob);
+      const resultDimensions = await readImageDimensionsFromBlob(importResultImage.blob);
       let importMode: InpaintImportMode = "aligned-context-fallback";
 
-      setInpaintDiagnostics(elements, `Importing into ${documentInfo.name || "active document"}...`);
+      if (!resultDimensions || !dimensionsMatchForUi(resultDimensions, sourceDimensions)) {
+        throw new Error("The generated Inpaint result dimensions do not match the saved source context. Generate this result again before importing.");
+      }
+
+      setInpaintDiagnostics(
+        elements,
+        `Importing into ${importResultImage.originatingDocument?.name || "the originating document"}...`
+      );
       setInpaintStatus(elements, "Importing with Photoshop layer mask...", "idle");
       setInpaintDiagnostics(
         elements,
-        resultDimensions && dimensionsMatchForUi(resultDimensions, sourceDimensions)
-          ? "Attempting native Photoshop layer mask import."
-          : "Raw inpaint result dimensions do not match the captured source context. Layer mask import will still be attempted, with aligned fallback if needed."
+        "Applying the exact saved Photoshop selection mask."
       );
 
       const importResult = await importImageAlignedToSelectionWithLayerMask({
-        blob: inpaintResult.blob,
-        bounds: inpaintSource.selection.contextBounds,
-        selectionBounds: inpaintSource.selection.bounds,
+        blob: importResultImage.blob,
+        originatingDocument: importResultImage.originatingDocument,
+        bounds: importSource.selection.contextBounds,
+        mask: {
+          blob: importSource.mask.blob,
+          width: importSource.mask.width,
+          height: importSource.mask.height
+        },
+        sourceDimensions,
+        resultDimensions,
         layerName,
         onProgress: (message) => {
           setInpaintStatus(elements, message, "idle");
@@ -3121,8 +3310,8 @@ export function renderApp(rootElement: HTMLElement) {
       const importedLayerName = importResult.layerName;
       setInpaintStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
       flashImported(elements.inpaintStatusText);
-      markHistoryImported(elements, historyEntries, inpaintResult, importedLayerName);
-      const metadataMessage = await writeMetadataForImportedResult(historyEntries, inpaintResult, importedLayerName, (message) => {
+      markHistoryImported(elements, historyEntries, importResultImage, importedLayerName);
+      const metadataMessage = await writeMetadataForImportedResult(historyEntries, importResultImage, importedLayerName, (message) => {
         setInpaintDiagnostics(elements, message);
       });
       setInpaintDiagnostics(
@@ -3244,14 +3433,17 @@ export function renderApp(rootElement: HTMLElement) {
       activeRun = beginActiveGeneration("prompt-from-layer", client, promptId);
       const historyItem = await client.pollUntilTextComplete(promptId, {
         preferredNodeId: textOutputNodeId,
-        onTick: (message) => setPromptLayerStatus(elements, message, "idle"),
+        onTick: (message) => publishGenerationUpdate(activeRun, () => setPromptLayerStatus(elements, message, "idle")),
         isCancelled: () => Boolean(activeRun?.isCancelled)
       });
       const generatedText = await client.retrieveFirstOutputText(promptId, historyItem, {
         preferredNodeId: textOutputNodeId
       });
+      ensureGenerationCanCommit(activeRun);
 
       elements.promptLayerGeneratedText.value = generatedText;
+      finishActiveGeneration(activeRun);
+      activeRun = null;
       setPromptLayerStatus(elements, "Prompt text generated.", "ready");
       setPromptLayerDiagnostics(
         elements,
@@ -3259,7 +3451,7 @@ export function renderApp(rootElement: HTMLElement) {
       );
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
-        showGenerationCancelled("prompt-from-layer", activeRun?.promptId);
+        if (!activeRun || shouldFinalizeActiveRun(activeRun, activeGeneration)) showGenerationCancelled("prompt-from-layer", activeRun?.promptId);
         return;
       }
 
@@ -3338,7 +3530,7 @@ export function renderApp(rootElement: HTMLElement) {
         onTimings: (message) => {
           elements.liveTimingsText.textContent = message;
         },
-        onPreviewBlob: (blob) => updateLivePreview(blob),
+        onPreviewBlob: (blob, originatingDocument) => updateLivePreview(blob, originatingDocument),
         onStopped: (reason) => {
           setLiveStatus(reason);
           updateLiveButtons(false);
@@ -3394,11 +3586,12 @@ export function renderApp(rootElement: HTMLElement) {
     setLiveStatus("Importing live result into Photoshop...");
 
     try {
-      const importedLayerName = await importGeneratedImageAsLayer(
-        liveLastResult,
-        createLayerName("OpenLayer_Live"),
-        (message) => setLiveStatus(message)
-      );
+      const importedLayerName = await importGeneratedImageAsLayer({
+        blob: liveLastResult.blob,
+        originatingDocument: liveLastResult.originatingDocument,
+        layerName: createLayerName("OpenLayer_Live"),
+        onProgress: (message) => setLiveStatus(message)
+      });
       setLiveStatus(`Imported layer: ${importedLayerName}`);
       flashImported(elements.liveStatusText);
     } catch (caughtError) {
@@ -3431,7 +3624,7 @@ export function renderApp(rootElement: HTMLElement) {
     setActionDisabled(elements.liveStopButton, !isLive);
   }
 
-  function updateLivePreview(blob: Blob) {
+  function updateLivePreview(blob: Blob, originatingDocument: PhotoshopDocumentIdentity) {
     // One persistent img element: swapping src avoids the rebuild flicker the
     // per-frame progress previews show elsewhere in the panel.
     if (!livePreviewImage) {
@@ -3449,11 +3642,11 @@ export function renderApp(rootElement: HTMLElement) {
       URL.revokeObjectURL(previousUrl);
     }
 
-    liveLastResult = blob;
+    liveLastResult = bindDocumentContext({ blob }, originatingDocument);
     setActionDisabled(elements.importLiveButton, false);
   }
 
-  function setResult(nextResult: GeneratedImageResult | null) {
+  function setResult(nextResult: AppGeneratedImageResult | null) {
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
       previewUrl = "";
@@ -3504,6 +3697,11 @@ export function renderApp(rootElement: HTMLElement) {
       return;
     }
 
+    if (livePreviewUrl) {
+      URL.revokeObjectURL(livePreviewUrl);
+      livePreviewUrl = "";
+    }
+
     const progress = document.createElement("span");
     progress.className = "preview-empty";
     progress.textContent = message;
@@ -3542,7 +3740,7 @@ export function renderApp(rootElement: HTMLElement) {
     syncBusy();
   }
 
-  function setImageResult(nextResult: GeneratedImageResult | null) {
+  function setImageResult(nextResult: AppGeneratedImageResult | null) {
     if (imageResultPreviewUrl) {
       URL.revokeObjectURL(imageResultPreviewUrl);
       imageResultPreviewUrl = "";
@@ -3593,6 +3791,11 @@ export function renderApp(rootElement: HTMLElement) {
       return;
     }
 
+    if (imageLivePreviewUrl) {
+      URL.revokeObjectURL(imageLivePreviewUrl);
+      imageLivePreviewUrl = "";
+    }
+
     const progress = document.createElement("span");
     progress.className = "preview-empty";
     progress.textContent = message;
@@ -3631,7 +3834,7 @@ export function renderApp(rootElement: HTMLElement) {
     syncBusy();
   }
 
-  function setSketchResult(nextResult: GeneratedImageResult | null) {
+  function setSketchResult(nextResult: AppGeneratedImageResult | null) {
     if (sketchResultPreviewUrl) {
       URL.revokeObjectURL(sketchResultPreviewUrl);
       sketchResultPreviewUrl = "";
@@ -3680,6 +3883,11 @@ export function renderApp(rootElement: HTMLElement) {
       image.alt = "Live ComfyUI Sketch to Image preview";
       elements.sketchResultPreviewPanel.append(image);
       return;
+    }
+
+    if (sketchLivePreviewUrl) {
+      URL.revokeObjectURL(sketchLivePreviewUrl);
+      sketchLivePreviewUrl = "";
     }
 
     const progress = document.createElement("span");
@@ -3748,7 +3956,11 @@ export function renderApp(rootElement: HTMLElement) {
     syncBusy();
   }
 
-  function setInpaintResult(nextResult: GeneratedImageResult | null) {
+  function setInpaintResult(nextResult: AppGeneratedImageResult | null) {
+    if (!nextResult) {
+      activeInpaintImportContext = null;
+    }
+
     if (inpaintResultPreviewUrl) {
       URL.revokeObjectURL(inpaintResultPreviewUrl);
       inpaintResultPreviewUrl = "";
@@ -3799,6 +4011,11 @@ export function renderApp(rootElement: HTMLElement) {
       return;
     }
 
+    if (inpaintLivePreviewUrl) {
+      URL.revokeObjectURL(inpaintLivePreviewUrl);
+      inpaintLivePreviewUrl = "";
+    }
+
     const progress = document.createElement("span");
     progress.className = "preview-empty";
     progress.textContent = message;
@@ -3837,7 +4054,7 @@ export function renderApp(rootElement: HTMLElement) {
     syncBusy();
   }
 
-  function setOutpaintResult(nextResult: GeneratedImageResult | null) {
+  function setOutpaintResult(nextResult: AppGeneratedImageResult | null) {
     if (outpaintResultPreviewUrl) {
       URL.revokeObjectURL(outpaintResultPreviewUrl);
       outpaintResultPreviewUrl = "";
@@ -3888,6 +4105,11 @@ export function renderApp(rootElement: HTMLElement) {
       return;
     }
 
+    if (outpaintLivePreviewUrl) {
+      URL.revokeObjectURL(outpaintLivePreviewUrl);
+      outpaintLivePreviewUrl = "";
+    }
+
     const progress = document.createElement("span");
     progress.className = "preview-empty";
     progress.textContent = message;
@@ -3926,7 +4148,7 @@ export function renderApp(rootElement: HTMLElement) {
     syncBusy();
   }
 
-  function setUpscaleResult(nextResult: GeneratedImageResult | null) {
+  function setUpscaleResult(nextResult: AppGeneratedImageResult | null) {
     if (upscaleResultPreviewUrl) {
       URL.revokeObjectURL(upscaleResultPreviewUrl);
       upscaleResultPreviewUrl = "";
@@ -3975,6 +4197,11 @@ export function renderApp(rootElement: HTMLElement) {
       image.alt = "Live ComfyUI Upscale preview";
       elements.upscaleResultPreviewPanel.append(image);
       return;
+    }
+
+    if (upscaleLivePreviewUrl) {
+      URL.revokeObjectURL(upscaleLivePreviewUrl);
+      upscaleLivePreviewUrl = "";
     }
 
     const progress = document.createElement("span");
@@ -5269,16 +5496,16 @@ function getElement<T extends HTMLElement>(rootElement: HTMLElement, id: string)
 function setBusy(
   elements: AppElements,
   isBusy: boolean,
-  result: GeneratedImageResult | null,
-  imageResult: GeneratedImageResult | null = null,
+  result: AppGeneratedImageResult | null,
+  imageResult: AppGeneratedImageResult | null = null,
   imageSource: ImageSourceState | null = null,
-  sketchResult: GeneratedImageResult | null = null,
+  sketchResult: AppGeneratedImageResult | null = null,
   sketchSource: ImageSourceState | null = null,
-  inpaintResult: GeneratedImageResult | null = null,
+  inpaintResult: AppGeneratedImageResult | null = null,
   inpaintSource: InpaintSourceState | null = null,
-  outpaintResult: GeneratedImageResult | null = null,
+  outpaintResult: AppGeneratedImageResult | null = null,
   outpaintSource: ImageSourceState | null = null,
-  upscaleResult: GeneratedImageResult | null = null,
+  upscaleResult: AppGeneratedImageResult | null = null,
   upscaleSource: ImageSourceState | null = null
 ) {
   elements.serverUrl.disabled = isBusy;
@@ -5394,7 +5621,8 @@ function setStatusProgress(progressElement: HTMLElement, status: string, tone: S
     !normalizedStatus.includes("complete") &&
     !normalizedStatus.includes("copied") &&
     !normalizedStatus.includes("saved") &&
-    !normalizedStatus.includes("reset");
+    !normalizedStatus.includes("reset") &&
+    !normalizedStatus.includes("cancel");
 
   const fill = progressElement.firstElementChild as HTMLElement | null;
   const resolved = resolveStatusProgress(status, isBusy, statusProgressLastPercent.get(progressElement) ?? null);
@@ -7562,7 +7790,8 @@ async function refreshDocumentStatus(elements: AppElements) {
 function addHistoryEntry(
   elements: AppElements,
   historyEntries: HistoryEntry[],
-  result: GeneratedImageResult,
+  objectUrls: ObjectUrlRegistry,
+  result: AppGeneratedImageResult,
   details: {
     prompt: string;
     negativePrompt?: string;
@@ -7576,6 +7805,7 @@ function addHistoryEntry(
     sourceMode: string;
     sourceBounds?: OpenLayerLayerBounds;
     contextBounds?: OpenLayerLayerBounds;
+    inpaintImportContext?: AppInpaintImportContext;
     experimental?: boolean;
     diagnosticsSummary?: string;
   }
@@ -7601,7 +7831,9 @@ function addHistoryEntry(
   historyEntries.unshift({
     id: createHistoryId(),
     result,
-    previewUrl: URL.createObjectURL(result.blob),
+    originatingDocument: result.originatingDocument,
+    inpaintImportContext: details.inpaintImportContext,
+    previewUrl: objectUrls.create(result.blob),
     prompt: details.prompt.trim() || "Untitled prompt",
     checkpointName: details.checkpointName,
     modelName: details.modelName,
@@ -7620,7 +7852,7 @@ function addHistoryEntry(
     const removedEntry = historyEntries.pop();
 
     if (removedEntry) {
-      URL.revokeObjectURL(removedEntry.previewUrl);
+      objectUrls.revoke(removedEntry.previewUrl);
     }
   }
 
@@ -7702,7 +7934,7 @@ function renderHistory(elements: AppElements, historyEntries: HistoryEntry[]) {
 function markHistoryImported(
   elements: AppElements,
   historyEntries: HistoryEntry[],
-  result: GeneratedImageResult,
+  result: AppGeneratedImageResult,
   importedLayerName: string
 ) {
   const entry = historyEntries.find((historyEntry) => historyEntry.result === result);
@@ -7724,7 +7956,7 @@ function markHistoryImported(
 
 async function writeMetadataForImportedResult(
   historyEntries: HistoryEntry[],
-  result: GeneratedImageResult,
+  result: AppGeneratedImageResult,
   importedLayerName: string,
   onProgress?: (message: string) => void
 ) {
@@ -7803,9 +8035,9 @@ function createHistoryButton(label: string, action: HistoryActionName, historyId
   return button;
 }
 
-function clearHistoryEntries(historyEntries: HistoryEntry[]) {
+function clearHistoryEntries(historyEntries: HistoryEntry[], objectUrls: ObjectUrlRegistry) {
   for (const entry of historyEntries) {
-    URL.revokeObjectURL(entry.previewUrl);
+    objectUrls.revoke(entry.previewUrl);
   }
 
   historyEntries.splice(0, historyEntries.length);

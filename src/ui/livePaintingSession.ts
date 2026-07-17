@@ -6,12 +6,13 @@ import {
   LIVE_PAINTING_SAVE_NODE_ID
 } from "../comfy/livePainting";
 import { captureCanvasForLivePainting } from "../photoshop/livePaintingCapture";
+import type { PhotoshopDocumentIdentity } from "../photoshop/documentContext";
 import { createOpenLayerError, getErrorMessage } from "../utils/errors";
 
 export type LivePaintingCallbacks = {
   onStatus: (message: string) => void;
   onTimings: (message: string) => void;
-  onPreviewBlob: (blob: Blob) => void;
+  onPreviewBlob: (blob: Blob, originatingDocument: PhotoshopDocumentIdentity) => void;
   onStopped: (reason: string) => void;
 };
 
@@ -191,7 +192,7 @@ export class LivePaintingSession {
     }
 
     this.cycles += 1;
-    this.callbacks.onPreviewBlob(result.blob);
+    this.callbacks.onPreviewBlob(result.blob, capture.originatingDocument);
     this.callbacks.onStatus(`Live preview updated (cycle ${this.cycles}).`);
     this.callbacks.onTimings(
       [

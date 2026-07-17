@@ -1,6 +1,10 @@
 import { createOpenLayerError, getErrorMessage } from "../utils/errors";
 import { encodeRgbaPng } from "../utils/png";
 import { convertPixelsToRgba } from "./photoshopAdapter";
+import {
+  createPhotoshopDocumentIdentity,
+  PhotoshopDocumentIdentity
+} from "./documentContext";
 
 // Spike telemetry: which capture path this Photoshop build actually supports.
 // "non-modal" means imaging.getPixels ran without executeAsModal, so capture
@@ -18,12 +22,15 @@ export type LiveCaptureResult = {
   height: number;
   mode: LiveCaptureMode;
   captureMs: number;
+  originatingDocument: PhotoshopDocumentIdentity;
 };
 
 type LivePhotoshopModule = {
   app: {
     activeDocument?: {
       id?: number;
+      title?: string;
+      name?: string;
       width?: number;
       height?: number;
     };
@@ -67,6 +74,10 @@ export async function captureCanvasForLivePainting(maxDimension = 512): Promise<
 
   const documentWidth = Number(document.width ?? 0);
   const documentHeight = Number(document.height ?? 0);
+  const originatingDocument = createPhotoshopDocumentIdentity(
+    document.id,
+    document.title ?? document.name ?? "Untitled document"
+  );
   const target = createLiveTargetSize(documentWidth, documentHeight, maxDimension);
   const baseOptions: Record<string, unknown> = {
     documentID: document.id,
@@ -101,7 +112,8 @@ export async function captureCanvasForLivePainting(maxDimension = 512): Promise<
       return {
         ...result,
         mode: attempt.mode,
-        captureMs: Date.now() - startedAt
+        captureMs: Date.now() - startedAt,
+        originatingDocument
       };
     } catch (caughtError) {
       failures.push(`${attempt.mode}: ${getErrorMessage(caughtError)}`);

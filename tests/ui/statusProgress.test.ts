@@ -6,6 +6,13 @@ describe("resolveStatusProgress", () => {
     expect(resolveStatusProgress("Ready.", false, 40)).toEqual({ isBusy: false, percent: null });
   });
 
+  it("clears a remembered percentage after cancellation", () => {
+    expect(resolveStatusProgress("Generation cancelled.", false, 48)).toEqual({
+      isBusy: false,
+      percent: null
+    });
+  });
+
   it("is indeterminate during warm-up before any step progress", () => {
     expect(resolveStatusProgress("Preparing workflow...", true, null)).toEqual({
       isBusy: true,
