@@ -3496,6 +3496,9 @@ function applyStatusPill(pill: HTMLElement, status: string, tone: StatusTone) {
 
 function updateHomeStatus(elements: AppElements, status: string, tone: StatusTone) {
   elements.homeStatusText.textContent = tone === "ready" ? "Ready" : tone === "error" ? "Error" : status.replace(/\.$/, "");
+  // The text color defaults to the success green; only an error overrides it,
+  // so Ready and in-progress statuses keep their familiar look.
+  elements.homeStatusText.classList.toggle("is-error", tone === "error");
   elements.homeStatusDot.className = `home-status-dot ${tone}`;
 }
 

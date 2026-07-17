@@ -160,6 +160,10 @@ a:hover {
   white-space: nowrap;
 }
 
+.home-status-row strong.is-error {
+  color: #ff9d9d;
+}
+
 .home-status-dot {
   display: inline-block;
   width: 15px;
@@ -2042,6 +2046,10 @@ a:hover {
 
 .app-shell.theme-compact .home-status-row strong {
   color: var(--ol-success);
+}
+
+.app-shell.theme-compact .home-status-row strong.is-error {
+  color: var(--ol-danger);
 }
 
 .app-shell.theme-compact .home-status-dot {
