@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { formatCleanupFailures, planImportFinalization, runCleanupTasks } from "../../src/photoshop/photoshopTransaction";
+import {
+  formatCleanupFailures,
+  isMaskSandwichTopmost,
+  planImportFinalization,
+  runCleanupTasks
+} from "../../src/photoshop/photoshopTransaction";
 
 const completeState = {
   resultLayerCreated: true,
@@ -58,5 +63,36 @@ describe("Photoshop import transaction finalization", () => {
 
     expect(attempted).toEqual(["mask", "result", "selection"]);
     expect(formatCleanupFailures(failures)).toBe("mask: mask failed; result: result failed");
+  });
+});
+
+describe("exact-mask sandwich layer order", () => {
+  const sandwich = { maskLayerId: 91, blackLayerId: 90 };
+
+  it("accepts the mask directly above the black backing at the top of the stack", () => {
+    expect(isMaskSandwichTopmost([91, 90, 42, 7], sandwich)).toBe(true);
+  });
+
+  it("rejects an artwork layer left above the sandwich", () => {
+    // The 2026-07-16 Photoshop reproduction: a visible layer above the active
+    // layer contaminated the composite and replaced the saved mask.
+    expect(isMaskSandwichTopmost([42, 91, 90, 7], sandwich)).toBe(false);
+  });
+
+  it("rejects the black backing landing above the mask", () => {
+    expect(isMaskSandwichTopmost([90, 91, 42], sandwich)).toBe(false);
+  });
+
+  it("rejects an artwork layer wedged between the mask and its backing", () => {
+    expect(isMaskSandwichTopmost([91, 42, 90], sandwich)).toBe(false);
+  });
+
+  it("rejects a stack whose topmost layer IDs are unavailable", () => {
+    expect(isMaskSandwichTopmost([undefined, undefined], sandwich)).toBe(false);
+    expect(isMaskSandwichTopmost([], sandwich)).toBe(false);
+  });
+
+  it("rejects a sandwich missing its backing layer", () => {
+    expect(isMaskSandwichTopmost([91], sandwich)).toBe(false);
   });
 });

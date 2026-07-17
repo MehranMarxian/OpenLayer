@@ -18,7 +18,7 @@ import {
   PhotoshopDocumentIdentity,
   validateDocumentImportContext
 } from "./documentContext";
-import { formatCleanupFailures, runCleanupTasks } from "./photoshopTransaction";
+import { formatCleanupFailures, isMaskSandwichTopmost, runCleanupTasks } from "./photoshopTransaction";
 
 type PhotoshopModule = {
   app: {
@@ -42,6 +42,9 @@ type PhotoshopDocument = {
   name?: string;
   width?: number;
   height?: number;
+  // Top-level layers, topmost first. Used to build the mask sandwich above the
+  // whole stack so the composite selection cannot read the artist's artwork.
+  layers?: PhotoshopLayer[];
   activeLayers?: PhotoshopLayer[];
   activeChannels?: PhotoshopChannel[];
   channels?: { getByName: (name: string) => PhotoshopChannel };
@@ -527,6 +530,13 @@ export async function importImageAlignedToSelectionWithLayerMask(
           await alignActiveLayerToBounds(photoshop, bounds);
 
           options.onProgress?.("Applying the exact saved selection mask...");
+          // The mask sandwich must sit above every other layer. The selection below
+          // is read from the RGB composite, so any visible layer left above the
+          // sandwich would contaminate it: confirmed in Photoshop on 2026-07-16,
+          // where a visible layer above a non-topmost active layer replaced the
+          // saved mask with that layer's luminance. Building the sandwich on top of
+          // the stack makes the composite depend only on OpenLayer's own layers.
+          await selectTopmostLayer(photoshop);
           temporaryBlackLayerId = await createTemporaryMaskLayer(photoshop);
           await selectEntireCanvas(photoshop);
           await fillActiveSelection(photoshop, "black");
@@ -538,8 +548,10 @@ export async function importImageAlignedToSelectionWithLayerMask(
           // This PNG is fully opaque, so Photoshop reports its complete captured
           // context bounds rather than trimming to the white mask pixels.
           await alignActiveLayerToBounds(photoshop, bounds);
-          // The opaque grayscale mask sits above a temporary full-canvas black layer,
-          // making the document composite an exact selection source with black outside.
+          await assertMaskSandwichIsTopmost(temporaryMaskLayerId, temporaryBlackLayerId);
+          // The opaque grayscale mask sits above a temporary full-canvas black layer
+          // at the top of the stack, making the document composite an exact selection
+          // source with black outside the saved mask.
           await loadSelectionFromCompositeChannel(photoshop);
           await selectLayerById(photoshop, resultLayerId, false);
           await createLayerMaskFromActiveSelection(photoshop);
@@ -947,6 +959,36 @@ async function captureSelectionMaskSourceImage(
 
   if (!capturedMask) throw new Error("Photoshop did not return the captured selection mask.");
   return capturedMask;
+}
+
+// Photoshop creates a new layer directly above the active one, so activating the
+// topmost layer first is what places the mask sandwich above the whole stack.
+// This reuses the same select-by-ID primitive the rest of the import already
+// relies on rather than introducing an arrange/reorder descriptor.
+async function selectTopmostLayer(photoshop: PhotoshopModule) {
+  const topmostLayerId = getActiveDocument().layers?.[0]?.id;
+
+  if (typeof topmostLayerId !== "number") {
+    throw new Error(
+      "Photoshop did not expose the topmost layer, so OpenLayer cannot build the saved mask above the layer stack."
+    );
+  }
+
+  await selectLayerById(photoshop, topmostLayerId, false);
+  return topmostLayerId;
+}
+
+// Fails the import rather than letting a contaminated composite become a layer
+// mask. The sandwich is only a valid selection source while the opaque mask sits
+// directly above the full-canvas black backing at the very top of the document.
+async function assertMaskSandwichIsTopmost(maskLayerId: number, blackLayerId: number) {
+  const topLevelLayerIds = (getActiveDocument().layers ?? []).map((layer) => layer.id);
+
+  if (!isMaskSandwichTopmost(topLevelLayerIds, { maskLayerId, blackLayerId })) {
+    throw new Error(
+      "Photoshop did not keep OpenLayer's temporary mask layers at the top of the document, so the saved selection mask could not be applied exactly."
+    );
+  }
 }
 
 async function createTemporaryMaskLayer(photoshop: PhotoshopModule) {

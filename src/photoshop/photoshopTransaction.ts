@@ -20,6 +20,22 @@ export type CleanupTask = Readonly<{
   run: () => Promise<void>;
 }>;
 
+export type MaskSandwichLayers = Readonly<{
+  maskLayerId: number;
+  blackLayerId: number;
+}>;
+
+// The exact-mask import reads its selection from the RGB composite, which is only
+// a faithful copy of the saved mask while the opaque mask layer sits directly on
+// top of the full-canvas black backing at the very top of the document. Any other
+// order means a visible artwork layer is contributing to the composite.
+export function isMaskSandwichTopmost(
+  topLevelLayerIds: readonly (number | undefined)[],
+  sandwich: MaskSandwichLayers
+) {
+  return topLevelLayerIds[0] === sandwich.maskLayerId && topLevelLayerIds[1] === sandwich.blackLayerId;
+}
+
 export type CleanupFailure = Readonly<{ label: string; message: string }>;
 
 export function planImportFinalization(
