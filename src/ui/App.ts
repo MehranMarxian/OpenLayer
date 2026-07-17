@@ -10,15 +10,14 @@ import { formatFluxFillReferenceDefaults } from "../comfy/fluxFillDefaults";
 import {
   formatCancelDiagnostic,
   formatCancelResultDiagnostic,
-  createGenerationCancelledError,
   isGenerationCancelledError
 } from "../comfy/generationCancel";
-import {
-  canPublishGenerationUpdate,
-  shouldFinalizeActiveRun,
-  validateGenerationCommit
-} from "./generationIntegrity";
 import { createObjectUrlRegistry, ObjectUrlRegistry } from "./objectUrlRegistry";
+import {
+  createGenerationController,
+  GenerationPipelineUi,
+  GenerationRunHandle
+} from "./generationController";
 import {
   BUSY_DISABLED_ACTIONS,
   BUSY_DISABLED_FIELDS,
@@ -212,15 +211,6 @@ type AppGeneratedImageResult = DocumentContextBound<GeneratedImageResult>;
 type AppInpaintImportContext = InpaintImportContext<SelectedRegionSourceImage, AppGeneratedImageResult>;
 type LiveGeneratedImageResult = DocumentContextBound<{ blob: Blob }>;
 
-type ActiveGeneration = {
-  runId: number;
-  toolType: HistoryToolType;
-  client: ComfyClient;
-  promptId?: string;
-  watcher: ReturnType<ComfyClient["watchProgress"]> | null;
-  isCancelled: boolean;
-};
-
 const statusProgressTimers = new WeakMap<HTMLElement, number>();
 // Remembers the last real step percentage per progress bar so percent-less
 // status updates (e.g. the history poll tick) cannot reset a determinate bar
@@ -248,8 +238,6 @@ export function renderApp(rootElement: HTMLElement) {
   let upscaleImportAutomatically = false;
   let isNegativePromptOpen = false;
   let allowExperimentalCheckpoints = false;
-  let activeGeneration: ActiveGeneration | null = null;
-  let generationRunSequence = 0;
   let livePaintingSession: LivePaintingSession | null = null;
   let livePreviewImage: HTMLImageElement | null = null;
   let livePreviewObjectUrl = "";
@@ -367,16 +355,36 @@ export function renderApp(rootElement: HTMLElement) {
     imageAlt: "Captured Photoshop source for Prompt from Layer"
   });
   const inpaintMaskUrl = createOwnedObjectUrl(objectUrls);
+  const generation = createGenerationController({
+    onRunStarted: () => setCancelGenerationVisible(elements, true),
+    onRunFinished: (toolType) => {
+      releaseGenerationLivePreview(toolType);
+      setCancelGenerationVisible(elements, false);
+    }
+  });
+
+  // Adapts one tool's reporting surfaces to the pipeline's hooks. The
+  // controller gates every call on run currency before it reaches these.
+  function createPipelineUi(toolType: HistoryToolType, stepProgressElement: HTMLElement): GenerationPipelineUi {
+    const toolUi = generationToolUi[toolType];
+
+    return {
+      status: (message, tone) => toolUi.status(elements, message, tone),
+      progressPreview: (message, blob) => toolUi.progress?.(elements, message, blob),
+      stepProgress: (value, max) => applyDeterminateProgress(stepProgressElement, value, max),
+      diagnostics: (message) => toolUi.diagnostics(elements, message),
+      cancelled: (promptId) => showGenerationCancelled(toolType, promptId)
+    };
+  }
   let resourceObserver: MutationObserver | null = null;
   let resourcesDisposed = false;
   const disposeAppResources = () => {
     if (resourcesDisposed) return;
     resourcesDisposed = true;
-    // isCancelled must be set before closing the watcher: pollUntilComplete only
+    // Cancelling before the watcher closes matters: pollUntilComplete only
     // checks isCancelled() between polls, so closing the watcher alone leaves an
     // in-flight poll loop running against ComfyUI after the panel is gone.
-    if (activeGeneration) activeGeneration.isCancelled = true;
-    activeGeneration?.watcher?.close();
+    generation.disposeActive();
     livePaintingSession?.stop("Live session stopped because the OpenLayer panel closed.");
     for (const progressElement of [
       elements.statusProgress,
@@ -883,31 +891,6 @@ export function renderApp(rootElement: HTMLElement) {
     );
   }
 
-  function beginActiveGeneration(toolType: HistoryToolType, client: ComfyClient, promptId: string): ActiveGeneration {
-    const activeRun: ActiveGeneration = {
-      runId: ++generationRunSequence,
-      toolType,
-      client,
-      promptId,
-      watcher: null,
-      isCancelled: false
-    };
-
-    activeGeneration = activeRun;
-    setCancelGenerationVisible(elements, true);
-    return activeRun;
-  }
-
-  function finishActiveGeneration(activeRun: ActiveGeneration | null) {
-    activeRun?.watcher?.close();
-
-    if (activeRun && shouldFinalizeActiveRun(activeRun, activeGeneration)) {
-      releaseGenerationLivePreview(activeRun.toolType);
-      activeGeneration = null;
-      setCancelGenerationVisible(elements, false);
-    }
-  }
-
   function releaseGenerationLivePreview(toolType: HistoryToolType) {
     switch (toolType) {
       case "image-to-image": imageResultPanel.releaseLivePreviewUrl(); return;
@@ -918,16 +901,6 @@ export function renderApp(rootElement: HTMLElement) {
       case "text-to-image": resultPanel.releaseLivePreviewUrl(); return;
       case "prompt-from-layer": return;
     }
-  }
-
-  function ensureGenerationCanCommit(activeRun: ActiveGeneration | null) {
-    if (!activeRun) throw createGenerationCancelledError();
-    const validation = validateGenerationCommit(activeRun, activeGeneration);
-    if (!validation.ok) throw createGenerationCancelledError();
-  }
-
-  function publishGenerationUpdate(activeRun: ActiveGeneration | null, update: () => void) {
-    if (activeRun && canPublishGenerationUpdate(activeRun, activeGeneration)) update();
   }
 
   // One row per tool: how each generation surface reports status, diagnostics,
@@ -972,32 +945,29 @@ export function renderApp(rootElement: HTMLElement) {
   }
 
   async function handleCancelGeneration() {
-    const generation = activeGeneration;
+    const active = generation.cancelActive();
 
-    if (!generation) {
+    if (!active) {
       setDiagnostics(elements, "No active generation to cancel.");
       return;
     }
 
-    generation.isCancelled = true;
-    generation.watcher?.close();
-    generation.watcher = null;
-    setGenerationToolStatus(generation.toolType, "Cancelling generation...", "idle");
-    setGenerationToolProgress(generation.toolType, "Cancelling generation...");
+    setGenerationToolStatus(active.toolType, "Cancelling generation...", "idle");
+    setGenerationToolProgress(active.toolType, "Cancelling generation...");
     setCancelGenerationVisible(elements, false);
 
     try {
-      const cancelResult = await generation.client.cancelPrompt(generation.promptId);
-      if (shouldFinalizeActiveRun(generation, activeGeneration)) {
+      const cancelResult = await active.client.cancelPrompt(active.promptId);
+      if (active.isCurrent()) {
         setGenerationToolDiagnostics(
-          generation.toolType,
-          formatCancelResultDiagnostic(cancelResult, generation.promptId)
+          active.toolType,
+          formatCancelResultDiagnostic(cancelResult, active.promptId)
         );
       }
     } catch (caughtError) {
-      if (shouldFinalizeActiveRun(generation, activeGeneration)) {
+      if (active.isCurrent()) {
         setGenerationToolDiagnostics(
-          generation.toolType,
+          active.toolType,
           `Cancel requested locally. ComfyUI interrupt may already be complete or unavailable. ${getTechnicalErrorDetails(caughtError)}`
         );
       }
@@ -1019,8 +989,6 @@ export function renderApp(rootElement: HTMLElement) {
     syncBusy();
     setStatus(elements, "Preparing workflow...", "idle");
     setProgressPreview(elements, "Preparing workflow...");
-    let progressWatcher: ReturnType<ComfyClient["watchProgress"]> | null = null;
-    let activeRun: ActiveGeneration | null = null;
 
     try {
       const originatingDocument = getActiveDocumentIdentity();
@@ -1073,75 +1041,43 @@ export function renderApp(rootElement: HTMLElement) {
         seed: settings.seed
       });
 
-      setStatus(elements, "Submitting prompt to ComfyUI...", "idle");
-      setProgressPreview(elements, "Submitting prompt to ComfyUI...");
-      const promptId = await client.submitPrompt(buildResult.workflow);
-      activeRun = beginActiveGeneration("text-to-image", client, promptId);
-      let hasLivePreview = false;
-      progressWatcher = client.watchProgress(promptId, {
-        onStatus: (message) => {
-          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
-          setStatus(elements, message, "idle");
-
-          if (!hasLivePreview) {
-            setProgressPreview(elements, message);
-          }
-        },
-        onProgress: (value, max) => publishGenerationUpdate(activeRun, () => applyDeterminateProgress(elements.statusProgress, value, max)),
-        onPreviewBlob: (blob) => {
-          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
-          hasLivePreview = true;
-          setProgressPreview(elements, "Live ComfyUI preview...", blob);
-        },
-        onError: (message) => publishGenerationUpdate(activeRun, () => setDiagnostics(elements, message))
-      });
-      activeRun.watcher = progressWatcher;
-
-      setStatus(elements, "Generating image...", "idle");
-      setProgressPreview(elements, "Generating image...");
-      const history = await client.pollUntilComplete(
-        promptId,
-        {
-          onTick: (message) => {
-            if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
-            setStatus(elements, message, "idle");
-
-            if (!hasLivePreview) {
-              setProgressPreview(elements, message);
-          }
-        },
-        isCancelled: () => Boolean(activeRun?.isCancelled)
-      }
-      );
-      progressWatcher?.close();
-      progressWatcher = null;
-      activeRun.watcher = null;
-
-      setStatus(elements, "Retrieving image...", "idle");
-      setProgressPreview(elements, "Retrieving final image...");
-      const generatedResult = bindDocumentContext(
-        await client.retrieveFirstOutputImage(promptId, history, {
-          preferredNodeId: getSaveImageNodeId(buildResult.preset)
-        }),
-        originatingDocument
-      );
-      ensureGenerationCanCommit(activeRun);
-      setResult(generatedResult);
-      addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
-        prompt: elements.prompt.value,
-        negativePrompt: elements.negativePrompt.value,
-        checkpointName,
-        modelName: checkpointName,
-        workflowPreset: buildResult.preset.id,
+      const generatedResult = await generation.runPipeline({
         toolType: "text-to-image",
-        seed: buildResult.seed,
-        sizeLabel: `${settings.width} x ${settings.height}`,
-        dimensions: `${settings.width} x ${settings.height}`,
-        sourceMode: "Prompt only",
-        experimental: buildResult.preset.status === "experimental"
+        client,
+        workflow: buildResult.workflow,
+        preferredNodeId: getSaveImageNodeId(buildResult.preset),
+        originatingDocument: originatingDocument,
+        ui: createPipelineUi("text-to-image", elements.statusProgress),
+        messages: {
+          submitStatus: "Submitting prompt to ComfyUI...",
+          submitPreview: "Submitting prompt to ComfyUI...",
+          generateStatus: "Generating image...",
+          generatePreview: "Generating image...",
+          retrieveStatus: "Retrieving image...",
+          retrievePreview: "Retrieving final image...",
+          livePreview: "Live ComfyUI preview..."
+        },
+        commit: (generatedResult) => {
+        setResult(generatedResult);
+        addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
+          prompt: elements.prompt.value,
+          negativePrompt: elements.negativePrompt.value,
+          checkpointName,
+          modelName: checkpointName,
+          workflowPreset: buildResult.preset.id,
+          toolType: "text-to-image",
+          seed: buildResult.seed,
+          sizeLabel: `${settings.width} x ${settings.height}`,
+          dimensions: `${settings.width} x ${settings.height}`,
+          sourceMode: "Prompt only",
+          experimental: buildResult.preset.status === "experimental"
+        });
+        }
       });
-      finishActiveGeneration(activeRun);
-      activeRun = null;
+
+      if (!generatedResult) {
+        return;
+      }
 
       if (importAutomatically) {
         setStatus(elements, "Generation complete. Auto-importing...", "idle");
@@ -1156,7 +1092,7 @@ export function renderApp(rootElement: HTMLElement) {
       updateSettingsReport(elements);
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
-        if (!activeRun || shouldFinalizeActiveRun(activeRun, activeGeneration)) showGenerationCancelled("text-to-image", activeRun?.promptId);
+        showGenerationCancelled("text-to-image");
         return;
       }
 
@@ -1164,8 +1100,6 @@ export function renderApp(rootElement: HTMLElement) {
       setError(elements, getErrorMessage(caughtError));
       setDiagnostics(elements, getTechnicalErrorDetails(caughtError));
     } finally {
-      progressWatcher?.close();
-      finishActiveGeneration(activeRun);
       isBusy = false;
       syncBusy();
     }
@@ -1441,8 +1375,6 @@ export function renderApp(rootElement: HTMLElement) {
     syncBusy();
     setImageStatus(elements, "Preparing Image to Image workflow...", "idle");
     setImageProgressPreview(elements, "Preparing Image to Image workflow...");
-    let progressWatcher: ReturnType<ComfyClient["watchProgress"]> | null = null;
-    let activeRun: ActiveGeneration | null = null;
 
     try {
       const workflowPreset = readSelectValue(elements.imgWorkflow, DEFAULT_IMAGE_WORKFLOW);
@@ -1509,72 +1441,46 @@ export function renderApp(rootElement: HTMLElement) {
         denoise: settings.denoise
       });
 
-      setImageStatus(elements, "Submitting Image to Image prompt...", "idle");
-      setImageProgressPreview(elements, "Submitting prompt to ComfyUI...");
-      const promptId = await client.submitPrompt(buildResult.workflow);
-      activeRun = beginActiveGeneration("image-to-image", client, promptId);
-      let hasLivePreview = false;
-      progressWatcher = client.watchProgress(promptId, {
-        onStatus: (message) => {
-          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
-          setImageStatus(elements, message, "idle");
-
-          if (!hasLivePreview) {
-            setImageProgressPreview(elements, message);
-          }
-        },
-        onProgress: (value, max) => publishGenerationUpdate(activeRun, () => applyDeterminateProgress(elements.imgStatusProgress, value, max)),
-        onPreviewBlob: (blob) => {
-          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
-          hasLivePreview = true;
-          setImageProgressPreview(elements, "Live ComfyUI preview...", blob);
-        },
-        onError: (message) => publishGenerationUpdate(activeRun, () => setImageDiagnostics(elements, message))
-      });
-      activeRun.watcher = progressWatcher;
-
-      setImageStatus(elements, "Generating Image to Image result...", "idle");
-      setImageProgressPreview(elements, "Generating image...");
-      const history = await client.pollUntilComplete(promptId, {
-        onTick: (message) => {
-          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
-          setImageStatus(elements, message, "idle");
-
-          if (!hasLivePreview) {
-            setImageProgressPreview(elements, message);
-          }
-        },
-        isCancelled: () => Boolean(activeRun?.isCancelled)
-      });
-      progressWatcher?.close();
-      progressWatcher = null;
-      activeRun.watcher = null;
-
-      setImageStatus(elements, "Retrieving Image to Image result...", "idle");
-      setImageProgressPreview(elements, "Retrieving final image...");
-      const generatedResult = bindDocumentContext(
-        await client.retrieveFirstOutputImage(promptId, history, {
-          preferredNodeId: getSaveImageNodeId(buildResult.preset)
-        }),
-        imageSource.originatingDocument
-      );
-      ensureGenerationCanCommit(activeRun);
-      setImageResult(generatedResult);
-      addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
-        prompt: elements.imgPrompt.value,
-        negativePrompt: elements.imgNegativePrompt.value,
-        checkpointName,
-        modelName: checkpointName,
-        workflowPreset: buildResult.preset.id,
+      // The commit closure runs after awaits; a const keeps the null-checked
+      // source from the top of the handler rather than re-reading mutable state.
+      const capturedSource = imageSource;
+      const generatedResult = await generation.runPipeline({
         toolType: "image-to-image",
-        seed: buildResult.seed,
-        sizeLabel: "Image to Image",
-        dimensions: `${imageSource.width} x ${imageSource.height}`,
-        sourceMode: imageSource.sourceName,
-        experimental: buildResult.preset.status === "experimental"
+        client,
+        workflow: buildResult.workflow,
+        preferredNodeId: getSaveImageNodeId(buildResult.preset),
+        originatingDocument: capturedSource.originatingDocument,
+        ui: createPipelineUi("image-to-image", elements.imgStatusProgress),
+        messages: {
+          submitStatus: "Submitting Image to Image prompt...",
+          submitPreview: "Submitting prompt to ComfyUI...",
+          generateStatus: "Generating Image to Image result...",
+          generatePreview: "Generating image...",
+          retrieveStatus: "Retrieving Image to Image result...",
+          retrievePreview: "Retrieving final image...",
+          livePreview: "Live ComfyUI preview..."
+        },
+        commit: (generatedResult) => {
+        setImageResult(generatedResult);
+        addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
+          prompt: elements.imgPrompt.value,
+          negativePrompt: elements.imgNegativePrompt.value,
+          checkpointName,
+          modelName: checkpointName,
+          workflowPreset: buildResult.preset.id,
+          toolType: "image-to-image",
+          seed: buildResult.seed,
+          sizeLabel: "Image to Image",
+          dimensions: `${capturedSource.width} x ${capturedSource.height}`,
+          sourceMode: capturedSource.sourceName,
+          experimental: buildResult.preset.status === "experimental"
+        });
+        }
       });
-      finishActiveGeneration(activeRun);
-      activeRun = null;
+
+      if (!generatedResult) {
+        return;
+      }
       setImageStatus(elements, "Image to Image generation complete.", "ready");
       setImageDiagnostics(
         elements,
@@ -1588,7 +1494,7 @@ export function renderApp(rootElement: HTMLElement) {
       }
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
-        if (!activeRun || shouldFinalizeActiveRun(activeRun, activeGeneration)) showGenerationCancelled("image-to-image", activeRun?.promptId);
+        showGenerationCancelled("image-to-image");
         return;
       }
 
@@ -1597,8 +1503,6 @@ export function renderApp(rootElement: HTMLElement) {
       console.error("[OpenLayer] Image to Image generation failed", getTechnicalErrorDetails(caughtError));
       setImageDiagnostics(elements, getImageToImageFailureHint(caughtError));
     } finally {
-      progressWatcher?.close();
-      finishActiveGeneration(activeRun);
       isBusy = false;
       syncBusy();
     }
@@ -1729,8 +1633,6 @@ export function renderApp(rootElement: HTMLElement) {
     syncBusy();
     setUpscaleStatus(elements, "Preparing Upscale workflow...", "idle");
     setUpscaleProgressPreview(elements, "Preparing Upscale workflow...");
-    let progressWatcher: ReturnType<ComfyClient["watchProgress"]> | null = null;
-    let activeRun: ActiveGeneration | null = null;
 
     try {
       const workflowPreset = readSelectValue(elements.upscaleWorkflow, DEFAULT_UPSCALE_WORKFLOW);
@@ -1764,71 +1666,45 @@ export function renderApp(rootElement: HTMLElement) {
         modelName
       });
 
-      setUpscaleStatus(elements, "Submitting Upscale prompt...", "idle");
-      setUpscaleProgressPreview(elements, "Submitting prompt to ComfyUI...");
-      const promptId = await client.submitPrompt(buildResult.workflow);
-      activeRun = beginActiveGeneration("upscale", client, promptId);
-      let hasLivePreview = false;
-      progressWatcher = client.watchProgress(promptId, {
-        onStatus: (message) => {
-          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
-          setUpscaleStatus(elements, message, "idle");
-
-          if (!hasLivePreview) {
-            setUpscaleProgressPreview(elements, message);
-          }
-        },
-        onProgress: (value, max) => publishGenerationUpdate(activeRun, () => applyDeterminateProgress(elements.upscaleStatusProgress, value, max)),
-        onPreviewBlob: (blob) => {
-          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
-          hasLivePreview = true;
-          setUpscaleProgressPreview(elements, "Live ComfyUI preview...", blob);
-        },
-        onError: (message) => publishGenerationUpdate(activeRun, () => setUpscaleDiagnostics(elements, message))
-      });
-      activeRun.watcher = progressWatcher;
-
-      setUpscaleStatus(elements, "Upscaling image...", "idle");
-      setUpscaleProgressPreview(elements, "Upscaling image...");
-      const history = await client.pollUntilComplete(promptId, {
-        onTick: (message) => {
-          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
-          setUpscaleStatus(elements, message, "idle");
-
-          if (!hasLivePreview) {
-            setUpscaleProgressPreview(elements, message);
-          }
-        },
-        isCancelled: () => Boolean(activeRun?.isCancelled)
-      });
-      progressWatcher?.close();
-      progressWatcher = null;
-      activeRun.watcher = null;
-
-      setUpscaleStatus(elements, "Retrieving Upscale result...", "idle");
-      setUpscaleProgressPreview(elements, "Retrieving final image...");
-      const generatedResult = bindDocumentContext(
-        await client.retrieveFirstOutputImage(promptId, history, {
-          preferredNodeId: getSaveImageNodeId(buildResult.preset)
-        }),
-        upscaleSource.originatingDocument
-      );
-      ensureGenerationCanCommit(activeRun);
-      setUpscaleResult(generatedResult);
-      addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
-        prompt: `Upscale ${upscaleSource.sourceName}`,
-        checkpointName: modelName,
-        modelName,
-        workflowPreset: buildResult.preset.id,
+      // The commit closure runs after awaits; a const keeps the null-checked
+      // source from the top of the handler rather than re-reading mutable state.
+      const capturedSource = upscaleSource;
+      const generatedResult = await generation.runPipeline({
         toolType: "upscale",
-        seed: 0,
-        sizeLabel: "Upscale",
-        dimensions: `${upscaleSource.width} x ${upscaleSource.height} source`,
-        sourceMode: upscaleSource.sourceName,
-        experimental: buildResult.preset.status === "experimental"
+        client,
+        workflow: buildResult.workflow,
+        preferredNodeId: getSaveImageNodeId(buildResult.preset),
+        originatingDocument: capturedSource.originatingDocument,
+        ui: createPipelineUi("upscale", elements.upscaleStatusProgress),
+        messages: {
+          submitStatus: "Submitting Upscale prompt...",
+          submitPreview: "Submitting prompt to ComfyUI...",
+          generateStatus: "Upscaling image...",
+          generatePreview: "Upscaling image...",
+          retrieveStatus: "Retrieving Upscale result...",
+          retrievePreview: "Retrieving final image...",
+          livePreview: "Live ComfyUI preview..."
+        },
+        commit: (generatedResult) => {
+        setUpscaleResult(generatedResult);
+        addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
+          prompt: `Upscale ${capturedSource.sourceName}`,
+          checkpointName: modelName,
+          modelName,
+          workflowPreset: buildResult.preset.id,
+          toolType: "upscale",
+          seed: 0,
+          sizeLabel: "Upscale",
+          dimensions: `${capturedSource.width} x ${capturedSource.height} source`,
+          sourceMode: capturedSource.sourceName,
+          experimental: buildResult.preset.status === "experimental"
+        });
+        }
       });
-      finishActiveGeneration(activeRun);
-      activeRun = null;
+
+      if (!generatedResult) {
+        return;
+      }
       setUpscaleStatus(elements, "Upscale generation complete.", "ready");
       setUpscaleDiagnostics(
         elements,
@@ -1842,7 +1718,7 @@ export function renderApp(rootElement: HTMLElement) {
       }
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
-        if (!activeRun || shouldFinalizeActiveRun(activeRun, activeGeneration)) showGenerationCancelled("upscale", activeRun?.promptId);
+        showGenerationCancelled("upscale");
         return;
       }
 
@@ -1851,8 +1727,6 @@ export function renderApp(rootElement: HTMLElement) {
       console.error("[OpenLayer] Upscale generation failed", getTechnicalErrorDetails(caughtError));
       setUpscaleDiagnostics(elements, getUpscaleFailureHint(caughtError));
     } finally {
-      progressWatcher?.close();
-      finishActiveGeneration(activeRun);
       isBusy = false;
       syncBusy();
     }
@@ -1992,8 +1866,6 @@ export function renderApp(rootElement: HTMLElement) {
     syncBusy();
     setOutpaintStatus(elements, "Preparing Outpaint workflow...", "idle");
     setOutpaintProgressPreview(elements, "Preparing Outpaint workflow...");
-    let progressWatcher: ReturnType<ComfyClient["watchProgress"]> | null = null;
-    let activeRun: ActiveGeneration | null = null;
 
     try {
       const workflowPreset = readSelectValue(elements.outpaintWorkflow, DEFAULT_OUTPAINT_WORKFLOW);
@@ -2059,82 +1931,56 @@ export function renderApp(rootElement: HTMLElement) {
         requiredModelSelections
       });
 
-      setOutpaintStatus(elements, "Submitting Outpaint prompt...", "idle");
-      setOutpaintProgressPreview(elements, "Submitting prompt to ComfyUI...");
-      const promptId = await client.submitPrompt(buildResult.workflow);
-      activeRun = beginActiveGeneration("outpaint", client, promptId);
-      let hasLivePreview = false;
-      progressWatcher = client.watchProgress(promptId, {
-        onStatus: (message) => {
-          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
-          setOutpaintStatus(elements, message, "idle");
-
-          if (!hasLivePreview) {
-            setOutpaintProgressPreview(elements, message);
-          }
-        },
-        onProgress: (value, max) => publishGenerationUpdate(activeRun, () => applyDeterminateProgress(elements.outpaintStatusProgress, value, max)),
-        onPreviewBlob: (blob) => {
-          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
-          hasLivePreview = true;
-          setOutpaintProgressPreview(elements, "Live ComfyUI Outpaint preview...", blob);
-        },
-        onError: (message) => publishGenerationUpdate(activeRun, () => setOutpaintDiagnostics(elements, message))
-      });
-      activeRun.watcher = progressWatcher;
-
-      setOutpaintStatus(elements, "Generating Outpaint result...", "idle");
-      setOutpaintProgressPreview(elements, "Generating outpaint...");
-      const history = await client.pollUntilComplete(promptId, {
-        onTick: (message) => {
-          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
-          setOutpaintStatus(elements, message, "idle");
-
-          if (!hasLivePreview) {
-            setOutpaintProgressPreview(elements, message);
-          }
-        },
-        isCancelled: () => Boolean(activeRun?.isCancelled)
-      });
-      progressWatcher?.close();
-      progressWatcher = null;
-      activeRun.watcher = null;
-
-      setOutpaintStatus(elements, "Retrieving Outpaint result...", "idle");
-      setOutpaintProgressPreview(elements, "Retrieving final image...");
-      const generatedResult = bindDocumentContext(
-        await client.retrieveFirstOutputImage(promptId, history, {
-          preferredNodeId: getSaveImageNodeId(buildResult.preset)
-        }),
-        outpaintSource.originatingDocument
-      );
-      ensureGenerationCanCommit(activeRun);
-      setOutpaintResult(generatedResult);
-      addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
-        prompt: elements.outpaintPrompt.value,
-        checkpointName,
-        modelName: checkpointName,
-        workflowPreset: buildResult.preset.id,
+      // The commit closure runs after awaits; a const keeps the null-checked
+      // source from the top of the handler rather than re-reading mutable state.
+      const capturedSource = outpaintSource;
+      const generatedResult = await generation.runPipeline({
         toolType: "outpaint",
-        seed: buildResult.seed,
-        sizeLabel: "Outpaint",
-        dimensions: `${outpaintSource.width} x ${outpaintSource.height}`,
-        sourceMode: outpaintSource.sourceName,
-        experimental: true,
-        diagnosticsSummary: formatInpaintOutpaintDebugContract({
+        client,
+        workflow: buildResult.workflow,
+        preferredNodeId: getSaveImageNodeId(buildResult.preset),
+        originatingDocument: capturedSource.originatingDocument,
+        ui: createPipelineUi("outpaint", elements.outpaintStatusProgress),
+        messages: {
+          submitStatus: "Submitting Outpaint prompt...",
+          submitPreview: "Submitting prompt to ComfyUI...",
+          generateStatus: "Generating Outpaint result...",
+          generatePreview: "Generating outpaint...",
+          retrieveStatus: "Retrieving Outpaint result...",
+          retrievePreview: "Retrieving final image...",
+          livePreview: "Live ComfyUI Outpaint preview..."
+        },
+        commit: (generatedResult) => {
+        setOutpaintResult(generatedResult);
+        addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
+          prompt: elements.outpaintPrompt.value,
+          checkpointName,
+          modelName: checkpointName,
+          workflowPreset: buildResult.preset.id,
           toolType: "outpaint",
-          presetId: buildResult.preset.id,
-          sourceMode: outpaintSource.sourceName,
-          sourceDimensions: {
-            width: outpaintSource.width,
-            height: outpaintSource.height
-          },
-          outputKind: "expanded canvas",
-          importMode: "new layer"
-        })
+          seed: buildResult.seed,
+          sizeLabel: "Outpaint",
+          dimensions: `${capturedSource.width} x ${capturedSource.height}`,
+          sourceMode: capturedSource.sourceName,
+          experimental: true,
+          diagnosticsSummary: formatInpaintOutpaintDebugContract({
+            toolType: "outpaint",
+            presetId: buildResult.preset.id,
+            sourceMode: capturedSource.sourceName,
+            sourceDimensions: {
+              width: capturedSource.width,
+              height: capturedSource.height
+            },
+            outputKind: "expanded canvas",
+            importMode: "new layer"
+          })
+        });
+        }
       });
-      finishActiveGeneration(activeRun);
-      activeRun = null;
+
+      if (!generatedResult) {
+        return;
+      }
       setOutpaintStatus(elements, "Outpaint generation complete.", "ready");
       setOutpaintDiagnostics(
         elements,
@@ -2142,7 +1988,7 @@ export function renderApp(rootElement: HTMLElement) {
       );
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
-        if (!activeRun || shouldFinalizeActiveRun(activeRun, activeGeneration)) showGenerationCancelled("outpaint", activeRun?.promptId);
+        showGenerationCancelled("outpaint");
         return;
       }
 
@@ -2151,8 +1997,6 @@ export function renderApp(rootElement: HTMLElement) {
       console.error("[OpenLayer] Outpaint generation failed", getTechnicalErrorDetails(caughtError));
       setOutpaintDiagnostics(elements, getOutpaintFailureHint(caughtError));
     } finally {
-      progressWatcher?.close();
-      finishActiveGeneration(activeRun);
       isBusy = false;
       syncBusy();
     }
@@ -2284,8 +2128,6 @@ export function renderApp(rootElement: HTMLElement) {
     syncBusy();
     setSketchStatus(elements, "Preparing LINECN workflow...", "idle");
     setSketchProgressPreview(elements, "Preparing LINECN workflow...");
-    let progressWatcher: ReturnType<ComfyClient["watchProgress"]> | null = null;
-    let activeRun: ActiveGeneration | null = null;
 
     try {
       const workflowPreset = readSelectValue(elements.sketchWorkflow, DEFAULT_SKETCH_WORKFLOW);
@@ -2355,72 +2197,46 @@ export function renderApp(rootElement: HTMLElement) {
         controlStrength: settings.controlStrength
       });
 
-      setSketchStatus(elements, "Submitting Sketch to Image prompt...", "idle");
-      setSketchProgressPreview(elements, "Submitting prompt to ComfyUI...");
-      const promptId = await client.submitPrompt(buildResult.workflow);
-      activeRun = beginActiveGeneration("sketch-to-image", client, promptId);
-      let hasLivePreview = false;
-      progressWatcher = client.watchProgress(promptId, {
-        onStatus: (message) => {
-          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
-          setSketchStatus(elements, message, "idle");
-
-          if (!hasLivePreview) {
-            setSketchProgressPreview(elements, message);
-          }
-        },
-        onProgress: (value, max) => publishGenerationUpdate(activeRun, () => applyDeterminateProgress(elements.sketchStatusProgress, value, max)),
-        onPreviewBlob: (blob) => {
-          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
-          hasLivePreview = true;
-          setSketchProgressPreview(elements, "Live ComfyUI preview...", blob);
-        },
-        onError: (message) => publishGenerationUpdate(activeRun, () => setSketchDiagnostics(elements, message))
-      });
-      activeRun.watcher = progressWatcher;
-
-      setSketchStatus(elements, "Generating Sketch to Image result...", "idle");
-      setSketchProgressPreview(elements, "Generating image...");
-      const history = await client.pollUntilComplete(promptId, {
-        onTick: (message) => {
-          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
-          setSketchStatus(elements, message, "idle");
-
-          if (!hasLivePreview) {
-            setSketchProgressPreview(elements, message);
-          }
-        },
-        isCancelled: () => Boolean(activeRun?.isCancelled)
-      });
-      progressWatcher?.close();
-      progressWatcher = null;
-      activeRun.watcher = null;
-
-      setSketchStatus(elements, "Retrieving Sketch to Image result...", "idle");
-      setSketchProgressPreview(elements, "Retrieving final image...");
-      const generatedResult = bindDocumentContext(
-        await client.retrieveFirstOutputImage(promptId, history, {
-          preferredNodeId: getSaveImageNodeId(buildResult.preset)
-        }),
-        sketchSource.originatingDocument
-      );
-      ensureGenerationCanCommit(activeRun);
-      setSketchResult(generatedResult);
-      addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
-        prompt: elements.sketchPrompt.value,
-        negativePrompt: elements.sketchNegativePrompt.value,
-        checkpointName,
-        modelName: checkpointName,
-        workflowPreset: buildResult.preset.id,
+      // The commit closure runs after awaits; a const keeps the null-checked
+      // source from the top of the handler rather than re-reading mutable state.
+      const capturedSource = sketchSource;
+      const generatedResult = await generation.runPipeline({
         toolType: "sketch-to-image",
-        seed: buildResult.seed,
-        sizeLabel: "Sketch to Image",
-        dimensions: `${sketchSource.width} x ${sketchSource.height}`,
-        sourceMode: sketchSource.sourceName,
-        experimental: buildResult.preset.status === "experimental"
+        client,
+        workflow: buildResult.workflow,
+        preferredNodeId: getSaveImageNodeId(buildResult.preset),
+        originatingDocument: capturedSource.originatingDocument,
+        ui: createPipelineUi("sketch-to-image", elements.sketchStatusProgress),
+        messages: {
+          submitStatus: "Submitting Sketch to Image prompt...",
+          submitPreview: "Submitting prompt to ComfyUI...",
+          generateStatus: "Generating Sketch to Image result...",
+          generatePreview: "Generating image...",
+          retrieveStatus: "Retrieving Sketch to Image result...",
+          retrievePreview: "Retrieving final image...",
+          livePreview: "Live ComfyUI preview..."
+        },
+        commit: (generatedResult) => {
+        setSketchResult(generatedResult);
+        addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
+          prompt: elements.sketchPrompt.value,
+          negativePrompt: elements.sketchNegativePrompt.value,
+          checkpointName,
+          modelName: checkpointName,
+          workflowPreset: buildResult.preset.id,
+          toolType: "sketch-to-image",
+          seed: buildResult.seed,
+          sizeLabel: "Sketch to Image",
+          dimensions: `${capturedSource.width} x ${capturedSource.height}`,
+          sourceMode: capturedSource.sourceName,
+          experimental: buildResult.preset.status === "experimental"
+        });
+        }
       });
-      finishActiveGeneration(activeRun);
-      activeRun = null;
+
+      if (!generatedResult) {
+        return;
+      }
       setSketchStatus(elements, "Sketch to Image generation complete.", "ready");
       setSketchDiagnostics(
         elements,
@@ -2428,7 +2244,7 @@ export function renderApp(rootElement: HTMLElement) {
       );
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
-        if (!activeRun || shouldFinalizeActiveRun(activeRun, activeGeneration)) showGenerationCancelled("sketch-to-image", activeRun?.promptId);
+        showGenerationCancelled("sketch-to-image");
         return;
       }
 
@@ -2437,8 +2253,6 @@ export function renderApp(rootElement: HTMLElement) {
       console.error("[OpenLayer] Sketch to Image generation failed", getTechnicalErrorDetails(caughtError));
       setSketchDiagnostics(elements, getSketchFailureHint(caughtError));
     } finally {
-      progressWatcher?.close();
-      finishActiveGeneration(activeRun);
       isBusy = false;
       syncBusy();
     }
@@ -2607,8 +2421,6 @@ export function renderApp(rootElement: HTMLElement) {
     syncBusy();
     setInpaintStatus(elements, "Preparing Inpaint workflow...", "idle");
     setInpaintProgressPreview(elements, "Preparing Inpaint workflow...");
-    let progressWatcher: ReturnType<ComfyClient["watchProgress"]> | null = null;
-    let activeRun: ActiveGeneration | null = null;
 
     try {
       const preset = getWorkflowPreset(presetId);
@@ -2735,125 +2547,97 @@ export function renderApp(rootElement: HTMLElement) {
         );
       }
 
-      setInpaintStatus(elements, "Submitting Inpaint prompt...", "idle");
-      setInpaintProgressPreview(elements, "Submitting prompt to ComfyUI...");
-      const promptId = await client.submitPrompt(buildResult.workflow);
-      activeRun = beginActiveGeneration("inpaint", client, promptId);
-      let hasLivePreview = false;
-      progressWatcher = client.watchProgress(promptId, {
-        onStatus: (message) => {
-          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
-          setInpaintStatus(elements, message, "idle");
-
-          if (!hasLivePreview) {
-            setInpaintProgressPreview(elements, message);
-          }
-        },
-        onProgress: (value, max) => publishGenerationUpdate(activeRun, () => applyDeterminateProgress(elements.inpaintStatusProgress, value, max)),
-        onPreviewBlob: (blob) => {
-          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
-          hasLivePreview = true;
-          setInpaintProgressPreview(elements, "Live ComfyUI preview...", blob);
-        },
-        onError: (message) => publishGenerationUpdate(activeRun, () => setInpaintDiagnostics(elements, message))
-      });
-      activeRun.watcher = progressWatcher;
-
-      setInpaintStatus(elements, "Generating Inpaint result...", "idle");
-      setInpaintProgressPreview(elements, "Generating image...");
-      const history = await client.pollUntilComplete(promptId, {
-        onTick: (message) => {
-          if (!activeRun || !canPublishGenerationUpdate(activeRun, activeGeneration)) return;
-          setInpaintStatus(elements, message, "idle");
-
-          if (!hasLivePreview) {
-            setInpaintProgressPreview(elements, message);
-          }
-        },
-        isCancelled: () => Boolean(activeRun?.isCancelled)
-      });
-      progressWatcher?.close();
-      progressWatcher = null;
-      activeRun.watcher = null;
-
-      setInpaintStatus(elements, "Retrieving Inpaint result...", "idle");
-      setInpaintProgressPreview(elements, "Retrieving final image...");
-      const generatedResult = bindDocumentContext(
-        await client.retrieveFirstOutputImage(promptId, history, {
-          preferredNodeId: getSaveImageNodeId(buildResult.preset)
-        }),
-        submittedSource.originatingDocument
-      );
-      ensureGenerationCanCommit(activeRun);
-      const generatedImportContext = createInpaintImportContext(submittedSource, generatedResult);
-      const resultDimensions = await readImageDimensionsFromBlob(generatedResult.blob);
-      const inpaintOutputDiagnostics = formatInpaintOutputDiagnostics({
-        presetId: buildResult.preset.id,
-        sourceDimensions: {
-          width: submittedSource.width,
-          height: submittedSource.height
-        },
-        maskDimensions: {
-          width: submittedMask.width,
-          height: submittedMask.height
-        },
-        resultDimensions,
-        importMode: "aligned-context-fallback",
-        maskPolarity: "white-repaints"
-      });
+      let inpaintOutputDiagnostics = "";
       let debugExportMessage = "";
-
-      try {
-        const debugFiles = await saveInpaintDebugBlobsToTemporaryFiles({
-          sourceBlob: submittedSource.blob,
-          maskBlob: submittedMask.blob,
-          resultBlob: generatedResult.blob
-        });
-        debugExportMessage = ` Debug copies saved in the UXP temporary folder: ${debugFiles.join(", ")}.`;
-      } catch (debugError) {
-        debugExportMessage = ` Debug copy export unavailable: ${getErrorMessage(debugError)}.`;
-      }
-
-      activeInpaintImportContext = generatedImportContext;
-      setInpaintResult(generatedResult);
-      addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
-        prompt: elements.inpaintPrompt.value,
-        negativePrompt: elements.inpaintNegativePrompt.value,
-        checkpointName,
-        modelName: checkpointName,
-        workflowPreset: buildResult.preset.id,
+      const generatedResult = await generation.runPipeline({
         toolType: "inpaint",
-        seed: buildResult.seed,
-        sizeLabel: "Inpaint",
-        dimensions: `${submittedSource.width} x ${submittedSource.height}`,
-        sourceMode: getInpaintSourceModeLabel(submittedSource.sourceMode),
-        sourceBounds: createMetadataBounds(submittedSource.selection.bounds),
-        contextBounds: createMetadataBounds(submittedSource.selection.contextBounds),
-        inpaintImportContext: generatedImportContext,
-        experimental: true,
-        diagnosticsSummary: [
-          inpaintOutputDiagnostics,
-          formatInpaintOutpaintDebugContract({
-            toolType: "inpaint",
-            presetId: buildResult.preset.id,
-            sourceMode: getInpaintSourceModeLabel(submittedSource.sourceMode),
-            sourceDimensions: {
-              width: submittedSource.width,
-              height: submittedSource.height
-            },
-            maskDimensions: {
-              width: submittedMask.width,
-              height: submittedMask.height
-            },
-            maskPolarity: "white-repaints",
-            contextBounds: createMetadataBounds(submittedSource.selection.contextBounds),
-            outputKind: "selection context",
-            importMode: "Photoshop layer mask with aligned fallback"
-          })
-        ].filter(Boolean).join(" ")
+        client,
+        workflow: buildResult.workflow,
+        preferredNodeId: getSaveImageNodeId(buildResult.preset),
+        originatingDocument: submittedSource.originatingDocument,
+        ui: createPipelineUi("inpaint", elements.inpaintStatusProgress),
+        messages: {
+          submitStatus: "Submitting Inpaint prompt...",
+          submitPreview: "Submitting prompt to ComfyUI...",
+          generateStatus: "Generating Inpaint result...",
+          generatePreview: "Generating image...",
+          retrieveStatus: "Retrieving Inpaint result...",
+          retrievePreview: "Retrieving final image...",
+          livePreview: "Live ComfyUI preview..."
+        },
+        commit: async (generatedResult) => {
+        const generatedImportContext = createInpaintImportContext(submittedSource, generatedResult);
+        const resultDimensions = await readImageDimensionsFromBlob(generatedResult.blob);
+        inpaintOutputDiagnostics = formatInpaintOutputDiagnostics({
+          presetId: buildResult.preset.id,
+          sourceDimensions: {
+            width: submittedSource.width,
+            height: submittedSource.height
+          },
+          maskDimensions: {
+            width: submittedMask.width,
+            height: submittedMask.height
+          },
+          resultDimensions,
+          importMode: "aligned-context-fallback",
+          maskPolarity: "white-repaints"
+        });
+
+        try {
+          const debugFiles = await saveInpaintDebugBlobsToTemporaryFiles({
+            sourceBlob: submittedSource.blob,
+            maskBlob: submittedMask.blob,
+            resultBlob: generatedResult.blob
+          });
+          debugExportMessage = ` Debug copies saved in the UXP temporary folder: ${debugFiles.join(", ")}.`;
+        } catch (debugError) {
+          debugExportMessage = ` Debug copy export unavailable: ${getErrorMessage(debugError)}.`;
+        }
+
+        activeInpaintImportContext = generatedImportContext;
+        setInpaintResult(generatedResult);
+        addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
+          prompt: elements.inpaintPrompt.value,
+          negativePrompt: elements.inpaintNegativePrompt.value,
+          checkpointName,
+          modelName: checkpointName,
+          workflowPreset: buildResult.preset.id,
+          toolType: "inpaint",
+          seed: buildResult.seed,
+          sizeLabel: "Inpaint",
+          dimensions: `${submittedSource.width} x ${submittedSource.height}`,
+          sourceMode: getInpaintSourceModeLabel(submittedSource.sourceMode),
+          sourceBounds: createMetadataBounds(submittedSource.selection.bounds),
+          contextBounds: createMetadataBounds(submittedSource.selection.contextBounds),
+          inpaintImportContext: generatedImportContext,
+          experimental: true,
+          diagnosticsSummary: [
+            inpaintOutputDiagnostics,
+            formatInpaintOutpaintDebugContract({
+              toolType: "inpaint",
+              presetId: buildResult.preset.id,
+              sourceMode: getInpaintSourceModeLabel(submittedSource.sourceMode),
+              sourceDimensions: {
+                width: submittedSource.width,
+                height: submittedSource.height
+              },
+              maskDimensions: {
+                width: submittedMask.width,
+                height: submittedMask.height
+              },
+              maskPolarity: "white-repaints",
+              contextBounds: createMetadataBounds(submittedSource.selection.contextBounds),
+              outputKind: "selection context",
+              importMode: "Photoshop layer mask with aligned fallback"
+            })
+          ].filter(Boolean).join(" ")
+        });
+        }
       });
-      finishActiveGeneration(activeRun);
-      activeRun = null;
+
+      if (!generatedResult) {
+        return;
+      }
       setInpaintStatus(elements, "Inpaint generation complete.", "ready");
       setInpaintDiagnostics(
         elements,
@@ -2867,7 +2651,7 @@ export function renderApp(rootElement: HTMLElement) {
       );
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
-        if (!activeRun || shouldFinalizeActiveRun(activeRun, activeGeneration)) showGenerationCancelled("inpaint", activeRun?.promptId);
+        showGenerationCancelled("inpaint");
         return;
       }
 
@@ -2876,8 +2660,6 @@ export function renderApp(rootElement: HTMLElement) {
       console.error("[OpenLayer] Inpaint generation failed", getTechnicalErrorDetails(caughtError));
       setInpaintDiagnostics(elements, getInpaintFailureHint(caughtError));
     } finally {
-      progressWatcher?.close();
-      finishActiveGeneration(activeRun);
       isBusy = false;
       syncBusy();
     }
@@ -3068,7 +2850,7 @@ export function renderApp(rootElement: HTMLElement) {
     setPromptLayerDiagnostics(elements, `Task: ${task}. Num beams: ${numBeams}.`);
     isBusy = true;
     syncBusy();
-    let activeRun: ActiveGeneration | null = null;
+    let run: GenerationRunHandle | null = null;
 
     try {
       await client.validatePresetSetup(preset);
@@ -3089,20 +2871,21 @@ export function renderApp(rootElement: HTMLElement) {
       );
 
       const promptId = await client.submitPrompt(workflowResult.workflow);
-      activeRun = beginActiveGeneration("prompt-from-layer", client, promptId);
+      run = generation.begin("prompt-from-layer", client, promptId);
+      const startedRun = run;
       const historyItem = await client.pollUntilTextComplete(promptId, {
         preferredNodeId: textOutputNodeId,
-        onTick: (message) => publishGenerationUpdate(activeRun, () => setPromptLayerStatus(elements, message, "idle")),
-        isCancelled: () => Boolean(activeRun?.isCancelled)
+        onTick: (message) => startedRun.publish(() => setPromptLayerStatus(elements, message, "idle")),
+        isCancelled: () => startedRun.isRunCancelled()
       });
       const generatedText = await client.retrieveFirstOutputText(promptId, historyItem, {
         preferredNodeId: textOutputNodeId
       });
-      ensureGenerationCanCommit(activeRun);
+      run.assertCanCommit();
 
       elements.promptLayerGeneratedText.value = generatedText;
-      finishActiveGeneration(activeRun);
-      activeRun = null;
+      run.finish();
+      run = null;
       setPromptLayerStatus(elements, "Prompt text generated.", "ready");
       setPromptLayerDiagnostics(
         elements,
@@ -3110,7 +2893,7 @@ export function renderApp(rootElement: HTMLElement) {
       );
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
-        if (!activeRun || shouldFinalizeActiveRun(activeRun, activeGeneration)) showGenerationCancelled("prompt-from-layer", activeRun?.promptId);
+        if (!run || run.isCurrent()) showGenerationCancelled("prompt-from-layer", run?.promptId);
         return;
       }
 
@@ -3118,7 +2901,7 @@ export function renderApp(rootElement: HTMLElement) {
       setPromptLayerError(elements, getErrorMessage(caughtError));
       setPromptLayerDiagnostics(elements, getTechnicalErrorDetails(caughtError));
     } finally {
-      finishActiveGeneration(activeRun);
+      run?.finish();
       isBusy = false;
       syncBusy();
     }
