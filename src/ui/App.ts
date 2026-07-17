@@ -20,6 +20,13 @@ import {
 } from "./generationIntegrity";
 import { createObjectUrlRegistry, ObjectUrlRegistry } from "./objectUrlRegistry";
 import {
+  createOwnedObjectUrl,
+  createResultPreviewPanel,
+  createSourcePreviewPanel,
+  renderPreviewImage,
+  renderPreviewMessage
+} from "./previewState";
+import {
   evaluateInpaintReadiness,
   formatInpaintReadinessDiagnostic,
   getInpaintReadinessStatusLabel,
@@ -218,37 +225,18 @@ export function renderApp(rootElement: HTMLElement) {
   let currentView: AppView = "home";
   let isBusy = false;
   let result: AppGeneratedImageResult | null = null;
-  let previewUrl = "";
-  let livePreviewUrl = "";
   let imageSource: ImageSourceState | null = null;
   let imageResult: AppGeneratedImageResult | null = null;
-  let imageSourcePreviewUrl = "";
-  let imageResultPreviewUrl = "";
-  let imageLivePreviewUrl = "";
   let sketchSource: ImageSourceState | null = null;
   let sketchResult: AppGeneratedImageResult | null = null;
-  let sketchSourcePreviewUrl = "";
-  let sketchResultPreviewUrl = "";
-  let sketchLivePreviewUrl = "";
   let inpaintSource: InpaintSourceState | null = null;
   let inpaintResult: AppGeneratedImageResult | null = null;
   let activeInpaintImportContext: AppInpaintImportContext | null = null;
-  let inpaintSourcePreviewUrl = "";
-  let inpaintMaskPreviewUrl = "";
-  let inpaintResultPreviewUrl = "";
-  let inpaintLivePreviewUrl = "";
   let outpaintSource: ImageSourceState | null = null;
   let outpaintResult: AppGeneratedImageResult | null = null;
-  let outpaintSourcePreviewUrl = "";
-  let outpaintResultPreviewUrl = "";
-  let outpaintLivePreviewUrl = "";
   let upscaleSource: ImageSourceState | null = null;
   let upscaleResult: AppGeneratedImageResult | null = null;
-  let upscaleSourcePreviewUrl = "";
-  let upscaleResultPreviewUrl = "";
-  let upscaleLivePreviewUrl = "";
   let promptLayerSource: ImageSourceState | null = null;
-  let promptLayerSourcePreviewUrl = "";
   let importAutomatically = false;
   let imageImportAutomatically = false;
   let upscaleImportAutomatically = false;
@@ -266,12 +254,6 @@ export function renderApp(rootElement: HTMLElement) {
   let workflowHealthReport: WorkflowHealthReport | null = null;
   const historyEntries: HistoryEntry[] = [];
   const objectUrls = createObjectUrlRegistry();
-  // Route every panel-owned preview URL through one registry while retaining
-  // the familiar URL.createObjectURL/revokeObjectURL call sites below.
-  const URL = {
-    createObjectURL: objectUrls.create,
-    revokeObjectURL: objectUrls.revoke
-  };
 
   function syncBusy() {
     setBusy(
@@ -294,6 +276,93 @@ export function renderApp(rootElement: HTMLElement) {
   rootElement.innerHTML = createAppMarkup();
 
   const elements = getAppElements(rootElement);
+  const resultPanel = createResultPreviewPanel({
+    urls: objectUrls,
+    panel: elements.previewPanel,
+    emptyText: "No result yet",
+    resultAlt: "Generated OpenLayer preview",
+    liveAlt: "Live ComfyUI generation preview"
+  });
+  const imageResultPanel = createResultPreviewPanel({
+    urls: objectUrls,
+    panel: elements.imageResultPreviewPanel,
+    emptyText: "No Image to Image result yet",
+    resultAlt: "Generated Image to Image preview",
+    liveAlt: "Live ComfyUI Image to Image preview"
+  });
+  const sketchResultPanel = createResultPreviewPanel({
+    urls: objectUrls,
+    panel: elements.sketchResultPreviewPanel,
+    emptyText: "No Sketch to Image result yet",
+    resultAlt: "Generated Sketch to Image preview",
+    liveAlt: "Live ComfyUI Sketch to Image preview"
+  });
+  const inpaintResultPanel = createResultPreviewPanel({
+    urls: objectUrls,
+    panel: elements.inpaintResultPreviewPanel,
+    emptyText: "No Inpaint result yet",
+    resultAlt: "Generated Inpaint preview",
+    liveAlt: "Live ComfyUI Inpaint preview"
+  });
+  const outpaintResultPanel = createResultPreviewPanel({
+    urls: objectUrls,
+    panel: elements.outpaintResultPreviewPanel,
+    emptyText: "No Outpaint result yet",
+    resultAlt: "Generated Outpaint preview",
+    liveAlt: "Live ComfyUI Outpaint preview"
+  });
+  const upscaleResultPanel = createResultPreviewPanel({
+    urls: objectUrls,
+    panel: elements.upscaleResultPreviewPanel,
+    emptyText: "No Upscale result yet",
+    resultAlt: "Generated Upscale preview",
+    liveAlt: "Live ComfyUI Upscale preview"
+  });
+  const imageSourcePanel = createSourcePreviewPanel({
+    urls: objectUrls,
+    panel: elements.imageSourcePreviewPanel,
+    titleElement: elements.imageSourceTitle,
+    metaElement: elements.imageSourceMeta,
+    imageAlt: "Captured active Photoshop layer"
+  });
+  const sketchSourcePanel = createSourcePreviewPanel({
+    urls: objectUrls,
+    panel: elements.sketchSourcePreviewPanel,
+    titleElement: elements.sketchSourceTitle,
+    metaElement: elements.sketchSourceMeta,
+    imageAlt: "Captured Photoshop source for Sketch to Image"
+  });
+  const inpaintSourcePanel = createSourcePreviewPanel({
+    urls: objectUrls,
+    panel: elements.inpaintSourcePreviewPanel,
+    titleElement: elements.inpaintSourceTitle,
+    metaElement: elements.inpaintSourceMeta,
+    imageAlt: "Captured Photoshop selection for Inpaint",
+    emptyTitle: "No selection captured",
+    emptyMeta: "Make a Photoshop selection first."
+  });
+  const outpaintSourcePanel = createSourcePreviewPanel({
+    urls: objectUrls,
+    panel: elements.outpaintSourcePreviewPanel,
+    titleElement: elements.outpaintSourceTitle,
+    metaElement: elements.outpaintSourceMeta,
+    imageAlt: "Captured Photoshop source for Outpaint"
+  });
+  const upscaleSourcePanel = createSourcePreviewPanel({
+    urls: objectUrls,
+    panel: elements.upscaleSourcePreviewPanel,
+    titleElement: elements.upscaleSourceTitle,
+    metaElement: elements.upscaleSourceMeta,
+    imageAlt: "Captured Photoshop source for Upscale"
+  });
+  const promptLayerSourcePanel = createSourcePreviewPanel({
+    urls: objectUrls,
+    panel: elements.promptLayerSourcePreviewPanel,
+    titleElement: elements.promptLayerSourceTitle,
+    metaElement: elements.promptLayerSourceMeta,
+    imageAlt: "Captured Photoshop source for Prompt from Layer"
+  });
+  const inpaintMaskUrl = createOwnedObjectUrl(objectUrls);
   let resourceObserver: MutationObserver | null = null;
   let resourcesDisposed = false;
   const disposeAppResources = () => {
@@ -836,18 +905,13 @@ export function renderApp(rootElement: HTMLElement) {
   }
 
   function releaseGenerationLivePreview(toolType: HistoryToolType) {
-    const release = (url: string) => {
-      if (url) URL.revokeObjectURL(url);
-      return "";
-    };
-
     switch (toolType) {
-      case "image-to-image": imageLivePreviewUrl = release(imageLivePreviewUrl); return;
-      case "sketch-to-image": sketchLivePreviewUrl = release(sketchLivePreviewUrl); return;
-      case "inpaint": inpaintLivePreviewUrl = release(inpaintLivePreviewUrl); return;
-      case "outpaint": outpaintLivePreviewUrl = release(outpaintLivePreviewUrl); return;
-      case "upscale": upscaleLivePreviewUrl = release(upscaleLivePreviewUrl); return;
-      case "text-to-image": livePreviewUrl = release(livePreviewUrl); return;
+      case "image-to-image": imageResultPanel.releaseLivePreviewUrl(); return;
+      case "sketch-to-image": sketchResultPanel.releaseLivePreviewUrl(); return;
+      case "inpaint": inpaintResultPanel.releaseLivePreviewUrl(); return;
+      case "outpaint": outpaintResultPanel.releaseLivePreviewUrl(); return;
+      case "upscale": upscaleResultPanel.releaseLivePreviewUrl(); return;
+      case "text-to-image": resultPanel.releaseLivePreviewUrl(); return;
       case "prompt-from-layer": return;
     }
   }
@@ -1393,7 +1457,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     try {
       const exportedSource = await options.capture();
-      const sourcePreview = URL.createObjectURL(exportedSource.blob);
+      const sourcePreview = objectUrls.create(exportedSource.blob);
       setImageSource({
         ...exportedSource,
         previewUrl: sourcePreview
@@ -1687,7 +1751,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     try {
       const exportedSource = await options.capture();
-      const sourcePreview = URL.createObjectURL(exportedSource.blob);
+      const sourcePreview = objectUrls.create(exportedSource.blob);
       setUpscaleSource({
         ...exportedSource,
         previewUrl: sourcePreview
@@ -1941,7 +2005,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     try {
       const exportedSource = await options.capture();
-      const sourcePreview = URL.createObjectURL(exportedSource.blob);
+      const sourcePreview = objectUrls.create(exportedSource.blob);
       setOutpaintSource({
         ...exportedSource,
         previewUrl: sourcePreview
@@ -2233,7 +2297,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     try {
       const exportedSource = await options.capture();
-      const sourcePreview = URL.createObjectURL(exportedSource.blob);
+      const sourcePreview = objectUrls.create(exportedSource.blob);
       setSketchSource({
         ...exportedSource,
         previewUrl: sourcePreview
@@ -2497,7 +2561,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     try {
       const exportedSource = await captureSelectionForInpainting(sourceMode);
-      const sourcePreview = URL.createObjectURL(exportedSource.blob);
+      const sourcePreview = objectUrls.create(exportedSource.blob);
       setInpaintSource({
         ...exportedSource,
         previewUrl: sourcePreview
@@ -3031,7 +3095,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     try {
       const exportedSource = await options.capture();
-      const sourcePreview = URL.createObjectURL(exportedSource.blob);
+      const sourcePreview = objectUrls.create(exportedSource.blob);
       setPromptLayerSource({
         ...exportedSource,
         previewUrl: sourcePreview
@@ -3295,11 +3359,11 @@ export function renderApp(rootElement: HTMLElement) {
     }
 
     const previousUrl = livePreviewObjectUrl;
-    livePreviewObjectUrl = URL.createObjectURL(blob);
+    livePreviewObjectUrl = objectUrls.create(blob);
     livePreviewImage.src = livePreviewObjectUrl;
 
     if (previousUrl) {
-      URL.revokeObjectURL(previousUrl);
+      objectUrls.revoke(previousUrl);
     }
 
     liveLastResult = bindDocumentContext({ blob }, originatingDocument);
@@ -3307,308 +3371,79 @@ export function renderApp(rootElement: HTMLElement) {
   }
 
   function setResult(nextResult: AppGeneratedImageResult | null) {
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-      previewUrl = "";
-    }
-
-    if (livePreviewUrl) {
-      URL.revokeObjectURL(livePreviewUrl);
-      livePreviewUrl = "";
-    }
-
     result = nextResult;
-    elements.previewPanel.innerHTML = "";
-
-    if (!result) {
-      const empty = document.createElement("span");
-      empty.className = "preview-empty";
-      empty.textContent = "No result yet";
-      elements.previewPanel.append(empty);
-      syncBusy();
-      return;
-    }
-
-    previewUrl = URL.createObjectURL(result.blob);
-    const image = document.createElement("img");
-    image.src = previewUrl;
-    image.alt = "Generated OpenLayer preview";
-    elements.previewPanel.append(image);
+    resultPanel.showResult(result?.blob ?? null);
     syncBusy();
   }
 
   function setProgressPreview(elements: AppElements, message: string, blob?: Blob) {
-    if (result) {
-      return;
-    }
-
-    elements.previewPanel.innerHTML = "";
-
-    if (blob) {
-      if (livePreviewUrl) {
-        URL.revokeObjectURL(livePreviewUrl);
-      }
-
-      livePreviewUrl = URL.createObjectURL(blob);
-      const image = document.createElement("img");
-      image.src = livePreviewUrl;
-      image.alt = "Live ComfyUI generation preview";
-      elements.previewPanel.append(image);
-      return;
-    }
-
-    if (livePreviewUrl) {
-      URL.revokeObjectURL(livePreviewUrl);
-      livePreviewUrl = "";
-    }
-
-    const progress = document.createElement("span");
-    progress.className = "preview-empty";
-    progress.textContent = message;
-    elements.previewPanel.append(progress);
+    resultPanel.showProgress(message, blob);
   }
 
   function setImageSource(nextSource: ImageSourceState | null) {
-    if (imageSourcePreviewUrl) {
-      URL.revokeObjectURL(imageSourcePreviewUrl);
-      imageSourcePreviewUrl = "";
-    }
-
     imageSource = nextSource;
-    elements.imageSourcePreviewPanel.innerHTML = "";
-
-    if (!imageSource) {
-      const empty = document.createElement("span");
-      empty.className = "source-empty";
-      empty.textContent = "None";
-      elements.imageSourcePreviewPanel.append(empty);
-      elements.imageSourceTitle.textContent = "No source captured";
-      elements.imageSourceMeta.textContent = "Choose active layer or full canvas.";
-      updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
-      syncBusy();
-      return;
-    }
-
-    imageSourcePreviewUrl = imageSource.previewUrl;
-    const image = document.createElement("img");
-    image.src = imageSourcePreviewUrl;
-    image.alt = "Captured active Photoshop layer";
-    elements.imageSourcePreviewPanel.append(image);
-    elements.imageSourceTitle.textContent = imageSource.sourceName;
-    elements.imageSourceMeta.textContent = createSourceMetaText(imageSource);
+    imageSourcePanel.show(imageSource && {
+      previewUrl: imageSource.previewUrl,
+      title: imageSource.sourceName,
+      meta: createSourceMetaText(imageSource)
+    });
     updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
     syncBusy();
   }
 
   function setImageResult(nextResult: AppGeneratedImageResult | null) {
-    if (imageResultPreviewUrl) {
-      URL.revokeObjectURL(imageResultPreviewUrl);
-      imageResultPreviewUrl = "";
-    }
-
-    if (imageLivePreviewUrl) {
-      URL.revokeObjectURL(imageLivePreviewUrl);
-      imageLivePreviewUrl = "";
-    }
-
     imageResult = nextResult;
-    elements.imageResultPreviewPanel.innerHTML = "";
-
-    if (!imageResult) {
-      const empty = document.createElement("span");
-      empty.className = "preview-empty";
-      empty.textContent = "No Image to Image result yet";
-      elements.imageResultPreviewPanel.append(empty);
-      syncBusy();
-      return;
-    }
-
-    imageResultPreviewUrl = URL.createObjectURL(imageResult.blob);
-    const image = document.createElement("img");
-    image.src = imageResultPreviewUrl;
-    image.alt = "Generated Image to Image preview";
-    elements.imageResultPreviewPanel.append(image);
+    imageResultPanel.showResult(imageResult?.blob ?? null);
     syncBusy();
   }
 
   function setImageProgressPreview(elements: AppElements, message: string, blob?: Blob) {
-    if (imageResult) {
-      return;
-    }
-
-    elements.imageResultPreviewPanel.innerHTML = "";
-
-    if (blob) {
-      if (imageLivePreviewUrl) {
-        URL.revokeObjectURL(imageLivePreviewUrl);
-      }
-
-      imageLivePreviewUrl = URL.createObjectURL(blob);
-      const image = document.createElement("img");
-      image.src = imageLivePreviewUrl;
-      image.alt = "Live ComfyUI Image to Image preview";
-      elements.imageResultPreviewPanel.append(image);
-      return;
-    }
-
-    if (imageLivePreviewUrl) {
-      URL.revokeObjectURL(imageLivePreviewUrl);
-      imageLivePreviewUrl = "";
-    }
-
-    const progress = document.createElement("span");
-    progress.className = "preview-empty";
-    progress.textContent = message;
-    elements.imageResultPreviewPanel.append(progress);
+    imageResultPanel.showProgress(message, blob);
   }
 
   function setSketchSource(nextSource: ImageSourceState | null) {
-    if (sketchSourcePreviewUrl) {
-      URL.revokeObjectURL(sketchSourcePreviewUrl);
-      sketchSourcePreviewUrl = "";
-    }
-
     sketchSource = nextSource;
-    elements.sketchSourcePreviewPanel.innerHTML = "";
-
-    if (!sketchSource) {
-      const empty = document.createElement("span");
-      empty.className = "source-empty";
-      empty.textContent = "None";
-      elements.sketchSourcePreviewPanel.append(empty);
-      elements.sketchSourceTitle.textContent = "No source captured";
-      elements.sketchSourceMeta.textContent = "Choose active layer or full canvas.";
-      updateSketchCheckpointCompatibility(elements, sketchSource);
-      syncBusy();
-      return;
-    }
-
-    sketchSourcePreviewUrl = sketchSource.previewUrl;
-    const image = document.createElement("img");
-    image.src = sketchSourcePreviewUrl;
-    image.alt = "Captured Photoshop source for Sketch to Image";
-    elements.sketchSourcePreviewPanel.append(image);
-    elements.sketchSourceTitle.textContent = sketchSource.sourceName;
-    elements.sketchSourceMeta.textContent = createSourceMetaText(sketchSource);
+    sketchSourcePanel.show(sketchSource && {
+      previewUrl: sketchSource.previewUrl,
+      title: sketchSource.sourceName,
+      meta: createSourceMetaText(sketchSource)
+    });
     updateSketchCheckpointCompatibility(elements, sketchSource);
     syncBusy();
   }
 
   function setSketchResult(nextResult: AppGeneratedImageResult | null) {
-    if (sketchResultPreviewUrl) {
-      URL.revokeObjectURL(sketchResultPreviewUrl);
-      sketchResultPreviewUrl = "";
-    }
-
-    if (sketchLivePreviewUrl) {
-      URL.revokeObjectURL(sketchLivePreviewUrl);
-      sketchLivePreviewUrl = "";
-    }
-
     sketchResult = nextResult;
-    elements.sketchResultPreviewPanel.innerHTML = "";
-
-    if (!sketchResult) {
-      const empty = document.createElement("span");
-      empty.className = "preview-empty";
-      empty.textContent = "No Sketch to Image result yet";
-      elements.sketchResultPreviewPanel.append(empty);
-      syncBusy();
-      return;
-    }
-
-    sketchResultPreviewUrl = URL.createObjectURL(sketchResult.blob);
-    const image = document.createElement("img");
-    image.src = sketchResultPreviewUrl;
-    image.alt = "Generated Sketch to Image preview";
-    elements.sketchResultPreviewPanel.append(image);
+    sketchResultPanel.showResult(sketchResult?.blob ?? null);
     syncBusy();
   }
 
   function setSketchProgressPreview(elements: AppElements, message: string, blob?: Blob) {
-    if (sketchResult) {
-      return;
-    }
-
-    elements.sketchResultPreviewPanel.innerHTML = "";
-
-    if (blob) {
-      if (sketchLivePreviewUrl) {
-        URL.revokeObjectURL(sketchLivePreviewUrl);
-      }
-
-      sketchLivePreviewUrl = URL.createObjectURL(blob);
-      const image = document.createElement("img");
-      image.src = sketchLivePreviewUrl;
-      image.alt = "Live ComfyUI Sketch to Image preview";
-      elements.sketchResultPreviewPanel.append(image);
-      return;
-    }
-
-    if (sketchLivePreviewUrl) {
-      URL.revokeObjectURL(sketchLivePreviewUrl);
-      sketchLivePreviewUrl = "";
-    }
-
-    const progress = document.createElement("span");
-    progress.className = "preview-empty";
-    progress.textContent = message;
-    elements.sketchResultPreviewPanel.append(progress);
+    sketchResultPanel.showProgress(message, blob);
   }
 
   function setInpaintSource(nextSource: InpaintSourceState | null) {
-    if (inpaintSourcePreviewUrl) {
-      URL.revokeObjectURL(inpaintSourcePreviewUrl);
-      inpaintSourcePreviewUrl = "";
-    }
-
-    if (inpaintMaskPreviewUrl) {
-      URL.revokeObjectURL(inpaintMaskPreviewUrl);
-      inpaintMaskPreviewUrl = "";
-    }
-
     inpaintSource = nextSource;
-    elements.inpaintSourcePreviewPanel.innerHTML = "";
-    elements.inpaintMaskPreviewPanel.innerHTML = "";
+    inpaintSourcePanel.show(inpaintSource && {
+      previewUrl: inpaintSource.previewUrl,
+      title: inpaintSource.sourceName,
+      meta: `${getInpaintSourceModeLabel(inpaintSource.sourceMode)} | ${createSourceMetaText(inpaintSource)} | Selection ${formatSelectionBounds(inpaintSource.selection.bounds)} | Context ${formatSelectionBounds(inpaintSource.selection.contextBounds)} | ${inpaintSource.sourceWarning}`
+    });
 
     if (!inpaintSource) {
-      const sourceEmpty = document.createElement("span");
-      sourceEmpty.className = "source-empty";
-      sourceEmpty.textContent = "None";
-      elements.inpaintSourcePreviewPanel.append(sourceEmpty);
-      elements.inpaintSourceTitle.textContent = "No selection captured";
-      elements.inpaintSourceMeta.textContent = "Make a Photoshop selection first.";
-
-      const maskEmpty = document.createElement("span");
-      maskEmpty.className = "source-empty";
-      maskEmpty.textContent = "Mask";
-      elements.inpaintMaskPreviewPanel.append(maskEmpty);
+      inpaintMaskUrl.release();
+      renderPreviewMessage(elements.inpaintMaskPreviewPanel, "source-empty", "Mask");
       elements.inpaintMaskMeta.textContent = "Mask export not available yet.";
-      updateInpaintCheckpointCompatibility(elements, inpaintSource);
-      syncBusy();
-      return;
-    }
-
-    inpaintSourcePreviewUrl = inpaintSource.previewUrl;
-    const image = document.createElement("img");
-    image.src = inpaintSourcePreviewUrl;
-    image.alt = "Captured Photoshop selection for Inpaint";
-    elements.inpaintSourcePreviewPanel.append(image);
-    elements.inpaintSourceTitle.textContent = inpaintSource.sourceName;
-    elements.inpaintSourceMeta.textContent = `${getInpaintSourceModeLabel(inpaintSource.sourceMode)} | ${createSourceMetaText(inpaintSource)} | Selection ${formatSelectionBounds(inpaintSource.selection.bounds)} | Context ${formatSelectionBounds(inpaintSource.selection.contextBounds)} | ${inpaintSource.sourceWarning}`;
-
-    if (inpaintSource.mask) {
-      inpaintMaskPreviewUrl = URL.createObjectURL(inpaintSource.mask.blob);
-      const maskImage = document.createElement("img");
-      maskImage.src = inpaintMaskPreviewUrl;
-      maskImage.alt = "Captured Photoshop selection mask";
-      elements.inpaintMaskPreviewPanel.append(maskImage);
+    } else if (inpaintSource.mask) {
+      renderPreviewImage(
+        elements.inpaintMaskPreviewPanel,
+        inpaintMaskUrl.createFrom(inpaintSource.mask.blob),
+        "Captured Photoshop selection mask"
+      );
       elements.inpaintMaskMeta.textContent = `${inpaintSource.mask.width} x ${inpaintSource.mask.height} | PNG/lossless mask`;
     } else {
-      const maskEmpty = document.createElement("span");
-      maskEmpty.className = "source-empty";
-      maskEmpty.textContent = "N/A";
-      elements.inpaintMaskPreviewPanel.append(maskEmpty);
+      inpaintMaskUrl.release();
+      renderPreviewMessage(elements.inpaintMaskPreviewPanel, "source-empty", "N/A");
       elements.inpaintMaskMeta.textContent = inpaintSource.maskMessage;
     }
 
@@ -3621,281 +3456,64 @@ export function renderApp(rootElement: HTMLElement) {
       activeInpaintImportContext = null;
     }
 
-    if (inpaintResultPreviewUrl) {
-      URL.revokeObjectURL(inpaintResultPreviewUrl);
-      inpaintResultPreviewUrl = "";
-    }
-
-    if (inpaintLivePreviewUrl) {
-      URL.revokeObjectURL(inpaintLivePreviewUrl);
-      inpaintLivePreviewUrl = "";
-    }
-
     inpaintResult = nextResult;
-    elements.inpaintResultPreviewPanel.innerHTML = "";
-
-    if (!inpaintResult) {
-      const empty = document.createElement("span");
-      empty.className = "preview-empty";
-      empty.textContent = "No Inpaint result yet";
-      elements.inpaintResultPreviewPanel.append(empty);
-      syncBusy();
-      return;
-    }
-
-    inpaintResultPreviewUrl = URL.createObjectURL(inpaintResult.blob);
-    const image = document.createElement("img");
-    image.src = inpaintResultPreviewUrl;
-    image.alt = "Generated Inpaint preview";
-    elements.inpaintResultPreviewPanel.append(image);
+    inpaintResultPanel.showResult(inpaintResult?.blob ?? null);
     syncBusy();
   }
 
   function setInpaintProgressPreview(elements: AppElements, message: string, blob?: Blob) {
-    if (inpaintResult) {
-      return;
-    }
-
-    elements.inpaintResultPreviewPanel.innerHTML = "";
-
-    if (blob) {
-      if (inpaintLivePreviewUrl) {
-        URL.revokeObjectURL(inpaintLivePreviewUrl);
-      }
-
-      inpaintLivePreviewUrl = URL.createObjectURL(blob);
-      const image = document.createElement("img");
-      image.src = inpaintLivePreviewUrl;
-      image.alt = "Live ComfyUI Inpaint preview";
-      elements.inpaintResultPreviewPanel.append(image);
-      return;
-    }
-
-    if (inpaintLivePreviewUrl) {
-      URL.revokeObjectURL(inpaintLivePreviewUrl);
-      inpaintLivePreviewUrl = "";
-    }
-
-    const progress = document.createElement("span");
-    progress.className = "preview-empty";
-    progress.textContent = message;
-    elements.inpaintResultPreviewPanel.append(progress);
+    inpaintResultPanel.showProgress(message, blob);
   }
 
   function setOutpaintSource(nextSource: ImageSourceState | null) {
-    if (outpaintSourcePreviewUrl) {
-      URL.revokeObjectURL(outpaintSourcePreviewUrl);
-      outpaintSourcePreviewUrl = "";
-    }
-
     outpaintSource = nextSource;
-    elements.outpaintSourcePreviewPanel.innerHTML = "";
-
-    if (!outpaintSource) {
-      const empty = document.createElement("span");
-      empty.className = "source-empty";
-      empty.textContent = "None";
-      elements.outpaintSourcePreviewPanel.append(empty);
-      elements.outpaintSourceTitle.textContent = "No source captured";
-      elements.outpaintSourceMeta.textContent = "Choose active layer or full canvas.";
-      updateOutpaintCheckpointCompatibility(elements, outpaintSource);
-      syncBusy();
-      return;
-    }
-
-    outpaintSourcePreviewUrl = outpaintSource.previewUrl;
-    const image = document.createElement("img");
-    image.src = outpaintSourcePreviewUrl;
-    image.alt = "Captured Photoshop source for Outpaint";
-    elements.outpaintSourcePreviewPanel.append(image);
-    elements.outpaintSourceTitle.textContent = outpaintSource.sourceName;
-    elements.outpaintSourceMeta.textContent = createSourceMetaText(outpaintSource);
+    outpaintSourcePanel.show(outpaintSource && {
+      previewUrl: outpaintSource.previewUrl,
+      title: outpaintSource.sourceName,
+      meta: createSourceMetaText(outpaintSource)
+    });
     updateOutpaintCheckpointCompatibility(elements, outpaintSource);
     syncBusy();
   }
 
   function setOutpaintResult(nextResult: AppGeneratedImageResult | null) {
-    if (outpaintResultPreviewUrl) {
-      URL.revokeObjectURL(outpaintResultPreviewUrl);
-      outpaintResultPreviewUrl = "";
-    }
-
-    if (outpaintLivePreviewUrl) {
-      URL.revokeObjectURL(outpaintLivePreviewUrl);
-      outpaintLivePreviewUrl = "";
-    }
-
     outpaintResult = nextResult;
-    elements.outpaintResultPreviewPanel.innerHTML = "";
-
-    if (!outpaintResult) {
-      const empty = document.createElement("span");
-      empty.className = "preview-empty";
-      empty.textContent = "No Outpaint result yet";
-      elements.outpaintResultPreviewPanel.append(empty);
-      syncBusy();
-      return;
-    }
-
-    outpaintResultPreviewUrl = URL.createObjectURL(outpaintResult.blob);
-    const image = document.createElement("img");
-    image.src = outpaintResultPreviewUrl;
-    image.alt = "Generated Outpaint preview";
-    elements.outpaintResultPreviewPanel.append(image);
+    outpaintResultPanel.showResult(outpaintResult?.blob ?? null);
     syncBusy();
   }
 
   function setOutpaintProgressPreview(elements: AppElements, message: string, blob?: Blob) {
-    if (outpaintResult) {
-      return;
-    }
-
-    elements.outpaintResultPreviewPanel.innerHTML = "";
-
-    if (blob) {
-      if (outpaintLivePreviewUrl) {
-        URL.revokeObjectURL(outpaintLivePreviewUrl);
-      }
-
-      outpaintLivePreviewUrl = URL.createObjectURL(blob);
-      const image = document.createElement("img");
-      image.src = outpaintLivePreviewUrl;
-      image.alt = "Live ComfyUI Outpaint preview";
-      elements.outpaintResultPreviewPanel.append(image);
-      return;
-    }
-
-    if (outpaintLivePreviewUrl) {
-      URL.revokeObjectURL(outpaintLivePreviewUrl);
-      outpaintLivePreviewUrl = "";
-    }
-
-    const progress = document.createElement("span");
-    progress.className = "preview-empty";
-    progress.textContent = message;
-    elements.outpaintResultPreviewPanel.append(progress);
+    outpaintResultPanel.showProgress(message, blob);
   }
 
   function setUpscaleSource(nextSource: ImageSourceState | null) {
-    if (upscaleSourcePreviewUrl) {
-      URL.revokeObjectURL(upscaleSourcePreviewUrl);
-      upscaleSourcePreviewUrl = "";
-    }
-
     upscaleSource = nextSource;
-    elements.upscaleSourcePreviewPanel.innerHTML = "";
-
-    if (!upscaleSource) {
-      const empty = document.createElement("span");
-      empty.className = "source-empty";
-      empty.textContent = "None";
-      elements.upscaleSourcePreviewPanel.append(empty);
-      elements.upscaleSourceTitle.textContent = "No source captured";
-      elements.upscaleSourceMeta.textContent = "Choose active layer or full canvas.";
-      updateUpscaleCompatibility(elements, upscaleSource);
-      syncBusy();
-      return;
-    }
-
-    upscaleSourcePreviewUrl = upscaleSource.previewUrl;
-    const image = document.createElement("img");
-    image.src = upscaleSourcePreviewUrl;
-    image.alt = "Captured Photoshop source for Upscale";
-    elements.upscaleSourcePreviewPanel.append(image);
-    elements.upscaleSourceTitle.textContent = upscaleSource.sourceName;
-    elements.upscaleSourceMeta.textContent = createSourceMetaText(upscaleSource);
+    upscaleSourcePanel.show(upscaleSource && {
+      previewUrl: upscaleSource.previewUrl,
+      title: upscaleSource.sourceName,
+      meta: createSourceMetaText(upscaleSource)
+    });
     updateUpscaleCompatibility(elements, upscaleSource);
     syncBusy();
   }
 
   function setUpscaleResult(nextResult: AppGeneratedImageResult | null) {
-    if (upscaleResultPreviewUrl) {
-      URL.revokeObjectURL(upscaleResultPreviewUrl);
-      upscaleResultPreviewUrl = "";
-    }
-
-    if (upscaleLivePreviewUrl) {
-      URL.revokeObjectURL(upscaleLivePreviewUrl);
-      upscaleLivePreviewUrl = "";
-    }
-
     upscaleResult = nextResult;
-    elements.upscaleResultPreviewPanel.innerHTML = "";
-
-    if (!upscaleResult) {
-      const empty = document.createElement("span");
-      empty.className = "preview-empty";
-      empty.textContent = "No Upscale result yet";
-      elements.upscaleResultPreviewPanel.append(empty);
-      syncBusy();
-      return;
-    }
-
-    upscaleResultPreviewUrl = URL.createObjectURL(upscaleResult.blob);
-    const image = document.createElement("img");
-    image.src = upscaleResultPreviewUrl;
-    image.alt = "Generated Upscale preview";
-    elements.upscaleResultPreviewPanel.append(image);
+    upscaleResultPanel.showResult(upscaleResult?.blob ?? null);
     syncBusy();
   }
 
   function setUpscaleProgressPreview(elements: AppElements, message: string, blob?: Blob) {
-    if (upscaleResult) {
-      return;
-    }
-
-    elements.upscaleResultPreviewPanel.innerHTML = "";
-
-    if (blob) {
-      if (upscaleLivePreviewUrl) {
-        URL.revokeObjectURL(upscaleLivePreviewUrl);
-      }
-
-      upscaleLivePreviewUrl = URL.createObjectURL(blob);
-      const image = document.createElement("img");
-      image.src = upscaleLivePreviewUrl;
-      image.alt = "Live ComfyUI Upscale preview";
-      elements.upscaleResultPreviewPanel.append(image);
-      return;
-    }
-
-    if (upscaleLivePreviewUrl) {
-      URL.revokeObjectURL(upscaleLivePreviewUrl);
-      upscaleLivePreviewUrl = "";
-    }
-
-    const progress = document.createElement("span");
-    progress.className = "preview-empty";
-    progress.textContent = message;
-    elements.upscaleResultPreviewPanel.append(progress);
+    upscaleResultPanel.showProgress(message, blob);
   }
 
   function setPromptLayerSource(nextSource: ImageSourceState | null) {
-    if (promptLayerSourcePreviewUrl) {
-      URL.revokeObjectURL(promptLayerSourcePreviewUrl);
-      promptLayerSourcePreviewUrl = "";
-    }
-
     promptLayerSource = nextSource;
-    elements.promptLayerSourcePreviewPanel.innerHTML = "";
-
-    if (!promptLayerSource) {
-      const empty = document.createElement("span");
-      empty.className = "source-empty";
-      empty.textContent = "None";
-      elements.promptLayerSourcePreviewPanel.append(empty);
-      elements.promptLayerSourceTitle.textContent = "No source captured";
-      elements.promptLayerSourceMeta.textContent = "Choose active layer or full canvas.";
-      return;
-    }
-
-    promptLayerSourcePreviewUrl = promptLayerSource.previewUrl;
-    const image = document.createElement("img");
-    image.src = promptLayerSourcePreviewUrl;
-    image.alt = "Captured Photoshop source for Prompt from Layer";
-    elements.promptLayerSourcePreviewPanel.append(image);
-    elements.promptLayerSourceTitle.textContent = promptLayerSource.sourceName;
-    elements.promptLayerSourceMeta.textContent = createSourceMetaText(promptLayerSource);
+    promptLayerSourcePanel.show(promptLayerSource && {
+      previewUrl: promptLayerSource.previewUrl,
+      title: promptLayerSource.sourceName,
+      meta: createSourceMetaText(promptLayerSource)
+    });
   }
 
   function setView(view: AppView) {
