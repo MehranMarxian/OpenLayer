@@ -4,7 +4,6 @@
     "inputs": {
       "model": "Florence-2-base-PromptGen-v2.0",
       "precision": "fp16",
-      "attention": "sdpa",
       "convert_to_safetensors": false
     },
     "_meta": {

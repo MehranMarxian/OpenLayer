@@ -957,7 +957,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
       {
         id: PROMPT_FROM_LAYER_FLORENCE2_NODES.modelLoader,
         classType: "Florence2ModelLoader",
-        requiredInputs: ["model", "precision", "attention"]
+        requiredInputs: ["model", "precision"]
       },
       {
         id: PROMPT_FROM_LAYER_FLORENCE2_NODES.loadImage,

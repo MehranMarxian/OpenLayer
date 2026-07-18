@@ -48,7 +48,6 @@
       "widgets_values": [
         "Florence-2-base-PromptGen-v2.0",
         "fp16",
-        "sdpa",
         false
       ]
     },
