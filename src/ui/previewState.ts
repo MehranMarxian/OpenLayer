@@ -105,11 +105,18 @@ export function createResultPreviewPanel(options: {
   const resultUrl = createOwnedObjectUrl(options.urls);
   const liveUrl = createOwnedObjectUrl(options.urls);
   let hasResult = false;
+  // One persistent element for the live ComfyUI frames. The WebSocket delivers
+  // many frames per second, so rebuilding the img each frame (as this did
+  // before) flickered between sampler steps; swapping src on a reused element
+  // does not. Reset to null whenever the panel leaves live-image mode, so the
+  // next live frame re-appends a fresh img. Mirrors updateLivePreview in App.ts.
+  let liveImage: HTMLImageElement | null = null;
 
   return {
     showResult(blob) {
       resultUrl.release();
       liveUrl.release();
+      liveImage = null;
       hasResult = Boolean(blob);
 
       if (!blob) {
@@ -123,10 +130,20 @@ export function createResultPreviewPanel(options: {
       if (hasResult) return;
 
       if (blob) {
-        renderPreviewImage(options.panel, liveUrl.createFrom(blob), options.liveAlt);
+        if (!liveImage) {
+          options.panel.innerHTML = "";
+          liveImage = document.createElement("img");
+          liveImage.alt = options.liveAlt;
+          options.panel.append(liveImage);
+        }
+
+        // createFrom revokes the previous frame's URL before returning the new
+        // one, keeping exactly one live URL alive across the whole sequence.
+        liveImage.src = liveUrl.createFrom(blob);
         return;
       }
 
+      liveImage = null;
       liveUrl.release();
       renderPreviewMessage(options.panel, "preview-empty", message);
     },
