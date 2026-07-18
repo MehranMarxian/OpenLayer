@@ -857,15 +857,15 @@ export function createAppMarkup() {
           <div class="settings-grid img2img-settings-grid" aria-label="Inpaint settings">
             <div class="field">
               <span class="label">Steps</span>
-              <input class="input input-compact" id="inpaint-steps" type="number" min="1" max="150" step="1" value="${DEFAULT_INPAINT_STEPS}" />
+              <input class="input input-compact" id="inpaint-steps" type="number" min="1" max="150" step="1" value="${DEFAULT_INPAINT_STEPS}" aria-describedby="inpaint-locked-settings-note" />
             </div>
             <div class="field">
               <span class="label">CFG</span>
-              <input class="input input-compact" id="inpaint-cfg" type="number" min="1" max="30" step="0.5" value="${DEFAULT_CFG}" />
+              <input class="input input-compact" id="inpaint-cfg" type="number" min="1" max="30" step="0.5" value="${DEFAULT_CFG}" aria-describedby="inpaint-locked-settings-note" />
             </div>
             <div class="field">
               <span class="label">Denoise</span>
-              <input class="input input-compact" id="inpaint-denoise" type="number" min="0.05" max="1" step="0.05" value="${DEFAULT_INPAINT_DENOISE}" />
+              <input class="input input-compact" id="inpaint-denoise" type="number" min="0.05" max="1" step="0.05" value="${DEFAULT_INPAINT_DENOISE}" aria-describedby="inpaint-locked-settings-note" />
             </div>
             <div class="field settings-seed">
               <span class="label">Seed</span>

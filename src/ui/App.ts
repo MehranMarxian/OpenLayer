@@ -849,6 +849,7 @@ export function renderApp(rootElement: HTMLElement) {
   function handleResetSettings() {
     clearOpenLayerPreferences();
     applyDefaultSettings(elements);
+    updateInpaintReferenceControlLock(elements);
     applyTheme(elements, DEFAULT_THEME);
     fillCheckpointOptions(elements, FALLBACK_CHECKPOINTS, FALLBACK_CHECKPOINTS[0]);
     updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);

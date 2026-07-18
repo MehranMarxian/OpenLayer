@@ -6201,6 +6201,16 @@ a:hover {
   line-height: 18px !important;
 }
 
+/* Must sit after the !important block above, which forces background and color
+   on every compact number input and would otherwise erase the locked look. */
+.app-shell.theme-compact .input.is-reference-locked:disabled {
+  border-color: #8b6f2a !important;
+  background: #3d382d !important;
+  color: #d8bd7a !important;
+  opacity: 1 !important;
+  cursor: not-allowed !important;
+}
+
 .app-shell.theme-compact .textarea,
 .app-shell.theme-compact .compact-textarea,
 .app-shell.theme-compact .ol-textarea,
