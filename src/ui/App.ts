@@ -6,7 +6,12 @@ import {
 } from "../comfy/hardwareAdvisor";
 import { createFluxFillInpaintDebugSummary } from "../comfy/inpaintValidation";
 import { createFluxFillEmbeddedMaskSource } from "../comfy/fluxFillMaskBridge";
-import { formatFluxFillReferenceDefaults } from "../comfy/fluxFillDefaults";
+import {
+  FLUX_FILL_PRESET_ID,
+  formatFluxFillLockedControlsNote,
+  formatFluxFillReferenceDefaults,
+  presetLocksSamplerControls
+} from "../comfy/fluxFillDefaults";
 import {
   formatCancelDiagnostic,
   formatCancelResultDiagnostic,
@@ -263,6 +268,7 @@ export function renderApp(rootElement: HTMLElement) {
       upscaleResult,
       upscaleSource
     });
+    updateInpaintReferenceControlLock(elements, isBusy);
   }
 
   rootElement.innerHTML = createAppMarkup();
@@ -572,6 +578,7 @@ export function renderApp(rootElement: HTMLElement) {
   setSketchSource(null);
   setSketchResult(null);
   updateInpaintCheckpointCompatibility(elements, inpaintSource);
+  updateInpaintReferenceControlLock(elements);
   setInpaintSource(null);
   setInpaintResult(null);
   updateOutpaintCheckpointCompatibility(elements, outpaintSource);
@@ -621,6 +628,7 @@ export function renderApp(rootElement: HTMLElement) {
 
   elements.inpaintWorkflow.addEventListener("change", () => {
     applyRecommendedPresetSettings(elements.inpaintWorkflow, DEFAULT_INPAINT_WORKFLOW, elements.inpaintSteps, elements.inpaintCfg);
+    updateInpaintReferenceControlLock(elements);
     void refreshInpaintModelOptionsForSelectedPreset(elements);
     updateInpaintCheckpointCompatibility(elements, inpaintSource);
   });
@@ -1221,6 +1229,7 @@ export function renderApp(rootElement: HTMLElement) {
       case "inpaint":
         elements.inpaintPrompt.value = entry.prompt;
         setSelectValueIfPresent(elements.inpaintWorkflow, entry.workflowPreset);
+        updateInpaintReferenceControlLock(elements);
         setSelectValueIfPresent(elements.inpaintCheckpoint, entry.modelName);
         elements.inpaintSeed.value = String(entry.seed);
         setView("inpaint");
@@ -2537,7 +2546,7 @@ export function renderApp(rootElement: HTMLElement) {
       });
 
       const fluxDefaultsMessage =
-        preset.id === "inpaint-flux-fill-basic" ? formatFluxFillReferenceDefaults() : "";
+        preset.id === FLUX_FILL_PRESET_ID ? formatFluxFillReferenceDefaults() : "";
       if (fluxDefaultsMessage) {
         setInpaintDiagnostics(
           elements,
@@ -3275,6 +3284,25 @@ function setBusy(elements: AppElements, isBusy: boolean, gates: Record<BusyGateN
   for (const { button, gate } of BUSY_GATED_ACTIONS) {
     setActionDisabled(elements[button], isBusy || !gates[gate]);
   }
+}
+
+// Flux Fill ignores the panel's steps/cfg/denoise, so those controls are
+// disabled while it is selected: still disabled during a run like every other
+// field, and still disabled afterwards for as long as Flux Fill is chosen.
+// Must be re-applied anywhere the inpaint workflow selection changes, and after
+// setBusy, which re-enables every field in its table once a run ends.
+function updateInpaintReferenceControlLock(elements: AppElements, isBusy = false) {
+  const isReferenceLocked = presetLocksSamplerControls(
+    readSelectValue(elements.inpaintWorkflow, DEFAULT_INPAINT_WORKFLOW)
+  );
+
+  for (const input of [elements.inpaintSteps, elements.inpaintCfg, elements.inpaintDenoise]) {
+    input.disabled = isBusy || isReferenceLocked;
+    input.classList.toggle("is-reference-locked", isReferenceLocked);
+  }
+
+  elements.inpaintLockedSettingsNote.hidden = !isReferenceLocked;
+  elements.inpaintLockedSettingsNote.textContent = isReferenceLocked ? formatFluxFillLockedControlsNote() : "";
 }
 
 function setCancelGenerationVisible(elements: AppElements, isVisible: boolean) {

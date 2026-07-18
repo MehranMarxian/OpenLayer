@@ -1248,6 +1248,16 @@ a:hover {
   padding: 6px 8px;
 }
 
+/* A control the selected workflow overrides: still readable, clearly not
+   editable, and distinct from the transient disabled state during a run. */
+.input.is-reference-locked {
+  border-style: dashed;
+  border-color: #5a5a5a;
+  background: #1f1f1f;
+  color: #9a9a9a;
+  cursor: not-allowed;
+}
+
 .input:focus,
 .select:focus,
 .textarea:focus {

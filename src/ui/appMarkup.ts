@@ -101,6 +101,7 @@ export type AppElements = {
   inpaintCfg: HTMLInputElement;
   inpaintSeed: HTMLInputElement;
   inpaintDenoise: HTMLInputElement;
+  inpaintLockedSettingsNote: HTMLElement;
   captureInpaintSelectionButton: HTMLElement;
   captureInpaintActiveLayerButton: HTMLElement;
   generateInpaintButton: HTMLElement;
@@ -871,6 +872,7 @@ export function createAppMarkup() {
               <input class="input input-compact" id="inpaint-seed" type="number" min="0" placeholder="Random" />
             </div>
           </div>
+          <span class="compatibility-note" id="inpaint-locked-settings-note" hidden></span>
           <button class="button button-primary button-generate button-wide action-control" id="generate-inpaint" data-openlayer-action="generateInpaint" type="button">Generate Inpaint</button>
           <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
         </section>
@@ -1321,6 +1323,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     inpaintCfg: getElement<HTMLInputElement>(rootElement, "inpaint-cfg"),
     inpaintSeed: getElement<HTMLInputElement>(rootElement, "inpaint-seed"),
     inpaintDenoise: getElement<HTMLInputElement>(rootElement, "inpaint-denoise"),
+    inpaintLockedSettingsNote: getElement<HTMLElement>(rootElement, "inpaint-locked-settings-note"),
     captureInpaintSelectionButton: getElement<HTMLElement>(rootElement, "capture-inpaint-selection"),
     captureInpaintActiveLayerButton: getElement<HTMLElement>(rootElement, "capture-inpaint-active-layer"),
     generateInpaintButton: getElement<HTMLElement>(rootElement, "generate-inpaint"),

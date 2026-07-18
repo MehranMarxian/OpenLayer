@@ -16,6 +16,24 @@ const FLUX_GUIDANCE_NODE_ID = "26";
 const FLUX_SAMPLER_NODE_ID = "3";
 const FLUX_DIFFERENTIAL_DIFFUSION_NODE_ID = "39";
 
+// buildInpaintWorkflow hands this preset to applyFluxFillReferenceDefaults
+// instead of injecting the panel's steps/cfg/denoise, so those three controls
+// have no effect while it is selected. The panel disables them and says so
+// rather than letting an artist tune values that are silently discarded.
+export function presetLocksSamplerControls(presetId: string) {
+  return presetId === FLUX_FILL_PRESET_ID;
+}
+
+export function formatFluxFillLockedControlsNote() {
+  return [
+    "Steps, CFG, and Denoise are fixed by the Flux Fill reference workflow",
+    `(steps ${FLUX_FILL_REFERENCE_DEFAULTS.steps},`,
+    `guidance ${FLUX_FILL_REFERENCE_DEFAULTS.guidance},`,
+    `denoise ${FLUX_FILL_REFERENCE_DEFAULTS.denoise}).`,
+    "Choose another Inpaint workflow to set them yourself."
+  ].join(" ");
+}
+
 export function applyFluxFillReferenceDefaults(workflow: ComfyWorkflow) {
   const guidanceNode = workflow[FLUX_GUIDANCE_NODE_ID];
   const samplerNode = workflow[FLUX_SAMPLER_NODE_ID];
