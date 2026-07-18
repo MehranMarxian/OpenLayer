@@ -24,8 +24,8 @@ import {
   GenerationRunHandle
 } from "./generationController";
 import {
-  BUSY_DISABLED_ACTIONS,
-  BUSY_DISABLED_FIELDS,
+  BUSY_ALWAYS_DISABLED_ACTIONS,
+  BUSY_DISABLED_FIELD_GROUPS,
   BUSY_GATED_ACTIONS,
   BusyGateName
 } from "./toolDescriptors";
@@ -225,6 +225,7 @@ const statusProgressLastPercent = new WeakMap<HTMLElement, number>();
 export function renderApp(rootElement: HTMLElement) {
   let currentView: AppView = "home";
   let isBusy = false;
+  let busyTool: HistoryToolType | null = null;
   let result: AppGeneratedImageResult | null = null;
   let imageSource: ImageSourceState | null = null;
   let imageResult: AppGeneratedImageResult | null = null;
@@ -255,7 +256,7 @@ export function renderApp(rootElement: HTMLElement) {
   const objectUrls = createObjectUrlRegistry();
 
   function syncBusy() {
-    setBusy(elements, isBusy, {
+    setBusy(elements, isBusy, busyTool, {
       result,
       imageResult,
       imageSource,
@@ -268,7 +269,7 @@ export function renderApp(rootElement: HTMLElement) {
       upscaleResult,
       upscaleSource
     });
-    updateInpaintReferenceControlLock(elements, isBusy);
+    updateInpaintReferenceControlLock(elements, isBusy && busyTool === "inpaint");
   }
 
   rootElement.innerHTML = createAppMarkup();
@@ -994,6 +995,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     setError(elements, "");
     setResult(null);
+    busyTool = "text-to-image";
     isBusy = true;
     syncBusy();
     setStatus(elements, "Preparing workflow...", "idle");
@@ -1110,6 +1112,7 @@ export function renderApp(rootElement: HTMLElement) {
       setDiagnostics(elements, getTechnicalErrorDetails(caughtError));
     } finally {
       isBusy = false;
+      busyTool = null;
       syncBusy();
     }
   }
@@ -1122,7 +1125,7 @@ export function renderApp(rootElement: HTMLElement) {
   }
 
   function handleHistoryAction(action: HistoryActionName, historyId: string) {
-    if (isBusy) {
+    if (isBusy && action !== "preview") {
       setDiagnostics(elements, "Finish the current operation before using history.");
       return;
     }
@@ -1271,6 +1274,7 @@ export function renderApp(rootElement: HTMLElement) {
     }
 
     setError(elements, "");
+    busyTool = "text-to-image";
     isBusy = true;
     syncBusy();
     setStatus(elements, "Importing image into Photoshop...", "idle");
@@ -1300,6 +1304,7 @@ export function renderApp(rootElement: HTMLElement) {
       setError(elements, getErrorMessage(caughtError));
     } finally {
       isBusy = false;
+      busyTool = null;
       syncBusy();
     }
   }
@@ -1331,6 +1336,7 @@ export function renderApp(rootElement: HTMLElement) {
     setImageDiagnostics(elements, options.progressMessage);
     setImageError(elements, "");
     setImageStatus(elements, options.statusMessage, "idle");
+    busyTool = "image-to-image";
     isBusy = true;
     syncBusy();
 
@@ -1352,6 +1358,7 @@ export function renderApp(rootElement: HTMLElement) {
       setImageDiagnostics(elements, getTechnicalErrorDetails(caughtError));
     } finally {
       isBusy = false;
+      busyTool = null;
       syncBusy();
     }
   }
@@ -1381,6 +1388,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     setImageError(elements, "");
     setImageResult(null);
+    busyTool = "image-to-image";
     isBusy = true;
     syncBusy();
     setImageStatus(elements, "Preparing Image to Image workflow...", "idle");
@@ -1514,6 +1522,7 @@ export function renderApp(rootElement: HTMLElement) {
       setImageDiagnostics(elements, getImageToImageFailureHint(caughtError));
     } finally {
       isBusy = false;
+      busyTool = null;
       syncBusy();
     }
   }
@@ -1532,6 +1541,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     setImageError(elements, "");
     if (manageBusy) {
+      busyTool = "image-to-image";
       isBusy = true;
       syncBusy();
     }
@@ -1563,6 +1573,7 @@ export function renderApp(rootElement: HTMLElement) {
     } finally {
       if (manageBusy) {
         isBusy = false;
+        busyTool = null;
         syncBusy();
       }
     }
@@ -1595,6 +1606,7 @@ export function renderApp(rootElement: HTMLElement) {
     setUpscaleDiagnostics(elements, options.progressMessage);
     setUpscaleError(elements, "");
     setUpscaleStatus(elements, options.statusMessage, "idle");
+    busyTool = "upscale";
     isBusy = true;
     syncBusy();
 
@@ -1616,6 +1628,7 @@ export function renderApp(rootElement: HTMLElement) {
       setUpscaleDiagnostics(elements, getTechnicalErrorDetails(caughtError));
     } finally {
       isBusy = false;
+      busyTool = null;
       syncBusy();
     }
   }
@@ -1639,6 +1652,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     setUpscaleError(elements, "");
     setUpscaleResult(null);
+    busyTool = "upscale";
     isBusy = true;
     syncBusy();
     setUpscaleStatus(elements, "Preparing Upscale workflow...", "idle");
@@ -1738,6 +1752,7 @@ export function renderApp(rootElement: HTMLElement) {
       setUpscaleDiagnostics(elements, getUpscaleFailureHint(caughtError));
     } finally {
       isBusy = false;
+      busyTool = null;
       syncBusy();
     }
   }
@@ -1756,6 +1771,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     setUpscaleError(elements, "");
     if (manageBusy) {
+      busyTool = "upscale";
       isBusy = true;
       syncBusy();
     }
@@ -1787,6 +1803,7 @@ export function renderApp(rootElement: HTMLElement) {
     } finally {
       if (manageBusy) {
         isBusy = false;
+        busyTool = null;
         syncBusy();
       }
     }
@@ -1819,6 +1836,7 @@ export function renderApp(rootElement: HTMLElement) {
     setOutpaintDiagnostics(elements, options.progressMessage);
     setOutpaintError(elements, "");
     setOutpaintStatus(elements, options.statusMessage, "idle");
+    busyTool = "outpaint";
     isBusy = true;
     syncBusy();
 
@@ -1840,6 +1858,7 @@ export function renderApp(rootElement: HTMLElement) {
       setOutpaintDiagnostics(elements, getTechnicalErrorDetails(caughtError));
     } finally {
       isBusy = false;
+      busyTool = null;
       syncBusy();
     }
   }
@@ -1872,6 +1891,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     setOutpaintError(elements, "");
     setOutpaintResult(null);
+    busyTool = "outpaint";
     isBusy = true;
     syncBusy();
     setOutpaintStatus(elements, "Preparing Outpaint workflow...", "idle");
@@ -2008,6 +2028,7 @@ export function renderApp(rootElement: HTMLElement) {
       setOutpaintDiagnostics(elements, getOutpaintFailureHint(caughtError));
     } finally {
       isBusy = false;
+      busyTool = null;
       syncBusy();
     }
   }
@@ -2021,6 +2042,7 @@ export function renderApp(rootElement: HTMLElement) {
     }
 
     setOutpaintError(elements, "");
+    busyTool = "outpaint";
     isBusy = true;
     syncBusy();
     setOutpaintStatus(elements, "Importing Outpaint result into Photoshop...", "idle");
@@ -2050,6 +2072,7 @@ export function renderApp(rootElement: HTMLElement) {
       setOutpaintError(elements, getErrorMessage(caughtError));
     } finally {
       isBusy = false;
+      busyTool = null;
       syncBusy();
     }
   }
@@ -2081,6 +2104,7 @@ export function renderApp(rootElement: HTMLElement) {
     setSketchDiagnostics(elements, options.progressMessage);
     setSketchError(elements, "");
     setSketchStatus(elements, options.statusMessage, "idle");
+    busyTool = "sketch-to-image";
     isBusy = true;
     syncBusy();
 
@@ -2102,6 +2126,7 @@ export function renderApp(rootElement: HTMLElement) {
       setSketchDiagnostics(elements, getTechnicalErrorDetails(caughtError));
     } finally {
       isBusy = false;
+      busyTool = null;
       syncBusy();
     }
   }
@@ -2134,6 +2159,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     setSketchError(elements, "");
     setSketchResult(null);
+    busyTool = "sketch-to-image";
     isBusy = true;
     syncBusy();
     setSketchStatus(elements, "Preparing LINECN workflow...", "idle");
@@ -2264,6 +2290,7 @@ export function renderApp(rootElement: HTMLElement) {
       setSketchDiagnostics(elements, getSketchFailureHint(caughtError));
     } finally {
       isBusy = false;
+      busyTool = null;
       syncBusy();
     }
   }
@@ -2277,6 +2304,7 @@ export function renderApp(rootElement: HTMLElement) {
     }
 
     setSketchError(elements, "");
+    busyTool = "sketch-to-image";
     isBusy = true;
     syncBusy();
     setSketchStatus(elements, "Importing Sketch to Image result into Photoshop...", "idle");
@@ -2306,6 +2334,7 @@ export function renderApp(rootElement: HTMLElement) {
       setSketchError(elements, getErrorMessage(caughtError));
     } finally {
       isBusy = false;
+      busyTool = null;
       syncBusy();
     }
   }
@@ -2315,6 +2344,7 @@ export function renderApp(rootElement: HTMLElement) {
     setInpaintDiagnostics(elements, `Capturing Photoshop selection from ${sourceModeLabel}...`);
     setInpaintError(elements, "");
     setInpaintStatus(elements, `Capturing ${sourceModeLabel} selection...`, "idle");
+    busyTool = "inpaint";
     isBusy = true;
     syncBusy();
 
@@ -2346,6 +2376,7 @@ export function renderApp(rootElement: HTMLElement) {
       setInpaintDiagnostics(elements, getTechnicalErrorDetails(caughtError));
     } finally {
       isBusy = false;
+      busyTool = null;
       syncBusy();
     }
   }
@@ -2427,6 +2458,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     setInpaintError(elements, "");
     setInpaintResult(null);
+    busyTool = "inpaint";
     isBusy = true;
     syncBusy();
     setInpaintStatus(elements, "Preparing Inpaint workflow...", "idle");
@@ -2671,6 +2703,7 @@ export function renderApp(rootElement: HTMLElement) {
       setInpaintDiagnostics(elements, getInpaintFailureHint(caughtError));
     } finally {
       isBusy = false;
+      busyTool = null;
       syncBusy();
     }
   }
@@ -2712,6 +2745,7 @@ export function renderApp(rootElement: HTMLElement) {
     }
 
     setInpaintError(elements, "");
+    busyTool = "inpaint";
     isBusy = true;
     syncBusy();
     setInpaintStatus(elements, "Importing Inpaint result into Photoshop...", "idle");
@@ -2786,6 +2820,7 @@ export function renderApp(rootElement: HTMLElement) {
       setInpaintError(elements, getErrorMessage(caughtError));
     } finally {
       isBusy = false;
+      busyTool = null;
       syncBusy();
     }
   }
@@ -2817,6 +2852,7 @@ export function renderApp(rootElement: HTMLElement) {
     setPromptLayerDiagnostics(elements, options.progressMessage);
     setPromptLayerError(elements, "");
     setPromptLayerStatus(elements, options.statusMessage, "idle");
+    busyTool = "prompt-from-layer";
     isBusy = true;
     syncBusy();
 
@@ -2838,6 +2874,7 @@ export function renderApp(rootElement: HTMLElement) {
       setPromptLayerDiagnostics(elements, getTechnicalErrorDetails(caughtError));
     } finally {
       isBusy = false;
+      busyTool = null;
       syncBusy();
     }
   }
@@ -2858,6 +2895,7 @@ export function renderApp(rootElement: HTMLElement) {
     setPromptLayerError(elements, "");
     setPromptLayerStatus(elements, "Uploading source to ComfyUI...", "idle");
     setPromptLayerDiagnostics(elements, `Task: ${task}. Num beams: ${numBeams}.`);
+    busyTool = "prompt-from-layer";
     isBusy = true;
     syncBusy();
     let run: GenerationRunHandle | null = null;
@@ -2913,6 +2951,7 @@ export function renderApp(rootElement: HTMLElement) {
     } finally {
       run?.finish();
       isBusy = false;
+      busyTool = null;
       syncBusy();
     }
   }
@@ -3269,12 +3308,21 @@ export function renderApp(rootElement: HTMLElement) {
 }
 
 
-function setBusy(elements: AppElements, isBusy: boolean, gates: Record<BusyGateName, unknown>) {
-  for (const fieldKey of BUSY_DISABLED_FIELDS) {
-    elements[fieldKey].disabled = isBusy;
+function setBusy(
+  elements: AppElements,
+  isBusy: boolean,
+  busyTool: HistoryToolType | null,
+  gates: Record<BusyGateName, unknown>
+) {
+  for (const [groupName, fieldKeys] of Object.entries(BUSY_DISABLED_FIELD_GROUPS)) {
+    const isGroupBusy = isBusy && (groupName === "global" || groupName === busyTool);
+
+    for (const fieldKey of fieldKeys) {
+      elements[fieldKey].disabled = isGroupBusy;
+    }
   }
 
-  for (const actionKey of BUSY_DISABLED_ACTIONS) {
+  for (const actionKey of BUSY_ALWAYS_DISABLED_ACTIONS) {
     setActionDisabled(elements[actionKey], isBusy);
   }
 
@@ -3288,8 +3336,8 @@ function setBusy(elements: AppElements, isBusy: boolean, gates: Record<BusyGateN
 }
 
 // Flux Fill ignores the panel's steps/cfg/denoise, so those controls are
-// disabled while it is selected: still disabled during a run like every other
-// field, and still disabled afterwards for as long as Flux Fill is chosen.
+// disabled while it is selected: still disabled during an Inpaint operation,
+// and still disabled afterwards for as long as Flux Fill is chosen.
 // Must be re-applied anywhere the inpaint workflow selection changes, and after
 // setBusy, which re-enables every field in its table once a run ends.
 function updateInpaintReferenceControlLock(elements: AppElements, isBusy = false) {

@@ -1,28 +1,157 @@
 import { describe, expect, it } from "vitest";
 import {
-  BUSY_DISABLED_ACTIONS,
-  BUSY_DISABLED_FIELDS,
+  BUSY_ALLOWED_ACTIONS,
+  BUSY_ALWAYS_DISABLED_ACTIONS,
+  BUSY_DISABLED_FIELD_GROUPS,
   BUSY_GATED_ACTIONS
 } from "../../src/ui/toolDescriptors";
 
 describe("busy-state tables", () => {
-  it("keeps the full inventory the hand-written setBusy used to toggle", () => {
-    // 52 form fields + 29 plain actions + 11 gated actions, counted from the
-    // function this table replaced. A silently dropped entry would leave a
-    // control enabled mid-generation with no failing test.
-    expect(BUSY_DISABLED_FIELDS).toHaveLength(52);
-    expect(BUSY_DISABLED_ACTIONS).toHaveLength(29);
-    expect(BUSY_GATED_ACTIONS).toHaveLength(11);
+  const fieldGroups = Object.values(BUSY_DISABLED_FIELD_GROUPS);
+  const allFields = fieldGroups.flat();
+
+  it("keeps a non-empty field group for global state and every tool", () => {
+    expect(Object.keys(BUSY_DISABLED_FIELD_GROUPS)).toEqual([
+      "global",
+      "text-to-image",
+      "image-to-image",
+      "sketch-to-image",
+      "inpaint",
+      "outpaint",
+      "upscale",
+      "prompt-from-layer"
+    ]);
+    expect(fieldGroups.every((fields) => fields.length > 0)).toBe(true);
   });
 
-  it("lists every element at most once across all three tables", () => {
-    const allKeys = [
-      ...BUSY_DISABLED_FIELDS,
-      ...BUSY_DISABLED_ACTIONS,
-      ...BUSY_GATED_ACTIONS.map((action) => action.button)
+  it("keeps the complete field inventory without assigning a field twice", () => {
+    const expectedFields = [
+      "serverUrl",
+      "prompt",
+      "negativePrompt",
+      "workflow",
+      "checkpoint",
+      "width",
+      "height",
+      "steps",
+      "cfg",
+      "seed",
+      "imgPrompt",
+      "imgNegativePrompt",
+      "imgWorkflow",
+      "imgCheckpoint",
+      "imgSteps",
+      "imgCfg",
+      "imgSeed",
+      "imgDenoise",
+      "sketchPrompt",
+      "sketchNegativePrompt",
+      "sketchWorkflow",
+      "sketchCheckpoint",
+      "sketchSteps",
+      "sketchCfg",
+      "sketchSeed",
+      "sketchDenoise",
+      "sketchControlStrength",
+      "inpaintPrompt",
+      "inpaintNegativePrompt",
+      "inpaintWorkflow",
+      "inpaintCheckpoint",
+      "inpaintSteps",
+      "inpaintCfg",
+      "inpaintSeed",
+      "inpaintDenoise",
+      "outpaintPrompt",
+      "outpaintWorkflow",
+      "outpaintCheckpoint",
+      "outpaintSteps",
+      "outpaintGuidance",
+      "outpaintSeed",
+      "outpaintDenoise",
+      "outpaintLeft",
+      "outpaintTop",
+      "outpaintRight",
+      "outpaintBottom",
+      "outpaintFeathering",
+      "upscaleWorkflow",
+      "upscaleModel",
+      "promptLayerTask",
+      "promptLayerNumBeams",
+      "promptLayerGeneratedText"
     ];
 
-    expect(new Set(allKeys).size).toBe(allKeys.length);
+    expect(new Set(allFields)).toEqual(new Set(expectedFields));
+    expect(new Set(allFields).size).toBe(allFields.length);
+  });
+
+  it("accounts for every formerly busy-locked action exactly once", () => {
+    const plainActions = [
+      ...BUSY_ALWAYS_DISABLED_ACTIONS,
+      ...BUSY_ALLOWED_ACTIONS
+    ];
+    const allActions = [
+      ...plainActions,
+      ...BUSY_GATED_ACTIONS.map(({ button }) => button)
+    ];
+
+    expect(plainActions).toHaveLength(29);
+    expect(BUSY_GATED_ACTIONS).toHaveLength(11);
+    expect(new Set(allActions).size).toBe(allActions.length);
+  });
+
+  it("leaves captures, preparation toggles, and prompt reuse actions out of the busy lock", () => {
+    expect(new Set(BUSY_ALLOWED_ACTIONS)).toEqual(new Set([
+      "negativePromptToggle",
+      "autoImportToggle",
+      "imgAutoImportToggle",
+      "upscaleAutoImportToggle",
+      "captureLayerButton",
+      "captureCanvasButton",
+      "experimentalCheckpointToggle",
+      "captureSketchLayerButton",
+      "captureSketchCanvasButton",
+      "captureInpaintSelectionButton",
+      "captureInpaintActiveLayerButton",
+      "captureOutpaintLayerButton",
+      "captureOutpaintCanvasButton",
+      "captureUpscaleLayerButton",
+      "captureUpscaleCanvasButton",
+      "capturePromptLayerButton",
+      "capturePromptCanvasButton",
+      "copyPromptLayerButton",
+      "sendPromptLayerButton"
+    ]));
+  });
+
+  it("always locks every Generate and Import button while busy", () => {
+    const lockedActions = new Set([
+      ...BUSY_ALWAYS_DISABLED_ACTIONS,
+      ...BUSY_GATED_ACTIONS.map(({ button }) => button)
+    ]);
+
+    expect(lockedActions).toEqual(new Set([
+      "generateButton",
+      "generateImg2ImgButton",
+      "generateSketchButton",
+      "generateInpaintButton",
+      "generateOutpaintButton",
+      "generateUpscaleButton",
+      "generatePromptLayerButton",
+      "importButton",
+      "importImg2ImgButton",
+      "importSketchButton",
+      "importInpaintButton",
+      "importOutpaintButton",
+      "importUpscaleButton",
+      "checkButton",
+      "findPortButton",
+      "detectHardwareButton",
+      "checkWorkflowHealthButton",
+      "copyDiagnosticsButton",
+      "saveSettingsButton",
+      "resetSettingsButton",
+      "clearHistoryButton"
+    ]));
   });
 
   it("gates every tool's generate button on its captured source", () => {

@@ -1,4 +1,5 @@
 import type { AppElements } from "./appMarkup";
+import type { HistoryToolType } from "./historyMetadata";
 
 // Keys of AppElements whose element type actually carries a .disabled property,
 // so a table entry pointing at a plain HTMLElement is a compile error rather
@@ -13,64 +14,83 @@ export type ActionElementKey = {
   [K in keyof AppElements]: AppElements[K] extends HTMLElement ? K : never;
 }[keyof AppElements];
 
-// Every form field the panel locks while a generation or import is running.
-export const BUSY_DISABLED_FIELDS: readonly DisableableElementKey[] = [
-  "serverUrl",
-  "prompt",
-  "negativePrompt",
-  "workflow",
-  "checkpoint",
-  "width",
-  "height",
-  "steps",
-  "cfg",
-  "seed",
-  "imgPrompt",
-  "imgNegativePrompt",
-  "imgWorkflow",
-  "imgCheckpoint",
-  "imgSteps",
-  "imgCfg",
-  "imgSeed",
-  "imgDenoise",
-  "sketchPrompt",
-  "sketchNegativePrompt",
-  "sketchWorkflow",
-  "sketchCheckpoint",
-  "sketchSteps",
-  "sketchCfg",
-  "sketchSeed",
-  "sketchDenoise",
-  "sketchControlStrength",
-  "inpaintPrompt",
-  "inpaintNegativePrompt",
-  "inpaintWorkflow",
-  "inpaintCheckpoint",
-  "inpaintSteps",
-  "inpaintCfg",
-  "inpaintSeed",
-  "inpaintDenoise",
-  "outpaintPrompt",
-  "outpaintWorkflow",
-  "outpaintCheckpoint",
-  "outpaintSteps",
-  "outpaintGuidance",
-  "outpaintSeed",
-  "outpaintDenoise",
-  "outpaintLeft",
-  "outpaintTop",
-  "outpaintRight",
-  "outpaintBottom",
-  "outpaintFeathering",
-  "upscaleWorkflow",
-  "upscaleModel",
-  "promptLayerTask",
-  "promptLayerNumBeams",
-  "promptLayerGeneratedText"
-];
+export type BusyFieldGroupName = HistoryToolType | "global";
 
-// Action buttons that are simply unavailable while busy.
-export const BUSY_DISABLED_ACTIONS: readonly ActionElementKey[] = [
+// Form fields are locked only for the tool performing the current operation.
+// Global fields remain locked for every operation because changing them can
+// disrupt the active request.
+export const BUSY_DISABLED_FIELD_GROUPS: Readonly<
+  Record<BusyFieldGroupName, readonly DisableableElementKey[]>
+> = {
+  global: ["serverUrl"],
+  "text-to-image": [
+    "prompt",
+    "negativePrompt",
+    "workflow",
+    "checkpoint",
+    "width",
+    "height",
+    "steps",
+    "cfg",
+    "seed"
+  ],
+  "image-to-image": [
+    "imgPrompt",
+    "imgNegativePrompt",
+    "imgWorkflow",
+    "imgCheckpoint",
+    "imgSteps",
+    "imgCfg",
+    "imgSeed",
+    "imgDenoise"
+  ],
+  "sketch-to-image": [
+    "sketchPrompt",
+    "sketchNegativePrompt",
+    "sketchWorkflow",
+    "sketchCheckpoint",
+    "sketchSteps",
+    "sketchCfg",
+    "sketchSeed",
+    "sketchDenoise",
+    "sketchControlStrength"
+  ],
+  inpaint: [
+    "inpaintPrompt",
+    "inpaintNegativePrompt",
+    "inpaintWorkflow",
+    "inpaintCheckpoint",
+    "inpaintSteps",
+    "inpaintCfg",
+    "inpaintSeed",
+    "inpaintDenoise"
+  ],
+  outpaint: [
+    "outpaintPrompt",
+    "outpaintWorkflow",
+    "outpaintCheckpoint",
+    "outpaintSteps",
+    "outpaintGuidance",
+    "outpaintSeed",
+    "outpaintDenoise",
+    "outpaintLeft",
+    "outpaintTop",
+    "outpaintRight",
+    "outpaintBottom",
+    "outpaintFeathering"
+  ],
+  upscale: ["upscaleWorkflow", "upscaleModel"],
+  "prompt-from-layer": [
+    "promptLayerTask",
+    "promptLayerNumBeams",
+    "promptLayerGeneratedText"
+  ]
+};
+
+// Actions that are unavailable during every operation. The two primary
+// buttons here join the gated Generate buttons below to preserve the
+// generation controller's single-active-run contract.
+export const BUSY_ALWAYS_DISABLED_ACTIONS: readonly ActionElementKey[] = [
   "checkButton",
   "findPortButton",
   "detectHardwareButton",
@@ -78,11 +98,19 @@ export const BUSY_DISABLED_ACTIONS: readonly ActionElementKey[] = [
   "copyDiagnosticsButton",
   "saveSettingsButton",
   "resetSettingsButton",
+  "generateButton",
+  "generatePromptLayerButton",
+  "clearHistoryButton"
+];
+
+// These actions were part of the old panel-wide busy lock. They deliberately
+// remain live so another tool can be prepared or its source recaptured while
+// the current operation continues.
+export const BUSY_ALLOWED_ACTIONS: readonly ActionElementKey[] = [
   "negativePromptToggle",
   "autoImportToggle",
   "imgAutoImportToggle",
   "upscaleAutoImportToggle",
-  "generateButton",
   "captureLayerButton",
   "captureCanvasButton",
   "experimentalCheckpointToggle",
@@ -96,10 +124,8 @@ export const BUSY_DISABLED_ACTIONS: readonly ActionElementKey[] = [
   "captureUpscaleCanvasButton",
   "capturePromptLayerButton",
   "capturePromptCanvasButton",
-  "generatePromptLayerButton",
   "copyPromptLayerButton",
-  "sendPromptLayerButton",
-  "clearHistoryButton"
+  "sendPromptLayerButton"
 ];
 
 // Tool state a gated button also needs before it can be enabled: generate
