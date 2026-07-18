@@ -1510,8 +1510,11 @@ a:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 165px;
-  max-height: 260px;
+  /* A fixed height, not min/max, keeps the panel the same size whether it is
+     showing the empty message or an image, whatever that image's aspect
+     ratio: without this the box grows and shrinks between generations,
+     reading as a flicker even though no element is being rebuilt. */
+  height: 260px;
   overflow: hidden;
   border: 1px solid #4c4c4c;
   border-radius: 8px;
@@ -1584,8 +1587,7 @@ a:hover {
 }
 
 .img2img-result-panel .preview-panel {
-  min-height: 140px;
-  max-height: 210px;
+  height: 210px;
 }
 
 .img2img-result-panel .preview-panel img {
@@ -1815,8 +1817,7 @@ a:hover {
   }
 
   .preview-panel {
-    min-height: 150px;
-    max-height: 230px;
+    height: 230px;
   }
 
   .preview-panel img {
@@ -1824,8 +1825,7 @@ a:hover {
   }
 
   .img2img-result-panel .preview-panel {
-    min-height: 130px;
-    max-height: 190px;
+    height: 190px;
   }
 
   .img2img-result-panel .preview-panel img {
@@ -2341,8 +2341,7 @@ a:hover {
 }
 
 .app-shell.theme-compact .preview-panel {
-  min-height: 132px;
-  max-height: 220px;
+  height: 220px;
   border-color: var(--ol-line);
 }
 
@@ -2874,8 +2873,7 @@ a:hover {
 }
 
 .app-shell.theme-compact .preview-panel {
-  min-height: 112px;
-  max-height: 175px;
+  height: 175px;
   border-radius: 5px;
 }
 
@@ -3290,8 +3288,7 @@ a:hover {
 
 .app-shell.theme-compact .preview-panel {
   width: 100%;
-  min-height: 112px;
-  max-height: 170px;
+  height: 170px;
   min-width: 0;
   border-radius: 4px;
 }
@@ -3516,10 +3513,6 @@ a:hover {
 .app-shell.theme-compact .status-bar {
   min-height: 26px;
   padding: 3px 6px;
-}
-
-.app-shell.theme-compact .preview-panel {
-  min-height: 104px;
 }
 
 .app-shell.theme-classic {
@@ -3790,8 +3783,7 @@ a:hover {
 }
 
 .app-shell.theme-compact .preview-panel {
-  min-height: 96px;
-  max-height: 150px;
+  height: 150px;
 }
 
 .app-shell.theme-compact .preview-panel img {
@@ -4648,8 +4640,7 @@ a:hover {
 .app-shell.theme-compact .preview-panel {
   box-sizing: border-box;
   width: 100%;
-  min-height: 118px;
-  max-height: 320px;
+  height: 320px;
   border: 1px solid var(--ol-border);
   border-radius: var(--ol-radius);
   background: #262626;
@@ -6381,8 +6372,7 @@ a:hover {
 }
 
 .app-shell.theme-compact .preview-panel {
-  min-height: 112px !important;
-  max-height: 210px !important;
+  height: 210px !important;
   border: 1px solid var(--ol-border-soft) !important;
   border-radius: 6px !important;
   background: rgba(255, 255, 255, 0.035) !important;
