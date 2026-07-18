@@ -1248,6 +1248,16 @@ a:hover {
   padding: 6px 8px;
 }
 
+/* A control the selected workflow overrides: still readable, clearly not
+   editable, and distinct from the transient disabled state during a run. */
+.input.is-reference-locked {
+  border-style: dashed;
+  border-color: #5a5a5a;
+  background: #1f1f1f;
+  color: #9a9a9a;
+  cursor: not-allowed;
+}
+
 .input:focus,
 .select:focus,
 .textarea:focus {
@@ -6189,6 +6199,16 @@ a:hover {
   color: var(--ol-text) !important;
   font-size: 12.5px !important;
   line-height: 18px !important;
+}
+
+/* Must sit after the !important block above, which forces background and color
+   on every compact number input and would otherwise erase the locked look. */
+.app-shell.theme-compact .input.is-reference-locked:disabled {
+  border-color: #8b6f2a !important;
+  background: #3d382d !important;
+  color: #d8bd7a !important;
+  opacity: 1 !important;
+  cursor: not-allowed !important;
 }
 
 .app-shell.theme-compact .textarea,

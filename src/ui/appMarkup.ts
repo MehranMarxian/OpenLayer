@@ -101,6 +101,7 @@ export type AppElements = {
   inpaintCfg: HTMLInputElement;
   inpaintSeed: HTMLInputElement;
   inpaintDenoise: HTMLInputElement;
+  inpaintLockedSettingsNote: HTMLElement;
   captureInpaintSelectionButton: HTMLElement;
   captureInpaintActiveLayerButton: HTMLElement;
   generateInpaintButton: HTMLElement;
@@ -856,21 +857,22 @@ export function createAppMarkup() {
           <div class="settings-grid img2img-settings-grid" aria-label="Inpaint settings">
             <div class="field">
               <span class="label">Steps</span>
-              <input class="input input-compact" id="inpaint-steps" type="number" min="1" max="150" step="1" value="${DEFAULT_INPAINT_STEPS}" />
+              <input class="input input-compact" id="inpaint-steps" type="number" min="1" max="150" step="1" value="${DEFAULT_INPAINT_STEPS}" aria-describedby="inpaint-locked-settings-note" />
             </div>
             <div class="field">
               <span class="label">CFG</span>
-              <input class="input input-compact" id="inpaint-cfg" type="number" min="1" max="30" step="0.5" value="${DEFAULT_CFG}" />
+              <input class="input input-compact" id="inpaint-cfg" type="number" min="1" max="30" step="0.5" value="${DEFAULT_CFG}" aria-describedby="inpaint-locked-settings-note" />
             </div>
             <div class="field">
               <span class="label">Denoise</span>
-              <input class="input input-compact" id="inpaint-denoise" type="number" min="0.05" max="1" step="0.05" value="${DEFAULT_INPAINT_DENOISE}" />
+              <input class="input input-compact" id="inpaint-denoise" type="number" min="0.05" max="1" step="0.05" value="${DEFAULT_INPAINT_DENOISE}" aria-describedby="inpaint-locked-settings-note" />
             </div>
             <div class="field settings-seed">
               <span class="label">Seed</span>
               <input class="input input-compact" id="inpaint-seed" type="number" min="0" placeholder="Random" />
             </div>
           </div>
+          <span class="compatibility-note" id="inpaint-locked-settings-note" hidden></span>
           <button class="button button-primary button-generate button-wide action-control" id="generate-inpaint" data-openlayer-action="generateInpaint" type="button">Generate Inpaint</button>
           <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
         </section>
@@ -1321,6 +1323,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     inpaintCfg: getElement<HTMLInputElement>(rootElement, "inpaint-cfg"),
     inpaintSeed: getElement<HTMLInputElement>(rootElement, "inpaint-seed"),
     inpaintDenoise: getElement<HTMLInputElement>(rootElement, "inpaint-denoise"),
+    inpaintLockedSettingsNote: getElement<HTMLElement>(rootElement, "inpaint-locked-settings-note"),
     captureInpaintSelectionButton: getElement<HTMLElement>(rootElement, "capture-inpaint-selection"),
     captureInpaintActiveLayerButton: getElement<HTMLElement>(rootElement, "capture-inpaint-active-layer"),
     generateInpaintButton: getElement<HTMLElement>(rootElement, "generate-inpaint"),
