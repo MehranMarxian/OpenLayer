@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createPhotoshopDocumentIdentity } from "../../src/photoshop/documentContext";
 import {
+  getLivePaintingStateBadgeLabel,
   LivePaintingSessionV2,
   type LivePaintingV2Callbacks,
   type LivePaintingV2Options,
@@ -134,6 +135,23 @@ async function flushAsyncWork(turns = 20) {
 
 afterEach(() => {
   vi.useRealTimers();
+});
+
+describe("getLivePaintingStateBadgeLabel", () => {
+  it("maps session states to the four UI labels", () => {
+    const expectedLabels = {
+      idle: "IDLE",
+      listening: "LIVE",
+      pending: "LIVE",
+      refining: "REFINING",
+      refined: "REFINED",
+      stopped: "IDLE"
+    } as const;
+
+    for (const [state, label] of Object.entries(expectedLabels)) {
+      expect(getLivePaintingStateBadgeLabel(state as keyof typeof expectedLabels)).toBe(label);
+    }
+  });
 });
 
 describe("LivePaintingSessionV2", () => {

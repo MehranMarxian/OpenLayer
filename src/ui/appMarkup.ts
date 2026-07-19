@@ -235,11 +235,15 @@ export type AppElements = {
   liveDenoise: HTMLInputElement;
   liveStartButton: HTMLElement;
   liveStopButton: HTMLElement;
+  liveRefineButton: HTMLElement;
+  liveAutoRefineToggle: HTMLElement;
   liveStatusText: HTMLElement;
+  liveStateBadge: HTMLElement;
   liveTimingsText: HTMLElement;
   liveResultPreviewPanel: HTMLElement;
   liveZoomToggle: HTMLElement;
   importLiveButton: HTMLElement;
+  importLiveRefinedButton: HTMLElement;
   liveAutoImportToggle: HTMLElement;
 };
 
@@ -351,6 +355,10 @@ export function createAppMarkup() {
           </label>
           <button class="button button-primary button-generate button-wide action-control" id="start-live-painting" data-openlayer-action="startLivePainting" type="button">Start Live Session</button>
           <button class="button button-wide action-control" id="stop-live-painting" data-openlayer-action="stopLivePainting" type="button">Stop Live Session</button>
+          <div class="live-refine-actions">
+            <button class="button action-control" id="refine-live-painting" data-openlayer-action="refineLivePainting" type="button">Refine Now</button>
+            <button class="button action-control" id="live-auto-refine-toggle" data-openlayer-action="toggleLiveAutoRefine" type="button" aria-pressed="false">Auto Refine on Pause</button>
+          </div>
         </section>
 
         <section class="panel-section generator-panel" aria-label="Live Painting preview">
@@ -365,6 +373,7 @@ export function createAppMarkup() {
             <button class="button action-control" id="import-live-result" data-openlayer-action="importLiveResult" type="button">Import to Layers</button>
             <button class="button action-control" id="live-auto-import-toggle" data-openlayer-action="toggleLiveAutoImport" type="button" aria-pressed="false">Import Automatically</button>
           </div>
+          <button class="button live-refined-import-button action-control" id="import-live-refined" data-openlayer-action="importLiveRefined" type="button">Import Refined as Layer</button>
           <div class="diagnostics-line">
             Import Automatically brings the latest live result into Photoshop as a new layer when you stop the session.
           </div>
@@ -373,7 +382,7 @@ export function createAppMarkup() {
         <section class="generation-status-panel" aria-label="Live Painting status">
           <div class="status-bar" role="status">
             <span class="status-text" id="live-status-text">Live Painting spike ready.</span>
-            <span class="status-pill idle">Spike</span>
+            <span class="status-pill live-state-badge idle" id="live-state-badge">IDLE</span>
           </div>
           <div class="diagnostics-line" id="live-timings-text">Cycle timings will appear here.</div>
         </section>
@@ -1457,11 +1466,15 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     liveDenoise: getElement<HTMLInputElement>(rootElement, "live-denoise"),
     liveStartButton: getElement<HTMLElement>(rootElement, "start-live-painting"),
     liveStopButton: getElement<HTMLElement>(rootElement, "stop-live-painting"),
+    liveRefineButton: getElement<HTMLElement>(rootElement, "refine-live-painting"),
+    liveAutoRefineToggle: getElement<HTMLElement>(rootElement, "live-auto-refine-toggle"),
     liveStatusText: getElement<HTMLElement>(rootElement, "live-status-text"),
+    liveStateBadge: getElement<HTMLElement>(rootElement, "live-state-badge"),
     liveTimingsText: getElement<HTMLElement>(rootElement, "live-timings-text"),
     liveResultPreviewPanel: getElement<HTMLElement>(rootElement, "live-result-preview-panel"),
     liveZoomToggle: getElement<HTMLElement>(rootElement, "live-zoom-toggle"),
     importLiveButton: getElement<HTMLElement>(rootElement, "import-live-result"),
+    importLiveRefinedButton: getElement<HTMLElement>(rootElement, "import-live-refined"),
     liveAutoImportToggle: getElement<HTMLElement>(rootElement, "live-auto-import-toggle")
   };
 }

@@ -107,6 +107,7 @@ import {
   DocumentContextBound,
   PhotoshopDocumentIdentity
 } from "../photoshop/documentContext";
+import { captureCanvasForLivePainting } from "../photoshop/livePaintingCapture";
 import {
   createInpaintSourceModeDiagnostic,
   getInpaintSourceModeLabel,
@@ -137,7 +138,11 @@ import {
   HistoryImportStatus,
   HistoryToolType
 } from "./historyMetadata";
-import { LivePaintingSession } from "./livePaintingSession";
+import {
+  getLivePaintingStateBadgeLabel,
+  LivePaintingSessionV2,
+  type LivePaintingState
+} from "./tools/livePainting";
 import {
   createInpaintImportContext,
   createInpaintSourceSnapshot,
@@ -263,11 +268,13 @@ export function renderApp(rootElement: HTMLElement) {
   let upscaleImportAutomatically = false;
   let isNegativePromptOpen = false;
   let allowExperimentalCheckpoints = false;
-  let livePaintingSession: LivePaintingSession | null = null;
+  let livePaintingSession: LivePaintingSessionV2 | null = null;
   let livePreviewImage: HTMLImageElement | null = null;
   let livePreviewObjectUrl = "";
   let liveLastResult: LiveGeneratedImageResult | null = null;
+  let liveRefinedResult: LiveGeneratedImageResult | null = null;
   let liveImportAutomatically = false;
+  let liveAutoRefine = false;
   let livePreviewZoomed = false;
   let hardwareReport: HardwareRecommendationReport | null = null;
   let workflowHealthReport: WorkflowHealthReport | null = null;
@@ -513,9 +520,12 @@ export function renderApp(rootElement: HTMLElement) {
     clearHistory: createActionRunner(elements, "clearHistory", handleClearHistory),
     startLivePainting: createActionRunner(elements, "startLivePainting", handleStartLivePainting),
     stopLivePainting: createActionRunner(elements, "stopLivePainting", handleStopLivePainting),
+    refineLivePainting: createActionRunner(elements, "refineLivePainting", handleRefineLivePainting),
     toggleLiveZoom: createActionRunner(elements, "toggleLiveZoom", handleToggleLiveZoom),
     importLiveResult: createActionRunner(elements, "importLiveResult", handleImportLiveResult),
-    toggleLiveAutoImport: createActionRunner(elements, "toggleLiveAutoImport", handleToggleLiveAutoImport)
+    importLiveRefined: createActionRunner(elements, "importLiveRefined", handleImportLiveRefined),
+    toggleLiveAutoImport: createActionRunner(elements, "toggleLiveAutoImport", handleToggleLiveAutoImport),
+    toggleLiveAutoRefine: createActionRunner(elements, "toggleLiveAutoRefine", handleToggleLiveAutoRefine)
   };
 
   bindActionControl(elements.checkButton, actionHandlers.check);
@@ -561,9 +571,12 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.clearHistoryButton, actionHandlers.clearHistory);
   bindActionControl(elements.liveStartButton, actionHandlers.startLivePainting);
   bindActionControl(elements.liveStopButton, actionHandlers.stopLivePainting);
+  bindActionControl(elements.liveRefineButton, actionHandlers.refineLivePainting);
   bindActionControl(elements.liveZoomToggle, actionHandlers.toggleLiveZoom);
   bindActionControl(elements.importLiveButton, actionHandlers.importLiveResult);
+  bindActionControl(elements.importLiveRefinedButton, actionHandlers.importLiveRefined);
   bindActionControl(elements.liveAutoImportToggle, actionHandlers.toggleLiveAutoImport);
+  bindActionControl(elements.liveAutoRefineToggle, actionHandlers.toggleLiveAutoRefine);
   bindDelegatedActions(rootElement, actionHandlers);
   bindDocumentActions(rootElement, actionHandlers);
   bindHomeSectionToggles(rootElement);
@@ -615,6 +628,8 @@ export function renderApp(rootElement: HTMLElement) {
   updateLiveButtons(false);
   setActionDisabled(elements.importLiveButton, true);
   updateLiveAutoImportToggle(liveImportAutomatically);
+  updateLiveAutoRefineToggle(liveAutoRefine);
+  updateLiveStateBadge("idle");
   void loadInitialCheckpoints();
 
   elements.workflow.addEventListener("change", () => {
@@ -3145,12 +3160,15 @@ export function renderApp(rootElement: HTMLElement) {
     }
 
     const denoise = Number(elements.liveDenoise.value);
-    const session = new LivePaintingSession(
+    const session = new LivePaintingSessionV2(
       {
-        serverUrl: elements.serverUrl.value,
         checkpointName,
         prompt,
-        denoise: Number.isFinite(denoise) ? denoise : 0.6
+        denoise: Number.isFinite(denoise) ? denoise : 0.6,
+        autoRefineOnPause: liveAutoRefine,
+        refineDenoise: 0.45,
+        refineMaxDimension: 1024,
+        pauseSeconds: 4
       },
       {
         onStatus: (message) => setLiveStatus(message),
@@ -3158,10 +3176,20 @@ export function renderApp(rootElement: HTMLElement) {
           elements.liveTimingsText.textContent = message;
         },
         onPreviewBlob: (blob, originatingDocument) => updateLivePreview(blob, originatingDocument),
+        onRefineResult: (blob, originatingDocument) => {
+          liveRefinedResult = bindDocumentContext({ blob }, originatingDocument);
+          setActionDisabled(elements.importLiveRefinedButton, false);
+          updateLivePreview(blob, originatingDocument, false);
+        },
+        onStateChanged: (state) => updateLiveStateBadge(state),
         onStopped: (reason) => {
           setLiveStatus(reason);
           updateLiveButtons(false);
         }
+      },
+      {
+        client: new ComfyClient(elements.serverUrl.value),
+        capture: captureCanvasForLivePainting
       }
     );
 
@@ -3170,6 +3198,17 @@ export function renderApp(rootElement: HTMLElement) {
 
     try {
       await session.start();
+      void session.checkRefineAvailability()
+        .then((gapMessage) => {
+          if (gapMessage && livePaintingSession === session && session.isRunning()) {
+            setLiveStatus(gapMessage);
+          }
+        })
+        .catch((caughtError) => {
+          if (livePaintingSession === session && session.isRunning()) {
+            setLiveStatus(`Could not check Krea-2 refine availability: ${getErrorMessage(caughtError)}`);
+          }
+        });
     } catch (caughtError) {
       if (session.isRunning()) {
         session.stop("Live session stopped after a startup error.");
@@ -3177,9 +3216,19 @@ export function renderApp(rootElement: HTMLElement) {
 
       livePaintingSession = null;
       updateLiveButtons(false);
+      updateLiveStateBadge("idle");
       setLiveStatus(getErrorMessage(caughtError));
       elements.liveTimingsText.textContent = getTechnicalErrorDetails(caughtError);
     }
+  }
+
+  function handleRefineLivePainting() {
+    if (!livePaintingSession?.isRunning()) {
+      setLiveStatus("Start a live session before refining.");
+      return;
+    }
+
+    livePaintingSession.refineNow();
   }
 
   function handleStopLivePainting() {
@@ -3226,6 +3275,28 @@ export function renderApp(rootElement: HTMLElement) {
     }
   }
 
+  async function handleImportLiveRefined() {
+    if (!liveRefinedResult) {
+      setLiveStatus("Generate a refined live result before importing.");
+      return;
+    }
+
+    setLiveStatus("Importing refined live result into Photoshop...");
+
+    try {
+      const importedLayerName = await importGeneratedImageAsLayer({
+        blob: liveRefinedResult.blob,
+        originatingDocument: liveRefinedResult.originatingDocument,
+        layerName: createLayerName("OpenLayer_LiveRefine"),
+        onProgress: (message) => setLiveStatus(message)
+      });
+      setLiveStatus(`Imported layer: ${importedLayerName}`);
+      flashImported(elements.liveStatusText);
+    } catch (caughtError) {
+      setLiveStatus(getErrorMessage(caughtError));
+    }
+  }
+
   function handleToggleLiveAutoImport() {
     liveImportAutomatically = !liveImportAutomatically;
     updateLiveAutoImportToggle(liveImportAutomatically);
@@ -3242,6 +3313,22 @@ export function renderApp(rootElement: HTMLElement) {
     elements.liveAutoImportToggle.classList.toggle("is-active", isEnabled);
   }
 
+  function handleToggleLiveAutoRefine() {
+    liveAutoRefine = !liveAutoRefine;
+    updateLiveAutoRefineToggle(liveAutoRefine);
+    setLiveStatus(
+      liveAutoRefine
+        ? "Auto refine will run after a 4-second painting pause in the next live session."
+        : "Live auto refine is off."
+    );
+  }
+
+  function updateLiveAutoRefineToggle(isEnabled: boolean) {
+    elements.liveAutoRefineToggle.textContent = isEnabled ? "Auto Refine On" : "Auto Refine on Pause";
+    elements.liveAutoRefineToggle.setAttribute("aria-pressed", String(isEnabled));
+    elements.liveAutoRefineToggle.classList.toggle("is-active", isEnabled);
+  }
+
   function setLiveStatus(message: string) {
     elements.liveStatusText.textContent = message;
   }
@@ -3249,9 +3336,22 @@ export function renderApp(rootElement: HTMLElement) {
   function updateLiveButtons(isLive: boolean) {
     setActionDisabled(elements.liveStartButton, isLive);
     setActionDisabled(elements.liveStopButton, !isLive);
+    setActionDisabled(elements.liveRefineButton, !isLive);
+    setActionDisabled(elements.importLiveRefinedButton, !liveRefinedResult);
   }
 
-  function updateLivePreview(blob: Blob, originatingDocument: PhotoshopDocumentIdentity) {
+  function updateLiveStateBadge(state: LivePaintingState) {
+    const label = getLivePaintingStateBadgeLabel(state);
+    elements.liveStateBadge.textContent = label;
+    elements.liveStateBadge.classList.remove("idle", "live", "refining", "refined");
+    elements.liveStateBadge.classList.add(label.toLowerCase());
+  }
+
+  function updateLivePreview(
+    blob: Blob,
+    originatingDocument: PhotoshopDocumentIdentity,
+    recordLiveResult = true
+  ) {
     // One persistent img element: swapping src avoids the rebuild flicker the
     // per-frame progress previews show elsewhere in the panel.
     if (!livePreviewImage) {
@@ -3267,6 +3367,10 @@ export function renderApp(rootElement: HTMLElement) {
 
     if (previousUrl) {
       objectUrls.revoke(previousUrl);
+    }
+
+    if (!recordLiveResult) {
+      return;
     }
 
     liveLastResult = bindDocumentContext({ blob }, originatingDocument);
@@ -4083,9 +4187,12 @@ type ActionName =
   | "clearHistory"
   | "startLivePainting"
   | "stopLivePainting"
+  | "refineLivePainting"
   | "toggleLiveZoom"
   | "importLiveResult"
-  | "toggleLiveAutoImport";
+  | "importLiveRefined"
+  | "toggleLiveAutoImport"
+  | "toggleLiveAutoRefine";
 type HistoryActionName = "preview" | "import" | "reuse";
 type ActionRunner = (eventName: string) => void;
 type ActionHandlers = Record<ActionName, ActionRunner>;
