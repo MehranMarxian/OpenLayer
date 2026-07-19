@@ -56,6 +56,7 @@ export class LivePaintingSession {
   private dirty = false;
   private cycles = 0;
   private lastEventAt = 0;
+  private currentPromptId: string | null = null;
 
   constructor(options: LivePaintingOptions, callbacks: LivePaintingCallbacks) {
     this.options = options;
@@ -107,6 +108,7 @@ export class LivePaintingSession {
     }
 
     this.running = false;
+    this.cancelCurrentPrompt();
     this.removeStrokeListeners();
     this.callbacks.onStopped(reason);
   }
@@ -145,6 +147,10 @@ export class LivePaintingSession {
     try {
       await this.runCycle();
     } catch (caughtError) {
+      if (!this.running) {
+        this.cancelCurrentPrompt();
+      }
+
       this.callbacks.onStatus(`Live cycle failed: ${getErrorMessage(caughtError)}`);
     }
 
@@ -177,32 +183,63 @@ export class LivePaintingSession {
     });
 
     const promptId = await this.client.submitPrompt(workflow);
-    const history = await this.client.pollUntilComplete(promptId, {
-      intervalMs: 250,
-      timeoutMs: 120000,
-      isCancelled: () => !this.running
-    });
-    const result = await this.client.retrieveFirstOutputImage(promptId, history, {
-      preferredNodeId: LIVE_PAINTING_SAVE_NODE_ID
-    });
-    const finishedAt = Date.now();
+    this.currentPromptId = promptId;
 
-    if (!this.running) {
-      return;
+    try {
+      if (!this.running) {
+        this.cancelPrompt(promptId);
+        return;
+      }
+
+      const history = await this.client.pollUntilComplete(promptId, {
+        intervalMs: 250,
+        timeoutMs: 120000,
+        isCancelled: () => !this.running
+      });
+      const result = await this.client.retrieveFirstOutputImage(promptId, history, {
+        preferredNodeId: LIVE_PAINTING_SAVE_NODE_ID
+      });
+      const finishedAt = Date.now();
+
+      if (!this.running) {
+        return;
+      }
+
+      this.cycles += 1;
+      this.callbacks.onPreviewBlob(result.blob, capture.originatingDocument);
+      this.callbacks.onStatus(`Live preview updated (cycle ${this.cycles}).`);
+      this.callbacks.onTimings(
+        [
+          `Cycle ${this.cycles}:`,
+          `capture ${capturedAt - cycleStart}ms (${capture.mode}, ${capture.width}x${capture.height})`,
+          `upload ${uploadedAt - capturedAt}ms`,
+          `generate ${finishedAt - uploadedAt}ms`,
+          `total ${((finishedAt - cycleStart) / 1000).toFixed(2)}s`
+        ].join(" | ")
+      );
+    } catch (caughtError) {
+      if (!this.running) {
+        this.cancelPrompt(promptId);
+      }
+
+      throw caughtError;
+    } finally {
+      if (this.currentPromptId === promptId) {
+        this.currentPromptId = null;
+      }
     }
+  }
 
-    this.cycles += 1;
-    this.callbacks.onPreviewBlob(result.blob, capture.originatingDocument);
-    this.callbacks.onStatus(`Live preview updated (cycle ${this.cycles}).`);
-    this.callbacks.onTimings(
-      [
-        `Cycle ${this.cycles}:`,
-        `capture ${capturedAt - cycleStart}ms (${capture.mode}, ${capture.width}x${capture.height})`,
-        `upload ${uploadedAt - capturedAt}ms`,
-        `generate ${finishedAt - uploadedAt}ms`,
-        `total ${((finishedAt - cycleStart) / 1000).toFixed(2)}s`
-      ].join(" | ")
-    );
+  private cancelCurrentPrompt() {
+    if (this.currentPromptId) {
+      this.cancelPrompt(this.currentPromptId);
+    }
+  }
+
+  private cancelPrompt(promptId: string) {
+    void this.client.cancelPrompt(promptId).catch(() => {
+      // Stopping stays synchronous and best-effort even if ComfyUI is unavailable.
+    });
   }
 
   private async registerStrokeListeners() {

@@ -1003,7 +1003,20 @@ export function renderApp(rootElement: HTMLElement) {
     }
   }
 
+  function blockRegularGenerationDuringLivePainting(reportStatus: (message: string) => void) {
+    if (!livePaintingSession?.isRunning()) {
+      return false;
+    }
+
+    reportStatus("Stop the live session before generating.");
+    return true;
+  }
+
   async function handleGenerate() {
+    if (blockRegularGenerationDuringLivePainting((message) => setStatus(elements, message, "error"))) {
+      return;
+    }
+
     setDiagnostics(elements, `Generate pressed at ${new Date().toLocaleTimeString()}.`);
 
     if (!elements.prompt.value.trim()) {
@@ -1384,6 +1397,10 @@ export function renderApp(rootElement: HTMLElement) {
   }
 
   async function handleGenerateImg2Img() {
+    if (blockRegularGenerationDuringLivePainting((message) => setImageStatus(elements, message, "error"))) {
+      return;
+    }
+
     setImageDiagnostics(elements, `Image to Image generate pressed at ${new Date().toLocaleTimeString()}.`);
 
     if (!imageSource) {
@@ -1654,6 +1671,10 @@ export function renderApp(rootElement: HTMLElement) {
   }
 
   async function handleGenerateUpscale() {
+    if (blockRegularGenerationDuringLivePainting((message) => setUpscaleStatus(elements, message, "error"))) {
+      return;
+    }
+
     setUpscaleDiagnostics(elements, `Upscale generate pressed at ${new Date().toLocaleTimeString()}.`);
 
     if (!upscaleSource) {
@@ -1888,6 +1909,10 @@ export function renderApp(rootElement: HTMLElement) {
   }
 
   async function handleGenerateOutpaint() {
+    if (blockRegularGenerationDuringLivePainting((message) => setOutpaintStatus(elements, message, "error"))) {
+      return;
+    }
+
     setOutpaintDiagnostics(elements, `Outpaint generate pressed at ${new Date().toLocaleTimeString()}.`);
 
     if (!outpaintSource) {
@@ -2226,6 +2251,10 @@ export function renderApp(rootElement: HTMLElement) {
   }
 
   async function handleGenerateSketch() {
+    if (blockRegularGenerationDuringLivePainting((message) => setSketchStatus(elements, message, "error"))) {
+      return;
+    }
+
     setSketchDiagnostics(elements, `Sketch to Image generate pressed at ${new Date().toLocaleTimeString()}.`);
 
     if (!sketchSource) {
@@ -2513,6 +2542,10 @@ export function renderApp(rootElement: HTMLElement) {
   }
 
   async function handleGenerateInpaint() {
+    if (blockRegularGenerationDuringLivePainting((message) => setInpaintStatus(elements, message, "error"))) {
+      return;
+    }
+
     setInpaintDiagnostics(elements, `Inpaint generate pressed at ${new Date().toLocaleTimeString()}.`);
 
     const presetId = readSelectValue(elements.inpaintWorkflow, DEFAULT_INPAINT_WORKFLOW);
@@ -2974,6 +3007,10 @@ export function renderApp(rootElement: HTMLElement) {
   }
 
   async function handleGeneratePromptFromLayer() {
+    if (blockRegularGenerationDuringLivePainting((message) => setPromptLayerStatus(elements, message, "error"))) {
+      return;
+    }
+
     if (!promptLayerSource) {
       setPromptLayerStatus(elements, "Source required.", "error");
       setPromptLayerError(elements, "Capture an active layer or canvas before generating prompt text.");
@@ -3083,6 +3120,11 @@ export function renderApp(rootElement: HTMLElement) {
   }
 
   async function handleStartLivePainting() {
+    if (isBusy) {
+      setLiveStatus("Finish the current generation before starting a live session.");
+      return;
+    }
+
     if (livePaintingSession?.isRunning()) {
       setLiveStatus("A live session is already running.");
       return;
