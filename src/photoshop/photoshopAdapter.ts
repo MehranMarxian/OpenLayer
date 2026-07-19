@@ -2,6 +2,7 @@ import { createLayerName, deleteTemporaryFileBestEffort, saveBlobToTemporaryFile
 import { createOpenLayerError, getErrorMessage } from "../utils/errors";
 import { encodeRgbaPng } from "../utils/png";
 import { calculatePlacementOffset, createOpaqueGrayscaleMaskPng, PixelDimensions } from "./exactInpaintMask";
+import { OutpaintExpansionPlan } from "./outpaintExpansion";
 import {
   createPaddedSelectionBounds,
   normalizeSelectionBounds,
@@ -38,10 +39,24 @@ type PhotoshopModule = {
     batchPlay: (commands: unknown[], options: Record<string, unknown>) => Promise<unknown[]>;
   };
   core: {
-    executeAsModal: <T>(command: () => Promise<T>, options: { commandName: string }) => Promise<T>;
+    executeAsModal: <T>(
+      command: (executionContext: PhotoshopExecutionContext) => Promise<T>,
+      options: { commandName: string }
+    ) => Promise<T>;
   };
   imaging?: {
     getPixels: (options: Record<string, unknown>) => Promise<PhotoshopPixelResult>;
+  };
+};
+
+// Passed by executeAsModal to its callback. suspendHistory groups every edit in
+// the block into one undoable history state; resumeHistory(id, false) reverts
+// the document to the pre-suspension state, which is the only rollback that
+// cannot clip artist pixels the way a programmatic canvas re-crop would.
+type PhotoshopExecutionContext = {
+  hostControl?: {
+    suspendHistory?: (options: { documentID: number; name: string }) => Promise<number>;
+    resumeHistory?: (suspensionID: number, commit: boolean) => Promise<void>;
   };
 };
 
@@ -824,6 +839,170 @@ export async function importImageAlignedToSelection(options: AlignedRegionalImpo
   } finally {
     await deleteTemporaryFileBestEffort(file);
   }
+}
+
+export type OutpaintCanvasImportOptions = {
+  blob: Blob;
+  originatingDocument: PhotoshopDocumentIdentity | null;
+  plan: OutpaintExpansionPlan;
+  layerName?: string;
+  onProgress?: ImportProgress;
+};
+
+// Expands the artist's canvas by the plan's padding and places the generated
+// result covering the whole expanded canvas, so the original content lines up
+// exactly under its region of the outpaint. The whole operation is wrapped in a
+// suspended history state: on any failure the placed layer is removed and the
+// document reverts to its pre-import state in one step. The canvas is never
+// re-cropped programmatically, because reducing canvas size clips pixel data
+// outside the new bounds and artist layers may extend past the original canvas.
+export async function importOutpaintResultExpandingCanvas(
+  options: OutpaintCanvasImportOptions
+): Promise<string> {
+  const photoshop = getPhotoshop();
+  const layerName = options.layerName ?? createLayerName("OpenLayer_Outpaint");
+  let file: UxpFile | undefined;
+
+  try {
+    assertActiveDocumentMatchesOrigin(photoshop, options.originatingDocument);
+    assertCanvasMatchesOutpaintPlan(getActiveDocument(), options.plan);
+
+    if (!options.blob || options.blob.size === 0) {
+      throw new Error("The generated outpaint image blob is empty.");
+    }
+
+    options.onProgress?.("Saving outpaint result to a temporary PNG...");
+    file = await saveBlobToTemporaryFile(options.blob, `${layerName}.png`);
+    const uxp = getUxp();
+    options.onProgress?.("Creating Photoshop file token...");
+    const token = await uxp.storage.localFileSystem.createSessionToken(file);
+
+    options.onProgress?.("Expanding the canvas and placing the outpaint result...");
+    await photoshop.core.executeAsModal(
+      async (executionContext) => {
+        assertActiveDocumentMatchesOrigin(photoshop, options.originatingDocument);
+        const transactionDocument = getActiveDocument();
+        assertCanvasMatchesOutpaintPlan(transactionDocument, options.plan);
+
+        const hostControl = executionContext?.hostControl;
+        const canSuspendHistory = typeof transactionDocument.id === "number" &&
+          typeof hostControl?.suspendHistory === "function" &&
+          typeof hostControl?.resumeHistory === "function";
+        const suspensionId = canSuspendHistory
+          ? await hostControl!.suspendHistory!({
+            documentID: transactionDocument.id!,
+            name: "OpenLayer Outpaint Canvas Expansion"
+          })
+          : null;
+        let resultLayerId: number | undefined;
+        let operationError: unknown;
+
+        try {
+          const { pads, sourceDimensions, expandedWidth, expandedHeight } = options.plan;
+
+          // Two anchored steps because canvasSize distributes new space
+          // around a single anchor: first pin the content bottom-right to
+          // add the left/top padding, then pin it top-left for right/bottom.
+          if (pads.left > 0 || pads.top > 0) {
+            await resizeCanvas(photoshop, sourceDimensions.width + pads.left, sourceDimensions.height + pads.top, "right", "bottom");
+          }
+
+          if (pads.right > 0 || pads.bottom > 0) {
+            await resizeCanvas(photoshop, expandedWidth, expandedHeight, "left", "top");
+          }
+
+          await placeFileAsLayer(photoshop, token);
+          resultLayerId = getActiveDocument().activeLayers?.[0]?.id;
+          if (resultLayerId === undefined) throw new Error("Photoshop did not expose the imported outpaint layer ID.");
+          await renameActiveLayer(photoshop, layerName);
+          await alignActiveLayerToBounds(photoshop, normalizeSelectionBounds(options.plan.resultBounds));
+
+          // The placed layer must cover the expanded canvas exactly; anything
+          // else means the result image did not match the plan after all.
+          const placedBounds = await readActiveLayerBounds(photoshop);
+          if (
+            placedBounds.left !== 0 ||
+            placedBounds.top !== 0 ||
+            placedBounds.width !== expandedWidth ||
+            placedBounds.height !== expandedHeight
+          ) {
+            throw new Error(
+              `The placed outpaint layer covers ${placedBounds.width} x ${placedBounds.height} at ${placedBounds.left}, ${placedBounds.top}, not the expanded ${expandedWidth} x ${expandedHeight} canvas.`
+            );
+          }
+
+          assertActiveDocumentMatchesOrigin(photoshop, options.originatingDocument);
+        } catch (caughtError) {
+          operationError = caughtError;
+        }
+
+        if (operationError) {
+          // Belt and suspenders: remove the placed layer even though the
+          // history revert below should also erase it, in case this host
+          // cannot suspend history at all.
+          if (resultLayerId !== undefined) {
+            await deleteLayerById(photoshop, resultLayerId, true);
+          }
+        }
+
+        if (suspensionId !== null) {
+          await hostControl!.resumeHistory!(suspensionId, !operationError);
+        }
+
+        if (operationError) {
+          const revertNote = suspensionId !== null
+            ? " The document was reverted to its state before the import."
+            : " Undo (Ctrl+Z) restores the canvas if it was already expanded.";
+          throw new Error(`${getErrorMessage(operationError)}${revertNote}`);
+        }
+      },
+      { commandName: "Import OpenLayer Outpaint With Canvas Expansion" }
+    );
+
+    options.onProgress?.(`Imported ${layerName} on an expanded canvas.`);
+    return layerName;
+  } catch (caughtError) {
+    throw createOpenLayerError(
+      "PHOTOSHOP_IMPORT_FAILED",
+      `Could not import the outpaint result with canvas expansion. ${getErrorMessage(caughtError)}`
+    );
+  } finally {
+    await deleteTemporaryFileBestEffort(file);
+  }
+}
+
+// The canvas must still be exactly the size that was captured and padded; if
+// the artist resized the document after capturing, expanding it would misalign
+// everything silently.
+function assertCanvasMatchesOutpaintPlan(document: PhotoshopDocument, plan: OutpaintExpansionPlan) {
+  const width = Math.round(Number(document.width ?? 0));
+  const height = Math.round(Number(document.height ?? 0));
+
+  if (width !== plan.sourceDimensions.width || height !== plan.sourceDimensions.height) {
+    throw new Error(
+      `The document is now ${width} x ${height}, but this outpaint was generated from a ${plan.sourceDimensions.width} x ${plan.sourceDimensions.height} canvas. Capture and generate again before importing with canvas expansion.`
+    );
+  }
+}
+
+async function resizeCanvas(
+  photoshop: PhotoshopModule,
+  width: number,
+  height: number,
+  horizontalAnchor: "left" | "center" | "right",
+  verticalAnchor: "top" | "center" | "bottom"
+) {
+  await photoshop.action.batchPlay(
+    [{
+      _obj: "canvasSize",
+      width: { _unit: "pixelsUnit", _value: width },
+      height: { _unit: "pixelsUnit", _value: height },
+      horizontal: { _enum: "horizontalLocation", _value: horizontalAnchor },
+      vertical: { _enum: "verticalLocation", _value: verticalAnchor },
+      _options: { dialogOptions: "dontDisplay" }
+    }],
+    {}
+  );
 }
 
 export async function preserveSelection<T>(_operation: PreserveSelectionOperation<T>): Promise<T> {

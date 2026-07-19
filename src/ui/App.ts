@@ -99,7 +99,8 @@ import {
   getActiveDocumentIdentity,
   getActiveDocumentInfo,
   importGeneratedImageAsLayer,
-  importImageAlignedToSelectionWithLayerMask
+  importImageAlignedToSelectionWithLayerMask,
+  importOutpaintResultExpandingCanvas
 } from "../photoshop/photoshopAdapter";
 import {
   bindDocumentContext,
@@ -113,6 +114,12 @@ import {
 } from "../photoshop/inpaintSourceMode";
 import { writeOpenLayerLayerMetadata } from "../photoshop/layerMetadata";
 import { formatSelectionBounds } from "../photoshop/selectionUtils";
+import {
+  createOutpaintExpansionPlan,
+  OutpaintPads,
+  snapOutpaintPads,
+  validateOutpaintResultDimensions
+} from "../photoshop/outpaintExpansion";
 import { createOpenLayerError, getErrorMessage, getTechnicalErrorDetails } from "../utils/errors";
 import { createLayerName, sweepStaleTemporaryFiles } from "../utils/fileUtils";
 import {
@@ -187,6 +194,7 @@ type HistoryEntry = {
   result: AppGeneratedImageResult;
   originatingDocument: PhotoshopDocumentIdentity | null;
   inpaintImportContext?: AppInpaintImportContext;
+  outpaintImportContext?: AppOutpaintImportContext;
   previewUrl: string;
   prompt: string;
   checkpointName: string;
@@ -214,6 +222,15 @@ type InpaintSourceState = SelectedRegionSourceImage & {
 
 type AppGeneratedImageResult = DocumentContextBound<GeneratedImageResult>;
 type AppInpaintImportContext = InpaintImportContext<SelectedRegionSourceImage, AppGeneratedImageResult>;
+type OutpaintCaptureKind = "layer" | "canvas";
+// What the canvas-expansion import needs, frozen at submission time: the pads
+// actually sent to ComfyUI (after /8 snapping) and the canvas size they padded.
+type OutpaintExpansionSource = Readonly<{
+  pads: OutpaintPads;
+  sourceDimensions: Readonly<{ width: number; height: number }>;
+  captureKind: OutpaintCaptureKind;
+}>;
+type AppOutpaintImportContext = InpaintImportContext<OutpaintExpansionSource, AppGeneratedImageResult>;
 type LiveGeneratedImageResult = DocumentContextBound<{ blob: Blob }>;
 
 const statusProgressTimers = new WeakMap<HTMLElement, number>();
@@ -234,6 +251,8 @@ export function renderApp(rootElement: HTMLElement) {
   let inpaintSource: InpaintSourceState | null = null;
   let inpaintResult: AppGeneratedImageResult | null = null;
   let activeInpaintImportContext: AppInpaintImportContext | null = null;
+  let activeOutpaintImportContext: AppOutpaintImportContext | null = null;
+  let outpaintCaptureKind: OutpaintCaptureKind | null = null;
   let outpaintSource: ImageSourceState | null = null;
   let outpaintResult: AppGeneratedImageResult | null = null;
   let upscaleSource: ImageSourceState | null = null;
@@ -1177,6 +1196,7 @@ export function renderApp(rootElement: HTMLElement) {
         setView("inpaint");
         return;
       case "outpaint":
+        activeOutpaintImportContext = entry.outpaintImportContext ?? null;
         setOutpaintResult(entry.result);
         setView("outpaint");
         return;
@@ -1203,7 +1223,7 @@ export function renderApp(rootElement: HTMLElement) {
         await handleImportInpaint(entry.inpaintImportContext);
         return;
       case "outpaint":
-        await handleImportOutpaint();
+        await handleImportOutpaint(entry.outpaintImportContext);
         return;
       case "upscale":
         await handleImportUpscale();
@@ -1814,6 +1834,7 @@ export function renderApp(rootElement: HTMLElement) {
       progressMessage: "Capturing active Photoshop layer for Outpaint...",
       statusMessage: "Capturing active layer...",
       successMessage: "Outpaint source captured.",
+      captureKind: "layer",
       capture: exportActiveLayerForImageToImage
     });
   }
@@ -1823,6 +1844,7 @@ export function renderApp(rootElement: HTMLElement) {
       progressMessage: "Capturing Photoshop canvas for Outpaint...",
       statusMessage: "Capturing canvas...",
       successMessage: "Outpaint canvas captured.",
+      captureKind: "canvas",
       capture: exportCanvasForImageToImage
     });
   }
@@ -1831,6 +1853,7 @@ export function renderApp(rootElement: HTMLElement) {
     progressMessage: string;
     statusMessage: string;
     successMessage: string;
+    captureKind: OutpaintCaptureKind;
     capture: () => Promise<ExportedSourceImage>;
   }) {
     setOutpaintDiagnostics(elements, options.progressMessage);
@@ -1847,6 +1870,7 @@ export function renderApp(rootElement: HTMLElement) {
         ...exportedSource,
         previewUrl: sourcePreview
       });
+      outpaintCaptureKind = options.captureKind;
       setOutpaintStatus(elements, options.successMessage, "ready");
       setOutpaintDiagnostics(
         elements,
@@ -1944,6 +1968,13 @@ export function renderApp(rootElement: HTMLElement) {
       setOutpaintStatus(elements, "Uploading source image to ComfyUI...", "idle");
       setOutpaintProgressPreview(elements, "Uploading source image...");
       const sourceImageName = await client.uploadImage(outpaintSource.blob, outpaintSource.filename);
+      // ComfyUI's VAE rounds the padded image down to multiples of 8; snapping
+      // the pads up-front keeps the result exactly the size the canvas
+      // expansion import will create, instead of drifting by up to 7px.
+      const snappedPads = snapOutpaintPads(
+        { left: settings.left, top: settings.top, right: settings.right, bottom: settings.bottom },
+        { width: outpaintSource.width, height: outpaintSource.height }
+      );
       const buildResult = await buildOutpaintWorkflow({
         presetId: preset.id,
         prompt: elements.outpaintPrompt.value,
@@ -1953,10 +1984,10 @@ export function renderApp(rootElement: HTMLElement) {
         cfg: settings.cfg,
         seed: settings.seed,
         denoise: settings.denoise,
-        left: settings.left,
-        top: settings.top,
-        right: settings.right,
-        bottom: settings.bottom,
+        left: snappedPads.pads.left,
+        top: snappedPads.pads.top,
+        right: snappedPads.pads.right,
+        bottom: snappedPads.pads.bottom,
         feathering: settings.feathering,
         requiredModelSelections
       });
@@ -1964,6 +1995,7 @@ export function renderApp(rootElement: HTMLElement) {
       // The commit closure runs after awaits; a const keeps the null-checked
       // source from the top of the handler rather than re-reading mutable state.
       const capturedSource = outpaintSource;
+      const capturedCaptureKind = outpaintCaptureKind ?? "layer";
       const generatedResult = await generation.runPipeline({
         toolType: "outpaint",
         client,
@@ -1981,7 +2013,16 @@ export function renderApp(rootElement: HTMLElement) {
           livePreview: "Live ComfyUI Outpaint preview..."
         },
         commit: (generatedResult) => {
+        const generatedOutpaintContext = createInpaintImportContext<OutpaintExpansionSource, AppGeneratedImageResult>(
+          {
+            pads: snappedPads.pads,
+            sourceDimensions: { width: capturedSource.width, height: capturedSource.height },
+            captureKind: capturedCaptureKind
+          },
+          generatedResult
+        );
         setOutpaintResult(generatedResult);
+        activeOutpaintImportContext = generatedOutpaintContext;
         addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
           prompt: elements.outpaintPrompt.value,
           checkpointName,
@@ -1992,6 +2033,7 @@ export function renderApp(rootElement: HTMLElement) {
           sizeLabel: "Outpaint",
           dimensions: `${capturedSource.width} x ${capturedSource.height}`,
           sourceMode: capturedSource.sourceName,
+          outpaintImportContext: generatedOutpaintContext,
           experimental: true,
           diagnosticsSummary: formatInpaintOutpaintDebugContract({
             toolType: "outpaint",
@@ -2014,7 +2056,13 @@ export function renderApp(rootElement: HTMLElement) {
       setOutpaintStatus(elements, "Outpaint generation complete.", "ready");
       setOutpaintDiagnostics(
         elements,
-        `Seed used: ${buildResult.seed}. Source uploaded as ${sourceImageName}. Workflow: ${buildResult.preset.id}. Padding left ${settings.left}, top ${settings.top}, right ${settings.right}, bottom ${settings.bottom}, feather ${settings.feathering}.`
+        [
+          `Seed used: ${buildResult.seed}. Source uploaded as ${sourceImageName}. Workflow: ${buildResult.preset.id}.`,
+          `Padding left ${snappedPads.pads.left}, top ${snappedPads.pads.top}, right ${snappedPads.pads.right}, bottom ${snappedPads.pads.bottom}, feather ${settings.feathering}.`,
+          snappedPads.adjustedRight || snappedPads.adjustedBottom
+            ? `Right/bottom padding grew by ${snappedPads.adjustedRight}/${snappedPads.adjustedBottom}px so the result size stays a multiple of 8.`
+            : ""
+        ].filter(Boolean).join(" ")
       );
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
@@ -2033,10 +2081,12 @@ export function renderApp(rootElement: HTMLElement) {
     }
   }
 
-  async function handleImportOutpaint() {
+  async function handleImportOutpaint(savedHistoryContext?: AppOutpaintImportContext) {
     setOutpaintDiagnostics(elements, "Outpaint import pressed.");
+    const importContext = resolveInpaintImportContext(savedHistoryContext, activeOutpaintImportContext);
+    const importResultImage = importContext?.result ?? outpaintResult;
 
-    if (!outpaintResult) {
+    if (!importResultImage) {
       setOutpaintError(elements, "Generate an Outpaint result before importing.");
       return;
     }
@@ -2050,10 +2100,51 @@ export function renderApp(rootElement: HTMLElement) {
     try {
       const layerName = createLayerName("OpenLayer_Outpaint");
 
-      setOutpaintDiagnostics(elements, `Importing into ${outpaintResult.originatingDocument?.name || "the originating document"}...`);
+      setOutpaintDiagnostics(elements, `Importing into ${importResultImage.originatingDocument?.name || "the originating document"}...`);
+
+      // Canvas expansion needs the exact pads this result was generated with
+      // and a canvas-covering source; both live in the saved context. Layer
+      // captures carry no position, so they keep the floating-layer import.
+      let expansionBlockedReason = "";
+
+      if (importContext && importContext.source.captureKind === "canvas") {
+        const plan = createOutpaintExpansionPlan(importContext.source.sourceDimensions, importContext.source.pads);
+        const resultDimensions = await readImageDimensionsFromBlob(importResultImage.blob);
+        expansionBlockedReason = validateOutpaintResultDimensions(resultDimensions, plan) ?? "";
+
+        if (!expansionBlockedReason) {
+          setOutpaintStatus(elements, "Expanding the canvas for the outpaint result...", "idle");
+          const importedLayerName = await importOutpaintResultExpandingCanvas({
+            blob: importResultImage.blob,
+            originatingDocument: importResultImage.originatingDocument,
+            plan,
+            layerName,
+            onProgress: (message) => {
+              setOutpaintStatus(elements, message, "idle");
+              setOutpaintDiagnostics(elements, message);
+            }
+          });
+          setOutpaintStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
+          flashImported(elements.outpaintStatusText);
+          markHistoryImported(elements, historyEntries, importResultImage, importedLayerName);
+          const metadataMessage = await writeMetadataForImportedResult(historyEntries, importResultImage, importedLayerName, (message) => {
+            setOutpaintDiagnostics(elements, message);
+          });
+          setOutpaintDiagnostics(
+            elements,
+            `Layer created: ${importedLayerName}. Canvas expanded to ${plan.expandedWidth} x ${plan.expandedHeight}; your original artwork now sits at ${plan.contentOffset.x}, ${plan.contentOffset.y}. ${metadataMessage}`
+          );
+          return;
+        }
+      } else if (importContext) {
+        expansionBlockedReason = "This result was generated from a layer capture, which carries no canvas position; importing it as a floating layer instead.";
+      } else {
+        expansionBlockedReason = "This result predates canvas-expansion support; importing it as a floating layer.";
+      }
+
       const importedLayerName = await importGeneratedImageAsLayer({
-        blob: outpaintResult.blob,
-        originatingDocument: outpaintResult.originatingDocument,
+        blob: importResultImage.blob,
+        originatingDocument: importResultImage.originatingDocument,
         layerName,
         onProgress: (message) => {
           setOutpaintStatus(elements, message, "idle");
@@ -2062,11 +2153,14 @@ export function renderApp(rootElement: HTMLElement) {
       });
       setOutpaintStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
       flashImported(elements.outpaintStatusText);
-      markHistoryImported(elements, historyEntries, outpaintResult, importedLayerName);
-      const metadataMessage = await writeMetadataForImportedResult(historyEntries, outpaintResult, importedLayerName, (message) => {
+      markHistoryImported(elements, historyEntries, importResultImage, importedLayerName);
+      const metadataMessage = await writeMetadataForImportedResult(historyEntries, importResultImage, importedLayerName, (message) => {
         setOutpaintDiagnostics(elements, message);
       });
-      setOutpaintDiagnostics(elements, `Layer created: ${importedLayerName}. ${metadataMessage}`);
+      setOutpaintDiagnostics(
+        elements,
+        [`Layer created: ${importedLayerName}.`, expansionBlockedReason, metadataMessage].filter(Boolean).join(" ")
+      );
     } catch (caughtError) {
       setOutpaintStatus(elements, "Import failed.", "error");
       setOutpaintError(elements, getErrorMessage(caughtError));
@@ -3244,6 +3338,10 @@ export function renderApp(rootElement: HTMLElement) {
   }
 
   function setOutpaintResult(nextResult: AppGeneratedImageResult | null) {
+    if (!nextResult) {
+      activeOutpaintImportContext = null;
+    }
+
     outpaintResult = nextResult;
     outpaintResultPanel.showResult(outpaintResult?.blob ?? null);
     syncBusy();
@@ -5533,6 +5631,7 @@ function addHistoryEntry(
     sourceBounds?: OpenLayerLayerBounds;
     contextBounds?: OpenLayerLayerBounds;
     inpaintImportContext?: AppInpaintImportContext;
+    outpaintImportContext?: AppOutpaintImportContext;
     experimental?: boolean;
     diagnosticsSummary?: string;
   }
@@ -5560,6 +5659,7 @@ function addHistoryEntry(
     result,
     originatingDocument: result.originatingDocument,
     inpaintImportContext: details.inpaintImportContext,
+    outpaintImportContext: details.outpaintImportContext,
     previewUrl: objectUrls.create(result.blob),
     prompt: details.prompt.trim() || "Untitled prompt",
     checkpointName: details.checkpointName,
