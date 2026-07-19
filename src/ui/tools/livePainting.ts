@@ -21,6 +21,22 @@ export type LivePaintingState =
   | "refined"
   | "stopped";
 
+export type LivePaintingStateBadgeLabel = "IDLE" | "LIVE" | "REFINING" | "REFINED";
+
+export function getLivePaintingStateBadgeLabel(state: LivePaintingState): LivePaintingStateBadgeLabel {
+  switch (state) {
+    case "listening":
+    case "pending":
+      return "LIVE";
+    case "refining":
+      return "REFINING";
+    case "refined":
+      return "REFINED";
+    default:
+      return "IDLE";
+  }
+}
+
 export type LivePaintingV2Callbacks = {
   onStatus: (message: string) => void;
   onTimings: (message: string) => void;

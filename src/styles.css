@@ -1489,6 +1489,21 @@ a:hover {
   color: #ffb0b0;
 }
 
+.live-state-badge.live {
+  background: rgba(72, 153, 210, 0.28);
+  color: #9bd7ff;
+}
+
+.live-state-badge.refining {
+  background: rgba(186, 123, 225, 0.28);
+  color: #dfb5fa;
+}
+
+.live-state-badge.refined {
+  background: rgba(58, 148, 94, 0.28);
+  color: #9fe0b5;
+}
+
 .diagnostics-line {
   color: #9a9a9a;
   font-size: 11px;
@@ -1621,6 +1636,22 @@ a:hover {
 .import-actions {
   display: block;
   margin-top: 4px;
+}
+
+.live-refine-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.live-refine-actions .button {
+  min-width: 0;
+  flex: 1 1 0;
+}
+
+.live-refined-import-button {
+  width: 100%;
+  margin-top: 8px;
 }
 
 .auto-import-toggle {
@@ -7113,6 +7144,30 @@ body,
 
 .app-shell.theme-compact .preview-panel.preview-zoomed img {
   max-height: 552px !important;
+}
+
+/* Live Painting state badge: intentionally after the compact status-pill
+   !important reset so the tier colors and badge shape remain visible. */
+.app-shell.theme-compact .status-pill.live-state-badge {
+  min-height: 18px !important;
+  padding: 2px 8px !important;
+  border-radius: 20px !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+.app-shell.theme-compact .status-pill.live-state-badge.live {
+  background: rgba(72, 153, 210, 0.28) !important;
+  color: #9bd7ff !important;
+}
+
+.app-shell.theme-compact .status-pill.live-state-badge.refining {
+  background: rgba(186, 123, 225, 0.28) !important;
+  color: #dfb5fa !important;
+}
+
+.app-shell.theme-compact .status-pill.live-state-badge.refined {
+  background: rgba(58, 148, 94, 0.28) !important;
+  color: #9fe0b5 !important;
 }
 
 /* #7: the header progress bar renders as one clean full-width bar. */
