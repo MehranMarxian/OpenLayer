@@ -557,8 +557,7 @@ const INPAINT_BASIC_CAPABILITY: WorkflowCapability = {
   uiHints: {
     showModelSelector: true,
     modelSelectorLabel: "Checkpoint",
-    primaryActionLabel: "Generate Inpaint",
-    warning: "Inpaint/Repaint Selection is experimental until Photoshop alignment and output quality are confirmed."
+    primaryActionLabel: "Generate Inpaint"
   }
 };
 
@@ -577,8 +576,7 @@ const INPAINT_FLUX_FILL_BASIC_CAPABILITY: WorkflowCapability = {
   uiHints: {
     showModelSelector: true,
     modelSelectorLabel: "Flux Fill model",
-    primaryActionLabel: "Generate Inpaint",
-    warning: "Flux Fill is experimental and may require guidance, denoise, mask blur, and context-size tuning."
+    primaryActionLabel: "Generate Inpaint"
   }
 };
 
@@ -608,8 +606,7 @@ const OUTPAINT_FLUX_FILL_BASIC_CAPABILITY: WorkflowCapability = {
   uiHints: {
     showModelSelector: true,
     modelSelectorLabel: "Flux Fill model",
-    primaryActionLabel: "Generate Outpaint",
-    warning: "Outpaint is experimental and uses Flux Fill with ImagePadForOutpaint."
+    primaryActionLabel: "Generate Outpaint"
   }
 };
 
@@ -628,8 +625,7 @@ const Z_IMAGE_TURBO_TXT2IMG_CAPABILITY: WorkflowCapability = {
   uiHints: {
     showModelSelector: true,
     modelSelectorLabel: "Z_image_Turbo model",
-    primaryActionLabel: "Generate",
-    warning: "Z_image_Turbo is experimental. Confirm the diffusion model, CLIP, and VAE stack with Check Workflow Health before relying on results."
+    primaryActionLabel: "Generate"
   }
 };
 
@@ -648,8 +644,7 @@ const Z_IMAGE_TURBO_IMG2IMG_CAPABILITY: WorkflowCapability = {
   uiHints: {
     showModelSelector: true,
     modelSelectorLabel: "Z_image_Turbo model",
-    primaryActionLabel: "Generate Image to Image",
-    warning: "Z_image_Turbo Image to Image is experimental. Confirm the diffusion model, CLIP, and VAE stack with Check Workflow Health before relying on results."
+    primaryActionLabel: "Generate Image to Image"
   }
 };
 
@@ -831,7 +826,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     description: "Experimental Flux1-dev fp8 text-to-image workflow using a checkpoint-style ComfyUI graph.",
     workflowFile: "workflows/api/txt2img-flux1-dev-fp8.json",
     sourceWorkflowFile: "workflows/source/txt2img-flux1-dev-fp8.workflow.json",
-    status: "experimental",
+    status: "stable",
     recommendedSettings: { steps: 20, cfg: 3.5 },
     supportedModelFamilies: ["flux"],
     experimentalModelFamilies: ["sd1", "sdxl", "sd3", "zImage", "unknown"],
@@ -944,7 +939,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     description: "Experimental Florence-2 PromptGen workflow that describes a captured Photoshop layer or canvas.",
     workflowFile: "workflows/api/prompt-from-layer-florence2.json",
     sourceWorkflowFile: "workflows/source/prompt-from-layer-florence2.workflow.json",
-    status: "experimental",
+    status: "stable",
     supportedModelFamilies: ["unknown"],
     experimentalModelFamilies: ["sd1", "sdxl", "sd3", "flux", "zImage"],
     modelSource: FLORENCE_MODEL_SOURCE,
@@ -983,7 +978,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     description: "Experimental pixel upscale through ComfyUI UpscaleModelLoader and ImageUpscaleWithModel.",
     workflowFile: "workflows/api/upscale-basic.json",
     sourceWorkflowFile: "workflows/source/upscale-basic.workflow.json",
-    status: "experimental",
+    status: "stable",
     supportedModelFamilies: ["unknown"],
     experimentalModelFamilies: ["sd1", "sdxl", "sd3", "flux", "zImage"],
     modelSource: UPSCALE_MODEL_SOURCE,
@@ -1022,7 +1017,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     description: "Experimental SD 1.x LineArt ControlNet sketch guidance workflow.",
     workflowFile: "workflows/api/sketch2img-linecn-basic.json",
     sourceWorkflowFile: "workflows/source/sketch2img-linecn-basic.workflow.json",
-    status: "experimental",
+    status: "stable",
     recommendedSettings: { steps: 20, cfg: 7 },
     supportedModelFamilies: ["sd1"],
     experimentalModelFamilies: ["sdxl", "sd3", "flux", "zImage"],
@@ -1101,7 +1096,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     description: "Experimental SD 1.x inpainting workflow using a Photoshop selection source and mask.",
     workflowFile: "workflows/api/inpaint-basic.json",
     sourceWorkflowFile: "workflows/source/inpaint-basic.workflow.json",
-    status: "experimental",
+    status: "stable",
     recommendedSettings: { steps: 16, cfg: 7 },
     supportedModelFamilies: ["sd1"],
     experimentalModelFamilies: ["sdxl", "sd3", "flux", "zImage", "unknown"],
@@ -1161,7 +1156,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
       }
     ],
     compatibilityNote:
-      "inpaint-basic is an experimental SD 1.x workflow using LoadImage, ImageToMask, and InpaintModelConditioning. Start with an SD 1.x inpaint checkpoint."
+      "inpaint-basic is an SD 1.x workflow using LoadImage, ImageToMask, and InpaintModelConditioning. Start with an SD 1.x inpaint checkpoint."
   },
   {
     id: "inpaint-flux-fill-basic",
@@ -1169,7 +1164,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     mode: "inpaint",
     description: "Experimental Flux Fill inpainting workflow using a diffusion model stack.",
     workflowFile: "workflows/api/inpaint-flux-fill-basic.json",
-    status: "experimental",
+    status: "stable",
     recommendedSettings: { steps: 20, cfg: 30 },
     supportedModelFamilies: ["flux"],
     experimentalModelFamilies: ["sd1", "sdxl", "sd3", "zImage", "unknown"],
@@ -1241,7 +1236,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
       }
     ],
     compatibilityNote:
-      "inpaint-flux-fill-basic is experimental and follows the Flux Fill reference graph: UNETLoader, DifferentialDiffusion, DualCLIPLoader, FluxGuidance, InpaintModelConditioning, KSampler, VAEDecode, and SaveImage. OpenLayer embeds the Photoshop mask into the uploaded PNG alpha channel for the LoadImage mask output. T5 prefers t5xxl_fp16.safetensors and accepts t5xxl_fp8_e4m3fn.safetensors as a fallback."
+      "inpaint-flux-fill-basic follows the Flux Fill reference graph: UNETLoader, DifferentialDiffusion, DualCLIPLoader, FluxGuidance, InpaintModelConditioning, KSampler, VAEDecode, and SaveImage. OpenLayer embeds the Photoshop mask into the uploaded PNG alpha channel for the LoadImage mask output. T5 prefers t5xxl_fp16.safetensors and accepts t5xxl_fp8_e4m3fn.safetensors as a fallback."
   },
   {
     id: "outpaint-flux-fill-basic",
@@ -1250,7 +1245,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     description: "Experimental Flux Fill outpainting workflow using ImagePadForOutpaint.",
     workflowFile: "workflows/api/outpaint-flux-fill-basic.json",
     sourceWorkflowFile: "workflows/source/outpaint-flux-fill-basic.workflow.json",
-    status: "experimental",
+    status: "stable",
     recommendedSettings: { steps: 20, cfg: 10 },
     supportedModelFamilies: ["flux"],
     experimentalModelFamilies: ["sd1", "sdxl", "sd3", "zImage", "unknown"],
@@ -1327,7 +1322,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
       }
     ],
     compatibilityNote:
-      "outpaint-flux-fill-basic is experimental and follows the attached Flux Fill outpaint graph: ImagePadForOutpaint creates the padded image and mask, then Flux Fill generates the expanded result. T5 prefers t5xxl_fp16.safetensors and accepts t5xxl_fp8_e4m3fn.safetensors as a fallback."
+      "outpaint-flux-fill-basic follows the attached Flux Fill outpaint graph: ImagePadForOutpaint creates the padded image and mask, then Flux Fill generates the expanded result. T5 prefers t5xxl_fp16.safetensors and accepts t5xxl_fp8_e4m3fn.safetensors as a fallback."
   },
   {
     id: "txt2img-z-image-turbo",
@@ -1336,7 +1331,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     description: "Experimental text-to-image preset for the Z_image_Turbo diffusion model stack.",
     workflowFile: "workflows/api/txt2img-z-image-turbo.json",
     sourceWorkflowFile: "workflows/source/txt2img-z-image-turbo.workflow.json",
-    status: "experimental",
+    status: "stable",
     recommendedSettings: { steps: 8, cfg: 1 },
     supportedModelFamilies: ["zImage"],
     experimentalModelFamilies: ["unknown"],
@@ -1407,7 +1402,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     description: "Experimental image-to-image preset for the Z_image_Turbo diffusion model stack.",
     workflowFile: "workflows/api/img2img-z-image-turbo.json",
     sourceWorkflowFile: "workflows/source/img2img-z-image-turbo.workflow.json",
-    status: "experimental",
+    status: "stable",
     recommendedSettings: { steps: 8, cfg: 1 },
     supportedModelFamilies: ["zImage"],
     experimentalModelFamilies: ["unknown"],
@@ -1482,7 +1477,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     mode: "txt2img",
     description: "Experimental text-to-image preset for the Krea-2 Turbo diffusion model stack.",
     workflowFile: "workflows/api/txt2img-krea2-turbo.json",
-    status: "experimental",
+    status: "stable",
     recommendedSettings: { steps: 8, cfg: 1 },
     supportedModelFamilies: ["unknown"],
     experimentalModelFamilies: ["sd1", "sdxl", "sd3", "flux", "zImage"],
@@ -1547,7 +1542,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     mode: "img2img",
     description: "Experimental image-to-image preset for the Krea-2 Turbo diffusion model stack.",
     workflowFile: "workflows/api/img2img-krea2-turbo.json",
-    status: "experimental",
+    status: "stable",
     recommendedSettings: { steps: 8, cfg: 1 },
     supportedModelFamilies: ["unknown"],
     experimentalModelFamilies: ["sd1", "sdxl", "sd3", "flux", "zImage"],

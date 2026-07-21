@@ -109,9 +109,9 @@ export const TOOL_CARDS: ToolCard[] = [
   {
     id: "inpaint",
     title: "Inpaint",
-    subtitle: "Selection repaint is in testing",
+    subtitle: "Repaint a selection in place",
     icon: "brush",
-    status: "experimental",
+    status: "available",
     view: "inpaint"
   },
   {
@@ -127,7 +127,7 @@ export const TOOL_CARDS: ToolCard[] = [
     title: "Outpaint",
     subtitle: "Extend canvas content beyond edges",
     icon: "expand",
-    status: "experimental",
+    status: "available",
     view: "outpaint"
   },
   {
@@ -135,7 +135,7 @@ export const TOOL_CARDS: ToolCard[] = [
     title: "Sketch to Image",
     subtitle: "Guide generation with lineart",
     icon: "lineart",
-    status: "experimental",
+    status: "available",
     view: "sketch-to-image"
   },
   {
@@ -149,9 +149,9 @@ export const TOOL_CARDS: ToolCard[] = [
   {
     id: "live-painting",
     title: "Live Painting",
-    subtitle: "Paint and watch AI respond (spike)",
+    subtitle: "Paint and watch AI respond live",
     icon: "style",
-    status: "experimental",
+    status: "available",
     view: "live-painting"
   },
   {

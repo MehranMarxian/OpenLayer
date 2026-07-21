@@ -339,10 +339,10 @@ export function createAppMarkup() {
         <section class="panel-section generator-panel" aria-label="Live Painting session">
           <div class="section-heading">
             <span class="label">Live session</span>
-            <span class="muted-label">Spike build</span>
+            <span class="muted-label">Two-tier session</span>
           </div>
           <div class="diagnostics-line">
-            Experimental stroke-sync test. Uses the Text to Image checkpoint with the local SD 1.5 LCM LoRA.
+            Live tier uses the Text to Image checkpoint with the local SD 1.5 LCM LoRA; Refine uses Krea-2 Turbo.
             Start a session, then paint in the document and watch the preview follow your strokes.
           </div>
           <label class="field">
@@ -381,7 +381,7 @@ export function createAppMarkup() {
 
         <section class="generation-status-panel" aria-label="Live Painting status">
           <div class="status-bar" role="status">
-            <span class="status-text" id="live-status-text">Live Painting spike ready.</span>
+            <span class="status-text" id="live-status-text">Live Painting ready.</span>
             <span class="status-pill live-state-badge idle" id="live-state-badge">IDLE</span>
           </div>
           <div class="diagnostics-line" id="live-timings-text">Cycle timings will appear here.</div>
@@ -633,7 +633,7 @@ export function createAppMarkup() {
             <select class="select" id="img-checkpoint">
               ${FALLBACK_CHECKPOINTS.map((checkpoint) => `<option value="${checkpoint}">${checkpoint}</option>`).join("")}
             </select>
-            ${createInfoPanelMarkup("img-compatibility-note", "img2img-basic is safest with SD 1.x and SDXL checkpoints. SD3 and Flux are experimental.")}
+            ${createInfoPanelMarkup("img-compatibility-note", "img2img-basic is safest with SD 1.x and SDXL checkpoints. SD3 and Flux may need dedicated presets.")}
           </div>
           <button class="button experimental-toggle action-control" id="experimental-checkpoint-toggle" data-openlayer-action="toggleExperimentalCheckpoints" type="button" aria-pressed="false">Experimental Checkpoints Off</button>
           <div class="settings-grid img2img-settings-grid" aria-label="Image to Image settings">
@@ -801,9 +801,6 @@ export function createAppMarkup() {
           </div>
         </div>
 
-        <div class="tool-warning" role="note">
-          Experimental: Inpaint output quality and Photoshop alignment are still being tested. Use this for debugging, not production work yet.
-        </div>
 
         <section class="panel-section generator-panel source-panel" aria-label="Inpaint selection source">
           <div class="section-heading">
@@ -861,7 +858,7 @@ export function createAppMarkup() {
             <select class="select" id="inpaint-checkpoint">
               ${FALLBACK_CHECKPOINTS.map((checkpoint) => `<option value="${checkpoint}">${checkpoint}</option>`).join("")}
             </select>
-            ${createInfoPanelMarkup("inpaint-compatibility-note", "Selection capture is available. Generation needs a mapped inpaint-basic API workflow.")}
+            ${createInfoPanelMarkup("inpaint-compatibility-note", "Capture a Photoshop selection, then generate; the result imports with your exact selection as a layer mask.")}
           </div>
           <div class="settings-grid img2img-settings-grid" aria-label="Inpaint settings">
             <div class="field">
@@ -919,9 +916,6 @@ export function createAppMarkup() {
           </div>
         </div>
 
-        <div class="tool-warning" role="note">
-          Experimental: Outpaint uses Flux Fill and ImagePadForOutpaint to expand captured Photoshop content. Test on duplicate layers first.
-        </div>
 
         <section class="panel-section generator-panel source-panel" aria-label="Outpaint source">
           <div class="section-heading">
@@ -1046,7 +1040,7 @@ export function createAppMarkup() {
         </div>
 
         <div class="tool-warning" role="note">
-          Experimental: Upscale uses pixel/model enlargement only. It does not reinterpret prompts or run diffusion sampling.
+          Upscale uses pixel/model enlargement only. It does not reinterpret prompts or run diffusion sampling.
         </div>
 
         <section class="panel-section generator-panel source-panel" aria-label="Upscale source">

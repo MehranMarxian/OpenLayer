@@ -22,19 +22,19 @@ describe("workflow health", () => {
     expect(item.canRun).toBe(true);
   });
 
-  it("marks runnable experimental Z_image_Turbo presets as experimental when the full stack is available", () => {
+  it("marks runnable Z_image_Turbo presets as ready when the full stack is available", () => {
     const preset = getWorkflowPreset("txt2img-z-image-turbo");
     const item = createWorkflowHealthItem(preset, {
       availableNodes: createAvailableNodes(preset),
       availableModels: createZImageInventory()
     });
 
-    expect(item.state).toBe("experimental");
-    expect(item.stateLabel).toBe("Experimental");
+    expect(item.state).toBe("ready");
+    expect(item.stateLabel).toBe("Ready");
     expect(item.canRun).toBe(true);
   });
 
-  it("marks Flux1-dev fp8 text-to-image as experimental when the checkpoint workflow is available", () => {
+  it("marks Flux1-dev fp8 text-to-image as ready when the checkpoint workflow is available", () => {
     const preset = getWorkflowPreset("txt2img-flux1-dev-fp8");
     const item = createWorkflowHealthItem(preset, {
       availableNodes: createAvailableNodes(preset),
@@ -43,7 +43,7 @@ describe("workflow health", () => {
       })
     });
 
-    expect(item.state).toBe("experimental");
+    expect(item.state).toBe("ready");
     expect(item.canRun).toBe(true);
     expect(item.detail).toContain("flux1-dev-fp8.safetensors");
   });
@@ -62,19 +62,19 @@ describe("workflow health", () => {
     expect(item.summary).toContain("qwen_3_4b.safetensors");
   });
 
-  it("marks Flux Fill as experimental when its full model stack is available", () => {
+  it("marks Flux Fill as ready when its full model stack is available", () => {
     const preset = getWorkflowPreset("inpaint-flux-fill-basic");
     const item = createWorkflowHealthItem(preset, {
       availableNodes: createAvailableNodes(preset),
       availableModels: createFluxFillInventory()
     });
 
-    expect(item.state).toBe("experimental");
+    expect(item.state).toBe("ready");
     expect(item.canRun).toBe(true);
     expect(item.detail).toContain("t5xxl_fp16.safetensors");
   });
 
-  it("marks Flux Fill as experimental with the accepted fp8 T5 fallback", () => {
+  it("marks Flux Fill as ready with the accepted fp8 T5 fallback", () => {
     const preset = getWorkflowPreset("inpaint-flux-fill-basic");
     const item = createWorkflowHealthItem(preset, {
       availableNodes: createAvailableNodes(preset),
@@ -83,19 +83,19 @@ describe("workflow health", () => {
       })
     });
 
-    expect(item.state).toBe("experimental");
+    expect(item.state).toBe("ready");
     expect(item.canRun).toBe(true);
     expect(item.detail).toContain("t5xxl_fp8_e4m3fn.safetensors");
   });
 
-  it("marks Flux Fill outpaint as experimental when its full model stack is available", () => {
+  it("marks Flux Fill outpaint as ready when its full model stack is available", () => {
     const preset = getWorkflowPreset("outpaint-flux-fill-basic");
     const item = createWorkflowHealthItem(preset, {
       availableNodes: createAvailableNodes(preset),
       availableModels: createFluxFillInventory()
     });
 
-    expect(item.state).toBe("experimental");
+    expect(item.state).toBe("ready");
     expect(item.canRun).toBe(true);
     expect(item.detail).toContain("flux1-fill-dev.safetensors");
   });

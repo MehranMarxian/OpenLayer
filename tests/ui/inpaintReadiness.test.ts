@@ -75,7 +75,7 @@ function createAvailableNodes(preset: typeof basicPreset) {
   return availableNodes;
 }
 
-// inpaint-basic is experimental, so a ready evaluation still carries warnings.
+// inpaint-basic is stable, so a ready evaluation carries no warnings.
 // Everything the graph needs is present here; individual tests remove one thing.
 const readyContext: WorkflowCompatibilityContext = {
   selectedModelName: "epicrealism_naturalSinRC1VAE-inpainting.safetensors",
@@ -115,11 +115,11 @@ describe("Inpaint readiness contract", () => {
     expect(readiness.ok).toBe(true);
   });
 
-  it("surfaces the experimental workflow as a warning rather than a block", () => {
+  it("carries no warnings for the stable workflow when everything lines up", () => {
     const readiness = evaluateBasic();
 
     expect(readiness.ok).toBe(true);
-    expect(readiness.warnings.join(" ")).toMatch(/experimental/i);
+    expect(readiness.warnings).toEqual([]);
   });
 
   it("blocks an unresolved workflow preset", () => {

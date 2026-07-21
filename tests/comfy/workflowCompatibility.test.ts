@@ -28,7 +28,7 @@ describe("workflow compatibility", () => {
     expect(imgResult.canRun).toBe(true);
   });
 
-  it("treats Z_image_Turbo as experimental-runnable when its stack is present and keeps future Flux setup-required", () => {
+  it("treats Z_image_Turbo as ready when its stack is present and keeps future Flux setup-required", () => {
     const zImagePreset = getWorkflowPreset("txt2img-z-image-turbo");
     const fluxPreset = getWorkflowPreset("txt2img-flux1-dev");
 
@@ -50,9 +50,9 @@ describe("workflow compatibility", () => {
     });
 
     expect(getWorkflowCapability(zImagePreset).loaderType).toBe("diffusion-model-stack");
-    expect(zImageResult.level).toBe("experimental");
+    expect(zImageResult.level).toBe("ready");
     expect(zImageResult.canRun).toBe(true);
-    expect(zImageResult.issues.some((issue) => issue.code === "WORKFLOW_EXPERIMENTAL")).toBe(true);
+    expect(zImageResult.issues.some((issue) => issue.code === "WORKFLOW_EXPERIMENTAL")).toBe(false);
 
     expect(getWorkflowCapability(fluxPreset).loaderType).toBe("diffusion-model-stack");
     expect(fluxResult.level).toBe("setup-required");
@@ -107,7 +107,7 @@ describe("workflow compatibility", () => {
       photoshopInputs: { selection: true, "selection-mask": true }
     });
 
-    expect(result.level).toBe("experimental");
+    expect(result.level).toBe("ready");
     expect(result.canRun).toBe(true);
     expect(result.issues.some((issue) => issue.code === "MODEL_FILE_MISSING")).toBe(false);
   });
@@ -124,7 +124,7 @@ describe("workflow compatibility", () => {
       photoshopInputs: { selection: true, "selection-mask": true }
     });
 
-    expect(result.level).toBe("experimental");
+    expect(result.level).toBe("ready");
     expect(result.canRun).toBe(true);
     expect(result.issues.some((issue) => issue.code === "MODEL_FILE_MISSING")).toBe(false);
   });
@@ -178,7 +178,7 @@ describe("workflow compatibility", () => {
       photoshopInputs: {}
     });
 
-    expect(fromCanvas.level).toBe("experimental");
+    expect(fromCanvas.level).toBe("ready");
     expect(fromCanvas.canRun).toBe(true);
     expect(missingSource.level).toBe("setup-required");
     expect(missingSource.issues.some((issue) => issue.code === "PHOTOSHOP_INPUT_MISSING")).toBe(true);
@@ -213,7 +213,7 @@ describe("workflow compatibility", () => {
     expect(sketchCapability.controls).toContain("controlStrength");
     expect(inpaintCapability.requiredPhotoshopInputs).toEqual(["selection", "selection-mask"]);
     expect(inpaintCapability.output.kind).toBe("selection-patch");
-    expect(inpaintCapability.uiHints.warning).toContain("experimental");
+    expect(inpaintCapability.uiHints.warning).toBeUndefined();
     expect(outpaintCapability.controls).toContain("outpaintLeft");
     expect(outpaintCapability.controls).toContain("outpaintFeathering");
     expect(outpaintCapability.requiredPhotoshopInputs).toEqual([
