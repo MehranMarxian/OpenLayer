@@ -58,6 +58,7 @@ import {
 } from "../metadata/layerMetadata";
 import { getCheckpointCompatibility } from "../comfy/modelCompatibility";
 import {
+  getPresetTextOutputNodeId,
   getRecommendedPresetSettings,
   getWorkflowPreset,
   listRunnableWorkflowPresets,
@@ -3056,7 +3057,7 @@ export function renderApp(rootElement: HTMLElement) {
         numBeams,
         seed
       });
-      const textOutputNodeId = getTextOutputNodeId(workflowResult.preset);
+      const textOutputNodeId = getPresetTextOutputNodeId(workflowResult.preset);
 
       setPromptLayerStatus(elements, "Running Florence-2 PromptGen...", "idle");
       setPromptLayerDiagnostics(
@@ -4108,10 +4109,6 @@ function createSourceMetaText(source: ExportedSourceImage) {
 
 function getSaveImageNodeId(preset: WorkflowPresetDefinition) {
   return preset.requiredNodes.find((node) => node.classType === "SaveImage")?.id;
-}
-
-function getTextOutputNodeId(preset: WorkflowPresetDefinition) {
-  return preset.requiredNodes.find((node) => node.classType.startsWith("ShowText"))?.id;
 }
 
 function readPromptLayerTask(elements: AppElements) {
