@@ -99,7 +99,7 @@ describe("workflowBuilder", () => {
     expect(result.workflow["38"].inputs.task).toBe("detailed_caption");
     expect(result.workflow["38"].inputs.num_beams).toBe(12);
     expect(result.workflow["38"].inputs.seed).toBe(202607);
-    expect(result.workflow["45"].inputs.text).toEqual(["38", 2]);
+    expect(result.workflow["41"].inputs.source).toEqual(["38", 2]);
   });
 
   it("injects source image and model into upscale-basic", async () => {

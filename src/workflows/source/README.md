@@ -30,7 +30,7 @@ The runnable OpenLayer API versions are in `src/workflows/api/`. If the GUI work
 
 `prompt-from-layer-florence2.workflow.json` is the GUI-editable Florence-2 PromptGen workflow for the Prompt from Layer tool.
 
-The runnable API version is in `src/workflows/api/prompt-from-layer-florence2.json`. It uses Florence2ModelLoader, LoadImage, Florence2Run, and ShowText to return caption text through ComfyUI history. If this source workflow is edited in ComfyUI, export a matching API workflow and update `src/comfy/presetRegistry.ts` node mappings before relying on it.
+The runnable API version is in `src/workflows/api/prompt-from-layer-florence2.json`. It uses Florence2ModelLoader, LoadImage, Florence2Run, and core ComfyUI's PreviewAny to return caption text through ComfyUI history. The `ShowText|pysssss` and `SaveText|pysssss` nodes this graph used to carry were removed so the preset needs no `comfyui-custom-scripts` install; PreviewAny was already wired to the same caption output. If this source workflow is edited in ComfyUI, export a matching API workflow and update `src/comfy/presetRegistry.ts` node mappings before relying on it — `tests/comfy/workflowFiles.test.ts` fails if the two drift apart.
 
 ## Flux Fill Notes
 

@@ -78,8 +78,12 @@ Prompt from Layer uses a vision-language workflow, not a diffusion image model. 
 Required local setup:
 
 - `comfyui-florence2`
-- `comfyui-custom-scripts` for `ShowText|pysssss`
 - `Florence-2-base-PromptGen-v2.0` available to `Florence2ModelLoader`
+
+`comfyui-custom-scripts` is no longer required. The workflow used to end in that pack's
+`ShowText|pysssss` node; it now ends in core ComfyUI's `PreviewAny`, which publishes the caption in
+the same history shape. The node cannot simply be deleted — `Florence2Run` is not an output node, so
+a graph without one is refused by ComfyUI before it runs.
 
 OpenLayer uploads the captured Photoshop source PNG to ComfyUI, runs Florence-2 PromptGen, reads the text output from ComfyUI history, and places the generated caption into the plugin text area. The default task is `detailed_caption` with `num_beams` set to `12`.
 
