@@ -247,10 +247,61 @@ export type WorkflowModelSource = {
   label: string;
 };
 
+/**
+ * The folder under ComfyUI's `models/` that a loader actually reads from.
+ * Kept as a closed union so a typo cannot invent a folder that ComfyUI will
+ * never scan — the wrong-folder mistake is this project's most common setup
+ * failure and it fails silently, as "model not found".
+ */
+export type WorkflowModelFolder =
+  | "checkpoints"
+  | "diffusion_models"
+  | "text_encoders"
+  | "vae"
+  | "controlnet"
+  | "upscale_models"
+  | "LLM";
+
+/**
+ * A model whose terms have to be accepted by a person before it is fetched.
+ * Its presence means "do not download this without explicit consent", even
+ * when `downloadUrl` resolves without credentials.
+ */
+export type WorkflowModelLicenseGate = {
+  /** Licence name as the publisher writes it. */
+  name: string;
+  /** Where the actual terms live. */
+  url: string;
+  /** The restriction in one sentence, for a setup README or a dialog. */
+  summary: string;
+};
+
+export type WorkflowModelDownloadLayout = "file" | "repo-folder";
+
 export type WorkflowRequiredModel = WorkflowModelSource & {
   modelName: string;
   acceptedModelNames?: readonly string[];
   setupHint?: string;
+  /**
+   * Direct download URL. Every URL in the registry was verified with a live
+   * HEAD request; see `downloadSizeBytes` for the Content-Length observed at
+   * the time. Absent when no unauthenticated URL exists.
+   */
+  downloadUrl?: string;
+  /** Human-readable page for the model: licence, model card, release notes. */
+  sourcePageUrl?: string;
+  /** Content-Length observed when the URL was verified. Used to warn about disk cost. */
+  downloadSizeBytes?: number;
+  /** `repo-folder` models are a directory of files, not a single download. */
+  downloadLayout?: WorkflowModelDownloadLayout;
+  /** Set when a person must accept terms before the file may be fetched. */
+  licenseGate?: WorkflowModelLicenseGate;
+  /**
+   * Only for the rare loader whose folder is not implied by its node class.
+   * Leave unset: the folder is derived from `objectInfoNode` so the mapping
+   * lives in exactly one place (`src/comfy/modelFolders.ts`).
+   */
+  targetFolder?: WorkflowModelFolder;
 };
 
 export type WorkflowRecommendedSettings = {
