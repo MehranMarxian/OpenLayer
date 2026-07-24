@@ -7320,23 +7320,21 @@ body,
 /* Deliberately self-contained. The preview panel may render outside the
    .app-shell theme root, so these rules inherit nothing from either theme. */
 
-/* The node UXP hands to a panel's create() callback. It has to carry a height
-   for the fill area below to have anything to fill, and it must not be given a
-   fixed one, or the panel would stop tracking whatever size the artist drags
-   it to. */
+/* The node UXP hands to a panel's create() callback.
+   No `overflow: hidden` and no fixed height here on purpose: if this node ends
+   up in a container that resolves to zero height, a percentage height plus
+   hidden overflow would render the panel blank rather than merely cramped —
+   an invisible failure that looks identical to the renderer never running. */
 .openlayer-preview-panel-root {
   display: block;
   width: 100%;
-  height: 100%;
-  min-height: 0;
-  overflow: hidden;
+  min-height: 100%;
 }
 
 .openlayer-preview-panel-placeholder {
   display: flex;
   width: 100%;
-  height: 100%;
-  min-height: 0;
+  min-height: 100%;
   flex-direction: column;
   gap: 8px;
   padding: 12px;

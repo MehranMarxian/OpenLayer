@@ -3,37 +3,31 @@ import { renderPreviewPanelPlaceholder } from "./ui/previewPanelPlaceholder";
 import "./styles.css";
 
 /**
- * Panel bootstrap.
+ * Panel bootstrap, bundle half.
  *
- * The entrypoints themselves are claimed by the inline script in `index.html`,
- * because Adobe's `entrypoints.setup()` throws when called more than ~20ms
- * after plugin start (PS-57605) and this bundle is deferred — far too late.
- * See the comment there for the failure it fixes.
+ * `panelBootstrap.js` claims the entrypoints before this bundle exists, because
+ * `entrypoints.setup()` throws when called too late (PS-57605). This module only
+ * supplies the renderers, and retries the registration from here if the early
+ * script could not manage it — `require` is guaranteed to work in the bundle,
+ * so a retry is worth one attempt even though it is past the ideal window.
  *
- * This module supplies the renderers. The inline script calls them as soon as
- * both a root node and a renderer exist for a panel, in whichever order those
- * two arrive, so no assumption is made about whether UXP's `create()` fires
- * before or after the bundle finishes loading.
+ * The main panel renders through `index.html` exactly as it always has. That is
+ * deliberate: it is the proven path, and nothing about adding a second panel
+ * should put it at risk.
  */
 
 const MAIN_PANEL_ID = "openlayer.panel";
-const PREVIEW_PANEL_ID = "openlayer.preview";
-
-/**
- * How long to wait for a panel `create()` callback before rendering the main
- * panel into the plain `#root` div. Only reachable when `setup()` registered
- * without throwing but the host never called back — an older Photoshop, or a
- * regression in the entrypoints API.
- */
-const LEGACY_FALLBACK_DELAY_MS = 1500;
+const PREVIEW_PANEL_ID = "openlayerPreview";
 
 type PanelRenderer = (rootNode: HTMLElement) => void;
 
 type OpenLayerBootstrap = {
   mode: string;
+  registered: boolean;
   events: string[];
   note: (message: string) => void;
   register: (id: string, render: PanelRenderer) => void;
+  trySetup: (label: string, panelIds: string[]) => boolean;
 };
 
 const bootstrap = (window as unknown as { __openlayerBootstrap?: OpenLayerBootstrap }).__openlayerBootstrap;
@@ -50,27 +44,24 @@ function note(message: string) {
 }
 
 const diagnostics = {
-  mode: () => bootstrap?.mode ?? "no inline bootstrap",
+  mode: () => bootstrap?.mode ?? "no early bootstrap script",
   events: () => bootstrap?.events ?? []
 };
 
 /**
- * Renders the main panel into the `#root` container, moving that container
- * into the panel node UXP supplied when there is one.
+ * Renders the app into the `#root` container, moving that container into the
+ * node UXP supplied when there is one.
  *
  * `#root` is carried across rather than replaced because `styles.css` sizes the
- * app through an `html, body, #root` chain, and the compact theme leans on it.
- * Rendering into a bare UXP node instead would silently change the layout the
- * whole panel depends on.
+ * app through an `html, body, #root` chain that the compact theme leans on.
+ * Rendering into a bare UXP node would silently change every screen's layout.
  */
 function mountMainPanel(rootNode: HTMLElement) {
   if (mainPanelMounted) {
-    note("ignored duplicate main panel mount");
     return;
   }
 
-  const legacyRoot = document.getElementById("root");
-  let host = legacyRoot;
+  let host = document.getElementById("root");
 
   if (host && !rootNode.contains(host)) {
     rootNode.appendChild(host);
@@ -90,7 +81,7 @@ function mountPreviewPanel(rootNode: HTMLElement) {
   renderPreviewPanelPlaceholder(rootNode, diagnostics);
 }
 
-function mountLegacyRoot() {
+function mountMainPanelFromDocument() {
   if (mainPanelMounted) {
     return;
   }
@@ -101,42 +92,30 @@ function mountLegacyRoot() {
     throw new Error("OpenLayer root element was not found.");
   }
 
-  note("falling back to the plain #root render");
   mountMainPanel(rootElement);
 }
 
-function scheduleLegacyFallback() {
-  const run = () => {
-    if (mainPanelMounted) {
-      return;
-    }
-
-    note("no panel create() callback arrived");
-    mountLegacyRoot();
-  };
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => window.setTimeout(run, LEGACY_FALLBACK_DELAY_MS), {
-      once: true
-    });
-  } else {
-    window.setTimeout(run, LEGACY_FALLBACK_DELAY_MS);
-  }
-}
-
-function startLegacyOnly() {
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", mountLegacyRoot, { once: true });
-  } else {
-    mountLegacyRoot();
-  }
-}
-
-if (bootstrap && bootstrap.mode === "entrypoints.setup") {
+if (bootstrap) {
   bootstrap.register(MAIN_PANEL_ID, mountMainPanel);
   bootstrap.register(PREVIEW_PANEL_ID, mountPreviewPanel);
-  scheduleLegacyFallback();
+
+  // Last chance: the early script may have found no usable entrypoints API.
+  // `require` definitely resolves here, so this attempt can still succeed even
+  // though it is late.
+  if (!bootstrap.registered) {
+    bootstrap.trySetup("bundle-retry", [PREVIEW_PANEL_ID]);
+  }
 } else {
-  note(`inline bootstrap did not claim the panels (${bootstrap?.mode ?? "missing"})`);
-  startLegacyOnly();
+  note("early bootstrap script did not run");
+}
+
+/*
+ * The main panel always renders from the document, whether or not any panel
+ * create() callback arrives. `mountMainPanel` is idempotent, so if UXP does call
+ * create() for the main panel first, this is a no-op.
+ */
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", mountMainPanelFromDocument, { once: true });
+} else {
+  mountMainPanelFromDocument();
 }

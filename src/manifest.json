@@ -63,7 +63,7 @@
     },
     {
       "type": "panel",
-      "id": "openlayer.preview",
+      "id": "openlayerPreview",
       "label": {
         "default": "OpenLayer Preview"
       },
