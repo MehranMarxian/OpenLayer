@@ -3,11 +3,41 @@ import {
   WorkflowInputTarget,
   WorkflowInjectionTargetList,
   WorkflowCapability,
+  WorkflowModelLicenseGate,
   WorkflowPreset,
   WorkflowPresetDefinition,
   WorkflowNodeRequirement
 } from "./types";
 import { createOpenLayerError } from "../utils/errors";
+
+/*
+ * Download metadata for required models.
+ *
+ * Every `downloadUrl` below was verified with a live HEAD request, and every
+ * `downloadSizeBytes` is the Content-Length that request returned. Where the
+ * model is also installed on the development rig, the served Content-Length
+ * matches the local file byte for byte — so these are the files that are known
+ * to work, not merely files with the right name.
+ *
+ * Publisher repositories are preferred, except where the publisher's repo is
+ * gated behind an access request. `black-forest-labs/FLUX.1-dev` and
+ * `FLUX.1-Fill-dev` both answer 401 without a user token, so the Flux weights
+ * point at Comfy-Org's public repackaging instead. That changes how the file is
+ * fetched, not what it is licensed as, which is why they still carry a
+ * licence gate.
+ */
+
+const FLUX1_DEV_LICENSE: WorkflowModelLicenseGate = {
+  name: "FLUX.1 [dev] Non-Commercial License",
+  url: "https://huggingface.co/black-forest-labs/FLUX.1-dev/blob/main/LICENSE.md",
+  summary:
+    "Black Forest Labs restricts these weights to non-commercial use. Read the licence before downloading them or publishing work made with them."
+};
+
+const COMFY_ORG_FLUX1_DEV_REPO = "https://huggingface.co/Comfy-Org/flux1-dev";
+const COMFY_ORG_Z_IMAGE_TURBO_REPO = "https://huggingface.co/Comfy-Org/z_image_turbo";
+const COMFY_ORG_KREA2_REPO = "https://huggingface.co/Comfy-Org/Krea-2";
+const FLUX_TEXT_ENCODERS_REPO = "https://huggingface.co/comfyanonymous/flux_text_encoders";
 
 const CHECKPOINT_MODEL_SOURCE = {
   kind: "checkpoint",
@@ -44,7 +74,10 @@ const Z_IMAGE_TURBO_STACK = [
     inputName: "unet_name",
     label: "Z_image_Turbo diffusion model",
     modelName: "z_image_turbo_bf16.safetensors",
-    setupHint: "Install z_image_turbo_bf16.safetensors where ComfyUI's UNETLoader can find it."
+    setupHint: "Install z_image_turbo_bf16.safetensors where ComfyUI's UNETLoader can find it.",
+    downloadUrl: `${COMFY_ORG_Z_IMAGE_TURBO_REPO}/resolve/main/split_files/diffusion_models/z_image_turbo_bf16.safetensors`,
+    sourcePageUrl: COMFY_ORG_Z_IMAGE_TURBO_REPO,
+    downloadSizeBytes: 12309866400
   },
   {
     kind: "clip",
@@ -52,15 +85,24 @@ const Z_IMAGE_TURBO_STACK = [
     inputName: "clip_name",
     label: "Z_image_Turbo CLIP",
     modelName: "qwen_3_4b.safetensors",
-    setupHint: "Install qwen_3_4b.safetensors where ComfyUI's CLIPLoader can find it."
+    setupHint: "Install qwen_3_4b.safetensors where ComfyUI's CLIPLoader can find it.",
+    downloadUrl: `${COMFY_ORG_Z_IMAGE_TURBO_REPO}/resolve/main/split_files/text_encoders/qwen_3_4b.safetensors`,
+    sourcePageUrl: COMFY_ORG_Z_IMAGE_TURBO_REPO,
+    downloadSizeBytes: 8044982048
   },
   {
+    // The same 335 MB autoencoder the Flux Fill stack loads. Comfy-Org
+    // republishes it inside the Z-Image bundle, which is the only public
+    // source: Black Forest Labs' own copy sits behind a gated repo.
     kind: "vae",
     objectInfoNode: "VAELoader",
     inputName: "vae_name",
     label: "Z_image_Turbo VAE",
     modelName: "ae.safetensors",
-    setupHint: "Install ae.safetensors where ComfyUI's VAELoader can find it."
+    setupHint: "Install ae.safetensors where ComfyUI's VAELoader can find it.",
+    downloadUrl: `${COMFY_ORG_Z_IMAGE_TURBO_REPO}/resolve/main/split_files/vae/ae.safetensors`,
+    sourcePageUrl: COMFY_ORG_Z_IMAGE_TURBO_REPO,
+    downloadSizeBytes: 335304388
   }
 ] as const;
 
@@ -71,7 +113,10 @@ const KREA2_TURBO_STACK = [
     inputName: "unet_name",
     label: "Krea-2 Turbo diffusion model",
     modelName: "krea2_turbo_fp8_scaled.safetensors",
-    setupHint: "Install krea2_turbo_fp8_scaled.safetensors where ComfyUI's UNETLoader can find it."
+    setupHint: "Install krea2_turbo_fp8_scaled.safetensors where ComfyUI's UNETLoader can find it.",
+    downloadUrl: `${COMFY_ORG_KREA2_REPO}/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors`,
+    sourcePageUrl: COMFY_ORG_KREA2_REPO,
+    downloadSizeBytes: 13141730784
   },
   {
     kind: "clip",
@@ -79,7 +124,10 @@ const KREA2_TURBO_STACK = [
     inputName: "clip_name",
     label: "Krea-2 text encoder",
     modelName: "qwen3vl_4b_fp8_scaled.safetensors",
-    setupHint: "Install qwen3vl_4b_fp8_scaled.safetensors in ComfyUI models/text_encoders."
+    setupHint: "Install qwen3vl_4b_fp8_scaled.safetensors in ComfyUI models/text_encoders.",
+    downloadUrl: `${COMFY_ORG_KREA2_REPO}/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors`,
+    sourcePageUrl: COMFY_ORG_KREA2_REPO,
+    downloadSizeBytes: 5242467968
   },
   {
     kind: "vae",
@@ -87,7 +135,10 @@ const KREA2_TURBO_STACK = [
     inputName: "vae_name",
     label: "Qwen image VAE",
     modelName: "qwen_image_vae.safetensors",
-    setupHint: "Install qwen_image_vae.safetensors where ComfyUI's VAELoader can find it."
+    setupHint: "Install qwen_image_vae.safetensors where ComfyUI's VAELoader can find it.",
+    downloadUrl: `${COMFY_ORG_KREA2_REPO}/resolve/main/vae/qwen_image_vae.safetensors`,
+    sourcePageUrl: COMFY_ORG_KREA2_REPO,
+    downloadSizeBytes: 253806246
   }
 ] as const;
 
@@ -98,17 +149,28 @@ const FLUX1_DEV_STACK = [
     inputName: "unet_name",
     label: "Flux diffusion model",
     modelName: "flux1-dev.safetensors",
-    setupHint: "Install flux1-dev.safetensors where ComfyUI's UNETLoader can find it."
+    setupHint: "Install flux1-dev.safetensors where ComfyUI's UNETLoader can find it.",
+    downloadUrl: `${COMFY_ORG_FLUX1_DEV_REPO}/resolve/main/flux1-dev.safetensors`,
+    sourcePageUrl: "https://huggingface.co/black-forest-labs/FLUX.1-dev",
+    downloadSizeBytes: 23802932552,
+    licenseGate: FLUX1_DEV_LICENSE
   }
 ] as const;
 
 const FLUX1_DEV_FP8_CHECKPOINT = {
+  // An all-in-one checkpoint: UNET, both text encoders, and the VAE in one
+  // file. A UNET-only "flux1-dev-fp8" from elsewhere will load and then fail
+  // for want of CLIP, which is why the URL and size are pinned here.
   kind: "checkpoint",
   objectInfoNode: "CheckpointLoaderSimple",
   inputName: "ckpt_name",
   label: "Flux1-dev fp8 checkpoint",
   modelName: "flux1-dev-fp8.safetensors",
-  setupHint: "Install flux1-dev-fp8.safetensors where ComfyUI's CheckpointLoaderSimple can find it."
+  setupHint: "Install flux1-dev-fp8.safetensors where ComfyUI's CheckpointLoaderSimple can find it.",
+  downloadUrl: `${COMFY_ORG_FLUX1_DEV_REPO}/resolve/main/flux1-dev-fp8.safetensors`,
+  sourcePageUrl: "https://huggingface.co/black-forest-labs/FLUX.1-dev",
+  downloadSizeBytes: 17246524772,
+  licenseGate: FLUX1_DEV_LICENSE
 } as const;
 
 const FLORENCE2_PROMPTGEN_MODEL = {
@@ -117,7 +179,11 @@ const FLORENCE2_PROMPTGEN_MODEL = {
   inputName: "model",
   label: "Florence-2 PromptGen model",
   modelName: "Florence-2-base-PromptGen-v2.0",
-  setupHint: "Install Florence-2-base-PromptGen-v2.0 where ComfyUI's Florence2ModelLoader can find it."
+  setupHint:
+    "Clone the whole Florence-2-base-PromptGen-v2.0 repository into ComfyUI models/LLM. Florence2ModelLoader loads a model directory, not a single file.",
+  downloadUrl: "https://huggingface.co/MiaoshouAI/Florence-2-base-PromptGen-v2.0",
+  sourcePageUrl: "https://huggingface.co/MiaoshouAI/Florence-2-base-PromptGen-v2.0",
+  downloadLayout: "repo-folder"
 } as const;
 
 const UPSCALE_BASIC_MODEL = {
@@ -127,7 +193,10 @@ const UPSCALE_BASIC_MODEL = {
   label: "Upscale model",
   modelName: "4x-UltraSharp.pth",
   acceptedModelNames: ["RealESRGAN_x4plus.pth"],
-  setupHint: "Install 4x-UltraSharp.pth or RealESRGAN_x4plus.pth where ComfyUI's UpscaleModelLoader can find it."
+  setupHint: "Install 4x-UltraSharp.pth or RealESRGAN_x4plus.pth where ComfyUI's UpscaleModelLoader can find it.",
+  downloadUrl: "https://huggingface.co/Kim2091/UltraSharp/resolve/main/4x-UltraSharp.pth",
+  sourcePageUrl: "https://huggingface.co/Kim2091/UltraSharp",
+  downloadSizeBytes: 66961958
 } as const;
 
 const TXT2IMG_BASIC_NODES = {
@@ -430,7 +499,11 @@ const FLUX_FILL_STACK = [
     inputName: "unet_name",
     label: "Flux Fill diffusion model",
     modelName: "flux1-fill-dev.safetensors",
-    setupHint: "Install flux1-fill-dev.safetensors where ComfyUI's UNETLoader can find it."
+    setupHint: "Install flux1-fill-dev.safetensors where ComfyUI's UNETLoader can find it.",
+    downloadUrl: `${COMFY_ORG_FLUX1_DEV_REPO}/resolve/main/split_files/diffusion_models/flux1-fill-dev.safetensors`,
+    sourcePageUrl: "https://huggingface.co/black-forest-labs/FLUX.1-Fill-dev",
+    downloadSizeBytes: 23804922408,
+    licenseGate: FLUX1_DEV_LICENSE
   },
   // The working Flux Fill reference maps CLIP-L to clip_name1 and T5 to
   // clip_name2 on DualCLIPLoader. Keep this metadata in sync with
@@ -441,7 +514,10 @@ const FLUX_FILL_STACK = [
     inputName: "clip_name1",
     label: "Flux CLIP-L",
     modelName: "clip_l.safetensors",
-    setupHint: "Install clip_l.safetensors in ComfyUI models/text_encoders."
+    setupHint: "Install clip_l.safetensors in ComfyUI models/text_encoders.",
+    downloadUrl: `${FLUX_TEXT_ENCODERS_REPO}/resolve/main/clip_l.safetensors`,
+    sourcePageUrl: FLUX_TEXT_ENCODERS_REPO,
+    downloadSizeBytes: 246144152
   },
   {
     kind: "clip",
@@ -451,15 +527,23 @@ const FLUX_FILL_STACK = [
     modelName: "t5xxl_fp16.safetensors",
     acceptedModelNames: ["t5xxl_fp8_e4m3fn.safetensors"],
     setupHint:
-      "Install t5xxl_fp16.safetensors in ComfyUI models/text_encoders. t5xxl_fp8_e4m3fn.safetensors is accepted as a local fallback when available."
+      "Install t5xxl_fp16.safetensors in ComfyUI models/text_encoders. t5xxl_fp8_e4m3fn.safetensors is accepted as a local fallback when available.",
+    downloadUrl: `${FLUX_TEXT_ENCODERS_REPO}/resolve/main/t5xxl_fp16.safetensors`,
+    sourcePageUrl: FLUX_TEXT_ENCODERS_REPO,
+    downloadSizeBytes: 9787841024
   },
   {
+    // Same file as the Z_image_Turbo stack's VAE entry, so the setup pack
+    // de-duplicates it and downloads 335 MB once rather than twice.
     kind: "vae",
     objectInfoNode: "VAELoader",
     inputName: "vae_name",
     label: "Flux VAE",
     modelName: "ae.safetensors",
-    setupHint: "Install ae.safetensors where ComfyUI's VAELoader can find it."
+    setupHint: "Install ae.safetensors where ComfyUI's VAELoader can find it.",
+    downloadUrl: `${COMFY_ORG_Z_IMAGE_TURBO_REPO}/resolve/main/split_files/vae/ae.safetensors`,
+    sourcePageUrl: COMFY_ORG_Z_IMAGE_TURBO_REPO,
+    downloadSizeBytes: 335304388
   }
 ] as const;
 
@@ -1033,7 +1117,11 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
         inputName: "control_net_name",
         label: "LineArt ControlNet",
         modelName: "control_v11p_sd15_lineart_fp16.safetensors",
-        setupHint: "Install an SD 1.5 LineArt ControlNet model in ComfyUI's controlnet models folder."
+        setupHint: "Install an SD 1.5 LineArt ControlNet model in ComfyUI's controlnet models folder.",
+        downloadUrl:
+          "https://huggingface.co/comfyanonymous/ControlNet-v1-1_fp16_safetensors/resolve/main/control_v11p_sd15_lineart_fp16.safetensors",
+        sourcePageUrl: "https://huggingface.co/comfyanonymous/ControlNet-v1-1_fp16_safetensors",
+        downloadSizeBytes: 722601100
       }
     ],
     requiredNodes: [
