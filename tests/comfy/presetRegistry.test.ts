@@ -80,7 +80,7 @@ describe("presetRegistry", () => {
     expect(preset.requiredModels?.some((model) => model.modelName === "Florence-2-base-PromptGen-v2.0")).toBe(true);
     expect(preset.requiredNodes.some((node) => node.classType === "Florence2ModelLoader")).toBe(true);
     expect(preset.requiredNodes.some((node) => node.classType === "Florence2Run")).toBe(true);
-    expect(preset.requiredNodes.some((node) => node.classType === "ShowText|pysssss")).toBe(true);
+    expect(preset.requiredNodes.some((node) => node.classType === "PreviewAny")).toBe(true);
     expect(preset.injections.sourceImage).toEqual({ nodeId: "42", inputName: "image" });
     expect(preset.injections.task).toEqual({ nodeId: "38", inputName: "task" });
     expect(preset.injections.numBeams).toEqual({ nodeId: "38", inputName: "num_beams" });
