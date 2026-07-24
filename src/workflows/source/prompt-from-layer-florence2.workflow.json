@@ -85,50 +85,6 @@
       "widgets_values": []
     },
     {
-      "id": 43,
-      "type": "SaveText|pysssss",
-      "pos": [
-        1074.7272137707923,
-        764.6091738797028
-      ],
-      "size": [
-        270,
-        130
-      ],
-      "flags": {},
-      "order": 5,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "text",
-          "type": "STRING",
-          "link": 61
-        }
-      ],
-      "outputs": [
-        {
-          "name": "STRING",
-          "type": "STRING",
-          "links": null
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfyui-custom-scripts",
-        "ver": "1.2.5",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
-        "Node name for S&R": "SaveText|pysssss"
-      },
-      "widgets_values": [
-        "input",
-        "file.txt",
-        "append",
-        true
-      ]
-    },
-    {
       "id": 42,
       "type": "LoadImage",
       "pos": [
@@ -217,9 +173,7 @@
           "name": "caption",
           "type": "STRING",
           "links": [
-            59,
-            61,
-            63
+            59
           ]
         },
         {
@@ -249,48 +203,6 @@
         "",
         284075328336101,
         "randomize"
-      ]
-    },
-    {
-      "id": 45,
-      "type": "ShowText|pysssss",
-      "pos": [
-        1032.3334223631023,
-        460.6842525814802
-      ],
-      "size": [
-        307.22540177843143,
-        223.46881422654906
-      ],
-      "flags": {},
-      "order": 6,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "text",
-          "type": "STRING",
-          "link": 63
-        }
-      ],
-      "outputs": [
-        {
-          "name": "STRING",
-          "shape": 6,
-          "type": "STRING",
-          "links": null
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfyui-custom-scripts",
-        "ver": "1.2.5",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        },
-        "Node name for S&R": "ShowText|pysssss"
-      },
-      "widgets_values": [
-        "The image shows a sculpture of a ghostly figure suspended in mid-air, suspended from a skylight above an empty room with concrete floors and white walls. The sculpture is made of white, fluid-like material that appears to be suspended in the air, creating a surreal and eerie atmosphere. On the right side of the image, there is a black and white abstract painting hanging on the wall. The room has a modern, minimalist design with clean lines and a minimalist aesthetic. The image is taken from a low angle, looking up at the sculpture."
       ]
     },
     {
@@ -348,22 +260,6 @@
       38,
       0,
       "IMAGE"
-    ],
-    [
-      61,
-      38,
-      2,
-      43,
-      0,
-      "STRING"
-    ],
-    [
-      63,
-      38,
-      2,
-      45,
-      0,
-      "STRING"
     ]
   ],
   "groups": [],

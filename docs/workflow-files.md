@@ -85,15 +85,14 @@ The runnable API workflow uses:
 - `Florence2ModelLoader`
 - `LoadImage`
 - `Florence2Run`
-- `ShowText|pysssss`
+- `PreviewAny` (core ComfyUI)
 
 Required local setup:
 
 - `comfyui-florence2`
-- `comfyui-custom-scripts`
 - `Florence-2-base-PromptGen-v2.0`
 
-The source workflow also includes preview/save text helper nodes. OpenLayer does not rely on the `SaveText` node for normal operation; it reads the text output from the completed prompt history.
+`PreviewAny` is what makes the graph runnable, not just readable. `Florence2Run` is not an output node, so a graph containing only the three Florence nodes has no output at all and ComfyUI refuses to queue it. `PreviewAny` publishes the caption under `outputs[<node>].text`, exactly as the `ShowText|pysssss` node it replaced did — which is why dropping the `comfyui-custom-scripts` requirement was a swap rather than a deletion.
 
 ## Why Flux Is Different
 

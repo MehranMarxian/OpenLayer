@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit && vite build && node scripts/copy-uxp-assets.mjs",
     "package": "npm run build && node scripts/package.mjs",
+    "setup-pack": "node scripts/build-setup-pack.mjs",
     "test": "vitest run --config vitest.config.ts"
   },
   "devDependencies": {

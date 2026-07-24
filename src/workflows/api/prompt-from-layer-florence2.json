@@ -44,16 +44,16 @@
       "title": "Run Florence-2 PromptGen"
     }
   },
-  "45": {
-    "class_type": "ShowText|pysssss",
+  "41": {
+    "class_type": "PreviewAny",
     "inputs": {
-      "text": [
+      "source": [
         "38",
         2
       ]
     },
     "_meta": {
-      "title": "Show generated prompt text"
+      "title": "Preview generated prompt text"
     }
   }
 }
