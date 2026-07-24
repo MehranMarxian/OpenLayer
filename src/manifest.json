@@ -60,6 +60,41 @@
           "theme": ["lightest", "light"]
         }
       ]
+    },
+    {
+      "type": "panel",
+      "id": "openlayer.preview",
+      "label": {
+        "default": "OpenLayer Preview"
+      },
+      "minimumSize": {
+        "width": 220,
+        "height": 220
+      },
+      "preferredDockedSize": {
+        "width": 360,
+        "height": 360
+      },
+      "preferredFloatingSize": {
+        "width": 520,
+        "height": 520
+      },
+      "icons": [
+        {
+          "width": 23,
+          "height": 23,
+          "path": "icons/icon_D.png",
+          "scale": [1, 2],
+          "theme": ["darkest", "dark", "medium"]
+        },
+        {
+          "width": 23,
+          "height": 23,
+          "path": "icons/icon_N.png",
+          "scale": [1, 2],
+          "theme": ["lightest", "light"]
+        }
+      ]
     }
   ],
   "icons": [

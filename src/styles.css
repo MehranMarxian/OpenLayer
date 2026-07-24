@@ -7315,3 +7315,46 @@ body,
 .app-shell.theme-compact .tool-card.is-coming-soon .tool-subtitle {
   color: #777777 !important;
 }
+
+/* --- Second-panel spike: openlayer.preview placeholder ------------------- */
+/* Deliberately self-contained. The preview panel may render outside the
+   .app-shell theme root, so these rules inherit nothing from either theme. */
+
+.openlayer-preview-panel-placeholder {
+  display: flex;
+  width: 100%;
+  min-height: 100%;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: #2b2b2b;
+  color: #eeeeee;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.openlayer-preview-panel-placeholder h1 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.openlayer-preview-panel-placeholder p {
+  margin: 0;
+  color: #b9b9b9;
+}
+
+.openlayer-preview-panel-placeholder-mode {
+  color: #8fd48f !important;
+  font-weight: 600;
+}
+
+.openlayer-preview-panel-placeholder-log {
+  margin: 0;
+  padding-left: 16px;
+  color: #9a9a9a;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  word-break: break-word;
+}
