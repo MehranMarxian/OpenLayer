@@ -1,7 +1,22 @@
 declare function require(moduleName: "photoshop"): unknown;
 declare function require(moduleName: "uxp"): UxpModule;
 
+type UxpPanelEntrypoint = {
+  create?: (rootNode: HTMLElement) => void;
+  show?: (rootNode: HTMLElement) => void;
+  hide?: (rootNode: HTMLElement) => void;
+  destroy?: (rootNode: HTMLElement) => void;
+};
+
+type UxpEntrypointsSetup = {
+  panels?: Record<string, UxpPanelEntrypoint>;
+  commands?: Record<string, unknown>;
+};
+
 type UxpModule = {
+  entrypoints?: {
+    setup?: (definition: UxpEntrypointsSetup) => void;
+  };
   shell?: {
     openExternal?: (url: string) => Promise<void> | void;
   };
