@@ -78,18 +78,17 @@ describe("workflow diagnostics", () => {
   });
 
   it("summarizes warning messages for Settings diagnostics", () => {
+    const sketchPreset = getWorkflowPreset("sketch2img-linecn-basic");
     const summary = createWorkflowReadinessSummary([
-      createWorkflowDiagnosticMessage(getWorkflowPreset("txt2img-z-image-turbo"), {
-        selectedModelName: "z_image_turbo_bf16.safetensors"
-      }),
-      createWorkflowDiagnosticMessage(getWorkflowPreset("inpaint-basic"), {
-        selectedModelName: "epicrealism_pureEvolutionV5-inpainting.safetensors"
+      createWorkflowDiagnosticMessage(sketchPreset, {
+        selectedModelName: "flux1-dev-fp8.safetensors",
+        availableNodes: createAvailableNodes(sketchPreset),
+        photoshopInputs: { canvas: true }
       })
     ]);
 
-    expect(summary).toContain("Text to Image is experimental");
-    expect(summary).toContain("Inpaint is experimental");
-    expect(summary).toContain("experimental");
+    expect(summary).toContain("Sketch to Image is experimental");
+    expect(summary).toContain("Flux may need a dedicated workflow");
   });
 });
 

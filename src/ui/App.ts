@@ -2074,7 +2074,7 @@ export function renderApp(rootElement: HTMLElement) {
           dimensions: `${capturedSource.width} x ${capturedSource.height}`,
           sourceMode: capturedSource.sourceName,
           outpaintImportContext: generatedOutpaintContext,
-          experimental: true,
+          experimental: buildResult.preset.status === "experimental",
           diagnosticsSummary: formatInpaintOutpaintDebugContract({
             toolType: "outpaint",
             presetId: buildResult.preset.id,
@@ -2794,7 +2794,7 @@ export function renderApp(rootElement: HTMLElement) {
           sourceBounds: createMetadataBounds(submittedSource.selection.bounds),
           contextBounds: createMetadataBounds(submittedSource.selection.contextBounds),
           inpaintImportContext: generatedImportContext,
-          experimental: true,
+          experimental: buildResult.preset.status === "experimental",
           diagnosticsSummary: [
             inpaintOutputDiagnostics,
             formatInpaintOutpaintDebugContract({

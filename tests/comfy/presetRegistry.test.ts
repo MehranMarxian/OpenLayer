@@ -41,10 +41,10 @@ describe("presetRegistry", () => {
     expect(runnableUpscaleIds).toEqual(["upscale-basic"]);
   });
 
-  it("registers upscale-basic as an experimental pixel upscale workflow", () => {
+  it("registers upscale-basic as a stable pixel upscale workflow", () => {
     const preset = getWorkflowPreset("upscale-basic");
 
-    expect(preset.status).toBe("experimental");
+    expect(preset.status).toBe("stable");
     expect(preset.mode).toBe("upscale");
     expect(preset.modelSource.kind).toBe("upscale");
     expect(preset.requiredModels?.some((model) =>
@@ -57,10 +57,10 @@ describe("presetRegistry", () => {
     expect(preset.requiredNodes.some((node) => node.classType === "ImageUpscaleWithModel")).toBe(true);
   });
 
-  it("registers Flux1-dev fp8 text-to-image as an experimental checkpoint workflow", () => {
+  it("registers Flux1-dev fp8 text-to-image as a stable checkpoint workflow", () => {
     const preset = getWorkflowPreset("txt2img-flux1-dev-fp8");
 
-    expect(preset.status).toBe("experimental");
+    expect(preset.status).toBe("stable");
     expect(preset.mode).toBe("txt2img");
     expect(preset.modelSource.kind).toBe("checkpoint");
     expect(preset.supportedModelFamilies).toEqual(["flux"]);
@@ -70,10 +70,10 @@ describe("presetRegistry", () => {
     expect(preset.injections.cfg).toEqual({ nodeId: "35", inputName: "guidance" });
   });
 
-  it("registers Prompt from Layer as an experimental Florence text workflow", () => {
+  it("registers Prompt from Layer as a stable Florence text workflow", () => {
     const preset = getWorkflowPreset("prompt-from-layer-florence2");
 
-    expect(preset.status).toBe("experimental");
+    expect(preset.status).toBe("stable");
     expect(preset.mode).toBe("prompt");
     expect(preset.modelSource.kind).toBe("vision-language");
     expect(preset.capability?.output.kind).toBe("prompt-text");
@@ -89,7 +89,7 @@ describe("presetRegistry", () => {
   it("maps inpaint-basic mask and source injections", () => {
     const preset = getWorkflowPreset("inpaint-basic");
 
-    expect(preset.status).toBe("experimental");
+    expect(preset.status).toBe("stable");
     expect(preset.supportedModelFamilies).toEqual(["sd1"]);
     expect(preset.injections.sourceImage).toEqual({ nodeId: "10", inputName: "image" });
     expect(preset.injections.maskImage).toEqual({ nodeId: "12", inputName: "image" });
@@ -101,7 +101,7 @@ describe("presetRegistry", () => {
   it("registers Flux Fill inpaint as a diffusion model stack preset", () => {
     const preset = getWorkflowPreset("inpaint-flux-fill-basic");
 
-    expect(preset.status).toBe("experimental");
+    expect(preset.status).toBe("stable");
     expect(preset.modelSource.kind).toBe("diffusion-model-stack");
     expect(preset.supportedModelFamilies).toEqual(["flux"]);
     expect(preset.requiredModels?.some((model) => model.modelName === "flux1-fill-dev.safetensors")).toBe(true);
@@ -122,7 +122,7 @@ describe("presetRegistry", () => {
   it("registers Flux Fill outpaint as a diffusion model stack preset", () => {
     const preset = getWorkflowPreset("outpaint-flux-fill-basic");
 
-    expect(preset.status).toBe("experimental");
+    expect(preset.status).toBe("stable");
     expect(preset.mode).toBe("outpaint");
     expect(preset.modelSource.kind).toBe("diffusion-model-stack");
     expect(preset.supportedModelFamilies).toEqual(["flux"]);
@@ -142,7 +142,7 @@ describe("presetRegistry", () => {
   it("marks Krea-2 Turbo as a diffusion model stack preset", () => {
     const preset = getWorkflowPreset("txt2img-krea2-turbo");
 
-    expect(preset.status).toBe("experimental");
+    expect(preset.status).toBe("stable");
     expect(preset.modelSource.kind).toBe("diffusion-model-stack");
     expect(preset.modelStack?.some((model) => model.modelName === "krea2_turbo_fp8_scaled.safetensors")).toBe(true);
     expect(preset.requiredModels?.some((model) => model.modelName === "qwen3vl_4b_fp8_scaled.safetensors")).toBe(true);
@@ -154,7 +154,7 @@ describe("presetRegistry", () => {
   it("marks Z_image_Turbo as a diffusion model stack preset", () => {
     const preset = getWorkflowPreset("txt2img-z-image-turbo");
 
-    expect(preset.status).toBe("experimental");
+    expect(preset.status).toBe("stable");
     expect(preset.modelSource.kind).toBe("diffusion-model-stack");
     expect(preset.modelStack?.some((model) => model.modelName === "z_image_turbo_bf16.safetensors")).toBe(true);
     expect(preset.requiredModels?.some((model) => model.modelName === "qwen_3_4b.safetensors")).toBe(true);

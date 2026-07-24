@@ -102,14 +102,14 @@ Existing screen plus: tier indicator (LIVE ⚡ / REFINING ✨ badge on the previ
 
 ## 5. Implementation plan (incremental, each step = validation trio + Mehran smoke)
 
-| Step | Content | Delegable to Codex? |
+| Step | Content | Status |
 |---|---|---|
-| 1 | Mutual exclusion guards (live vs regular generates) + in-flight cancel on stop/teardown | Yes — small, well-scoped, this spec is the brief |
-| 2 | `buildKrea2RefineWorkflow` + inventory gate + unit tests (pure) | Yes |
-| 3 | Session state machine v2 in `src/ui/tools/livePainting.ts` (port pump, add refine states, pause timer, telemetry) with unit tests against a fake client (mirror `generationController.test.ts` fixtures) | Yes, with careful review — the state machine is the heart |
-| 4 | UI: refine controls + badges + wiring | Yes |
-| 5 | WebSocket preview instead of polling for live cycles | Yes — reuse `watchProgress` |
-| 6 | Latency profiling pass on Mehran's machine; tune denoise/pause defaults; record real numbers back into this doc | Human + any model |
+| 1 | Mutual exclusion guards (live vs regular generates) + in-flight cancel on stop/teardown | **Done** — merged in PR #19 |
+| 2 | `buildKrea2RefineWorkflow` + inventory gate + unit tests (pure) | **Done** — merged in PR #19 |
+| 3 | Session state machine v2 in `src/ui/tools/livePainting.ts` (port pump, add refine states, pause timer, telemetry) with unit tests against a fake client | **Done** — merged in PR #20 |
+| 4 | UI: refine controls + badges + wiring | **Done** — merged in PR #21; refine tier host-verified working by Mehran 2026-07-21 |
+| 5 | WebSocket preview instead of polling for live cycles | Pending — reuse `watchProgress`; folded into the v2.5 plan below |
+| 6 | Latency profiling pass on Mehran's machine; tune denoise/pause defaults; record real numbers back into this doc | Pending (Human + any model) |
 
 Review checkpoints for whoever orchestrates: A1 (originatingDocument on every capture), A5 (all preview URLs through the registry/owned slots), single-job-in-flight invariant, and the mutual-exclusion guard on BOTH sides.
 
@@ -120,3 +120,20 @@ Review checkpoints for whoever orchestrates: A1 (originatingDocument on every ca
 3. LoadImage filename-reuse staleness: yes/no on his ComfyUI version.
 4. Krea2 refine wall-clock at 768² and 1024² with the fp8 model (decide default refine size from this).
 5. Whether `historyStateChanged` fires during a drag or only on mouse-up (affects debounce need; current pump absorbs either).
+
+## 7. Realtime gap and the v2.5 plan (DEFERRED — do not start without Mehran's go)
+
+Status after v2 shipped (2026-07-21): the two-tier design works — live tier repaints in ~0.5–0.7 s, refine tier delivers a Krea-2 Turbo pass in ~38–48 s at 1024² on the RTX 4070 Ti (12 GB). Mehran confirmed refine works but noted the expectation gap: this is not krea.ai/realtime. That gap is structural, not a bug:
+
+- **The refine tier can never be the realtime engine on 12 GB.** Krea-2 Turbo at 38–48 s/frame is physics, not tuning. Realtime feel must come from the live tier.
+- **`historyStateChanged` only fires on mouse-up**, so previews update per-stroke, not during a drag.
+- **Disk + poll overhead** adds ~300–500 ms per cycle on top of sampling.
+
+v2.5 scope (in order of impact, each step = validation trio + smoke):
+
+1. **Continuous capture timer** (~400 ms) while the pointer is likely painting, instead of waiting for `historyStateChanged` — previews update mid-drag.
+2. **`SaveImageWebsocket`** output node + binary WS frames — removes disk write + HTTP poll from the loop (plan step 5 above folds in here).
+3. **1–2 step models** (SD-Turbo / SDXL-Turbo / LCM at 1–2 steps, denoise-tuned) for the live tier.
+4. **v3, separate track:** StreamDiffusion sidecar process for true 10 fps+ — different architecture, not an increment of this pipeline.
+
+Do not begin any of this until Mehran explicitly asks; v2 is the released baseline.
