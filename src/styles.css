@@ -7320,10 +7320,23 @@ body,
 /* Deliberately self-contained. The preview panel may render outside the
    .app-shell theme root, so these rules inherit nothing from either theme. */
 
+/* The node UXP hands to a panel's create() callback. It has to carry a height
+   for the fill area below to have anything to fill, and it must not be given a
+   fixed one, or the panel would stop tracking whatever size the artist drags
+   it to. */
+.openlayer-preview-panel-root {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .openlayer-preview-panel-placeholder {
   display: flex;
   width: 100%;
-  min-height: 100%;
+  height: 100%;
+  min-height: 0;
   flex-direction: column;
   gap: 8px;
   padding: 12px;
@@ -7350,9 +7363,38 @@ body,
   font-weight: 600;
 }
 
+/* Fills whatever space is left. The checkerboard makes a resize visible at a
+   glance rather than only in the size readout. */
+.openlayer-preview-panel-placeholder-fill {
+  display: flex;
+  min-height: 64px;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed #4a4a4a;
+  border-radius: 4px;
+  background-color: #323232;
+  background-image:
+    linear-gradient(45deg, #2b2b2b 25%, transparent 25%, transparent 75%, #2b2b2b 75%),
+    linear-gradient(45deg, #2b2b2b 25%, transparent 25%, transparent 75%, #2b2b2b 75%);
+  background-position: 0 0, 8px 8px;
+  background-size: 16px 16px;
+}
+
+.openlayer-preview-panel-placeholder-size {
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #d7dde6;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+}
+
 .openlayer-preview-panel-placeholder-log {
   margin: 0;
   padding-left: 16px;
+  overflow-y: auto;
+  flex: 0 1 auto;
   color: #9a9a9a;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 11px;

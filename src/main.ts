@@ -3,121 +3,106 @@ import { renderPreviewPanelPlaceholder } from "./ui/previewPanelPlaceholder";
 import "./styles.css";
 
 /**
- * Adaptive bootstrap for the second-panel spike (docs/PREVIEW_PANEL.md, unknown #1).
+ * Panel bootstrap.
  *
- * The plugin has always booted the plain way: `index.html` loads this module and we
- * render into `#root`. Declaring a second panel entrypoint may require the documented
- * multi-panel style instead (`entrypoints.setup({ panels: { ... } })`), and Adobe's
- * manifest v5 docs do not say which style wins when both are present. Rather than
- * guess and risk the shipping panel, we register `entrypoints.setup()` and keep the
- * legacy path as a timed fallback: whichever mechanism Photoshop actually honours
- * mounts the main panel exactly once, and the preview panel prints what happened.
+ * The entrypoints themselves are claimed by the inline script in `index.html`,
+ * because Adobe's `entrypoints.setup()` throws when called more than ~20ms
+ * after plugin start (PS-57605) and this bundle is deferred — far too late.
+ * See the comment there for the failure it fixes.
  *
- * Once the host answers the question, the losing branch gets deleted.
+ * This module supplies the renderers. The inline script calls them as soon as
+ * both a root node and a renderer exist for a panel, in whichever order those
+ * two arrive, so no assumption is made about whether UXP's `create()` fires
+ * before or after the bundle finishes loading.
  */
 
 const MAIN_PANEL_ID = "openlayer.panel";
 const PREVIEW_PANEL_ID = "openlayer.preview";
 
-/** How long to wait for a panel `create()` callback before falling back to `#root`. */
+/**
+ * How long to wait for a panel `create()` callback before rendering the main
+ * panel into the plain `#root` div. Only reachable when `setup()` registered
+ * without throwing but the host never called back — an older Photoshop, or a
+ * regression in the entrypoints API.
+ */
 const LEGACY_FALLBACK_DELAY_MS = 1500;
 
-const bootStartedAt = Date.now();
-const bootstrapEvents: string[] = [];
-let bootstrapMode = "pending";
-let mainPanelMounted = false;
+type PanelRenderer = (rootNode: HTMLElement) => void;
 
-function note(event: string) {
-  const entry = `+${Date.now() - bootStartedAt}ms ${event}`;
-  bootstrapEvents.push(entry);
-  console.log(`[OpenLayer bootstrap] ${entry}`);
-}
-
-const diagnostics = {
-  mode: () => bootstrapMode,
-  events: () => bootstrapEvents
+type OpenLayerBootstrap = {
+  mode: string;
+  events: string[];
+  note: (message: string) => void;
+  register: (id: string, render: PanelRenderer) => void;
 };
 
-function mountMainPanel(container: HTMLElement, mode: string) {
-  if (mainPanelMounted) {
-    note(`ignored duplicate main panel mount via ${mode}`);
+const bootstrap = (window as unknown as { __openlayerBootstrap?: OpenLayerBootstrap }).__openlayerBootstrap;
+
+let mainPanelMounted = false;
+
+function note(message: string) {
+  if (bootstrap) {
+    bootstrap.note(message);
     return;
   }
 
+  console.log(`[OpenLayer bootstrap] ${message}`);
+}
+
+const diagnostics = {
+  mode: () => bootstrap?.mode ?? "no inline bootstrap",
+  events: () => bootstrap?.events ?? []
+};
+
+/**
+ * Renders the main panel into the `#root` container, moving that container
+ * into the panel node UXP supplied when there is one.
+ *
+ * `#root` is carried across rather than replaced because `styles.css` sizes the
+ * app through an `html, body, #root` chain, and the compact theme leans on it.
+ * Rendering into a bare UXP node instead would silently change the layout the
+ * whole panel depends on.
+ */
+function mountMainPanel(rootNode: HTMLElement) {
+  if (mainPanelMounted) {
+    note("ignored duplicate main panel mount");
+    return;
+  }
+
+  const legacyRoot = document.getElementById("root");
+  let host = legacyRoot;
+
+  if (host && !rootNode.contains(host)) {
+    rootNode.appendChild(host);
+  }
+
+  if (!host) {
+    host = document.createElement("div");
+    host.id = "root";
+    rootNode.appendChild(host);
+  }
+
   mainPanelMounted = true;
-  bootstrapMode = mode;
-  note(`mounting main panel via ${mode}`);
-  renderApp(container);
+  renderApp(host);
 }
 
-function mountPreviewPanel(container: HTMLElement) {
-  note("preview panel create() fired");
-  renderPreviewPanelPlaceholder(container, diagnostics);
-}
-
-function getLegacyRoot(): HTMLElement | null {
-  return document.getElementById("root");
-}
-
-function registerEntrypoints(): boolean {
-  let uxp;
-
-  try {
-    uxp = require("uxp");
-  } catch (error) {
-    note(`require("uxp") failed: ${String(error)}`);
-    return false;
-  }
-
-  const setup = uxp?.entrypoints?.setup;
-
-  if (typeof setup !== "function") {
-    note("uxp.entrypoints.setup is unavailable");
-    return false;
-  }
-
-  try {
-    setup({
-      panels: {
-        [MAIN_PANEL_ID]: {
-          create: (rootNode: HTMLElement) => {
-            // The legacy `#root` div stays in the document; drop it so the main
-            // panel cannot end up rendered twice if the host also shows <body>.
-            const legacyRoot = getLegacyRoot();
-
-            if (legacyRoot && !mainPanelMounted) {
-              legacyRoot.remove();
-            }
-
-            mountMainPanel(rootNode, "entrypoints.setup");
-          }
-        },
-        [PREVIEW_PANEL_ID]: {
-          create: mountPreviewPanel
-        }
-      }
-    });
-  } catch (error) {
-    note(`entrypoints.setup threw: ${String(error)}`);
-    return false;
-  }
-
-  note("entrypoints.setup registered both panels");
-  return true;
+function mountPreviewPanel(rootNode: HTMLElement) {
+  renderPreviewPanelPlaceholder(rootNode, diagnostics);
 }
 
 function mountLegacyRoot() {
-  const rootElement = getLegacyRoot();
+  if (mainPanelMounted) {
+    return;
+  }
+
+  const rootElement = document.getElementById("root");
 
   if (!rootElement) {
-    if (mainPanelMounted) {
-      return;
-    }
-
     throw new Error("OpenLayer root element was not found.");
   }
 
-  mountMainPanel(rootElement, "index.html #root");
+  note("falling back to the plain #root render");
+  mountMainPanel(rootElement);
 }
 
 function scheduleLegacyFallback() {
@@ -126,16 +111,14 @@ function scheduleLegacyFallback() {
       return;
     }
 
-    note("no panel create() callback arrived; falling back to #root");
+    note("no panel create() callback arrived");
     mountLegacyRoot();
   };
 
   if (document.readyState === "loading") {
-    document.addEventListener(
-      "DOMContentLoaded",
-      () => window.setTimeout(run, LEGACY_FALLBACK_DELAY_MS),
-      { once: true }
-    );
+    document.addEventListener("DOMContentLoaded", () => window.setTimeout(run, LEGACY_FALLBACK_DELAY_MS), {
+      once: true
+    });
   } else {
     window.setTimeout(run, LEGACY_FALLBACK_DELAY_MS);
   }
@@ -149,9 +132,11 @@ function startLegacyOnly() {
   }
 }
 
-// entrypoints.setup() must be called as early as possible, before DOM ready.
-if (registerEntrypoints()) {
+if (bootstrap && bootstrap.mode === "entrypoints.setup") {
+  bootstrap.register(MAIN_PANEL_ID, mountMainPanel);
+  bootstrap.register(PREVIEW_PANEL_ID, mountPreviewPanel);
   scheduleLegacyFallback();
 } else {
+  note(`inline bootstrap did not claim the panels (${bootstrap?.mode ?? "missing"})`);
   startLegacyOnly();
 }

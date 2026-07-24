@@ -4,6 +4,97 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>OpenLayer</title>
+    <script>
+      /*
+       * Registers the UXP panel entrypoints at the earliest moment available.
+       *
+       * Adobe documents that entrypoints.setup() throws if it is called more
+       * than roughly 20ms after plugin start (their tracker PS-57605). The
+       * application bundle is a deferred script of a few hundred kilobytes, so
+       * it always misses that window: calling setup() from there threw
+       * "Cannot read properties of undefined (reading '_isSet')", no panel
+       * create() callback ever fired, and the second panel opened as an
+       * uninitialised, empty frame.
+       *
+       * This runs inline during head parsing instead, which is inside the
+       * window. It only claims the panels and remembers the root nodes UXP
+       * hands back; the bundle registers the actual renderers when it loads,
+       * and whichever arrives second triggers the render.
+       *
+       * Deliberately dependency-free and un-transpiled ES5 — it must not grow
+       * into something that needs the bundle it exists to run ahead of.
+       */
+      (function () {
+        var PANEL_IDS = ["openlayer.panel", "openlayer.preview"];
+        var startedAt = Date.now();
+
+        var bootstrap = {
+          mode: "pending",
+          events: [],
+          roots: {},
+          renderers: {},
+          note: function (message) {
+            var entry = "+" + (Date.now() - startedAt) + "ms " + message;
+            bootstrap.events.push(entry);
+            console.log("[OpenLayer bootstrap] " + entry);
+          },
+          register: function (id, render) {
+            bootstrap.renderers[id] = render;
+            bootstrap.mount(id);
+          },
+          mount: function (id) {
+            var root = bootstrap.roots[id];
+            var render = bootstrap.renderers[id];
+
+            if (!root || !render || root.__openlayerMounted) {
+              return;
+            }
+
+            root.__openlayerMounted = true;
+            bootstrap.note("rendering " + id);
+
+            try {
+              render(root);
+            } catch (error) {
+              bootstrap.note("render failed for " + id + ": " + String(error));
+            }
+          }
+        };
+
+        window.__openlayerBootstrap = bootstrap;
+
+        try {
+          var uxp = require("uxp");
+
+          if (!uxp || !uxp.entrypoints || typeof uxp.entrypoints.setup !== "function") {
+            bootstrap.mode = "setup-unavailable";
+            bootstrap.note("uxp.entrypoints.setup is unavailable");
+            return;
+          }
+
+          var panels = {};
+
+          for (var index = 0; index < PANEL_IDS.length; index += 1) {
+            panels[PANEL_IDS[index]] = (function (id) {
+              return {
+                create: function (rootNode) {
+                  bootstrap.note("create() fired for " + id);
+                  bootstrap.roots[id] = rootNode;
+                  bootstrap.mount(id);
+                }
+              };
+            })(PANEL_IDS[index]);
+          }
+
+          uxp.entrypoints.setup({ panels: panels });
+          bootstrap.mode = "entrypoints.setup";
+          bootstrap.note("entrypoints.setup registered " + PANEL_IDS.join(" and "));
+        } catch (error) {
+          bootstrap.mode = "setup-failed";
+          bootstrap.note("entrypoints.setup threw: " + String(error));
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
