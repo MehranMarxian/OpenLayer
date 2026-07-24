@@ -117,7 +117,7 @@ Known v0.6.0-alpha boundaries:
 - Workflow Health now gives beginner-friendly next checks for missing models, missing ComfyUI nodes, missing workflow JSON, setup-required presets, and experimental presets.
 - Persistent Photoshop layer metadata is not confirmed safe in this UXP environment yet. OpenLayer keeps structured metadata in session history and prepares a serialized payload for future persistence.
 - Copy Diagnostics prepares a setup report for testers. It does not send data anywhere.
-- Prompt from Layer requires `comfyui-florence2`, `comfyui-custom-scripts`, and `Florence-2-base-PromptGen-v2.0`.
+- Prompt from Layer requires `comfyui-florence2` and `Florence-2-base-PromptGen-v2.0`. The `comfyui-custom-scripts` pack is no longer needed.
 - Outpaint is experimental and currently uses `outpaint-flux-fill-basic` with `flux1-fill-dev.safetensors`, `clip_l.safetensors`, `t5xxl_fp16.safetensors` or the accepted T5 fp8 fallback, and `ae.safetensors`.
 - Upscale currently uses a simple pixel/model upscale path. It does not use prompts, latent upscale, tiled diffusion, or creative enhancement.
 - Upscale needs ComfyUI's `UpscaleModelLoader` and `ImageUpscaleWithModel` nodes plus an installed upscale model such as `4x-UltraSharp.pth` or `RealESRGAN_x4plus.pth`.

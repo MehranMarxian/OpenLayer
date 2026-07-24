@@ -342,7 +342,11 @@ const PROMPT_FROM_LAYER_FLORENCE2_NODES = {
   modelLoader: "39",
   loadImage: "42",
   florenceRun: "38",
-  showText: "45"
+  // Florence2Run is not an OUTPUT_NODE, so the graph needs one or ComfyUI
+  // refuses to queue it and no caption ever reaches history. PreviewAny is
+  // core (comfy_extras.nodes_preview_any) and publishes the same
+  // {"ui": {"text": [...]}} shape the pysssss ShowText node did.
+  textPreview: "41"
 } as const;
 
 const UPSCALE_BASIC_NODES = {
@@ -1031,7 +1035,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     requiredModels: [FLORENCE2_PROMPTGEN_MODEL],
     injections: PROMPT_FROM_LAYER_FLORENCE2_INJECTIONS,
     compatibilityNote:
-      "prompt-from-layer-florence2 uses comfyui-florence2 plus ShowText from comfyui-custom-scripts. It returns text from ComfyUI history instead of an image.",
+      "prompt-from-layer-florence2 needs only comfyui-florence2. The caption is published by core ComfyUI's PreviewAny node, so it returns text from ComfyUI history instead of an image.",
     requiredNodes: [
       {
         id: PROMPT_FROM_LAYER_FLORENCE2_NODES.modelLoader,
@@ -1049,9 +1053,9 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
         requiredInputs: ["image", "florence2_model", "text_input", "task", "fill_mask"]
       },
       {
-        id: PROMPT_FROM_LAYER_FLORENCE2_NODES.showText,
-        classType: "ShowText|pysssss",
-        requiredInputs: ["text"]
+        id: PROMPT_FROM_LAYER_FLORENCE2_NODES.textPreview,
+        classType: "PreviewAny",
+        requiredInputs: ["source"]
       }
     ]
   },
@@ -1789,6 +1793,20 @@ export function getWorkflowPreset(presetId: string): WorkflowPresetDefinition {
 
 export function isWorkflowPreset(presetId: string): presetId is WorkflowPreset {
   return WORKFLOW_PRESETS.some((preset) => preset.id === presetId);
+}
+
+/**
+ * ComfyUI node classes that publish text into a history entry's `outputs`.
+ * Both shapes seen here return `{"ui": {"text": [...]}}`; `PreviewAny` is core,
+ * `ShowText|pysssss` is the comfyui-custom-scripts node OpenLayer used to
+ * require and is still accepted so hand-edited workflows keep working.
+ */
+const TEXT_OUTPUT_NODE_CLASS_TYPES = ["PreviewAny", "ShowText|pysssss"] as const;
+
+export function getPresetTextOutputNodeId(preset: WorkflowPresetDefinition): string | undefined {
+  return preset.requiredNodes.find((node) =>
+    TEXT_OUTPUT_NODE_CLASS_TYPES.some((classType) => node.classType === classType)
+  )?.id;
 }
 
 export type RecommendedPresetSettings = {
