@@ -12,3 +12,8 @@ Thumbs.db
 
 .env
 .env.*
+
+# Assistant tooling, not project configuration. launch.json describes how to
+# start dev servers for a Claude Code session and settings.local.json holds
+# per-machine permissions; nothing in npm, the plugin, UXP, or CI reads either.
+.claude/
