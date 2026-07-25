@@ -1256,6 +1256,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     mode: "inpaint",
     description: "Experimental Flux Fill inpainting workflow using a diffusion model stack.",
     workflowFile: "workflows/api/inpaint-flux-fill-basic.json",
+    sourceWorkflowFile: "workflows/source/inpaint-flux-fill-basic.workflow.json",
     status: "stable",
     recommendedSettings: { steps: 20, cfg: 30 },
     supportedModelFamilies: ["flux"],

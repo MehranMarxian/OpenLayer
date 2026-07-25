@@ -29,7 +29,7 @@ const version = packageJson.version;
  * cannot load it directly (extensionless relative imports), so bundle it with
  * the Vite already in devDependencies rather than adding a build dependency.
  */
-async function loadSetupManifestModule() {
+async function loadBundledModule(entry, fileName) {
   const outDir = await mkdtemp(join(tmpdir(), "openlayer-setup-pack-"));
 
   await build({
@@ -40,19 +40,26 @@ async function loadSetupManifestModule() {
       emptyOutDir: true,
       minify: false,
       lib: {
-        entry: resolve(root, "src/comfy/setupManifest.ts"),
+        entry: resolve(root, entry),
         formats: ["es"],
-        fileName: () => "setupManifest.mjs"
+        fileName: () => fileName
       }
     }
   });
 
-  const module = await import(pathToFileURL(join(outDir, "setupManifest.mjs")).href);
+  const module = await import(pathToFileURL(join(outDir, fileName)).href);
   await rm(outDir, { recursive: true, force: true });
   return module;
 }
 
-const { buildSetupManifest, formatBytes } = await loadSetupManifestModule();
+const { buildSetupManifest, formatBytes } = await loadBundledModule(
+  "src/comfy/setupManifest.ts",
+  "setupManifest.mjs"
+);
+const { compareWorkflowToSource, formatEquivalenceReport } = await loadBundledModule(
+  "src/comfy/workflowSourceEquivalence.ts",
+  "workflowSourceEquivalence.mjs"
+);
 const manifest = buildSetupManifest({ pluginVersion: version });
 
 function renderRequirementsMarkdown() {
@@ -138,8 +145,16 @@ function renderRequirementsMarkdown() {
 
     // Several presets name a source workflow the repository never exported.
     // Listing one that is not in the zip sends people looking for a file that
-    // does not exist, so only shipped sources are advertised.
-    if (preset.sourceWorkflowFile && shippedFilePaths.has(preset.sourceWorkflowFile)) {
+    // does not exist, so only shipped sources are advertised — and only ones
+    // that still describe the same graph as the API workflow beside them. An
+    // "editable source" that opens a different graph is worse than no source at
+    // all: it is a file people would edit, export, and wonder why nothing
+    // changed.
+    if (
+      preset.sourceWorkflowFile &&
+      shippedFilePaths.has(preset.sourceWorkflowFile) &&
+      !mismatchedSourcePaths.has(preset.sourceWorkflowFile)
+    ) {
       lines.push(`- editable source: \`${preset.sourceWorkflowFile}\``);
     }
 
@@ -440,6 +455,36 @@ if (missingSources.length > 0) {
     `  note: ${missingSources.length} preset(s) name a GUI source workflow that was never exported ` +
       `(${missingSources.join(", ")}); omitted from REQUIREMENTS.md`
   );
+}
+
+/**
+ * Every shipped source is checked against the API workflow it claims to be the
+ * editable version of. Until this existed, nothing compared the two formats,
+ * and the pack advertised at least one source describing a different graph
+ * entirely.
+ *
+ * A mismatch is a warning rather than a build failure: the presets still run —
+ * the API workflows are what OpenLayer submits — so refusing to build the pack
+ * would withhold a working setup over a documentation defect. The source is
+ * dropped from REQUIREMENTS.md instead, which is the same treatment a missing
+ * one gets.
+ */
+const mismatchedSourcePaths = new Set();
+
+for (const preset of manifest.presets) {
+  if (!preset.sourceWorkflowFile || !shippedFilePaths.has(preset.sourceWorkflowFile)) {
+    continue;
+  }
+
+  const apiWorkflow = JSON.parse(await readFile(resolve(root, "src", preset.workflowFile), "utf8"));
+  const sourceGraph = JSON.parse(await readFile(resolve(root, "src", preset.sourceWorkflowFile), "utf8"));
+  const report = compareWorkflowToSource(apiWorkflow, sourceGraph);
+
+  if (!report.equivalent) {
+    mismatchedSourcePaths.add(preset.sourceWorkflowFile);
+    console.warn(`  ${formatEquivalenceReport(preset.id, report)}`);
+    console.warn(`  note: omitting ${preset.sourceWorkflowFile} from REQUIREMENTS.md until it is re-exported`);
+  }
 }
 
 const zipEntries = [
