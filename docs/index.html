@@ -33,7 +33,7 @@
       "operatingSystem": "Windows, macOS",
       "applicationCategory": "DesignApplication",
       "applicationSubCategory": "Adobe Photoshop plugin",
-      "softwareVersion": "0.6.0-alpha",
+      "softwareVersion": "0.7.0-alpha",
       "description": "Open-source Photoshop UXP plugin that connects to a local ComfyUI server for AI image generation: text to image, image to image, sketch to image, inpaint, outpaint, and upscale with Stable Diffusion, SDXL, and Flux models.",
       "url": "https://mehran-ahmadi.com/OpenLayer/",
       "downloadUrl": "https://github.com/MehranMarxian/OpenLayer/releases",
@@ -64,7 +64,7 @@
     <main id="top">
       <section class="hero" aria-labelledby="hero-title">
         <div class="hero-copy">
-          <p class="hero-badge"><span class="pulse-dot" aria-hidden="true"></span> Alpha v0.6.0 · free &amp; open source</p>
+          <p class="hero-badge"><span class="pulse-dot" aria-hidden="true"></span> Alpha v0.7.0 · free &amp; open source</p>
           <h1 id="hero-title">Local AI layers,<br><span class="grad">inside Photoshop.</span></h1>
           <p class="hero-lede">
             OpenLayer connects Photoshop to <strong>your own ComfyUI server</strong>.
@@ -91,14 +91,15 @@
 
       <section class="intro" aria-labelledby="intro-title">
         <div class="section-inner">
-          <p class="eyebrow">v0.6 artist-first interface</p>
+          <p class="eyebrow">v0.7 artist-first interface</p>
           <h2 id="intro-title">Local generation that now feels at home inside Photoshop.</h2>
           <p class="intro-lede">
             OpenLayer starts with dependable local workflows — text to image, image to image,
             sketch to image, experimental inpaint and outpaint, pixel upscale, lossless PNG
             source capture, live previews, diagnostics, and clean import into the active document.
-            v0.6 adds a denser Adobe-style launcher, sticky tool headers, real generation progress,
-            clearer availability states, and UXP-safe prompt editing without hiding the experimental edges.
+            v0.7 adds a second dockable panel that shows the current generation at any size, and a
+            generated ComfyUI setup pack that tells a new machine exactly which models it needs and which
+            folder each one belongs in — without hiding the experimental edges.
           </p>
         </div>
       </section>
@@ -175,7 +176,7 @@
       <section id="showcase" class="section" aria-labelledby="showcase-title">
         <div class="section-inner">
           <div class="section-heading">
-            <p class="eyebrow">Current build · v0.6.0</p>
+            <p class="eyebrow">Interface shots · v0.6</p>
             <h2 id="showcase-title">Proof from the real Photoshop panel</h2>
             <p class="section-lede">Each view below is a real local workflow, compressed for the web and loaded only when it approaches the viewport.</p>
           </div>
@@ -305,16 +306,16 @@ npm run build</code></pre>
           </div>
           <div class="status-grid">
             <article class="status-card status-card-ready">
-              <h3>v0.6 interface is ready to test</h3>
-              <p>The compact dashboard, sticky headers, real progress track, larger prompt fields, and unavailable-tool states have passed a real Photoshop UXP smoke test.</p>
+              <h3>Separated preview panel is ready to test</h3>
+              <p>A second dockable panel shows the current generation at any size, mirroring every tool including Live Painting. It has passed a real Photoshop UXP smoke test.</p>
             </article>
             <article class="status-card">
               <h3>Testing alpha</h3>
-              <p>OpenLayer v0.6.0-alpha is for local testing and feedback. It is not production-ready yet.</p>
+              <p>OpenLayer v0.7.0-alpha is for local testing and feedback. It is not production-ready yet.</p>
             </article>
             <article class="status-card">
               <h3>Inpaint is experimental</h3>
-              <p>v0.6.0 retains the upload and alignment fixes while output quality across checkpoints continues to be validated by testers.</p>
+              <p>v0.7.0 retains the upload and alignment fixes while output quality across checkpoints continues to be validated by testers.</p>
             </article>
             <article class="status-card">
               <h3>Flux Fill is experimental</h3>
@@ -335,11 +336,13 @@ npm run build</code></pre>
               <li>GPU-aware recommendations are advisory only. OpenLayer does not auto-switch models or workflows yet.</li>
               <li>Layer, canvas, and mask capture is limited to 16 megapixels until a downscale option is added.</li>
               <li>Inpaint and Outpaint should be tested on duplicate layers first.</li>
-              <li>Prompt from Layer requires the local Florence-2 PromptGen model plus text-output custom nodes.</li>
+              <li>Prompt from Layer requires the local Florence-2 PromptGen model and the comfyui-florence2 nodes. The custom-scripts pack is no longer needed.</li>
               <li>Upscale uses pixel/model upscale only. Generative upscale, tiled diffusion, and creative enhancement are future work.</li>
-              <li>Custom workflow import, LoRA browser, batch variants, and true persistent Photoshop AI layer metadata are future work. v0.6.0 keeps the shared metadata foundation and session-history wiring.</li>
+              <li>Custom workflow import, LoRA browser, batch variants, and true persistent Photoshop AI layer metadata are future work. v0.7.0 keeps the shared metadata foundation and session-history wiring.</li>
               <li>CI does not run Photoshop, UXP, or ComfyUI integration tests.</li>
               <li>Live sampler previews require ComfyUI to be started with <code>--preview-method auto</code>.</li>
+              <li>The separated preview panel follows whichever tool generated most recently. Pinning it to one tool is future work.</li>
+              <li>The ComfyUI setup pack ships the requirements list and a downloader, not the model weights. An internet connection is required.</li>
             </ul>
           </details>
         </div>
@@ -363,6 +366,10 @@ npm run build</code></pre>
             <article>
               <h3>v0.6 · Compact UXP interface</h3>
               <p>A denser dashboard, sticky headers, determinate progress, Advanced settings, clearer availability, and prompt fields hardened in the real Photoshop renderer.</p>
+            </article>
+            <article>
+              <h3>v0.7 · Preview panel and guided setup</h3>
+              <p>A separated dockable preview panel mirroring every tool, a generated ComfyUI setup pack with verified model download locations, and one fewer custom-node dependency.</p>
             </article>
             <article>
               <h3>Next · Reliability and artist control</h3>
@@ -390,7 +397,7 @@ npm run build</code></pre>
     </main>
 
     <footer class="site-footer">
-      <p>OpenLayer v0.6.0-alpha. Developed by Mehran Ahmadi, 2026.</p>
+      <p>OpenLayer v0.7.0-alpha. Developed by Mehran Ahmadi, 2026.</p>
       <p>
         <a href="https://github.com/MehranMarxian">GitHub</a>
       </p>

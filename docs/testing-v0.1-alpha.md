@@ -31,7 +31,7 @@ npm run package
 Expected result:
 
 - A package is created in `packages`.
-- For this version, the package should be named `openlayer-v0.6.0-alpha.zip`.
+- For this version, the package should be named `openlayer-v0.7.0-alpha.zip`.
 
 If this fails:
 
