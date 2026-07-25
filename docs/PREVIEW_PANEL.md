@@ -83,7 +83,32 @@ and a per-mount registry would strand one object URL per remount.
 CSS is deliberately self-contained — this panel renders outside the `.app-shell` theme root, so none
 of the compact theme's `!important` rules reach it (ORCHESTRATION §3).
 
-## Remaining step
+## Follow / pin — built in v0.8
 
-**Follow / pin** — the panel always follows whichever tool published last. A "pin to tool" dropdown
-is designed but unbuilt; nobody has asked for it yet.
+The panel follows whichever tool published last by default, and a header dropdown pins it to one
+tool instead. The case it exists for: iterating on an Inpaint, starting a Text to Image run to
+compare against, and losing the large panel to the new run.
+
+Pinning is a **retention** change, not a filter. The hub keeps one slot per tool alongside the
+most-recent pointer, and the panel resolves `pinned ? latestForTool(pin) : latest()` on every
+notification. Two behaviours fall out of that and are worth keeping:
+
+- Pinning to a tool that has not run this session shows an empty state naming that tool, not
+  whatever image happened to be on screen. A preview labelled with the wrong tool is worse than no
+  preview.
+- The panel is still notified when *other* tools publish; it simply re-resolves and finds nothing
+  new. The hub therefore holds no notion of who is looking at what.
+
+`PREVIEW_TOOLS` in `previewHub.ts` is the single source for both the `PreviewToolId` union and the
+dropdown, so a tool cannot be wired to publish without becoming pinnable, and the dropdown cannot
+offer a tool that never publishes. Prompt from Layer is deliberately absent — it produces caption
+text, not an image. A test freezes that inventory.
+
+The publication carries `toolId` and no label; the artist-facing string is derived from the id. The
+earlier `toolLabel` field let a publisher pass a display string that disagreed with the identity the
+pin matches on.
+
+The choice persists in `localStorage` under `openlayer.previewPanel.pin.v1` — its own key, not part
+of `OpenLayerPreferences`, which is written wholesale from the settings form and would clobber a
+field no form control owns. A stored id is validated against `PREVIEW_TOOLS` on read, so a pin left
+by an older build cannot strand the panel on a tool that no longer exists.

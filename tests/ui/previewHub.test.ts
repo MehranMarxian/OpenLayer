@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createPreviewHub, PreviewPublication } from "../../src/ui/previewHub";
+import {
+  createPreviewHub,
+  getPreviewToolLabel,
+  isPreviewToolId,
+  PREVIEW_TOOLS,
+  PreviewPublication,
+  PreviewToolId
+} from "../../src/ui/previewHub";
 import { createObjectUrlRegistry } from "../../src/ui/objectUrlRegistry";
 import { createResultPreviewPanel } from "../../src/ui/previewState";
 
@@ -21,14 +28,14 @@ function installFakeDom() {
   };
 }
 
-function publication(toolLabel: string, kind: PreviewPublication["kind"], marker: string): PreviewPublication {
-  return { toolLabel, kind, blob: blob(marker) };
+function publication(toolId: PreviewToolId, kind: PreviewPublication["kind"], marker: string): PreviewPublication {
+  return { toolId, kind, blob: blob(marker) };
 }
 
 describe("previewHub", () => {
   it("replays the current publication to a listener that subscribes late", () => {
     const hub = createPreviewHub();
-    hub.publish(publication("Inpaint", "result", "a"));
+    hub.publish(publication("inpaint", "result", "a"));
 
     const listener = vi.fn();
     hub.subscribe(listener);
@@ -36,7 +43,7 @@ describe("previewHub", () => {
     // The point of retaining the latest publication: a preview panel the artist
     // opens after a generation finishes still has something to show.
     expect(listener).toHaveBeenCalledTimes(1);
-    expect(listener.mock.calls[0][0]).toMatchObject({ toolLabel: "Inpaint", kind: "result" });
+    expect(listener.mock.calls[0][0]).toMatchObject({ toolId: "inpaint", kind: "result" });
   });
 
   it("replays null when nothing has been published", () => {
@@ -51,9 +58,9 @@ describe("previewHub", () => {
     const listener = vi.fn();
     hub.subscribe(listener);
 
-    hub.publish(publication("Text to Image", "live", "frame-1"));
-    hub.publish(publication("Text to Image", "live", "frame-2"));
-    hub.publish(publication("Text to Image", "result", "final"));
+    hub.publish(publication("text-to-image", "live", "frame-1"));
+    hub.publish(publication("text-to-image", "live", "frame-2"));
+    hub.publish(publication("text-to-image", "result", "final"));
 
     expect(hub.latest()?.blob).toEqual(blob("final"));
     expect(hub.latest()?.kind).toBe("result");
@@ -67,10 +74,10 @@ describe("previewHub", () => {
     hub.subscribe(first);
     hub.subscribe(second);
 
-    hub.publish(publication("Upscale", "result", "x"));
+    hub.publish(publication("upscale", "result", "x"));
 
-    expect(first).toHaveBeenLastCalledWith(expect.objectContaining({ toolLabel: "Upscale" }));
-    expect(second).toHaveBeenLastCalledWith(expect.objectContaining({ toolLabel: "Upscale" }));
+    expect(first).toHaveBeenLastCalledWith(expect.objectContaining({ toolId: "upscale" }));
+    expect(second).toHaveBeenLastCalledWith(expect.objectContaining({ toolId: "upscale" }));
   });
 
   it("stops notifying after unsubscribe", () => {
@@ -79,7 +86,7 @@ describe("previewHub", () => {
     const unsubscribe = hub.subscribe(listener);
     unsubscribe();
 
-    hub.publish(publication("Outpaint", "result", "x"));
+    hub.publish(publication("outpaint", "result", "x"));
 
     expect(listener).toHaveBeenCalledTimes(1);
   });
@@ -92,7 +99,7 @@ describe("previewHub", () => {
     hub.clear();
     expect(listener).toHaveBeenCalledTimes(1);
 
-    hub.publish(publication("Inpaint", "result", "x"));
+    hub.publish(publication("inpaint", "result", "x"));
     hub.clear();
 
     expect(hub.latest()).toBeNull();
@@ -109,15 +116,15 @@ describe("previewHub", () => {
     hub.subscribe(listener);
 
     for (let frame = 0; frame < 30; frame += 1) {
-      hub.publish(publication("Live Painting", "live", `frame-${frame}`));
+      hub.publish(publication("live-painting", "live", `frame-${frame}`));
     }
 
-    expect(hub.latest()).toMatchObject({ toolLabel: "Live Painting", kind: "live" });
+    expect(hub.latest()).toMatchObject({ toolId: "live-painting", kind: "live" });
     expect(hub.latest()?.blob).toEqual(blob("frame-29"));
 
-    hub.publish(publication("Live Painting", "result", "refined"));
+    hub.publish(publication("live-painting", "result", "refined"));
 
-    expect(hub.latest()).toMatchObject({ toolLabel: "Live Painting", kind: "result" });
+    expect(hub.latest()).toMatchObject({ toolId: "live-painting", kind: "result" });
     expect(hub.latest()?.blob).toEqual(blob("refined"));
     expect(listener).toHaveBeenCalledTimes(32);
   });
@@ -131,8 +138,109 @@ describe("previewHub", () => {
     hub.subscribe(healthy);
 
     // A preview surface must never be able to break the generation that fed it.
-    expect(() => hub.publish(publication("Inpaint", "result", "x"))).not.toThrow();
-    expect(healthy).toHaveBeenLastCalledWith(expect.objectContaining({ toolLabel: "Inpaint" }));
+    expect(() => hub.publish(publication("inpaint", "result", "x"))).not.toThrow();
+    expect(healthy).toHaveBeenLastCalledWith(expect.objectContaining({ toolId: "inpaint" }));
+  });
+});
+
+describe("per-tool retention (what pinning resolves through)", () => {
+  // The preview panel resolves exactly this way: pinned ? latestForTool(pin) :
+  // latest(). These cover the resolution; the select element itself is verified
+  // in Photoshop, since this suite deliberately runs without a DOM.
+  const resolve = (hub: ReturnType<typeof createPreviewHub>, pin: PreviewToolId | null) =>
+    pin ? hub.latestForTool(pin) : hub.latest();
+
+  it("keeps one slot per tool, so a pinned tool survives another tool publishing", () => {
+    const hub = createPreviewHub();
+    hub.publish(publication("inpaint", "result", "inpaint-final"));
+    hub.publish(publication("text-to-image", "result", "t2i-final"));
+
+    // The whole point of the feature: iterating on an Inpaint must not lose the
+    // panel to a Text to Image run started to compare against.
+    expect(resolve(hub, "inpaint")?.blob).toEqual(blob("inpaint-final"));
+    expect(resolve(hub, null)?.blob).toEqual(blob("t2i-final"));
+  });
+
+  it("shows nothing for a tool that has not published this session", () => {
+    const hub = createPreviewHub();
+    hub.publish(publication("inpaint", "result", "inpaint-final"));
+
+    // Not the most recent image, which would be a lie about which tool made it.
+    expect(resolve(hub, "upscale")).toBeNull();
+    expect(hub.latestForTool("upscale")).toBeNull();
+  });
+
+  it("advances the pinned tool's slot when that tool publishes again", () => {
+    const hub = createPreviewHub();
+    hub.publish(publication("outpaint", "live", "frame-1"));
+    hub.publish(publication("text-to-image", "live", "other-tool"));
+    hub.publish(publication("outpaint", "result", "outpaint-final"));
+
+    expect(resolve(hub, "outpaint")).toMatchObject({ toolId: "outpaint", kind: "result" });
+    expect(resolve(hub, "outpaint")?.blob).toEqual(blob("outpaint-final"));
+  });
+
+  it("empties every per-tool slot on clear, not just the most recent", () => {
+    // disposeAppResources calls clear(); a preview panel left open must not keep
+    // showing a result from a closed session, pinned or not.
+    const hub = createPreviewHub();
+    hub.publish(publication("inpaint", "result", "a"));
+    hub.publish(publication("upscale", "result", "b"));
+
+    hub.clear();
+
+    expect(hub.latest()).toBeNull();
+    expect(hub.latestForTool("inpaint")).toBeNull();
+    expect(hub.latestForTool("upscale")).toBeNull();
+  });
+
+  it("notifies a pinned listener even when another tool published", () => {
+    // The panel re-resolves on every notification rather than filtering, so it
+    // has to be told about publications that are not its own.
+    const hub = createPreviewHub();
+    const listener = vi.fn();
+    hub.subscribe(listener);
+
+    hub.publish(publication("text-to-image", "result", "x"));
+
+    expect(listener).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("PREVIEW_TOOLS inventory", () => {
+  it("lists every tool that publishes a preview, and nothing that does not", () => {
+    // Frozen on purpose, the same way toolDescriptors freezes its tables: a tool
+    // wired to publish without being added here would not be pinnable, and a
+    // tool listed here that never publishes is a dropdown entry that can only
+    // ever show "nothing yet". Prompt from Layer produces caption text and is
+    // correctly absent.
+    expect(PREVIEW_TOOLS.map((tool) => tool.id)).toEqual([
+      "text-to-image",
+      "image-to-image",
+      "sketch-to-image",
+      "inpaint",
+      "outpaint",
+      "upscale",
+      "live-painting"
+    ]);
+    expect(PREVIEW_TOOLS.map((tool) => tool.id)).not.toContain("prompt-from-layer");
+  });
+
+  it("gives every tool a label for the badge and the dropdown", () => {
+    for (const tool of PREVIEW_TOOLS) {
+      expect(getPreviewToolLabel(tool.id)).toBe(tool.label);
+      expect(tool.label.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("rejects a stored pin that no longer names a real tool", () => {
+    // A pin persisted by an older build must not leave the panel stuck on
+    // something that can never publish again.
+    expect(isPreviewToolId("inpaint")).toBe(true);
+    expect(isPreviewToolId("prompt-from-layer")).toBe(false);
+    expect(isPreviewToolId("a-tool-that-was-removed")).toBe(false);
+    expect(isPreviewToolId("")).toBe(false);
+    expect(isPreviewToolId(null)).toBe(false);
   });
 });
 
@@ -167,7 +275,7 @@ describe("result preview panels mirroring to the hub", () => {
       resultAlt: "result",
       liveAlt: "live",
       hub,
-      toolLabel: "Inpaint"
+      toolId: "inpaint"
     });
 
     return { hub, resultPanel, urls, created, revoked };
@@ -190,10 +298,10 @@ describe("result preview panels mirroring to the hub", () => {
     const { hub, resultPanel } = setup();
 
     resultPanel.showProgress("Generating", blob("frame"));
-    expect(hub.latest()).toMatchObject({ toolLabel: "Inpaint", kind: "live" });
+    expect(hub.latest()).toMatchObject({ toolId: "inpaint", kind: "live" });
 
     resultPanel.showResult(blob("final"));
-    expect(hub.latest()).toMatchObject({ toolLabel: "Inpaint", kind: "result" });
+    expect(hub.latest()).toMatchObject({ toolId: "inpaint", kind: "result" });
   });
 
   it("does not mirror textual progress or a cleared result", () => {

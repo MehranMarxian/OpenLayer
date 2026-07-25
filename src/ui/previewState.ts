@@ -1,5 +1,5 @@
 import { ObjectUrlRegistry } from "./objectUrlRegistry";
-import { PreviewHub } from "./previewHub";
+import { PreviewHub, PreviewToolId } from "./previewHub";
 
 // One owned object-URL slot. Whatever URL it holds is revoked when a new one
 // takes its place or the slot is released, so a panel can never leak the URL of
@@ -106,14 +106,16 @@ export function createResultPreviewPanel(options: {
   // not this panel's owned URL, so both surfaces own their own URLs and A5 does
   // not depend on which panel tears down first.
   hub?: PreviewHub;
-  toolLabel?: string;
+  toolId?: PreviewToolId;
 }): ResultPreviewPanel {
   const publish = (kind: "live" | "result", blob: Blob) => {
-    if (!options.hub) {
+    // Both or neither: a hub with no tool id could not be pinned to anything,
+    // and an id with no hub has nowhere to go.
+    if (!options.hub || !options.toolId) {
       return;
     }
 
-    options.hub.publish({ toolLabel: options.toolLabel ?? "OpenLayer", kind, blob });
+    options.hub.publish({ toolId: options.toolId, kind, blob });
   };
 
   const resultUrl = createOwnedObjectUrl(options.urls);

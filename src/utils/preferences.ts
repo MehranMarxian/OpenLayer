@@ -64,6 +64,56 @@ export function clearOpenLayerPreferences() {
   }
 }
 
+/**
+ * The preview panel's pinned tool, stored under its own key rather than inside
+ * OpenLayerPreferences.
+ *
+ * Two reasons to keep it separate. OpenLayerPreferences is written wholesale
+ * from the settings form and sanitised against it, so a field no form control
+ * owns would be a standing invitation to clobber; and the preview panel is a
+ * different entrypoint that may render with no settings screen ever having been
+ * opened. Both panels share one JavaScript context, so plain localStorage
+ * reaches it either way.
+ *
+ * The value is an opaque string here — this module has no business knowing
+ * which tools exist. The panel validates it against the tool list on read.
+ */
+const PREVIEW_PANEL_PIN_KEY = "openlayer.previewPanel.pin.v1";
+
+export function loadPreviewPanelPin(): string {
+  const storage = getStorage();
+
+  if (!storage) {
+    return "";
+  }
+
+  try {
+    return storage.getItem(PREVIEW_PANEL_PIN_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+export function savePreviewPanelPin(toolId: string) {
+  const storage = getStorage();
+
+  if (!storage) {
+    return false;
+  }
+
+  try {
+    if (toolId) {
+      storage.setItem(PREVIEW_PANEL_PIN_KEY, toolId);
+    } else {
+      storage.removeItem(PREVIEW_PANEL_PIN_KEY);
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function getStorage(): Storage | null {
   try {
     return typeof localStorage === "undefined" ? null : localStorage;

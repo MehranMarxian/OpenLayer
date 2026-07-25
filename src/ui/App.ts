@@ -307,7 +307,7 @@ export function renderApp(rootElement: HTMLElement) {
     urls: objectUrls,
     panel: elements.previewPanel,
     hub: previewHub,
-    toolLabel: "Text to Image",
+    toolId: "text-to-image",
     emptyText: "No result yet",
     resultAlt: "Generated OpenLayer preview",
     liveAlt: "Live ComfyUI generation preview"
@@ -316,7 +316,7 @@ export function renderApp(rootElement: HTMLElement) {
     urls: objectUrls,
     panel: elements.imageResultPreviewPanel,
     hub: previewHub,
-    toolLabel: "Image to Image",
+    toolId: "image-to-image",
     emptyText: "No Image to Image result yet",
     resultAlt: "Generated Image to Image preview",
     liveAlt: "Live ComfyUI Image to Image preview"
@@ -325,7 +325,7 @@ export function renderApp(rootElement: HTMLElement) {
     urls: objectUrls,
     panel: elements.sketchResultPreviewPanel,
     hub: previewHub,
-    toolLabel: "Sketch to Image",
+    toolId: "sketch-to-image",
     emptyText: "No Sketch to Image result yet",
     resultAlt: "Generated Sketch to Image preview",
     liveAlt: "Live ComfyUI Sketch to Image preview"
@@ -334,7 +334,7 @@ export function renderApp(rootElement: HTMLElement) {
     urls: objectUrls,
     panel: elements.inpaintResultPreviewPanel,
     hub: previewHub,
-    toolLabel: "Inpaint",
+    toolId: "inpaint",
     emptyText: "No Inpaint result yet",
     resultAlt: "Generated Inpaint preview",
     liveAlt: "Live ComfyUI Inpaint preview"
@@ -343,7 +343,7 @@ export function renderApp(rootElement: HTMLElement) {
     urls: objectUrls,
     panel: elements.outpaintResultPreviewPanel,
     hub: previewHub,
-    toolLabel: "Outpaint",
+    toolId: "outpaint",
     emptyText: "No Outpaint result yet",
     resultAlt: "Generated Outpaint preview",
     liveAlt: "Live ComfyUI Outpaint preview"
@@ -352,7 +352,7 @@ export function renderApp(rootElement: HTMLElement) {
     urls: objectUrls,
     panel: elements.upscaleResultPreviewPanel,
     hub: previewHub,
-    toolLabel: "Upscale",
+    toolId: "upscale",
     emptyText: "No Upscale result yet",
     resultAlt: "Generated Upscale preview",
     liveAlt: "Live ComfyUI Upscale preview"
@@ -3397,7 +3397,7 @@ export function renderApp(rootElement: HTMLElement) {
     // It runs after the in-panel image is updated, so the primary surface is
     // never waiting on the mirror.
     previewHub.publish({
-      toolLabel: "Live Painting",
+      toolId: "live-painting",
       kind: options.kind ?? "live",
       blob
     });

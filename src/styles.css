@@ -7363,6 +7363,29 @@ body,
   color: #e0913a;
 }
 
+/* Pin control. Styled from scratch for the same reason as everything else in
+   this block: the panel renders outside .app-shell, so it inherits none of the
+   compact theme's select styling. Given a fixed max-width so a long tool name
+   cannot squeeze the badge out of the header on a narrow panel. */
+.openlayer-preview-panel-pin {
+  max-width: 132px;
+  flex: 0 1 auto;
+  padding: 2px 6px;
+  border: 1px solid #4a4a4a;
+  border-radius: 3px;
+  margin-left: auto;
+  background: #383838;
+  color: #d7dde6;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+}
+
+.openlayer-preview-panel-pin:hover {
+  border-color: #5f5f5f;
+  background: #424242;
+}
+
 .openlayer-preview-panel-fit {
   flex: 0 0 auto;
   padding: 3px 9px;
