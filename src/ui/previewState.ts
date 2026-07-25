@@ -1,4 +1,5 @@
 import { ObjectUrlRegistry } from "./objectUrlRegistry";
+import { PreviewHub } from "./previewHub";
 
 // One owned object-URL slot. Whatever URL it holds is revoked when a new one
 // takes its place or the slot is released, so a panel can never leak the URL of
@@ -101,7 +102,20 @@ export function createResultPreviewPanel(options: {
   emptyText: string;
   resultAlt: string;
   liveAlt: string;
+  // Optional mirror to the separated preview panel. The hub receives the blob,
+  // not this panel's owned URL, so both surfaces own their own URLs and A5 does
+  // not depend on which panel tears down first.
+  hub?: PreviewHub;
+  toolLabel?: string;
 }): ResultPreviewPanel {
+  const publish = (kind: "live" | "result", blob: Blob) => {
+    if (!options.hub) {
+      return;
+    }
+
+    options.hub.publish({ toolLabel: options.toolLabel ?? "OpenLayer", kind, blob });
+  };
+
   const resultUrl = createOwnedObjectUrl(options.urls);
   const liveUrl = createOwnedObjectUrl(options.urls);
   let hasResult = false;
@@ -125,11 +139,14 @@ export function createResultPreviewPanel(options: {
       }
 
       renderPreviewImage(options.panel, resultUrl.createFrom(blob), options.resultAlt);
+      publish("result", blob);
     },
     showProgress(message, blob) {
       if (hasResult) return;
 
       if (blob) {
+        publish("live", blob);
+
         if (!liveImage) {
           options.panel.innerHTML = "";
           liveImage = document.createElement("img");

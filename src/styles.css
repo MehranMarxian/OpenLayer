@@ -7315,3 +7315,113 @@ body,
 .app-shell.theme-compact .tool-card.is-coming-soon .tool-subtitle {
   color: #777777 !important;
 }
+
+/* --- Separated preview panel (openlayerPreview entrypoint) ---------------- */
+/* Self-contained: this panel renders outside the .app-shell theme root, so it
+   inherits nothing from either theme and none of the compact !important rules
+   reach it. Everything here is fluid — the panel is user-resizable and there
+   must be no fixed height anywhere in the chain. */
+
+.openlayer-preview-panel-root {
+  display: block;
+  width: 100%;
+  min-height: 100%;
+}
+
+.openlayer-preview-panel {
+  display: flex;
+  width: 100%;
+  min-height: 100%;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background: #2b2b2b;
+  color: #eeeeee;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 12px;
+}
+
+.openlayer-preview-panel-header {
+  display: flex;
+  min-height: 20px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.openlayer-preview-panel-badge {
+  overflow: hidden;
+  color: #9a9a9a;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.openlayer-preview-panel-badge.is-live {
+  color: #e0913a;
+}
+
+.openlayer-preview-panel-fit {
+  flex: 0 0 auto;
+  padding: 3px 9px;
+  border: 1px solid #4a4a4a;
+  border-radius: 3px;
+  background: #383838;
+  color: #d7dde6;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.openlayer-preview-panel-fit:hover {
+  border-color: #5f5f5f;
+  background: #424242;
+}
+
+/* The viewing surface. Checkerboard so transparent results read correctly, and
+   it fills whatever height the artist drags the panel to. */
+.openlayer-preview-panel-stage {
+  display: flex;
+  min-height: 80px;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  background-color: #323232;
+  background-image:
+    linear-gradient(45deg, #2b2b2b 25%, transparent 25%, transparent 75%, #2b2b2b 75%),
+    linear-gradient(45deg, #2b2b2b 25%, transparent 25%, transparent 75%, #2b2b2b 75%);
+  background-position: 0 0, 8px 8px;
+  background-size: 16px 16px;
+}
+
+.openlayer-preview-panel-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+/* 1:1 mode: show real pixels and let the stage scroll rather than shrinking the
+   image to fit. */
+.openlayer-preview-panel-stage.is-actual-size {
+  align-items: flex-start;
+  justify-content: flex-start;
+  overflow: auto;
+}
+
+.openlayer-preview-panel-stage.is-actual-size .openlayer-preview-panel-image {
+  max-width: none;
+  max-height: none;
+  flex: 0 0 auto;
+  object-fit: none;
+}
+
+.openlayer-preview-panel-empty {
+  padding: 0 16px;
+  color: #7f7f7f;
+  font-size: 11px;
+  text-align: center;
+}

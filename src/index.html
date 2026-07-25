@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>OpenLayer</title>
+    <!--
+      Claims the panel entrypoints before the application bundle loads. Must stay
+      ahead of the bundle script and must NOT be deferred — see panelBootstrap.js
+      for why the timing matters.
+    -->
+    <script src="./panelBootstrap.js"></script>
   </head>
   <body>
     <div id="root"></div>

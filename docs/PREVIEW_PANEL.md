@@ -1,41 +1,89 @@
 # Separated Resizable Preview Panel — Design
 
-Status: **specified, not implemented.** Written 2026-07-18 (Fable 5). Read `docs/ORCHESTRATION.md` first.
+Status: **implemented.** Host unknown #1 resolved 2026-07-24 in Photoshop 26.1; all seven preview
+surfaces mirror to the panel.
+Read `docs/ORCHESTRATION.md` first.
 
 ## Goal
 
-A second, dockable UXP panel showing only the current preview — resizable/dockable like any Photoshop panel, so artists can park a large preview next to their canvas while the main OpenLayer panel stays compact. Replaces the cramped in-panel preview boxes as the *primary* viewing surface (the small in-panel previews stay).
+A second, dockable UXP panel showing only the current preview — resizable/dockable like any
+Photoshop panel, so artists can park a large preview next to their canvas while the main OpenLayer
+panel stays compact.
 
-## How UXP multi-panel works (the key facts)
+It **mirrors** the dashboard's in-panel preview; it does not replace it. Relocating the preview out
+of the dashboard was considered and rejected: the panel is optional and closable, so an artist who
+never opens it would lose previews entirely, and the Import buttons sit beside the small preview
+because that is where the import decision is made.
 
-- One plugin can declare multiple panels as separate `entrypoints` in `manifest.json` (`"type": "panel"`, unique `id`, own `label` and `minimumSize`/`preferredDockedSize`). **Same JavaScript context** — both panels share the plugin's single JS runtime, so no messaging layer is needed; the preview panel can directly subscribe to the same state the main panel writes.
-- Each panel gets show/create events (`uxpShowPanel` / entrypoints `create(rootNode)` callbacks depending on setup style — this plugin uses the plain `index.html` + script style, so the second panel needs the `entrypoints` API: `require("uxp").entrypoints.setup({ panels: { openlayerPreview: { create(rootNode) {...} } } })`). **Host-dependent unknown #1:** verify which panel-setup style coexists with the current single-`index.html` approach; may require migrating the main panel into `entrypoints.setup` too. This is the first thing to test in Photoshop.
-- Panels are user-resizable by default when docked/floating; content must be fluid (percent sizing), not fixed-height like the in-panel preview boxes.
+## How UXP multi-panel works — resolved, with the answers
 
-## Design
+- One plugin declares multiple panels as separate `entrypoints` in `manifest.json`. **Same
+  JavaScript context** — both panels share one JS runtime, so no messaging layer is needed and a
+  module singleton is sufficient plumbing. Confirmed: one console, one bootstrap log, both panels.
+- **Unknown #1 (answered): the main panel does NOT have to migrate.** `entrypoints.setup()` with
+  both panels registered works, and the main panel keeps rendering through `index.html`. The
+  in-host log:
 
-### Manifest
-Add to `manifest.json` `entrypoints`: panel id `openlayerPreview`, label "OpenLayer Preview", `minimumSize` ~ {width: 220, height: 220}. Keep the main panel's id untouched (users' saved workspaces reference it).
+  ```
+  +0ms   early script running, typeof require = function
+  +1ms   attempt both registered openlayer.panel + openlayerPreview
+  +263ms create() fired for openlayer.panel      -> rendering
+  +264ms create() fired for openlayerPreview     -> rendering
+  ```
 
-### State plumbing — one new seam, tiny
-`previewState.ts` gains a **preview hub**: `createPreviewHub()` with `publish(source: { toolType, kind: "live" | "result", blob })` and `subscribe(listener)`. The existing `createResultPreviewPanel` factories get an optional `hub` option and publish on every `showResult`/`showProgress(blob)` — one line each; no behavior change to the main panel. (A5 rule: the hub creates its OWN object URLs via the registry for the big panel's img — never share/steal the main panel's owned URLs, or teardown ordering breaks.)
+  So this is an additive feature, not a bootstrap migration.
+- **`entrypoints.setup()` must be called within ~20ms of plugin start** or it throws
+  `TypeError: Cannot read properties of undefined (reading '_isSet')` — Adobe's PS-57605. The
+  application bundle is deferred and always misses that window. Registration therefore lives in
+  `src/panelBootstrap.js`, a plain **undeferred** script loaded from `index.html`'s head, which only
+  claims the panels and remembers the root nodes; `main.ts` supplies the renderers when it loads.
+  `copy-uxp-assets.mjs` asserts that file is present, undeferred, and ahead of the bundle.
+- Panel ids: **no Adobe sample uses a dotted id**, so the new panel is `openlayerPreview`. The main
+  panel stays `openlayer.panel` because saved user workspaces reference it. (The dotted id turned
+  out not to be the blocker — the first ladder rung registered both — but the convention is kept.)
+- **UXP DT's Reload does not re-read `entrypoints`.** A manifest entrypoint change needs the plugin
+  removed and re-added, or the new panel never appears in the Plugins menu.
+- Panels are user-resizable when docked or floating, but a panel that never initialised collapses to
+  its `minimumSize` and does not behave like a real panel. An explicit `maximumSize` is declared.
+
+## Implementation
+
+### State plumbing — one seam
+`src/ui/previewHub.ts`: `createPreviewHub()` with `publish`, `clear`, `latest`, and `subscribe`
+(which replays the current publication immediately, so a panel opened *after* a generation still
+shows it).
+
+**The hub carries blobs, not object URLs.** This is the design decision worth remembering: A5
+requires every object URL to have exactly one owner that revokes it, and handing a URL created by the
+main panel to a second panel would give it two owners, with teardown order deciding whether the
+second panel shows a dead image. Passing the blob lets each surface mint and own its own URL, and
+neither has to reason about the other's lifetime.
+
+`createResultPreviewPanel` takes optional `hub` and `toolLabel` and publishes on `showResult(blob)`
+and `showProgress(_, blob)` — one line each, no behaviour change to the main panel. All six result
+panels are wired. `disposeAppResources` calls `previewHub.clear()`, so a lingering preview panel does
+not keep showing a result from a closed session.
+
+**Live Painting does not use `createResultPreviewPanel`**, so it publishes from `updateLivePreview`
+in `App.ts` instead — fast-tier frames as `live`, the refined image as `result`. It publishes the
+blob rather than `livePreviewObjectUrl`, which matters more here than elsewhere: that URL is revoked
+the moment the next frame arrives, so sharing it would leave the preview panel pointing at a dead URL
+on every single frame. The publish also runs *after* the in-panel image is updated, so the primary
+surface never waits on the mirror.
 
 ### Preview panel UI
-- One persistent `<img>` (the no-flicker pattern), `width/height: 100%`, `object-fit: contain`, checkerboard background — fills whatever size the user drags the panel to. No fixed heights anywhere.
-- Header row: tool badge ("Inpaint — live" / "Text to Image — result"), a Follow mode dropdown (`Follow active` default | pin to a specific tool), 1:1 / Fit toggle (1:1 = `object-fit: none` + scrollable container).
-- Empty state: "Previews appear here while you generate."
-- Live Painting v2 (docs/LIVE_PAINTING_V2.md §3.6) publishes through the same hub — this panel is its intended large surface.
+`src/ui/previewPanel.ts`. One persistent `<img>` (the no-flicker pattern), `object-fit: contain`,
+checkerboard stage, fluid throughout — no fixed heights anywhere in the chain. Header is a muted
+tool badge (`Inpaint · generating`, amber while live) and a **1:1 / Fit** toggle; 1:1 switches to
+`object-fit: none` and lets the stage scroll. Empty state: "Previews appear here while you generate."
 
-### Lifecycle
-- The hub holds only the latest publication (no history). Its owned URL is revoked on replacement and on plugin teardown via the shared registry (`disposeAppResources` already calls `revokeAll` — the hub's slot rides on the same registry).
-- If the preview panel was never opened, the hub still publishes (cheap: one extra object URL per result, revoked on replacement). Optional micro-optimization later: skip publishing while the panel is hidden (`uxpShowPanel`/`uxpHidePanel` events set a flag).
+The registry and URL slot are module-level, because UXP can call `create()` again after a `destroy()`
+and a per-mount registry would strand one object URL per remount.
 
-## Implementation plan (delegable to Codex after unknown #1 is answered in-host)
+CSS is deliberately self-contained — this panel renders outside the `.app-shell` theme root, so none
+of the compact theme's `!important` rules reach it (ORCHESTRATION §3).
 
-1. **Spike (Mehran + any model, 30 min):** add the second entrypoint to the manifest with placeholder content; confirm both panels open and the existing panel still works. Answers unknown #1. Nothing else proceeds until this passes.
-2. Hub in `previewState.ts` + publish hooks + unit tests (URL ownership + latest-wins).
-3. Preview panel markup/render + CSS (fluid, both themes — remember the compact `!important` trap, ORCHESTRATION §3).
-4. Follow/pin + 1:1/Fit controls.
-5. Live Painting publishes to the hub (one line in `updateLivePreview`).
+## Remaining step
 
-Smoke per step; step 1 gates everything.
+**Follow / pin** — the panel always follows whichever tool published last. A "pin to tool" dropdown
+is designed but unbuilt; nobody has asked for it yet.

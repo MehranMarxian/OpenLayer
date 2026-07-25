@@ -18,6 +18,7 @@ import {
   isGenerationCancelledError
 } from "../comfy/generationCancel";
 import { createObjectUrlRegistry, ObjectUrlRegistry } from "./objectUrlRegistry";
+import { previewHub, PreviewPublicationKind } from "./previewHub";
 import {
   createGenerationController,
   GenerationPipelineUi,
@@ -305,6 +306,8 @@ export function renderApp(rootElement: HTMLElement) {
   const resultPanel = createResultPreviewPanel({
     urls: objectUrls,
     panel: elements.previewPanel,
+    hub: previewHub,
+    toolLabel: "Text to Image",
     emptyText: "No result yet",
     resultAlt: "Generated OpenLayer preview",
     liveAlt: "Live ComfyUI generation preview"
@@ -312,6 +315,8 @@ export function renderApp(rootElement: HTMLElement) {
   const imageResultPanel = createResultPreviewPanel({
     urls: objectUrls,
     panel: elements.imageResultPreviewPanel,
+    hub: previewHub,
+    toolLabel: "Image to Image",
     emptyText: "No Image to Image result yet",
     resultAlt: "Generated Image to Image preview",
     liveAlt: "Live ComfyUI Image to Image preview"
@@ -319,6 +324,8 @@ export function renderApp(rootElement: HTMLElement) {
   const sketchResultPanel = createResultPreviewPanel({
     urls: objectUrls,
     panel: elements.sketchResultPreviewPanel,
+    hub: previewHub,
+    toolLabel: "Sketch to Image",
     emptyText: "No Sketch to Image result yet",
     resultAlt: "Generated Sketch to Image preview",
     liveAlt: "Live ComfyUI Sketch to Image preview"
@@ -326,6 +333,8 @@ export function renderApp(rootElement: HTMLElement) {
   const inpaintResultPanel = createResultPreviewPanel({
     urls: objectUrls,
     panel: elements.inpaintResultPreviewPanel,
+    hub: previewHub,
+    toolLabel: "Inpaint",
     emptyText: "No Inpaint result yet",
     resultAlt: "Generated Inpaint preview",
     liveAlt: "Live ComfyUI Inpaint preview"
@@ -333,6 +342,8 @@ export function renderApp(rootElement: HTMLElement) {
   const outpaintResultPanel = createResultPreviewPanel({
     urls: objectUrls,
     panel: elements.outpaintResultPreviewPanel,
+    hub: previewHub,
+    toolLabel: "Outpaint",
     emptyText: "No Outpaint result yet",
     resultAlt: "Generated Outpaint preview",
     liveAlt: "Live ComfyUI Outpaint preview"
@@ -340,6 +351,8 @@ export function renderApp(rootElement: HTMLElement) {
   const upscaleResultPanel = createResultPreviewPanel({
     urls: objectUrls,
     panel: elements.upscaleResultPreviewPanel,
+    hub: previewHub,
+    toolLabel: "Upscale",
     emptyText: "No Upscale result yet",
     resultAlt: "Generated Upscale preview",
     liveAlt: "Live ComfyUI Upscale preview"
@@ -431,6 +444,7 @@ export function renderApp(rootElement: HTMLElement) {
       setStatusProgress(progressElement, "Panel closed.", "ready");
     }
     objectUrls.revokeAll();
+    previewHub.clear();
     livePreviewObjectUrl = "";
     window.removeEventListener("unload", disposeAppResources);
     resourceObserver?.disconnect();
@@ -3180,7 +3194,7 @@ export function renderApp(rootElement: HTMLElement) {
         onRefineResult: (blob, originatingDocument) => {
           liveRefinedResult = bindDocumentContext({ blob }, originatingDocument);
           setActionDisabled(elements.importLiveRefinedButton, false);
-          updateLivePreview(blob, originatingDocument, false);
+          updateLivePreview(blob, originatingDocument, { recordLiveResult: false, kind: "result" });
         },
         onStateChanged: (state) => updateLiveStateBadge(state),
         onStopped: (reason) => {
@@ -3351,8 +3365,10 @@ export function renderApp(rootElement: HTMLElement) {
   function updateLivePreview(
     blob: Blob,
     originatingDocument: PhotoshopDocumentIdentity,
-    recordLiveResult = true
+    options: { recordLiveResult?: boolean; kind?: PreviewPublicationKind } = {}
   ) {
+    const recordLiveResult = options.recordLiveResult ?? true;
+
     // One persistent img element: swapping src avoids the rebuild flicker the
     // per-frame progress previews show elsewhere in the panel.
     if (!livePreviewImage) {
@@ -3369,6 +3385,22 @@ export function renderApp(rootElement: HTMLElement) {
     if (previousUrl) {
       objectUrls.revoke(previousUrl);
     }
+
+    // Live Painting does not go through createResultPreviewPanel, so it mirrors
+    // to the separated preview panel here. Two things about this call:
+    //
+    // It publishes the blob, not livePreviewObjectUrl. That URL is revoked as
+    // soon as the next frame arrives, so sharing it would leave the preview
+    // panel pointing at a dead URL on every frame — and A5 wants one owner per
+    // URL anyway. The preview panel mints its own from the blob.
+    //
+    // It runs after the in-panel image is updated, so the primary surface is
+    // never waiting on the mirror.
+    previewHub.publish({
+      toolLabel: "Live Painting",
+      kind: options.kind ?? "live",
+      blob
+    });
 
     if (!recordLiveResult) {
       return;
