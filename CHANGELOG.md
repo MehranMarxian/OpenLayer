@@ -1,5 +1,36 @@
 # Changelog
 
+## v0.7.0-alpha - 2026-07-25
+
+Release focused on getting previews out of the cramped side panel and getting a new machine to a working ComfyUI without guesswork.
+
+### Added
+
+- Added a second dockable Photoshop panel, **OpenLayer Preview**, showing the current generation at whatever size you drag it to. It mirrors every preview surface — Text to Image, Image to Image, Sketch to Image, Inpaint, Outpaint, Upscale, and Live Painting — with a tool badge that marks frames still arriving, a 1:1 / Fit toggle, and a checkerboard backdrop so transparent results read correctly.
+- Added a generated ComfyUI setup pack, `npm run setup-pack`, producing `packages/openlayer-comfyui-setup-<version>.zip`: the workflows, an exact per-model requirements list, and a PowerShell downloader that fetches each model into the folder ComfyUI actually reads it from. Generated from the preset registry, so it cannot drift from the presets it describes.
+- Added download URLs, verified sizes, and derived install folders for all 13 models the runnable presets need. Every URL was checked with a live request, and where the model was already installed locally the served size matched the working file byte for byte.
+- Added licence gating for the two Flux weights. The downloader refuses to fetch them without an explicit acknowledgement and prints the non-commercial terms first.
+
+### Changed
+
+- Prompt from Layer no longer needs the `comfyui-custom-scripts` custom-node pack. Its caption is now published by core ComfyUI's `PreviewAny`, leaving `comfyui-florence2` as the only requirement for that tool.
+- Moved UXP panel-entrypoint registration into a small standalone script loaded ahead of the application bundle. Adobe's `entrypoints.setup()` throws when called more than about 20ms after plugin start (their PS-57605), which a deferred bundle can never satisfy.
+- The build now asserts that early script is present, undeferred, and ahead of the bundle, because a missing one fails as a silently blank panel in Photoshop rather than a build error.
+- Bumped plugin, package, visible UI, and landing page metadata to `0.7.0` / `v0.7.0-alpha`.
+
+### Fixed
+
+- Fixed the separated preview panel opening blank and refusing to resize. It was never being initialised, so Photoshop collapsed it to its minimum size.
+- Fixed a preview listener that threw on its first render being able to break whatever attached it.
+
+### Known limitations
+
+- The setup pack contains no model weights. They are roughly 85 GB and two are licence-restricted, so it ships the list and the downloader instead — an internet connection is required.
+- The preview panel always follows whichever tool published most recently. Pinning it to one tool is designed but not built.
+- Four presets name an editable GUI workflow that was never exported. The setup pack reports them and omits them rather than advertising files it does not contain.
+- Inpaint and Outpaint remain experimental and should be tested on duplicate layers or disposable documents.
+- CI covers pure TypeScript behavior but does not run Photoshop, UXP Developer Tool, or ComfyUI integration tests.
+
 ## v0.6.0-alpha - 2026-07-13
 
 UXP interface release focused on a denser Photoshop-native workflow, dependable progress feedback, and final real-panel rendering fixes.
