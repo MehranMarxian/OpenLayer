@@ -45,7 +45,6 @@ import {
 } from "./inpaintReadiness";
 import {
   formatInpaintOutputDiagnostics,
-  ImageDimensions,
   InpaintImportMode,
   readImageDimensionsFromBlob,
   saveInpaintDebugBlobsToTemporaryFiles
@@ -62,7 +61,6 @@ import {
   getPresetTextOutputNodeId,
   getRecommendedPresetSettings,
   getWorkflowPreset,
-  listRunnableWorkflowPresets,
   listWorkflowPresets
 } from "../comfy/presetRegistry";
 import {
@@ -136,7 +134,6 @@ import {
   createHistoryMetadataLine,
   createHistoryReuseMessage,
   formatHistoryImportStatus,
-  formatHistoryToolLabel,
   HistoryImportStatus,
   HistoryToolType
 } from "./historyMetadata";
