@@ -100,6 +100,28 @@ describe("previewHub", () => {
     expect(listener).toHaveBeenCalledTimes(3);
   });
 
+  it("survives a Live Painting frame sequence ending in a refined result", () => {
+    // Live Painting publishes directly rather than through a result-preview
+    // panel: many fast-tier frames, then one refined image. The badge has to
+    // land on "result" at the end, and only the last blob is retained.
+    const hub = createPreviewHub();
+    const listener = vi.fn();
+    hub.subscribe(listener);
+
+    for (let frame = 0; frame < 30; frame += 1) {
+      hub.publish(publication("Live Painting", "live", `frame-${frame}`));
+    }
+
+    expect(hub.latest()).toMatchObject({ toolLabel: "Live Painting", kind: "live" });
+    expect(hub.latest()?.blob).toEqual(blob("frame-29"));
+
+    hub.publish(publication("Live Painting", "result", "refined"));
+
+    expect(hub.latest()).toMatchObject({ toolLabel: "Live Painting", kind: "result" });
+    expect(hub.latest()?.blob).toEqual(blob("refined"));
+    expect(listener).toHaveBeenCalledTimes(32);
+  });
+
   it("keeps publishing to healthy listeners when one throws", () => {
     const hub = createPreviewHub();
     const healthy = vi.fn();

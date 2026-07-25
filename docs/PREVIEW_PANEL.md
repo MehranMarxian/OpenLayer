@@ -1,6 +1,7 @@
 # Separated Resizable Preview Panel — Design
 
-Status: **implemented (steps 1–3).** Host unknown #1 resolved 2026-07-24 in Photoshop 26.1.
+Status: **implemented.** Host unknown #1 resolved 2026-07-24 in Photoshop 26.1; all seven preview
+surfaces mirror to the panel.
 Read `docs/ORCHESTRATION.md` first.
 
 ## Goal
@@ -63,6 +64,13 @@ and `showProgress(_, blob)` — one line each, no behaviour change to the main p
 panels are wired. `disposeAppResources` calls `previewHub.clear()`, so a lingering preview panel does
 not keep showing a result from a closed session.
 
+**Live Painting does not use `createResultPreviewPanel`**, so it publishes from `updateLivePreview`
+in `App.ts` instead — fast-tier frames as `live`, the refined image as `result`. It publishes the
+blob rather than `livePreviewObjectUrl`, which matters more here than elsewhere: that URL is revoked
+the moment the next frame arrives, so sharing it would leave the preview panel pointing at a dead URL
+on every single frame. The publish also runs *after* the in-panel image is updated, so the primary
+surface never waits on the mirror.
+
 ### Preview panel UI
 `src/ui/previewPanel.ts`. One persistent `<img>` (the no-flicker pattern), `object-fit: contain`,
 checkerboard stage, fluid throughout — no fixed heights anywhere in the chain. Header is a muted
@@ -75,9 +83,7 @@ and a per-mount registry would strand one object URL per remount.
 CSS is deliberately self-contained — this panel renders outside the `.app-shell` theme root, so none
 of the compact theme's `!important` rules reach it (ORCHESTRATION §3).
 
-## Remaining steps
+## Remaining step
 
-4. **Follow / pin** — the panel currently always follows whichever tool published last. A
-   "pin to tool" dropdown is designed but unbuilt; nobody has asked for it yet.
-5. **Live Painting publishes to the hub** — one line in `updateLivePreview`
-   (`docs/LIVE_PAINTING_V2.md` §3.6). This panel is its intended large surface.
+**Follow / pin** — the panel always follows whichever tool published last. A "pin to tool" dropdown
+is designed but unbuilt; nobody has asked for it yet.

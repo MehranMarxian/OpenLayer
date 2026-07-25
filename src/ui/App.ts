@@ -18,7 +18,7 @@ import {
   isGenerationCancelledError
 } from "../comfy/generationCancel";
 import { createObjectUrlRegistry, ObjectUrlRegistry } from "./objectUrlRegistry";
-import { previewHub } from "./previewHub";
+import { previewHub, PreviewPublicationKind } from "./previewHub";
 import {
   createGenerationController,
   GenerationPipelineUi,
@@ -3194,7 +3194,7 @@ export function renderApp(rootElement: HTMLElement) {
         onRefineResult: (blob, originatingDocument) => {
           liveRefinedResult = bindDocumentContext({ blob }, originatingDocument);
           setActionDisabled(elements.importLiveRefinedButton, false);
-          updateLivePreview(blob, originatingDocument, false);
+          updateLivePreview(blob, originatingDocument, { recordLiveResult: false, kind: "result" });
         },
         onStateChanged: (state) => updateLiveStateBadge(state),
         onStopped: (reason) => {
@@ -3365,8 +3365,10 @@ export function renderApp(rootElement: HTMLElement) {
   function updateLivePreview(
     blob: Blob,
     originatingDocument: PhotoshopDocumentIdentity,
-    recordLiveResult = true
+    options: { recordLiveResult?: boolean; kind?: PreviewPublicationKind } = {}
   ) {
+    const recordLiveResult = options.recordLiveResult ?? true;
+
     // One persistent img element: swapping src avoids the rebuild flicker the
     // per-frame progress previews show elsewhere in the panel.
     if (!livePreviewImage) {
@@ -3383,6 +3385,22 @@ export function renderApp(rootElement: HTMLElement) {
     if (previousUrl) {
       objectUrls.revoke(previousUrl);
     }
+
+    // Live Painting does not go through createResultPreviewPanel, so it mirrors
+    // to the separated preview panel here. Two things about this call:
+    //
+    // It publishes the blob, not livePreviewObjectUrl. That URL is revoked as
+    // soon as the next frame arrives, so sharing it would leave the preview
+    // panel pointing at a dead URL on every frame — and A5 wants one owner per
+    // URL anyway. The preview panel mints its own from the blob.
+    //
+    // It runs after the in-panel image is updated, so the primary surface is
+    // never waiting on the mirror.
+    previewHub.publish({
+      toolLabel: "Live Painting",
+      kind: options.kind ?? "live",
+      blob
+    });
 
     if (!recordLiveResult) {
       return;
