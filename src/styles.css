@@ -7316,60 +7316,79 @@ body,
   color: #777777 !important;
 }
 
-/* --- Second-panel spike: openlayer.preview placeholder ------------------- */
-/* Deliberately self-contained. The preview panel may render outside the
-   .app-shell theme root, so these rules inherit nothing from either theme. */
+/* --- Separated preview panel (openlayerPreview entrypoint) ---------------- */
+/* Self-contained: this panel renders outside the .app-shell theme root, so it
+   inherits nothing from either theme and none of the compact !important rules
+   reach it. Everything here is fluid — the panel is user-resizable and there
+   must be no fixed height anywhere in the chain. */
 
-/* The node UXP hands to a panel's create() callback.
-   No `overflow: hidden` and no fixed height here on purpose: if this node ends
-   up in a container that resolves to zero height, a percentage height plus
-   hidden overflow would render the panel blank rather than merely cramped —
-   an invisible failure that looks identical to the renderer never running. */
 .openlayer-preview-panel-root {
   display: block;
   width: 100%;
   min-height: 100%;
 }
 
-.openlayer-preview-panel-placeholder {
+.openlayer-preview-panel {
   display: flex;
   width: 100%;
   min-height: 100%;
   flex-direction: column;
   gap: 8px;
-  padding: 12px;
+  padding: 10px;
   background: #2b2b2b;
   color: #eeeeee;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 12px;
-  line-height: 1.45;
 }
 
-.openlayer-preview-panel-placeholder h1 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.openlayer-preview-panel-placeholder p {
-  margin: 0;
-  color: #b9b9b9;
-}
-
-.openlayer-preview-panel-placeholder-mode {
-  color: #8fd48f !important;
-  font-weight: 600;
-}
-
-/* Fills whatever space is left. The checkerboard makes a resize visible at a
-   glance rather than only in the size readout. */
-.openlayer-preview-panel-placeholder-fill {
+.openlayer-preview-panel-header {
   display: flex;
-  min-height: 64px;
+  min-height: 20px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.openlayer-preview-panel-badge {
+  overflow: hidden;
+  color: #9a9a9a;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.openlayer-preview-panel-badge.is-live {
+  color: #e0913a;
+}
+
+.openlayer-preview-panel-fit {
+  flex: 0 0 auto;
+  padding: 3px 9px;
+  border: 1px solid #4a4a4a;
+  border-radius: 3px;
+  background: #383838;
+  color: #d7dde6;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.openlayer-preview-panel-fit:hover {
+  border-color: #5f5f5f;
+  background: #424242;
+}
+
+/* The viewing surface. Checkerboard so transparent results read correctly, and
+   it fills whatever height the artist drags the panel to. */
+.openlayer-preview-panel-stage {
+  display: flex;
+  min-height: 80px;
   flex: 1 1 auto;
   align-items: center;
   justify-content: center;
-  border: 1px dashed #4a4a4a;
+  overflow: hidden;
+  border: 1px solid #3a3a3a;
   border-radius: 4px;
   background-color: #323232;
   background-image:
@@ -7379,22 +7398,30 @@ body,
   background-size: 16px 16px;
 }
 
-.openlayer-preview-panel-placeholder-size {
-  padding: 2px 8px;
-  border-radius: 3px;
-  background: rgba(0, 0, 0, 0.55);
-  color: #d7dde6;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 11px;
+.openlayer-preview-panel-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
 
-.openlayer-preview-panel-placeholder-log {
-  margin: 0;
-  padding-left: 16px;
-  overflow-y: auto;
-  flex: 0 1 auto;
-  color: #9a9a9a;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+/* 1:1 mode: show real pixels and let the stage scroll rather than shrinking the
+   image to fit. */
+.openlayer-preview-panel-stage.is-actual-size {
+  align-items: flex-start;
+  justify-content: flex-start;
+  overflow: auto;
+}
+
+.openlayer-preview-panel-stage.is-actual-size .openlayer-preview-panel-image {
+  max-width: none;
+  max-height: none;
+  flex: 0 0 auto;
+  object-fit: none;
+}
+
+.openlayer-preview-panel-empty {
+  padding: 0 16px;
+  color: #7f7f7f;
   font-size: 11px;
-  word-break: break-word;
+  text-align: center;
 }

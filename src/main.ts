@@ -1,5 +1,5 @@
 import { renderApp } from "./ui/App";
-import { renderPreviewPanelPlaceholder } from "./ui/previewPanelPlaceholder";
+import { renderPreviewPanel } from "./ui/previewPanel";
 import "./styles.css";
 
 /**
@@ -43,11 +43,6 @@ function note(message: string) {
   console.log(`[OpenLayer bootstrap] ${message}`);
 }
 
-const diagnostics = {
-  mode: () => bootstrap?.mode ?? "no early bootstrap script",
-  events: () => bootstrap?.events ?? []
-};
-
 /**
  * Renders the app into the `#root` container, moving that container into the
  * node UXP supplied when there is one.
@@ -78,7 +73,7 @@ function mountMainPanel(rootNode: HTMLElement) {
 }
 
 function mountPreviewPanel(rootNode: HTMLElement) {
-  renderPreviewPanelPlaceholder(rootNode, diagnostics);
+  renderPreviewPanel(rootNode);
 }
 
 function mountMainPanelFromDocument() {

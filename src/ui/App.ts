@@ -18,6 +18,7 @@ import {
   isGenerationCancelledError
 } from "../comfy/generationCancel";
 import { createObjectUrlRegistry, ObjectUrlRegistry } from "./objectUrlRegistry";
+import { previewHub } from "./previewHub";
 import {
   createGenerationController,
   GenerationPipelineUi,
@@ -305,6 +306,8 @@ export function renderApp(rootElement: HTMLElement) {
   const resultPanel = createResultPreviewPanel({
     urls: objectUrls,
     panel: elements.previewPanel,
+    hub: previewHub,
+    toolLabel: "Text to Image",
     emptyText: "No result yet",
     resultAlt: "Generated OpenLayer preview",
     liveAlt: "Live ComfyUI generation preview"
@@ -312,6 +315,8 @@ export function renderApp(rootElement: HTMLElement) {
   const imageResultPanel = createResultPreviewPanel({
     urls: objectUrls,
     panel: elements.imageResultPreviewPanel,
+    hub: previewHub,
+    toolLabel: "Image to Image",
     emptyText: "No Image to Image result yet",
     resultAlt: "Generated Image to Image preview",
     liveAlt: "Live ComfyUI Image to Image preview"
@@ -319,6 +324,8 @@ export function renderApp(rootElement: HTMLElement) {
   const sketchResultPanel = createResultPreviewPanel({
     urls: objectUrls,
     panel: elements.sketchResultPreviewPanel,
+    hub: previewHub,
+    toolLabel: "Sketch to Image",
     emptyText: "No Sketch to Image result yet",
     resultAlt: "Generated Sketch to Image preview",
     liveAlt: "Live ComfyUI Sketch to Image preview"
@@ -326,6 +333,8 @@ export function renderApp(rootElement: HTMLElement) {
   const inpaintResultPanel = createResultPreviewPanel({
     urls: objectUrls,
     panel: elements.inpaintResultPreviewPanel,
+    hub: previewHub,
+    toolLabel: "Inpaint",
     emptyText: "No Inpaint result yet",
     resultAlt: "Generated Inpaint preview",
     liveAlt: "Live ComfyUI Inpaint preview"
@@ -333,6 +342,8 @@ export function renderApp(rootElement: HTMLElement) {
   const outpaintResultPanel = createResultPreviewPanel({
     urls: objectUrls,
     panel: elements.outpaintResultPreviewPanel,
+    hub: previewHub,
+    toolLabel: "Outpaint",
     emptyText: "No Outpaint result yet",
     resultAlt: "Generated Outpaint preview",
     liveAlt: "Live ComfyUI Outpaint preview"
@@ -340,6 +351,8 @@ export function renderApp(rootElement: HTMLElement) {
   const upscaleResultPanel = createResultPreviewPanel({
     urls: objectUrls,
     panel: elements.upscaleResultPreviewPanel,
+    hub: previewHub,
+    toolLabel: "Upscale",
     emptyText: "No Upscale result yet",
     resultAlt: "Generated Upscale preview",
     liveAlt: "Live ComfyUI Upscale preview"
@@ -431,6 +444,7 @@ export function renderApp(rootElement: HTMLElement) {
       setStatusProgress(progressElement, "Panel closed.", "ready");
     }
     objectUrls.revokeAll();
+    previewHub.clear();
     livePreviewObjectUrl = "";
     window.removeEventListener("unload", disposeAppResources);
     resourceObserver?.disconnect();
