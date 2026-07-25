@@ -8,13 +8,18 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
     "build": "tsc --noEmit && vite build && node scripts/copy-uxp-assets.mjs",
     "package": "npm run build && node scripts/package.mjs",
     "setup-pack": "node scripts/build-setup-pack.mjs",
     "test": "vitest run --config vitest.config.ts"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.8.0",
+    "globals": "^17.7.0",
     "typescript": "^5.7.2",
+    "typescript-eslint": "^8.65.0",
     "vite": "^6.0.7",
     "vitest": "^4.1.9"
   }
