@@ -7,6 +7,7 @@ import {
   listRunnableWorkflowPresets,
   validateWorkflowForPreset
 } from "../../src/comfy/presetRegistry";
+import { CUSTOM_NODE_PACKAGES } from "../../src/comfy/setupManifest";
 import { ComfyWorkflow, WorkflowPresetDefinition } from "../../src/comfy/types";
 
 const SRC_ROOT = resolve(__dirname, "../../src");
@@ -16,17 +17,16 @@ function loadApiWorkflow(preset: WorkflowPresetDefinition): ComfyWorkflow {
 }
 
 /**
- * Every ComfyUI node class used by a runnable preset that does NOT ship with
- * core ComfyUI, and the repository that provides it. Freezing this list is the
- * point of the test: a preset that quietly reintroduces a custom-node
- * dependency is a setup burden pushed onto every user, and it should not be
- * possible to add one without editing this line.
+ * Every ComfyUI node class a runnable preset uses that does NOT ship with core
+ * ComfyUI. Freezing this list is the point of the test: a preset that quietly
+ * reintroduces a custom-node dependency is a setup burden pushed onto every
+ * user, and it should not be possible to add one without editing this line.
+ *
+ * The setup pack treats anything absent from `CUSTOM_NODE_PACKAGES` as core, so
+ * this test also guards that assumption — a new custom node that nobody
+ * registered there would be silently reported as core, and this fails first.
  */
-const EXPECTED_CUSTOM_NODE_CLASSES: Record<string, string> = {
-  LineArtPreprocessor: "comfyui_controlnet_aux",
-  Florence2ModelLoader: "ComfyUI-Florence2",
-  Florence2Run: "ComfyUI-Florence2"
-};
+const EXPECTED_CUSTOM_NODE_CLASSES = ["Florence2ModelLoader", "Florence2Run", "LineArtPreprocessor"];
 
 describe("shipped API workflow files", () => {
   const runnablePresets = listRunnableWorkflowPresets();
@@ -55,7 +55,7 @@ describe("shipped API workflow files", () => {
 
     for (const preset of runnablePresets) {
       for (const node of preset.requiredNodes) {
-        if (node.classType in EXPECTED_CUSTOM_NODE_CLASSES) {
+        if (node.classType in CUSTOM_NODE_PACKAGES) {
           seen.add(node.classType);
         }
 
@@ -66,7 +66,7 @@ describe("shipped API workflow files", () => {
       }
     }
 
-    expect([...seen].sort()).toEqual(Object.keys(EXPECTED_CUSTOM_NODE_CLASSES).sort());
+    expect([...seen].sort()).toEqual(EXPECTED_CUSTOM_NODE_CLASSES);
   });
 });
 
