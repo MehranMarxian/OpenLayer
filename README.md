@@ -10,17 +10,14 @@ OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop t
 
 ## Alpha Release
 
-`v0.6.0-alpha` is the current public alpha checkpoint. It is intended for testing the core local workflows and the refreshed compact Photoshop UXP interface, not for production work yet.
+`v0.7.0-alpha` is the current public alpha checkpoint. It is intended for testing the core local workflows, the separated preview panel, and the ComfyUI setup pack, not for production work yet.
 
-New in `v0.6.0-alpha`:
+New in `v0.7.0-alpha`:
 
-- Redesigned the Home dashboard into a compact Adobe-style tool launcher with clearer available, experimental, and unavailable states.
-- Added sticky tool headers and a determinate ComfyUI progress bar driven by numeric generation progress.
-- Added collapsible Advanced settings, status tones, toggle feedback, import success feedback, and compact experimental-info controls.
-- Standardized form gutters and panel spacing across tool screens.
-- Hardened header spacing, progress geometry, typography, preview zoom, and long textarea behavior for the real Photoshop UXP renderer.
-- Enlarged prompt editors and made the Prompt from Layer generated-text field three times taller without unreliable auto-grow behavior.
-- Removed obsolete `control_after_generate` fields from bundled workflow JSON files.
+- Added **OpenLayer Preview**, a second dockable Photoshop panel that shows the current generation at whatever size you drag it to. It mirrors every tool — including Live Painting — and keeps the small in-panel previews as they are.
+- Added a generated ComfyUI setup pack (`npm run setup-pack`) with the workflows, an exact per-model requirements list, and a downloader that puts each model in the folder ComfyUI actually reads it from.
+- Added verified download URLs and install folders for all 13 models the runnable presets need, plus licence gating on the two Flux weights.
+- Prompt from Layer no longer needs the `comfyui-custom-scripts` custom-node pack.
 
 Included in this alpha:
 
@@ -87,9 +84,11 @@ The earlier card-based dashboard established OpenLayer's honest available/experi
 
 </details>
 
-v0.6.0-alpha tester focus:
+v0.7.0-alpha tester focus:
 
-- Confirm the compact dashboard, sticky tool headers, progress bar, Advanced settings, long prompt entry, and unavailable-tool dimming in Photoshop UXP.
+- Open **Plugins > OpenLayer Preview**, dock or float it, and confirm it follows every tool you generate with, including Live Painting.
+- Run `npm run setup-pack` and check the folder table in the generated `REQUIREMENTS.md` against your own ComfyUI install.
+- Confirm Prompt from Layer still returns a caption now that `comfyui-custom-scripts` is no longer required.
 - Confirm Text to Image, Image to Image, Z_image_Turbo, and experimental Flux1-dev fp8 Text to Image generation.
 - Confirm Prompt from Layer with the local Florence-2 PromptGen workflow.
 - Confirm Upscale with a local pixel/model upscale model such as `4x-UltraSharp.pth`.
@@ -98,7 +97,7 @@ v0.6.0-alpha tester focus:
 - Confirm inpaint-basic and Flux Fill Inpaint retain the v0.5.5 upload filename and alignment fixes, including Import to Layers.
 - Confirm Cancel Generation on both a running prompt and a queued prompt when ComfyUI is busy.
 
-Known v0.6.0-alpha boundaries:
+Known v0.7.0-alpha boundaries:
 
 - Image to Image is an early foundation path, not a full production workflow yet.
 - Sketch to Image is limited to the first SD 1.x LINECN starter workflow.
@@ -121,7 +120,9 @@ Known v0.6.0-alpha boundaries:
 - Outpaint is experimental and currently uses `outpaint-flux-fill-basic` with `flux1-fill-dev.safetensors`, `clip_l.safetensors`, `t5xxl_fp16.safetensors` or the accepted T5 fp8 fallback, and `ae.safetensors`.
 - Upscale currently uses a simple pixel/model upscale path. It does not use prompts, latent upscale, tiled diffusion, or creative enhancement.
 - Upscale needs ComfyUI's `UpscaleModelLoader` and `ImageUpscaleWithModel` nodes plus an installed upscale model such as `4x-UltraSharp.pth` or `RealESRGAN_x4plus.pth`.
-- The v0.6.0 release focuses on the compact UXP interface. Generation and Photoshop integration behavior should remain compatible with v0.5.5.
+- The separated preview panel always follows whichever tool generated most recently. Pinning it to a single tool is designed but not built.
+- The setup pack contains no model weights. They are roughly 85 GB and two are licence-restricted, so it ships the requirements list and a downloader instead. An internet connection is required.
+- The v0.7.0 release focuses on the preview panel and ComfyUI setup. Generation and Photoshop integration behavior should remain compatible with v0.6.0.
 - Layer, canvas, and mask capture is limited to 16 megapixels (4096 x 4096) until a downscale option is added.
 - Live sampler previews require ComfyUI to be started with `--preview-method auto`, and the preview panel may flicker between steps until a future UI polish pass.
 - Classic v0.4 theme preserves the older visual feel, but it does not duplicate every old layout detail.
@@ -251,7 +252,7 @@ npm run package
 This creates a zip package from `dist` in the `packages` folder. For the current alpha, the expected package name is:
 
 ```text
-packages/openlayer-v0.6.0-alpha.zip
+packages/openlayer-v0.7.0-alpha.zip
 ```
 
 ## Loading In UXP Developer Tool
@@ -378,7 +379,7 @@ Inpaint output quality, mask interpretation, and Photoshop alignment are still b
 
 ## Pre-release Tester Checklist
 
-Use this quick pass before reporting a v0.6.0-alpha test result:
+Use this quick pass before reporting a v0.7.0-alpha test result:
 
 1. Start ComfyUI on `http://127.0.0.1:8190`.
 2. Build OpenLayer and load `dist/manifest.json` in Adobe UXP Developer Tool.
