@@ -7263,12 +7263,25 @@ body,
 /* The sticky header must not change height when a run starts. Hiding the
    progress bar with display:none made the header grow mid-generation, and
    Photoshop's UXP renderer does not reflow the panels below a sticky element
-   that resizes - so the bar was painted over the first section. Reserving the
-   bar's box permanently and only hiding its paint keeps the header one fixed
-   height whether idle or generating. */
+   that resizes - so the bar was painted over the first section. The idle bar
+   therefore keeps its box and is made invisible instead.
+
+   It is painted the header's own colour rather than hidden, because UXP
+   ignores visibility:hidden here: the first attempt at this fix left the track
+   and its legacy 42%-wide fill (line 6749) showing as a stray half-width rule
+   under the nav in Photoshop, while looking correct in a browser. Colour is
+   the one mechanism both renderers agree on. */
 .app-shell.theme-compact .screen-head .status-progress[hidden] {
   display: block !important;
-  visibility: hidden !important;
+  border-color: #535353 !important;
+  background: #535353 !important;
+}
+
+.app-shell.theme-compact .screen-head .status-progress[hidden] > span {
+  width: 0 !important;
+  margin-left: 0 !important;
+  background: #535353 !important;
+  animation: none !important;
 }
 
 .app-shell.theme-compact .screen-head .status-progress > span {
