@@ -1,0 +1,503 @@
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "revision": 0,
+  "last_node_id": 11,
+  "last_link_id": 22,
+  "nodes": [
+    {
+      "id": 3,
+      "type": "KSampler",
+      "pos": [
+        982.798828125,
+        130
+      ],
+      "size": [
+        270,
+        474
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 12
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 13
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 14
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 15
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            18
+          ]
+        }
+      ],
+      "title": "Sampler",
+      "properties": {
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        },
+        "cnr_id": "comfy-core",
+        "ver": "0.27.1",
+        "Node name for S&R": "KSampler"
+      },
+      "widgets_values": [
+        1,
+        "randomize",
+        20,
+        7,
+        "euler",
+        "normal",
+        0.55
+      ]
+    },
+    {
+      "id": 8,
+      "type": "VAEDecode",
+      "pos": [
+        1352.798828125,
+        130
+      ],
+      "size": [
+        140,
+        46
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 18
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 19
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            20
+          ]
+        }
+      ],
+      "properties": {
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        },
+        "cnr_id": "comfy-core",
+        "ver": "0.27.1",
+        "Node name for S&R": "VAEDecode"
+      }
+    },
+    {
+      "id": 9,
+      "type": "SaveImage",
+      "pos": [
+        1592.798828125,
+        130
+      ],
+      "size": [
+        270,
+        270
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 20
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        },
+        "cnr_id": "comfy-core",
+        "ver": "0.27.1",
+        "Node name for S&R": "SaveImage"
+      },
+      "widgets_values": [
+        "OpenLayer_Img2Img"
+      ]
+    },
+    {
+      "id": 11,
+      "type": "VAEEncode",
+      "pos": [
+        482.798828125,
+        790
+      ],
+      "size": [
+        140,
+        46
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "pixels",
+          "type": "IMAGE",
+          "link": 21
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 22
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            15
+          ]
+        }
+      ],
+      "title": "VAE Encode Source",
+      "properties": {
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        },
+        "cnr_id": "comfy-core",
+        "ver": "0.27.1",
+        "Node name for S&R": "VAEEncode"
+      }
+    },
+    {
+      "id": 4,
+      "type": "CheckpointLoaderSimple",
+      "pos": [
+        100,
+        130
+      ],
+      "size": [
+        270,
+        98
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            12
+          ]
+        },
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            16,
+            17
+          ]
+        },
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            19,
+            22
+          ]
+        }
+      ],
+      "properties": {
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        },
+        "cnr_id": "comfy-core",
+        "ver": "0.27.1",
+        "Node name for S&R": "CheckpointLoaderSimple"
+      },
+      "widgets_values": [
+        "epicrealism_naturalSinRC1VAE.safetensors"
+      ]
+    },
+    {
+      "id": 6,
+      "type": "CLIPTextEncode",
+      "pos": [
+        482.798828125,
+        130
+      ],
+      "size": [
+        400,
+        200
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 16
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            13
+          ]
+        }
+      ],
+      "title": "Positive Prompt",
+      "properties": {
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        },
+        "cnr_id": "comfy-core",
+        "ver": "0.27.1",
+        "Node name for S&R": "CLIPTextEncode"
+      },
+      "widgets_values": [
+        "a refined painted version of the source image"
+      ]
+    },
+    {
+      "id": 7,
+      "type": "CLIPTextEncode",
+      "pos": [
+        482.798828125,
+        460
+      ],
+      "size": [
+        400,
+        200
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 17
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            14
+          ]
+        }
+      ],
+      "title": "Negative Prompt",
+      "properties": {
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        },
+        "cnr_id": "comfy-core",
+        "ver": "0.27.1",
+        "Node name for S&R": "CLIPTextEncode"
+      },
+      "widgets_values": [
+        ""
+      ]
+    },
+    {
+      "id": 10,
+      "type": "LoadImage",
+      "pos": [
+        100,
+        358
+      ],
+      "size": [
+        282.798828125,
+        102
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            21
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "title": "Load Source Image",
+      "properties": {
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        },
+        "cnr_id": "comfy-core",
+        "ver": "0.27.1",
+        "Node name for S&R": "LoadImage",
+        "#sdppp_variant": "default",
+        "#sdppp_simple_content": "canvas",
+        "#sdppp_simple_mask": "canvas",
+        "#sdppp_simple_boundary": "canvas",
+        "#sdppp_label": ""
+      },
+      "widgets_values": [
+        "openlayer-source.png",
+        "image"
+      ]
+    }
+  ],
+  "links": [
+    [
+      12,
+      4,
+      0,
+      3,
+      0,
+      "MODEL"
+    ],
+    [
+      13,
+      6,
+      0,
+      3,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      14,
+      7,
+      0,
+      3,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      15,
+      11,
+      0,
+      3,
+      3,
+      "LATENT"
+    ],
+    [
+      16,
+      4,
+      1,
+      6,
+      0,
+      "CLIP"
+    ],
+    [
+      17,
+      4,
+      1,
+      7,
+      0,
+      "CLIP"
+    ],
+    [
+      18,
+      3,
+      0,
+      8,
+      0,
+      "LATENT"
+    ],
+    [
+      19,
+      4,
+      2,
+      8,
+      1,
+      "VAE"
+    ],
+    [
+      20,
+      8,
+      0,
+      9,
+      0,
+      "IMAGE"
+    ],
+    [
+      21,
+      10,
+      0,
+      11,
+      0,
+      "IMAGE"
+    ],
+    [
+      22,
+      4,
+      2,
+      11,
+      1,
+      "VAE"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ue_links": [],
+    "ds": {
+      "scale": 0.7657731958762909,
+      "offset": [
+        79.6112187307707,
+        303.37137544455805
+      ]
+    },
+    "frontendVersion": "1.45.20",
+    "VHS_latentpreview": false,
+    "VHS_latentpreviewrate": 0,
+    "VHS_MetadataImage": true,
+    "VHS_KeepIntermediate": true
+  },
+  "version": 0.4
+}
