@@ -111,14 +111,17 @@ part. A cold-started worker cannot know that `placeEvent` clears the selection o
 minutes; below roughly a hundred lines of mechanical work, writing the brief costs more than doing
 the work. Delegation is a tool for scale, not a ritual.
 
-**On isolation, unresolved and handled conservatively.** §5 records that a separate clone is
-impossible because the bridge roots Codex at the session's working directory; a later session
-concluded the opposite, that Codex must *only* ever work in a separate `OpenLayer-codex` clone after
-it zeroed `.git/HEAD` twice. Both cannot be operationally true, and nobody has retested. Until
-someone does, the rules that actually prevented the damage are the ones that matter and they hold
-either way: snapshot `.git/HEAD` and `refs/heads/` before launching, never edit the repository while
-a Codex task runs, and require Codex to report a diff rather than commit, push, or touch `.git`. If a
-separate clone turns out to work, prefer it — but do not assume it.
+**On isolation — settled, and worth restating because it keeps getting re-litigated.** An isolated
+`OpenLayer-codex` clone was tried and abandoned: the `codex-rescue` subagent forwards to
+`codex-companion.mjs task` with no `--cwd` override anywhere in its interface, so Codex always
+launches rooted at this session's working directory. `config.toml` `trust_level` does not help —
+trust and the write-sandbox root are unrelated settings. The clone and its git remote were deleted on
+2026-07-18. **Do not spend another session rediscovering this.**
+
+What protects the repository is therefore procedural, not structural, and all four rules matter:
+snapshot `.git/HEAD` and `refs/heads/` before launching; never edit while a Codex task runs; verify
+`HEAD`, branch and last commit survived before touching anything afterwards; and require a reported
+diff rather than a commit, a push, or any contact with `.git`.
 
 ## 6. Roadmap (state as of 2026-07-26, mid-v0.8)
 
