@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveStatusProgress } from "../../src/ui/App";
+import { resolveStatusProgress } from "../../src/ui/statusBars";
 
 describe("resolveStatusProgress", () => {
   it("is hidden when not busy", () => {
