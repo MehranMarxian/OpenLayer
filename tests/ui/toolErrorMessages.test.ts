@@ -158,7 +158,11 @@ describe("nothing is invented when the failure is not recognised", () => {
   it("survives being handed something that is not an Error at all", () => {
     // The pipeline catches whatever was thrown; a rejected fetch or a stray
     // string must not take the status bar down with it.
-    for (const value of [null, "plain string failure", 42, { unexpected: true }]) {
+    // `undefined` is in this list deliberately: JSON.stringify(undefined) is
+    // undefined rather than a string, so getTechnicalErrorDetails used to hand
+    // back a non-string and every hint threw on .toLowerCase(). A bare
+    // `Promise.reject()` or `throw undefined` reaches here.
+    for (const value of [undefined, null, "plain string failure", 42, { unexpected: true }, () => undefined]) {
       expect(() => getImageToImageFailureHint(value)).not.toThrow();
       expect(() => getFriendlyUpscaleErrorMessage(value)).not.toThrow();
       expect(typeof getFriendlyInpaintErrorMessage(value)).toBe("string");

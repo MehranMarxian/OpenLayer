@@ -74,7 +74,13 @@ export function getTechnicalErrorDetails(error: unknown) {
   }
 
   try {
-    return JSON.stringify(error);
+    // JSON.stringify returns undefined — not a string — for undefined, for a
+    // function, and for a symbol. Returning that made every caller that treats
+    // this as a string throw: each tool's failure hint starts with
+    // `getTechnicalErrorDetails(error).toLowerCase()`, and hints run inside the
+    // catch block of a generation. A throw there replaces a status message with
+    // an exception escaping a handler, which in UXP means a blocking alert.
+    return JSON.stringify(error) ?? "No technical details available.";
   } catch {
     return "No technical details available.";
   }
