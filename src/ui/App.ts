@@ -3608,6 +3608,11 @@ export function renderApp(rootElement: HTMLElement) {
 
   function setView(view: AppView) {
     currentView = view;
+    // The status row belongs to the home screen only. On a tool screen it sits
+    // directly above that screen's sticky header, where it collided with the
+    // progress bar mid-generation, and it is redundant there: since the v0.8
+    // status split every tool carries its own status bar with the same message.
+    elements.homeStatusRow.hidden = view !== "home";
     elements.homeView.hidden = currentView !== "home";
     elements.generatorView.hidden = currentView !== "text-to-image";
     elements.imageToImageView.hidden = currentView !== "image-to-image";

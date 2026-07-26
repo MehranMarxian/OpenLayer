@@ -44,6 +44,7 @@ export type AppElements = {
   upscaleView: HTMLElement;
   settingsView: HTMLElement;
   historyView: HTMLElement;
+  homeStatusRow: HTMLElement;
   homeStatusText: HTMLElement;
   homeStatusDot: HTMLElement;
   serverUrl: HTMLInputElement;
@@ -251,7 +252,7 @@ export function createAppMarkup() {
   return `
     <main class="app-shell theme-compact" id="app-shell">
       ${createBrandHeaderMarkup()}
-      <div class="home-status-row">
+      <div class="home-status-row" id="home-status-row">
         <span>Status:</span>
         <strong id="home-status-text">Ready</strong>
         <span class="home-status-dot idle" id="home-status-dot" aria-hidden="true"></span>
@@ -1269,6 +1270,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     upscaleView: getElement<HTMLElement>(rootElement, "upscale-view"),
     settingsView: getElement<HTMLElement>(rootElement, "settings-view"),
     historyView: getElement<HTMLElement>(rootElement, "history-view"),
+    homeStatusRow: getElement<HTMLElement>(rootElement, "home-status-row"),
     homeStatusText: getElement<HTMLElement>(rootElement, "home-status-text"),
     homeStatusDot: getElement<HTMLElement>(rootElement, "home-status-dot"),
     serverUrl: getElement<HTMLInputElement>(rootElement, "server-url"),
