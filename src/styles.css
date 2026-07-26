@@ -7260,8 +7260,15 @@ body,
   background: #343434 !important;
 }
 
+/* The sticky header must not change height when a run starts. Hiding the
+   progress bar with display:none made the header grow mid-generation, and
+   Photoshop's UXP renderer does not reflow the panels below a sticky element
+   that resizes - so the bar was painted over the first section. Reserving the
+   bar's box permanently and only hiding its paint keeps the header one fixed
+   height whether idle or generating. */
 .app-shell.theme-compact .screen-head .status-progress[hidden] {
-  display: none !important;
+  display: block !important;
+  visibility: hidden !important;
 }
 
 .app-shell.theme-compact .screen-head .status-progress > span {
