@@ -35,7 +35,17 @@ These were built across PRs #7–#12 and are the project's spine. Every one has 
 
 ## 3. Architecture map (post-decomposition)
 
-`App.ts` was 8,149 lines; it is now ~5,800 and stops shrinking on purpose (step 5 per-tool file split was evaluated and **deliberately skipped** — relocation-only, no de-dup value, high risk on the untested closure; don't redo that analysis).
+`App.ts` was 8,149 lines and is now 5,842. The step 5 per-tool file split was evaluated and
+**deliberately skipped** — relocation-only, no de-dup value, high risk on the untested closure;
+don't redo that analysis.
+
+**That decision is narrower than it reads, and this sentence used to say the file "stops shrinking on
+purpose", which is wrong.** What was rejected was carving up `renderApp` — the closure that runs from
+line 249 to roughly 3,300, where the handlers share mutable state and no test can reach them. The
+~2,500 lines *below* that closure are already module-level functions taking everything as parameters,
+and moving those is import-rewiring in a different risk class. v0.8 does exactly that, one slice at a
+time: `toolErrorMessages.ts` (279 lines, done), `statusBars.ts` (~347), `appBindings.ts` (~561).
+Extract from below `renderApp`; leave the closure alone.
 
 - `src/ui/App.ts` — renderApp shell: state, handlers, wiring. Handlers are thin: prep → `generation.runPipeline({...})` → post-success.
 - `src/ui/generationController.ts` — owns active-run state + the pipeline. 8 fake-client tests cover cancellation/stale/error semantics.
@@ -70,9 +80,63 @@ The protocol:
 5. Codex jobs: check with `/codex:status`; the job registry sometimes wipes on app restart — if a "completed" task left no report, look for its edits in the working tree before re-running (it may have finished the work silently).
 6. Codex is genuinely good: it caught a CSS-specificity bug and a missed call site the orchestrator introduced. Review its work seriously in both directions.
 
-## 6. Roadmap (state as of 2026-07-18, main = 66c3bb2)
+### 5a. Two models, one roadmap (agreed 2026-07-26)
 
-**Done & merged:** Phase A1–A5 audit fixes, B1 readiness, B2 lifecycle, App decomposition steps 1–4, error-color fix, preview flicker + fixed-height panels, Florence2 fork tolerance, Flux Fill locked controls, per-tool busy lockout.
+Mehran's framing, and it is the right one: **treat each model as a different teammate's opinion, not
+as a second driver.** Two assistants pulling in different directions is the failure mode; two
+assistants disagreeing *about a specific diff* is the value.
+
+**Division of labour.** Codex implements, Claude reviews. Neither role is a rubber stamp: Codex is
+expected to push back when a brief is wrong, and Claude is expected to find things a brief could not
+anticipate. What keeps them from diverging is not politeness, it is that both work from the same
+written plan — the numbered task list with per-task acceptance criteria, agreed with Mehran before
+any code is written. **The roadmap is the shared contract; the diff is where the opinions meet.**
+
+**Make the two contributions separately visible.** When Codex implements a task, its work is the
+first commit on the branch and any review fixes are a second commit on top. The PR then shows who
+did what, and Mehran can compare them on GitHub rather than taking a merged blob on trust. This
+mirrors the pattern already used for a mechanical change plus the bug it exposed: the extraction in
+one commit, the fix in the next.
+
+**What to delegate.** Work that is well specified and mechanical, where the acceptance criteria can
+be written down in advance and checked by `typecheck`/`lint`/`test`: relocations, table-driven
+refactors, adding coverage to pure functions. `appBindings.ts` is the canonical example.
+
+**What not to delegate.** Anything requiring host judgement or safety context: the Photoshop adapter,
+the invariants in §2, UXP-specific traps, and any change where deciding *what* to build is the hard
+part. A cold-started worker cannot know that `placeEvent` clears the selection or that UXP has no
+`TextEncoder`, and a brief long enough to convey it is longer than the change.
+
+**Do not delegate for the sake of it.** Briefing costs real time and a cold start costs about eight
+minutes; below roughly a hundred lines of mechanical work, writing the brief costs more than doing
+the work. Delegation is a tool for scale, not a ritual.
+
+**On isolation — settled, and worth restating because it keeps getting re-litigated.** An isolated
+`OpenLayer-codex` clone was tried and abandoned: the `codex-rescue` subagent forwards to
+`codex-companion.mjs task` with no `--cwd` override anywhere in its interface, so Codex always
+launches rooted at this session's working directory. `config.toml` `trust_level` does not help —
+trust and the write-sandbox root are unrelated settings. The clone and its git remote were deleted on
+2026-07-18. **Do not spend another session rediscovering this.**
+
+What protects the repository is therefore procedural, not structural, and all four rules matter:
+snapshot `.git/HEAD` and `refs/heads/` before launching; never edit while a Codex task runs; verify
+`HEAD`, branch and last commit survived before touching anything afterwards; and require a reported
+diff rather than a commit, a push, or any contact with `.git`.
+
+## 6. Roadmap (state as of 2026-07-26, mid-v0.8)
+
+**v0.8 so far (merged):** version bump to 0.8.0; ESLint in CI (with `TextEncoder`/`TextDecoder`
+banned in `src/`, the one rule that catches a UXP failure neither `tsc` nor Vitest can see); preview
+panel pin-to-tool; the source↔API workflow equivalence check; the four missing GUI source workflows;
+`toolErrorMessages.ts` extracted plus the `getTechnicalErrorDetails` crash it exposed.
+
+**v0.8 remaining:** `statusBars.ts` extraction and the Text-to-Image status bleed (`setStatus` still
+writes all seven tool bars, so Text to Image progress appears in Inpaint's status bar); the
+`appBindings.ts` extraction; a CSS audit that measures rather than consolidates; release paperwork.
+Live Painting refine tier, in-canvas write-back, `.ccx` distribution, custom workflow import and the
+LoRA browser are explicitly **out of v0.8 scope**.
+
+**Done & merged earlier:** Phase A1–A5 audit fixes, B1 readiness, B2 lifecycle, App decomposition steps 1–4, error-color fix, preview flicker + fixed-height panels, Florence2 fork tolerance, Flux Fill locked controls, per-tool busy lockout, the generated ComfyUI setup pack, the separated preview panel.
 
 **Queued next (roughly in order):**
 1. **ComfyUI setup diagnostics, Phase 1** — when a preset's model is missing, scan the *other* model folders and say "found X in diffusion_models/ — this workflow needs it in checkpoints/"; name exact missing custom-node repos. Foundation exists (`getModelInventory`, `workflowCompatibility`, health report). Mostly delegable to Codex with a good brief.
@@ -82,7 +146,7 @@ The protocol:
 5. **Outpaint canvas expansion + aligned import** — currently outpaint imports centered without resizing the canvas. Proper fix = batchPlay canvas resize + coordinate-shift for alignment. **Hardest host work on the list**; touches the same adapter machinery as A2/A3. Needs the strongest available model + careful Mehran verification.
 6. **Live Painting v2 (two-tier: SD1.5-LCM fast tier / Krea2-turbo quality tier)** — design exists in the assistant's memory notes; the current spike (event-candidate listeners, serial pump loop in `livePaintingSession.ts`) works but is primitive. Flagship feature. Architecture first, then incremental delegation.
 7. **Layer tools & new-tool pattern** — new tools go in their own `src/ui/tools/<name>.ts` modules (the forward-looking half of skipped step 5); wire through `generationController` + a new busy-table group + `generationToolUi` row + preset registry entry.
-8. **Housekeeping:** theme/CSS consolidation; untrack `dist/`+`packages/`; ESLint in CI.
+8. **Housekeeping:** theme/CSS consolidation. ESLint in CI landed in v0.8; `dist/` and `packages/` are already gitignored.
 
 ## 7. Advice for sessions without a frontier model
 
