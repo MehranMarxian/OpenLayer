@@ -256,13 +256,18 @@ function applyToolStatus(
   updateHomeStatus(elements, status, tone);
 }
 
-// The Text to Image status doubles as the global one: it broadcasts to every
-// tool's status bar plus the settings screen. The per-tool setters below touch
-// only their own bar and the home indicator.
-export function setStatus(elements: AppElements, status: string, tone: StatusTone) {
-  elements.statusText.textContent = status;
-  applyStatusPill(elements.statusPill, status, tone);
-  setStatusProgress(elements.statusProgress, status, tone);
+/**
+ * A message that is true for the whole panel: the ComfyUI connection, the
+ * settings screen, the session history. Those are not owned by any one tool, so
+ * they land in every tool's bar plus the settings screen.
+ *
+ * Nothing a single tool is doing may come through here. This used to be the
+ * only fan-out setter *and* Text to Image's own setter, which is why Text to
+ * Image progress ("Preparing workflow...", "Generation complete.") appeared in
+ * the Inpaint and Upscale bars in v0.7. Tool work goes to the tool's own setter.
+ */
+export function setGlobalStatus(elements: AppElements, status: string, tone: StatusTone) {
+  setTextToImageStatus(elements, status, tone);
   applyToolStatus(elements, elements.imgStatusText, elements.imgStatusPill, elements.imgStatusProgress, status, tone);
   applyToolStatus(elements, elements.sketchStatusText, elements.sketchStatusPill, elements.sketchStatusProgress, status, tone);
   applyToolStatus(elements, elements.inpaintStatusText, elements.inpaintStatusPill, elements.inpaintStatusProgress, status, tone);
@@ -270,6 +275,12 @@ export function setStatus(elements: AppElements, status: string, tone: StatusTon
   applyToolStatus(elements, elements.upscaleStatusText, elements.upscaleStatusPill, elements.upscaleStatusProgress, status, tone);
   applyToolStatus(elements, elements.promptLayerStatusText, elements.promptLayerStatusPill, elements.promptLayerStatusProgress, status, tone);
   applyToolStatus(elements, elements.settingsStatusText, elements.settingsStatusPill, elements.settingsStatusProgress, status, tone);
+}
+
+// Text to Image owns the unprefixed status elements, a leftover from when it was
+// the only tool in the panel. It is a per-tool setter like every other one below.
+export function setTextToImageStatus(elements: AppElements, status: string, tone: StatusTone) {
+  applyToolStatus(elements, elements.statusText, elements.statusPill, elements.statusProgress, status, tone);
 }
 
 export function setImageStatus(elements: AppElements, status: string, tone: StatusTone) {
