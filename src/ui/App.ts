@@ -251,6 +251,8 @@ import {
   setSketchError,
   setSketchStatus,
   setStatusProgress,
+  setTextToImageDiagnostics,
+  setTextToImageError,
   setTextToImageStatus,
   setUpscaleDiagnostics,
   setUpscaleError,
@@ -1182,7 +1184,7 @@ export function renderApp(rootElement: HTMLElement) {
   function handleToggleAutoImport() {
     importAutomatically = !importAutomatically;
     updateAutoImportToggle(elements, importAutomatically);
-    setGlobalDiagnostics(elements, importAutomatically ? "Auto import is on." : "Auto import is off.");
+    setTextToImageDiagnostics(elements, importAutomatically ? "Auto import is on." : "Auto import is off.");
     syncImportBridge();
   }
 
@@ -1233,7 +1235,7 @@ export function renderApp(rootElement: HTMLElement) {
     error: (elements: AppElements, message: string) => void;
     progress?: (elements: AppElements, message: string, blob?: Blob) => void;
   }> = {
-    "text-to-image": { status: setTextToImageStatus, diagnostics: setGlobalDiagnostics, error: setGlobalError, progress: setProgressPreview },
+    "text-to-image": { status: setTextToImageStatus, diagnostics: setTextToImageDiagnostics, error: setTextToImageError, progress: setProgressPreview },
     "image-to-image": { status: setImageStatus, diagnostics: setImageDiagnostics, error: setImageError, progress: setImageProgressPreview },
     "sketch-to-image": { status: setSketchStatus, diagnostics: setSketchDiagnostics, error: setSketchError, progress: setSketchProgressPreview },
     inpaint: { status: setInpaintStatus, diagnostics: setInpaintDiagnostics, error: setInpaintError, progress: setInpaintProgressPreview },
@@ -1309,15 +1311,15 @@ export function renderApp(rootElement: HTMLElement) {
       return;
     }
 
-    setGlobalDiagnostics(elements, `Generate pressed at ${new Date().toLocaleTimeString()}.`);
+    setTextToImageDiagnostics(elements, `Generate pressed at ${new Date().toLocaleTimeString()}.`);
 
     if (!elements.prompt.value.trim()) {
-      setGlobalError(elements, getErrorMessage(createOpenLayerError("PROMPT_REQUIRED", "Enter a prompt before generating.")));
+      setTextToImageError(elements, getErrorMessage(createOpenLayerError("PROMPT_REQUIRED", "Enter a prompt before generating.")));
       setTextToImageStatus(elements, "Prompt required.", "error");
       return;
     }
 
-    setGlobalError(elements, "");
+    setTextToImageError(elements, "");
     setResult(null);
     busyTool = "text-to-image";
     isBusy = true;
@@ -1341,7 +1343,7 @@ export function renderApp(rootElement: HTMLElement) {
       const client = new ComfyClient(elements.serverUrl.value);
 
       applyValidatedSettings(elements, settings);
-      setGlobalDiagnostics(elements, warnings.length > 0 ? warnings.join(" ") : createWorkflowDiagnostics(preset, checkpointName));
+      setTextToImageDiagnostics(elements, warnings.length > 0 ? warnings.join(" ") : createWorkflowDiagnostics(preset, checkpointName));
       await client.checkOnline();
 
       if (!checkpointName) {
@@ -1351,7 +1353,7 @@ export function renderApp(rootElement: HTMLElement) {
       const compatibility = getCheckpointCompatibility(checkpointName, preset);
 
       if (compatibility.isExperimental) {
-        setGlobalDiagnostics(elements, `${compatibility.label} ${compatibility.warning}`);
+        setTextToImageDiagnostics(elements, `${compatibility.label} ${compatibility.warning}`);
       }
 
       setTextToImageStatus(elements, "Checking selected checkpoint...", "idle");
@@ -1416,11 +1418,11 @@ export function renderApp(rootElement: HTMLElement) {
 
       if (importAutomatically) {
         setTextToImageStatus(elements, "Generation complete. Auto-importing...", "idle");
-        setGlobalDiagnostics(elements, `Seed used: ${buildResult.seed}. Auto import is on.`);
+        setTextToImageDiagnostics(elements, `Seed used: ${buildResult.seed}. Auto import is on.`);
         await handleImport("auto");
       } else {
         setTextToImageStatus(elements, "Generation complete.", "ready");
-        setGlobalDiagnostics(elements, `Seed used: ${buildResult.seed}. Workflow: ${buildResult.preset.id}.`);
+        setTextToImageDiagnostics(elements, `Seed used: ${buildResult.seed}. Workflow: ${buildResult.preset.id}.`);
       }
 
       savePreferencesFromElements(elements, { seed: requestedSeed });
@@ -1432,8 +1434,8 @@ export function renderApp(rootElement: HTMLElement) {
       }
 
       setTextToImageStatus(elements, "Generation failed.", "error");
-      setGlobalError(elements, getErrorMessage(caughtError));
-      setGlobalDiagnostics(elements, getTechnicalErrorDetails(caughtError));
+      setTextToImageError(elements, getErrorMessage(caughtError));
+      setTextToImageDiagnostics(elements, getTechnicalErrorDetails(caughtError));
     } finally {
       isBusy = false;
       busyTool = null;
@@ -1479,7 +1481,7 @@ export function renderApp(rootElement: HTMLElement) {
   }
 
   function loadHistoryResultIntoTool(entry: HistoryEntry) {
-    setGlobalError(elements, "");
+    setTextToImageError(elements, "");
     setImageError(elements, "");
     setSketchError(elements, "");
     setInpaintError(elements, "");
@@ -1591,14 +1593,14 @@ export function renderApp(rootElement: HTMLElement) {
   }
 
   async function handleImport(source: "manual" | "auto" = "manual") {
-    setGlobalDiagnostics(elements, source === "auto" ? "Auto import started." : "Import pressed.");
+    setTextToImageDiagnostics(elements, source === "auto" ? "Auto import started." : "Import pressed.");
 
     if (!result) {
-      setGlobalError(elements, "Generate an image before importing.");
+      setTextToImageError(elements, "Generate an image before importing.");
       return;
     }
 
-    setGlobalError(elements, "");
+    setTextToImageError(elements, "");
     busyTool = "text-to-image";
     isBusy = true;
     syncBusy();
@@ -1607,26 +1609,26 @@ export function renderApp(rootElement: HTMLElement) {
     try {
       const layerName = createLayerName("OpenLayer_Generated");
 
-      setGlobalDiagnostics(elements, `Importing into ${result.originatingDocument?.name || "the originating document"}...`);
+      setTextToImageDiagnostics(elements, `Importing into ${result.originatingDocument?.name || "the originating document"}...`);
       const importedLayerName = await importGeneratedImageAsLayer({
         blob: result.blob,
         originatingDocument: result.originatingDocument,
         layerName,
         onProgress: (message) => {
           setTextToImageStatus(elements, message, "idle");
-          setGlobalDiagnostics(elements, message);
+          setTextToImageDiagnostics(elements, message);
         }
       });
       setTextToImageStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
       flashImported(elements.statusText);
       markHistoryImported(elements, historyEntries, result, importedLayerName);
       const metadataMessage = await writeMetadataForImportedResult(historyEntries, result, importedLayerName, (message) => {
-        setGlobalDiagnostics(elements, message);
+        setTextToImageDiagnostics(elements, message);
       });
-      setGlobalDiagnostics(elements, `Layer created: ${importedLayerName}. ${metadataMessage}`);
+      setTextToImageDiagnostics(elements, `Layer created: ${importedLayerName}. ${metadataMessage}`);
     } catch (caughtError) {
       setTextToImageStatus(elements, "Import failed.", "error");
-      setGlobalError(elements, getErrorMessage(caughtError));
+      setTextToImageError(elements, getErrorMessage(caughtError));
     } finally {
       isBusy = false;
       busyTool = null;
@@ -3949,7 +3951,7 @@ function updateTextCheckpointCompatibility(elements: AppElements) {
     const checkpointName = readSelectValue(elements.checkpoint);
     const message = createWorkflowDiagnosticMessage(preset, { selectedModelName: checkpointName });
 
-    setGlobalDiagnostics(elements, formatWorkflowDiagnosticMessage(message));
+    setTextToImageDiagnostics(elements, formatWorkflowDiagnosticMessage(message));
     updateSettingsReport(elements);
   } catch {
     // Selection-change diagnostics should never break the panel.

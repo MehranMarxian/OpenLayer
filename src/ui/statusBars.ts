@@ -379,15 +379,16 @@ export function setPromptLayerError(elements: AppElements, message: string) {
  * at...", "Seed used: ..." and workflow warning was written into the Inpaint,
  * Upscale, Outpaint, Sketch, Image to Image and Prompt from Layer diagnostics
  * lines as well.
+ *
+ * It writes the Settings line only, unlike setGlobalStatus, which does still
+ * paint every bar. A status bar reports state -- "ComfyUI is offline" is true of
+ * every tool, so every tool should say it. A diagnostics line reports the last
+ * thing that happened, it has no idle state to fall back to, and a GPU report
+ * produced on the Settings screen did not happen on the Upscale screen: it would
+ * sit there until the next upscale. Settings is where these are actionable and
+ * where every tool already logs, so that is where they belong.
  */
 export function setGlobalDiagnostics(elements: AppElements, message: string) {
-  elements.diagnosticsText.textContent = message;
-  elements.imgDiagnosticsText.textContent = message;
-  elements.sketchDiagnosticsText.textContent = message;
-  elements.inpaintDiagnosticsText.textContent = message;
-  elements.outpaintDiagnosticsText.textContent = message;
-  elements.upscaleDiagnosticsText.textContent = message;
-  elements.promptLayerDiagnosticsText.textContent = message;
   elements.settingsDiagnosticsText.textContent = message;
 }
 
