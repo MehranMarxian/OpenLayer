@@ -231,8 +231,8 @@ import { AppElements, createAppMarkup, getAppElements } from "./appMarkup";
 import {
   applyDeterminateProgress,
   flashImported,
-  setDiagnostics,
-  setError,
+  setGlobalDiagnostics,
+  setGlobalError,
   setGlobalStatus,
   setImageDiagnostics,
   setImageError,
@@ -836,12 +836,12 @@ export function renderApp(rootElement: HTMLElement) {
     applyTheme(elements, readThemeSelection(elements));
     savePreferencesFromElements(elements);
     updateSettingsReport(elements);
-    setDiagnostics(elements, `Panel theme set to ${getThemeLabel(readThemeSelection(elements))}.`);
+    setGlobalDiagnostics(elements, `Panel theme set to ${getThemeLabel(readThemeSelection(elements))}.`);
   });
 
   setGlobalStatus(elements, "Ready.", "idle");
   setView(currentView);
-  setError(elements, "");
+  setGlobalError(elements, "");
   syncBusy();
   updateNegativePromptDisclosure(elements, isNegativePromptOpen);
   updateAutoImportToggle(elements, importAutomatically);
@@ -958,14 +958,14 @@ export function renderApp(rootElement: HTMLElement) {
       updateSettingsReport(elements);
     } catch (caughtError) {
       setGlobalStatus(elements, "Ready.", "idle");
-      setError(elements, `Using fallback model list. ${getErrorMessage(caughtError)}`);
+      setGlobalError(elements, `Using fallback model list. ${getErrorMessage(caughtError)}`);
       updateSettingsReport(elements);
     }
   }
 
   async function handleCheckComfy() {
-    setDiagnostics(elements, "Check ComfyUI pressed.");
-    setError(elements, "");
+    setGlobalDiagnostics(elements, "Check ComfyUI pressed.");
+    setGlobalError(elements, "");
     setGlobalStatus(elements, "Checking ComfyUI...", "idle");
 
     try {
@@ -987,23 +987,23 @@ export function renderApp(rootElement: HTMLElement) {
       updateSettingsReport(elements);
     } catch (caughtError) {
       setGlobalStatus(elements, "ComfyUI check failed.", "error");
-      setError(elements, getErrorMessage(caughtError));
+      setGlobalError(elements, getErrorMessage(caughtError));
       updateSettingsReport(elements);
     }
   }
 
   async function handleFindComfyPort() {
-    setDiagnostics(elements, "Scanning common local ComfyUI ports...");
-    setError(elements, "");
+    setGlobalDiagnostics(elements, "Scanning common local ComfyUI ports...");
+    setGlobalError(elements, "");
     setGlobalStatus(elements, "Looking for ComfyUI...", "idle");
 
     const foundUrl = await findActiveComfyUrl(elements.serverUrl.value, (message) => {
-      setDiagnostics(elements, message);
+      setGlobalDiagnostics(elements, message);
     });
 
     if (!foundUrl) {
       setGlobalStatus(elements, "No active ComfyUI port found.", "error");
-      setError(elements, "OpenLayer could not find ComfyUI on the common local ports. Start ComfyUI and try again.");
+      setGlobalError(elements, "OpenLayer could not find ComfyUI on the common local ports. Start ComfyUI and try again.");
       updateSettingsReport(elements);
       return;
     }
@@ -1025,18 +1025,18 @@ export function renderApp(rootElement: HTMLElement) {
       updateUpscaleCompatibility(elements, upscaleSource);
       savePreferencesFromElements(elements);
       setGlobalStatus(elements, `Found ComfyUI at ${foundUrl}.`, "ready");
-      setDiagnostics(elements, `Active ComfyUI server selected: ${foundUrl}.`);
+      setGlobalDiagnostics(elements, `Active ComfyUI server selected: ${foundUrl}.`);
     } catch (caughtError) {
       setGlobalStatus(elements, `Found ${foundUrl}, but model loading failed.`, "error");
-      setError(elements, getErrorMessage(caughtError));
+      setGlobalError(elements, getErrorMessage(caughtError));
     } finally {
       updateSettingsReport(elements);
     }
   }
 
   async function handleDetectHardware() {
-    setDiagnostics(elements, "Detecting GPU and installed model families through ComfyUI...");
-    setError(elements, "");
+    setGlobalDiagnostics(elements, "Detecting GPU and installed model families through ComfyUI...");
+    setGlobalError(elements, "");
     setGlobalStatus(elements, "Detecting GPU...", "idle");
 
     try {
@@ -1047,21 +1047,21 @@ export function renderApp(rootElement: HTMLElement) {
 
       renderHardwareReport(elements, hardwareReport);
       setGlobalStatus(elements, "GPU recommendations ready.", "ready");
-      setDiagnostics(elements, formatHardwareReport(hardwareReport));
+      setGlobalDiagnostics(elements, formatHardwareReport(hardwareReport));
     } catch (caughtError) {
       hardwareReport = null;
       renderHardwareReport(elements, hardwareReport);
       setGlobalStatus(elements, "GPU detection failed.", "error");
-      setError(elements, getErrorMessage(caughtError));
-      setDiagnostics(elements, "Start ComfyUI, confirm the server URL, then run Detect GPU & Recommend Models again.");
+      setGlobalError(elements, getErrorMessage(caughtError));
+      setGlobalDiagnostics(elements, "Start ComfyUI, confirm the server URL, then run Detect GPU & Recommend Models again.");
     } finally {
       updateSettingsReport(elements);
     }
   }
 
   async function handleCheckWorkflowHealth() {
-    setDiagnostics(elements, "Checking workflow health against local ComfyUI...");
-    setError(elements, "");
+    setGlobalDiagnostics(elements, "Checking workflow health against local ComfyUI...");
+    setGlobalError(elements, "");
     setGlobalStatus(elements, "Checking workflow health...", "idle");
 
     try {
@@ -1078,13 +1078,13 @@ export function renderApp(rootElement: HTMLElement) {
       workflowHealthReport = report;
       renderWorkflowHealthReport(elements, workflowHealthReport);
       setGlobalStatus(elements, "Workflow health checked.", report.issueCount > 0 ? "idle" : "ready");
-      setDiagnostics(elements, report.summary);
+      setGlobalDiagnostics(elements, report.summary);
     } catch (caughtError) {
       workflowHealthReport = null;
       renderWorkflowHealthReport(elements, workflowHealthReport);
       setGlobalStatus(elements, "Workflow health check failed.", "error");
-      setError(elements, getErrorMessage(caughtError));
-      setDiagnostics(elements, "Start ComfyUI, confirm the server URL, then run Check Workflow Health again.");
+      setGlobalError(elements, getErrorMessage(caughtError));
+      setGlobalDiagnostics(elements, "Start ComfyUI, confirm the server URL, then run Check Workflow Health again.");
     } finally {
       updateSettingsReport(elements);
     }
@@ -1106,10 +1106,10 @@ export function renderApp(rootElement: HTMLElement) {
 
       await clipboard.writeText(reportText);
       setGlobalStatus(elements, "Diagnostics copied.", "ready");
-      setDiagnostics(elements, "Copied a compact OpenLayer diagnostics report to the clipboard.");
+      setGlobalDiagnostics(elements, "Copied a compact OpenLayer diagnostics report to the clipboard.");
     } catch {
       setGlobalStatus(elements, "Diagnostics ready to copy.", "ready");
-      setDiagnostics(elements, "Clipboard is unavailable here. The diagnostics report is shown below for manual copy.");
+      setGlobalDiagnostics(elements, "Clipboard is unavailable here. The diagnostics report is shown below for manual copy.");
     }
   }
 
@@ -1147,7 +1147,7 @@ export function renderApp(rootElement: HTMLElement) {
     const wasSaved = savePreferencesFromElements(elements);
     updateSettingsReport(elements);
     setGlobalStatus(elements, wasSaved ? "Settings saved." : "Settings are active for this session.", "ready");
-    setDiagnostics(
+    setGlobalDiagnostics(
       elements,
       wasSaved
         ? "Saved ComfyUI URL, checkpoint, generation defaults, and panel theme."
@@ -1168,9 +1168,9 @@ export function renderApp(rootElement: HTMLElement) {
     elements.upscaleWorkflow.value = DEFAULT_UPSCALE_WORKFLOW;
     fillSingleCheckpointSelect(elements.upscaleModel, FALLBACK_UPSCALE_MODELS, FALLBACK_UPSCALE_MODELS[0]);
     updateUpscaleCompatibility(elements, upscaleSource);
-    setError(elements, "");
+    setGlobalError(elements, "");
     setGlobalStatus(elements, "Settings reset to OpenLayer defaults.", "ready");
-    setDiagnostics(elements, "Defaults restored. Click Check ComfyUI to reload available models.");
+    setGlobalDiagnostics(elements, "Defaults restored. Click Check ComfyUI to reload available models.");
     updateSettingsReport(elements);
   }
 
@@ -1182,7 +1182,7 @@ export function renderApp(rootElement: HTMLElement) {
   function handleToggleAutoImport() {
     importAutomatically = !importAutomatically;
     updateAutoImportToggle(elements, importAutomatically);
-    setDiagnostics(elements, importAutomatically ? "Auto import is on." : "Auto import is off.");
+    setGlobalDiagnostics(elements, importAutomatically ? "Auto import is on." : "Auto import is off.");
     syncImportBridge();
   }
 
@@ -1233,7 +1233,7 @@ export function renderApp(rootElement: HTMLElement) {
     error: (elements: AppElements, message: string) => void;
     progress?: (elements: AppElements, message: string, blob?: Blob) => void;
   }> = {
-    "text-to-image": { status: setTextToImageStatus, diagnostics: setDiagnostics, error: setError, progress: setProgressPreview },
+    "text-to-image": { status: setTextToImageStatus, diagnostics: setGlobalDiagnostics, error: setGlobalError, progress: setProgressPreview },
     "image-to-image": { status: setImageStatus, diagnostics: setImageDiagnostics, error: setImageError, progress: setImageProgressPreview },
     "sketch-to-image": { status: setSketchStatus, diagnostics: setSketchDiagnostics, error: setSketchError, progress: setSketchProgressPreview },
     inpaint: { status: setInpaintStatus, diagnostics: setInpaintDiagnostics, error: setInpaintError, progress: setInpaintProgressPreview },
@@ -1269,7 +1269,7 @@ export function renderApp(rootElement: HTMLElement) {
     const active = generation.cancelActive();
 
     if (!active) {
-      setDiagnostics(elements, "No active generation to cancel.");
+      setGlobalDiagnostics(elements, "No active generation to cancel.");
       return;
     }
 
@@ -1309,15 +1309,15 @@ export function renderApp(rootElement: HTMLElement) {
       return;
     }
 
-    setDiagnostics(elements, `Generate pressed at ${new Date().toLocaleTimeString()}.`);
+    setGlobalDiagnostics(elements, `Generate pressed at ${new Date().toLocaleTimeString()}.`);
 
     if (!elements.prompt.value.trim()) {
-      setError(elements, getErrorMessage(createOpenLayerError("PROMPT_REQUIRED", "Enter a prompt before generating.")));
+      setGlobalError(elements, getErrorMessage(createOpenLayerError("PROMPT_REQUIRED", "Enter a prompt before generating.")));
       setTextToImageStatus(elements, "Prompt required.", "error");
       return;
     }
 
-    setError(elements, "");
+    setGlobalError(elements, "");
     setResult(null);
     busyTool = "text-to-image";
     isBusy = true;
@@ -1341,7 +1341,7 @@ export function renderApp(rootElement: HTMLElement) {
       const client = new ComfyClient(elements.serverUrl.value);
 
       applyValidatedSettings(elements, settings);
-      setDiagnostics(elements, warnings.length > 0 ? warnings.join(" ") : createWorkflowDiagnostics(preset, checkpointName));
+      setGlobalDiagnostics(elements, warnings.length > 0 ? warnings.join(" ") : createWorkflowDiagnostics(preset, checkpointName));
       await client.checkOnline();
 
       if (!checkpointName) {
@@ -1351,7 +1351,7 @@ export function renderApp(rootElement: HTMLElement) {
       const compatibility = getCheckpointCompatibility(checkpointName, preset);
 
       if (compatibility.isExperimental) {
-        setDiagnostics(elements, `${compatibility.label} ${compatibility.warning}`);
+        setGlobalDiagnostics(elements, `${compatibility.label} ${compatibility.warning}`);
       }
 
       setTextToImageStatus(elements, "Checking selected checkpoint...", "idle");
@@ -1416,11 +1416,11 @@ export function renderApp(rootElement: HTMLElement) {
 
       if (importAutomatically) {
         setTextToImageStatus(elements, "Generation complete. Auto-importing...", "idle");
-        setDiagnostics(elements, `Seed used: ${buildResult.seed}. Auto import is on.`);
+        setGlobalDiagnostics(elements, `Seed used: ${buildResult.seed}. Auto import is on.`);
         await handleImport("auto");
       } else {
         setTextToImageStatus(elements, "Generation complete.", "ready");
-        setDiagnostics(elements, `Seed used: ${buildResult.seed}. Workflow: ${buildResult.preset.id}.`);
+        setGlobalDiagnostics(elements, `Seed used: ${buildResult.seed}. Workflow: ${buildResult.preset.id}.`);
       }
 
       savePreferencesFromElements(elements, { seed: requestedSeed });
@@ -1432,8 +1432,8 @@ export function renderApp(rootElement: HTMLElement) {
       }
 
       setTextToImageStatus(elements, "Generation failed.", "error");
-      setError(elements, getErrorMessage(caughtError));
-      setDiagnostics(elements, getTechnicalErrorDetails(caughtError));
+      setGlobalError(elements, getErrorMessage(caughtError));
+      setGlobalDiagnostics(elements, getTechnicalErrorDetails(caughtError));
     } finally {
       isBusy = false;
       busyTool = null;
@@ -1445,12 +1445,12 @@ export function renderApp(rootElement: HTMLElement) {
     clearHistoryEntries(historyEntries, objectUrls);
     renderHistory(elements, historyEntries);
     setGlobalStatus(elements, "History cleared.", "ready");
-    setDiagnostics(elements, "Recent session history cleared.");
+    setGlobalDiagnostics(elements, "Recent session history cleared.");
   }
 
   function handleHistoryAction(action: HistoryActionName, historyId: string) {
     if (isBusy && action !== "preview") {
-      setDiagnostics(elements, "Finish the current operation before using history.");
+      setGlobalDiagnostics(elements, "Finish the current operation before using history.");
       return;
     }
 
@@ -1458,7 +1458,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     if (!entry) {
       setGlobalStatus(elements, "History item not found.", "error");
-      setError(elements, "That history item is no longer available in this session.");
+      setGlobalError(elements, "That history item is no longer available in this session.");
       return;
     }
 
@@ -1479,7 +1479,7 @@ export function renderApp(rootElement: HTMLElement) {
   }
 
   function loadHistoryResultIntoTool(entry: HistoryEntry) {
-    setError(elements, "");
+    setGlobalError(elements, "");
     setImageError(elements, "");
     setSketchError(elements, "");
     setInpaintError(elements, "");
@@ -1591,14 +1591,14 @@ export function renderApp(rootElement: HTMLElement) {
   }
 
   async function handleImport(source: "manual" | "auto" = "manual") {
-    setDiagnostics(elements, source === "auto" ? "Auto import started." : "Import pressed.");
+    setGlobalDiagnostics(elements, source === "auto" ? "Auto import started." : "Import pressed.");
 
     if (!result) {
-      setError(elements, "Generate an image before importing.");
+      setGlobalError(elements, "Generate an image before importing.");
       return;
     }
 
-    setError(elements, "");
+    setGlobalError(elements, "");
     busyTool = "text-to-image";
     isBusy = true;
     syncBusy();
@@ -1607,26 +1607,26 @@ export function renderApp(rootElement: HTMLElement) {
     try {
       const layerName = createLayerName("OpenLayer_Generated");
 
-      setDiagnostics(elements, `Importing into ${result.originatingDocument?.name || "the originating document"}...`);
+      setGlobalDiagnostics(elements, `Importing into ${result.originatingDocument?.name || "the originating document"}...`);
       const importedLayerName = await importGeneratedImageAsLayer({
         blob: result.blob,
         originatingDocument: result.originatingDocument,
         layerName,
         onProgress: (message) => {
           setTextToImageStatus(elements, message, "idle");
-          setDiagnostics(elements, message);
+          setGlobalDiagnostics(elements, message);
         }
       });
       setTextToImageStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
       flashImported(elements.statusText);
       markHistoryImported(elements, historyEntries, result, importedLayerName);
       const metadataMessage = await writeMetadataForImportedResult(historyEntries, result, importedLayerName, (message) => {
-        setDiagnostics(elements, message);
+        setGlobalDiagnostics(elements, message);
       });
-      setDiagnostics(elements, `Layer created: ${importedLayerName}. ${metadataMessage}`);
+      setGlobalDiagnostics(elements, `Layer created: ${importedLayerName}. ${metadataMessage}`);
     } catch (caughtError) {
       setTextToImageStatus(elements, "Import failed.", "error");
-      setError(elements, getErrorMessage(caughtError));
+      setGlobalError(elements, getErrorMessage(caughtError));
     } finally {
       isBusy = false;
       busyTool = null;
@@ -3949,7 +3949,7 @@ function updateTextCheckpointCompatibility(elements: AppElements) {
     const checkpointName = readSelectValue(elements.checkpoint);
     const message = createWorkflowDiagnosticMessage(preset, { selectedModelName: checkpointName });
 
-    setDiagnostics(elements, formatWorkflowDiagnosticMessage(message));
+    setGlobalDiagnostics(elements, formatWorkflowDiagnosticMessage(message));
     updateSettingsReport(elements);
   } catch {
     // Selection-change diagnostics should never break the panel.

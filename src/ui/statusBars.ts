@@ -321,9 +321,28 @@ function applyToolError(errorMessage: HTMLElement, message: string) {
   errorMessage.hidden = !message;
 }
 
-export function setError(elements: AppElements, message: string) {
+/**
+ * An error that belongs to the panel rather than to a tool: the ComfyUI
+ * connection, the port scan, GPU detection, workflow health, settings reset.
+ * It writes the Settings error line, where the server URL that usually fixes it
+ * lives, and the Text to Image line, which is the screen most likely to be open
+ * when startup falls back to the built-in model list.
+ *
+ * Nothing a single tool is doing may come through here. The six other tools each
+ * surface their own failures through their own setter, and Text to Image now has
+ * one too.
+ */
+export function setGlobalError(elements: AppElements, message: string) {
   applyToolError(elements.errorMessage, message);
   applyToolError(elements.settingsErrorMessage, message);
+}
+
+// Text to Image owns the unprefixed error element, the same leftover that gave
+// it the unprefixed status elements. Like every other per-tool error setter it
+// writes its own line only -- its "Enter a prompt before generating." has no
+// business appearing on the Settings screen.
+export function setTextToImageError(elements: AppElements, message: string) {
+  applyToolError(elements.errorMessage, message);
 }
 
 export function setImageError(elements: AppElements, message: string) {
@@ -350,7 +369,18 @@ export function setPromptLayerError(elements: AppElements, message: string) {
   applyToolError(elements.promptLayerErrorMessage, message);
 }
 
-export function setDiagnostics(elements: AppElements, message: string) {
+/**
+ * A diagnostic that belongs to the panel rather than to a tool: the ComfyUI
+ * connection, the port scan, the hardware report, workflow health, the settings
+ * screen, the session history.
+ *
+ * Nothing a single tool is doing may come through here. This used to be the only
+ * fan-out setter *and* Text to Image's own setter, so every "Generate pressed
+ * at...", "Seed used: ..." and workflow warning was written into the Inpaint,
+ * Upscale, Outpaint, Sketch, Image to Image and Prompt from Layer diagnostics
+ * lines as well.
+ */
+export function setGlobalDiagnostics(elements: AppElements, message: string) {
   elements.diagnosticsText.textContent = message;
   elements.imgDiagnosticsText.textContent = message;
   elements.sketchDiagnosticsText.textContent = message;
@@ -358,6 +388,15 @@ export function setDiagnostics(elements: AppElements, message: string) {
   elements.outpaintDiagnosticsText.textContent = message;
   elements.upscaleDiagnosticsText.textContent = message;
   elements.promptLayerDiagnosticsText.textContent = message;
+  elements.settingsDiagnosticsText.textContent = message;
+}
+
+// Text to Image owns the unprefixed diagnostics element. Like every other
+// per-tool diagnostics setter it writes its own line plus the Settings line,
+// which is the panel's catch-all log: Settings shows what every tool reported,
+// each tool shows only its own.
+export function setTextToImageDiagnostics(elements: AppElements, message: string) {
+  elements.diagnosticsText.textContent = message;
   elements.settingsDiagnosticsText.textContent = message;
 }
 
