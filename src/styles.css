@@ -7410,3 +7410,79 @@ body,
   font-size: 11px;
   text-align: center;
 }
+
+/* Import row. Styled from scratch like the rest of this block — the panel
+   renders outside .app-shell and inherits none of the compact theme's button
+   styling — and deliberately NOT with the dashboard's .button classes, which
+   would drag in theme-compact overrides that only resolve inside the shell.
+
+   flex: 0 0 auto keeps the row a fixed height under the stage, so the row
+   appearing when a result lands cannot resize anything above it. That is the
+   same failure the progress bar caused in the sticky header: UXP does not
+   reflow siblings below an element that changes size. */
+.openlayer-preview-panel-actions {
+  display: flex;
+  min-height: 24px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.openlayer-preview-panel-import,
+.openlayer-preview-panel-auto-import {
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  border: 1px solid #4a4a4a;
+  border-radius: 3px;
+  background: #383838;
+  color: #d7dde6;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+}
+
+.openlayer-preview-panel-import {
+  border-color: #3b6ea5;
+  background: #2f5c8a;
+  color: #f2f6fb;
+}
+
+.openlayer-preview-panel-import:hover {
+  border-color: #4a82bd;
+  background: #37699b;
+}
+
+.openlayer-preview-panel-auto-import:hover {
+  border-color: #5f5f5f;
+  background: #424242;
+}
+
+.openlayer-preview-panel-auto-import.is-active {
+  border-color: #3b6ea5;
+  background: #2f5c8a;
+  color: #f2f6fb;
+}
+
+/* Explicit disabled styling, and explicitly not via opacity alone: a disabled
+   Import button has to read as unavailable at a glance, because the reason it is
+   disabled (a run is active) is exactly when someone will jab at it. */
+.openlayer-preview-panel-import:disabled,
+.openlayer-preview-panel-import:disabled:hover {
+  border-color: #3f3f3f;
+  background: #333333;
+  color: #6f6f6f;
+  cursor: default;
+}
+
+.openlayer-preview-panel-import-status {
+  overflow: hidden;
+  flex: 1 1 auto;
+  color: #9a9a9a;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.openlayer-preview-panel-import-status.is-error {
+  color: #e06c6c;
+}

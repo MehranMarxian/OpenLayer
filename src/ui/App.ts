@@ -18,7 +18,8 @@ import {
   isGenerationCancelledError
 } from "../comfy/generationCancel";
 import { createObjectUrlRegistry, ObjectUrlRegistry } from "./objectUrlRegistry";
-import { previewHub, PreviewPublicationKind } from "./previewHub";
+import { previewHub, PreviewPublicationKind, PreviewToolId } from "./previewHub";
+import { importBridge } from "./importBridge";
 import {
   createGenerationController,
   GenerationPipelineUi,
@@ -344,6 +345,165 @@ export function renderApp(rootElement: HTMLElement) {
       upscaleSource
     });
     updateInpaintReferenceControlLock(elements, isBusy && busyTool === "inpaint");
+    syncImportBridge();
+  }
+
+  /**
+   * Points the separated Preview panel's Import button at the handler the
+   * dashboard button already uses.
+   *
+   * Every entry reuses an existing handler untouched. That is the whole point:
+   * A1's frozen document identity, A2's mask ordering assertion, A3's
+   * transactional cleanup and B1's readiness contract all live inside those
+   * handlers, and none of them is reachable from the blob the panel is showing.
+   *
+   * The outcome reported back to the panel is *read out of the tool's own status
+   * bar* after the handler settles, rather than inferred from whether the call
+   * threw. The handlers deliberately swallow their failures — each catches, sets
+   * an error status and returns — so a wrapper watching for exceptions would
+   * report every failed import as a success. Reading the status the handler just
+   * wrote means the panel cannot say anything the dashboard is not also saying.
+   */
+  function registerImportBridgeHandlers() {
+    type ImportRegistration = {
+      toolId: PreviewToolId;
+      run: () => void | Promise<void>;
+      statusText: HTMLElement;
+      /** Absent for Live Painting, which has a status line but no pill. */
+      statusPill?: HTMLElement;
+      toggleAutoImport?: () => void;
+    };
+
+    const registrations: ImportRegistration[] = [
+      {
+        toolId: "text-to-image",
+        run: () => handleImport("manual"),
+        statusText: elements.statusText,
+        statusPill: elements.statusPill,
+        toggleAutoImport: handleToggleAutoImport
+      },
+      {
+        toolId: "image-to-image",
+        run: handleImportImg2Img,
+        statusText: elements.imgStatusText,
+        statusPill: elements.imgStatusPill,
+        toggleAutoImport: handleToggleImg2ImgAutoImport
+      },
+      {
+        toolId: "sketch-to-image",
+        run: handleImportSketch,
+        statusText: elements.sketchStatusText,
+        statusPill: elements.sketchStatusPill
+      },
+      {
+        toolId: "inpaint",
+        run: () => handleImportInpaint(),
+        statusText: elements.inpaintStatusText,
+        statusPill: elements.inpaintStatusPill
+      },
+      {
+        toolId: "outpaint",
+        run: () => handleImportOutpaint(),
+        statusText: elements.outpaintStatusText,
+        statusPill: elements.outpaintStatusPill
+      },
+      {
+        toolId: "upscale",
+        run: handleImportUpscale,
+        statusText: elements.upscaleStatusText,
+        statusPill: elements.upscaleStatusPill
+      },
+      {
+        toolId: "live-painting",
+        run: handleImportLiveResult,
+        statusText: elements.liveStatusText,
+        toggleAutoImport: handleToggleLiveAutoImport
+      }
+    ];
+
+    for (const registration of registrations) {
+      importBridge.register(registration.toolId, {
+        requestImport: () => {
+          importBridge.reportOutcome({
+            toolId: registration.toolId,
+            status: "importing",
+            message: "Importing into Photoshop..."
+          });
+
+          void Promise.resolve()
+            .then(() => registration.run())
+            .then(() => {
+              const message = registration.statusText.textContent?.trim() || "Import finished.";
+              const failed = registration.statusPill
+                ? registration.statusPill.classList.contains("error")
+                : /fail|error/i.test(message);
+
+              importBridge.reportOutcome({
+                toolId: registration.toolId,
+                status: failed ? "failed" : "imported",
+                message
+              });
+            })
+            .catch((caughtError) => {
+              // A handler is not expected to throw, but if one ever does the
+              // panel must not be left saying "Importing..." forever.
+              importBridge.reportOutcome({
+                toolId: registration.toolId,
+                status: "failed",
+                message: getErrorMessage(caughtError)
+              });
+            });
+        },
+        toggleAutoImport: registration.toggleAutoImport
+      });
+    }
+  }
+
+  /**
+   * Tells the separated Preview panel what its Import button may do right now.
+   *
+   * Called from `syncBusy` on purpose: that is the one place the dashboard's own
+   * import buttons are enabled and disabled, so the panel gets the same answer
+   * from the same inputs instead of a second derivation that could disagree.
+   * `isBusy` is the A4 single-run lockout, and the per-tool result is the same
+   * gate `BUSY_GATED_ACTIONS` uses. The bridge drops unchanged snapshots, so
+   * calling this on every state change does not churn the panel during a live
+   * sequence.
+   */
+  function syncImportBridge() {
+    const canImport = (hasResult: unknown) => !isBusy && Boolean(hasResult);
+
+    importBridge.publishCapability("text-to-image", {
+      canImport: canImport(result),
+      auto: { isEnabled: importAutomatically }
+    });
+    importBridge.publishCapability("image-to-image", {
+      canImport: canImport(imageResult),
+      auto: { isEnabled: imageImportAutomatically }
+    });
+    importBridge.publishCapability("sketch-to-image", {
+      canImport: canImport(sketchResult),
+      auto: null
+    });
+    importBridge.publishCapability("inpaint", {
+      canImport: canImport(inpaintResult),
+      auto: null
+    });
+    importBridge.publishCapability("outpaint", {
+      canImport: canImport(outpaintResult),
+      auto: null
+    });
+    importBridge.publishCapability("upscale", {
+      canImport: canImport(upscaleResult),
+      auto: null
+    });
+    // Live Painting's import button is gated on liveLastResult by hand rather
+    // than through the busy tables, so its capability is derived the same way
+    // here instead of being read off the button.
+    importBridge.publishCapability("live-painting", {
+      canImport: canImport(liveLastResult),
+      auto: { isEnabled: liveImportAutomatically }
+    });
   }
 
   rootElement.innerHTML = createAppMarkup();
@@ -638,6 +798,7 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.importLiveRefinedButton, actionHandlers.importLiveRefined);
   bindActionControl(elements.liveAutoImportToggle, actionHandlers.toggleLiveAutoImport);
   bindActionControl(elements.liveAutoRefineToggle, actionHandlers.toggleLiveAutoRefine);
+  registerImportBridgeHandlers();
   bindDelegatedActions(rootElement, actionHandlers);
   bindDocumentActions(rootElement, actionHandlers);
   bindHomeSectionToggles(rootElement);
@@ -970,18 +1131,21 @@ export function renderApp(rootElement: HTMLElement) {
     importAutomatically = !importAutomatically;
     updateAutoImportToggle(elements, importAutomatically);
     setDiagnostics(elements, importAutomatically ? "Auto import is on." : "Auto import is off.");
+    syncImportBridge();
   }
 
   function handleToggleImg2ImgAutoImport() {
     imageImportAutomatically = !imageImportAutomatically;
     updateImg2ImgAutoImportToggle(elements, imageImportAutomatically);
     setImageDiagnostics(elements, imageImportAutomatically ? "Image to Image auto import is on." : "Image to Image auto import is off.");
+    syncImportBridge();
   }
 
   function handleToggleUpscaleAutoImport() {
     upscaleImportAutomatically = !upscaleImportAutomatically;
     updateUpscaleAutoImportToggle(elements, upscaleImportAutomatically);
     setUpscaleDiagnostics(elements, upscaleImportAutomatically ? "Upscale auto import is on." : "Upscale auto import is off.");
+    syncImportBridge();
   }
 
   function handleToggleExperimentalCheckpoints() {
@@ -3366,6 +3530,7 @@ export function renderApp(rootElement: HTMLElement) {
         ? "The latest live result will import automatically when the session stops."
         : "Live auto import is off."
     );
+    syncImportBridge();
   }
 
   function updateLiveAutoImportToggle(isEnabled: boolean) {
@@ -3454,6 +3619,9 @@ export function renderApp(rootElement: HTMLElement) {
 
     liveLastResult = bindDocumentContext({ blob }, originatingDocument);
     setActionDisabled(elements.importLiveButton, false);
+    // Live Painting gates its import button by hand rather than through the busy
+    // tables, so the preview panel is told here too.
+    syncImportBridge();
   }
 
   function setResult(nextResult: AppGeneratedImageResult | null) {
