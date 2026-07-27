@@ -136,6 +136,14 @@ const INPAINT_CONTEXT_MULTIPLE = 8;
 // captures can exhaust UXP panel memory before the upload even starts.
 export const MAX_CAPTURE_PIXELS = 4096 * 4096;
 
+// Inpaint was the only caller that could hit this, so its phrasing is the
+// default and must stay byte-identical -- a test pins the exact sentence.
+export const DEFAULT_SELECTION_REQUESTER = "using Inpaint";
+
+export function createNoSelectionMessage(requestedBy: string = DEFAULT_SELECTION_REQUESTER) {
+  return `No active Photoshop selection was found. Make a selection before ${requestedBy}.`;
+}
+
 export function assertCaptureSizeWithinLimit(width: number, height: number) {
   if (width * height > MAX_CAPTURE_PIXELS) {
     throw createOpenLayerError(
@@ -812,7 +820,7 @@ export async function exportSelectionAsPNG(): Promise<ExportedSourceImage> {
     const capturedSource = await photoshop.core.executeAsModal(
       async () => {
         const document = getActiveDocument();
-        const selection = await readActiveSelectionInfo(photoshop, document);
+        const selection = await readActiveSelectionInfo(photoshop, document, "exporting a selection");
 
         if (typeof document.id !== "number") {
           throw createOpenLayerError(
@@ -864,7 +872,7 @@ export async function exportSelectionMask(): Promise<SelectionMaskExport> {
     const capturedMask = await photoshop.core.executeAsModal(
       async () => {
         const document = getActiveDocument();
-        const selection = await readActiveSelectionInfo(photoshop, document);
+        const selection = await readActiveSelectionInfo(photoshop, document, "exporting a selection mask");
 
         return {
           selection,
@@ -1103,9 +1111,15 @@ export async function preserveSelection<T>(_operation: PreserveSelectionOperatio
   );
 }
 
+// The caller names itself so the no-selection message can say what the artist
+// was actually doing. This helper predates any use outside Inpaint, so its
+// message hard-coded "before using Inpaint" -- which reads as a non sequitur
+// when the artist pressed Export Selection. Inpaint's wording is the default
+// so its behavior is unchanged.
 async function readActiveSelectionInfo(
   photoshop: PhotoshopModule,
-  document: PhotoshopDocument
+  document: PhotoshopDocument,
+  requestedBy = DEFAULT_SELECTION_REQUESTER
 ): Promise<ActiveSelectionInfo> {
   const selectionDescriptor = await getSelectionDescriptor(photoshop);
   const bounds = readSelectionBounds(selectionDescriptor);
@@ -1113,7 +1127,7 @@ async function readActiveSelectionInfo(
   if (!bounds) {
     throw createOpenLayerError(
       "PHOTOSHOP_NO_SELECTION",
-      "No active Photoshop selection was found. Make a selection before using Inpaint."
+      createNoSelectionMessage(requestedBy)
     );
   }
 
