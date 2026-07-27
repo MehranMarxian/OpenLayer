@@ -39,23 +39,19 @@ export async function runSaveFilePickerSpike(suggestedName: string): Promise<Sav
     return { kind: "unsupported" };
   }
 
-  const getFileForSaving = uxp.storage?.localFileSystem?.getFileForSaving;
+  const localFileSystem = uxp.storage?.localFileSystem;
 
   // An older or differently-provisioned UXP build may simply not have it. That
   // is a real answer, not a crash, and it decides whether Layer Tools can offer
   // "save as" at all.
-  if (typeof getFileForSaving !== "function") {
+  if (typeof localFileSystem?.getFileForSaving !== "function") {
     return { kind: "unsupported" };
   }
 
   let file: UxpFile | null;
 
   try {
-    // Called outside executeAsModal on purpose. This opens OS-level UI, and
-    // Photoshop's modal scope is for document mutation; if this turns out to
-    // need a modal, the thrown error is exactly what the spike should surface
-    // rather than something to guess at in advance.
-    file = await getFileForSaving(suggestedName, { types: ["png"] });
+    file = await openSaveDialog(localFileSystem, suggestedName);
   } catch (caughtError) {
     return { kind: "failed", stage: "picker", message: describeError(caughtError) };
   }
@@ -76,6 +72,30 @@ export async function runSaveFilePickerSpike(suggestedName: string): Promise<Sav
   }
 
   return { kind: "saved", fileName: file.name, byteLength: bytes.byteLength };
+}
+
+export type SaveDialogHost = {
+  getFileForSaving?: (
+    suggestedName: string,
+    options?: { types?: readonly string[] }
+  ) => Promise<UxpFile | null>;
+};
+
+// Split out so the receiver can be regression-tested without Photoshop. The
+// first run of this spike pulled getFileForSaving off localFileSystem to
+// typeof-check it and then called it bare, so `this` was undefined inside UXP
+// and it threw "Cannot read properties of undefined" before any dialog
+// appeared. The method must be invoked on its object.
+//
+// Called outside executeAsModal on purpose. This opens OS-level UI, and
+// Photoshop's modal scope is for document mutation; if this turns out to need
+// a modal, the thrown error is what the spike should surface rather than
+// something to guess at in advance.
+export async function openSaveDialog(
+  host: SaveDialogHost,
+  suggestedName: string
+): Promise<UxpFile | null> {
+  return host.getFileForSaving!(suggestedName, { types: ["png"] });
 }
 
 // A flat magenta square with an opaque black border. Chosen so that a file that

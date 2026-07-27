@@ -4,8 +4,46 @@ import { decodeRgbaPng } from "../../src/utils/png";
 import {
   createSpikeImageBytes,
   describeSaveFilePickerOutcome,
+  openSaveDialog,
   type SaveFilePickerOutcome
 } from "../../src/utils/saveFilePicker";
+
+// Regression for the spike's own first failure in Photoshop. The method was
+// pulled off localFileSystem to typeof-check it and then called bare, so `this`
+// was undefined inside UXP and it threw before any dialog appeared. Nothing in
+// TypeScript catches a detached method; only calling it can.
+describe("save dialog invocation", () => {
+  it("calls getFileForSaving on its host so the receiver survives", async () => {
+    const observed = { called: false, receiverWasHost: false };
+    const host = {
+      async getFileForSaving(this: unknown) {
+        observed.called = true;
+        observed.receiverWasHost = this === host;
+
+        return null;
+      }
+    };
+
+    await openSaveDialog(host, "spike.png");
+
+    expect(observed).toEqual({ called: true, receiverWasHost: true });
+  });
+
+  it("passes the suggested name and a png type filter", async () => {
+    const calls: unknown[][] = [];
+    const host = {
+      async getFileForSaving(...args: unknown[]) {
+        calls.push(args);
+
+        return null;
+      }
+    };
+
+    await openSaveDialog(host, "OpenLayer_SavePickerSpike.png");
+
+    expect(calls).toEqual([["OpenLayer_SavePickerSpike.png", { types: ["png"] }]]);
+  });
+});
 
 // The picker call itself needs Photoshop and is Mehran's smoke test. What can
 // be checked here is that the bytes the spike offers to write are a real PNG,
