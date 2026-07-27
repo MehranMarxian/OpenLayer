@@ -136,6 +136,8 @@ import {
   getUpscaleFailureHint
 } from "./toolErrorMessages";
 import { createLayerName, sweepStaleTemporaryFiles } from "../utils/fileUtils";
+// SPIKE (v0.9 Layer Tools task 0): remove with src/utils/saveFilePicker.ts.
+import { describeSaveFilePickerOutcome, runSaveFilePickerSpike } from "../utils/saveFilePicker";
 import {
   clearOpenLayerPreferences,
   loadOpenLayerPreferences,
@@ -687,6 +689,7 @@ export function renderApp(rootElement: HTMLElement) {
     detectHardware: createActionRunner(elements, "detectHardware", handleDetectHardware),
     checkWorkflowHealth: createActionRunner(elements, "checkWorkflowHealth", handleCheckWorkflowHealth),
     copyDiagnostics: createActionRunner(elements, "copyDiagnostics", handleCopyDiagnostics),
+    saveFilePickerSpike: createActionRunner(elements, "saveFilePickerSpike", handleSaveFilePickerSpike),
     saveSettings: createActionRunner(elements, "saveSettings", handleSaveSettings),
     resetSettings: createActionRunner(elements, "resetSettings", handleResetSettings),
     toggleNegativePrompt: createActionRunner(elements, "toggleNegativePrompt", handleToggleNegativePrompt),
@@ -754,6 +757,7 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.detectHardwareButton, actionHandlers.detectHardware);
   bindActionControl(elements.checkWorkflowHealthButton, actionHandlers.checkWorkflowHealth);
   bindActionControl(elements.copyDiagnosticsButton, actionHandlers.copyDiagnostics);
+  bindActionControl(elements.saveFilePickerSpikeButton, actionHandlers.saveFilePickerSpike);
   bindActionControl(elements.saveSettingsButton, actionHandlers.saveSettings);
   bindActionControl(elements.resetSettingsButton, actionHandlers.resetSettings);
   bindActionControl(elements.negativePromptToggle, actionHandlers.toggleNegativePrompt);
@@ -1088,6 +1092,33 @@ export function renderApp(rootElement: HTMLElement) {
     } catch {
       setGlobalStatus(elements, "Diagnostics ready to copy.", "ready");
       setDiagnostics(elements, "Clipboard is unavailable here. The diagnostics report is shown below for manual copy.");
+    }
+  }
+
+  // SPIKE (v0.9 Layer Tools task 0): remove with src/utils/saveFilePicker.ts.
+  // Reports the outcome into the diagnostics line so the answer survives on
+  // screen instead of only in the UXP console, and so a failure message can be
+  // copied out verbatim rather than retyped from a screenshot.
+  async function handleSaveFilePickerSpike() {
+    setGlobalStatus(elements, "Opening the save dialog...", "idle");
+
+    try {
+      const outcome = await runSaveFilePickerSpike("OpenLayer_SavePickerSpike.png");
+      const summary = describeSaveFilePickerOutcome(outcome);
+
+      setGlobalStatus(
+        elements,
+        outcome.kind === "saved" ? "Save picker spike: saved." : `Save picker spike: ${outcome.kind}.`,
+        outcome.kind === "failed" ? "error" : "ready"
+      );
+      setDiagnostics(elements, summary);
+    } catch (caughtError) {
+      // Nothing should reach here — the spike returns its failures. If this
+      // fires, the interesting fact is that it threw where it was designed
+      // not to, so say that rather than hiding it behind a generic message.
+      const message = `Save picker spike threw instead of returning an outcome: ${getErrorMessage(caughtError)}`;
+      setGlobalStatus(elements, "Save picker spike: unexpected throw.", "error");
+      setDiagnostics(elements, message);
     }
   }
 

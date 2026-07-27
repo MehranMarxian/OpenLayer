@@ -94,7 +94,9 @@ describe("busy-state tables", () => {
       ...BUSY_GATED_ACTIONS.map(({ button }) => button)
     ];
 
-    expect(plainActions).toHaveLength(29);
+    // 30 includes the temporary save-picker spike button. Removing the spike
+    // takes this back to 29 — see src/utils/saveFilePicker.ts.
+    expect(plainActions).toHaveLength(30);
     expect(BUSY_GATED_ACTIONS).toHaveLength(11);
     expect(new Set(allActions).size).toBe(allActions.length);
   });
@@ -148,6 +150,7 @@ describe("busy-state tables", () => {
       "detectHardwareButton",
       "checkWorkflowHealthButton",
       "copyDiagnosticsButton",
+      "saveFilePickerSpikeButton",
       "saveSettingsButton",
       "resetSettingsButton",
       "clearHistoryButton"

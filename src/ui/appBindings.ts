@@ -24,6 +24,7 @@ export type ActionName =
   | "detectHardware"
   | "checkWorkflowHealth"
   | "copyDiagnostics"
+  | "saveFilePickerSpike"
   | "saveSettings"
   | "resetSettings"
   | "toggleNegativePrompt"

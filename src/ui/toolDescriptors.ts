@@ -96,6 +96,7 @@ export const BUSY_ALWAYS_DISABLED_ACTIONS: readonly ActionElementKey[] = [
   "detectHardwareButton",
   "checkWorkflowHealthButton",
   "copyDiagnosticsButton",
+  "saveFilePickerSpikeButton",
   "saveSettingsButton",
   "resetSettingsButton",
   "generateButton",
