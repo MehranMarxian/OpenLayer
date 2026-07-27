@@ -341,7 +341,8 @@ npm run build</code></pre>
               <li>Custom workflow import, LoRA browser, batch variants, and true persistent Photoshop AI layer metadata are future work. v0.8.0 keeps the shared metadata foundation and session-history wiring.</li>
               <li>CI does not run Photoshop, UXP, or ComfyUI integration tests.</li>
               <li>Live sampler previews require ComfyUI to be started with <code>--preview-method auto</code>.</li>
-              <li>A thin separator below the screen navigation renders at the wrong width in Photoshop UXP. This is cosmetic and deferred.</li>
+              <li>One preset, <code>img2img-z-image-turbo</code>, has an editable source workflow that does not match its API twin. The preset still runs; the source is held back until it is re-exported.</li>
+              <li>Progress is shown in the generation status panel rather than pinned to the screen header, so it scrolls with the form.</li>
               <li>The ComfyUI setup pack ships the requirements list and a downloader, not the model weights. An internet connection is required.</li>
             </ul>
           </details>
@@ -373,7 +374,7 @@ npm run build</code></pre>
             </article>
             <article>
               <h3>v0.8 · Correctness and maintainability</h3>
-              <p>Persistent preview pinning, complete editable workflow sources with source/API drift checks, three user-visible fixes, and a smaller <code>App.ts</code>.</p>
+              <p>Persistent preview pinning, the missing editable workflow sources plus a source/API drift check, four user-visible fixes to status and progress, and a smaller <code>App.ts</code>.</p>
             </article>
             <article>
               <h3>Next · Reliability and artist control</h3>

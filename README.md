@@ -16,10 +16,10 @@ New in `v0.8.0-alpha`:
 
 - The separated **OpenLayer Preview** panel can now stay pinned to one tool instead of always following the latest generation. Its selection persists across sessions.
 - Status updates now stay with the correct tool instead of Text to Image progress appearing in Inpaint, Upscale, and the other tool screens.
-- Technical error details no longer crash while explaining a failure, and tool headers no longer overlap the first panel section when generation begins.
+- Technical error details no longer crash while explaining a failure, and the progress bar no longer paints over the first section of the form. The bar has moved out of the sticky header and back under the status text it describes, so nothing in the header changes size when a run starts.
 - All four previously missing editable GUI source workflows are included, with a checker that compares every GUI source workflow with its API-format twin.
 - ESLint now runs in CI and rejects browser globals such as `TextEncoder` and `TextDecoder` that Node provides but Photoshop UXP does not.
-- `App.ts` has been reduced from 8,149 lines originally to 4,917 by extracting error messages, status handling, and DOM event wiring. A separate CSS audit measures consolidation work without changing styles in this release.
+- `App.ts` has been reduced from 6,112 lines at v0.7.0 to 4,922 — down from a peak of 8,149 — by extracting error messages, status handling, and DOM event wiring. A separate CSS audit measures consolidation work without changing styles in this release.
 
 Included in this alpha:
 
@@ -90,9 +90,9 @@ v0.8.0-alpha tester focus:
 
 - Open **Plugins > OpenLayer Preview**, pin it to one tool, generate with another, and confirm the panel stays pinned and restores that choice in a later session.
 - Start Text to Image and confirm progress appears only in its own status bar; return Home and confirm the shared status row does not appear on tool screens.
-- Watch a sticky tool header before and during a run. Its height should remain fixed, and the progress bar must not cover the first panel section.
+- Watch a sticky tool header before and during a run. There should be no progress bar in the header at all, its height should not change, and the bar should appear under the status text in the generation status panel with nothing painted over it.
 - Exercise an error path and open its technical details to confirm the original failure is reported without a second crash.
-- Run the workflow checks and setup-pack build to confirm every registered editable GUI workflow is present and still matches its API-format twin.
+- Run `npm run setup-pack` and confirm the only source/API mismatch it reports is `img2img-z-image-turbo`.
 - Recheck the existing local generation, cancel, preview, import, History, and Workflow Health paths for regressions.
 
 Known v0.8.0-alpha boundaries:
@@ -121,7 +121,9 @@ Known v0.8.0-alpha boundaries:
 - The setup pack contains no model weights. They are roughly 85 GB and two are licence-restricted, so it ships the requirements list and a downloader instead. An internet connection is required.
 - Inpaint and Outpaint remain experimental and should be tested on duplicate layers or disposable documents.
 - CI covers pure TypeScript behavior but does not run Photoshop, UXP Developer Tool, or ComfyUI integration tests.
-- A thin separator below the screen navigation renders at the wrong width in Photoshop UXP. This is cosmetic and deferred.
+- `img2img-z-image-turbo` is the one preset whose editable source workflow does not match its API twin. The checker reports the differing nodes and omits that source from the setup pack's `REQUIREMENTS.md` until it is re-exported; the preset still runs, because the API workflow is what OpenLayer submits.
+- The status fix covers the status bars only. The diagnostics line and the error text still mirror across tools, and that fix is deferred.
+- Progress is no longer pinned while a tool's form is scrolled, which is the accepted cost of taking the progress bar out of the sticky header.
 - The v0.8.0 release focuses on correctness and maintainability. Existing generation capabilities should remain compatible with v0.7.0.
 - Layer, canvas, and mask capture is limited to 16 megapixels (4096 x 4096) until a downscale option is added.
 - Live sampler previews require ComfyUI to be started with `--preview-method auto`, and the preview panel may flicker between steps until a future UI polish pass.
