@@ -1,5 +1,40 @@
 # Changelog
 
+## v0.8.0-alpha - 2026-07-27
+
+Correctness-and-maintainability release with no new generation capability: it stops one tool's status appearing in another's status bar, fixes the error-details crash and the progress bar painting over the form, closes the preview-pinning and missing-source-workflow limitations from v0.7, and continues breaking up `App.ts`.
+
+### Added
+
+- Added a tool selector to the separated Preview panel so it can stay pinned to one tool instead of always following the latest publisher. The selection has its own `localStorage` key and survives restarts.
+- Added a workflow-pair checker that compares every editable GUI source workflow with its API-format twin. The previous checks could catch a missing file or a mismatch with the preset registry, but could not detect source/API drift.
+- Exported the four editable GUI source workflows that registered presets named but the repository did not contain: `txt2img-basic`, `img2img-basic`, `sketch2img-linecn-basic`, and `inpaint-basic`. Ten of the eleven presets that claim an editable source now ship one.
+- Added ESLint to CI, including a rule that rejects `TextEncoder` and `TextDecoder` in `src/`. Node provides those globals, so TypeScript and Vitest could accept code that would fail in Photoshop UXP.
+- Added `npm run audit-css` and `docs/css-audit.md` to measure the current stylesheet before consolidation. This release records the duplication but deliberately changes no CSS.
+
+### Changed
+
+- Continued decomposing `App.ts` by extracting tool error messages, status-bar handling, and the DOM event wiring into `toolErrorMessages.ts` (296 lines), `statusBars.ts` (383), and `appBindings.ts` (631). `App.ts` has fallen from 6,112 lines at v0.7.0 to 4,922, and from a peak of 8,149, making these behaviors easier to test and change in isolation.
+- Wrote down how the two assistants working on this project divide the work, in `docs/ORCHESTRATION.md`: one implements, the other reviews, and each contribution is a separate commit so a pull request shows who did what.
+- Bumped plugin, package, visible UI, and landing page metadata to `0.8.0` / `v0.8.0-alpha`.
+
+### Fixed
+
+- Fixed `getTechnicalErrorDetails` crashing while trying to explain another failure. Extracting the error-message helpers exposed the bad path and allowed it to be covered directly.
+- Fixed Text to Image progress appearing in Inpaint, Upscale, and the other tool status bars. The old `setStatus` wrote the global bar and all seven tool and Settings bars on every call; global and Text to Image status now have separate update paths.
+- Fixed the home-screen status row rendering on every tool screen and colliding with the sticky header during generation. It now stays on Home because each tool already shows the same message in its own status bar.
+- Fixed the progress bar painting over the first section of the form during a run. Since v0.6 the bar had been moved up into the sticky screen header, which made the header change height the moment a run started, and Photoshop UXP does not reflow the panels below a sticky element that resizes. The bar now stays where the markup puts it, in the generation status panel under the status text it describes, and the sticky header holds the navigation and nothing else, at a constant height on every screen. The trade-off is that progress no longer stays pinned while the form is scrolled.
+- Removed the hairline below the screen navigation, which Photoshop UXP drew as a stray part-width line rather than the full-width rule a browser draws. The header's own opaque background already separates it from the form.
+
+### Known limitations
+
+- The setup pack contains no model weights. They are roughly 85 GB and two are licence-restricted, so it ships the list and the downloader instead — an internet connection is required.
+- Inpaint and Outpaint remain experimental and should be tested on duplicate layers or disposable documents.
+- CI covers pure TypeScript behavior but does not run Photoshop, UXP Developer Tool, or ComfyUI integration tests.
+- `img2img-z-image-turbo` is the one preset whose editable source workflow does not match its API twin — the new checker reports the differing nodes and omits that source from the setup pack's `REQUIREMENTS.md` until it is re-exported. The preset itself still runs, because the API workflow is what OpenLayer submits.
+- The status fix covers the status bars only. The diagnostics line and the error text still mirror across tools: `setDiagnostics` writes all eight diagnostics lines, and `setError` writes both the Text to Image and the Settings error line. Same shape of fix, deferred to a later release.
+- Progress is no longer visible while a tool's form is scrolled past the status panel, which is the accepted cost of taking the bar out of the sticky header.
+
 ## v0.7.0-alpha - 2026-07-25
 
 Release focused on getting previews out of the cramped side panel and getting a new machine to a working ComfyUI without guesswork.
