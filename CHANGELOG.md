@@ -1,5 +1,36 @@
 # Changelog
 
+## v0.8.0-alpha - 2026-07-27
+
+Correctness-and-maintainability release with no new generation capability: it fixes status bleed, the error-details crash, and header overlap, closes preview pinning and missing source-workflow limitations from v0.7, and continues breaking up `App.ts`.
+
+### Added
+
+- Added a tool selector to the separated Preview panel so it can stay pinned to one tool instead of always following the latest publisher. The selection has its own `localStorage` key and survives restarts.
+- Added a workflow-pair checker that compares every editable GUI source workflow with its API-format twin. The previous checks could catch a missing file or a mismatch with the preset registry, but could not detect source/API drift.
+- Exported the four editable GUI source workflows that registered presets named but the repository did not contain, so every advertised source workflow is now available.
+- Added ESLint to CI, including a rule that rejects `TextEncoder` and `TextDecoder` in `src/`. Node provides those globals, so TypeScript and Vitest could accept code that would fail in Photoshop UXP.
+- Added `npm run audit-css` and `docs/css-audit.md` to measure the current stylesheet before consolidation. This release records the duplication but deliberately changes no CSS.
+
+### Changed
+
+- Continued decomposing `App.ts` by extracting tool error messages, status-bar handling, and 614 lines of DOM event wiring into `toolErrorMessages.ts`, `statusBars.ts`, and `appBindings.ts`. `App.ts` has fallen from 8,149 lines originally to 4,917, making these behaviors easier to test and change in isolation.
+- Bumped plugin, package, visible UI, and landing page metadata to `0.8.0` / `v0.8.0-alpha`.
+
+### Fixed
+
+- Fixed `getTechnicalErrorDetails` crashing while trying to explain another failure. Extracting the error-message helpers exposed the bad path and allowed it to be covered directly.
+- Fixed Text to Image progress appearing in Inpaint, Upscale, and the other tool status bars. The old `setStatus` wrote all seven bars at once; global and Text to Image status now have separate update paths.
+- Fixed the home-screen status row rendering on every tool screen and colliding with the sticky header during generation. It now stays on Home because each tool already shows the same message in its own status bar.
+- Fixed the sticky tool header growing by 14 pixels when a run began and painting its progress bar over the first panel section. Its progress-bar box is now reserved while idle and hidden by colour, avoiding the resize that Photoshop UXP does not reflow below a sticky element.
+
+### Known limitations
+
+- The setup pack contains no model weights. They are roughly 85 GB and two are licence-restricted, so it ships the list and the downloader instead — an internet connection is required.
+- Inpaint and Outpaint remain experimental and should be tested on duplicate layers or disposable documents.
+- CI covers pure TypeScript behavior but does not run Photoshop, UXP Developer Tool, or ComfyUI integration tests.
+- A thin separator below the screen navigation renders at the wrong width in Photoshop UXP. This is cosmetic and deferred.
+
 ## v0.7.0-alpha - 2026-07-25
 
 Release focused on getting previews out of the cramped side panel and getting a new machine to a working ComfyUI without guesswork.
