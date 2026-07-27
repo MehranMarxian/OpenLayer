@@ -1,0 +1,188 @@
+name: Tester report
+description: Report how the five-minute test went — whether it worked or not
+title: "[Tester]: "
+labels: ["tester-report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for testing OpenLayer.
+
+        **Please send this whether or not it worked.** A report that stops at "ComfyUI never connected"
+        is more useful than a successful run, because the failures are the ones that cannot be
+        reproduced on the author's machine.
+
+        In OpenLayer, **Settings > Copy Diagnostics** fills in most of the technical fields below. It
+        prepares the report locally and puts it on your clipboard — nothing is sent anywhere by the
+        plugin, so read it and remove anything you would rather not share.
+
+  - type: markdown
+    attributes:
+      value: "## Your setup"
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: Windows 11 24H2 / macOS 15.2
+    validations:
+      required: true
+  - type: input
+    id: photoshop
+    attributes:
+      label: Photoshop version
+      description: Help > About Photoshop. OpenLayer requires 2024 (25.0) or newer.
+      placeholder: Photoshop 2025 (26.1)
+    validations:
+      required: true
+  - type: input
+    id: gpu
+    attributes:
+      label: GPU and VRAM
+      placeholder: RTX 4070 Ti, 12 GB
+    validations:
+      required: true
+  - type: input
+    id: comfy_version
+    attributes:
+      label: ComfyUI version
+      description: Shown in the ComfyUI terminal at startup, or in OpenLayer's diagnostics report.
+      placeholder: "0.27.1"
+    validations:
+      required: true
+  - type: input
+    id: openlayer_version
+    attributes:
+      label: OpenLayer version
+      description: Shown in the panel footer.
+      placeholder: v0.9.0-alpha
+    validations:
+      required: true
+  - type: input
+    id: workflow
+    attributes:
+      label: Workflow preset used
+      placeholder: txt2img-basic
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Model / checkpoint
+      placeholder: epicrealism_naturalSinRC1VAE.safetensors
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: "## What happened"
+
+  - type: dropdown
+    id: install_succeeded
+    attributes:
+      label: Did installation succeed?
+      description: The panel loaded in Photoshop through the UXP Developer Tool.
+      options:
+        - "Yes"
+        - "No"
+        - "Yes, but only after troubleshooting"
+    validations:
+      required: true
+  - type: dropdown
+    id: generation_succeeded
+    attributes:
+      label: Did generation succeed?
+      description: ComfyUI produced an image and OpenLayer showed it.
+      options:
+        - "Yes"
+        - "No"
+        - "Did not get this far"
+    validations:
+      required: true
+  - type: dropdown
+    id: import_succeeded
+    attributes:
+      label: Did the Photoshop import succeed?
+      description: A generated layer landed in your document. This is the one that matters most.
+      options:
+        - "Yes"
+        - "No"
+        - "Did not get this far"
+    validations:
+      required: true
+  - type: dropdown
+    id: failure_stage
+    attributes:
+      label: Where did it stop?
+      description: If you got a layer into your document, choose "Nothing failed".
+      options:
+        - Nothing failed
+        - Installation
+        - ComfyUI connection
+        - Generation
+        - Preview
+        - Import
+    validations:
+      required: true
+  - type: dropdown
+    id: time_to_first_layer
+    attributes:
+      label: Time to first layer
+      description: From opening the instructions to a generated layer in your document. Choose "Never got there" if you did not.
+      options:
+        - Under 5 minutes
+        - 5 to 15 minutes
+        - 15 to 30 minutes
+        - 30 to 60 minutes
+        - Over an hour
+        - Never got there
+    validations:
+      required: true
+  - type: dropdown
+    id: unassisted
+    attributes:
+      label: Did you get there without help?
+      description: Help means asking the author, opening a discussion, or following advice from an existing issue. Searching the docs on your own does not count as help.
+      options:
+        - "Yes, on my own"
+        - "No, I needed help"
+        - "I never got there"
+    validations:
+      required: true
+  - type: textarea
+    id: failure_detail
+    attributes:
+      label: What did the failure look like?
+      description: The exact message, what you had just clicked, and anything in the ComfyUI terminal or the UXP console. Skip if nothing failed.
+
+  - type: markdown
+    attributes:
+      value: "## What it felt like"
+
+  - type: textarea
+    id: first_confusion
+    attributes:
+      label: The first moment you were confused
+      description: The earliest point where you were not sure what to do next, even if you worked it out. This is the most valuable field on the form.
+    validations:
+      required: true
+  - type: input
+    id: missing_feature
+    attributes:
+      label: One feature you expected and could not find
+      placeholder: I looked for a way to send a layer to ComfyUI without generating
+  - type: dropdown
+    id: would_use_again
+    attributes:
+      label: Would you use it again?
+      options:
+        - "Yes"
+        - "No"
+        - "Maybe, once something specific is fixed"
+    validations:
+      required: true
+  - type: textarea
+    id: anything_else
+    attributes:
+      label: Anything else
+      description: Optional. Screenshots welcome.

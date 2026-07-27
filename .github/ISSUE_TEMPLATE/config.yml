@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: New here? Start with the five-minute test
+    url: https://mehran-ahmadi.com/OpenLayer/become-a-tester.html
+    about: Install, connect ComfyUI, generate one image, import one layer — then send a tester report.
+  - name: Setup help
+    url: https://github.com/MehranMarxian/OpenLayer/discussions/categories/setup-help
+    about: Stuck and not sure whether it is a bug? Ask here first.
+  - name: Feature requests and ideas
+    url: https://github.com/MehranMarxian/OpenLayer/discussions/categories/feature-requests
+    about: Discuss what OpenLayer should do next. Ideas that firm up become issues.
+  - name: Show your results
+    url: https://github.com/MehranMarxian/OpenLayer/discussions/categories/show-your-results
+    about: Post what you made with it. Seeing real artwork shapes the roadmap more than any list.

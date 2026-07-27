@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Become an OpenLayer Tester — Five Minutes to Your First AI Layer</title>
+    <meta
+      name="description"
+      content="Test OpenLayer, the free open-source Photoshop plugin for ComfyUI. Install, connect, generate one image, import one layer, and send a structured report — about five minutes."
+    >
+    <link rel="canonical" href="https://mehran-ahmadi.com/OpenLayer/become-a-tester.html">
+    <meta name="theme-color" content="#000000">
+    <meta property="og:title" content="Become an OpenLayer Tester">
+    <meta property="og:description" content="Five minutes: install, connect ComfyUI, generate one image, import one layer, tell us where it broke.">
+    <meta property="og:image" content="https://mehran-ahmadi.com/OpenLayer/assets/openlayer-v060-social.jpg">
+    <meta property="og:url" content="https://mehran-ahmadi.com/OpenLayer/become-a-tester.html">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Become an OpenLayer Tester">
+    <meta name="twitter:description" content="Five minutes: install, connect ComfyUI, generate one image, import one layer, tell us where it broke.">
+    <meta name="twitter:image" content="https://mehran-ahmadi.com/OpenLayer/assets/openlayer-v060-social.jpg">
+    <link rel="icon" href="assets/openlayer-icon-152.png">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="bg-glow" aria-hidden="true"></div>
+
+    <header class="site-header" aria-label="Primary navigation">
+      <a class="brand" href="./" aria-label="OpenLayer home">
+        <img src="assets/openlayer-icon-152.png" alt="" width="34" height="34">
+        <span>OpenLayer</span>
+      </a>
+      <nav>
+        <a href="./">Overview</a>
+        <a href="./#setup">Setup</a>
+        <a href="./#status">Status</a>
+        <a class="nav-cta" href="https://github.com/MehranMarxian/OpenLayer">GitHub</a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="hero-badge"><span class="pulse-dot" aria-hidden="true"></span> Alpha v0.9.0 &middot; testers wanted</p>
+          <h1 id="hero-title">Five minutes to<br><span class="grad">your first AI layer.</span></h1>
+          <p class="hero-lede">
+            OpenLayer is an alpha. It works on the author's machine, and that is exactly the problem —
+            one machine, one GPU, one Photoshop install. What it needs now is
+            <strong>the five minutes between downloading it and getting one generated layer into a document</strong>,
+            and an honest report of where those five minutes went wrong.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="https://github.com/MehranMarxian/OpenLayer/releases/tag/v0.9.0-alpha">Download v0.9.0-alpha</a>
+            <a class="button button-secondary" href="https://github.com/MehranMarxian/OpenLayer/issues/new?template=tester_report.yml">Send a tester report</a>
+          </div>
+          <ul class="signal-list" aria-label="What testing costs you">
+            <li>~5 minutes</li>
+            <li>No account needed beyond GitHub</li>
+            <li>Nothing is uploaded from the plugin</li>
+            <li>Failures are the useful reports</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="intro" aria-labelledby="intro-title">
+        <div class="section-inner">
+          <p class="eyebrow">Before you start</p>
+          <h2 id="intro-title">What you need on the machine.</h2>
+          <p class="intro-lede">
+            Photoshop 2024 or newer (the plugin manifest requires host version 25.0.0), a running
+            <a href="https://github.com/comfyanonymous/ComfyUI">ComfyUI</a> with at least one SD 1.x or SDXL
+            checkpoint installed, and the
+            <a href="https://developer.adobe.com/photoshop/uxp/2022/guides/devtool/">UXP Developer Tool</a>
+            to load the panel. If you do not have a checkpoint yet, the setup pack attached to the release
+            lists every model OpenLayer's presets need, with download URLs and the exact folder each one
+            belongs in.
+          </p>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="path-title">
+        <div class="section-inner">
+          <div class="section-heading">
+            <p class="eyebrow">The five-minute path</p>
+            <h2 id="path-title">Install, connect, generate, import, report.</h2>
+          </div>
+          <div class="setup-grid">
+            <article class="setup-step">
+              <span>1</span>
+              <h3>Install OpenLayer</h3>
+              <p>Download <code>openlayer-v0.9.0-alpha.zip</code> from the release and unzip it. In the UXP Developer Tool, click <strong>Add Plugin</strong>, select the unzipped <code>manifest.json</code>, then <strong>Load</strong>. The panel appears under <strong>Plugins &gt; OpenLayer</strong> in Photoshop.</p>
+            </article>
+            <article class="setup-step">
+              <span>2</span>
+              <h3>Connect ComfyUI</h3>
+              <pre><code>python main.py --listen 127.0.0.1 --port 8190</code></pre>
+              <p>In OpenLayer, open <strong>Settings</strong> and click <strong>Check ComfyUI</strong>. If the port is different, click <strong>Find ComfyUI Active Port</strong> instead. You should see your checkpoints appear.</p>
+            </article>
+            <article class="setup-step">
+              <span>3</span>
+              <h3>Generate one image</h3>
+              <p>Open a document in Photoshop. In OpenLayer go to <strong>Text to Image</strong>, pick a checkpoint, type any prompt, and click <strong>Generate</strong>. Leave every other setting alone.</p>
+            </article>
+            <article class="setup-step">
+              <span>4</span>
+              <h3>Import one layer</h3>
+              <p>When the result appears, click <strong>Import to Layers</strong>. A new layer should land in the document you started from. <strong>That single layer is the whole test.</strong></p>
+            </article>
+            <article class="setup-step">
+              <span>5</span>
+              <h3>Send the report</h3>
+              <p>Open the <a href="https://github.com/MehranMarxian/OpenLayer/issues/new?template=tester_report.yml">tester report form</a> and fill it in — whether you got the layer or not. In Settings, <strong>Copy Diagnostics</strong> fills in most of the technical fields for you.</p>
+            </article>
+          </div>
+          <p class="setup-note">
+            <strong>Stop wherever it breaks and report from there.</strong> A report that says "step 2, Check ComfyUI
+            never returned" is more useful than a completed run, because the failure is the thing that cannot be
+            reproduced on the author's machine.
+          </p>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="report-title">
+        <div class="section-inner">
+          <div class="section-heading">
+            <p class="eyebrow">What to report</p>
+            <h2 id="report-title">Specifics, not opinions.</h2>
+          </div>
+          <p class="section-lede">
+            "What do you think?" produces answers nobody can act on. The form asks for these instead, and
+            every field exists because it has already explained a real bug — a model in the wrong folder, a
+            port collision, a mask read from the wrong layer.
+          </p>
+          <div class="status-grid">
+            <article class="status-card">
+              <h3>Your setup</h3>
+              <ul class="check-list">
+                <li>Operating system</li>
+                <li>Photoshop version</li>
+                <li>GPU and VRAM</li>
+                <li>ComfyUI version</li>
+                <li>OpenLayer version</li>
+                <li>Workflow preset used</li>
+                <li>Model / checkpoint</li>
+              </ul>
+            </article>
+            <article class="status-card">
+              <h3>What happened</h3>
+              <ul class="check-list">
+                <li>Did installation succeed?</li>
+                <li>Did generation succeed?</li>
+                <li>Did the Photoshop import succeed?</li>
+                <li>Which stage failed, if any: install, ComfyUI connection, generation, preview, or import</li>
+                <li>How many minutes from opening these instructions to a layer in your document</li>
+              </ul>
+            </article>
+            <article class="status-card">
+              <h3>What it felt like</h3>
+              <ul class="check-list">
+                <li>The first moment you were confused</li>
+                <li>One feature you expected and could not find</li>
+                <li>Would you use it again?</li>
+              </ul>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="privacy-title">
+        <div class="section-inner">
+          <div class="section-heading">
+            <p class="eyebrow">Privacy</p>
+            <h2 id="privacy-title">The plugin sends nothing anywhere.</h2>
+          </div>
+          <p class="section-lede">
+            OpenLayer has no telemetry, no analytics, and no crash reporting. It talks to your ComfyUI server
+            and to nothing else. <strong>Copy Diagnostics</strong> prepares a text report locally and puts it on
+            your clipboard — you read it, you decide what to paste, and you can delete anything you would rather
+            not share. Everything the project knows about how testing went is what testers choose to send.
+          </p>
+        </div>
+      </section>
+
+      <section class="closing" aria-labelledby="closing-title">
+        <div class="closing-inner">
+          <h2 id="closing-title">Ready?</h2>
+          <p>
+            Download the build, spend five minutes, and tell us where it went wrong. If you would rather
+            talk it through than file a report, the discussion board has a Setup Help category.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="https://github.com/MehranMarxian/OpenLayer/releases/tag/v0.9.0-alpha">Download v0.9.0-alpha</a>
+            <a class="button button-secondary" href="https://github.com/MehranMarxian/OpenLayer/discussions">Open discussions</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>OpenLayer v0.9.0-alpha. Developed by Mehran Ahmadi, 2026.</p>
+      <p>
+        <a href="./">Overview</a> &middot;
+        <a href="https://github.com/MehranMarxian/OpenLayer">GitHub</a>
+      </p>
+    </footer>
+  </body>
+</html>
