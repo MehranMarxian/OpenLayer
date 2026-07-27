@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Re-exported `img2img-z-image-turbo`'s editable source workflow, which held the vendor's Z-Image *text-to-image* demo graph rather than the image-to-image graph OpenLayer submits — no `LoadImage` or `VAEEncode`, an `EmptySD3LatentImage` generating a blank latent, one prompt encoder instead of two, and a bypassed LoRA loader. Nothing failed at runtime, because OpenLayer submits the API workflow and never the source; the cost was that anyone opening the file to learn the workflow got a graph that cannot do image to image. This was the last entry in the equivalence checker's known-mismatch list, so the list is now empty and the setup pack advertises an editable source for all eleven presets that claim one.
+
 ## v0.8.0-alpha - 2026-07-27
 
 Correctness-and-maintainability release with no new generation capability: it stops one tool's status appearing in another's status bar, fixes the error-details crash and the progress bar painting over the form, closes the preview-pinning and missing-source-workflow limitations from v0.7, and continues breaking up `App.ts`.
