@@ -7077,10 +7077,12 @@ body,
   margin: 0;
   padding: 0 0 8px;
   background: transparent;
-}
-
-.app-shell.theme-compact .screen-head .status-progress {
-  margin: 0 0 7px !important;
+  /* No rule under the nav. The nav inherits a border-bottom from the base
+     .screen-nav rule, and in UXP it renders as a stray part-width line rather
+     than the full-width hairline a browser draws. The sticky header already
+     separates itself from the form by sitting on its own opaque background,
+     so the border earns nothing here. */
+  border-bottom: 0 !important;
 }
 
 /* v0.6 #6: one consistent form gutter. Drive spacing purely from the panel
@@ -7170,13 +7172,6 @@ body,
   color: #9fe0b5 !important;
 }
 
-/* #7: the header progress bar renders as one clean full-width bar. */
-.app-shell.theme-compact .screen-head .status-progress {
-  width: 100% !important;
-  margin: 0 0 6px !important;
-  border-radius: 999px !important;
-}
-
 /* v0.6 final UXP hardening.
    Keep these rules deliberately simple: Photoshop's UXP renderer is more
    reliable with explicit margins, pixel radii, and fixed textarea heights. */
@@ -7240,59 +7235,6 @@ body,
 
 .app-shell.theme-compact .screen-head .tool-info-button {
   margin: 0 0 0 9px !important;
-}
-
-/* A bordered four-pixel track is more stable in UXP than a border-radius
-   pill. Remove the legacy percentage pseudo-label from the tiny track. */
-.app-shell.theme-compact .screen-head .status-progress {
-  display: block !important;
-  clear: both !important;
-  box-sizing: border-box !important;
-  width: 100% !important;
-  min-width: 100% !important;
-  max-width: 100% !important;
-  height: 6px !important;
-  margin: 0 0 8px !important;
-  padding: 1px !important;
-  overflow: hidden !important;
-  border: 1px solid #696969 !important;
-  border-radius: 3px !important;
-  background: #343434 !important;
-}
-
-/* The sticky header must not change height when a run starts. Hiding the
-   progress bar with display:none made the header grow mid-generation, and
-   Photoshop's UXP renderer does not reflow the panels below a sticky element
-   that resizes - so the bar was painted over the first section. The idle bar
-   therefore keeps its box and is made invisible instead.
-
-   It is painted the header's own colour rather than hidden, because UXP
-   ignores visibility:hidden here: the first attempt at this fix left the track
-   and its legacy 42%-wide fill (line 6749) showing as a stray half-width rule
-   under the nav in Photoshop, while looking correct in a browser. Colour is
-   the one mechanism both renderers agree on. */
-.app-shell.theme-compact .screen-head .status-progress[hidden] {
-  display: block !important;
-  border-color: #535353 !important;
-  background: #535353 !important;
-}
-
-.app-shell.theme-compact .screen-head .status-progress[hidden] > span {
-  width: 0 !important;
-  margin-left: 0 !important;
-  background: #535353 !important;
-  animation: none !important;
-}
-
-.app-shell.theme-compact .screen-head .status-progress > span {
-  display: block !important;
-  height: 2px !important;
-  border-radius: 1px !important;
-}
-
-.app-shell.theme-compact .screen-head .status-progress.is-determinate::after {
-  content: none !important;
-  display: none !important;
 }
 
 /* Textareas have no HTML character limit. Removing the compact max-height and
