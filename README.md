@@ -10,9 +10,14 @@ OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop t
 
 ## Alpha Release
 
-`v0.8.0-alpha` is the current public alpha checkpoint. It is intended for testing the core local workflows and the release's correctness fixes in Photoshop UXP, not for production work yet.
+`v0.8.1-alpha` is the current public alpha checkpoint. It is intended for testing the core local workflows and the 0.8 correctness fixes in Photoshop UXP, not for production work yet.
 
-New in `v0.8.0-alpha`:
+New in `v0.8.1-alpha`:
+
+- The separated **OpenLayer Preview** panel now has its own **Import** buttons, so a result can be placed into the document from the large preview instead of only from the dashboard thumbnail. The buttons act on the image currently on screen, stay disabled during a run and on live sampler frames, and report the outcome on their own status line.
+- `img2img-z-image-turbo`'s editable source workflow is correct. It previously held the vendor's text-to-image demo graph, so opening it to learn the workflow showed a graph that cannot do image to image. Generation was never affected.
+
+Also new in the 0.8 series:
 
 - The separated **OpenLayer Preview** panel can now stay pinned to one tool instead of always following the latest generation. Its selection persists across sessions.
 - Status updates now stay with the correct tool instead of Text to Image progress appearing in Inpaint, Upscale, and the other tool screens.
@@ -86,8 +91,10 @@ The earlier card-based dashboard established OpenLayer's honest available/experi
 
 </details>
 
-v0.8.0-alpha tester focus:
+v0.8.1-alpha tester focus:
 
+- Open **Plugins > OpenLayer Preview**, generate, and import the result using the panel's own **Import** button. Confirm the layer lands in the same document the generation started from, and that the panel's status line reports what happened.
+- Confirm the panel's Import button is disabled while a run is in progress and on live sampler frames, and enabled again once a result is committed.
 - Open **Plugins > OpenLayer Preview**, pin it to one tool, generate with another, and confirm the panel stays pinned and restores that choice in a later session.
 - Start Text to Image and confirm progress appears only in its own status bar; return Home and confirm the shared status row does not appear on tool screens.
 - Watch a sticky tool header before and during a run. There should be no progress bar in the header at all, its height should not change, and the bar should appear under the status text in the generation status panel with nothing painted over it.
@@ -95,7 +102,7 @@ v0.8.0-alpha tester focus:
 - Run `npm run setup-pack` and confirm it reports no source/API mismatches at all.
 - Recheck the existing local generation, cancel, preview, import, History, and Workflow Health paths for regressions.
 
-Known v0.8.0-alpha boundaries:
+Known v0.8.1-alpha boundaries:
 
 - Image to Image is an early foundation path, not a full production workflow yet.
 - Sketch to Image is limited to the first SD 1.x LINECN starter workflow.
@@ -123,7 +130,8 @@ Known v0.8.0-alpha boundaries:
 - CI covers pure TypeScript behavior but does not run Photoshop, UXP Developer Tool, or ComfyUI integration tests.
 - The status fix covers the status bars only. The diagnostics line and the error text still mirror across tools, and that fix is deferred.
 - Progress is no longer pinned while a tool's form is scrolled, which is the accepted cost of taking the progress bar out of the sticky header.
-- The v0.8.0 release focuses on correctness and maintainability. Existing generation capabilities should remain compatible with v0.7.0.
+- The 0.8 releases focus on correctness and maintainability. Existing generation capabilities should remain compatible with v0.7.0.
+- The Preview panel offers each tool's primary import only. Live Painting's "Import Refined as Layer" stays on the dashboard.
 - Layer, canvas, and mask capture is limited to 16 megapixels (4096 x 4096) until a downscale option is added.
 - Live sampler previews require ComfyUI to be started with `--preview-method auto`, and the preview panel may flicker between steps until a future UI polish pass.
 - Classic v0.4 theme preserves the older visual feel, but it does not duplicate every old layout detail.
@@ -253,7 +261,7 @@ npm run package
 This creates a zip package from `dist` in the `packages` folder. For the current alpha, the expected package name is:
 
 ```text
-packages/openlayer-v0.8.0-alpha.zip
+packages/openlayer-v0.8.1-alpha.zip
 ```
 
 ## Loading In UXP Developer Tool
@@ -380,7 +388,7 @@ Inpaint output quality, mask interpretation, and Photoshop alignment are still b
 
 ## Pre-release Tester Checklist
 
-Use this quick pass before reporting a v0.8.0-alpha test result:
+Use this quick pass before reporting a v0.8.1-alpha test result:
 
 1. Start ComfyUI on `http://127.0.0.1:8190`.
 2. Build OpenLayer and load `dist/manifest.json` in Adobe UXP Developer Tool.

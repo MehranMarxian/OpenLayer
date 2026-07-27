@@ -1,10 +1,25 @@
 # Changelog
 
-## Unreleased
+## v0.8.1-alpha - 2026-07-27
+
+A small follow-up to v0.8.0 carrying two changes that missed that tag. The reason it exists as its own release rather than waiting for v0.9 is the first entry below: the separated Preview panel gained its Import buttons the day after v0.8.0 shipped, and handing testers a build without them would spend a round of feedback on the panel's least finished state.
+
+### Added
+
+- Added the Import buttons to the separated Preview panel, so a result can be placed into the document from the large preview where it is actually being judged, instead of only from the thumbnail on the dashboard. The panel does not import anything itself — it forwards the request to the same seven import handlers the dashboard uses, because those handlers own the document-identity binding, the mask-ordering assertion, the transactional cleanup, and Inpaint's readiness contract. A preview image on its own carries no record of which document it came from, so importing it directly would place pixels into whichever document happened to be active.
+- The panel's buttons follow the image on screen rather than the pinned tool, stay disabled during a run and on mid-generation live frames, and report the outcome on their own status line so the result is visible when the dashboard is docked out of sight. The auto-import toggle appears only for the three tools that have that setting — Text to Image, Image to Image, and Live Painting.
 
 ### Fixed
 
 - Re-exported `img2img-z-image-turbo`'s editable source workflow, which held the vendor's Z-Image *text-to-image* demo graph rather than the image-to-image graph OpenLayer submits — no `LoadImage` or `VAEEncode`, an `EmptySD3LatentImage` generating a blank latent, one prompt encoder instead of two, and a bypassed LoRA loader. Nothing failed at runtime, because OpenLayer submits the API workflow and never the source; the cost was that anyone opening the file to learn the workflow got a graph that cannot do image to image. This was the last entry in the equivalence checker's known-mismatch list, so the list is now empty and the setup pack advertises an editable source for all eleven presets that claim one.
+
+### Known limitations
+
+- The Preview panel offers each tool's primary import only. Live Painting's second action, "Import Refined as Layer", is not on the panel, because the refined result is a separate image and the panel shows one at a time.
+- The status fix from v0.8.0 still covers the status bars only. The diagnostics line and the error text continue to mirror across tools: `setDiagnostics` writes all eight diagnostics lines, and `setError` writes both the Text to Image and the Settings error line. Same shape of fix, still deferred.
+- The setup pack contains no model weights. They are roughly 85 GB and two are licence-restricted, so it ships the list and the downloader instead — an internet connection is required.
+- Inpaint and Outpaint remain experimental and should be tested on duplicate layers or disposable documents.
+- CI covers pure TypeScript behavior but does not run Photoshop, UXP Developer Tool, or ComfyUI integration tests.
 
 ## v0.8.0-alpha - 2026-07-27
 
