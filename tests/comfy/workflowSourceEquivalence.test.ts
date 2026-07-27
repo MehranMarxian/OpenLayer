@@ -17,12 +17,7 @@ const SRC_ROOT = resolve(__dirname, "../../src");
  * still mismatch, so fixing one fails here and forces the entry to be deleted
  * rather than left behind as a stale excuse.
  */
-const KNOWN_MISMATCHES: Record<string, string> = {
-  "img2img-z-image-turbo":
-    "The shipped source is the vendor's Z-Image *text-to-image* demo (EmptySD3LatentImage, " +
-    "ConditioningZeroOut, a bypassed LoRA loader) rather than the image-to-image graph OpenLayer " +
-    "submits (LoadImage + VAEEncode, two CLIPTextEncode). Needs a real export; tracked as v0.8 Task 5."
-};
+const KNOWN_MISMATCHES: Record<string, string> = {};
 
 function loadPair(presetId: string, workflowFile: string, sourceWorkflowFile: string) {
   return {

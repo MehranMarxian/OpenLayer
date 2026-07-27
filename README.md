@@ -92,7 +92,7 @@ v0.8.0-alpha tester focus:
 - Start Text to Image and confirm progress appears only in its own status bar; return Home and confirm the shared status row does not appear on tool screens.
 - Watch a sticky tool header before and during a run. There should be no progress bar in the header at all, its height should not change, and the bar should appear under the status text in the generation status panel with nothing painted over it.
 - Exercise an error path and open its technical details to confirm the original failure is reported without a second crash.
-- Run `npm run setup-pack` and confirm the only source/API mismatch it reports is `img2img-z-image-turbo`.
+- Run `npm run setup-pack` and confirm it reports no source/API mismatches at all.
 - Recheck the existing local generation, cancel, preview, import, History, and Workflow Health paths for regressions.
 
 Known v0.8.0-alpha boundaries:
@@ -121,7 +121,6 @@ Known v0.8.0-alpha boundaries:
 - The setup pack contains no model weights. They are roughly 85 GB and two are licence-restricted, so it ships the requirements list and a downloader instead. An internet connection is required.
 - Inpaint and Outpaint remain experimental and should be tested on duplicate layers or disposable documents.
 - CI covers pure TypeScript behavior but does not run Photoshop, UXP Developer Tool, or ComfyUI integration tests.
-- `img2img-z-image-turbo` is the one preset whose editable source workflow does not match its API twin. The checker reports the differing nodes and omits that source from the setup pack's `REQUIREMENTS.md` until it is re-exported; the preset still runs, because the API workflow is what OpenLayer submits.
 - The status fix covers the status bars only. The diagnostics line and the error text still mirror across tools, and that fix is deferred.
 - Progress is no longer pinned while a tool's form is scrolled, which is the accepted cost of taking the progress bar out of the sticky header.
 - The v0.8.0 release focuses on correctness and maintainability. Existing generation capabilities should remain compatible with v0.7.0.
