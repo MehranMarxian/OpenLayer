@@ -147,6 +147,20 @@ main {
   background: var(--surface-2);
 }
 
+/* Outlined rather than filled: it is a way back out of the site, so it should
+   read as a button without competing with the gold call to action beside it. */
+.site-header nav .nav-home {
+  border: 1px solid var(--border);
+  padding: 0.35rem 0.7rem;
+  font-weight: 500;
+}
+
+.site-header nav .nav-home:hover {
+  color: var(--text);
+  background: var(--surface-2);
+  border-color: var(--gold);
+}
+
 .site-header nav .nav-cta {
   color: #131313;
   background: var(--gold);
