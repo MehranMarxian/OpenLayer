@@ -54,7 +54,7 @@ Extract from below `renderApp`; leave the closure alone.
 - `src/ui/appMarkup.ts` / `appConstants.ts` — HTML builders + `AppElements`; shared constants/tool cards.
 - `src/ui/inpaintReadiness.ts` — pure readiness contract, `generate`/`import` modes.
 - `src/comfy/*` — client, preset registry (the source of truth for workflows/nodes/models), workflow builder, compatibility/health, Flux Fill defaults (+ `presetLocksSamplerControls` UI lock predicate).
-- `src/photoshop/*` — the host adapter. **Everything here is unverifiable outside Photoshop.** Change with extreme care and always give Mehran a specific smoke checklist.
+- `src/photoshop/*` — the host adapter. **Everything here is unverifiable outside Photoshop.** Change with extreme care and always give Mehran a specific smoke checklist. Capture and import are different risk classes; see §5a before delegating any of it.
 - `src/styles.css` — ~7,000 lines, TWO themes; **`theme-compact` is the active one**, and it redeclares selectors many times, some with `!important`. Known trap: a base-theme rule that "should" work is often overridden by a compact `!important` block deeper in the file (this bit us twice). Always grep for `theme-compact <selector>` and check what wins. Theme consolidation is wanted but unscheduled.
 
 ## 4. Working protocol with Mehran
@@ -102,10 +102,32 @@ one commit, the fix in the next.
 be written down in advance and checked by `typecheck`/`lint`/`test`: relocations, table-driven
 refactors, adding coverage to pure functions. `appBindings.ts` is the canonical example.
 
-**What not to delegate.** Anything requiring host judgement or safety context: the Photoshop adapter,
-the invariants in §2, UXP-specific traps, and any change where deciding *what* to build is the hard
-part. A cold-started worker cannot know that `placeEvent` clears the selection or that UXP has no
-`TextEncoder`, and a brief long enough to convey it is longer than the change.
+**What not to delegate.** Anything requiring host judgement or safety context: the invariants in §2,
+UXP-specific traps, and any change where deciding *what* to build is the hard part. A cold-started
+worker cannot know that `placeEvent` clears the selection or that UXP has no `TextEncoder`, and a
+brief long enough to convey it is longer than the change.
+
+**The Photoshop adapter is not one thing, and this rule used to say it was.** v0.9 delegated the
+capture half of `photoshopAdapter.ts` successfully, so the line is drawn finer than "never touch
+`src/photoshop/*`":
+
+- **Import is not delegable.** It carries the invariants — mask ordering (A2), transactional
+  snapshot and cleanup (A3), document-identity binding (A1). It mutates the artist's document, and
+  every one of those invariants exists because something already went wrong once.
+- **Capture is delegable with an explicit boundary in the brief.** It is read-only: no document
+  mutation, no layer-stack changes, nothing to roll back if it fails. `exportActiveLayerAsPNG` and
+  `exportSelectionAsPNG` were implemented by Codex in PR #50 and the review pass found a divergence
+  worth keeping, not a safety problem — Codex used the selection's own bounds where the brief said
+  context bounds, and was right, because padding exists for the inpaint model and not for an artist
+  exporting what they selected.
+
+The boundary has to be stated in the brief, not assumed. "Work in `photoshopAdapter.ts`" is not a
+scope; "implement these two capture functions on the existing capture path, do not touch the import
+functions or `photoshopTransaction.ts`" is.
+
+Note also what made this safe beyond the read-only property: the capture path already existed and
+was proven by `exportActiveLayerForImageToImage`. Delegating *new* host code, against an API nobody
+has called from this project yet, is a different risk — spike it yourself first, as in PR #49.
 
 **Do not delegate for the sake of it.** Briefing costs real time and a cold start costs about eight
 minutes; below roughly a hundred lines of mechanical work, writing the brief costs more than doing
