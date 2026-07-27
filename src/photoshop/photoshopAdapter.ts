@@ -750,20 +750,110 @@ export async function importImageAlignedToSelectionWithLayerMask(
   }
 }
 
-export async function exportActiveLayerAsPNG(): Promise<Blob> {
-  // TODO(v0.4): Use this for mask-aware inpainting when selected-layer PNG export is fully verified.
-  throw createOpenLayerError(
-    "PHOTOSHOP_EXPORT_FAILED",
-    "Dedicated selected-layer PNG file export is planned for a future OpenLayer inpainting release. Current Image to Image and Sketch capture already encode source pixels as PNG through the Imaging API path."
-  );
+// Captures the active layer's pixels and returns the full source image so its
+// originating Photoshop document remains bound to the PNG instead of being lost with a bare Blob.
+export async function exportActiveLayerAsPNG(): Promise<ExportedSourceImage> {
+  const photoshop = getPhotoshop();
+  const imaging = getImagingApi(photoshop);
+
+  try {
+    const capturedSource = await photoshop.core.executeAsModal(
+      async () => {
+        const document = getActiveDocument();
+        const activeLayer = document.activeLayers?.[0];
+
+        if (!activeLayer) {
+          throw createOpenLayerError(
+            "PHOTOSHOP_EXPORT_FAILED",
+            "No active Photoshop layer was found. Select a pixel or smart object layer before exporting."
+          );
+        }
+
+        if (typeof document.id !== "number" || typeof activeLayer.id !== "number") {
+          throw createOpenLayerError(
+            "PHOTOSHOP_EXPORT_FAILED",
+            "Photoshop did not expose a stable document or layer ID for the active layer.",
+            "Active layer export needs document.id and activeLayer.id."
+          );
+        }
+
+        return captureSourceImage(imaging, {
+          pixelOptions: {
+            documentID: document.id,
+            layerID: activeLayer.id,
+            componentSize: 8,
+            colorSpace: "RGB",
+            applyAlpha: false
+          },
+          filenamePrefix: "OpenLayer_Layer",
+          sourceName: activeLayer.name || "Active layer",
+          originatingDocument: readDocumentIdentity(document)
+        });
+      },
+      { commandName: "Export OpenLayer Active Layer" }
+    );
+
+    return createExportedSourceImage(capturedSource);
+  } catch (caughtError) {
+    throw createOpenLayerError(
+      "PHOTOSHOP_EXPORT_FAILED",
+      `Could not export the active Photoshop layer. ${getErrorMessage(caughtError)}`
+    );
+  }
 }
 
-export async function exportSelectionAsPNG(): Promise<Blob> {
-  // TODO(v0.5): Export selected pixels as a standalone PNG when this path is verified separately.
-  throw createOpenLayerError(
-    "PHOTOSHOP_EXPORT_FAILED",
-    "Dedicated selected-pixels PNG export is planned for a future OpenLayer inpainting release. The current Inpaint foundation captures selection bounds as a PNG source image."
-  );
+// Captures the current selection's pixels and returns the full source image so its
+// originating Photoshop document remains bound to the PNG instead of being lost with a bare Blob.
+export async function exportSelectionAsPNG(): Promise<ExportedSourceImage> {
+  const photoshop = getPhotoshop();
+  const imaging = getImagingApi(photoshop);
+
+  try {
+    const capturedSource = await photoshop.core.executeAsModal(
+      async () => {
+        const document = getActiveDocument();
+        const selection = await readActiveSelectionInfo(photoshop, document);
+
+        if (typeof document.id !== "number") {
+          throw createOpenLayerError(
+            "PHOTOSHOP_EXPORT_FAILED",
+            "Photoshop did not expose a stable document ID for the active document.",
+            "Selection export needs document.id."
+          );
+        }
+
+        return captureSourceImage(imaging, {
+          pixelOptions: {
+            documentID: document.id,
+            sourceBounds: {
+              left: selection.bounds.left,
+              top: selection.bounds.top,
+              right: selection.bounds.right,
+              bottom: selection.bounds.bottom
+            },
+            componentSize: 8,
+            colorSpace: "RGB",
+            applyAlpha: false
+          },
+          filenamePrefix: "OpenLayer_Selection",
+          sourceName: `Selection from ${selection.documentName}`,
+          originatingDocument: selection.originatingDocument
+        });
+      },
+      { commandName: "Export OpenLayer Selection" }
+    );
+
+    return createExportedSourceImage(capturedSource);
+  } catch (caughtError) {
+    if (isOpenLayerNoSelectionError(caughtError)) {
+      throw caughtError;
+    }
+
+    throw createOpenLayerError(
+      "PHOTOSHOP_EXPORT_FAILED",
+      `Could not export the active Photoshop selection. ${getErrorMessage(caughtError)}`
+    );
+  }
 }
 
 export async function exportSelectionMask(): Promise<SelectionMaskExport> {
