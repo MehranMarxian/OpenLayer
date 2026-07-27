@@ -1,12 +1,33 @@
 # Changelog
 
-## Unreleased / v0.9.0-alpha draft
+## v0.9.0-alpha - 2026-07-27
 
-Section in progress. The Layer Tools screen and the rest of the v0.9 notes are written at release time; this entry is here because it closes a limitation the last two releases published.
+Adds the eighth tool, and finishes the status cleanup the 0.8 releases started. Layer Tools is the first thing OpenLayer does that is not a generation: it moves pixels *out* of Photoshop, into a file or into ComfyUI's input folder, which is the step that has until now meant leaving the panel.
+
+### Added
+
+- Added **Layer Tools**, the Home card that has said "coming soon" since it was written. Three exports — the active layer, the current selection, the selection mask — each to two destinations: a file you pick with a real Photoshop save dialog, or straight into ComfyUI's input folder where a workflow can reference it by name. Photoshop can already export a layer as PNG; what it cannot do is put one where ComfyUI can see it, and the selection mask — the export that is genuinely awkward to produce by hand — is exactly what an inpainting workflow wants.
+- The selection export uses the selection's own bounds, not the padded and snapped context bounds Inpaint uses. Inpaint pads because the model needs surrounding context; an artist exporting a selection wants what they selected.
+- Send to ComfyUI reuses the same `/upload/image` call every generation already makes, rather than new plumbing.
+
+### Changed
+
+- `exportSelectionMask` in the Photoshop adapter had been fully implemented, working, and completely unreachable for several releases — no caller anywhere in the source. Layer Tools is its first caller. The two neighbouring functions, `exportActiveLayerAsPNG` and `exportSelectionAsPNG`, were stubs that threw, carrying TODOs that named v0.4 and v0.5; both are now implemented on the existing capture path.
+- Layer Tools is the first tool written to the per-tool module shape the project has been moving toward: `src/ui/tools/layerTools.ts` takes its capture, save, upload, and message-formatting collaborators as parameters, so it contains no Photoshop, no `fetch`, and no DOM. The decisions worth arguing about — which capture runs, what the artist is told, what happens when they cancel — are unit-tested instead of being unreachable inside `renderApp`. A cancelled save is treated as neither success nor error, because colouring a change of mind red is how red stops meaning anything.
+- `readActiveSelectionInfo` now takes a label for the caller, so its no-selection message names what the artist was actually doing. It used to tell every caller to make a selection "before using Inpaint", including callers that had nothing to do with Inpaint.
 
 ### Fixed
 
 - Fixed one tool's diagnostics and error text appearing on the other tools' screens, the last part of the v0.7 status bleed. `setDiagnostics` wrote all eight diagnostics lines and `setError` wrote both the Text to Image and the Settings error line, because Text to Image owns the unprefixed elements from when it was the only tool in the panel — so "Generate pressed at 09:14:22.", "Seed used: 12345." and "Enter a prompt before generating." were broadcast to Inpaint, Upscale, Outpaint, Sketch to Image, Image to Image and Prompt from Layer. Each tool now writes its own diagnostics line plus the Settings line, which stays the panel-wide log, and keeps its errors to its own screen. Panel-wide diagnostics — the port scan, the GPU report, workflow health — report on Settings, where they are actionable. One visible consequence: each tool screen now keeps its opening hint ("Capture a Photoshop selection to prepare inpainting.") until that tool is actually used, instead of losing it to the first unrelated message.
+
+### Known limitations
+
+- The Layer Tools card on Home does not dim when ComfyUI is unreachable, unlike the generation tools. Saving to a file works with ComfyUI stopped; Send to ComfyUI will fail and report the connection error on the Layer Tools status line.
+- Layer, canvas, selection, and mask capture is limited to 16 megapixels (4096 x 4096) until a downscale option is added.
+- The Preview panel offers each tool's primary import only. Live Painting's second action, "Import Refined as Layer", is not on the panel, because the refined result is a separate image and the panel shows one at a time.
+- The setup pack contains no model weights. They are roughly 85 GB and two are licence-restricted, so it ships the list and the downloader instead — an internet connection is required.
+- Inpaint and Outpaint remain experimental and should be tested on duplicate layers or disposable documents.
+- CI covers pure TypeScript behavior but does not run Photoshop, UXP Developer Tool, or ComfyUI integration tests.
 
 ## v0.8.1-alpha - 2026-07-27
 
