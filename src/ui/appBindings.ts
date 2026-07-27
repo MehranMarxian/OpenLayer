@@ -1,6 +1,6 @@
 import { AppView } from "./appConstants";
 import { AppElements } from "./appMarkup";
-import { setDiagnostics } from "./statusBars";
+import { setGlobalDiagnostics } from "./statusBars";
 
 /**
  * Every DOM event binding in the panel: direct control bindings, delegated
@@ -94,7 +94,7 @@ export function createActionRunner(
 
     lastRunAt = now;
     console.log(`[OpenLayer] action ${actionName} from ${eventName}`);
-    setDiagnostics(elements, `Event received: ${actionName} (${eventName}).`);
+    setGlobalDiagnostics(elements, `Event received: ${actionName} (${eventName}).`);
     void handler();
   };
 }

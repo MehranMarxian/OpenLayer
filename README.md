@@ -128,7 +128,7 @@ Known v0.8.1-alpha boundaries:
 - The setup pack contains no model weights. They are roughly 85 GB and two are licence-restricted, so it ships the requirements list and a downloader instead. An internet connection is required.
 - Inpaint and Outpaint remain experimental and should be tested on duplicate layers or disposable documents.
 - CI covers pure TypeScript behavior but does not run Photoshop, UXP Developer Tool, or ComfyUI integration tests.
-- The status fix covers the status bars only. The diagnostics line and the error text still mirror across tools, and that fix is deferred.
+- Panel-wide diagnostics such as the port scan, the GPU report, and workflow health are reported on the Settings screen rather than on every tool screen. Each tool's own diagnostics line also mirrors to Settings, which is the panel-wide log.
 - Progress is no longer pinned while a tool's form is scrolled, which is the accepted cost of taking the progress bar out of the sticky header.
 - The 0.8 releases focus on correctness and maintainability. Existing generation capabilities should remain compatible with v0.7.0.
 - The Preview panel offers each tool's primary import only. Live Painting's "Import Refined as Layer" stays on the dashboard.
