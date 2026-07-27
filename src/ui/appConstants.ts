@@ -62,7 +62,8 @@ export type AppView =
   | "upscale"
   | "live-painting"
   | "settings"
-  | "history";
+  | "history"
+  | "layer-tools";
 export type ToolCardStatus = "available" | "experimental" | "coming-soon";
 
 export type ToolCard = {
@@ -180,7 +181,8 @@ export const TOOL_CARDS: ToolCard[] = [
     title: "Layer Tools",
     subtitle: "Export layers, selections, and masks",
     icon: "layers",
-    status: "coming-soon"
+    status: "available",
+    view: "layer-tools"
   },
   {
     id: "history",

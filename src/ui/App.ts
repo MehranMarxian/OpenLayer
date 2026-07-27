@@ -95,8 +95,11 @@ import {
   ExportedSourceImage,
   SelectedRegionSourceImage,
   captureSelectionForInpainting,
+  exportActiveLayerAsPNG,
   exportActiveLayerForImageToImage,
   exportCanvasForImageToImage,
+  exportSelectionAsPNG,
+  exportSelectionMask,
   getActiveDocumentIdentity,
   getActiveDocumentInfo,
   importGeneratedImageAsLayer,
@@ -123,6 +126,12 @@ import {
   validateOutpaintResultDimensions
 } from "../photoshop/outpaintExpansion";
 import { createOpenLayerError, getErrorMessage, getTechnicalErrorDetails } from "../utils/errors";
+import { describeSaveFileOutcome, saveBlobToChosenFile } from "../utils/saveFile";
+import {
+  LayerExportDestination,
+  LayerExportKind,
+  runLayerExport
+} from "./tools/layerTools";
 import {
   getFriendlyImageToImageErrorMessage,
   getFriendlyInpaintErrorMessage,
@@ -232,6 +241,7 @@ import {
   setInpaintError,
   setInpaintStatus,
   setOutpaintDiagnostics,
+  setLayerToolsStatus,
   setOutpaintError,
   setOutpaintStatus,
   setPromptLayerDiagnostics,
@@ -687,6 +697,12 @@ export function renderApp(rootElement: HTMLElement) {
     detectHardware: createActionRunner(elements, "detectHardware", handleDetectHardware),
     checkWorkflowHealth: createActionRunner(elements, "checkWorkflowHealth", handleCheckWorkflowHealth),
     copyDiagnostics: createActionRunner(elements, "copyDiagnostics", handleCopyDiagnostics),
+    exportLayerToFile: createActionRunner(elements, "exportLayerToFile", () => handleLayerExport("layer", "file")),
+    exportLayerToComfyUI: createActionRunner(elements, "exportLayerToComfyUI", () => handleLayerExport("layer", "comfyui")),
+    exportSelectionToFile: createActionRunner(elements, "exportSelectionToFile", () => handleLayerExport("selection", "file")),
+    exportSelectionToComfyUI: createActionRunner(elements, "exportSelectionToComfyUI", () => handleLayerExport("selection", "comfyui")),
+    exportMaskToFile: createActionRunner(elements, "exportMaskToFile", () => handleLayerExport("mask", "file")),
+    exportMaskToComfyUI: createActionRunner(elements, "exportMaskToComfyUI", () => handleLayerExport("mask", "comfyui")),
     saveSettings: createActionRunner(elements, "saveSettings", handleSaveSettings),
     resetSettings: createActionRunner(elements, "resetSettings", handleResetSettings),
     toggleNegativePrompt: createActionRunner(elements, "toggleNegativePrompt", handleToggleNegativePrompt),
@@ -754,6 +770,12 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.detectHardwareButton, actionHandlers.detectHardware);
   bindActionControl(elements.checkWorkflowHealthButton, actionHandlers.checkWorkflowHealth);
   bindActionControl(elements.copyDiagnosticsButton, actionHandlers.copyDiagnostics);
+  bindActionControl(elements.exportLayerFileButton, actionHandlers.exportLayerToFile);
+  bindActionControl(elements.exportLayerComfyButton, actionHandlers.exportLayerToComfyUI);
+  bindActionControl(elements.exportSelectionFileButton, actionHandlers.exportSelectionToFile);
+  bindActionControl(elements.exportSelectionComfyButton, actionHandlers.exportSelectionToComfyUI);
+  bindActionControl(elements.exportMaskFileButton, actionHandlers.exportMaskToFile);
+  bindActionControl(elements.exportMaskComfyButton, actionHandlers.exportMaskToComfyUI);
   bindActionControl(elements.saveSettingsButton, actionHandlers.saveSettings);
   bindActionControl(elements.resetSettingsButton, actionHandlers.resetSettings);
   bindActionControl(elements.negativePromptToggle, actionHandlers.toggleNegativePrompt);
@@ -1089,6 +1111,36 @@ export function renderApp(rootElement: HTMLElement) {
       setGlobalStatus(elements, "Diagnostics ready to copy.", "ready");
       setDiagnostics(elements, "Clipboard is unavailable here. The diagnostics report is shown below for manual copy.");
     }
+  }
+
+  // Layer Tools' six buttons are one handler. The tool module decides what
+  // happens; this only supplies the real collaborators and paints the result.
+  async function handleLayerExport(kind: LayerExportKind, destination: LayerExportDestination) {
+    setLayerToolsStatus(elements, "Exporting...", "idle");
+
+    const result = await runLayerExport(
+      {
+        capture: async (exportKind) => {
+          if (exportKind === "layer") return exportActiveLayerAsPNG();
+          if (exportKind === "selection") return exportSelectionAsPNG();
+
+          return exportSelectionMask();
+        },
+        saveToFile: saveBlobToChosenFile,
+        uploadToComfyUI: (blob, fileName) =>
+          new ComfyClient(elements.serverUrl.value).uploadImage(blob, fileName),
+        describeSaveOutcome: describeSaveFileOutcome,
+        describeError: getErrorMessage
+      },
+      kind,
+      destination
+    );
+
+    setLayerToolsStatus(
+      elements,
+      result.message,
+      result.status === "error" ? "error" : result.status === "ok" ? "ready" : "idle"
+    );
   }
 
   function handleSaveSettings() {
@@ -3792,6 +3844,7 @@ export function renderApp(rootElement: HTMLElement) {
     elements.livePaintingView.hidden = currentView !== "live-painting";
     elements.settingsView.hidden = currentView !== "settings";
     elements.historyView.hidden = currentView !== "history";
+    elements.layerToolsView.hidden = currentView !== "layer-tools";
 
     if (currentView === "settings") {
       void refreshDocumentStatus(elements);

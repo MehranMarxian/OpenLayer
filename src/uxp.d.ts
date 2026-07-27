@@ -27,6 +27,12 @@ type UxpModule = {
     localFileSystem: {
       getTemporaryFolder: () => Promise<UxpFolder>;
       createSessionToken: (file: unknown) => Promise<string>;
+      // Resolves to null when the artist cancels the dialog. Optional so a UXP
+      // build without it can be detected rather than assumed and crashed on.
+      getFileForSaving?: (
+        suggestedName: string,
+        options?: { types?: readonly string[] }
+      ) => Promise<UxpFile | null>;
     };
   };
 };

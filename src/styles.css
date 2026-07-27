@@ -1644,6 +1644,23 @@ a:hover {
   margin-top: 8px;
 }
 
+.layer-export-row {
+  display: block;
+  margin-top: 10px;
+}
+
+.layer-export-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.layer-export-actions .button {
+  flex: 1 1 120px;
+  min-width: 0;
+}
+
 .live-refine-actions .button {
   min-width: 0;
   flex: 1 1 0;
@@ -2831,6 +2848,25 @@ a:hover {
   flex-wrap: wrap;
   gap: 6px;
   margin: 0;
+}
+
+/* theme-compact is the active theme, so the base rules above are not enough on
+   their own -- see docs/ORCHESTRATION.md on this file's redeclaration trap. */
+.app-shell.theme-compact .layer-export-row {
+  margin-top: 8px;
+}
+
+.app-shell.theme-compact .layer-export-actions {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.app-shell.theme-compact .layer-export-actions .button {
+  flex: 1 1 110px;
+  min-width: 0;
 }
 
 .app-shell.theme-compact .settings-grid .field,

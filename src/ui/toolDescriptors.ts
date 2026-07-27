@@ -100,7 +100,15 @@ export const BUSY_ALWAYS_DISABLED_ACTIONS: readonly ActionElementKey[] = [
   "resetSettingsButton",
   "generateButton",
   "generatePromptLayerButton",
-  "clearHistoryButton"
+  "clearHistoryButton",
+  // Every export runs executeAsModal against the document, which must not race
+  // a generation's own capture or import.
+  "exportLayerFileButton",
+  "exportLayerComfyButton",
+  "exportSelectionFileButton",
+  "exportSelectionComfyButton",
+  "exportMaskFileButton",
+  "exportMaskComfyButton"
 ];
 
 // These actions were part of the old panel-wide busy lock. They deliberately
