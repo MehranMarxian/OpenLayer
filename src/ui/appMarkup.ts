@@ -44,6 +44,15 @@ export type AppElements = {
   upscaleView: HTMLElement;
   settingsView: HTMLElement;
   historyView: HTMLElement;
+  layerToolsView: HTMLElement;
+  exportLayerFileButton: HTMLElement;
+  exportLayerComfyButton: HTMLElement;
+  exportSelectionFileButton: HTMLElement;
+  exportSelectionComfyButton: HTMLElement;
+  exportMaskFileButton: HTMLElement;
+  exportMaskComfyButton: HTMLElement;
+  layerToolsStatusText: HTMLElement;
+  layerToolsStatusPill: HTMLElement;
   homeStatusRow: HTMLElement;
   homeStatusText: HTMLElement;
   homeStatusDot: HTMLElement;
@@ -1114,6 +1123,62 @@ export function createAppMarkup() {
         </section>
       </section>
 
+      <section class="layer-tools-view" id="layer-tools-view" aria-label="Layer Tools" hidden>
+        <div class="screen-nav">
+          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
+          <div class="screen-title-block">
+            ${createScreenIconMarkup("layers", "Layer Tools")}
+            <span class="screen-title">Layer Tools</span>
+          </div>
+        </div>
+
+        <section class="panel-section" aria-label="Export destinations">
+          <div class="section-heading">
+            <span class="label">Export</span>
+            <span class="muted-label">PNG</span>
+          </div>
+          <p class="field-hint">
+            Save to a file you choose, or send straight into ComfyUI's input folder so a workflow can
+            reference it without any file shuffling.
+          </p>
+
+          <div class="layer-export-row">
+            <span class="label">Active layer</span>
+            <div class="layer-export-actions">
+              <button class="button action-control" id="export-layer-file" data-openlayer-action="exportLayerToFile" type="button">Save As…</button>
+              <button class="button action-control" id="export-layer-comfy" data-openlayer-action="exportLayerToComfyUI" type="button">Send to ComfyUI</button>
+            </div>
+          </div>
+
+          <div class="layer-export-row">
+            <span class="label">Selection</span>
+            <div class="layer-export-actions">
+              <button class="button action-control" id="export-selection-file" data-openlayer-action="exportSelectionToFile" type="button">Save As…</button>
+              <button class="button action-control" id="export-selection-comfy" data-openlayer-action="exportSelectionToComfyUI" type="button">Send to ComfyUI</button>
+            </div>
+          </div>
+
+          <div class="layer-export-row">
+            <span class="label">Selection mask</span>
+            <div class="layer-export-actions">
+              <button class="button action-control" id="export-mask-file" data-openlayer-action="exportMaskToFile" type="button">Save As…</button>
+              <button class="button action-control" id="export-mask-comfy" data-openlayer-action="exportMaskToComfyUI" type="button">Send to ComfyUI</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel-section" aria-label="Layer Tools status">
+          <div class="section-heading">
+            <span class="label">Status</span>
+            <span class="muted-label">Export</span>
+          </div>
+          <div class="status-bar" role="status">
+            <span class="status-text" id="layer-tools-status-text">Ready.</span>
+            <span class="status-pill idle" id="layer-tools-status-pill">Status</span>
+          </div>
+        </section>
+      </section>
+
       <section class="history-view" id="history-view" aria-label="History" hidden>
         <div class="screen-nav">
           <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
@@ -1270,6 +1335,15 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     upscaleView: getElement<HTMLElement>(rootElement, "upscale-view"),
     settingsView: getElement<HTMLElement>(rootElement, "settings-view"),
     historyView: getElement<HTMLElement>(rootElement, "history-view"),
+    layerToolsView: getElement<HTMLElement>(rootElement, "layer-tools-view"),
+    exportLayerFileButton: getElement<HTMLElement>(rootElement, "export-layer-file"),
+    exportLayerComfyButton: getElement<HTMLElement>(rootElement, "export-layer-comfy"),
+    exportSelectionFileButton: getElement<HTMLElement>(rootElement, "export-selection-file"),
+    exportSelectionComfyButton: getElement<HTMLElement>(rootElement, "export-selection-comfy"),
+    exportMaskFileButton: getElement<HTMLElement>(rootElement, "export-mask-file"),
+    exportMaskComfyButton: getElement<HTMLElement>(rootElement, "export-mask-comfy"),
+    layerToolsStatusText: getElement<HTMLElement>(rootElement, "layer-tools-status-text"),
+    layerToolsStatusPill: getElement<HTMLElement>(rootElement, "layer-tools-status-pill"),
     homeStatusRow: getElement<HTMLElement>(rootElement, "home-status-row"),
     homeStatusText: getElement<HTMLElement>(rootElement, "home-status-text"),
     homeStatusDot: getElement<HTMLElement>(rootElement, "home-status-dot"),

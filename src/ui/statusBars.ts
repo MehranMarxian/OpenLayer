@@ -307,6 +307,15 @@ export function setPromptLayerStatus(elements: AppElements, status: string, tone
   applyToolStatus(elements, elements.promptLayerStatusText, elements.promptLayerStatusPill, elements.promptLayerStatusProgress, status, tone);
 }
 
+// Layer Tools is not a generation: it has no progress bar and nothing to report
+// on the Home status row. It therefore writes its own bar only, rather than
+// going through applyToolStatus -- the fan-out that put one tool's progress in
+// another tool's bar came from exactly that kind of shared write.
+export function setLayerToolsStatus(elements: AppElements, status: string, tone: StatusTone) {
+  elements.layerToolsStatusText.textContent = status;
+  applyStatusPill(elements.layerToolsStatusPill, status, tone);
+}
+
 function applyToolError(errorMessage: HTMLElement, message: string) {
   errorMessage.textContent = message;
   errorMessage.hidden = !message;

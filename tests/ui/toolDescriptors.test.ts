@@ -94,7 +94,8 @@ describe("busy-state tables", () => {
       ...BUSY_GATED_ACTIONS.map(({ button }) => button)
     ];
 
-    expect(plainActions).toHaveLength(29);
+    // 35 = the original 29 plus Layer Tools' six export buttons.
+    expect(plainActions).toHaveLength(35);
     expect(BUSY_GATED_ACTIONS).toHaveLength(11);
     expect(new Set(allActions).size).toBe(allActions.length);
   });
@@ -150,7 +151,13 @@ describe("busy-state tables", () => {
       "copyDiagnosticsButton",
       "saveSettingsButton",
       "resetSettingsButton",
-      "clearHistoryButton"
+      "clearHistoryButton",
+      "exportLayerFileButton",
+      "exportLayerComfyButton",
+      "exportSelectionFileButton",
+      "exportSelectionComfyButton",
+      "exportMaskFileButton",
+      "exportMaskComfyButton"
     ]));
   });
 
