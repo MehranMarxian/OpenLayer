@@ -431,27 +431,24 @@ export function bindToolWarnings(rootElement: HTMLElement) {
 }
 
 export function bindStickyProgress(rootElement: HTMLElement) {
-  // Wrap each screen's back/title nav and its progress bar in one sticky
-  // header so live progress stays visible even after scrolling down the form.
+  // Wrap each screen's back/title nav in one sticky header, so the tool name
+  // and the way back stay visible while scrolling the form.
+  //
+  // The progress bar deliberately does NOT move up here. It used to, and in
+  // Photoshop that produced a header whose height changed the moment a run
+  // started - UXP does not reflow the panels below a sticky element that
+  // resizes, so the bar painted over the first section. Reserving its box and
+  // hiding it by colour both failed in the host for their own reasons. The bar
+  // now simply stays where the markup puts it, in the generation status panel
+  // next to the status text it belongs with, in ordinary flow where no renderer
+  // has to agree about anything.
   const navs = Array.from(rootElement.querySelectorAll<HTMLElement>(".screen-nav"));
 
   for (const nav of navs) {
-    const view = nav.closest("section");
-
-    if (!view) {
-      continue;
-    }
-
     const head = document.createElement("div");
     head.className = "screen-head";
     nav.before(head);
     head.appendChild(nav);
-
-    const progress = view.querySelector<HTMLElement>(".status-progress");
-
-    if (progress) {
-      head.appendChild(progress);
-    }
   }
 }
 
