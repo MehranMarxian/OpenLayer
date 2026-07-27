@@ -10,6 +10,12 @@ import {
   PreviewToolId
 } from "./previewHub";
 import { loadPreviewPanelPin, savePreviewPanelPin } from "../utils/preferences";
+import {
+  importBridge as sharedImportBridge,
+  ImportBridge,
+  IMPORT_TARGETS,
+  resolveImportAffordance
+} from "./importBridge";
 
 /**
  * The separated `openlayerPreview` panel: a large, resizable surface showing the
@@ -17,8 +23,22 @@ import { loadPreviewPanelPin, savePreviewPanelPin } from "../utils/preferences";
  *
  * It mirrors the dashboard's in-panel preview rather than replacing it. Moving
  * the preview out of the dashboard would mean an artist who never opens this
- * panel — or who closes it — loses previews entirely, and the Import buttons sit
- * next to the small preview because that is where the decision gets made.
+ * panel — or who closes it — loses previews entirely, so both surfaces keep
+ * their previews and both can import.
+ *
+ * The Import buttons are here as well as beside the small preview. This reverses
+ * what this comment used to say — that they belonged only next to the small
+ * preview "because that is where the decision gets made". Mehran's reasoning is
+ * better: the big preview is where you actually judge a result, so making you go
+ * back to a thumbnail to act on it is backwards. The buttons do not reimplement
+ * anything; they call the dashboard's own handlers through `importBridge`, which
+ * is what keeps A1's document binding and the rest of the import contract
+ * intact. See that module for why the panel must not import for itself.
+ *
+ * The button acts on the tool whose image is **on screen**, not the pinned tool.
+ * With a pin set they are the same; under "Follow active tool" it is the latest
+ * publisher. Either way the button acts on what you are looking at, which is the
+ * only rule that never surprises anyone.
  *
  * The registry and URL slot are module-level on purpose. UXP can call a panel's
  * create() again after a destroy(), and a per-mount registry would strand one
@@ -30,6 +50,7 @@ const urls = createObjectUrlRegistry();
 const ownedUrl = createOwnedObjectUrl(urls);
 
 let unsubscribe: (() => void) | null = null;
+let unsubscribeImports: (() => void) | null = null;
 let teardownRegistered = false;
 
 const KIND_LABEL: Record<PreviewPublication["kind"], string> = {
@@ -39,9 +60,14 @@ const KIND_LABEL: Record<PreviewPublication["kind"], string> = {
 
 const DEFAULT_EMPTY_MESSAGE = "Previews appear here while you generate.";
 
-export function renderPreviewPanel(rootElement: HTMLElement, hub: PreviewHub = sharedPreviewHub) {
+export function renderPreviewPanel(
+  rootElement: HTMLElement,
+  hub: PreviewHub = sharedPreviewHub,
+  bridge: ImportBridge = sharedImportBridge
+) {
   // A remount must not leave the previous subscription feeding a detached node.
   unsubscribe?.();
+  unsubscribeImports?.();
 
   rootElement.innerHTML = "";
   rootElement.classList.add("openlayer-preview-panel-root");
@@ -95,8 +121,31 @@ export function renderPreviewPanel(rootElement: HTMLElement, hub: PreviewHub = s
   image.alt = "OpenLayer generation preview";
   image.hidden = true;
 
+  // Import row. Built once and shown or hidden per publication rather than
+  // rebuilt, so clicking through a live sequence cannot swap the button out from
+  // under the pointer.
+  const actions = document.createElement("div");
+  actions.className = "openlayer-preview-panel-actions";
+
+  const importButton = document.createElement("button");
+  importButton.type = "button";
+  importButton.className = "openlayer-preview-panel-import";
+
+  const autoImportButton = document.createElement("button");
+  autoImportButton.type = "button";
+  autoImportButton.className = "openlayer-preview-panel-auto-import";
+
+  // Import feedback belongs here, not only in the dashboard's status bar: the
+  // artist who clicked is looking at this panel, and the dashboard may be docked
+  // out of sight or parked on another screen. The text is whatever the tool's own
+  // status bar says, so the two surfaces cannot contradict each other.
+  const importStatus = document.createElement("span");
+  importStatus.className = "openlayer-preview-panel-import-status";
+
+  actions.append(importButton, autoImportButton, importStatus);
+
   stage.append(emptyMessage, image);
-  shell.append(header, stage);
+  shell.append(header, stage, actions);
   rootElement.append(shell);
 
   let actualSize = false;
@@ -124,8 +173,69 @@ export function renderPreviewPanel(rootElement: HTMLElement, hub: PreviewHub = s
   const resolve = (): PreviewPublication | null =>
     pinnedToolId ? hub.latestForTool(pinnedToolId) : hub.latest();
 
+  /**
+   * The tool the buttons currently act on: whoever published what is on screen.
+   * Held so the click listeners do not have to re-resolve and risk acting on a
+   * different tool than the one the label named.
+   */
+  let actionToolId: PreviewToolId | null = null;
+
+  const renderImportControls = (publication: PreviewPublication | null) => {
+    actionToolId = publication?.toolId ?? null;
+
+    const capability = publication ? bridge.capabilityFor(publication.toolId) : null;
+    const affordance = resolveImportAffordance(capability, publication);
+
+    actions.hidden = !affordance.visible;
+
+    if (!publication || !affordance.visible) {
+      importStatus.textContent = "";
+      importStatus.classList.remove("is-error");
+      return;
+    }
+
+    const target = IMPORT_TARGETS[publication.toolId];
+
+    importButton.textContent = target.label;
+    importButton.disabled = !affordance.enabled;
+    importButton.title = affordance.reason;
+
+    // A tool with no auto-import flag gets no toggle at all, rather than a
+    // disabled one. The dashboard has no such control for Sketch, Inpaint or
+    // Outpaint, and offering a dead button here would imply the app can do
+    // something it cannot.
+    const auto = target.hasAutoImport ? capability?.auto ?? null : null;
+
+    autoImportButton.hidden = !auto;
+
+    if (auto) {
+      autoImportButton.textContent = auto.isEnabled ? "Auto Import On" : "Import Automatically";
+      autoImportButton.setAttribute("aria-pressed", String(auto.isEnabled));
+      autoImportButton.classList.toggle("is-active", auto.isEnabled);
+    }
+
+    const outcome = bridge.outcomeFor(publication.toolId);
+
+    importStatus.textContent = affordance.enabled || outcome ? outcome?.message ?? "" : affordance.reason;
+    importStatus.classList.toggle("is-error", outcome?.status === "failed");
+  };
+
+  importButton.addEventListener("click", () => {
+    if (actionToolId) {
+      bridge.requestImport(actionToolId);
+    }
+  });
+
+  autoImportButton.addEventListener("click", () => {
+    if (actionToolId) {
+      bridge.toggleAutoImport(actionToolId);
+    }
+  });
+
   const render = () => {
     const publication = resolve();
+
+    renderImportControls(publication);
 
     if (!publication) {
       ownedUrl.release();
@@ -164,6 +274,11 @@ export function renderPreviewPanel(rootElement: HTMLElement, hub: PreviewHub = s
   // re-resolves and finds nothing new for its tool.
   unsubscribe = hub.subscribe(render);
 
+  // Capability and outcome changes do not go through the hub — no new image has
+  // arrived — so the buttons are refreshed on their own channel. Only the import
+  // row re-renders, which keeps a busy-state change from touching the <img>.
+  unsubscribeImports = bridge.subscribe(() => renderImportControls(resolve()));
+
   if (!teardownRegistered) {
     teardownRegistered = true;
     window.addEventListener(
@@ -171,6 +286,8 @@ export function renderPreviewPanel(rootElement: HTMLElement, hub: PreviewHub = s
       () => {
         unsubscribe?.();
         unsubscribe = null;
+        unsubscribeImports?.();
+        unsubscribeImports = null;
         urls.revokeAll();
       },
       { once: true }
