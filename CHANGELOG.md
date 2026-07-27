@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased / v0.9.0-alpha draft
+
+Section in progress. The Layer Tools screen and the rest of the v0.9 notes are written at release time; this entry is here because it closes a limitation the last two releases published.
+
+### Fixed
+
+- Fixed one tool's diagnostics and error text appearing on the other tools' screens, the last part of the v0.7 status bleed. `setDiagnostics` wrote all eight diagnostics lines and `setError` wrote both the Text to Image and the Settings error line, because Text to Image owns the unprefixed elements from when it was the only tool in the panel — so "Generate pressed at 09:14:22.", "Seed used: 12345." and "Enter a prompt before generating." were broadcast to Inpaint, Upscale, Outpaint, Sketch to Image, Image to Image and Prompt from Layer. Each tool now writes its own diagnostics line plus the Settings line, which stays the panel-wide log, and keeps its errors to its own screen. Panel-wide diagnostics — the port scan, the GPU report, workflow health — report on Settings, where they are actionable. One visible consequence: each tool screen now keeps its opening hint ("Capture a Photoshop selection to prepare inpainting.") until that tool is actually used, instead of losing it to the first unrelated message.
+
 ## v0.8.1-alpha - 2026-07-27
 
 A small follow-up to v0.8.0 carrying two changes that missed that tag. The reason it exists as its own release rather than waiting for v0.9 is the first entry below: the separated Preview panel gained its Import buttons the day after v0.8.0 shipped, and handing testers a build without them would spend a round of feedback on the panel's least finished state.
