@@ -1,0 +1,90 @@
+name: Workflow compatibility report
+description: A preset, checkpoint, or ComfyUI node combination that does or does not work
+title: "[Compat]: "
+labels: ["compatibility"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        OpenLayer ships a fixed set of workflow presets, and each one assumes a model family. Reports
+        that a combination **works** are as useful as reports that it fails — the compatibility tables
+        are currently built from one person's machine.
+
+  - type: dropdown
+    id: outcome
+    attributes:
+      label: Outcome
+      options:
+        - Works well
+        - Works, but the output is wrong or poor
+        - Fails with an error
+        - Refused by OpenLayer before running
+    validations:
+      required: true
+  - type: dropdown
+    id: tool
+    attributes:
+      label: Tool
+      options:
+        - Text to Image
+        - Image to Image
+        - Sketch to Image
+        - Inpaint
+        - Outpaint
+        - Upscale
+        - Prompt from Layer
+        - Layer Tools
+        - Live Painting
+    validations:
+      required: true
+  - type: input
+    id: preset
+    attributes:
+      label: Workflow preset
+      placeholder: inpaint-flux-fill-basic
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Model / checkpoint and its family
+      placeholder: juggernautXL_v9.safetensors (SDXL)
+    validations:
+      required: true
+  - type: textarea
+    id: model_stack
+    attributes:
+      label: Supporting models, if the preset uses a model stack
+      description: UNET, CLIP, VAE, ControlNet, or upscale model file names.
+  - type: textarea
+    id: nodes
+    attributes:
+      label: Custom nodes involved
+      description: Repository names for any non-core ComfyUI nodes the workflow needs.
+  - type: textarea
+    id: detail
+    attributes:
+      label: What happened
+      description: For a poor result, describe how it was wrong — washed out, ignored the mask, wrong size, misaligned on import. Screenshots help more than adjectives here.
+    validations:
+      required: true
+  - type: input
+    id: gpu
+    attributes:
+      label: GPU and VRAM
+      placeholder: RTX 4070 Ti, 12 GB
+    validations:
+      required: true
+  - type: input
+    id: openlayer_version
+    attributes:
+      label: OpenLayer version
+      placeholder: v0.9.0-alpha
+    validations:
+      required: true
+  - type: textarea
+    id: health
+    attributes:
+      label: Workflow Health output for this preset
+      description: Settings > Check Workflow Health. Optional, but it usually explains a refusal outright.
+      render: text

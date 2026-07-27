@@ -1,0 +1,60 @@
+name: UX feedback
+description: Something in the panel was confusing, awkward, or in the wrong place
+title: "[UX]: "
+labels: ["ux"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Nothing has to be broken for this to be worth reporting. If you hesitated, looked in the wrong
+        place, or expected a button that was not there, that is the report.
+
+        Be concrete about the moment rather than the feeling: "I clicked Generate on Inpaint before
+        realising I had to capture a selection first" is actionable; "the inpaint flow is confusing"
+        is not.
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of friction was it?
+      options:
+        - I could not find something I expected
+        - I did the wrong thing because the panel implied it
+        - A message was unclear or unhelpful
+        - Something took more clicks than it should
+        - Layout or readability in the Photoshop panel
+        - I was not sure whether it was working
+    validations:
+      required: true
+  - type: input
+    id: screen
+    attributes:
+      label: Which screen
+      placeholder: Inpaint / Settings / Home / Layer Tools
+    validations:
+      required: true
+  - type: textarea
+    id: moment
+    attributes:
+      label: The moment
+      description: What you were trying to do, what you clicked, and what you expected to happen instead.
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: What would have helped
+      description: Optional. A guess is fine — knowing what you reached for is useful even when the answer turns out to be something else.
+  - type: input
+    id: openlayer_version
+    attributes:
+      label: OpenLayer version
+      placeholder: v0.9.0-alpha
+    validations:
+      required: true
+  - type: input
+    id: panel_size
+    attributes:
+      label: How was the panel docked?
+      description: Narrow side panel, wide, floating, second monitor. Layout problems usually depend on this.
+      placeholder: Narrow docked panel, right side

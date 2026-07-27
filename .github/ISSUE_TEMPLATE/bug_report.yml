@@ -1,30 +1,64 @@
 name: Bug report
-description: Report something broken in OpenLayer
+description: OpenLayer runs but does the wrong thing
 title: "[Bug]: "
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
-      value: Thanks for helping test OpenLayer. Please include enough detail to reproduce the issue.
+      value: |
+        Use this when OpenLayer is installed and connected but behaves incorrectly. If you cannot get
+        it installed or connected, use **Setup failure**. If a specific preset and checkpoint pairing
+        misbehaves, use **Workflow compatibility report**.
+
+        Bug reports on this project have historically been solved from evidence — the exact message,
+        the ComfyUI terminal, a screenshot of the layer stack. Please include what you have.
+
   - type: input
     id: version
     attributes:
       label: OpenLayer version
-      placeholder: v0.3.0-alpha
+      description: Shown in the panel footer.
+      placeholder: v0.9.0-alpha
     validations:
       required: true
   - type: input
     id: photoshop
     attributes:
       label: Photoshop version
-      placeholder: Photoshop 2024 / 2025
+      placeholder: Photoshop 2025 (26.1)
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: Windows 11 24H2 / macOS 15.2
     validations:
       required: true
   - type: input
     id: comfy
     attributes:
-      label: ComfyUI URL
-      placeholder: http://127.0.0.1:8190
+      label: ComfyUI URL and version
+      placeholder: http://127.0.0.1:8190, ComfyUI 0.27.1
+    validations:
+      required: true
+  - type: dropdown
+    id: tool
+    attributes:
+      label: Which tool
+      options:
+        - Text to Image
+        - Image to Image
+        - Sketch to Image
+        - Inpaint
+        - Outpaint
+        - Upscale
+        - Prompt from Layer
+        - Layer Tools
+        - Live Painting
+        - History
+        - Preview panel
+        - Settings
     validations:
       required: true
   - type: textarea
@@ -46,8 +80,19 @@ body:
       label: Actual behavior
     validations:
       required: true
+  - type: dropdown
+    id: document_state
+    attributes:
+      label: Did it leave your Photoshop document in a bad state?
+      description: Stray layers, a lost selection, a layer in the wrong document. Answer yes and this gets looked at first.
+      options:
+        - "No"
+        - "Yes"
+        - "Not sure"
+    validations:
+      required: true
   - type: textarea
     id: logs
     attributes:
-      label: Logs or screenshots
-      description: Paste OpenLayer diagnostics, ComfyUI terminal output, or screenshots if useful.
+      label: Logs, diagnostics, or screenshots
+      description: Settings > Copy Diagnostics, the ComfyUI terminal output, or the UXP Developer Tool console. All prepared locally — remove anything you would rather not share.

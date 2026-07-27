@@ -1,0 +1,84 @@
+name: Setup failure
+description: OpenLayer will not install, load, or connect to ComfyUI
+title: "[Setup]: "
+labels: ["setup"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this when you cannot get to the point of generating anything. If OpenLayer runs but a
+        generation misbehaves, use **Bug report** instead.
+
+        Most setup failures so far have been one of three things: a model in a folder ComfyUI does not
+        read for that node, a port other than 8190, or the UXP Developer Tool pointed at the source
+        `manifest.json` rather than the built one. Settings > **Check Workflow Health** names missing
+        models and nodes directly.
+
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Where does it stop?
+      options:
+        - Unzipping or locating the plugin files
+        - Loading the plugin in UXP Developer Tool
+        - The panel loads but is blank or broken
+        - Check ComfyUI never succeeds
+        - Checkpoint list stays empty
+        - Workflow Health reports missing models or nodes
+    validations:
+      required: true
+  - type: textarea
+    id: message
+    attributes:
+      label: Exact message
+      description: Copy the text rather than describing it — from the panel, the UXP Developer Tool log, or the ComfyUI terminal.
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: Windows 11 24H2 / macOS 15.2
+    validations:
+      required: true
+  - type: input
+    id: photoshop
+    attributes:
+      label: Photoshop version
+      placeholder: Photoshop 2025 (26.1)
+    validations:
+      required: true
+  - type: input
+    id: openlayer_version
+    attributes:
+      label: OpenLayer version
+      placeholder: v0.9.0-alpha
+    validations:
+      required: true
+  - type: input
+    id: comfy_url
+    attributes:
+      label: ComfyUI URL and version
+      placeholder: http://127.0.0.1:8190, ComfyUI 0.27.1
+    validations:
+      required: true
+  - type: dropdown
+    id: comfy_reachable
+    attributes:
+      label: Can you open the ComfyUI web interface in a browser at that URL?
+      options:
+        - "Yes"
+        - "No"
+        - "Have not tried"
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics report
+      description: Settings > Copy Diagnostics, then paste here. It is prepared locally; remove anything you would rather not share.
+      render: text
+  - type: textarea
+    id: tried
+    attributes:
+      label: What you have already tried
