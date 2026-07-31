@@ -16,4 +16,14 @@ Thumbs.db
 # Assistant tooling, not project configuration. launch.json describes how to
 # start dev servers for a Claude Code session and settings.local.json holds
 # per-machine permissions; nothing in npm, the plugin, UXP, or CI reads either.
-.claude/
+#
+# Written as `.claude/*` rather than `.claude/` on purpose: git will not descend
+# into an excluded directory, so a negation below can only re-include something
+# if the directory itself was never excluded.
+.claude/*
+
+# Agent definitions are the exception. They encode project knowledge -- the
+# 12 GB hardware ceiling, the preset registry contract, what a workflow costs to
+# adopt -- that belongs to the repo rather than to one machine, and that anyone
+# continuing this project should get automatically.
+!.claude/agents/
