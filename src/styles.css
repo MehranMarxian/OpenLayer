@@ -7248,6 +7248,15 @@ body,
   margin-bottom: 0 !important;
 }
 
+/* Import Refined as Layer sits directly under the .import-actions row and is a
+   direct child of the panel, so the compact `.generator-panel > *
+   { margin: 0 !important }` reset strips the 8px it is given in the base theme.
+   Nothing puts it back: the block that restores a top margin further down only
+   names .button-primary/.button-generate, and this is a plain .button. */
+.app-shell.theme-compact .live-refined-import-button {
+  margin-top: 8px !important;
+}
+
 /* The Live Painting dependency hint is a paragraph, not a status line, and it
    is the one `.diagnostics-line` in the panel that has to wrap. The compact
    theme truncates that class to a single line (`white-space: nowrap` plus
