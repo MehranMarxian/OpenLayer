@@ -1638,6 +1638,23 @@ a:hover {
   margin-top: 4px;
 }
 
+.live-session-actions {
+  display: block;
+  margin-top: 4px;
+}
+
+/* Start and Stop are one control in two states, so they get one height. Start
+   carries .button-generate (38px here) and Stop is a plain .button (34px). */
+.live-session-actions > .button {
+  width: 100%;
+  min-height: 38px;
+  margin-bottom: 6px;
+}
+
+.live-session-actions > .button:last-child {
+  margin-bottom: 0;
+}
+
 .live-refine-actions {
   display: flex;
   gap: 6px;
@@ -7206,6 +7223,55 @@ body,
 .app-shell.theme-compact .status-pill.live-state-badge.refined {
   background: rgba(58, 148, 94, 0.28) !important;
   color: #9fe0b5 !important;
+}
+
+/* Start and Stop Live Session. Two things have to be undone here, both from
+   the compact `.button-primary, .button-generate` block further up the file:
+   its `margin: 8px 0 0 !important` leaves Start with no bottom margin, so the
+   two buttons touch, and only Start is pinned to 34px, so Stop renders shorter
+   as a plain 30px `.button`. This block must stay after that one to win, and
+   uses explicit margins rather than flex gap, which UXP does not honor. */
+.app-shell.theme-compact .live-session-actions {
+  display: block !important;
+  margin-top: 8px !important;
+}
+
+.app-shell.theme-compact .live-session-actions > .button,
+.app-shell.theme-compact .live-session-actions > .button-primary.button-generate {
+  width: 100% !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  margin: 0 0 6px !important;
+}
+
+.app-shell.theme-compact .live-session-actions > .button:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* Import Refined as Layer sits directly under the .import-actions row and is a
+   direct child of the panel, so the compact `.generator-panel > *
+   { margin: 0 !important }` reset strips the 8px it is given in the base theme.
+   Nothing puts it back: the block that restores a top margin further down only
+   names .button-primary/.button-generate, and this is a plain .button. */
+.app-shell.theme-compact .live-refined-import-button {
+  margin-top: 8px !important;
+}
+
+/* The Live Painting dependency hint is a paragraph, not a status line, and it
+   is the one `.diagnostics-line` in the panel that has to wrap. The compact
+   theme truncates that class to a single line (`white-space: nowrap` plus
+   `text-overflow: ellipsis`, with `max-height: 34px` and `overflow: hidden`
+   from earlier blocks), which is right for the seven status bars and wrong
+   here -- everything after the first clause has never been readable. Opting
+   out on its own class keeps all eight status lines exactly as they are.
+   The `overflow-wrap: anywhere !important` set alongside those rules is inert
+   while nowrap wins and starts working once it does. */
+.app-shell.theme-compact .live-dependency-hint {
+  max-height: none !important;
+  overflow: visible !important;
+  margin-bottom: 9px !important;
+  white-space: normal !important;
+  text-overflow: clip !important;
 }
 
 /* v0.6 final UXP hardening.

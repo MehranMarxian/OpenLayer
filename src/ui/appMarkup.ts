@@ -242,6 +242,9 @@ export type AppElements = {
   settingsDiagnosticsReport: HTMLTextAreaElement;
   livePaintingView: HTMLElement;
   livePrompt: HTMLTextAreaElement;
+  liveNegativePrompt: HTMLTextAreaElement;
+  liveNegativePromptToggle: HTMLElement;
+  liveNegativePromptField: HTMLElement;
   liveDenoise: HTMLInputElement;
   liveStartButton: HTMLElement;
   liveStopButton: HTMLElement;
@@ -351,20 +354,32 @@ export function createAppMarkup() {
             <span class="label">Live session</span>
             <span class="muted-label">Two-tier session</span>
           </div>
-          <div class="diagnostics-line">
-            Live tier uses the Text to Image checkpoint with the local SD 1.5 LCM LoRA; Refine uses Krea-2 Turbo.
-            Start a session, then paint in the document and watch the preview follow your strokes.
+          <div class="diagnostics-line live-dependency-hint">
+            The live tier runs the model picked in the Model dropdown on the Text to Image screen,
+            paired with your local SD 1.5 LCM LoRA. Refine uses Krea-2 Turbo.
+            If no model is selected there yet, open Text to Image, choose a workflow and a model,
+            then come back here. Once the session is running, paint in the document and the preview
+            follows your strokes.
           </div>
           <label class="field">
             <span class="label">Prompt</span>
             <textarea class="textarea" id="live-prompt" placeholder="Describe what your painting should become..."></textarea>
           </label>
+          <section class="negative-prompt-section" aria-label="Live Painting negative prompt">
+            <button class="button disclosure-button action-control" id="live-negative-prompt-toggle" data-openlayer-action="toggleLiveNegativePrompt" type="button">Show Negative Prompt</button>
+            <label class="field negative-prompt-field" id="live-negative-prompt-field" hidden>
+              <span class="label">Negative prompt</span>
+              <textarea class="textarea" id="live-negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
+            </label>
+          </section>
           <label class="field">
             <span class="label">Strength (denoise)</span>
             <input class="input input-compact" id="live-denoise" type="number" min="0.2" max="0.95" step="0.05" value="0.6" />
           </label>
-          <button class="button button-primary button-generate button-wide action-control" id="start-live-painting" data-openlayer-action="startLivePainting" type="button">Start Live Session</button>
-          <button class="button button-wide action-control" id="stop-live-painting" data-openlayer-action="stopLivePainting" type="button">Stop Live Session</button>
+          <div class="live-session-actions">
+            <button class="button button-primary button-generate button-wide action-control" id="start-live-painting" data-openlayer-action="startLivePainting" type="button">Start Live Session</button>
+            <button class="button button-wide action-control" id="stop-live-painting" data-openlayer-action="stopLivePainting" type="button">Stop Live Session</button>
+          </div>
           <div class="live-refine-actions">
             <button class="button action-control" id="refine-live-painting" data-openlayer-action="refineLivePainting" type="button">Refine Now</button>
             <button class="button action-control" id="live-auto-refine-toggle" data-openlayer-action="toggleLiveAutoRefine" type="button" aria-pressed="false">Auto Refine on Pause</button>
@@ -1533,6 +1548,9 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     settingsDiagnosticsReport: getElement<HTMLTextAreaElement>(rootElement, "settings-diagnostics-report"),
     livePaintingView: getElement<HTMLElement>(rootElement, "live-painting-view"),
     livePrompt: getElement<HTMLTextAreaElement>(rootElement, "live-prompt"),
+    liveNegativePrompt: getElement<HTMLTextAreaElement>(rootElement, "live-negative-prompt"),
+    liveNegativePromptToggle: getElement<HTMLElement>(rootElement, "live-negative-prompt-toggle"),
+    liveNegativePromptField: getElement<HTMLElement>(rootElement, "live-negative-prompt-field"),
     liveDenoise: getElement<HTMLInputElement>(rootElement, "live-denoise"),
     liveStartButton: getElement<HTMLElement>(rootElement, "start-live-painting"),
     liveStopButton: getElement<HTMLElement>(rootElement, "stop-live-painting"),

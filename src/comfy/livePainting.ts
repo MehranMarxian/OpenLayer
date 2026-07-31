@@ -13,6 +13,7 @@ export type BuildLcmLiveWorkflowOptions = {
   checkpointName: string;
   loraName: string;
   prompt: string;
+  negativePrompt?: string;
   sourceImageName: string;
   seed: number;
   denoise: number;
@@ -20,6 +21,7 @@ export type BuildLcmLiveWorkflowOptions = {
 
 export type BuildKrea2RefineWorkflowOptions = {
   prompt: string;
+  negativePrompt?: string;
   sourceImageName: string;
   seed: number;
   denoise: number;
@@ -52,7 +54,7 @@ export function buildLcmLiveWorkflow(options: BuildLcmLiveWorkflowOptions): Comf
     },
     "7": {
       class_type: "CLIPTextEncode",
-      inputs: { text: "", clip: ["15", 1] }
+      inputs: { text: options.negativePrompt ?? "", clip: ["15", 1] }
     },
     "10": {
       class_type: "LoadImage",
@@ -123,7 +125,7 @@ export function buildKrea2RefineWorkflow(options: BuildKrea2RefineWorkflowOption
     },
     "7": {
       class_type: "CLIPTextEncode",
-      inputs: { text: "", clip: ["21", 0] }
+      inputs: { text: options.negativePrompt ?? "", clip: ["21", 0] }
     },
     "3": {
       class_type: "KSampler",
