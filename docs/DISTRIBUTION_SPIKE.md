@@ -3,6 +3,11 @@
 Status: **three candidate packages built; the install question is unanswered and only Mehran can answer it.**
 Written 2026-07-24 against `main` at v0.6.0. Read `docs/ORCHESTRATION.md` first.
 
+> **Update 2026-07-31.** Finding 2 was re-verified against the current release and is **live, not a
+> v0.6.0 curiosity**: `openlayer-v0.9.0-alpha.zip`, the file testers download today, stores 44 of its
+> 47 entries with backslash paths. It is being fixed separately from this spike; see the end of
+> Finding 2. The `.ccx` install question below is still open and still needs a clean machine.
+
 ## The question
 
 Does a self-signed `.ccx` install by double-click on a machine that has **never** had the UXP
@@ -63,6 +68,29 @@ failure caused by the separator can be told apart from a failure caused by trust
 This also means the release zips themselves are slightly malformed. Not fixed here — it is out of
 this spike's scope and has never broken anything — but it should be fixed when `.ccx` generation is
 automated, since both would share the same archive writer.
+
+#### Re-verified 2026-07-31: still shipping, and worse than "slightly"
+
+Every release zip from v0.1.0 to **v0.9.0-alpha inclusive** has it — 44 of 47 entries in the current
+one. `scripts/package.mjs` still calls `Compress-Archive` on Windows.
+
+"Has never broken anything" is only true of the platforms that have been tried. Windows Explorer and
+UDT tolerate backslash entries; **macOS `unzip` does not** — it treats the whole string as one
+filename and writes a flat directory of files literally called `assets\index-….js`, producing a
+plugin folder with no `assets/` directory at all. A Mac tester would get a plugin that fails to
+render with no coherent error to report. macOS is precisely the platform with no coverage, so this
+would arrive as an unreproducible bug report.
+
+**The fix needs no new dependency and no `.ccx` decision.** `scripts/lib/zipWriter.mjs` already
+exists — a pure-Node, spec-correct writer that normalizes separators itself — and
+`scripts/build-setup-pack.mjs` already uses it, which is why `openlayer-comfyui-setup-0.9.0.zip` is
+clean while the plugin zip beside it is not. `package.mjs` should walk `dist/` and call `writeZip`,
+dropping the win32/posix branch entirely. Tracked separately from this spike.
+
+**Verification trap, recorded because it cost a wrong answer.** Python's `zipfile.namelist()`
+silently normalizes backslashes to forward slashes on read, so the obvious check reports a malformed
+archive as clean. The only thing that proves separator state is reading the central directory raw —
+the `PK\x01\x02` records, filename field at offset 46.
 
 ### Finding 3 — the official CLI works, but needs the UDT service and two workarounds
 
