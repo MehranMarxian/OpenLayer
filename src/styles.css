@@ -689,18 +689,31 @@ a:hover {
   white-space: nowrap;
 }
 
+/* A squared chip rather than a full pill, set in small caps. The uppercase is
+   what makes a short status read as a label instead of a word, but it is also
+   wider per character, so the size drops to 9px and the cap rises from 118px --
+   at 118px and 10px, "NEEDS WORKFLOW JSON" clips to an ellipsis, which is the
+   exact fault this badge was just fixed for.
+   Measured rather than estimated, in Arial 9px/0.04em, the shell font: the two
+   worst labels are NEEDS WORKFLOW JSON at 136px and MISSING COMFYUI NODE at
+   132px, and every setup label is under 100px. The cap is set above those with
+   room to spare, and it only clamps -- the badge is flex: 0 0 auto, so a label
+   that fits is never widened by it. If you add a longer state label, measure it
+   before trusting this. */
 .workflow-health-state {
   flex: 0 0 auto;
-  max-width: 118px;
+  max-width: 158px;
   overflow: hidden;
-  border-radius: 999px;
+  border-radius: 4px;
   padding: 3px 7px;
   background: #414141;
   color: #d0d0d0;
-  font-size: 10px;
-  font-weight: 760;
-  line-height: 1.1;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.15;
   text-overflow: ellipsis;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
@@ -7196,6 +7209,27 @@ body,
   border-color: rgba(255, 198, 41, 0.55) !important;
   background: rgba(255, 198, 41, 0.16) !important;
   color: var(--ol-gold) !important;
+}
+
+/* The Setup filter chips are buttons carrying aria-pressed, which is correct
+   for them and also opts them into the toggle styling directly above -- so they
+   rendered as gold 7px rectangles like an Import Automatically switch rather
+   than as pills. The gold means "this switch is on"; a chip only says which
+   slice of a list you are looking at, and it should not shout. Overriding here
+   rather than dropping the attribute keeps the state readable to a screen
+   reader. */
+.app-shell.theme-compact button.setup-filter-chip[aria-pressed] {
+  border: 1px solid #4a4a4a !important;
+  border-radius: 999px !important;
+  background: #333333 !important;
+  color: #b4b4b4 !important;
+  font-weight: 600 !important;
+}
+
+.app-shell.theme-compact button.setup-filter-chip[aria-pressed="true"] {
+  border-color: #6a6a6a !important;
+  background: #4a4a4a !important;
+  color: #f0f0f0 !important;
 }
 
 /* #4: brief green pulse behind import-success text. */
