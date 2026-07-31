@@ -23,6 +23,7 @@ export type ActionName =
   | "findPort"
   | "detectHardware"
   | "checkWorkflowHealth"
+  | "checkSetup"
   | "copyDiagnostics"
   | "saveSettings"
   | "resetSettings"

@@ -62,6 +62,7 @@ export type AppView =
   | "upscale"
   | "live-painting"
   | "settings"
+  | "setup"
   | "history"
   | "layer-tools";
 export type ToolCardStatus = "available" | "experimental" | "coming-soon";
@@ -193,6 +194,14 @@ export const TOOL_CARDS: ToolCard[] = [
     view: "history"
   },
   {
+    id: "setup",
+    title: "Setup",
+    subtitle: "Models and nodes you still need",
+    icon: "control",
+    status: "available",
+    view: "setup"
+  },
+  {
     id: "settings",
     title: "Settings",
     subtitle: "Defaults, ports, paths, and diagnostics",
@@ -217,6 +226,6 @@ export const HOME_TOOL_SECTIONS = [
   },
   {
     title: "Preferences",
-    toolIds: ["settings"]
+    toolIds: ["setup", "settings"]
   }
 ];

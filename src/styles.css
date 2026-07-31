@@ -704,12 +704,18 @@ a:hover {
   white-space: nowrap;
 }
 
-.workflow-health-state.is-ready {
+/* The Setup screen reuses this pill rather than defining a second badge, so its
+   tones join the existing groups instead of restating the colours. A setup row
+   that is merely in the wrong folder shares the amber of "experimental" on
+   purpose: the file is present, so red would read as "download this again". */
+.workflow-health-state.is-ready,
+.workflow-health-state.is-setup-ready {
   background: rgba(58, 148, 94, 0.28);
   color: #a6e6bb;
 }
 
-.workflow-health-state.is-experimental {
+.workflow-health-state.is-experimental,
+.workflow-health-state.is-setup-warning {
   background: rgba(215, 182, 75, 0.2);
   color: #ffe08a;
 }
@@ -717,7 +723,8 @@ a:hover {
 .workflow-health-state.is-missing-model,
 .workflow-health-state.is-missing-node,
 .workflow-health-state.is-missing-workflow,
-.workflow-health-state.is-setup-required {
+.workflow-health-state.is-setup-required,
+.workflow-health-state.is-setup-error {
   background: rgba(181, 72, 72, 0.28);
   color: #ffb0b0;
 }
@@ -740,6 +747,120 @@ a:hover {
   overflow: hidden;
   margin-top: 3px;
   color: #9f9f9f;
+}
+
+/* ---------------------------------------------------------------------------
+   Setup screen.
+   Rows reuse .workflow-health-item, so the card frame, the compact-theme
+   treatment and the status pill all come for free. Everything below is only the
+   parts a requirement row has and a health card does not: a field list, notes,
+   and copy buttons.
+   Note these paragraphs deliberately opt out of the .diagnostics-line clamp via
+   .setup-paragraph -- that clamp truncates to one line with an ellipsis, which
+   is right for the status lines it was written for and wrong for a sentence.
+--------------------------------------------------------------------------- */
+.setup-paragraph {
+  max-height: none;
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
+}
+
+/* Explicit margins rather than flex gap throughout this block: UXP does not
+   honor gap consistently in the compact panel, which is why the rest of this
+   file avoids it too. */
+.setup-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0 0 4px;
+}
+
+.setup-filter-chip {
+  min-height: 0;
+  margin: 0 4px 4px 0;
+  border: 1px solid #4a4a4a;
+  border-radius: 999px;
+  padding: 3px 10px;
+  background: #333333;
+  color: #b4b4b4;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.setup-filter-chip.is-active {
+  border-color: #6a6a6a;
+  background: #4a4a4a;
+  color: #f0f0f0;
+}
+
+.setup-row-subtitle {
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, Consolas, "Courier New", monospace;
+  font-size: 10.5px;
+}
+
+.setup-row-fields {
+  display: flex;
+  flex-direction: column;
+  margin-top: 6px;
+}
+
+.setup-row-field {
+  display: flex;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.setup-row-field + .setup-row-field {
+  margin-top: 2px;
+}
+
+.setup-row-field-label {
+  flex: 0 0 68px;
+  margin-right: 6px;
+  color: #8f8f8f;
+}
+
+.setup-row-field-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #d6d6d6;
+}
+
+.setup-row-note {
+  margin-top: 6px;
+  color: #b0b0b0;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.setup-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.setup-row-action {
+  width: auto;
+  min-height: 26px;
+  flex: 0 1 auto;
+  margin: 4px 6px 0 0;
+  padding: 4px 10px;
+  font-size: 11px;
+}
+
+.setup-installed-group {
+  margin-top: 8px;
+}
+
+.setup-installed-summary {
+  padding: 5px 2px;
+  color: #a0a0a0;
+  font-size: 11px;
+}
+
+.setup-row.is-collapsed {
+  margin-top: 6px;
 }
 
 .diagnostics-report {
@@ -1147,16 +1268,19 @@ a:hover {
   line-height: 1;
 }
 
-.diagnostic-summary-card.is-ready {
+.diagnostic-summary-card.is-ready,
+.diagnostic-summary-card.is-setup-ready {
   border-color: rgba(86, 159, 103, 0.52);
 }
 
-.diagnostic-summary-card.is-experimental {
+.diagnostic-summary-card.is-experimental,
+.diagnostic-summary-card.is-setup-warning {
   border-color: rgba(215, 182, 75, 0.58);
 }
 
 .diagnostic-summary-card.is-setup,
-.diagnostic-summary-card.is-future {
+.diagnostic-summary-card.is-future,
+.diagnostic-summary-card.is-setup-error {
   border-color: rgba(181, 72, 72, 0.45);
 }
 
@@ -7272,6 +7396,29 @@ body,
   margin-bottom: 9px !important;
   white-space: normal !important;
   text-overflow: clip !important;
+}
+
+/* Same story on the Setup screen, and the base-theme `.setup-paragraph` rule
+   further up cannot do this job: one class loses to
+   `.app-shell.theme-compact .diagnostics-line`, and that block is `!important`
+   besides. The summary and the download total are sentences, so they wrap. */
+.app-shell.theme-compact .setup-paragraph {
+  max-height: none !important;
+  overflow: visible !important;
+  white-space: normal !important;
+  text-overflow: clip !important;
+}
+
+/* The copy buttons are the one place in the panel where two controls share a
+   line and neither should fill it. `.app-shell.theme-compact .button` sets
+   `width: 100%`, and it outranks the plain `.setup-row-action` class, so each
+   button would otherwise span the panel and stack -- three full-width buttons
+   under every missing model. */
+.app-shell.theme-compact .setup-row-action {
+  width: auto !important;
+  min-height: 26px !important;
+  margin: 4px 6px 0 0 !important;
+  padding: 4px 10px !important;
 }
 
 /* v0.6 final UXP hardening.
