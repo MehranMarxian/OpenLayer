@@ -79,6 +79,7 @@ export type SetupManifestCustomNode = {
 export type SetupManifestPreset = {
   id: string;
   label: string;
+  displayName: string;
   mode: string;
   status: string;
   description: string;
@@ -205,6 +206,7 @@ export function buildSetupManifest(options: BuildSetupManifestOptions): SetupMan
     manifestPresets.push({
       id: preset.id,
       label: preset.label,
+      displayName: preset.displayName,
       mode: preset.mode,
       status: preset.status,
       description: preset.description,

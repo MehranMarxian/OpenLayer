@@ -312,6 +312,8 @@ export type WorkflowRecommendedSettings = {
 export type WorkflowPresetDefinition = {
   id: WorkflowPreset;
   label: string;
+  /** Artist-facing name of the model or approach; the tool name is shown separately. */
+  displayName: string;
   mode: WorkflowMode;
   description: string;
   workflowFile: string;
