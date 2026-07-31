@@ -67,6 +67,43 @@ describe("livePainting", () => {
     expect(workflow[LIVE_PAINTING_SAVE_NODE_ID].inputs.images).toEqual(["8", 0]);
   });
 
+  it("injects the negative prompt into both live tiers and defaults it to empty", () => {
+    const live = buildLcmLiveWorkflow({
+      checkpointName: "epicrealism_naturalSinRC1VAE.safetensors",
+      loraName: "lcm-lora-sdv1-5.safetensors",
+      prompt: "a cozy cottage at golden hour",
+      negativePrompt: "blurry, watermark",
+      sourceImageName: "openlayer-live-1.png",
+      seed: 4242,
+      denoise: 0.6
+    });
+    const refine = buildKrea2RefineWorkflow({
+      prompt: "a luminous forest city",
+      negativePrompt: "blurry, watermark",
+      sourceImageName: "openlayer-refine-source.png",
+      seed: 9876,
+      denoise: 0.45
+    });
+
+    expect(live["7"].inputs.text).toBe("blurry, watermark");
+    expect(refine["7"].inputs.text).toBe("blurry, watermark");
+
+    // The node stays wired as KSampler's negative either way, so omitting the
+    // option has to keep producing the empty string the graph shipped with.
+    expect(live["3"].inputs.negative).toEqual(["7", 0]);
+    expect(refine["3"].inputs.negative).toEqual(["7", 0]);
+    expect(
+      buildLcmLiveWorkflow({
+        checkpointName: "epicrealism_naturalSinRC1VAE.safetensors",
+        loraName: "lcm-lora-sdv1-5.safetensors",
+        prompt: "a cozy cottage at golden hour",
+        sourceImageName: "openlayer-live-1.png",
+        seed: 4242,
+        denoise: 0.6
+      })["7"].inputs.text
+    ).toBe("");
+  });
+
   it("clamps live denoise into a usable range", () => {
     expect(clampLiveDenoise(0.6)).toBe(0.6);
     expect(clampLiveDenoise(0.05)).toBe(0.2);

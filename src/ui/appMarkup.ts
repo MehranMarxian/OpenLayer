@@ -242,6 +242,9 @@ export type AppElements = {
   settingsDiagnosticsReport: HTMLTextAreaElement;
   livePaintingView: HTMLElement;
   livePrompt: HTMLTextAreaElement;
+  liveNegativePrompt: HTMLTextAreaElement;
+  liveNegativePromptToggle: HTMLElement;
+  liveNegativePromptField: HTMLElement;
   liveDenoise: HTMLInputElement;
   liveStartButton: HTMLElement;
   liveStopButton: HTMLElement;
@@ -359,6 +362,13 @@ export function createAppMarkup() {
             <span class="label">Prompt</span>
             <textarea class="textarea" id="live-prompt" placeholder="Describe what your painting should become..."></textarea>
           </label>
+          <section class="negative-prompt-section" aria-label="Live Painting negative prompt">
+            <button class="button disclosure-button action-control" id="live-negative-prompt-toggle" data-openlayer-action="toggleLiveNegativePrompt" type="button">Show Negative Prompt</button>
+            <label class="field negative-prompt-field" id="live-negative-prompt-field" hidden>
+              <span class="label">Negative prompt</span>
+              <textarea class="textarea" id="live-negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
+            </label>
+          </section>
           <label class="field">
             <span class="label">Strength (denoise)</span>
             <input class="input input-compact" id="live-denoise" type="number" min="0.2" max="0.95" step="0.05" value="0.6" />
@@ -1535,6 +1545,9 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     settingsDiagnosticsReport: getElement<HTMLTextAreaElement>(rootElement, "settings-diagnostics-report"),
     livePaintingView: getElement<HTMLElement>(rootElement, "live-painting-view"),
     livePrompt: getElement<HTMLTextAreaElement>(rootElement, "live-prompt"),
+    liveNegativePrompt: getElement<HTMLTextAreaElement>(rootElement, "live-negative-prompt"),
+    liveNegativePromptToggle: getElement<HTMLElement>(rootElement, "live-negative-prompt-toggle"),
+    liveNegativePromptField: getElement<HTMLElement>(rootElement, "live-negative-prompt-field"),
     liveDenoise: getElement<HTMLInputElement>(rootElement, "live-denoise"),
     liveStartButton: getElement<HTMLElement>(rootElement, "start-live-painting"),
     liveStopButton: getElement<HTMLElement>(rootElement, "stop-live-painting"),

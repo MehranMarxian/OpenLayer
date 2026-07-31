@@ -49,6 +49,7 @@ export type LivePaintingV2Callbacks = {
 export type LivePaintingV2Options = {
   checkpointName: string;
   prompt: string;
+  negativePrompt?: string;
   denoise: number;
   maxDimension?: number;
   autoRefineOnPause?: boolean;
@@ -395,6 +396,7 @@ export class LivePaintingSessionV2 {
       checkpointName: this.options.checkpointName,
       loraName: this.loraName,
       prompt: this.options.prompt,
+      negativePrompt: this.options.negativePrompt,
       sourceImageName,
       seed: this.seed,
       denoise: clampLiveDenoise(this.options.denoise)
@@ -450,6 +452,7 @@ export class LivePaintingSessionV2 {
 
     const workflow = buildKrea2RefineWorkflow({
       prompt: this.options.prompt,
+      negativePrompt: this.options.negativePrompt,
       sourceImageName,
       seed: this.seed,
       denoise: clampRefineDenoise(this.options.refineDenoise ?? 0.45),

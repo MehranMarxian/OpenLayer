@@ -66,6 +66,7 @@ export type ActionName =
   | "exportMaskToFile"
   | "exportMaskToComfyUI"
   | "clearHistory"
+  | "toggleLiveNegativePrompt"
   | "startLivePainting"
   | "stopLivePainting"
   | "refineLivePainting"

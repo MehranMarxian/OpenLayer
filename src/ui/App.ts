@@ -336,6 +336,7 @@ export function renderApp(rootElement: HTMLElement) {
   let liveRefinedResult: LiveGeneratedImageResult | null = null;
   let liveImportAutomatically = false;
   let liveAutoRefine = false;
+  let isLiveNegativePromptOpen = false;
   let livePreviewZoomed = false;
   let hardwareReport: HardwareRecommendationReport | null = null;
   let workflowHealthReport: WorkflowHealthReport | null = null;
@@ -757,6 +758,7 @@ export function renderApp(rootElement: HTMLElement) {
     importUpscale: createActionRunner(elements, "importUpscale", handleImportUpscale),
     toggleUpscaleAutoImport: createActionRunner(elements, "toggleUpscaleAutoImport", handleToggleUpscaleAutoImport),
     clearHistory: createActionRunner(elements, "clearHistory", handleClearHistory),
+    toggleLiveNegativePrompt: createActionRunner(elements, "toggleLiveNegativePrompt", handleToggleLiveNegativePrompt),
     startLivePainting: createActionRunner(elements, "startLivePainting", handleStartLivePainting),
     stopLivePainting: createActionRunner(elements, "stopLivePainting", handleStopLivePainting),
     refineLivePainting: createActionRunner(elements, "refineLivePainting", handleRefineLivePainting),
@@ -814,6 +816,7 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.importUpscaleButton, actionHandlers.importUpscale);
   bindActionControl(elements.upscaleAutoImportToggle, actionHandlers.toggleUpscaleAutoImport);
   bindActionControl(elements.clearHistoryButton, actionHandlers.clearHistory);
+  bindActionControl(elements.liveNegativePromptToggle, actionHandlers.toggleLiveNegativePrompt);
   bindActionControl(elements.liveStartButton, actionHandlers.startLivePainting);
   bindActionControl(elements.liveStopButton, actionHandlers.stopLivePainting);
   bindActionControl(elements.liveRefineButton, actionHandlers.refineLivePainting);
@@ -846,6 +849,7 @@ export function renderApp(rootElement: HTMLElement) {
   setGlobalError(elements, "");
   syncBusy();
   updateNegativePromptDisclosure(elements, isNegativePromptOpen);
+  updateLiveNegativePromptDisclosure(elements, isLiveNegativePromptOpen);
   updateAutoImportToggle(elements, importAutomatically);
   updateImg2ImgAutoImportToggle(elements, imageImportAutomatically);
   updateUpscaleAutoImportToggle(elements, upscaleImportAutomatically);
@@ -3413,6 +3417,11 @@ export function renderApp(rootElement: HTMLElement) {
     updateTextCheckpointCompatibility(elements);
   }
 
+  function handleToggleLiveNegativePrompt() {
+    isLiveNegativePromptOpen = !isLiveNegativePromptOpen;
+    updateLiveNegativePromptDisclosure(elements, isLiveNegativePromptOpen);
+  }
+
   async function handleStartLivePainting() {
     if (isBusy) {
       setLiveStatus("Finish the current generation before starting a live session.");
@@ -3443,6 +3452,7 @@ export function renderApp(rootElement: HTMLElement) {
       {
         checkpointName,
         prompt,
+        negativePrompt: elements.liveNegativePrompt.value,
         denoise: Number.isFinite(denoise) ? denoise : 0.6,
         autoRefineOnPause: liveAutoRefine,
         refineDenoise: 0.45,
@@ -3917,6 +3927,13 @@ function updateNegativePromptDisclosure(elements: AppElements, isOpen: boolean) 
   elements.negativePromptToggle.textContent = isOpen ? "Hide Negative Prompt" : "Show Negative Prompt";
   elements.negativePromptToggle.setAttribute("aria-expanded", String(isOpen));
   elements.negativePromptToggle.classList.toggle("is-active", isOpen);
+}
+
+function updateLiveNegativePromptDisclosure(elements: AppElements, isOpen: boolean) {
+  elements.liveNegativePromptField.hidden = !isOpen;
+  elements.liveNegativePromptToggle.textContent = isOpen ? "Hide Negative Prompt" : "Show Negative Prompt";
+  elements.liveNegativePromptToggle.setAttribute("aria-expanded", String(isOpen));
+  elements.liveNegativePromptToggle.classList.toggle("is-active", isOpen);
 }
 
 function updateAutoImportToggle(elements: AppElements, isEnabled: boolean) {
