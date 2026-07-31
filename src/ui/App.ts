@@ -1,6 +1,7 @@
 import { ComfyClient } from "../comfy/comfyClient";
 import {
   createHardwareRecommendationReport,
+  getPrimaryDeviceVramTotalBytes,
   formatHardwareReport,
   HardwareRecommendationReport
 } from "../comfy/hardwareAdvisor";
@@ -93,6 +94,11 @@ import {
   evaluateSetupRequirements,
   SetupRequirementsReport
 } from "../comfy/setupRequirements";
+import {
+  PresetVramOutlook,
+  rankPresetsByVramOutlook,
+  VramExpectation
+} from "../comfy/presetFootprint";
 import {
   createSetupTabView,
   SetupFilterView,
@@ -363,6 +369,11 @@ export function renderApp(rootElement: HTMLElement) {
   let setupActiveToolLabel: string | null = null;
   let setupCheckedAtLabel: string | null = null;
   let hasCheckedSetup = false;
+  // Null until ComfyUI reports a device. The outlook is deliberately still drawn
+  // without it: the sizes are worth showing on their own, and a preset ranking
+  // that vanished when the server was down would be the offline failure the rest
+  // of this screen was built to avoid.
+  let setupVramTotalBytes: number | null = null;
   const historyEntries: HistoryEntry[] = [];
   const objectUrls = createObjectUrlRegistry();
 
@@ -1135,6 +1146,15 @@ export function renderApp(rootElement: HTMLElement) {
       const inventory = await client.getModelInventory();
       const nodeAvailability = await client.getWorkflowNodeAvailability(presets);
 
+      // The device report is a bonus, not a requirement. A ComfyUI that answers
+      // for models but not for hardware should still produce a checked screen,
+      // so this failure only costs the ranking its VRAM column.
+      try {
+        setupVramTotalBytes = getPrimaryDeviceVramTotalBytes(await client.getSystemStats());
+      } catch {
+        setupVramTotalBytes = null;
+      }
+
       setupReport = evaluateSetupRequirements({
         pluginVersion: APP_VERSION,
         inventory,
@@ -1189,6 +1209,22 @@ export function renderApp(rootElement: HTMLElement) {
       renderSetupTab();
     });
     renderSetupSections(elements.setupSections, view.sections, handleSetupCopy);
+
+    const outlooks = rankPresetsByVramOutlook({
+      pluginVersion: APP_VERSION,
+      vramTotalBytes: setupVramTotalBytes
+    });
+
+    elements.setupVramLabel.textContent = setupVramTotalBytes
+      ? `${formatGigabytes(setupVramTotalBytes)} VRAM`
+      : "VRAM not detected";
+    renderSetupOutlook(
+      elements.setupOutlookList,
+      setupActiveToolLabel && setupActiveToolLabel !== "Everything"
+        ? outlooks.filter((outlook) => outlook.toolLabel === setupActiveToolLabel)
+        : outlooks,
+      setupVramTotalBytes
+    );
   }
 
   async function handleSetupCopy(action: SetupRowAction) {
@@ -4799,6 +4835,126 @@ function renderWorkflowHealthSummary(elements: AppElements, report: WorkflowHeal
  */
 function createUncheckedSetupReport(): SetupRequirementsReport {
   return evaluateSetupRequirements({ pluginVersion: APP_VERSION });
+}
+
+function formatGigabytes(bytes: number): string {
+  return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
+}
+
+const SETUP_EXPECTATION_TONES: Record<VramExpectation, string> = {
+  comfortable: "is-setup-ready",
+  tight: "is-setup-warning",
+  offloads: "is-setup-warning",
+  unknown: ""
+};
+
+/**
+ * Only the numbers that differ. A preset with one model has a largest file and
+ * a full stack of the same size, and a preset with nothing measurable would
+ * print its one apology twice, so both collapse. The note always carries the
+ * explanation, which is why dropping the fields entirely loses nothing.
+ */
+function createOutlookFields(
+  outlook: PresetVramOutlook,
+  vramTotalBytes: number | null
+): { label: string; value: string }[] {
+  if (outlook.totalBytes <= 0) {
+    return [];
+  }
+
+  const largest = vramTotalBytes
+    ? `${outlook.formattedLargest} of your ${formatGigabytes(vramTotalBytes)}`
+    : outlook.formattedLargest;
+
+  if (outlook.largestModelBytes === outlook.totalBytes) {
+    return [{ label: "Model size", value: largest }];
+  }
+
+  return [
+    { label: "Largest file", value: largest },
+    { label: "Full stack", value: outlook.formattedTotal }
+  ];
+}
+
+/**
+ * The preset ranking. "Will offload" shares the amber of "tight" rather than
+ * taking the red of a missing requirement, because it is not a fault: the
+ * preset runs, it runs slower. Red here would say the same wrong thing the
+ * module refuses to say in words.
+ */
+function renderSetupOutlook(
+  container: HTMLElement,
+  outlooks: readonly PresetVramOutlook[],
+  vramTotalBytes: number | null
+) {
+  container.innerHTML = "";
+
+  if (outlooks.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "diagnostics-line setup-paragraph";
+    empty.textContent = "No presets match this filter.";
+    container.append(empty);
+    return;
+  }
+
+  for (const outlook of outlooks) {
+    const row = document.createElement("div");
+    row.className = "workflow-health-item setup-row";
+
+    const heading = document.createElement("div");
+    heading.className = "workflow-health-heading";
+
+    const titleBlock = document.createElement("div");
+    titleBlock.className = "workflow-health-title-block";
+
+    const title = document.createElement("div");
+    title.className = "workflow-health-title";
+    title.textContent = outlook.displayName;
+    titleBlock.append(title);
+
+    const tool = document.createElement("div");
+    tool.className = "workflow-health-tool";
+    tool.textContent = outlook.toolLabel;
+    titleBlock.append(tool);
+
+    heading.append(titleBlock);
+
+    const badge = document.createElement("div");
+    badge.className = `workflow-health-state ${SETUP_EXPECTATION_TONES[outlook.expectation]}`.trim();
+    badge.textContent = outlook.expectationLabel;
+    heading.append(badge);
+
+    row.append(heading);
+
+    const fields = document.createElement("div");
+    fields.className = "setup-row-fields";
+
+    for (const field of createOutlookFields(outlook, vramTotalBytes)) {
+      const fieldRow = document.createElement("div");
+      fieldRow.className = "setup-row-field";
+
+      const label = document.createElement("span");
+      label.className = "setup-row-field-label";
+      label.textContent = field.label;
+      fieldRow.append(label);
+
+      const value = document.createElement("span");
+      value.className = "setup-row-field-value";
+      value.textContent = field.value;
+      fieldRow.append(value);
+
+      fields.append(fieldRow);
+    }
+
+    row.append(fields);
+
+    const note = document.createElement("div");
+    note.className = "setup-row-note";
+    note.textContent = outlook.expectationNote;
+    row.append(note);
+
+    container.append(row);
+  }
 }
 
 function formatClockTime(when: Date): string {

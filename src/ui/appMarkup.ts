@@ -53,6 +53,8 @@ export type AppElements = {
   setupStatusPill: HTMLElement;
   setupFilters: HTMLElement;
   setupSections: HTMLElement;
+  setupVramLabel: HTMLElement;
+  setupOutlookList: HTMLElement;
   historyView: HTMLElement;
   layerToolsView: HTMLElement;
   exportLayerFileButton: HTMLElement;
@@ -1233,6 +1235,17 @@ export function createAppMarkup() {
         <div class="setup-filter-row" id="setup-filters" aria-label="Filter requirements by tool"></div>
 
         <div id="setup-sections"></div>
+
+        <section class="panel-section settings-panel diagnostic-section diagnostic-scroll-safe" aria-label="What will run well">
+          <div class="section-heading">
+            <span class="label">What will run well</span>
+            <span class="muted-label" id="setup-vram-label">VRAM not detected</span>
+          </div>
+          <div class="diagnostics-line setup-paragraph" id="setup-outlook-note">
+            Sizes are model weights, not measured VRAM use. ComfyUI moves what does not fit into system RAM, so a large stack runs slower rather than failing.
+          </div>
+          <div id="setup-outlook-list"></div>
+        </section>
       </section>
 
       <section class="history-view" id="history-view" aria-label="History" hidden>
@@ -1400,6 +1413,8 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     setupStatusPill: getElement<HTMLElement>(rootElement, "setup-status-pill"),
     setupFilters: getElement<HTMLElement>(rootElement, "setup-filters"),
     setupSections: getElement<HTMLElement>(rootElement, "setup-sections"),
+    setupVramLabel: getElement<HTMLElement>(rootElement, "setup-vram-label"),
+    setupOutlookList: getElement<HTMLElement>(rootElement, "setup-outlook-list"),
     historyView: getElement<HTMLElement>(rootElement, "history-view"),
     layerToolsView: getElement<HTMLElement>(rootElement, "layer-tools-view"),
     exportLayerFileButton: getElement<HTMLElement>(rootElement, "export-layer-file"),
