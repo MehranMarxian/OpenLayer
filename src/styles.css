@@ -785,19 +785,25 @@ a:hover {
 .setup-filter-row {
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-start;
   margin: 0 0 4px;
 }
 
+/* Fixed height with a matching half-height radius, rather than letting padding
+   decide. A chip whose height grows past twice its radius stops being a pill
+   and becomes an ellipse, which is the same trap the toggle-button block warns
+   about, and UXP is more predictable with explicit pixel sizing anyway. */
 .setup-filter-chip {
+  height: 22px;
   min-height: 0;
   margin: 0 4px 4px 0;
   border: 1px solid #4a4a4a;
-  border-radius: 999px;
-  padding: 3px 10px;
+  border-radius: 11px;
+  padding: 0 10px;
   background: #333333;
   color: #b4b4b4;
   font-size: 11px;
-  line-height: 1.3;
+  line-height: 20px;
 }
 
 .setup-filter-chip.is-active {
@@ -7219,11 +7225,19 @@ body,
    rather than dropping the attribute keeps the state readable to a screen
    reader. */
 .app-shell.theme-compact button.setup-filter-chip[aria-pressed] {
+  box-sizing: border-box !important;
+  width: auto !important;
+  height: 22px !important;
+  min-height: 0 !important;
+  margin: 0 4px 4px 0 !important;
   border: 1px solid #4a4a4a !important;
-  border-radius: 999px !important;
+  border-radius: 11px !important;
+  padding: 0 10px !important;
   background: #333333 !important;
   color: #b4b4b4 !important;
+  font-size: 11px !important;
   font-weight: 600 !important;
+  line-height: 20px !important;
 }
 
 .app-shell.theme-compact button.setup-filter-chip[aria-pressed="true"] {
