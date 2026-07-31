@@ -1,5 +1,37 @@
 # Changelog
 
+## v0.10.0-alpha - 2026-07-31
+
+The first OpenLayer release whose plugin zip is built to the ZIP specification, which matters more than a packaging note usually would: every release from v0.1.0 to v0.9.0-alpha wrote its entry paths with backslashes, and macOS refuses to unpack those into folders. Everything else here follows from the same question — what happens to somebody setting this up without anyone to ask. Workflow health now tells you which folder your "missing" model is actually sitting in, missing nodes name the package that provides them, and Live Painting stops looking half-finished.
+
+### Added
+
+- **Check Workflow Health now answers "the file is missing, or is it just in the wrong folder?"** When a preset's model is absent from the folder its loader reads, the report searches the other model folders and names where it found it: "Found <model> in models/diffusion_models/, but this workflow reads it from models/checkpoints/. Move the file, then refresh ComfyUI." `CheckpointLoaderSimple` reads `models/checkpoints/` and `UNETLoader` reads `models/diffusion_models/`, and a file in the wrong one of those is invisible to the workflow while looking exactly like a file that was never downloaded. This has already been the real cause of several reported "bugs".
+- **A missing custom node now names the repository that provides it**, and where to put it, instead of only naming the class that was absent. Nodes that ship with ComfyUI itself say so instead, because for those the answer is an outdated or partially broken install rather than a download.
+- **Live Painting has a negative prompt**, collapsed behind a disclosure button like the one on Text to Image. Both live tiers already had a CLIP text encoder wired into the sampler as its negative conditioning with the text hardcoded to empty; this makes it an input. Left blank, it produces exactly the workflow earlier releases submitted.
+
+### Fixed
+
+- **Release zips now store entry paths with forward slashes, as the ZIP specification requires.** Packaging used to shell out to PowerShell's `Compress-Archive`, which writes backslashes. Windows Explorer and the UXP Developer Tool tolerate that, which is how it survived nine releases unnoticed; macOS `unzip` does not, and treats the whole string as a single filename, unpacking a flat directory with no `assets/` folder so the panel cannot render. Both archives now come from the same spec-correct writer the setup pack already used, and neither depends on a platform binary being installed. **If you are on macOS and an earlier release gave you a blank panel, this was why — use this release.**
+- Fixed Start Live Session and Stop Live Session rendering flush against each other, at different heights. They were the only button pair in the panel with no container, and the compact theme gives a top margin to primary buttons and nothing to plain ones.
+- Fixed both of Live Painting's explanatory hints being cut off after their first clause. The shared status-line style truncates to one line with an ellipsis, which is correct for the eight status bars it was written for and wrong for a paragraph, so the two hints now opt out on their own class rather than the shared style being loosened.
+- Fixed the gap above "Import Refined as Layer", which had the same cause as the Start/Stop pair one section further down.
+
+### Changed
+
+- Live Painting's dependency hint now says which model the live tier will use and what to do when none is chosen, instead of implying the dependency. It runs whatever is selected in the Model dropdown on Text to Image, and until this release the sentence explaining that was one of the ones being truncated.
+
+### Known limitations
+
+- **Live Painting is experimental.** The live tier needs an SD 1.5 LCM LoRA in `models/loras/`, and Start Live Session reports an error naming it if none is found. The Refine tier additionally needs the three Krea-2 Turbo files (diffusion model, text encoder, VAE); without them the live tier still works and Refine reports what is missing. Auto-import fires when you stop the session, by design.
+- Installation still requires the UXP Developer Tool. Whether a `.ccx` double-click install works on a machine that has never had developer mode enabled is documented as an open question in `docs/DISTRIBUTION_SPIKE.md` and needs a clean second machine to answer.
+- The Layer Tools card on Home does not dim when ComfyUI is unreachable, unlike the generation tools. Saving to a file works with ComfyUI stopped; Send to ComfyUI will fail and report the connection error on the Layer Tools status line.
+- Layer, canvas, selection, and mask capture is limited to 16 megapixels (4096 x 4096) until a downscale option is added.
+- The Preview panel offers each tool's primary import only. Live Painting's second action, "Import Refined as Layer", is not on the panel, because the refined result is a separate image and the panel shows one at a time.
+- The setup pack contains no model weights. They are roughly 85 GB and two are licence-restricted, so it ships the list and the downloader instead — an internet connection is required.
+- Inpaint and Outpaint remain experimental and should be tested on duplicate layers or disposable documents.
+- CI covers pure TypeScript behavior but does not run Photoshop, UXP Developer Tool, or ComfyUI integration tests.
+
 ## v0.9.0-alpha - 2026-07-27
 
 Adds the eighth tool, and finishes the status cleanup the 0.8 releases started. Layer Tools is the first thing OpenLayer does that is not a generation: it moves pixels *out* of Photoshop, into a file or into ComfyUI's input folder, which is the step that has until now meant leaving the panel.

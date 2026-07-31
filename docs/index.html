@@ -33,10 +33,10 @@
       "operatingSystem": "Windows, macOS",
       "applicationCategory": "DesignApplication",
       "applicationSubCategory": "Adobe Photoshop plugin",
-      "softwareVersion": "0.9.0-alpha",
+      "softwareVersion": "0.10.0-alpha",
       "description": "Open-source Photoshop UXP plugin that connects to a local ComfyUI server for AI image generation: text to image, image to image, sketch to image, inpaint, outpaint, and upscale with Stable Diffusion, SDXL, and Flux models.",
       "url": "https://mehran-ahmadi.com/OpenLayer/",
-      "downloadUrl": "https://github.com/MehranMarxian/OpenLayer/releases/tag/v0.9.0-alpha",
+      "downloadUrl": "https://github.com/MehranMarxian/OpenLayer/releases/tag/v0.10.0-alpha",
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
       "author": { "@type": "Person", "name": "Mehran Ahmadi", "url": "https://github.com/MehranMarxian" }
     }
@@ -65,7 +65,7 @@
     <main id="top">
       <section class="hero" aria-labelledby="hero-title">
         <div class="hero-copy">
-          <p class="hero-badge"><span class="pulse-dot" aria-hidden="true"></span> Alpha v0.9.0 · free &amp; open source</p>
+          <p class="hero-badge"><span class="pulse-dot" aria-hidden="true"></span> Alpha v0.10.0 · free &amp; open source</p>
           <h1 id="hero-title">Local AI layers,<br><span class="grad">inside Photoshop.</span></h1>
           <p class="hero-lede">
             OpenLayer connects Photoshop to <strong>your own ComfyUI server</strong>.
@@ -74,7 +74,7 @@
             <strong>No cloud. No credits. No subscription.</strong>
           </p>
           <div class="hero-actions">
-            <a class="button button-primary" href="https://github.com/MehranMarxian/OpenLayer/releases/tag/v0.9.0-alpha">Download alpha</a>
+            <a class="button button-primary" href="https://github.com/MehranMarxian/OpenLayer/releases/tag/v0.10.0-alpha">Download alpha</a>
             <a class="button button-secondary" href="https://github.com/MehranMarxian/OpenLayer">Star on GitHub</a>
           </div>
           <ul class="signal-list" aria-label="Project signals">
@@ -92,15 +92,16 @@
 
       <section class="intro" aria-labelledby="intro-title">
         <div class="section-inner">
-          <p class="eyebrow">v0.9 layer tools</p>
+          <p class="eyebrow">v0.10 setup that explains itself</p>
           <h2 id="intro-title">Local generation that now feels at home inside Photoshop.</h2>
           <p class="intro-lede">
             OpenLayer starts with dependable local workflows — text to image, image to image,
             sketch to image, experimental inpaint and outpaint, pixel upscale, lossless PNG
             source capture, live previews, diagnostics, and clean import into the active document.
-            v0.9 adds Layer Tools, the first tool that sends pixels the other way: export the active
-            layer, the current selection, or the selection mask to a file you pick or straight into
-            ComfyUI's input folder. Each tool's diagnostics and errors now stay on its own screen.
+            v0.10 turns to the part nobody enjoys: setup. Workflow Health now tells you when a
+            "missing" model is really just one folder over, and names the repository behind a missing
+            custom node. The plugin zip is also built to spec for the first time, which is what makes
+            it unpack correctly on macOS.
           </p>
         </div>
       </section>
@@ -149,12 +150,12 @@
             </article>
             <article class="tool-card">
               <span class="tool-icon"><img src="assets/tools/live-painting.png" alt=""></span>
-              <div><h3>Live Painting</h3><span class="chip chip-ready">New in v0.9</span></div>
+              <div><h3>Live Painting</h3><span class="chip chip-exp">Experimental</span></div>
               <p>Keep painting and OpenLayer keeps repainting — a fast local preview tier that follows your strokes, plus a slower Krea-2 Turbo refine pass on demand.</p>
             </article>
             <article class="tool-card">
               <span class="tool-icon"><img src="assets/tools/layer-tools.png" alt=""></span>
-              <div><h3>Layer Tools</h3><span class="chip chip-ready">New in v0.9</span></div>
+              <div><h3>Layer Tools</h3><span class="chip chip-ready">Stable</span></div>
               <p>Send pixels the other way. Export the active layer, the current selection, or the selection mask — to a file you pick, or straight into ComfyUI's input folder where a workflow can use it.</p>
             </article>
             <article class="tool-card">
@@ -322,11 +323,11 @@ npm run build</code></pre>
             </article>
             <article class="status-card">
               <h3>Testing alpha</h3>
-              <p>OpenLayer v0.9.0-alpha is for local testing and feedback. It is not production-ready yet.</p>
+              <p>OpenLayer v0.10.0-alpha is for local testing and feedback. It is not production-ready yet.</p>
             </article>
             <article class="status-card">
               <h3>Inpaint is experimental</h3>
-              <p>v0.9.0 retains the upload and alignment fixes while output quality across checkpoints continues to be validated by testers.</p>
+              <p>v0.10.0 retains the upload and alignment fixes while output quality across checkpoints continues to be validated by testers.</p>
             </article>
             <article class="status-card">
               <h3>Flux Fill is experimental</h3>
@@ -349,7 +350,7 @@ npm run build</code></pre>
               <li>Inpaint and Outpaint should be tested on duplicate layers first.</li>
               <li>Prompt from Layer requires the local Florence-2 PromptGen model and the comfyui-florence2 nodes. The custom-scripts pack is no longer needed.</li>
               <li>Upscale uses pixel/model upscale only. Generative upscale, tiled diffusion, and creative enhancement are future work.</li>
-              <li>Custom workflow import, LoRA browser, batch variants, and true persistent Photoshop AI layer metadata are future work. v0.9.0 keeps the shared metadata foundation and session-history wiring.</li>
+              <li>Custom workflow import, LoRA browser, batch variants, and true persistent Photoshop AI layer metadata are future work. v0.10.0 keeps the shared metadata foundation and session-history wiring.</li>
               <li>CI does not run Photoshop, UXP, or ComfyUI integration tests.</li>
               <li>Live sampler previews require ComfyUI to be started with <code>--preview-method auto</code>.</li>
               <li>Progress is shown in the generation status panel rather than pinned to the screen header, so it scrolls with the form.</li>
@@ -391,6 +392,10 @@ npm run build</code></pre>
               <p>Export the active layer, the current selection, or the selection mask to a file or straight into ComfyUI's input folder — and every tool's messages finally stay on its own screen.</p>
             </article>
             <article>
+              <h3>v0.10 · Setup diagnostics</h3>
+              <p>Workflow Health finds models sitting in the wrong folder and names the repository behind a missing node — and the plugin zip is finally built to spec, so it unpacks correctly on macOS.</p>
+            </article>
+            <article>
               <h3>Next · Reliability and artist control</h3>
               <p>Finish Inpaint and Outpaint alignment, strengthen workflow validation, and turn the metadata foundation into repeatable layer-level iteration.</p>
             </article>
@@ -419,7 +424,7 @@ npm run build</code></pre>
     </main>
 
     <footer class="site-footer">
-      <p>OpenLayer v0.9.0-alpha. Developed by Mehran Ahmadi, 2026.</p>
+      <p>OpenLayer v0.10.0-alpha. Developed by Mehran Ahmadi, 2026.</p>
       <p>
         <a href="https://github.com/MehranMarxian">GitHub</a>
       </p>
