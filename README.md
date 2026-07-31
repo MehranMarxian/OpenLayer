@@ -10,9 +10,15 @@ OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop t
 
 ## Alpha Release
 
-`v0.9.0-alpha` is the current public alpha checkpoint. It is intended for testing the core local workflows in Photoshop UXP, not for production work yet.
+`v0.10.0-alpha` is the current public alpha checkpoint. It is intended for testing the core local workflows in Photoshop UXP, not for production work yet.
 
-New in `v0.9.0-alpha`:
+New in `v0.10.0-alpha`:
+
+- **The plugin zip is built to the ZIP specification for the first time.** Every release from v0.1.0 to v0.9.0-alpha stored entry paths with backslashes, which macOS `unzip` unpacks as a flat directory with no `assets/` folder, so the panel could not render. **If an earlier release gave you a blank panel on macOS, this was why — use this one.**
+- **Check Workflow Health finds models that are in the wrong folder.** When a preset's model is missing from the folder its loader reads, the report searches the other model folders and names where it found it, so "missing" and "downloaded, but one directory over" stop looking identical. It also names the repository that provides a missing custom node.
+- **Live Painting has a negative prompt** and a round of interface fixes: the session buttons no longer touch, and both of its explanatory hints are readable instead of being cut off after their first clause. It remains experimental.
+
+Also new in `v0.9.0-alpha`:
 
 - **Layer Tools**, the eighth tool and the first that is not a generation. Export the active layer, the current selection, or the selection mask, either to a file you pick with a Photoshop save dialog or straight into ComfyUI's input folder where a workflow can reference it by name.
 - Each tool's diagnostics line and error text now stay on that tool's screen. Settings remains the panel-wide log and still shows what every tool reported.
@@ -93,7 +99,14 @@ The earlier card-based dashboard established OpenLayer's honest available/experi
 
 </details>
 
-v0.9.0-alpha tester focus:
+v0.10.0-alpha tester focus:
+
+- Unzip the release package and confirm it expands into folders, with an `assets/` directory beside `index.html` — not a flat pile of files with backslashes in their names. **On macOS this is the single most useful thing to report.**
+- Put a model in the wrong folder on purpose — move a checkpoint into `models/diffusion_models/`, say — then run **Check Workflow Health** and confirm the report names the folder it actually found it in and the folder the workflow wants.
+- Open **Live Painting**. Confirm Start and Stop Live Session have a gap between them and are the same height, and that the two explanatory hints read as full paragraphs rather than ending in an ellipsis.
+- Set a Live Painting negative prompt, start a session, and paint. Then run one session with the field left blank and confirm it behaves as it did before.
+
+Also worth rechecking from v0.9.0-alpha:
 
 - Open **Layer Tools** from Home. With a layer selected, save it to a file, then send it to ComfyUI and confirm it appears in ComfyUI's `input` folder under the name the status line reports.
 - Make a selection, then run both the **Selection** and **Selection mask** exports. The mask is the one an inpainting workflow wants; confirm it is a black-and-white image matching what you selected.
@@ -109,7 +122,7 @@ v0.9.0-alpha tester focus:
 - Run `npm run setup-pack` and confirm it reports no source/API mismatches at all.
 - Recheck the existing local generation, cancel, preview, import, History, and Workflow Health paths for regressions.
 
-Known v0.9.0-alpha boundaries:
+Known v0.10.0-alpha boundaries:
 
 - Image to Image is an early foundation path, not a full production workflow yet.
 - Sketch to Image is limited to the first SD 1.x LINECN starter workflow.
@@ -270,7 +283,7 @@ npm run package
 This creates a zip package from `dist` in the `packages` folder. For the current alpha, the expected package name is:
 
 ```text
-packages/openlayer-v0.9.0-alpha.zip
+packages/openlayer-v0.10.0-alpha.zip
 ```
 
 ## Loading In UXP Developer Tool
@@ -397,7 +410,7 @@ Inpaint output quality, mask interpretation, and Photoshop alignment are still b
 
 ## Pre-release Tester Checklist
 
-Use this quick pass before reporting a v0.9.0-alpha test result:
+Use this quick pass before reporting a v0.10.0-alpha test result:
 
 1. Start ComfyUI on `http://127.0.0.1:8190`.
 2. Build OpenLayer and load `dist/manifest.json` in Adobe UXP Developer Tool.

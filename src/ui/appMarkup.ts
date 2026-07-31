@@ -354,7 +354,7 @@ export function createAppMarkup() {
             <span class="label">Live session</span>
             <span class="muted-label">Two-tier session</span>
           </div>
-          <div class="diagnostics-line live-dependency-hint">
+          <div class="diagnostics-line live-hint">
             The live tier runs the model picked in the Model dropdown on the Text to Image screen,
             paired with your local SD 1.5 LCM LoRA. Refine uses Krea-2 Turbo.
             If no model is selected there yet, open Text to Image, choose a workflow and a model,
@@ -399,7 +399,7 @@ export function createAppMarkup() {
             <button class="button action-control" id="live-auto-import-toggle" data-openlayer-action="toggleLiveAutoImport" type="button" aria-pressed="false">Import Automatically</button>
           </div>
           <button class="button live-refined-import-button action-control" id="import-live-refined" data-openlayer-action="importLiveRefined" type="button">Import Refined as Layer</button>
-          <div class="diagnostics-line">
+          <div class="diagnostics-line live-hint">
             Import Automatically brings the latest live result into Photoshop as a new layer when you stop the session.
           </div>
         </section>

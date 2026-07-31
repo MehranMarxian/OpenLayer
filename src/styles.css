@@ -7257,16 +7257,16 @@ body,
   margin-top: 8px !important;
 }
 
-/* The Live Painting dependency hint is a paragraph, not a status line, and it
-   is the one `.diagnostics-line` in the panel that has to wrap. The compact
-   theme truncates that class to a single line (`white-space: nowrap` plus
-   `text-overflow: ellipsis`, with `max-height: 34px` and `overflow: hidden`
-   from earlier blocks), which is right for the seven status bars and wrong
-   here -- everything after the first clause has never been readable. Opting
-   out on its own class keeps all eight status lines exactly as they are.
+/* The two Live Painting hints are paragraphs, not status lines, and they are
+   the only `.diagnostics-line` elements in the panel that have to wrap. The
+   compact theme truncates that class to a single line (`white-space: nowrap`
+   plus `text-overflow: ellipsis`, with `max-height: 34px` and `overflow:
+   hidden` from earlier blocks), which is right for the eight status bars and
+   wrong here -- everything after the first clause has never been readable.
+   Opting out on its own class keeps those status lines exactly as they are.
    The `overflow-wrap: anywhere !important` set alongside those rules is inert
    while nowrap wins and starts working once it does. */
-.app-shell.theme-compact .live-dependency-hint {
+.app-shell.theme-compact .live-hint {
   max-height: none !important;
   overflow: visible !important;
   margin-bottom: 9px !important;
