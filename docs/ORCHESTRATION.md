@@ -153,7 +153,11 @@ snapshot `.git/HEAD` and `refs/heads/` before launching; never edit while a Code
 `HEAD`, branch and last commit survived before touching anything afterwards; and require a reported
 diff rather than a commit, a push, or any contact with `.git`.
 
-## 6. Roadmap (state as of 2026-08-01, post-v0.10.0-alpha)
+## 6. Roadmap (state as of 2026-08-01, during the v0.11.0-alpha release)
+
+**v0.11.0-alpha is the release in flight**: the Setup screen (PRs #62, #63), the roadmap-item-3 preset
+ranking (#65) and this doc's own update (#64) are all merged to main and were unreleased for three
+sessions. Nothing a tester can install contains any of it until the tag is pushed.
 
 **v0.10.0-alpha is published** (tag on `31e21d7`, prerelease, plugin zip + setup pack + `checksums.txt`).
 Its headline fix was the release zip: every release from v0.1.0 to v0.9.0-alpha stored entry paths with
@@ -169,7 +173,7 @@ anything depends on Creative Cloud accepting an unsigned non-Marketplace package
 that has never had UDT — nobody on the project has one. It was deliberately left out of v0.10.0 because
 release assets can be added to a published release at any time, so deferring costs nothing.
 
-**Roadmap items 1 and 2 are done** (PRs #58, #62, #63). See the entries below.
+**Roadmap items 1, 2 and 3 are done** (PRs #58, #62, #63, #65). See the entries below.
 
 **v0.8 so far (merged):** version bump to 0.8.0; ESLint in CI (with `TextEncoder`/`TextDecoder`
 banned in `src/`, the one rule that catches a UXP failure neither `tsc` nor Vitest can see); preview
@@ -191,8 +195,10 @@ LoRA browser are explicitly **out of v0.8 scope**.
    - **Static manifest, live status as an overlay.** Status is four-valued — `not-checked` keeps every name, folder, size and link when ComfyUI is unreachable, because someone asking what to download usually has not started it yet. Tallies show a dash, not 0, when nothing was checked: "0 missing" against a dead server reads as good news.
    - **A wrong-folder model contributes zero to the remaining download**, and its row says the file is already there. `evaluateSetupRequirements` (pure) and `setupTabModel.ts` (pure view model) hold all of this; the DOM layer only draws it.
    Presets also gained a required `displayName`, because `label` was the preset id and the health cards had been showing `txt2img-krea2-turbo` to artists for several releases.
-3. **GPU-aware recommendations (Phase 3)** — extend `hardwareAdvisor` to rank runnable workflows by VRAM. **Next up.** The Setup screen is the natural place to surface it, and `SetupModelRequirement` already carries `sizeBytes` and `usedByPresets`.
-4. **Assisted install (Phase 4)** — ComfyUI-Manager API behind explicit user approval. Biggest surface; last.
+3. ~~**GPU-aware recommendations (Phase 3)**~~ — **DONE** (PR #65). `presetFootprint.ts` ranks every runnable preset against the VRAM `hardwareAdvisor` reports for the primary device, and the "What will run well" block sits at the bottom of the Setup screen next to the requirements it describes. Two decisions worth carrying forward:
+   - **Rank on the largest single file, not the sum.** ComfyUI loads and offloads components at different stages, so the biggest resident chunk predicts speed; the sum describes the download instead. Both are computed, and they answer different questions.
+   - **An unpublished size is not a small size.** Florence-2 publishes no size, measured as zero bytes, and sorted to the top as the single most comfortable preset on the list. Missing sizes now block a "Comfortable" claim but not "Tight"/"Will offload", because the known part alone already justifies those. Any new size-derived claim needs the same asymmetry.
+4. **Assisted install (Phase 4)** — ComfyUI-Manager API behind explicit user approval. **Next up.** The Setup screen already computes the inputs: `SetupModelRequirement` carries the target folder, the download URL, the size and the licence-gated flag, and `evaluateSetupRequirements` already knows exactly which files are missing versus merely misplaced. Biggest surface on the list; nothing may download without per-item confirmation.
 5. **Outpaint canvas expansion + aligned import** — currently outpaint imports centered without resizing the canvas. Proper fix = batchPlay canvas resize + coordinate-shift for alignment. **Hardest host work on the list**; touches the same adapter machinery as A2/A3. Needs the strongest available model + careful Mehran verification.
 6. **Live Painting v2 (two-tier: SD1.5-LCM fast tier / Krea2-turbo quality tier)** — design exists in the assistant's memory notes; the current spike (event-candidate listeners, serial pump loop in `livePaintingSession.ts`) works but is primitive. Flagship feature. Architecture first, then incremental delegation.
 7. **Layer tools & new-tool pattern** — new tools go in their own `src/ui/tools/<name>.ts` modules (the forward-looking half of skipped step 5); wire through `generationController` + a new busy-table group + `generationToolUi` row + preset registry entry.

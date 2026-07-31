@@ -10,9 +10,15 @@ OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop t
 
 ## Alpha Release
 
-`v0.10.0-alpha` is the current public alpha checkpoint. It is intended for testing the core local workflows in Photoshop UXP, not for production work yet.
+`v0.11.0-alpha` is the current public alpha checkpoint. It is intended for testing the core local workflows in Photoshop UXP, not for production work yet.
 
-New in `v0.10.0-alpha`:
+New in `v0.11.0-alpha`:
+
+- **A Setup screen**, on Home under Preferences. It lists every model file and custom node package the presets need, with the folder each one goes in, its size, what it unlocks, and whether it is installed, missing, or sitting in the wrong folder. It works with ComfyUI stopped — the list is static and the status is an overlay — because that is the state most people are in when they go looking for what to download.
+- **"What will run well"** ranks the presets against the VRAM ComfyUI reports for your card: Comfortable, Tight, Will offload, or Not known. It rates on the largest single file in a preset's stack rather than the total, and says plainly that a stack too big for the card runs slower rather than failing.
+- **Presets are named for artists.** Workflow Health shows "Krea-2 Turbo" and "Flux Fill" instead of the internal ids `txt2img-krea2-turbo` and `inpaint-flux-fill-basic`, and the status badge is now one squared label used on both screens.
+
+Also new in `v0.10.0-alpha`:
 
 - **The plugin zip is built to the ZIP specification for the first time.** Every release from v0.1.0 to v0.9.0-alpha stored entry paths with backslashes, which macOS `unzip` unpacks as a flat directory with no `assets/` folder, so the panel could not render. **If an earlier release gave you a blank panel on macOS, this was why — use this one.**
 - **Check Workflow Health finds models that are in the wrong folder.** When a preset's model is missing from the folder its loader reads, the report searches the other model folders and names where it found it, so "missing" and "downloaded, but one directory over" stop looking identical. It also names the repository that provides a missing custom node.
@@ -99,7 +105,19 @@ The earlier card-based dashboard established OpenLayer's honest available/experi
 
 </details>
 
-v0.10.0-alpha tester focus:
+v0.11.0-alpha tester focus:
+
+- Open **Setup** from Home *before* starting ComfyUI. Confirm every model and node package is still listed with its folder, size and links, that the three tallies show a dash rather than 0, and that nothing claims you are set up.
+- Start ComfyUI, click **Check Again**, and confirm the list splits into what you have and what you are missing, with the installed rows collapsed. The remaining download figure should count each file once even though several presets share it — and should say "Nothing" if you have everything.
+- Move one model into the wrong folder — a checkpoint into `models/diffusion_models/`, say — check again, and confirm its row says you already have the file, names the folder it is in, and does not add its size to the remaining download.
+- Use the filter chips to narrow the list to one tool, and confirm the tallies and the download total keep describing everything rather than only the filtered slice.
+- Read **"What will run well"** at the bottom of Setup. Confirm the VRAM figure matches your card, that the order runs best-first, and that the Florence-2 preset is *not* claimed to be the most comfortable one on the list.
+- Look at the status badges on both Setup and **Check Workflow Health**: they should be the same squared uppercase label on both screens, with no text cut off by an ellipsis. The longest ones are NEEDS WORKFLOW JSON and MISSING COMFYUI NODE.
+- Confirm the filter chips read as flat outlined pills of uniform height — not gold switches, not stretched ovals.
+- Confirm Workflow Health names presets the way an artist would ("Krea-2 Turbo", "Standard checkpoint") rather than by their internal ids.
+- Confirm the panel footer reads `v0.11.0`.
+
+Also worth rechecking from v0.10.0-alpha:
 
 - Unzip the release package and confirm it expands into folders, with an `assets/` directory beside `index.html` — not a flat pile of files with backslashes in their names. **On macOS this is the single most useful thing to report.**
 - Put a model in the wrong folder on purpose — move a checkpoint into `models/diffusion_models/`, say — then run **Check Workflow Health** and confirm the report names the folder it actually found it in and the folder the workflow wants.
@@ -122,8 +140,11 @@ Also worth rechecking from v0.9.0-alpha:
 - Run `npm run setup-pack` and confirm it reports no source/API mismatches at all.
 - Recheck the existing local generation, cancel, preview, import, History, and Workflow Health paths for regressions.
 
-Known v0.10.0-alpha boundaries:
+Known v0.11.0-alpha boundaries:
 
+- The Setup screen reports and copies. It does not download or install anything; assisted install through ComfyUI-Manager is the next roadmap item.
+- "What will run well" rates on published model weight sizes against reported VRAM. It is not a measurement of VRAM use during a run, and a preset with an unpublished model size is reported as unknown rather than guessed at.
+- Setup and Check Workflow Health overlap on purpose. Setup answers what you need and where it goes; Health answers whether a given preset can run right now.
 - Image to Image is an early foundation path, not a full production workflow yet.
 - Sketch to Image is limited to the first SD 1.x LINECN starter workflow.
 - Sketch to Image is currently tested with `epicrealism_naturalSinRC1VAE.safetensors` and `control_v11p_sd15_lineart_fp16.safetensors`.
@@ -283,7 +304,7 @@ npm run package
 This creates a zip package from `dist` in the `packages` folder. For the current alpha, the expected package name is:
 
 ```text
-packages/openlayer-v0.10.0-alpha.zip
+packages/openlayer-v0.11.0-alpha.zip
 ```
 
 ## Loading In UXP Developer Tool
@@ -410,7 +431,7 @@ Inpaint output quality, mask interpretation, and Photoshop alignment are still b
 
 ## Pre-release Tester Checklist
 
-Use this quick pass before reporting a v0.10.0-alpha test result:
+Use this quick pass before reporting a v0.11.0-alpha test result:
 
 1. Start ComfyUI on `http://127.0.0.1:8190`.
 2. Build OpenLayer and load `dist/manifest.json` in Adobe UXP Developer Tool.
@@ -419,7 +440,7 @@ Use this quick pass before reporting a v0.10.0-alpha test result:
 5. Open two tool screens; confirm the Back to Tools control, icon, title, and progress track have clear spacing and remain visible while scrolling.
 6. Paste a long prompt, confirm it remains editable and scrollable, and confirm the Prompt from Layer generated-text field is substantially taller than other fields.
 7. Open Settings and click `Check ComfyUI`; confirm checkpoints load.
-8. Click `Check Workflow Health`; confirm each registered preset shows Ready, Experimental, Missing model, Missing ComfyUI node, Missing workflow JSON, or Setup required.
+8. Click `Check Workflow Health`; confirm each registered preset shows Ready, Experimental, Missing model, Missing ComfyUI node, Needs workflow JSON, or Setup required, under its artist-facing name.
 9. Confirm Settings shows readable summary counts and collapsed technical details without overlapping cards.
 10. Click `Copy Diagnostics`; confirm the report is copied or appears in the read-only diagnostics box.
 11. Generate one `txt2img-basic` image and import it as a new layer; confirm the determinate progress bar advances cleanly.
