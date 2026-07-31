@@ -161,7 +161,7 @@ describe("workflow health", () => {
     });
 
     expect(item.state).toBe("missing-workflow");
-    expect(item.stateLabel).toBe("Missing workflow JSON");
+    expect(item.stateLabel).toBe("Needs workflow JSON");
     expect(item.canRun).toBe(false);
   });
 
