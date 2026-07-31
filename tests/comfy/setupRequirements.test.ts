@@ -52,6 +52,12 @@ describe("setup requirements", () => {
     expect(report.customNodes.every((node) => node.status === "installed")).toBe(true);
     expect(report.remainingDownloadBytes).toBe(0);
     expect(report.summaryLine).toBe("All setup requirements are installed. No downloads remain.");
+    // formatBytes reports zero as "unknown", because in the manifest a zero size
+    // means the size was never published. Zero remaining is the opposite of
+    // unknown, and this is the state a fully set up machine is in, so the panel
+    // must never render "unknown left to download".
+    expect(report.formattedRemainingDownload).toBe("Nothing");
+    expect(report.formattedRemainingDownload).not.toBe("unknown");
   });
 
   it("finds Krea-2 Turbo in checkpoints without asking for another download", () => {

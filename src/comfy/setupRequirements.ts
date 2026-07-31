@@ -11,6 +11,7 @@ import { getAvailableRequiredModelName } from "./workflowModelRequirements";
 import { findMisplacedModel } from "./modelPlacementDiagnostics";
 import { getWorkflowCapability } from "./workflowCapabilities";
 import { WorkflowNodeAvailability } from "./workflowCompatibility";
+import { createOpenLayerError } from "../utils/errors";
 
 export type SetupRequirementStatus = "installed" | "wrong-folder" | "missing" | "not-checked";
 
@@ -99,7 +100,11 @@ export function evaluateSetupRequirements(
       const requiredModel = requiredModelsByKey.get(manifestModel.key);
 
       if (!requiredModel) {
-        throw new Error(`Setup manifest model ${manifestModel.key} has no matching registry model.`);
+        throw createOpenLayerError(
+          "WORKFLOW_INVALID",
+          `No registry model matches the setup requirement ${manifestModel.key}.`,
+          "The setup manifest and the preset registry disagree about a required model key."
+        );
       }
 
       return evaluateModelRequirement(
@@ -143,7 +148,12 @@ export function evaluateSetupRequirements(
         .filter((model) => model.status === "missing")
         .reduce((total, model) => total + (model.sizeBytes ?? 0), 0)
     : models.reduce((total, model) => total + (model.sizeBytes ?? 0), 0);
-  const formattedRemainingDownload = formatBytes(remainingDownloadBytes);
+  // formatBytes answers "how big is this model?", where zero means the size was
+  // never published — so it returns "unknown" for zero. Here zero means the
+  // opposite and is the best possible news, so it must not be routed through it:
+  // a fully set up machine would otherwise read "unknown left to download".
+  const formattedRemainingDownload =
+    remainingDownloadBytes > 0 ? formatBytes(remainingDownloadBytes) : "Nothing";
 
   return {
     checked,
