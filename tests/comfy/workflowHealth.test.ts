@@ -130,6 +130,29 @@ describe("workflow health", () => {
     expect(item.summary).toContain("LineArtPreprocessor");
   });
 
+  it("keeps enriched setup issues routed to missing-model and missing-node states", () => {
+    const modelPreset = getWorkflowPreset("inpaint-flux-fill-basic");
+    const modelItem = createWorkflowHealthItem(modelPreset, {
+      availableNodes: createAvailableNodes(modelPreset),
+      availableModels: createFluxFillInventory({
+        checkpoints: ["ae.safetensors"],
+        vaeModels: []
+      })
+    });
+    const nodePreset = getWorkflowPreset("prompt-from-layer-florence2");
+    const availableNodes = createAvailableNodes(nodePreset);
+    delete availableNodes.Florence2ModelLoader;
+    const nodeItem = createWorkflowHealthItem(nodePreset, {
+      availableNodes,
+      availableModels: createInventory({
+        visionLanguageModels: ["Florence-2-base-PromptGen-v2.0"]
+      })
+    });
+
+    expect(modelItem.state).toBe("missing-model");
+    expect(nodeItem.state).toBe("missing-node");
+  });
+
   it("reports future Flux presets as missing workflow JSON before model or node details", () => {
     const preset = getWorkflowPreset("txt2img-flux1-dev");
     const item = createWorkflowHealthItem(preset, {

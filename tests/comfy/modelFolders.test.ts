@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  MODEL_FOLDER_BY_INVENTORY_BUCKET,
   MODEL_FOLDER_BY_OBJECT_INFO_NODE,
   getModelTargetFolder,
   getModelTargetPath,
@@ -38,6 +39,24 @@ describe("model folder mapping", () => {
       UpscaleModelLoader: "upscale_models",
       Florence2ModelLoader: "LLM"
     });
+  });
+
+  it("freezes every inventory bucket folder and keeps it consistent with loader folders", () => {
+    expect(MODEL_FOLDER_BY_INVENTORY_BUCKET).toEqual({
+      checkpoints: "checkpoints",
+      diffusionModels: "diffusion_models",
+      clipModels: "text_encoders",
+      vaeModels: "vae",
+      controlNetModels: "controlnet",
+      visionLanguageModels: "LLM",
+      upscaleModels: "upscale_models"
+    });
+
+    const loaderFolders = Object.values(MODEL_FOLDER_BY_OBJECT_INFO_NODE);
+
+    for (const folder of Object.values(MODEL_FOLDER_BY_INVENTORY_BUCKET)) {
+      expect(loaderFolders).toContain(folder);
+    }
   });
 
   it("builds install paths relative to the ComfyUI root", () => {
