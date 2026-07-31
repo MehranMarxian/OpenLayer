@@ -43,6 +43,16 @@ export type AppElements = {
   promptFromLayerView: HTMLElement;
   upscaleView: HTMLElement;
   settingsView: HTMLElement;
+  setupView: HTMLElement;
+  setupCheckedLabel: HTMLElement;
+  setupTallies: HTMLElement;
+  setupSummaryLine: HTMLElement;
+  setupDownloadLine: HTMLElement;
+  setupCheck: HTMLButtonElement;
+  setupStatusText: HTMLElement;
+  setupStatusPill: HTMLElement;
+  setupFilters: HTMLElement;
+  setupSections: HTMLElement;
   historyView: HTMLElement;
   layerToolsView: HTMLElement;
   exportLayerFileButton: HTMLElement;
@@ -1194,6 +1204,37 @@ export function createAppMarkup() {
         </section>
       </section>
 
+      <section class="setup-view" id="setup-view" aria-label="Setup" hidden>
+        <div class="screen-nav">
+          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
+          <div class="screen-title-block">
+            ${createScreenIconMarkup("control", "Setup")}
+            <span class="screen-title">Setup</span>
+          </div>
+        </div>
+
+        <section class="panel-section settings-panel diagnostic-section diagnostic-scroll-safe" aria-label="Setup requirements">
+          <div class="section-heading">
+            <span class="label">Requirements</span>
+            <span class="muted-label" id="setup-checked-label">Not checked yet.</span>
+          </div>
+          <div class="diagnostic-summary-grid" id="setup-tallies" aria-label="Setup requirement counts"></div>
+          <div class="diagnostics-line setup-paragraph" id="setup-summary-line">
+            Open this screen to check what OpenLayer needs.
+          </div>
+          <div class="diagnostics-line setup-paragraph" id="setup-download-line"></div>
+          <button class="button action-control" id="setup-check" data-openlayer-action="checkSetup" type="button">Check Again</button>
+          <div class="status-bar" role="status">
+            <span class="status-text" id="setup-status-text">Setup ready.</span>
+            <span class="status-pill idle" id="setup-status-pill">Status</span>
+          </div>
+        </section>
+
+        <div class="setup-filter-row" id="setup-filters" aria-label="Filter requirements by tool"></div>
+
+        <div id="setup-sections"></div>
+      </section>
+
       <section class="history-view" id="history-view" aria-label="History" hidden>
         <div class="screen-nav">
           <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
@@ -1349,6 +1390,16 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     promptFromLayerView: getElement<HTMLElement>(rootElement, "prompt-from-layer-view"),
     upscaleView: getElement<HTMLElement>(rootElement, "upscale-view"),
     settingsView: getElement<HTMLElement>(rootElement, "settings-view"),
+    setupView: getElement<HTMLElement>(rootElement, "setup-view"),
+    setupCheckedLabel: getElement<HTMLElement>(rootElement, "setup-checked-label"),
+    setupTallies: getElement<HTMLElement>(rootElement, "setup-tallies"),
+    setupSummaryLine: getElement<HTMLElement>(rootElement, "setup-summary-line"),
+    setupDownloadLine: getElement<HTMLElement>(rootElement, "setup-download-line"),
+    setupCheck: getElement<HTMLButtonElement>(rootElement, "setup-check"),
+    setupStatusText: getElement<HTMLElement>(rootElement, "setup-status-text"),
+    setupStatusPill: getElement<HTMLElement>(rootElement, "setup-status-pill"),
+    setupFilters: getElement<HTMLElement>(rootElement, "setup-filters"),
+    setupSections: getElement<HTMLElement>(rootElement, "setup-sections"),
     historyView: getElement<HTMLElement>(rootElement, "history-view"),
     layerToolsView: getElement<HTMLElement>(rootElement, "layer-tools-view"),
     exportLayerFileButton: getElement<HTMLElement>(rootElement, "export-layer-file"),

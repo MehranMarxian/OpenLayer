@@ -89,6 +89,18 @@ import {
   WorkflowHealthItem,
   WorkflowHealthReport
 } from "../comfy/workflowHealth";
+import {
+  evaluateSetupRequirements,
+  SetupRequirementsReport
+} from "../comfy/setupRequirements";
+import {
+  createSetupTabView,
+  SetupFilterView,
+  SetupRowAction,
+  SetupRowView,
+  SetupSectionView,
+  SetupTallyView
+} from "./setupTabModel";
 import type { WorkflowPhotoshopInputAvailability } from "../comfy/workflowCompatibility";
 import { GeneratedImageResult, WorkflowPresetDefinition } from "../comfy/types";
 import {
@@ -242,6 +254,7 @@ import {
   setInpaintStatus,
   setOutpaintDiagnostics,
   setLayerToolsStatus,
+  setSetupStatus,
   setOutpaintError,
   setOutpaintStatus,
   setPromptLayerDiagnostics,
@@ -340,6 +353,16 @@ export function renderApp(rootElement: HTMLElement) {
   let livePreviewZoomed = false;
   let hardwareReport: HardwareRecommendationReport | null = null;
   let workflowHealthReport: WorkflowHealthReport | null = null;
+  // The Setup screen keeps its own report because it asks the server a
+  // different question than workflow health does, and it must render before any
+  // check has run: an unchecked report is still the full list of what is needed.
+  // Built lazily rather than at startup -- getModelTargetFolder throws by design
+  // for a preset whose loader has no mapped folder, and that must fail the Setup
+  // screen, not the whole panel.
+  let setupReport: SetupRequirementsReport | null = null;
+  let setupActiveToolLabel: string | null = null;
+  let setupCheckedAtLabel: string | null = null;
+  let hasCheckedSetup = false;
   const historyEntries: HistoryEntry[] = [];
   const objectUrls = createObjectUrlRegistry();
 
@@ -699,6 +722,7 @@ export function renderApp(rootElement: HTMLElement) {
     findPort: createActionRunner(elements, "findPort", handleFindComfyPort),
     detectHardware: createActionRunner(elements, "detectHardware", handleDetectHardware),
     checkWorkflowHealth: createActionRunner(elements, "checkWorkflowHealth", handleCheckWorkflowHealth),
+    checkSetup: createActionRunner(elements, "checkSetup", handleCheckSetup),
     copyDiagnostics: createActionRunner(elements, "copyDiagnostics", handleCopyDiagnostics),
     exportLayerToFile: createActionRunner(elements, "exportLayerToFile", () => handleLayerExport("layer", "file")),
     exportLayerToComfyUI: createActionRunner(elements, "exportLayerToComfyUI", () => handleLayerExport("layer", "comfyui")),
@@ -773,6 +797,7 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.findPortButton, actionHandlers.findPort);
   bindActionControl(elements.detectHardwareButton, actionHandlers.detectHardware);
   bindActionControl(elements.checkWorkflowHealthButton, actionHandlers.checkWorkflowHealth);
+  bindActionControl(elements.setupCheck, actionHandlers.checkSetup);
   bindActionControl(elements.copyDiagnosticsButton, actionHandlers.copyDiagnostics);
   bindActionControl(elements.exportLayerFileButton, actionHandlers.exportLayerToFile);
   bindActionControl(elements.exportLayerComfyButton, actionHandlers.exportLayerToComfyUI);
@@ -1093,6 +1118,85 @@ export function renderApp(rootElement: HTMLElement) {
       setGlobalDiagnostics(elements, "Start ComfyUI, confirm the server URL, then run Check Workflow Health again.");
     } finally {
       updateSettingsReport(elements);
+    }
+  }
+
+  async function handleCheckSetup() {
+    setSetupStatus(elements, "Checking what is installed...", "idle");
+
+    try {
+      const presets = listWorkflowPresets();
+      const client = new ComfyClient(elements.serverUrl.value);
+      await client.checkOnline();
+      // Both halves or neither. If only the model inventory arrived, every node
+      // row would report "not checked" while the tallies counted models as if
+      // the whole picture were known, and the numbers would quietly stop adding
+      // up to the number of requirements on screen.
+      const inventory = await client.getModelInventory();
+      const nodeAvailability = await client.getWorkflowNodeAvailability(presets);
+
+      setupReport = evaluateSetupRequirements({
+        pluginVersion: APP_VERSION,
+        inventory,
+        nodeAvailability
+      });
+      hasCheckedSetup = true;
+      setupCheckedAtLabel = `Checked ${formatClockTime(new Date())}`;
+      renderSetupTab();
+
+      const outstanding = setupReport.counts.missing + setupReport.counts["wrong-folder"];
+      setSetupStatus(
+        elements,
+        outstanding === 0 ? "Everything OpenLayer needs is installed." : setupReport.summaryLine,
+        outstanding === 0 ? "ready" : "idle"
+      );
+    } catch (caughtError) {
+      // An unreachable server is not an error state for this screen. The list is
+      // built from the preset registry and is exactly as useful offline, which
+      // matters because somebody asking what to download often has not started
+      // ComfyUI yet.
+      setupReport = createUncheckedSetupReport();
+      hasCheckedSetup = false;
+      setupCheckedAtLabel = null;
+      renderSetupTab();
+      // Reported on this screen's own bar and nowhere else. Writing the reason
+      // to the panel-wide error line would put a red Setup message on Settings
+      // and Text to Image, which is the bleed the v0.9 status split removed.
+      // Check ComfyUI on Settings is where a connection is diagnosed.
+      setSetupStatus(
+        elements,
+        `Could not reach ComfyUI, so nothing below is checked. ${getErrorMessage(caughtError)}`,
+        "error"
+      );
+    }
+  }
+
+  function renderSetupTab() {
+    setupReport ??= createUncheckedSetupReport();
+
+    const view = createSetupTabView(setupReport, {
+      checkedAtLabel: setupCheckedAtLabel,
+      activeToolLabel: setupActiveToolLabel
+    });
+
+    elements.setupCheckedLabel.textContent = view.checkedLabel;
+    elements.setupSummaryLine.textContent = view.summaryLine;
+    elements.setupDownloadLine.textContent = view.downloadLine;
+
+    renderSetupTallies(elements.setupTallies, view.tallies);
+    renderSetupFilters(elements.setupFilters, view.filters, (toolLabel) => {
+      setupActiveToolLabel = toolLabel;
+      renderSetupTab();
+    });
+    renderSetupSections(elements.setupSections, view.sections, handleSetupCopy);
+  }
+
+  async function handleSetupCopy(action: SetupRowAction) {
+    try {
+      await navigator.clipboard.writeText(action.value);
+      setSetupStatus(elements, action.copiedMessage, "ready");
+    } catch (caughtError) {
+      setSetupStatus(elements, `Could not copy to the clipboard. ${getErrorMessage(caughtError)}`, "error");
     }
   }
 
@@ -3855,11 +3959,26 @@ export function renderApp(rootElement: HTMLElement) {
     elements.upscaleView.hidden = currentView !== "upscale";
     elements.livePaintingView.hidden = currentView !== "live-painting";
     elements.settingsView.hidden = currentView !== "settings";
+    elements.setupView.hidden = currentView !== "setup";
     elements.historyView.hidden = currentView !== "history";
     elements.layerToolsView.hidden = currentView !== "layer-tools";
 
     if (currentView === "settings") {
       void refreshDocumentStatus(elements);
+    }
+
+    if (currentView === "setup") {
+      // Draw the requirements immediately from the registry, then check them
+      // against the server once per panel session. Re-checking on every visit
+      // would make walking back and forth between screens hit the server for no
+      // new information; the Check Again button is there for after a download.
+      renderSetupTab();
+
+      if (!hasCheckedSetup) {
+        // The handler directly, not the action runner: the runner logs an
+        // "Event received" diagnostics line, and nobody pressed anything.
+        void handleCheckSetup();
+      }
     }
 
     if (currentView === "history") {
@@ -4670,6 +4789,201 @@ function renderWorkflowHealthSummary(elements: AppElements, report: WorkflowHeal
 
     elements.settingsWorkflowHealthSummary.append(cardElement);
   }
+}
+
+/**
+ * The requirements list with nothing checked against a server. This is the
+ * screen's starting state and its offline state, and it is deliberately not an
+ * empty or error state: every name, folder, size and link is known without a
+ * server, so the list is fully useful before ComfyUI has ever been started.
+ */
+function createUncheckedSetupReport(): SetupRequirementsReport {
+  return evaluateSetupRequirements({ pluginVersion: APP_VERSION });
+}
+
+function formatClockTime(when: Date): string {
+  return `${String(when.getHours()).padStart(2, "0")}:${String(when.getMinutes()).padStart(2, "0")}`;
+}
+
+function renderSetupTallies(container: HTMLElement, tallies: readonly SetupTallyView[]) {
+  container.innerHTML = "";
+
+  for (const tally of tallies) {
+    const cell = document.createElement("div");
+    cell.className = `diagnostic-summary-card is-setup-${tally.tone}`;
+
+    const label = document.createElement("span");
+    label.textContent = tally.label;
+    cell.append(label);
+
+    const value = document.createElement("strong");
+    value.textContent = tally.value;
+    cell.append(value);
+
+    container.append(cell);
+  }
+}
+
+function renderSetupFilters(
+  container: HTMLElement,
+  filters: readonly SetupFilterView[],
+  onSelect: (toolLabel: string) => void
+) {
+  container.innerHTML = "";
+
+  for (const filter of filters) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = `setup-filter-chip${filter.active ? " is-active" : ""}`;
+    chip.textContent = filter.toolLabel;
+    chip.setAttribute("aria-pressed", filter.active ? "true" : "false");
+    chip.addEventListener("click", () => onSelect(filter.toolLabel));
+    container.append(chip);
+  }
+}
+
+function renderSetupSections(
+  container: HTMLElement,
+  sections: readonly SetupSectionView[],
+  onCopy: (action: SetupRowAction) => void
+) {
+  container.innerHTML = "";
+
+  for (const section of sections) {
+    const sectionElement = document.createElement("section");
+    sectionElement.className = "panel-section settings-panel diagnostic-section diagnostic-scroll-safe";
+    sectionElement.setAttribute("aria-label", section.title);
+
+    const heading = document.createElement("div");
+    heading.className = "section-heading";
+
+    const title = document.createElement("span");
+    title.className = "label";
+    title.textContent = section.title;
+    heading.append(title);
+
+    const meta = document.createElement("span");
+    meta.className = "muted-label";
+    meta.textContent = section.meta;
+    heading.append(meta);
+
+    sectionElement.append(heading);
+
+    if (section.rows.length === 0 && section.collapsedRows.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "diagnostics-line setup-paragraph";
+      empty.textContent = section.emptyMessage;
+      sectionElement.append(empty);
+    }
+
+    for (const row of section.rows) {
+      sectionElement.append(createSetupRowElement(row, onCopy));
+    }
+
+    if (section.collapsedRows.length > 0) {
+      // Installed rows are the answer to a question nobody asked twice, so they
+      // start folded away -- except when there is nothing else on screen, where
+      // confirming what was found is the only content there is.
+      const details = document.createElement("details");
+      details.className = "setup-installed-group";
+      details.open = section.rows.length === 0;
+
+      const summary = document.createElement("summary");
+      summary.className = "setup-installed-summary";
+      summary.textContent = section.collapsedSummary;
+      details.append(summary);
+
+      for (const row of section.collapsedRows) {
+        details.append(createSetupRowElement(row, onCopy));
+      }
+
+      sectionElement.append(details);
+    }
+
+    container.append(sectionElement);
+  }
+}
+
+function createSetupRowElement(row: SetupRowView, onCopy: (action: SetupRowAction) => void) {
+  // Deliberately reuses the workflow-health card and pill classes rather than
+  // introducing a parallel set. They already carry the compact theme's
+  // treatment, and a second badge system would drift from the first one.
+  const rowElement = document.createElement("div");
+  rowElement.className = `workflow-health-item setup-row${row.collapsed ? " is-collapsed" : ""}`;
+
+  const heading = document.createElement("div");
+  heading.className = "workflow-health-heading";
+
+  const titleBlock = document.createElement("div");
+  titleBlock.className = "workflow-health-title-block";
+
+  const title = document.createElement("div");
+  title.className = "workflow-health-title";
+  title.textContent = row.title;
+  titleBlock.append(title);
+
+  const subtitle = document.createElement("div");
+  subtitle.className = "workflow-health-tool setup-row-subtitle";
+  subtitle.textContent = row.subtitle;
+  titleBlock.append(subtitle);
+
+  heading.append(titleBlock);
+
+  const badge = document.createElement("div");
+  badge.className = `workflow-health-state is-setup-${row.badgeTone}`;
+  badge.textContent = row.badgeLabel;
+  heading.append(badge);
+
+  rowElement.append(heading);
+
+  if (row.fields.length > 0) {
+    const fields = document.createElement("div");
+    fields.className = "setup-row-fields";
+
+    for (const field of row.fields) {
+      const fieldRow = document.createElement("div");
+      fieldRow.className = "setup-row-field";
+
+      const label = document.createElement("span");
+      label.className = "setup-row-field-label";
+      label.textContent = field.label;
+      fieldRow.append(label);
+
+      const value = document.createElement("span");
+      value.className = "setup-row-field-value";
+      value.textContent = field.value;
+      fieldRow.append(value);
+
+      fields.append(fieldRow);
+    }
+
+    rowElement.append(fields);
+  }
+
+  for (const note of row.notes) {
+    const noteElement = document.createElement("div");
+    noteElement.className = "setup-row-note";
+    noteElement.textContent = note;
+    rowElement.append(noteElement);
+  }
+
+  if (row.actions.length > 0) {
+    const actions = document.createElement("div");
+    actions.className = "setup-row-actions";
+
+    for (const action of row.actions) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "button setup-row-action";
+      button.textContent = action.label;
+      button.addEventListener("click", () => onCopy(action));
+      actions.append(button);
+    }
+
+    rowElement.append(actions);
+  }
+
+  return rowElement;
 }
 
 function createWorkflowHealthGroups(items: readonly WorkflowHealthItem[]) {

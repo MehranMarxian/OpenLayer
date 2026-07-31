@@ -40,7 +40,7 @@ const STATE_LABELS: Record<WorkflowHealthState, string> = {
   experimental: "Experimental",
   "missing-model": "Missing model",
   "missing-node": "Missing ComfyUI node",
-  "missing-workflow": "Missing workflow JSON",
+  "missing-workflow": "Needs workflow JSON",
   "setup-required": "Setup required"
 };
 

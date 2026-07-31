@@ -316,6 +316,13 @@ export function setLayerToolsStatus(elements: AppElements, status: string, tone:
   applyStatusPill(elements.layerToolsStatusPill, status, tone);
 }
 
+// Setup is a read-only inspection of the server, for the same reason: its own
+// bar and nothing else.
+export function setSetupStatus(elements: AppElements, status: string, tone: StatusTone) {
+  elements.setupStatusText.textContent = status;
+  applyStatusPill(elements.setupStatusPill, status, tone);
+}
+
 function applyToolError(errorMessage: HTMLElement, message: string) {
   errorMessage.textContent = message;
   errorMessage.hidden = !message;
