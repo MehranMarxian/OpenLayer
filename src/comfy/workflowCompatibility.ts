@@ -1,4 +1,9 @@
 import { detectCheckpointFamily } from "./modelCompatibility";
+import {
+  findMisplacedModel,
+  formatMisplacedModelMessage
+} from "./modelPlacementDiagnostics";
+import { CUSTOM_NODE_PACKAGES } from "./setupManifest";
 import { getWorkflowCapability } from "./workflowCapabilities";
 import {
   ComfyModelInventory,
@@ -146,7 +151,7 @@ function addNodeIssues(
       issues.push({
         level: "setup-required",
         code: "COMFY_NODE_MISSING",
-        artistMessage: `ComfyUI is missing the ${requirement.classType} node required by ${preset.label}.`,
+        artistMessage: formatMissingNodeMessage(requirement.classType, preset.label),
         technicalMessage: `Missing node class: ${requirement.classType}.`
       });
       continue;
@@ -176,14 +181,37 @@ function addModelFileIssues(
 
   for (const model of getRequiredModels(preset)) {
     if (!hasRequiredModel(context.availableModels, model)) {
+      const missingModelMessage = formatMissingRequiredModelMessage(model);
+      const misplacedModel = findMisplacedModel(context.availableModels, model);
+
       issues.push({
         level: "setup-required",
         code: "MODEL_FILE_MISSING",
-        artistMessage: formatMissingRequiredModelMessage(model),
+        artistMessage: misplacedModel
+          ? `${missingModelMessage} ${formatMisplacedModelMessage(misplacedModel)}`
+          : missingModelMessage,
         technicalMessage: model.setupHint
       });
     }
   }
+}
+
+/**
+ * Rendered with `textContent`, so this is plain text: no markdown, no backticks.
+ * The opening sentence is deliberately byte-identical to the one this message
+ * has always had, so a reader who has seen it before still recognises it.
+ */
+function formatMissingNodeMessage(classType: string, presetLabel: string): string {
+  const openingSentence = `ComfyUI is missing the ${classType} node required by ${presetLabel}.`;
+  const customNodePackage = CUSTOM_NODE_PACKAGES[classType];
+
+  if (customNodePackage) {
+    return `${openingSentence} Install ${customNodePackage.name} from ${customNodePackage.repoUrl} into ComfyUI/custom_nodes/, then restart ComfyUI.`;
+  }
+
+  // Absence from CUSTOM_NODE_PACKAGES means core ComfyUI (see its doc comment),
+  // which is a different diagnosis: there is nothing to install.
+  return `${openingSentence} This node ships with ComfyUI itself, so your ComfyUI install is likely out of date or partially broken.`;
 }
 
 function addPhotoshopInputIssues(

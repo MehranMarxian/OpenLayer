@@ -95,6 +95,87 @@ describe("workflow compatibility", () => {
     expect(result.recommendedAction).toContain("Missing LineArt ControlNet");
   });
 
+  it("produces no model issue when a required model is in its correct bucket", () => {
+    const preset = getWorkflowPreset("inpaint-flux-fill-basic");
+    const result = evaluateWorkflowCompatibility(preset, {
+      availableNodes: createAvailableNodes(preset),
+      availableModels: createFluxFillInventory()
+    });
+
+    expect(result.issues.filter((issue) => issue.code === "MODEL_FILE_MISSING")).toEqual([]);
+  });
+
+  it("keeps the exact missing-model message when the file is absent everywhere", () => {
+    const preset = getWorkflowPreset("inpaint-flux-fill-basic");
+    const result = evaluateWorkflowCompatibility(preset, {
+      availableNodes: createAvailableNodes(preset),
+      availableModels: createFluxFillInventory({ vaeModels: [] })
+    });
+    const issue = result.issues.find((candidate) => candidate.code === "MODEL_FILE_MISSING");
+
+    expect(issue?.artistMessage).toBe("Missing Flux VAE: ae.safetensors.");
+  });
+
+  it("adds wrong-folder guidance to the missing-model message", () => {
+    const preset = getWorkflowPreset("inpaint-flux-fill-basic");
+    const result = evaluateWorkflowCompatibility(preset, {
+      availableNodes: createAvailableNodes(preset),
+      availableModels: createFluxFillInventory({
+        checkpoints: ["ae.safetensors"],
+        vaeModels: []
+      })
+    });
+    const issue = result.issues.find((candidate) => candidate.code === "MODEL_FILE_MISSING");
+
+    expect(issue?.artistMessage).toBe(
+      "Missing Flux VAE: ae.safetensors. Found ae.safetensors in models/checkpoints/, but this workflow reads it from models/vae/. Move the file, then refresh ComfyUI."
+    );
+  });
+
+  it("names the repository for a missing mapped custom node", () => {
+    const preset = getWorkflowPreset("prompt-from-layer-florence2");
+    const availableNodes = createAvailableNodes(preset);
+    delete availableNodes.Florence2ModelLoader;
+
+    const result = evaluateWorkflowCompatibility(preset, {
+      availableNodes,
+      availableModels: createInventory({
+        visionLanguageModels: ["Florence-2-base-PromptGen-v2.0"]
+      })
+    });
+    const issue = result.issues.find((candidate) => candidate.code === "COMFY_NODE_MISSING");
+
+    expect(issue?.artistMessage).toContain("Install ComfyUI-Florence2 from");
+    expect(issue?.artistMessage).toContain("https://github.com/kijai/ComfyUI-Florence2");
+  });
+
+  it("diagnoses a missing core node as an outdated or broken ComfyUI install", () => {
+    const preset = getWorkflowPreset("txt2img-basic");
+    const availableNodes = createAvailableNodes(preset);
+    delete availableNodes.KSampler;
+
+    const result = evaluateWorkflowCompatibility(preset, { availableNodes });
+    const issue = result.issues.find((candidate) => candidate.code === "COMFY_NODE_MISSING");
+
+    expect(issue?.artistMessage).toContain(
+      "This node ships with ComfyUI itself, so your ComfyUI install is likely out of date or partially broken."
+    );
+    expect(issue?.artistMessage).not.toContain("github.com");
+  });
+
+  it("leaves the present-node missing-input message unchanged", () => {
+    const preset = getWorkflowPreset("txt2img-basic");
+    const availableNodes = createAvailableNodes(preset);
+    availableNodes.KSampler = [];
+
+    const result = evaluateWorkflowCompatibility(preset, { availableNodes });
+    const issue = result.issues.find((candidate) => candidate.code === "COMFY_NODE_INPUT_MISSING");
+
+    expect(issue?.artistMessage).toBe(
+      "A ComfyUI node used by txt2img-basic is missing expected inputs."
+    );
+  });
+
   it("accepts the preferred Flux Fill T5 encoder when the model stack is present", () => {
     const preset = getWorkflowPreset("inpaint-flux-fill-basic");
 

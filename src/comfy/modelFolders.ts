@@ -1,4 +1,9 @@
-import { WorkflowModelFolder, WorkflowPresetDefinition, WorkflowRequiredModel } from "./types";
+import {
+  ComfyModelInventory,
+  WorkflowModelFolder,
+  WorkflowPresetDefinition,
+  WorkflowRequiredModel
+} from "./types";
 import { createOpenLayerError } from "../utils/errors";
 
 /**
@@ -29,6 +34,19 @@ export const MODEL_FOLDER_BY_OBJECT_INFO_NODE = {
   UpscaleModelLoader: "upscale_models",
   Florence2ModelLoader: "LLM"
 } as const satisfies Record<string, WorkflowModelFolder>;
+
+export type ComfyModelInventoryBucket = Exclude<keyof ComfyModelInventory, "missingSources">;
+
+/** Which folder under `models/` supplies each model inventory bucket. */
+export const MODEL_FOLDER_BY_INVENTORY_BUCKET = {
+  checkpoints: "checkpoints",
+  diffusionModels: "diffusion_models",
+  clipModels: "text_encoders",
+  vaeModels: "vae",
+  controlNetModels: "controlnet",
+  visionLanguageModels: "LLM",
+  upscaleModels: "upscale_models"
+} as const satisfies Record<ComfyModelInventoryBucket, WorkflowModelFolder>;
 
 export type MappedModelLoaderNode = keyof typeof MODEL_FOLDER_BY_OBJECT_INFO_NODE;
 
