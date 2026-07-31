@@ -57,6 +57,14 @@ Extract from below `renderApp`; leave the closure alone.
 - `src/photoshop/*` — the host adapter. **Everything here is unverifiable outside Photoshop.** Change with extreme care and always give Mehran a specific smoke checklist. Capture and import are different risk classes; see §5a before delegating any of it.
 - `src/styles.css` — ~7,000 lines, TWO themes; **`theme-compact` is the active one**, and it redeclares selectors many times, some with `!important`. Known trap: a base-theme rule that "should" work is often overridden by a compact `!important` block deeper in the file (this bit us twice). Always grep for `theme-compact <selector>` and check what wins. Theme consolidation is wanted but unscheduled.
 
+  Four specific traps, each of which has now cost real time — check all four before writing panel CSS:
+  1. **A single-class base rule loses to `.app-shell.theme-compact <class>`**, which is both more specific and usually `!important`. New wrapping paragraphs and non-full-width buttons need a duplicated compact rule. `.live-hint` and `.setup-paragraph` are the precedents.
+  2. **Flex `gap` is not honored reliably in the compact panel.** Use explicit margins; the file says so in its own comments.
+  3. **Attributes style things too.** `theme-compact button[aria-pressed]` styles *any* button carrying that attribute as a gold toggle switch. Adding `aria-pressed` to a filter chip for accessibility silently made it look like an Import Automatically switch. Grep for attribute selectors, not just class ones.
+  4. **A `999px` radius is only a pill if you control the height** — otherwise it renders as a stretched ellipse. State the height and set the radius to half of it. Applies to any badge or chip.
+
+  When a change is about size or clipping, **measure it**: load a snippet in a browser at the panel's real 356px content width, in the shell's Arial, and read `getBoundingClientRect()`. That is how the uppercase badge cap was set (worst label 136px) and how the chips were confirmed at a uniform 22px. Browser metrics are not UXP, but they catch the arithmetic errors, and they caught two here.
+
 ## 4. Working protocol with Mehran
 
 - Gated, task-by-task: build → validate → **he smoke-tests in real Photoshop** → he says pass → merge → next. Never merge host-touching changes before his check.
@@ -145,7 +153,23 @@ snapshot `.git/HEAD` and `refs/heads/` before launching; never edit while a Code
 `HEAD`, branch and last commit survived before touching anything afterwards; and require a reported
 diff rather than a commit, a push, or any contact with `.git`.
 
-## 6. Roadmap (state as of 2026-07-26, mid-v0.8)
+## 6. Roadmap (state as of 2026-08-01, post-v0.10.0-alpha)
+
+**v0.10.0-alpha is published** (tag on `31e21d7`, prerelease, plugin zip + setup pack + `checksums.txt`).
+Its headline fix was the release zip: every release from v0.1.0 to v0.9.0-alpha stored entry paths with
+backslashes, which macOS unpacks flat with no `assets/` folder. **When verifying a packaging fix, the
+control must be the artifact GitHub serves** (`gh release download`), not the local `packages/` copy —
+that copy gets silently overwritten by whatever the packager last produced, and it made the historical
+bug look like it had never existed. Read the raw central directory; `zipfile`-style readers normalize
+separators and cannot see this class of bug.
+
+**`.ccx` one-click install remains open and is not blocked on code.** Building one is ~40 lines
+(`writeZip` already exists; a `.ccx` for this plugin is just a zip). Whether a double-click installs
+anything depends on Creative Cloud accepting an unsigned non-Marketplace package, which needs a machine
+that has never had UDT — nobody on the project has one. It was deliberately left out of v0.10.0 because
+release assets can be added to a published release at any time, so deferring costs nothing.
+
+**Roadmap items 1 and 2 are done** (PRs #58, #62, #63). See the entries below.
 
 **v0.8 so far (merged):** version bump to 0.8.0; ESLint in CI (with `TextEncoder`/`TextDecoder`
 banned in `src/`, the one rule that catches a UXP failure neither `tsc` nor Vitest can see); preview
@@ -161,9 +185,13 @@ LoRA browser are explicitly **out of v0.8 scope**.
 **Done & merged earlier:** Phase A1–A5 audit fixes, B1 readiness, B2 lifecycle, App decomposition steps 1–4, error-color fix, preview flicker + fixed-height panels, Florence2 fork tolerance, Flux Fill locked controls, per-tool busy lockout, the generated ComfyUI setup pack, the separated preview panel.
 
 **Queued next (roughly in order):**
-1. **ComfyUI setup diagnostics, Phase 1** — when a preset's model is missing, scan the *other* model folders and say "found X in diffusion_models/ — this workflow needs it in checkpoints/"; name exact missing custom-node repos. Foundation exists (`getModelInventory`, `workflowCompatibility`, health report). Mostly delegable to Codex with a good brief.
-2. **Setup tab / requirements manifest (Phase 2)** — per-workflow: model names, download URLs, target folders, node repos, live ✅/❌ against the running server. Product-shaped; needs design taste up front, then delegable.
-3. **GPU-aware recommendations (Phase 3)** — extend `hardwareAdvisor` to rank runnable workflows by VRAM.
+1. ~~**ComfyUI setup diagnostics, Phase 1**~~ — **DONE, v0.10.0** (PR #58). `modelPlacementDiagnostics.ts` answers "is the file just in the wrong folder?", and missing nodes name the package that provides them.
+2. ~~**Setup tab / requirements manifest (Phase 2)**~~ — **DONE** (PRs #62, #63). A Setup card on Home opens a screen listing every model and node package with folder, size, what it unlocks, and live status. Three things worth carrying forward:
+   - **Models are the primary list, not presets.** 13 presets share 13 models with heavy overlap; a preset-first list prints `ae.safetensors` four times and reads as ~18 GB of downloads that do not exist.
+   - **Static manifest, live status as an overlay.** Status is four-valued — `not-checked` keeps every name, folder, size and link when ComfyUI is unreachable, because someone asking what to download usually has not started it yet. Tallies show a dash, not 0, when nothing was checked: "0 missing" against a dead server reads as good news.
+   - **A wrong-folder model contributes zero to the remaining download**, and its row says the file is already there. `evaluateSetupRequirements` (pure) and `setupTabModel.ts` (pure view model) hold all of this; the DOM layer only draws it.
+   Presets also gained a required `displayName`, because `label` was the preset id and the health cards had been showing `txt2img-krea2-turbo` to artists for several releases.
+3. **GPU-aware recommendations (Phase 3)** — extend `hardwareAdvisor` to rank runnable workflows by VRAM. **Next up.** The Setup screen is the natural place to surface it, and `SetupModelRequirement` already carries `sizeBytes` and `usedByPresets`.
 4. **Assisted install (Phase 4)** — ComfyUI-Manager API behind explicit user approval. Biggest surface; last.
 5. **Outpaint canvas expansion + aligned import** — currently outpaint imports centered without resizing the canvas. Proper fix = batchPlay canvas resize + coordinate-shift for alignment. **Hardest host work on the list**; touches the same adapter machinery as A2/A3. Needs the strongest available model + careful Mehran verification.
 6. **Live Painting v2 (two-tier: SD1.5-LCM fast tier / Krea2-turbo quality tier)** — design exists in the assistant's memory notes; the current spike (event-candidate listeners, serial pump loop in `livePaintingSession.ts`) works but is primitive. Flagship feature. Architecture first, then incremental delegation.
@@ -186,5 +214,7 @@ Honest guidance from the model writing this:
 - Sketch/upscale/outpaint/prompt-layer readiness is still ad-hoc in handlers (B1 built the contract only for inpaint). Same pattern could be extended.
 - `handleGenerateInpaint` is still the longest handler (~250 lines of prep) — fine, but don't let it grow.
 - Two `todo` presets (`txt2img-flux1-dev`, `img2img-flux1-dev`) await authored workflow JSONs.
+- **Setup and Workflow Health overlap and both survive on purpose for now.** Setup answers "what do I need and where does it go"; Health answers "can I run this preset". If that turns out to be one screen too many, Health is the one that folds into Setup, not the reverse. They already share the `.workflow-health-item` card and `.workflow-health-state` badge, so they cannot drift visually.
+- `uxp.shell.openExternal` has never been called in this project, though `manifest.json` already declares `launchProcess` for `https`. The Setup screen therefore offers Copy Link rather than opening a browser. Opening one is a spike, not a line in a brief.
 - Live Painting auto-import only fires on the Stop button — by design, but revisit in v2.
 - CSS: seven+ redeclarations of the same selectors across themes; consolidation pending.
