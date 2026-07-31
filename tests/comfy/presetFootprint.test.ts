@@ -41,8 +41,44 @@ describe("preset footprint", () => {
 
     expect(footprint.confidence).toBe("partial");
     expect(footprint.unknownSizeCount).toBeGreaterThan(0);
-    expect(footprint.formattedTotal).toMatch(/^At least /);
     expect(footprint.formattedTotal.toLowerCase()).not.toContain("unknown");
+    // Every size in this stack is unpublished, so there is no floor to be "at
+    // least". The naive form of this read "At least 0 MB".
+    expect(footprint.formattedTotal).toBe("Size not published");
+    expect(footprint.formattedLargest).toBe("Size not published");
+    expect(footprint.formattedTotal).not.toMatch(/\b0\b/);
+  });
+
+  it("never calls a stack comfortable when a size in it is unpublished", () => {
+    // An unpublished size is not a small size. Florence-2 measures zero bytes,
+    // and unguarded that made it the single most comfortable preset on the list
+    // -- the panel telling the artist a model it cannot size will run at full
+    // speed. "Tight" and "offloads" stay safe, because the known part alone
+    // already reaches that much.
+    const florence = getRunnablePreset("prompt-from-layer-florence2");
+    const outlook = rankPresetsByVramOutlook({
+      pluginVersion: PLUGIN_VERSION,
+      presets: [florence],
+      vramTotalBytes: 24 * 1024 ** 3
+    })[0];
+
+    expect(outlook.unknownSizeCount).toBeGreaterThan(0);
+    expect(outlook.expectation).toBe("unknown");
+    expect(outlook.expectation).not.toBe("comfortable");
+    expect(outlook.expectationNote).toContain("no published size");
+    expect(outlook.expectationNote).not.toMatch(/full speed/);
+  });
+
+  it("separates a missing VRAM figure from a missing model size in the note", () => {
+    const florence = getRunnablePreset("prompt-from-layer-florence2");
+    const noVram = rankPresetsByVramOutlook({
+      pluginVersion: PLUGIN_VERSION,
+      presets: [florence],
+      vramTotalBytes: null
+    })[0];
+
+    expect(noVram.expectation).toBe("unknown");
+    expect(noVram.expectationNote).toContain("has not reported VRAM");
   });
 
   it("describes both comfortable residency and recoverable offloading", () => {

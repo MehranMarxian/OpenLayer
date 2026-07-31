@@ -3,6 +3,7 @@ import { listRunnableWorkflowPresets } from "./presetRegistry";
 import { buildSetupManifest, formatBytes } from "./setupManifest";
 import { WorkflowPresetDefinition } from "./types";
 import { getWorkflowCapability } from "./workflowCapabilities";
+import { createOpenLayerError } from "../utils/errors";
 
 export type PresetSizeConfidence = "complete" | "partial" | "checkpoint-dependent";
 export type VramExpectation = "comfortable" | "tight" | "offloads" | "unknown";
@@ -66,7 +67,11 @@ export function createPresetFootprints(options: {
       const manifestModel = manifestModelsByKey.get(key);
 
       if (!manifestModel) {
-        throw new Error(`The setup manifest is missing the required model ${key}.`);
+        throw createOpenLayerError(
+          "WORKFLOW_INVALID",
+          `No setup manifest entry matches the required model ${key}.`,
+          "The setup manifest and the preset registry disagree about a required model key."
+        );
       }
 
       if (manifestModel.sizeBytes === undefined) {
@@ -113,12 +118,16 @@ export function rankPresetsByVramOutlook(options: {
       // dominant resident chunk than the sum. The sum instead describes the
       // total download and the amount of model data that may need streaming.
       const expectation = getVramExpectation(footprint, options.vramTotalBytes);
+      const hasVramFigure =
+        options.vramTotalBytes != null &&
+        options.vramTotalBytes > 0 &&
+        Number.isFinite(options.vramTotalBytes);
 
       return {
         ...footprint,
         expectation,
         expectationLabel: EXPECTATION_LABELS[expectation],
-        expectationNote: getExpectationNote(expectation, footprint.confidence)
+        expectationNote: getExpectationNote(expectation, footprint.confidence, hasVramFigure)
       };
     })
     .sort(compareOutlooks);
@@ -140,8 +149,14 @@ function formatFootprintBytes(bytes: number, confidence: PresetSizeConfidence): 
     return "Depends on the checkpoint you pick";
   }
 
-  const formattedBytes = bytes > 0 ? formatBytes(bytes) : "0 MB";
-  return confidence === "partial" ? `At least ${formattedBytes}` : formattedBytes;
+  // A partial stack whose every size is unpublished has nothing to be "at least".
+  // Florence-2 is the live case: it is one repo-folder model with no published
+  // size, so the naive form of this read "At least 0 MB".
+  if (bytes <= 0) {
+    return "Size not published";
+  }
+
+  return confidence === "partial" ? `At least ${formatBytes(bytes)}` : formatBytes(bytes);
 }
 
 function getVramExpectation(
@@ -157,8 +172,13 @@ function getVramExpectation(
     return "unknown";
   }
 
+  // An unpublished size is not a small size. With any size missing, "tight" and
+  // "offloads" stay safe -- the known part alone already reaches that much -- but
+  // "comfortable" does not, because the model nobody published a size for could
+  // be the largest in the stack. Left unguarded, Florence-2 measured zero bytes
+  // and was reported as the single most comfortable preset on the list.
   if (footprint.largestModelBytes <= vramTotalBytes * 0.7) {
-    return "comfortable";
+    return footprint.unknownSizeCount > 0 ? "unknown" : "comfortable";
   }
 
   if (footprint.largestModelBytes <= vramTotalBytes) {
@@ -170,7 +190,8 @@ function getVramExpectation(
 
 function getExpectationNote(
   expectation: VramExpectation,
-  confidence: PresetSizeConfidence
+  confidence: PresetSizeConfidence,
+  hasVramFigure: boolean
 ): string {
   switch (expectation) {
     case "comfortable":
@@ -180,9 +201,15 @@ function getExpectationNote(
     case "offloads":
       return "The largest file is bigger than the VRAM, so ComfyUI will keep part of it in system RAM. This means generations will be slower, not broken.";
     case "unknown":
-      return confidence === "checkpoint-dependent"
-        ? "The size depends on the checkpoint chosen."
-        : "ComfyUI has not reported VRAM, so only the sizes are shown.";
+      if (confidence === "checkpoint-dependent") {
+        return "The size depends on the checkpoint chosen.";
+      }
+
+      if (!hasVramFigure) {
+        return "ComfyUI has not reported VRAM, so only the sizes are shown.";
+      }
+
+      return "This stack includes a model with no published size, so there is nothing reliable to say about speed.";
   }
 }
 
