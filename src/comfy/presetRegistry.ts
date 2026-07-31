@@ -862,6 +862,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
   {
     id: "txt2img-basic",
     label: "txt2img-basic",
+    displayName: "Standard checkpoint",
     mode: "txt2img",
     description: "Basic local text-to-image generation through ComfyUI.",
     workflowFile: "workflows/api/txt2img-basic.json",
@@ -910,6 +911,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
   {
     id: "txt2img-flux1-dev-fp8",
     label: "txt2img-flux1-dev-fp8",
+    displayName: "Flux1-dev fp8",
     mode: "txt2img",
     description: "Experimental Flux1-dev fp8 text-to-image workflow using a checkpoint-style ComfyUI graph.",
     workflowFile: "workflows/api/txt2img-flux1-dev-fp8.json",
@@ -970,6 +972,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
   {
     id: "img2img-basic",
     label: "img2img-basic",
+    displayName: "Standard checkpoint",
     mode: "img2img",
     description: "Basic local image-to-image generation using an uploaded source image.",
     workflowFile: "workflows/api/img2img-basic.json",
@@ -1023,6 +1026,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
   {
     id: "prompt-from-layer-florence2",
     label: "prompt-from-layer-florence2",
+    displayName: "Florence-2 PromptGen",
     mode: "prompt",
     description: "Experimental Florence-2 PromptGen workflow that describes a captured Photoshop layer or canvas.",
     workflowFile: "workflows/api/prompt-from-layer-florence2.json",
@@ -1062,6 +1066,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
   {
     id: "upscale-basic",
     label: "upscale-basic",
+    displayName: "Standard upscaler",
     mode: "upscale",
     description: "Experimental pixel upscale through ComfyUI UpscaleModelLoader and ImageUpscaleWithModel.",
     workflowFile: "workflows/api/upscale-basic.json",
@@ -1101,6 +1106,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
   {
     id: "sketch2img-linecn-basic",
     label: "sketch2img-linecn-basic",
+    displayName: "LineArt ControlNet",
     mode: "sketch2img",
     description: "Experimental SD 1.x LineArt ControlNet sketch guidance workflow.",
     workflowFile: "workflows/api/sketch2img-linecn-basic.json",
@@ -1184,6 +1190,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
   {
     id: "inpaint-basic",
     label: "inpaint-basic",
+    displayName: "Standard checkpoint",
     mode: "inpaint",
     description: "Experimental SD 1.x inpainting workflow using a Photoshop selection source and mask.",
     workflowFile: "workflows/api/inpaint-basic.json",
@@ -1253,6 +1260,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
   {
     id: "inpaint-flux-fill-basic",
     label: "inpaint-flux-fill-basic",
+    displayName: "Flux Fill",
     mode: "inpaint",
     description: "Experimental Flux Fill inpainting workflow using a diffusion model stack.",
     workflowFile: "workflows/api/inpaint-flux-fill-basic.json",
@@ -1334,6 +1342,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
   {
     id: "outpaint-flux-fill-basic",
     label: "outpaint-flux-fill-basic",
+    displayName: "Flux Fill",
     mode: "outpaint",
     description: "Experimental Flux Fill outpainting workflow using ImagePadForOutpaint.",
     workflowFile: "workflows/api/outpaint-flux-fill-basic.json",
@@ -1420,6 +1429,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
   {
     id: "txt2img-z-image-turbo",
     label: "txt2img-z-image-turbo",
+    displayName: "Z_image_Turbo",
     mode: "txt2img",
     description: "Experimental text-to-image preset for the Z_image_Turbo diffusion model stack.",
     workflowFile: "workflows/api/txt2img-z-image-turbo.json",
@@ -1491,6 +1501,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
   {
     id: "img2img-z-image-turbo",
     label: "img2img-z-image-turbo",
+    displayName: "Z_image_Turbo",
     mode: "img2img",
     description: "Experimental image-to-image preset for the Z_image_Turbo diffusion model stack.",
     workflowFile: "workflows/api/img2img-z-image-turbo.json",
@@ -1567,6 +1578,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
   {
     id: "txt2img-krea2-turbo",
     label: "txt2img-krea2-turbo",
+    displayName: "Krea-2 Turbo",
     mode: "txt2img",
     description: "Experimental text-to-image preset for the Krea-2 Turbo diffusion model stack.",
     workflowFile: "workflows/api/txt2img-krea2-turbo.json",
@@ -1632,6 +1644,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
   {
     id: "img2img-krea2-turbo",
     label: "img2img-krea2-turbo",
+    displayName: "Krea-2 Turbo",
     mode: "img2img",
     description: "Experimental image-to-image preset for the Krea-2 Turbo diffusion model stack.",
     workflowFile: "workflows/api/img2img-krea2-turbo.json",
@@ -1702,6 +1715,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
   {
     id: "txt2img-flux1-dev",
     label: "txt2img-flux1-dev",
+    displayName: "Flux1-dev",
     mode: "txt2img",
     description: "Future text-to-image preset for Flux.1-dev style diffusion model stacks.",
     workflowFile: "workflows/api/txt2img-flux1-dev.json",
@@ -1736,6 +1750,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
   {
     id: "img2img-flux1-dev",
     label: "img2img-flux1-dev",
+    displayName: "Flux1-dev",
     mode: "img2img",
     description: "Future image-to-image preset for Flux.1-dev style diffusion model stacks.",
     workflowFile: "workflows/api/img2img-flux1-dev.json",

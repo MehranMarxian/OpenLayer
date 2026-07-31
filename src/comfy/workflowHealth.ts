@@ -73,7 +73,7 @@ export function createWorkflowHealthItem(
 
   return {
     presetId: preset.id,
-    label: preset.label,
+    label: preset.displayName,
     toolLabel: capability.artistLabel,
     state,
     stateLabel: STATE_LABELS[state],
