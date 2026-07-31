@@ -363,8 +363,10 @@ export function createAppMarkup() {
             <span class="label">Strength (denoise)</span>
             <input class="input input-compact" id="live-denoise" type="number" min="0.2" max="0.95" step="0.05" value="0.6" />
           </label>
-          <button class="button button-primary button-generate button-wide action-control" id="start-live-painting" data-openlayer-action="startLivePainting" type="button">Start Live Session</button>
-          <button class="button button-wide action-control" id="stop-live-painting" data-openlayer-action="stopLivePainting" type="button">Stop Live Session</button>
+          <div class="live-session-actions">
+            <button class="button button-primary button-generate button-wide action-control" id="start-live-painting" data-openlayer-action="startLivePainting" type="button">Start Live Session</button>
+            <button class="button button-wide action-control" id="stop-live-painting" data-openlayer-action="stopLivePainting" type="button">Stop Live Session</button>
+          </div>
           <div class="live-refine-actions">
             <button class="button action-control" id="refine-live-painting" data-openlayer-action="refineLivePainting" type="button">Refine Now</button>
             <button class="button action-control" id="live-auto-refine-toggle" data-openlayer-action="toggleLiveAutoRefine" type="button" aria-pressed="false">Auto Refine on Pause</button>
