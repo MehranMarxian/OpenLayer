@@ -4,12 +4,17 @@ import { writeFile } from "node:fs/promises";
 /**
  * A minimal, spec-correct ZIP writer.
  *
- * Why not `Compress-Archive`, which `scripts/package.mjs` uses? Because Windows
- * PowerShell 5.1 runs on .NET Framework, which stores entry paths with
- * backslashes. The ZIP specification requires forward slashes, and the existing
- * release zips carry 40 such entries. Windows tooling tolerates it; other
- * unzippers are entitled not to. The setup pack goes to strangers' machines and
- * gets opened by whatever they have, so it is written correctly here instead.
+ * Why not `Compress-Archive`? Because Windows PowerShell 5.1 runs on .NET
+ * Framework, which stores entry paths with backslashes. The ZIP specification
+ * requires forward slashes. Windows tooling tolerates the difference; other
+ * unzippers are entitled not to, and macOS `unzip` in particular unpacks such
+ * an archive as a flat directory of files with backslashes in their names.
+ *
+ * This started as the setup pack's writer, because that pack goes to strangers'
+ * machines and gets opened by whatever they have. `scripts/package.mjs` used
+ * `Compress-Archive` until v0.9.0 and shipped nine releases of malformed
+ * plugin zips before anyone looked; it now uses this writer too, so both
+ * published archives come out of one implementation.
  */
 
 const CRC_TABLE = (() => {
