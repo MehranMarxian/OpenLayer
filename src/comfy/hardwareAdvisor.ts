@@ -50,7 +50,7 @@ export function createHardwareRecommendationReport(
   presets: WorkflowPresetDefinition[]
 ): HardwareRecommendationReport {
   const primaryDevice = choosePrimaryDevice(systemStats.devices);
-  const vramTotalBytes = primaryDevice?.vramTotalBytes ?? primaryDevice?.torchVramTotalBytes;
+  const vramTotalBytes = getPrimaryDeviceVramTotalBytes(systemStats) ?? undefined;
   const vramFreeBytes = primaryDevice?.vramFreeBytes ?? primaryDevice?.torchVramFreeBytes;
   const tier = getHardwareTier(vramTotalBytes);
   const detectedFamilies = summarizeDetectedFamilies(inventory);
@@ -265,6 +265,11 @@ function choosePrimaryDevice(devices: ComfyHardwareDevice[]) {
   return devices.find((device) => device.type.toLowerCase().includes("cuda"))
     ?? devices.find((device) => Boolean(device.vramTotalBytes ?? device.torchVramTotalBytes))
     ?? devices[0];
+}
+
+export function getPrimaryDeviceVramTotalBytes(systemStats: ComfySystemStats): number | null {
+  const primaryDevice = choosePrimaryDevice(systemStats.devices);
+  return primaryDevice?.vramTotalBytes ?? primaryDevice?.torchVramTotalBytes ?? null;
 }
 
 function hasFamily(inventory: ComfyModelInventory, family: ModelFamily) {
