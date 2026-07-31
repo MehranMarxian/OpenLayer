@@ -7248,6 +7248,23 @@ body,
   margin-bottom: 0 !important;
 }
 
+/* The Live Painting dependency hint is a paragraph, not a status line, and it
+   is the one `.diagnostics-line` in the panel that has to wrap. The compact
+   theme truncates that class to a single line (`white-space: nowrap` plus
+   `text-overflow: ellipsis`, with `max-height: 34px` and `overflow: hidden`
+   from earlier blocks), which is right for the seven status bars and wrong
+   here -- everything after the first clause has never been readable. Opting
+   out on its own class keeps all eight status lines exactly as they are.
+   The `overflow-wrap: anywhere !important` set alongside those rules is inert
+   while nowrap wins and starts working once it does. */
+.app-shell.theme-compact .live-dependency-hint {
+  max-height: none !important;
+  overflow: visible !important;
+  margin-bottom: 9px !important;
+  white-space: normal !important;
+  text-overflow: clip !important;
+}
+
 /* v0.6 final UXP hardening.
    Keep these rules deliberately simple: Photoshop's UXP renderer is more
    reliable with explicit margins, pixel radii, and fixed textarea heights. */

@@ -354,9 +354,12 @@ export function createAppMarkup() {
             <span class="label">Live session</span>
             <span class="muted-label">Two-tier session</span>
           </div>
-          <div class="diagnostics-line">
-            Live tier uses the Text to Image checkpoint with the local SD 1.5 LCM LoRA; Refine uses Krea-2 Turbo.
-            Start a session, then paint in the document and watch the preview follow your strokes.
+          <div class="diagnostics-line live-dependency-hint">
+            The live tier runs the model picked in the Model dropdown on the Text to Image screen,
+            paired with your local SD 1.5 LCM LoRA. Refine uses Krea-2 Turbo.
+            If no model is selected there yet, open Text to Image, choose a workflow and a model,
+            then come back here. Once the session is running, paint in the document and the preview
+            follows your strokes.
           </div>
           <label class="field">
             <span class="label">Prompt</span>
