@@ -10,9 +10,15 @@ OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop t
 
 ## Alpha Release
 
-`v0.11.0-alpha` is the current public alpha checkpoint. It is intended for testing the core local workflows in Photoshop UXP, not for production work yet.
+`v0.12.0-alpha` is the current public alpha checkpoint. It is intended for testing the core local workflows in Photoshop UXP, not for production work yet.
 
-New in `v0.11.0-alpha`:
+New in `v0.12.0-alpha`:
+
+- **The Setup screen can install a missing model file.** A missing row grows an Install button, and pressing it opens a confirmation inside that row naming the file, its size, the folder it will be written to, and the host it comes from. Only the Download button in that block sends anything, and success is claimed by re-reading what ComfyUI can actually see rather than by the downloader reporting itself finished. It needs ComfyUI-Manager installed, and it will not touch licence-gated files, files already on disk in the wrong folder, or custom node packages — each of those rows says why.
+- **A Flux.2 dev (GGUF) Text to Image preset**, built on ComfyUI's own shipped Flux.2 template and the advanced sampler chain. Experimental, and honestly slow on a 12 GB card: an 18.7 GB model plus a 16.8 GB text encoder means minutes per image, not seconds.
+- **Every preset the panel lists is now one you can actually run.** The two Flux1-dev presets that had been advertising themselves as awaiting a workflow JSON since v0.2.2 are removed rather than finished — the full-precision weight has no 12 GB story and `txt2img-flux1-dev-fp8` already covers Flux Text to Image.
+
+Also new in `v0.11.0-alpha`:
 
 - **A Setup screen**, on Home under Preferences. It lists every model file and custom node package the presets need, with the folder each one goes in, its size, what it unlocks, and whether it is installed, missing, or sitting in the wrong folder. It works with ComfyUI stopped — the list is static and the status is an overlay — because that is the state most people are in when they go looking for what to download.
 - **"What will run well"** ranks the presets against the VRAM ComfyUI reports for your card: Comfortable, Tight, Will offload, or Not known. It rates on the largest single file in a preset's stack rather than the total, and says plainly that a stack too big for the card runs slower rather than failing.
@@ -105,7 +111,21 @@ The earlier card-based dashboard established OpenLayer's honest available/experi
 
 </details>
 
-v0.11.0-alpha tester focus:
+v0.12.0-alpha tester focus:
+
+- With ComfyUI-Manager **not** installed, open **Setup** and confirm no row offers an Install button and the screen otherwise behaves exactly as it did in v0.11.0.
+- With ComfyUI-Manager installed and ComfyUI running, find a missing model row and confirm it has an **Install** button. Press it and read the confirmation *without* confirming: it should name the file, the size, the target folder as `models/<folder>/`, and the host the download comes from. Press Cancel and confirm nothing was downloaded.
+- Confirm a **licence-gated** row — either Flux.1 weight, or the Flux.2 model or its Mistral-3 encoder — has **no** Install button and explains that the licence has to be accepted in a browser.
+- Move a model into the wrong folder, check again, and confirm that row also has no Install button and says the file is already on disk.
+- Confirm **custom node package rows have no Install button** and still offer Copy Link.
+- Run one real install of a small ungated model. Watch the status line move through checking the queue, handing it over, downloading, and re-checking, and confirm the final message claims success only after the re-check — then verify the file really is in that folder.
+- Queue something in ComfyUI-Manager's own web interface first, then press Install in OpenLayer, and confirm OpenLayer refuses to start rather than running someone else's downloads.
+- Start an install, then **close the panel**. The download should continue in ComfyUI-Manager; reopen the panel and confirm nothing is stuck or duplicated.
+- Open **Check Workflow Health** and confirm the **Flux.2 dev (GGUF)** preset appears, is marked experimental, and reports only the Mistral-3 encoder as missing if that is the only file you lack — not the 18.7 GB GGUF model you already have.
+- Confirm the two Flux1-dev presets are **gone** from every preset list, and that no remaining preset says it needs a workflow JSON.
+- Confirm the panel footer reads `v0.12.0`.
+
+Also worth rechecking from v0.11.0-alpha:
 
 - Open **Setup** from Home *before* starting ComfyUI. Confirm every model and node package is still listed with its folder, size and links, that the three tallies show a dash rather than 0, and that nothing claims you are set up.
 - Start ComfyUI, click **Check Again**, and confirm the list splits into what you have and what you are missing, with the installed rows collapsed. The remaining download figure should count each file once even though several presets share it — and should say "Nothing" if you have everything.
@@ -115,8 +135,6 @@ v0.11.0-alpha tester focus:
 - Look at the status badges on both Setup and **Check Workflow Health**: they should be the same squared uppercase label on both screens, with no text cut off by an ellipsis. The longest ones are NEEDS WORKFLOW JSON and MISSING COMFYUI NODE.
 - Confirm the filter chips read as flat outlined pills of uniform height — not gold switches, not stretched ovals.
 - Confirm Workflow Health names presets the way an artist would ("Krea-2 Turbo", "Standard checkpoint") rather than by their internal ids.
-- Confirm the panel footer reads `v0.11.0`.
-
 Also worth rechecking from v0.10.0-alpha:
 
 - Unzip the release package and confirm it expands into folders, with an `assets/` directory beside `index.html` — not a flat pile of files with backslashes in their names. **On macOS this is the single most useful thing to report.**
@@ -140,9 +158,13 @@ Also worth rechecking from v0.9.0-alpha:
 - Run `npm run setup-pack` and confirm it reports no source/API mismatches at all.
 - Recheck the existing local generation, cancel, preview, import, History, and Workflow Health paths for regressions.
 
-Known v0.11.0-alpha boundaries:
+Known v0.12.0-alpha boundaries:
 
-- The Setup screen reports and copies. It does not download or install anything; assisted install through ComfyUI-Manager is the next roadmap item.
+- Assisted install covers **model files only**. Custom node packages still have to be installed through ComfyUI-Manager yourself, and their rows keep Copy Link.
+- Assisted install requires **ComfyUI-Manager**. Without it the Setup screen reports and copies exactly as it did in v0.11.0.
+- **Licence-gated models cannot be installed this way.** An unauthenticated download of a gated URL saves an HTML error page under the model's filename, which looks exactly like a corrupt model, so OpenLayer refuses rather than risking it.
+- A download **outlives the panel** — ComfyUI-Manager owns it. What stops when the panel closes is OpenLayer asking about it.
+- The **Flux.2 GGUF preset is slow on a 12 GB card**: minutes per image, not seconds, and its text encoder is licence-gated and therefore not installable from the Setup screen.
 - "What will run well" rates on published model weight sizes against reported VRAM. It is not a measurement of VRAM use during a run, and a preset with an unpublished model size is reported as unknown rather than guessed at.
 - Setup and Check Workflow Health overlap on purpose. Setup answers what you need and where it goes; Health answers whether a given preset can run right now.
 - Image to Image is an early foundation path, not a full production workflow yet.
@@ -304,7 +326,7 @@ npm run package
 This creates a zip package from `dist` in the `packages` folder. For the current alpha, the expected package name is:
 
 ```text
-packages/openlayer-v0.11.0-alpha.zip
+packages/openlayer-v0.12.0-alpha.zip
 ```
 
 ## Loading In UXP Developer Tool
@@ -431,7 +453,7 @@ Inpaint output quality, mask interpretation, and Photoshop alignment are still b
 
 ## Pre-release Tester Checklist
 
-Use this quick pass before reporting a v0.11.0-alpha test result:
+Use this quick pass before reporting a v0.12.0-alpha test result:
 
 1. Start ComfyUI on `http://127.0.0.1:8190`.
 2. Build OpenLayer and load `dist/manifest.json` in Adobe UXP Developer Tool.
