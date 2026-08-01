@@ -28,13 +28,26 @@ import {
 import { createOpenLayerError, getNestedErrorMessage } from "../utils/errors";
 import { createMultipartBoundary, createMultipartRequestBody } from "../utils/multipart";
 
-const MODEL_INVENTORY_SOURCES = {
+/**
+ * Which `object_info` node each inventory bucket is built from.
+ *
+ * Exported so a test can assert the invariant that broke once already: every
+ * loader a preset requires a model through must also be asked for its list
+ * here, or that model is invisible and the panel reports a file you have as
+ * one you still need to download.
+ */
+export const MODEL_INVENTORY_SOURCES = {
   checkpoints: [
     { objectInfoNode: "CheckpointLoaderSimple", inputName: "ckpt_name", label: "checkpoint loader" }
   ],
   diffusionModels: [
     { objectInfoNode: "UNETLoader", inputName: "unet_name", label: "diffusion model loader" },
-    { objectInfoNode: "DiffusionModelLoader", inputName: "model_name", label: "diffusion model loader" }
+    { objectInfoNode: "DiffusionModelLoader", inputName: "model_name", label: "diffusion model loader" },
+    // Core UNETLoader does not enumerate .gguf files AT ALL -- verified live, it
+    // listed only the safetensors sitting in the same folder. So a quantised
+    // model is invisible to this inventory unless its own loader is asked, and
+    // a preset requiring one reports "missing" for a file that is right there.
+    { objectInfoNode: "UnetLoaderGGUF", inputName: "unet_name", label: "GGUF diffusion model loader" }
   ],
   clipModels: [
     { objectInfoNode: "CLIPLoader", inputName: "clip_name", label: "CLIP loader" },
@@ -42,7 +55,13 @@ const MODEL_INVENTORY_SOURCES = {
     { objectInfoNode: "DualCLIPLoader", inputName: "clip_name2", label: "dual CLIP loader" },
     { objectInfoNode: "TripleCLIPLoader", inputName: "clip_name1", label: "triple CLIP loader" },
     { objectInfoNode: "TripleCLIPLoader", inputName: "clip_name2", label: "triple CLIP loader" },
-    { objectInfoNode: "TripleCLIPLoader", inputName: "clip_name3", label: "triple CLIP loader" }
+    { objectInfoNode: "TripleCLIPLoader", inputName: "clip_name3", label: "triple CLIP loader" },
+    // Same reasoning for quantised text encoders. No shipped preset requires
+    // one yet, but a GGUF encoder sitting in text_encoders/ should not be
+    // reported as absent just because nothing thought to ask its loader.
+    { objectInfoNode: "CLIPLoaderGGUF", inputName: "clip_name", label: "GGUF CLIP loader" },
+    { objectInfoNode: "DualCLIPLoaderGGUF", inputName: "clip_name1", label: "GGUF dual CLIP loader" },
+    { objectInfoNode: "DualCLIPLoaderGGUF", inputName: "clip_name2", label: "GGUF dual CLIP loader" }
   ],
   vaeModels: [
     { objectInfoNode: "VAELoader", inputName: "vae_name", label: "VAE loader" }
