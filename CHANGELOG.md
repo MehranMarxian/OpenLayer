@@ -1,5 +1,46 @@
 # Changelog
 
+## v0.11.0-alpha - 2026-08-01
+
+Everything here is about the distance between installing OpenLayer and being able to generate anything with it. The panel has always known exactly which model files and custom nodes its presets need, and where each one goes, but it only said so one preset at a time, in the middle of a health report, using names like `txt2img-krea2-turbo`. This release turns that knowledge into a screen you can work from: what you still need, where it goes, how big it is, what it unlocks — and, once ComfyUI reports its VRAM, which of the presets your card will actually run well.
+
+### Added
+
+- **A Setup screen**, on Home under Preferences. It lists every model file and custom node package the presets need, each with the folder it belongs in, its download size, which tools it unlocks, and its live status: Installed, Wrong folder, Missing, or Not checked. Rows for things you already have collapse into a one-line summary, so what is left on screen is what you still have to do.
+- **Models are the list, not presets.** The 13 runnable presets share 13 model files with heavy overlap — a preset-first list prints `ae.safetensors` four times and reads as roughly 18 GB of downloads that do not exist. The remaining-download figure is therefore the sum of what is actually missing, counted once each, and it says "Nothing" when you are done rather than a number.
+- **The screen is useful with ComfyUI stopped.** The requirement list is static and the status is an overlay on top of it, so every name, folder, size and link is still there when nothing can be checked — which is the state most people are in when they go looking for what to download. The tallies show a dash rather than 0 in that case, because "0 missing" against a server that never answered reads as good news.
+- **A file in the wrong folder is not a download.** `CheckpointLoaderSimple` reads `models/checkpoints/` and `UNETLoader` reads `models/diffusion_models/`; a file in the wrong one of those is invisible to the workflow and looks exactly like a file you never downloaded. Those rows say you already have the file, name the folder it is sitting in, and contribute zero to the remaining download.
+- **Copy Link, Copy Folder Path and Copy Page on each row**, plus notes for the cases that trip people up: licence-gated files that need the licence accepted first, Florence-2's repo-folder layout where the loader opens a directory rather than a file, alternative filenames that also work, and the fact that a newly installed custom node needs a ComfyUI restart rather than a refresh.
+- **Filter chips** narrow the list to one tool — the models Inpaint needs, say — while the tallies and the download total keep describing the whole report.
+- **"What will run well" ranks the presets against your card**, at the bottom of the Setup screen next to the requirements it describes. Each preset is rated Comfortable, Tight, Will offload, or Not known, best first, using the VRAM ComfyUI reports for the primary device. The rating is based on the **largest single file** in a preset's stack rather than the sum, because ComfyUI loads and offloads components at different stages of a run, so the biggest resident chunk predicts speed better than the total does. The screen says plainly that these are weight sizes and not measured VRAM use, and that a stack too big for the card runs slower rather than failing.
+
+### Changed
+
+- **Presets have artist-facing names now.** Every preset gained a display name, so Workflow Health shows "Krea-2 Turbo" and "Flux Fill" with the tool named alongside, instead of the internal ids `txt2img-krea2-turbo` and `inpaint-flux-fill-basic` that had been on those cards for several releases.
+- **The status badge is a squared label in small caps** rather than a rounded pill in sentence case, on both the Setup screen and Workflow Health. It was changed on the shared badge itself so the two screens keep one badge language rather than rendering the same idea two ways.
+- Workflow Health's "Missing workflow JSON" is now "Needs workflow JSON" — it describes the two presets whose workflows have not been authored yet, not a file that went missing from your install.
+
+### Fixed
+
+- **A preset with an unpublished model size was ranked as the most comfortable thing on the list.** Florence-2 is one repo-folder model that publishes no size, so its stack measured zero bytes and sorted to the top. An unknown size is not a small size: it now blocks a "Comfortable" rating, while "Tight" and "Will offload" still stand, because the part that *is* known already reaches that much on its own. A stack whose sizes are all unpublished says "Size not published" instead of "At least 0 MB".
+- **A fully set up machine was told the remaining download was "unknown".** The formatter that renders model sizes treats zero as "nobody published this size", which is right for a model and exactly backwards for a total that hits zero when everything is installed — the best possible outcome, showing only on machines where setup is complete, which is the one state least likely to be caught by hand.
+- Fixed the Setup filter chips rendering as gold rectangles. They are buttons carrying `aria-pressed`, which is correct for them and also opted them into the compact theme's toggle-switch styling, so a chip saying which slice of a list you were looking at was drawn like a switch that was turned on.
+- Fixed the same chips then rendering as tall ovals: a 999px radius is only a pill if you control the height, and theirs came out around 28px. Their height is now stated and the radius is half of it.
+
+### Known limitations
+
+- Setup and Workflow Health overlap on purpose for now. Setup answers "what do I need and where does it go"; Health answers "can I run this preset right now". If that turns out to be one screen too many, Health folds into Setup rather than the reverse.
+- Nothing on the Setup screen downloads anything. It copies links and folder paths for you to use elsewhere; assisted install through ComfyUI-Manager is the next item on the roadmap. The panel cannot open a browser either — `uxp.shell.openExternal` has never been called in this project — which is why every row offers Copy Link rather than a button that opens the page.
+- "What will run well" reads the VRAM ComfyUI reports for its primary device. With ComfyUI stopped, or on a setup it reports oddly, every preset falls back to "Not known" and only the sizes are shown.
+- **Live Painting is experimental.** The live tier needs an SD 1.5 LCM LoRA in `models/loras/`, and Start Live Session reports an error naming it if none is found. The Refine tier additionally needs the three Krea-2 Turbo files; without them the live tier still works and Refine reports what is missing. Auto-import fires when you stop the session, by design.
+- Installation still requires the UXP Developer Tool. Whether a `.ccx` double-click install works on a machine that has never had developer mode enabled is documented as an open question in `docs/DISTRIBUTION_SPIKE.md` and needs a clean second machine to answer.
+- The Layer Tools card on Home does not dim when ComfyUI is unreachable, unlike the generation tools. Saving to a file works with ComfyUI stopped; Send to ComfyUI will fail and report the connection error on the Layer Tools status line.
+- Layer, canvas, selection, and mask capture is limited to 16 megapixels (4096 x 4096) until a downscale option is added.
+- The Preview panel offers each tool's primary import only.
+- The setup pack contains no model weights. They are roughly 85 GB and two are licence-restricted, so it ships the list and the downloader instead — an internet connection is required.
+- Inpaint and Outpaint remain experimental and should be tested on duplicate layers or disposable documents.
+- CI covers pure TypeScript behavior but does not run Photoshop, UXP Developer Tool, or ComfyUI integration tests.
+
 ## v0.10.0-alpha - 2026-07-31
 
 The first OpenLayer release whose plugin zip is built to the ZIP specification, which matters more than a packaging note usually would: every release from v0.1.0 to v0.9.0-alpha wrote its entry paths with backslashes, and macOS refuses to unpack those into folders. Everything else here follows from the same question — what happens to somebody setting this up without anyone to ask. Workflow health now tells you which folder your "missing" model is actually sitting in, missing nodes name the package that provides them, and Live Painting stops looking half-finished.

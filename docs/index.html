@@ -33,10 +33,10 @@
       "operatingSystem": "Windows, macOS",
       "applicationCategory": "DesignApplication",
       "applicationSubCategory": "Adobe Photoshop plugin",
-      "softwareVersion": "0.10.0-alpha",
+      "softwareVersion": "0.11.0-alpha",
       "description": "Open-source Photoshop UXP plugin that connects to a local ComfyUI server for AI image generation: text to image, image to image, sketch to image, inpaint, outpaint, and upscale with Stable Diffusion, SDXL, and Flux models.",
       "url": "https://mehran-ahmadi.com/OpenLayer/",
-      "downloadUrl": "https://github.com/MehranMarxian/OpenLayer/releases/tag/v0.10.0-alpha",
+      "downloadUrl": "https://github.com/MehranMarxian/OpenLayer/releases/tag/v0.11.0-alpha",
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
       "author": { "@type": "Person", "name": "Mehran Ahmadi", "url": "https://github.com/MehranMarxian" }
     }
@@ -65,7 +65,7 @@
     <main id="top">
       <section class="hero" aria-labelledby="hero-title">
         <div class="hero-copy">
-          <p class="hero-badge"><span class="pulse-dot" aria-hidden="true"></span> Alpha v0.10.0 · free &amp; open source</p>
+          <p class="hero-badge"><span class="pulse-dot" aria-hidden="true"></span> Alpha v0.11.0 · free &amp; open source</p>
           <h1 id="hero-title">Local AI layers,<br><span class="grad">inside Photoshop.</span></h1>
           <p class="hero-lede">
             OpenLayer connects Photoshop to <strong>your own ComfyUI server</strong>.
@@ -74,7 +74,7 @@
             <strong>No cloud. No credits. No subscription.</strong>
           </p>
           <div class="hero-actions">
-            <a class="button button-primary" href="https://github.com/MehranMarxian/OpenLayer/releases/tag/v0.10.0-alpha">Download alpha</a>
+            <a class="button button-primary" href="https://github.com/MehranMarxian/OpenLayer/releases/tag/v0.11.0-alpha">Download alpha</a>
             <a class="button button-secondary" href="https://github.com/MehranMarxian/OpenLayer">Star on GitHub</a>
           </div>
           <ul class="signal-list" aria-label="Project signals">
@@ -323,11 +323,11 @@ npm run build</code></pre>
             </article>
             <article class="status-card">
               <h3>Testing alpha</h3>
-              <p>OpenLayer v0.10.0-alpha is for local testing and feedback. It is not production-ready yet.</p>
+              <p>OpenLayer v0.11.0-alpha is for local testing and feedback. It is not production-ready yet.</p>
             </article>
             <article class="status-card">
               <h3>Inpaint is experimental</h3>
-              <p>v0.10.0 retains the upload and alignment fixes while output quality across checkpoints continues to be validated by testers.</p>
+              <p>v0.11.0 retains the upload and alignment fixes while output quality across checkpoints continues to be validated by testers.</p>
             </article>
             <article class="status-card">
               <h3>Flux Fill is experimental</h3>
@@ -350,7 +350,7 @@ npm run build</code></pre>
               <li>Inpaint and Outpaint should be tested on duplicate layers first.</li>
               <li>Prompt from Layer requires the local Florence-2 PromptGen model and the comfyui-florence2 nodes. The custom-scripts pack is no longer needed.</li>
               <li>Upscale uses pixel/model upscale only. Generative upscale, tiled diffusion, and creative enhancement are future work.</li>
-              <li>Custom workflow import, LoRA browser, batch variants, and true persistent Photoshop AI layer metadata are future work. v0.10.0 keeps the shared metadata foundation and session-history wiring.</li>
+              <li>Custom workflow import, LoRA browser, batch variants, and true persistent Photoshop AI layer metadata are future work. v0.11.0 keeps the shared metadata foundation and session-history wiring.</li>
               <li>CI does not run Photoshop, UXP, or ComfyUI integration tests.</li>
               <li>Live sampler previews require ComfyUI to be started with <code>--preview-method auto</code>.</li>
               <li>Progress is shown in the generation status panel rather than pinned to the screen header, so it scrolls with the form.</li>
@@ -396,6 +396,10 @@ npm run build</code></pre>
               <p>Workflow Health finds models sitting in the wrong folder and names the repository behind a missing node — and the plugin zip is finally built to spec, so it unpacks correctly on macOS.</p>
             </article>
             <article>
+              <h3>v0.11 · Know what you need</h3>
+              <p>A Setup screen listing every model and node package with its folder, size and status — usable before ComfyUI is even running — plus a ranking of which presets your card will actually run well.</p>
+            </article>
+            <article>
               <h3>Next · Reliability and artist control</h3>
               <p>Finish Inpaint and Outpaint alignment, strengthen workflow validation, and turn the metadata foundation into repeatable layer-level iteration.</p>
             </article>
@@ -424,7 +428,7 @@ npm run build</code></pre>
     </main>
 
     <footer class="site-footer">
-      <p>OpenLayer v0.10.0-alpha. Developed by Mehran Ahmadi, 2026.</p>
+      <p>OpenLayer v0.11.0-alpha. Developed by Mehran Ahmadi, 2026.</p>
       <p>
         <a href="https://github.com/MehranMarxian">GitHub</a>
       </p>
