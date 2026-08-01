@@ -20,7 +20,7 @@ export type WorkflowMode =
   | "outpaint"
   | "prompt"
   | "upscale";
-export type ModelFamily = "sd1" | "sdxl" | "sd3" | "flux" | "zImage" | "unknown";
+export type ModelFamily = "sd1" | "sdxl" | "sd3" | "flux" | "flux2" | "zImage" | "unknown";
 export type WorkflowToolType = WorkflowMode | "realtime";
 export type WorkflowLoaderType = "checkpoint" | "diffusion-model-stack" | "vision-language" | "upscale";
 export type WorkflowControlId =

@@ -37,7 +37,13 @@ describe("model folder mapping", () => {
       VAELoader: "vae",
       ControlNetLoader: "controlnet",
       UpscaleModelLoader: "upscale_models",
-      Florence2ModelLoader: "LLM"
+      Florence2ModelLoader: "LLM",
+      // ComfyUI-GGUF stands in for the core loaders and reads their folders,
+      // confirmed against the live server: UnetLoaderGGUF's own combo list
+      // offered flux2-dev-Q4_K_M.gguf straight out of models/diffusion_models/.
+      UnetLoaderGGUF: "diffusion_models",
+      CLIPLoaderGGUF: "text_encoders",
+      DualCLIPLoaderGGUF: "text_encoders"
     });
   });
 

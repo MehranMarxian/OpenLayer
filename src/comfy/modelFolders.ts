@@ -32,7 +32,16 @@ export const MODEL_FOLDER_BY_OBJECT_INFO_NODE = {
   VAELoader: "vae",
   ControlNetLoader: "controlnet",
   UpscaleModelLoader: "upscale_models",
-  Florence2ModelLoader: "LLM"
+  Florence2ModelLoader: "LLM",
+  // ComfyUI-GGUF's loaders read the same two folders as the core loaders they
+  // stand in for -- the pack registers itself against ComfyUI's existing folder
+  // names rather than inventing its own. They are listed here because this map
+  // is what OpenLayer's own setup and health screens read; ComfyUI finding the
+  // file is a separate question, and getModelTargetFolder throws for any loader
+  // that is missing from this table.
+  UnetLoaderGGUF: "diffusion_models",
+  CLIPLoaderGGUF: "text_encoders",
+  DualCLIPLoaderGGUF: "text_encoders"
 } as const satisfies Record<string, WorkflowModelFolder>;
 
 export type ComfyModelInventoryBucket = Exclude<keyof ComfyModelInventory, "missingSources">;

@@ -40,6 +40,7 @@ const FAMILY_LABELS: Record<ModelFamily, string> = {
   sdxl: "SDXL",
   sd3: "SD3 / SD3.5",
   flux: "Flux",
+  flux2: "Flux.2",
   zImage: "Z_image_Turbo",
   unknown: "Unknown"
 };

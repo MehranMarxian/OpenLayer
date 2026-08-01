@@ -42,6 +42,24 @@ export const CUSTOM_NODE_PACKAGES: Record<string, { name: string; repoUrl: strin
   "ShowText|pysssss": {
     name: "ComfyUI-Custom-Scripts",
     repoUrl: "https://github.com/pythongosssss/ComfyUI-Custom-Scripts"
+  },
+  // Listing these matters more than usual. ComfyUI-GGUF fails in a way that
+  // looks like nothing at all: it needs a `gguf` Python package that its own
+  // install does not always pull in, and without it the pack imports silently,
+  // registers no classes, and every .gguf model becomes invisible to every
+  // loader. Naming the package here means Setup and Workflow Health can say
+  // which install is missing instead of reporting an unexplained absent node.
+  UnetLoaderGGUF: {
+    name: "ComfyUI-GGUF",
+    repoUrl: "https://github.com/city96/ComfyUI-GGUF"
+  },
+  CLIPLoaderGGUF: {
+    name: "ComfyUI-GGUF",
+    repoUrl: "https://github.com/city96/ComfyUI-GGUF"
+  },
+  DualCLIPLoaderGGUF: {
+    name: "ComfyUI-GGUF",
+    repoUrl: "https://github.com/city96/ComfyUI-GGUF"
   }
 };
 
