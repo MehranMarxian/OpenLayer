@@ -410,6 +410,7 @@ describe("LivePaintingSessionV2", () => {
 
     expect(harness.session.getCycleSamples()).toHaveLength(1);
     expect(aggregate).toContain("1 cycle measured");
+    expect(aggregate).toContain("median unaccounted ");
     expect(aggregate).toContain("capture.pngEncode 4ms");
     // Ordered worst-first, because the point of the summary is to name the
     // phase worth optimising rather than to list them in pipeline order.

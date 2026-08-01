@@ -211,9 +211,19 @@ export function formatAggregateLine(samples: readonly LiveCycleSample[]): string
     .sort((left, right) => (right.aggregated.median ?? 0) - (left.aggregated.median ?? 0))
     .map((entry) => `${entry.phaseId} ${entry.aggregated.median}ms`);
 
+  // Reported second, before the phases, because it is the number that says
+  // whether the breakdown can be trusted at all. Per-phase medians do not sum
+  // to the median total -- medians are not additive -- so without this there is
+  // no way to tell a cycle whose time is explained from one where most of it
+  // went somewhere no phase is watching.
+  const unaccounted = aggregateDurations(
+    samples.map((cycleSample) => summariseCycle(cycleSample).unaccountedMs)
+  );
+
   return [
     `${samples.length} cycle${samples.length === 1 ? "" : "s"} measured`,
     `median total ${aggregate.totalMs.median}ms`,
+    `median unaccounted ${unaccounted.median}ms`,
     ...measured
   ].join(" | ");
 }

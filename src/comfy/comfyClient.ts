@@ -765,10 +765,19 @@ export class ComfyClient {
     options: ProgressWatcherOptions
   ) {
     if (data instanceof Blob || data instanceof ArrayBuffer) {
+      // Decoding is skipped outright when nobody wants the frame. ComfyUI
+      // streams a preview per sampler step whenever it runs with
+      // --preview-method auto, and Live Painting opens this socket for the
+      // completion event alone -- decoding those frames only to drop them is
+      // work competing with the capture loop it is meant to speed up.
+      if (!options.onPreviewBlob) {
+        return;
+      }
+
       const previewBlob = await decodeComfyPreviewBlob(data);
 
       if (previewBlob) {
-        options.onPreviewBlob?.(previewBlob);
+        options.onPreviewBlob(previewBlob);
       }
 
       return;
