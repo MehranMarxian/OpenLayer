@@ -107,6 +107,21 @@ import {
   SetupSectionView,
   SetupTallyView
 } from "./setupTabModel";
+import {
+  AssistedInstallItem,
+  AssistedInstallPlan,
+  createInstallModelRequest,
+  evaluateQueuePrecondition,
+  planAssistedInstall
+} from "../comfy/assistedInstall";
+import { isManagerSecurityLevelError, ManagerClient } from "../comfy/managerClient";
+import {
+  createInstallConfirmationView,
+  createInstallStatusLine,
+  describeInstallResult,
+  getInstallOffer,
+  InstallStep
+} from "./setupInstallModel";
 import type { WorkflowPhotoshopInputAvailability } from "../comfy/workflowCompatibility";
 import { GeneratedImageResult, WorkflowPresetDefinition } from "../comfy/types";
 import {
@@ -374,6 +389,17 @@ export function renderApp(rootElement: HTMLElement) {
   // that vanished when the server was down would be the offline failure the rest
   // of this screen was built to avoid.
   let setupVramTotalBytes: number | null = null;
+  // Null means "no ComfyUI-Manager", which is a normal install and not an error.
+  // Install buttons appear only when this is set, so a row never offers an
+  // action that would fail the moment it was pressed.
+  let setupManagerVersion: string | null = null;
+  let setupInstallPlan: AssistedInstallPlan | null = null;
+  // At most one row may be confirming, and at most one install may run. Both are
+  // single-slot on purpose: the confirmation is per item by design, and the
+  // Manager queue is server-global, so two concurrent installs from this panel
+  // would be indistinguishable in its status counts.
+  let setupConfirmingKey: string | null = null;
+  let setupInstallingKey: string | null = null;
   const historyEntries: HistoryEntry[] = [];
   const objectUrls = createObjectUrlRegistry();
 
@@ -1155,6 +1181,16 @@ export function renderApp(rootElement: HTMLElement) {
         setupVramTotalBytes = null;
       }
 
+      // Also a bonus, and for the same reason as the device report: a ComfyUI
+      // without ComfyUI-Manager is a perfectly normal install. It costs the
+      // screen its Install buttons and nothing else, so it must not fail the
+      // check that produced the list those buttons sit on.
+      try {
+        setupManagerVersion = await new ManagerClient(elements.serverUrl.value).getManagerVersion();
+      } catch {
+        setupManagerVersion = null;
+      }
+
       setupReport = evaluateSetupRequirements({
         pluginVersion: APP_VERSION,
         inventory,
@@ -1178,6 +1214,10 @@ export function renderApp(rootElement: HTMLElement) {
       setupReport = createUncheckedSetupReport();
       hasCheckedSetup = false;
       setupCheckedAtLabel = null;
+      // An unchecked report offers nothing to install anyway, but clearing this
+      // means a Manager seen on an earlier check cannot leave Install buttons
+      // behind on a screen that no longer knows what is missing.
+      setupManagerVersion = null;
       renderSetupTab();
       // Reported on this screen's own bar and nowhere else. Writing the reason
       // to the panel-wide error line would put a red Setup message on Settings
@@ -1193,6 +1233,7 @@ export function renderApp(rootElement: HTMLElement) {
 
   function renderSetupTab() {
     setupReport ??= createUncheckedSetupReport();
+    setupInstallPlan = planAssistedInstall(setupReport);
 
     const view = createSetupTabView(setupReport, {
       checkedAtLabel: setupCheckedAtLabel,
@@ -1208,7 +1249,24 @@ export function renderApp(rootElement: HTMLElement) {
       setupActiveToolLabel = toolLabel;
       renderSetupTab();
     });
-    renderSetupSections(elements.setupSections, view.sections, handleSetupCopy);
+    renderSetupSections(elements.setupSections, view.sections, handleSetupCopy, {
+      getOffer: (requirementKey) =>
+        getInstallOffer(setupInstallPlan, setupManagerVersion, requirementKey),
+      confirmingKey: setupConfirmingKey,
+      installingKey: setupInstallingKey,
+      busy: setupInstallingKey !== null,
+      onRequest: (requirementKey) => {
+        setupConfirmingKey = requirementKey;
+        renderSetupTab();
+      },
+      onCancel: () => {
+        setupConfirmingKey = null;
+        renderSetupTab();
+      },
+      onConfirm: (item) => {
+        void handleInstallModel(item);
+      }
+    });
 
     const outlooks = rankPresetsByVramOutlook({
       pluginVersion: APP_VERSION,
@@ -1224,6 +1282,110 @@ export function renderApp(rootElement: HTMLElement) {
         ? outlooks.filter((outlook) => outlook.toolLabel === setupActiveToolLabel)
         : outlooks,
       setupVramTotalBytes
+    );
+  }
+
+  /**
+   * Installs exactly the one model the user confirmed, and nothing else.
+   *
+   * The order matters and is the whole safety story. The queue precondition is
+   * checked BEFORE anything is enqueued, because ComfyUI-Manager's queue is
+   * shared with its own web UI: starting a queue that already holds items would
+   * run somebody else's downloads on their behalf without being asked. Only
+   * after that does one item go in, and only that item.
+   */
+  async function handleInstallModel(item: AssistedInstallItem) {
+    if (setupInstallingKey) {
+      return;
+    }
+
+    const manager = new ManagerClient(elements.serverUrl.value);
+    setupConfirmingKey = null;
+    setupInstallingKey = item.key;
+    renderSetupTab();
+
+    const report = (step: InstallStep) => {
+      setSetupStatus(elements, createInstallStatusLine(step, item.modelName), "idle");
+    };
+
+    try {
+      report("checking-queue");
+
+      const verdict = evaluateQueuePrecondition(await manager.getQueueStatus());
+
+      if (!verdict.allowed) {
+        setSetupStatus(elements, verdict.message, "error");
+        return;
+      }
+
+      report("queueing");
+      await manager.enqueueModelInstall(createInstallModelRequest(item));
+      await manager.startQueue();
+
+      report("downloading");
+      await waitForManagerQueue(manager);
+
+      report("verifying");
+    } catch (caughtError) {
+      // A blocked security level is the most likely failure here and the least
+      // self-explanatory, so it keeps its own message rather than being folded
+      // into a generic HTTP failure the user can do nothing with.
+      setSetupStatus(
+        elements,
+        isManagerSecurityLevelError(caughtError)
+          ? caughtError.message
+          : `Could not install ${item.modelName}. ${getErrorMessage(caughtError)}`,
+        "error"
+      );
+      return;
+    } finally {
+      setupInstallingKey = null;
+    }
+
+    // The claim that it worked comes from re-reading ComfyUI's own inventory,
+    // never from ComfyUI-Manager reporting that its queue item finished. Those
+    // are different facts, and only the second one is what the artist needs.
+    await handleCheckSetup();
+
+    const stillMissing =
+      setupReport?.models.find((model) => model.key === item.key)?.status !== "installed";
+
+    const outcome = describeInstallResult(item.modelName, stillMissing);
+    setSetupStatus(elements, outcome.message, outcome.tone);
+  }
+
+  /**
+   * Polls until ComfyUI-Manager's queue is idle.
+   *
+   * Stops when the panel goes away. `resourcesDisposed` is the same flag the
+   * generation watchers check, and for the same reason B2 exists: a loop that
+   * only checks its own timer keeps talking to ComfyUI after the panel is gone.
+   * The download itself is ComfyUI-Manager's and correctly survives this --
+   * what stops is OpenLayer asking about it.
+   */
+  async function waitForManagerQueue(manager: ManagerClient) {
+    const deadline = Date.now() + MANAGER_QUEUE_TIMEOUT_MS;
+
+    while (Date.now() < deadline) {
+      if (resourcesDisposed) {
+        return;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, MANAGER_QUEUE_POLL_MS));
+
+      if (resourcesDisposed) {
+        return;
+      }
+
+      const status = await manager.getQueueStatus();
+
+      if (!status.is_processing && status.done_count >= status.total_count) {
+        return;
+      }
+    }
+
+    throw new Error(
+      "ComfyUI-Manager is still working after a long wait. The download may still be running -- check ComfyUI-Manager, then check again here."
     );
   }
 
@@ -4841,6 +5003,13 @@ function formatGigabytes(bytes: number): string {
   return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
 }
 
+// Model weights are gigabytes over a home connection, so the ceiling is hours
+// rather than minutes and the poll is slow on purpose: this only asks whether
+// ComfyUI-Manager is still busy, and asking twice a second would tell us
+// nothing a five-second interval does not.
+const MANAGER_QUEUE_POLL_MS = 5000;
+const MANAGER_QUEUE_TIMEOUT_MS = 6 * 60 * 60 * 1000;
+
 const SETUP_EXPECTATION_TONES: Record<VramExpectation, string> = {
   comfortable: "is-setup-ready",
   tight: "is-setup-warning",
@@ -4998,10 +5167,21 @@ function renderSetupFilters(
   }
 }
 
+type SetupInstallContext = {
+  getOffer: (requirementKey: string) => ReturnType<typeof getInstallOffer>;
+  confirmingKey: string | null;
+  installingKey: string | null;
+  busy: boolean;
+  onRequest: (requirementKey: string) => void;
+  onCancel: () => void;
+  onConfirm: (item: AssistedInstallItem) => void;
+};
+
 function renderSetupSections(
   container: HTMLElement,
   sections: readonly SetupSectionView[],
-  onCopy: (action: SetupRowAction) => void
+  onCopy: (action: SetupRowAction) => void,
+  install: SetupInstallContext
 ) {
   container.innerHTML = "";
 
@@ -5033,7 +5213,7 @@ function renderSetupSections(
     }
 
     for (const row of section.rows) {
-      sectionElement.append(createSetupRowElement(row, onCopy));
+      sectionElement.append(createSetupRowElement(row, onCopy, install));
     }
 
     if (section.collapsedRows.length > 0) {
@@ -5050,7 +5230,7 @@ function renderSetupSections(
       details.append(summary);
 
       for (const row of section.collapsedRows) {
-        details.append(createSetupRowElement(row, onCopy));
+        details.append(createSetupRowElement(row, onCopy, install));
       }
 
       sectionElement.append(details);
@@ -5060,7 +5240,11 @@ function renderSetupSections(
   }
 }
 
-function createSetupRowElement(row: SetupRowView, onCopy: (action: SetupRowAction) => void) {
+function createSetupRowElement(
+  row: SetupRowView,
+  onCopy: (action: SetupRowAction) => void,
+  install: SetupInstallContext
+) {
   // Deliberately reuses the workflow-health card and pill classes rather than
   // introducing a parallel set. They already carry the compact theme's
   // treatment, and a second badge system would drift from the first one.
@@ -5123,9 +5307,24 @@ function createSetupRowElement(row: SetupRowView, onCopy: (action: SetupRowActio
     rowElement.append(noteElement);
   }
 
-  if (row.actions.length > 0) {
+  const offer = install.getOffer(row.key);
+  const isInstalling = install.installingKey === row.key;
+
+  if (row.actions.length > 0 || offer.kind === "offered") {
     const actions = document.createElement("div");
     actions.className = "setup-row-actions";
+
+    if (offer.kind === "offered") {
+      // First in the row: it is the only action that finishes the job, and the
+      // copy actions exist because it usually cannot be offered.
+      const installButton = document.createElement("button");
+      installButton.type = "button";
+      installButton.className = "button setup-row-action is-install";
+      installButton.textContent = isInstalling ? "Installing..." : "Install";
+      installButton.disabled = install.busy;
+      installButton.addEventListener("click", () => install.onRequest(row.key));
+      actions.append(installButton);
+    }
 
     for (const action of row.actions) {
       const button = document.createElement("button");
@@ -5139,7 +5338,77 @@ function createSetupRowElement(row: SetupRowView, onCopy: (action: SetupRowActio
     rowElement.append(actions);
   }
 
+  // The confirmation is drawn inside the row it belongs to, rather than as a
+  // dialog. What is being agreed to is this specific file, and a panel-level
+  // dialog would separate the question from the row that answers it -- besides
+  // which UXP modal dialogs are an unproven surface in this project.
+  if (offer.kind === "offered" && install.confirmingKey === row.key && !install.busy) {
+    rowElement.append(createInstallConfirmationElement(offer.item, install));
+  }
+
   return rowElement;
+}
+
+function createInstallConfirmationElement(
+  item: AssistedInstallItem,
+  install: SetupInstallContext
+) {
+  const view = createInstallConfirmationView(item);
+  const container = document.createElement("div");
+  container.className = "setup-install-confirm";
+
+  const headline = document.createElement("div");
+  headline.className = "setup-install-headline";
+  headline.textContent = view.headline;
+  container.append(headline);
+
+  const fields = document.createElement("div");
+  fields.className = "setup-row-fields";
+
+  for (const field of view.fields) {
+    const fieldRow = document.createElement("div");
+    fieldRow.className = "setup-row-field";
+
+    const label = document.createElement("span");
+    label.className = "setup-row-field-label";
+    label.textContent = field.label;
+    fieldRow.append(label);
+
+    const value = document.createElement("span");
+    value.className = "setup-row-field-value";
+    value.textContent = field.value;
+    fieldRow.append(value);
+
+    fields.append(fieldRow);
+  }
+
+  container.append(fields);
+
+  const note = document.createElement("div");
+  note.className = "setup-row-note";
+  note.textContent = view.note;
+  container.append(note);
+
+  const actions = document.createElement("div");
+  actions.className = "setup-row-actions";
+
+  const confirm = document.createElement("button");
+  confirm.type = "button";
+  confirm.className = "button setup-row-action is-install";
+  confirm.textContent = view.confirmLabel;
+  confirm.addEventListener("click", () => install.onConfirm(item));
+  actions.append(confirm);
+
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.className = "button setup-row-action";
+  cancel.textContent = view.cancelLabel;
+  cancel.addEventListener("click", () => install.onCancel());
+  actions.append(cancel);
+
+  container.append(actions);
+
+  return container;
 }
 
 function createWorkflowHealthGroups(items: readonly WorkflowHealthItem[]) {

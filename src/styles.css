@@ -868,6 +868,49 @@ a:hover {
   font-size: 11px;
 }
 
+/* The one action in a setup row that spends bandwidth, so it is the one that
+   looks like a decision. Colours are borrowed from `.button-import` rather than
+   invented: it is already the panel's "this does something real" button, and a
+   third accent would just be a third thing to keep consistent. */
+.setup-row-action.is-install {
+  border-color: #d28a25;
+  background: #c97920;
+  color: #ffffff;
+  font-weight: 760;
+}
+
+.setup-row-action.is-install:hover:not(:disabled):not(.is-disabled) {
+  border-color: #efa947;
+  background: #df8724;
+}
+
+/* Drawn inside the row it belongs to, so it needs a visible edge to read as a
+   question rather than as more row content. Explicit margins throughout: flex
+   gap is not honored reliably in the compact panel.
+
+   Measured at the real 356px content width in Arial, not estimated: the box
+   comes out 338x157 and does not overflow, its two buttons sit on one line at
+   75px and 58px, and the headline stays single-line for every model name in the
+   registry except `control_v11p_sd15_lineart_fp16.safetensors`, which wraps to
+   two lines and is not clipped. Adding Install to the action row takes it from
+   one line to two (54+75+113+79 against 338), which is why the confirmation is
+   a separate block rather than more buttons. */
+.setup-install-confirm {
+  margin-top: 8px;
+  border: 1px solid #6a5326;
+  border-radius: 6px;
+  padding: 8px;
+  background: #332b1d;
+}
+
+.setup-install-headline {
+  margin-bottom: 6px;
+  color: #f1f1f1;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
 .setup-installed-group {
   margin-top: 8px;
 }
@@ -7467,6 +7510,42 @@ body,
   min-height: 26px !important;
   margin: 4px 6px 0 0 !important;
   padding: 4px 10px !important;
+}
+
+/* The Install button keeps the geometry above and only changes colour. Repeated
+   here because `.app-shell.theme-compact .button` (two classes) outranks the
+   plain `.setup-row-action.is-install` for anything both declare, and because a
+   colour that silently lost would leave the one destructive-ish action in the
+   panel looking identical to Copy Link. */
+.app-shell.theme-compact .setup-row-action.is-install {
+  border-color: #d28a25 !important;
+  background: #c97920 !important;
+  color: #ffffff !important;
+  font-weight: 760 !important;
+}
+
+.app-shell.theme-compact .setup-row-action.is-install:hover:not(:disabled):not(.is-disabled) {
+  border-color: #efa947 !important;
+  background: #df8724 !important;
+}
+
+/* `.diagnostics-line` and friends are clamped to one line in the compact theme;
+   this block holds a headline, three fields and a sentence, so it opts out the
+   same way `.setup-paragraph` does. Its own class, not a loosening of theirs. */
+.app-shell.theme-compact .setup-install-confirm {
+  margin-top: 8px !important;
+  border: 1px solid #6a5326 !important;
+  border-radius: 6px !important;
+  padding: 8px !important;
+  background: #332b1d !important;
+}
+
+.app-shell.theme-compact .setup-install-headline {
+  max-height: none !important;
+  margin-bottom: 6px !important;
+  overflow: visible !important;
+  white-space: normal !important;
+  text-overflow: clip !important;
 }
 
 /* v0.6 final UXP hardening.
