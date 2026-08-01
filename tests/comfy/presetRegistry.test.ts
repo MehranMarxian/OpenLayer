@@ -24,7 +24,11 @@ describe("presetRegistry", () => {
 
     expect(allTxt2ImgIds).toContain("txt2img-z-image-turbo");
     expect(allTxt2ImgIds).toContain("txt2img-flux1-dev-fp8");
-    expect(allTxt2ImgIds).toContain("txt2img-flux1-dev");
+    // Every registered preset is now runnable: the two unauthored Flux1-dev
+    // entries were the only `todo` presets, so "all" and "runnable" agree for
+    // the first time. A future unauthored preset would break this deliberately.
+    expect(allTxt2ImgIds).toEqual(runnableTxt2ImgIds);
+    expect(allImg2ImgIds).toEqual(runnableImg2ImgIds);
     expect(runnableTxt2ImgIds).toEqual([
       "txt2img-basic",
       "txt2img-flux1-dev-fp8",

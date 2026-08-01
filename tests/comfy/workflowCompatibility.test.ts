@@ -28,9 +28,17 @@ describe("workflow compatibility", () => {
     expect(imgResult.canRun).toBe(true);
   });
 
-  it("treats Z_image_Turbo as ready when its stack is present and keeps future Flux setup-required", () => {
+  it("treats Z_image_Turbo as ready when its stack is present and keeps an unauthored preset setup-required", () => {
     const zImagePreset = getWorkflowPreset("txt2img-z-image-turbo");
-    const fluxPreset = getWorkflowPreset("txt2img-flux1-dev");
+    // Built rather than looked up: the registry's two `todo` presets were
+    // removed, but a preset without an authored workflow must still evaluate to
+    // setup-required, and that rule belongs to the `todo` status, not to Flux.
+    const fluxPreset: WorkflowPresetDefinition = {
+      ...zImagePreset,
+      status: "todo",
+      workflowFile: "workflows/api/not-authored-yet.json",
+      disabledReason: "No validated OpenLayer API workflow JSON exists yet for this preset."
+    };
 
     const zImageResult = evaluateWorkflowCompatibility(zImagePreset, {
       selectedModelName: "z_image_turbo_bf16.safetensors",
@@ -41,11 +49,16 @@ describe("workflow compatibility", () => {
         vaeModels: ["ae.safetensors"]
       })
     });
+    // Same stack as the ready preset above, fully available. The only
+    // difference is the unauthored workflow, so it is the only thing that can
+    // account for the different verdict.
     const fluxResult = evaluateWorkflowCompatibility(fluxPreset, {
-      selectedModelName: "flux1-dev.safetensors",
+      selectedModelName: "z_image_turbo_bf16.safetensors",
       availableNodes: createAvailableNodes(fluxPreset),
       availableModels: createInventory({
-        diffusionModels: ["flux1-dev.safetensors"]
+        diffusionModels: ["z_image_turbo_bf16.safetensors"],
+        clipModels: ["qwen_3_4b.safetensors"],
+        vaeModels: ["ae.safetensors"]
       })
     });
 

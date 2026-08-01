@@ -2,8 +2,6 @@ export type WorkflowPreset =
   | "txt2img-basic"
   | "img2img-basic"
   | "txt2img-flux1-dev-fp8"
-  | "txt2img-flux1-dev"
-  | "img2img-flux1-dev"
   | "txt2img-z-image-turbo"
   | "img2img-z-image-turbo"
   | "txt2img-krea2-turbo"
