@@ -76,8 +76,15 @@ export type LivePaintingClient = {
       intervalMs?: number;
       timeoutMs?: number;
       isCancelled?: () => boolean;
+      waitForWake?: (timeoutMs: number) => Promise<void>;
     }
   ) => Promise<ComfyHistoryItem>;
+  // Optional: a client without it, or a UXP build with no WebSocket, simply
+  // polls on the fixed interval as before.
+  watchProgress?: (
+    promptId: string,
+    options: { onCompleted?: () => void }
+  ) => { close: () => void } | null;
   retrieveFirstOutputImage: (
     promptId: string,
     history: ComfyHistoryItem,
@@ -597,11 +604,16 @@ export class LivePaintingSessionV2 {
 
     this.currentPromptId = promptId;
 
+    const wake = this.createCompletionWake();
+    const watcher = this.client.watchProgress?.(promptId, { onCompleted: wake.signal }) ?? null;
+
     try {
       const history = await this.client.pollUntilComplete(promptId, {
         intervalMs,
         timeoutMs,
-        isCancelled
+        isCancelled,
+        // Without a socket there is nothing to wake on, so the interval stands.
+        waitForWake: watcher ? wake.waitForWake : undefined
       });
       const observedCompleteAt = Date.now();
 
@@ -641,10 +653,56 @@ export class LivePaintingSessionV2 {
 
       throw caughtError;
     } finally {
+      // B2: the socket must not outlive the cycle that opened it, on any exit
+      // path, including panel close and a cancelled refine.
+      watcher?.close();
+
       if (this.currentPromptId === promptId) {
         this.currentPromptId = null;
       }
     }
+  }
+
+  /**
+   * A sleep that ComfyUI's completion event can end early.
+   *
+   * The latch is the whole point. Completion routinely arrives while we are
+   * still awaiting the history request that precedes the sleep, and a wake
+   * delivered to nobody would be dropped -- leaving the cycle to wait out the
+   * full interval and silently giving back the time this is meant to save. A
+   * signal that arrives early is therefore remembered, and the next sleep
+   * returns immediately.
+   */
+  private createCompletionWake() {
+    let pendingSignal = false;
+    let resolveWake: (() => void) | null = null;
+
+    return {
+      signal: () => {
+        pendingSignal = true;
+        const resolve = resolveWake;
+        resolveWake = null;
+        resolve?.();
+      },
+      waitForWake: (timeoutMs: number) => {
+        if (pendingSignal) {
+          pendingSignal = false;
+          return Promise.resolve();
+        }
+
+        return new Promise<void>((resolve) => {
+          const timer = this.timers.setTimeout(() => {
+            resolveWake = null;
+            resolve();
+          }, timeoutMs);
+
+          resolveWake = () => {
+            this.timers.clearTimeout(timer);
+            resolve();
+          };
+        });
+      }
+    };
   }
 
   private handleCycleFailure(jobKind: JobKind, caughtError: unknown) {

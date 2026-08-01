@@ -82,6 +82,21 @@ type PollOptions = {
   timeoutMs?: number;
   onTick?: (message: string) => void;
   isCancelled?: () => boolean;
+  /**
+   * Interruptible sleep between history checks.
+   *
+   * Measured on the reference machine, waiting out the fixed interval was 224ms
+   * of a 653ms Live Painting cycle -- a third of it spent not noticing an image
+   * that was already finished. Lowering the interval does not fix that, because
+   * each localhost request costs ~70ms and would become the new floor, so the
+   * sleep is made wakeable instead and ComfyUI's own completion event ends it
+   * early.
+   *
+   * Only the waiting changes. Every history check, error path and cancellation
+   * check around it is untouched, and omitting this falls back to a plain
+   * delay -- which is what happens whenever UXP gives us no WebSocket.
+   */
+  waitForWake?: (timeoutMs: number) => Promise<void>;
 };
 
 type ProgressWatcherOptions = {
@@ -89,6 +104,12 @@ type ProgressWatcherOptions = {
   onProgress?: (value: number, max: number) => void;
   onPreviewBlob?: (blob: Blob) => void;
   onError?: (message: string) => void;
+  /**
+   * Fired when ComfyUI reports this prompt has finished executing. It is a
+   * hint to look at the history now, never a result in itself: the outputs
+   * still come from `/history`, because the socket does not carry them.
+   */
+  onCompleted?: () => void;
 };
 
 type RetrieveOutputOptions = {
@@ -495,7 +516,12 @@ export class ComfyClient {
       }
 
       options.onTick?.(await this.createPollingStatusMessage(promptId));
-      await delay(intervalMs);
+
+      if (options.waitForWake) {
+        await options.waitForWake(intervalMs);
+      } else {
+        await delay(intervalMs);
+      }
 
       if (options.isCancelled?.()) {
         throw createGenerationCancelledError();
@@ -778,8 +804,28 @@ export class ComfyClient {
       }
     } else if (message.type === "execution_error") {
       options.onError?.("ComfyUI reported an execution error. Waiting for final history...");
+    } else if (isCompletionMessage(message)) {
+      options.onCompleted?.();
     }
   }
+}
+
+/**
+ * Whether a socket frame means "this prompt has finished executing".
+ *
+ * ComfyUI says this two ways and both are accepted. `executing` with a null
+ * node is the long-standing signal and is what 0.29.2 sends; `execution_success`
+ * is the newer explicit one. A prompt_id mismatch has already been filtered out
+ * by the caller, so an `executing` frame naming a node is mid-run progress and
+ * deliberately does not match.
+ */
+function isCompletionMessage(message: { type?: string; data?: { node?: unknown } }) {
+  if (message.type === "execution_success") {
+    return true;
+  }
+
+  return message.type === "executing"
+    && (message.data?.node === null || message.data?.node === undefined);
 }
 
 function normalizeServerUrl(serverUrl: string) {
