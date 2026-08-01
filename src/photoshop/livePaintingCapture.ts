@@ -22,6 +22,11 @@ export type LiveCaptureResult = {
   height: number;
   mode: LiveCaptureMode;
   captureMs: number;
+  phases: {
+    getPixelsMs: number;
+    toRgbaMs: number;
+    pngEncodeMs: number;
+  };
   originatingDocument: PhotoshopDocumentIdentity;
 };
 
@@ -130,11 +135,18 @@ export async function captureCanvasForLivePainting(maxDimension = 512): Promise<
 async function capturePixelsAsPng(
   imaging: NonNullable<LivePhotoshopModule["imaging"]>,
   options: Record<string, unknown>
-): Promise<{ blob: Blob; width: number; height: number }> {
+): Promise<{
+  blob: Blob;
+  width: number;
+  height: number;
+  phases: LiveCaptureResult["phases"];
+}> {
   let imageData: Awaited<ReturnType<NonNullable<LivePhotoshopModule["imaging"]>["getPixels"]>>["imageData"];
 
   try {
+    const getPixelsStartedAt = Date.now();
     const pixelResult = await imaging.getPixels(options);
+    const getPixelsMs = Date.now() - getPixelsStartedAt;
     imageData = pixelResult.imageData;
 
     if (!imageData || typeof imageData.getData !== "function") {
@@ -155,13 +167,22 @@ async function capturePixelsAsPng(
     }
 
     const raw = toUint8Array(await imageData.getData());
+    const toRgbaStartedAt = Date.now();
     const rgba = convertPixelsToRgba(raw, width, height, components);
+    const toRgbaMs = Date.now() - toRgbaStartedAt;
+    const pngEncodeStartedAt = Date.now();
     const png = encodeRgbaPng({ width, height, rgba });
+    const pngEncodeMs = Date.now() - pngEncodeStartedAt;
 
     return {
       blob: new Blob([toArrayBuffer(png)], { type: "image/png" }),
       width,
-      height
+      height,
+      phases: {
+        getPixelsMs,
+        toRgbaMs,
+        pngEncodeMs
+      }
     };
   } finally {
     imageData?.dispose?.();
