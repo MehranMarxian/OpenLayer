@@ -153,16 +153,32 @@ describe("workflow health", () => {
     expect(nodeItem.state).toBe("missing-node");
   });
 
-  it("reports future Flux presets as missing workflow JSON before model or node details", () => {
-    const preset = getWorkflowPreset("txt2img-flux1-dev");
+  it("reports an unauthored preset as missing workflow JSON before model or node details", () => {
+    const preset = createUnauthoredPreset();
     const item = createWorkflowHealthItem(preset, {
-      availableNodes: createAvailableNodes(preset),
+      availableNodes: {},
       availableModels: createInventory()
     });
 
+    // Nothing is available here: no nodes and no models. The point of the state
+    // is that it wins anyway, because "the workflow does not exist yet" is a
+    // more useful answer than a list of things to download for it.
     expect(item.state).toBe("missing-workflow");
     expect(item.stateLabel).toBe("Needs workflow JSON");
     expect(item.canRun).toBe(false);
+  });
+
+  it("counts an unauthored preset in the report summary", () => {
+    const presets = [getWorkflowPreset("txt2img-basic"), createUnauthoredPreset()];
+    const report = createWorkflowHealthReport(presets, {
+      availableNodes: Object.assign({}, ...presets.map(createAvailableNodes)),
+      availableModels: createInventory({
+        checkpoints: ["epicrealism_naturalSinRC1VAE.safetensors"]
+      })
+    });
+
+    expect(report.summary).toContain("need workflow JSON");
+    expect(report.stateCounts["missing-workflow"]).toBe(1);
   });
 
   it("creates a compact report for every registered preset", () => {
@@ -182,11 +198,29 @@ describe("workflow health", () => {
 
     expect(report.items).toHaveLength(presets.length);
     expect(report.summary).toContain("workflow presets");
-    expect(report.summary).toContain("need workflow JSON");
-    expect(report.stateCounts["missing-workflow"]).toBeGreaterThan(0);
-    expect(report.items.some((item) => item.state === "missing-workflow")).toBe(true);
+    // Every shipped preset now has an authored workflow. The missing-workflow
+    // state is exercised on a fixture above rather than on whatever the registry
+    // happens to contain, which is what tied these tests to two preset ids.
+    expect(report.stateCounts["missing-workflow"]).toBe(0);
   });
 });
+
+/**
+ * A preset whose workflow JSON has not been authored. The registry shipped two
+ * of these (`txt2img-flux1-dev`, `img2img-flux1-dev`) until they were removed
+ * for being unrunnable on the hardware this project targets; the `todo` status
+ * itself is still supported, so it is covered here by construction.
+ */
+function createUnauthoredPreset(): WorkflowPresetDefinition {
+  return {
+    ...getWorkflowPreset("txt2img-basic"),
+    id: "txt2img-basic",
+    displayName: "Unauthored preset",
+    status: "todo",
+    workflowFile: "workflows/api/not-authored-yet.json",
+    disabledReason: "No validated OpenLayer API workflow JSON exists yet for this preset."
+  };
+}
 
 function createAvailableNodes(preset: WorkflowPresetDefinition): WorkflowNodeAvailability {
   return Object.fromEntries(

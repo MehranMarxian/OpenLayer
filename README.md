@@ -156,7 +156,7 @@ Known v0.11.0-alpha boundaries:
 - `img2img-basic` is the default SD 1.x/SDXL preset. SD3, SD3.5, and Flux checkpoints remain visible but are marked experimental because they usually need dedicated future workflow presets.
 - Z_image_Turbo presets are experimental and use `UNETLoader`, `CLIPLoader`, and `VAELoader` instead of the checkpoint loader.
 - `txt2img-flux1-dev-fp8` is an experimental checkpoint-style Flux Text to Image preset for `flux1-dev-fp8.safetensors`.
-- Generic Flux diffusion-model-stack Text to Image and Image to Image presets remain disabled until validated API workflow JSON files are added.
+- Full-precision Flux1-dev Text to Image and Image to Image presets have been removed rather than left disabled. The bf16 weight is 23.8 GB before its text encoders and VAE, which does not fit the 12 GB cards this project targets, and `txt2img-flux1-dev-fp8` already covers Flux Text to Image. Every preset the panel lists is now one you can actually run.
 - Cancel Generation uses ComfyUI's interrupt endpoint and stops OpenLayer watchers/polling for active generation tools, but cancellation cannot undo work ComfyUI already completed.
 - The Settings workflow health checker reports local readiness, but it does not auto-fix missing models, missing nodes, or workflow mappings.
 - Workflow Health now gives beginner-friendly next checks for missing models, missing ComfyUI nodes, missing workflow JSON, setup-required presets, and experimental presets.

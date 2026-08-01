@@ -62,8 +62,9 @@ roughly 380 px. A workflow whose value depends on huge inputs or a wide UI fits 
 Before recommending anything, find out whether OpenLayer already has it:
 
 - `src/comfy/presetRegistry.ts` — every workflow preset, its model stack, and its required nodes.
-  Two presets (`txt2img-flux1-dev`, `img2img-flux1-dev`) are `status: "todo"` and await authored
-  workflow JSONs; those are open slots, not gaps to re-report.
+  Every registered preset is currently runnable; the two `status: "todo"` Flux1-dev slots were removed
+  on 2026-08-01 after this agent's first run recommended it. A `todo` preset is an open slot, not a
+  gap to re-report, if one appears again.
 - `src/workflows/source/` and `src/workflows/api/` — the workflow files themselves.
 - `npm run setup-pack` output is generated from the registry — never read it as a separate source.
 
