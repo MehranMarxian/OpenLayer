@@ -220,8 +220,20 @@ export function formatAggregateLine(samples: readonly LiveCycleSample[]): string
     samples.map((cycleSample) => summariseCycle(cycleSample).unaccountedMs)
   );
 
+  // The generated size belongs next to the timings because it is the variable
+  // that most directly explains server.execute, and comparing two sessions
+  // without it invites blaming the client for a bigger image. Every distinct
+  // size in the run is listed: a session that changed shape halfway is not
+  // comparable to either of the sessions it looks like.
+  const sizes = [...new Set(
+    samples
+      .filter((cycleSample) => cycleSample.width !== undefined && cycleSample.height !== undefined)
+      .map((cycleSample) => `${cycleSample.width}x${cycleSample.height}`)
+  )];
+
   return [
     `${samples.length} cycle${samples.length === 1 ? "" : "s"} measured`,
+    sizes.length > 0 ? `at ${sizes.join(", ")}` : "size not reported",
     `median total ${aggregate.totalMs.median}ms`,
     `median unaccounted ${unaccounted.median}ms`,
     ...measured
