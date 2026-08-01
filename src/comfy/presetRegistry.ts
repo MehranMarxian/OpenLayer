@@ -34,7 +34,16 @@ const FLUX1_DEV_LICENSE: WorkflowModelLicenseGate = {
     "Black Forest Labs restricts these weights to non-commercial use. Read the licence before downloading them or publishing work made with them."
 };
 
+const FLUX2_DEV_LICENSE: WorkflowModelLicenseGate = {
+  name: "FLUX.2 [dev] Non-Commercial License",
+  url: "https://huggingface.co/black-forest-labs/FLUX.2-dev/blob/main/LICENSE.md",
+  summary:
+    "Black Forest Labs restricts these weights to non-commercial use. Read the licence before downloading them or publishing work made with them."
+};
+
 const COMFY_ORG_FLUX1_DEV_REPO = "https://huggingface.co/Comfy-Org/flux1-dev";
+const COMFY_ORG_FLUX2_DEV_REPO = "https://huggingface.co/Comfy-Org/flux2-dev";
+const CITY96_FLUX2_DEV_GGUF_REPO = "https://huggingface.co/city96/FLUX.2-dev-gguf";
 const COMFY_ORG_Z_IMAGE_TURBO_REPO = "https://huggingface.co/Comfy-Org/z_image_turbo";
 const COMFY_ORG_KREA2_REPO = "https://huggingface.co/Comfy-Org/Krea-2";
 const FLUX_TEXT_ENCODERS_REPO = "https://huggingface.co/comfyanonymous/flux_text_encoders";
@@ -139,6 +148,57 @@ const KREA2_TURBO_STACK = [
     downloadUrl: `${COMFY_ORG_KREA2_REPO}/resolve/main/vae/qwen_image_vae.safetensors`,
     sourcePageUrl: COMFY_ORG_KREA2_REPO,
     downloadSizeBytes: 253806246
+  }
+] as const;
+
+const FLUX2_DEV_GGUF_STACK = [
+  {
+    // A Q4_K_M quantisation, so the loader is ComfyUI-GGUF's rather than the
+    // core UNETLoader -- core does not enumerate .gguf at all, which makes an
+    // unquantised-looking setup report the file as simply absent.
+    kind: "diffusion-model-stack",
+    objectInfoNode: "UnetLoaderGGUF",
+    inputName: "unet_name",
+    label: "Flux.2 dev diffusion model (GGUF)",
+    modelName: "flux2-dev-Q4_K_M.gguf",
+    setupHint:
+      "Install flux2-dev-Q4_K_M.gguf in ComfyUI models/diffusion_models. It needs the ComfyUI-GGUF custom nodes, which also require the gguf Python package.",
+    downloadUrl: `${CITY96_FLUX2_DEV_GGUF_REPO}/resolve/main/flux2-dev-Q4_K_M.gguf`,
+    sourcePageUrl: CITY96_FLUX2_DEV_GGUF_REPO,
+    downloadSizeBytes: 20082414560,
+    licenseGate: FLUX2_DEV_LICENSE
+  },
+  {
+    // Flux.2 dev uses a Mistral-3 encoder, NOT the Qwen encoders the Klein
+    // variant reuses and not Flux.1's T5/CLIP pair. Pointing this at a Qwen
+    // file loads and then fails, so the name is pinned.
+    kind: "clip",
+    objectInfoNode: "CLIPLoader",
+    inputName: "clip_name",
+    label: "Flux.2 text encoder (Mistral-3)",
+    modelName: "mistral_3_small_flux2_fp8.safetensors",
+    setupHint:
+      "Install mistral_3_small_flux2_fp8.safetensors in ComfyUI models/text_encoders. Flux.2 dev will not run on the Qwen encoders used by Z_image_Turbo or Krea-2.",
+    downloadUrl: `${COMFY_ORG_FLUX2_DEV_REPO}/resolve/main/split_files/text_encoders/mistral_3_small_flux2_fp8.safetensors`,
+    sourcePageUrl: COMFY_ORG_FLUX2_DEV_REPO,
+    downloadSizeBytes: 18034640095,
+    licenseGate: FLUX2_DEV_LICENSE
+  },
+  {
+    // Not interchangeable with Flux.1's ae.safetensors: Flux.2 latents are 128
+    // channels at a 16x downscale against Flux.1's 16 channels at 8x. The
+    // generic filename hides which family it belongs to.
+    kind: "vae",
+    objectInfoNode: "VAELoader",
+    inputName: "vae_name",
+    label: "Flux.2 VAE",
+    modelName: "full_encoder_small_decoder.safetensors",
+    setupHint:
+      "Install full_encoder_small_decoder.safetensors in ComfyUI models/vae. Flux.1's ae.safetensors will not decode Flux.2 latents.",
+    downloadUrl:
+      "https://huggingface.co/black-forest-labs/FLUX.2-small-decoder/resolve/main/full_encoder_small_decoder.safetensors",
+    sourcePageUrl: "https://huggingface.co/black-forest-labs/FLUX.2-small-decoder",
+    downloadSizeBytes: 249519092
   }
 ] as const;
 
@@ -267,6 +327,22 @@ const OUTPAINT_FLUX_FILL_BASIC_NODES = {
   negativeConditioning: "46",
   outpaintConditioning: "38",
   sampler: "3",
+  decode: "8",
+  saveImage: "9"
+} as const;
+
+const FLUX2_DEV_GGUF_TXT2IMG_NODES = {
+  diffusionModelLoader: "12",
+  clipLoader: "38",
+  vaeLoader: "10",
+  positivePrompt: "6",
+  fluxGuidance: "26",
+  guider: "22",
+  noise: "25",
+  samplerSelect: "16",
+  scheduler: "48",
+  latentImage: "47",
+  sampler: "13",
   decode: "8",
   saveImage: "9"
 } as const;
@@ -423,6 +499,29 @@ const OUTPAINT_FLUX_FILL_BASIC_INJECTIONS = {
   outpaintRight: target(OUTPAINT_FLUX_FILL_BASIC_NODES.imagePad, "right"),
   outpaintBottom: target(OUTPAINT_FLUX_FILL_BASIC_NODES.imagePad, "bottom"),
   outpaintFeathering: target(OUTPAINT_FLUX_FILL_BASIC_NODES.imagePad, "feathering")
+} as const;
+
+const FLUX2_DEV_GGUF_TXT2IMG_INJECTIONS = {
+  checkpoint: target(FLUX2_DEV_GGUF_TXT2IMG_NODES.diffusionModelLoader, "unet_name"),
+  positivePrompt: target(FLUX2_DEV_GGUF_TXT2IMG_NODES.positivePrompt, "text"),
+  // Width and height go to TWO nodes. The latent node allocates the tensor and
+  // the scheduler derives its shift from the same dimensions, so a size set on
+  // only one of them silently produces a schedule for a different image than
+  // the one being generated. This is the first preset to use the array form of
+  // an injection target; normalizeTargets has always supported it.
+  width: [
+    target(FLUX2_DEV_GGUF_TXT2IMG_NODES.latentImage, "width"),
+    target(FLUX2_DEV_GGUF_TXT2IMG_NODES.scheduler, "width")
+  ],
+  height: [
+    target(FLUX2_DEV_GGUF_TXT2IMG_NODES.latentImage, "height"),
+    target(FLUX2_DEV_GGUF_TXT2IMG_NODES.scheduler, "height")
+  ],
+  seed: target(FLUX2_DEV_GGUF_TXT2IMG_NODES.noise, "noise_seed"),
+  steps: target(FLUX2_DEV_GGUF_TXT2IMG_NODES.scheduler, "steps"),
+  // Same remap as txt2img-flux1-dev-fp8: there is no KSampler and therefore no
+  // cfg widget, so the panel's CFG control drives FluxGuidance instead.
+  cfg: target(FLUX2_DEV_GGUF_TXT2IMG_NODES.fluxGuidance, "guidance")
 } as const;
 
 const Z_IMAGE_TURBO_TXT2IMG_INJECTIONS = {
@@ -680,6 +779,31 @@ const OUTPAINT_FLUX_FILL_BASIC_CAPABILITY: WorkflowCapability = {
     showModelSelector: true,
     modelSelectorLabel: "Flux Fill model",
     primaryActionLabel: "Generate Outpaint"
+  }
+};
+
+const FLUX2_DEV_GGUF_TXT2IMG_CAPABILITY: WorkflowCapability = {
+  toolType: "txt2img",
+  loaderType: "diffusion-model-stack",
+  artistLabel: "Text to Image",
+  technicalLabel: "txt2img-flux2-dev-gguf",
+  requiredPhotoshopInputs: [],
+  // No negativePrompt: Flux.2 is guidance-distilled and the reference graph has
+  // no negative conditioning node at all, so the control is hidden rather than
+  // wired to something that would quietly do nothing.
+  controls: ["prompt", "width", "height", "steps", "guidance", "seed"],
+  output: {
+    kind: "full-image",
+    size: "preset",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Flux.2 model",
+    primaryActionLabel: "Generate",
+    hiddenControls: ["negativePrompt"],
+    experimentalNote:
+      "Flux.2 dev is a very large stack: an 18.7 GB quantised model plus a 16.8 GB text encoder. On a 12 GB card ComfyUI streams most of it from system RAM, so expect minutes per image rather than seconds."
   }
 };
 
@@ -1585,6 +1709,95 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     ],
     compatibilityNote:
       "txt2img-krea2-turbo follows the official ComfyUI Krea-2 Turbo template: UNETLoader with krea2_turbo_fp8_scaled, CLIPLoader with the qwen3vl text encoder in krea2 mode, the Qwen image VAE, and an 8-step CFG 1 euler/simple sampler."
+  },
+  {
+    id: "txt2img-flux2-dev-gguf",
+    label: "txt2img-flux2-dev-gguf",
+    displayName: "Flux.2 dev (GGUF)",
+    mode: "txt2img",
+    description:
+      "Experimental Flux.2 dev text-to-image preset using a GGUF-quantised diffusion model and the Mistral-3 text encoder.",
+    workflowFile: "workflows/api/txt2img-flux2-dev-gguf.json",
+    status: "experimental",
+    recommendedSettings: { steps: 20, cfg: 4 },
+    supportedModelFamilies: ["flux2"],
+    experimentalModelFamilies: ["unknown"],
+    modelSource: DIFFUSION_MODEL_SOURCE,
+    capability: FLUX2_DEV_GGUF_TXT2IMG_CAPABILITY,
+    modelStack: [...FLUX2_DEV_GGUF_STACK],
+    requiredModels: [...FLUX2_DEV_GGUF_STACK],
+    injections: FLUX2_DEV_GGUF_TXT2IMG_INJECTIONS,
+    requiredNodes: [
+      {
+        id: FLUX2_DEV_GGUF_TXT2IMG_NODES.diffusionModelLoader,
+        classType: "UnetLoaderGGUF",
+        // Only unet_name. The core UNETLoader's weight_dtype does not exist
+        // here, because a GGUF file carries its own quantisation.
+        requiredInputs: ["unet_name"]
+      },
+      {
+        id: FLUX2_DEV_GGUF_TXT2IMG_NODES.clipLoader,
+        classType: "CLIPLoader",
+        requiredInputs: ["clip_name", "type"]
+      },
+      {
+        id: FLUX2_DEV_GGUF_TXT2IMG_NODES.vaeLoader,
+        classType: "VAELoader",
+        requiredInputs: ["vae_name"]
+      },
+      {
+        id: FLUX2_DEV_GGUF_TXT2IMG_NODES.positivePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: FLUX2_DEV_GGUF_TXT2IMG_NODES.fluxGuidance,
+        classType: "FluxGuidance",
+        requiredInputs: ["conditioning", "guidance"]
+      },
+      {
+        id: FLUX2_DEV_GGUF_TXT2IMG_NODES.guider,
+        classType: "BasicGuider",
+        requiredInputs: ["model", "conditioning"]
+      },
+      {
+        id: FLUX2_DEV_GGUF_TXT2IMG_NODES.noise,
+        classType: "RandomNoise",
+        requiredInputs: ["noise_seed"]
+      },
+      {
+        id: FLUX2_DEV_GGUF_TXT2IMG_NODES.samplerSelect,
+        classType: "KSamplerSelect",
+        requiredInputs: ["sampler_name"]
+      },
+      {
+        id: FLUX2_DEV_GGUF_TXT2IMG_NODES.scheduler,
+        classType: "Flux2Scheduler",
+        requiredInputs: ["steps", "width", "height"]
+      },
+      {
+        id: FLUX2_DEV_GGUF_TXT2IMG_NODES.latentImage,
+        classType: "EmptyFlux2LatentImage",
+        requiredInputs: ["width", "height", "batch_size"]
+      },
+      {
+        id: FLUX2_DEV_GGUF_TXT2IMG_NODES.sampler,
+        classType: "SamplerCustomAdvanced",
+        requiredInputs: ["noise", "guider", "sampler", "sigmas", "latent_image"]
+      },
+      {
+        id: FLUX2_DEV_GGUF_TXT2IMG_NODES.decode,
+        classType: "VAEDecode",
+        requiredInputs: ["samples", "vae"]
+      },
+      {
+        id: FLUX2_DEV_GGUF_TXT2IMG_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images"]
+      }
+    ],
+    compatibilityNote:
+      "txt2img-flux2-dev-gguf follows the Flux.2 dev template that ships with ComfyUI, and is the first OpenLayer preset built on the advanced sampler chain rather than KSampler: RandomNoise, KSamplerSelect, Flux2Scheduler and BasicGuider feed SamplerCustomAdvanced. There is no negative prompt, because the reference graph has none. Width and height are written to both EmptyFlux2LatentImage and Flux2Scheduler, which derives its shift from the same dimensions. The diffusion model loads through ComfyUI-GGUF, which needs the gguf Python package installed in ComfyUI's environment or it registers no nodes at all."
   },
   {
     id: "img2img-krea2-turbo",

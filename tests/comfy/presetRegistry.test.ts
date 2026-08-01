@@ -33,7 +33,8 @@ describe("presetRegistry", () => {
       "txt2img-basic",
       "txt2img-flux1-dev-fp8",
       "txt2img-z-image-turbo",
-      "txt2img-krea2-turbo"
+      "txt2img-krea2-turbo",
+      "txt2img-flux2-dev-gguf"
     ]);
     expect(allImg2ImgIds).toContain("img2img-z-image-turbo");
     expect(runnableImg2ImgIds).toEqual(["img2img-basic", "img2img-z-image-turbo", "img2img-krea2-turbo"]);

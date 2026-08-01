@@ -14,6 +14,7 @@ const FAMILY_LABELS: Record<ModelFamily, string> = {
   sdxl: "SDXL",
   sd3: "SD3",
   flux: "Flux",
+  flux2: "Flux.2",
   zImage: "Z_image_Turbo",
   unknown: "Unknown"
 };
@@ -27,6 +28,20 @@ export function detectCheckpointFamily(checkpointName: string): ModelFamily {
     normalized.includes("zimage")
   ) {
     return "zImage";
+  }
+
+  // Must precede the plain "flux" test, which would otherwise swallow every
+  // Flux.2 filename by substring. The two are not interchangeable: Flux.1 runs
+  // through a plain KSampler, while Flux.2 needs the advanced sampler chain and
+  // a 128-channel latent, so calling a Flux.2 file "Flux" would tell an artist
+  // a preset is compatible when the graph cannot run it at all.
+  if (
+    normalized.includes("flux2") ||
+    normalized.includes("flux-2") ||
+    normalized.includes("flux_2") ||
+    normalized.includes("flux.2")
+  ) {
+    return "flux2";
   }
 
   if (normalized.includes("flux")) {

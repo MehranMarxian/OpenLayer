@@ -37,7 +37,13 @@ describe("model folder mapping", () => {
       VAELoader: "vae",
       ControlNetLoader: "controlnet",
       UpscaleModelLoader: "upscale_models",
-      Florence2ModelLoader: "LLM"
+      Florence2ModelLoader: "LLM",
+      // ComfyUI-GGUF stands in for the core loaders and reads their folders,
+      // confirmed against the live server: UnetLoaderGGUF's own combo list
+      // offered flux2-dev-Q4_K_M.gguf straight out of models/diffusion_models/.
+      UnetLoaderGGUF: "diffusion_models",
+      CLIPLoaderGGUF: "text_encoders",
+      DualCLIPLoaderGGUF: "text_encoders"
     });
   });
 
@@ -115,14 +121,17 @@ describe("required model inventory", () => {
         "checkpoints/flux1-dev-fp8.safetensors",
         "controlnet/control_v11p_sd15_lineart_fp16.safetensors",
         "diffusion_models/flux1-fill-dev.safetensors",
+        "diffusion_models/flux2-dev-Q4_K_M.gguf",
         "diffusion_models/krea2_turbo_fp8_scaled.safetensors",
         "diffusion_models/z_image_turbo_bf16.safetensors",
         "text_encoders/clip_l.safetensors",
+        "text_encoders/mistral_3_small_flux2_fp8.safetensors",
         "text_encoders/qwen3vl_4b_fp8_scaled.safetensors",
         "text_encoders/qwen_3_4b.safetensors",
         "text_encoders/t5xxl_fp16.safetensors",
         "upscale_models/4x-UltraSharp.pth",
         "vae/ae.safetensors",
+        "vae/full_encoder_small_decoder.safetensors",
         "vae/qwen_image_vae.safetensors"
       ].sort()
     );
@@ -160,7 +169,15 @@ describe("required model inventory", () => {
   it("gates the licence-restricted Flux weights and nothing else", () => {
     const gated = runnableModels.filter((entry) => entry.licenseGate).map((entry) => entry.modelName);
 
-    expect(gated.sort()).toEqual(["flux1-dev-fp8.safetensors", "flux1-fill-dev.safetensors"]);
+    // Flux.2's diffusion model and its Mistral-3 encoder carry the FLUX.2 [dev]
+    // licence. The Flux.2 VAE does not -- it is published separately and
+    // ungated -- and that asymmetry is deliberate, not an omission.
+    expect(gated.sort()).toEqual([
+      "flux1-dev-fp8.safetensors",
+      "flux1-fill-dev.safetensors",
+      "flux2-dev-Q4_K_M.gguf",
+      "mistral_3_small_flux2_fp8.safetensors"
+    ]);
 
     for (const entry of runnableModels) {
       if (!entry.licenseGate) {
