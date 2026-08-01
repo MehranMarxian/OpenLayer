@@ -77,12 +77,16 @@ describe("setup manifest", () => {
     expect(sharedVae?.usedByPresets).toContain("txt2img-z-image-turbo");
   });
 
-  it("requires only the two custom node packages that are left", () => {
+  it("requires only the three custom node packages that are left", () => {
     const manifest = build();
 
+    // ComfyUI-GGUF joined when the Flux.2 preset landed. It is worth naming
+    // here because it is the one pack that can be installed and still register
+    // nothing, when its gguf Python dependency is missing from the environment.
     expect(manifest.customNodes.map((node) => node.name)).toEqual([
       "comfyui_controlnet_aux",
-      "ComfyUI-Florence2"
+      "ComfyUI-Florence2",
+      "ComfyUI-GGUF"
     ]);
 
     for (const node of manifest.customNodes) {
@@ -121,7 +125,9 @@ describe("setup manifest", () => {
     const manifest = build();
 
     expect(manifest.totals.models).toBe(manifest.models.length);
-    expect(manifest.totals.licenseGatedModels).toBe(2);
+    // Four: both Flux.1 weights, plus Flux.2's diffusion model and its
+    // Mistral-3 encoder. The Flux.2 VAE is published ungated and is not one.
+    expect(manifest.totals.licenseGatedModels).toBe(4);
     expect(manifest.totals.knownDownloadBytes).toBe(
       manifest.models.reduce((total, model) => total + (model.sizeBytes ?? 0), 0)
     );

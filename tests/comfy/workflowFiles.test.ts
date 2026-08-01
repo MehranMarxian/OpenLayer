@@ -26,7 +26,15 @@ function loadApiWorkflow(preset: WorkflowPresetDefinition): ComfyWorkflow {
  * this test also guards that assumption — a new custom node that nobody
  * registered there would be silently reported as core, and this fails first.
  */
-const EXPECTED_CUSTOM_NODE_CLASSES = ["Florence2ModelLoader", "Florence2Run", "LineArtPreprocessor"];
+const EXPECTED_CUSTOM_NODE_CLASSES = [
+  "Florence2ModelLoader",
+  "Florence2Run",
+  "LineArtPreprocessor",
+  // Flux.2's quantised model. Note only the UNET loader appears: its text
+  // encoder is a safetensors file read by core CLIPLoader, so CLIPLoaderGGUF is
+  // mapped in the registry but not required by any shipped preset.
+  "UnetLoaderGGUF"
+];
 
 describe("shipped API workflow files", () => {
   const runnablePresets = listRunnableWorkflowPresets();
