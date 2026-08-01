@@ -96,6 +96,7 @@ function createHarness(
     height: Math.max(64, Math.round(maxDimension / 2)),
     mode: "non-modal-scaled" as const,
     captureMs: 1,
+    phases: { getPixelsMs: 2, toRgbaMs: 3, pngEncodeMs: 4 },
     originatingDocument: origin
   }));
   const session = new LivePaintingSessionV2(
@@ -163,9 +164,24 @@ describe("LivePaintingSessionV2", () => {
     expect(harness.session.getState()).toBe("listening");
     expect(harness.capture).toHaveBeenCalledWith(512);
     expect(harness.callbacks.onPreviewBlob).toHaveBeenCalledWith(expect.any(Blob), origin);
-    expect(harness.callbacks.onTimings).toHaveBeenCalledWith(
-      expect.stringMatching(/^Cycle 1: \| capture \d+ms \(non-modal-scaled, 512x256\) \| upload \d+ms \| generate \d+ms \| total \d+\.\d{2}s$/)
-    );
+    // The capture phases come from the stub above, so they pin that the split
+    // capture measurements survive the trip into the sample rather than being
+    // collapsed back into one "capture" number.
+    const timingLine = harness.callbacks.onTimings.mock.calls[0][0] as string;
+
+    expect(timingLine).toMatch(/^Cycle 1 \(live\): /);
+    expect(timingLine).toContain("capture.getPixels 2ms");
+    expect(timingLine).toContain("capture.toRgba 3ms");
+    expect(timingLine).toContain("capture.pngEncode 4ms");
+    expect(timingLine).toContain("unaccounted ");
+    // No assertion on OVER-ACCOUNTED here: the stub reports 9ms of capture
+    // phases inside a cycle that really elapses ~2ms, because a synchronous
+    // fake returns instantly, so this fixture over-accounts by construction.
+    // The flag's actual behaviour is pinned in the timings unit tests.
+    // Phases the live path cannot measure yet must be absent from the line,
+    // never printed as 0ms, which would read as "this phase is instant".
+    expect(timingLine).not.toContain("upload.encodeBody");
+    expect(timingLine).not.toContain("paint ");
     expect(harness.client.pollUntilComplete.mock.calls[0][1]).toMatchObject({
       intervalMs: 250,
       timeoutMs: 120000
@@ -378,6 +394,38 @@ describe("LivePaintingSessionV2", () => {
     poll.resolve(completeHistory);
     await flushAsyncWork();
     expect(harness.callbacks.onPreviewBlob).not.toHaveBeenCalled();
+  });
+
+  it("reports median phase timings when a session with cycles stops", async () => {
+    const harness = createHarness();
+
+    await startAndWaitForLive(harness);
+    harness.session.stop("Done painting.");
+
+    const lines = harness.callbacks.onTimings.mock.calls.map((call) => call[0] as string);
+    const aggregate = lines[lines.length - 1];
+
+    expect(harness.session.getCycleSamples()).toHaveLength(1);
+    expect(aggregate).toContain("1 cycle measured");
+    expect(aggregate).toContain("capture.pngEncode 4ms");
+    // Ordered worst-first, because the point of the summary is to name the
+    // phase worth optimising rather than to list them in pipeline order.
+    expect(aggregate.indexOf("capture.pngEncode")).toBeLessThan(aggregate.indexOf("capture.toRgba"));
+    expect(aggregate).not.toContain("paint");
+  });
+
+  it("reports nothing extra when a session stops without completing a cycle", async () => {
+    const poll = createDeferred<typeof completeHistory>();
+    const harness = createHarness({}, {
+      pollUntilComplete: vi.fn(() => poll.promise)
+    });
+
+    await harness.session.start();
+    await vi.waitFor(() => expect(harness.client.pollUntilComplete).toHaveBeenCalledTimes(1));
+    harness.session.stop("Stopped early.");
+
+    expect(harness.session.getCycleSamples()).toHaveLength(0);
+    expect(harness.callbacks.onTimings).not.toHaveBeenCalled();
   });
 
   it("cancels a prompt ID that arrives after the session has stopped", async () => {
