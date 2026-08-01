@@ -74,6 +74,25 @@ describe("assisted install planning", () => {
     expect(plan.totalBytes).toBe(0);
   });
 
+  it("says nothing is left to install rather than 'unknown' on a set up machine", () => {
+    const presets = [getRunnablePreset("txt2img-krea2-turbo")];
+    const report = evaluateSetupRequirements({
+      pluginVersion: PLUGIN_VERSION,
+      presets,
+      inventory: createCompleteInventory(presets),
+      generatedAt: FIXED_TIMESTAMP
+    });
+    const plan = planAssistedInstall(report);
+
+    expect(plan.installable).toHaveLength(0);
+    expect(plan.totalBytes).toBe(0);
+    // formatBytes returns "unknown" for zero, which is right for an unpublished
+    // model size and exactly backwards for a total that reaches zero because
+    // everything is already installed.
+    expect(plan.formattedTotal).toBe("Nothing");
+    expect(plan.formattedTotal).not.toBe("unknown");
+  });
+
   it("never offers custom nodes as installable", () => {
     const report = evaluateSetupRequirements({
       pluginVersion: PLUGIN_VERSION,

@@ -157,7 +157,13 @@ export function planAssistedInstall(report: SetupRequirementsReport): AssistedIn
     installable,
     excluded,
     totalBytes,
-    formattedTotal: formatBytes(totalBytes)
+    // formatBytes answers "how big is this model?", where zero means the size
+    // was never published, so it returns "unknown". Zero here means the
+    // opposite -- there is nothing for OpenLayer to install -- and routing it
+    // through formatBytes reads as "unknown to install" on exactly the machines
+    // that are fully set up. `evaluateSetupRequirements` hit this same trap on
+    // its remaining-download total; the wording matches it deliberately.
+    formattedTotal: totalBytes > 0 ? formatBytes(totalBytes) : "Nothing"
   };
 }
 
@@ -289,13 +295,14 @@ function hasDownloadUrl(model: SetupModelRequirement): model is AssistedInstallI
   return typeof model.downloadUrl === "string" && model.downloadUrl.length > 0;
 }
 
+// `evaluateSetupRequirements` only ever gives a node package one of three
+// statuses -- a node is present in `/object_info` or it is not, so there is no
+// "wrong folder" for it the way there is for a model file. Handling that case
+// here would mean answering a custom node with the model-worded reason, so the
+// branch is left out rather than written to be unreachable.
 function getNodeExclusionReason(node: SetupNodeRequirement): AssistedInstallExclusionReason {
   if (node.status === "installed") {
     return ALREADY_INSTALLED_REASON;
-  }
-
-  if (node.status === "wrong-folder") {
-    return WRONG_FOLDER_REASON;
   }
 
   if (node.status === "not-checked") {
