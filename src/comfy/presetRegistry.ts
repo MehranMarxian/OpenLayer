@@ -142,21 +142,6 @@ const KREA2_TURBO_STACK = [
   }
 ] as const;
 
-const FLUX1_DEV_STACK = [
-  {
-    kind: "diffusion-model-stack",
-    objectInfoNode: "UNETLoader",
-    inputName: "unet_name",
-    label: "Flux diffusion model",
-    modelName: "flux1-dev.safetensors",
-    setupHint: "Install flux1-dev.safetensors where ComfyUI's UNETLoader can find it.",
-    downloadUrl: `${COMFY_ORG_FLUX1_DEV_REPO}/resolve/main/flux1-dev.safetensors`,
-    sourcePageUrl: "https://huggingface.co/black-forest-labs/FLUX.1-dev",
-    downloadSizeBytes: 23802932552,
-    licenseGate: FLUX1_DEV_LICENSE
-  }
-] as const;
-
 const FLUX1_DEV_FP8_CHECKPOINT = {
   // An all-in-one checkpoint: UNET, both text encoders, and the VAE in one
   // file. A UNET-only "flux1-dev-fp8" from elsewhere will load and then fail
@@ -815,46 +800,6 @@ const UPSCALE_BASIC_CAPABILITY: WorkflowCapability = {
     modelSelectorLabel: "Upscale model",
     primaryActionLabel: "Generate Upscale",
     experimentalNote: "Pixel/model upscale only. No prompt or generative enhancement is used."
-  }
-};
-
-const FLUX1_DEV_TXT2IMG_CAPABILITY: WorkflowCapability = {
-  toolType: "txt2img",
-  loaderType: "diffusion-model-stack",
-  artistLabel: "Text to Image",
-  technicalLabel: "txt2img-flux1-dev",
-  requiredPhotoshopInputs: [],
-  controls: ["prompt", "negativePrompt", "width", "height", "steps", "guidance", "seed"],
-  output: {
-    kind: "full-image",
-    size: "preset",
-    importBehavior: "new-layer"
-  },
-  uiHints: {
-    showModelSelector: true,
-    modelSelectorLabel: "Flux model",
-    primaryActionLabel: "Generate",
-    warning: "Flux needs a validated diffusion-model-stack workflow before generation is enabled."
-  }
-};
-
-const FLUX1_DEV_IMG2IMG_CAPABILITY: WorkflowCapability = {
-  toolType: "img2img",
-  loaderType: "diffusion-model-stack",
-  artistLabel: "Image to Image",
-  technicalLabel: "img2img-flux1-dev",
-  requiredPhotoshopInputs: [{ anyOf: ["active-layer", "canvas"], label: "an active layer or captured canvas" }],
-  controls: ["prompt", "negativePrompt", "steps", "guidance", "denoise", "seed"],
-  output: {
-    kind: "source-sized-image",
-    size: "source",
-    importBehavior: "new-layer"
-  },
-  uiHints: {
-    showModelSelector: true,
-    modelSelectorLabel: "Flux model",
-    primaryActionLabel: "Generate Image to Image",
-    warning: "Flux Image to Image needs a validated source-image workflow before generation is enabled."
   }
 };
 
@@ -1711,76 +1656,6 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     ],
     compatibilityNote:
       "img2img-krea2-turbo uses the Krea-2 Turbo stack plus PNG source upload and VAE encoding. Denoise balances the captured source against the prompt."
-  },
-  {
-    id: "txt2img-flux1-dev",
-    label: "txt2img-flux1-dev",
-    displayName: "Flux1-dev",
-    mode: "txt2img",
-    description: "Future text-to-image preset for Flux.1-dev style diffusion model stacks.",
-    workflowFile: "workflows/api/txt2img-flux1-dev.json",
-    status: "todo",
-    supportedModelFamilies: ["flux"],
-    experimentalModelFamilies: ["unknown"],
-    modelSource: DIFFUSION_MODEL_SOURCE,
-    capability: FLUX1_DEV_TXT2IMG_CAPABILITY,
-    modelStack: [...FLUX1_DEV_STACK],
-    injections: {},
-    requiredNodes: [
-      {
-        id: "todo-unet-loader",
-        classType: "UNETLoader",
-        requiredInputs: ["unet_name", "weight_dtype"]
-      },
-      {
-        id: "todo-dual-clip-loader",
-        classType: "DualCLIPLoader",
-        requiredInputs: ["clip_name1", "clip_name2", "type"]
-      },
-      {
-        id: "todo-flux-encode",
-        classType: "CLIPTextEncodeFlux",
-        requiredInputs: ["clip", "clip_l", "t5xxl", "guidance"]
-      }
-    ],
-    compatibilityNote:
-      "Flux needs dedicated UNET, CLIP/T5, VAE, and conditioning workflow nodes before generation is enabled.",
-    disabledReason: "No validated OpenLayer API workflow JSON exists yet for Flux.1-dev."
-  },
-  {
-    id: "img2img-flux1-dev",
-    label: "img2img-flux1-dev",
-    displayName: "Flux1-dev",
-    mode: "img2img",
-    description: "Future image-to-image preset for Flux.1-dev style diffusion model stacks.",
-    workflowFile: "workflows/api/img2img-flux1-dev.json",
-    status: "todo",
-    supportedModelFamilies: ["flux"],
-    experimentalModelFamilies: ["unknown"],
-    modelSource: DIFFUSION_MODEL_SOURCE,
-    capability: FLUX1_DEV_IMG2IMG_CAPABILITY,
-    modelStack: [...FLUX1_DEV_STACK],
-    injections: {},
-    requiredNodes: [
-      {
-        id: "todo-unet-loader",
-        classType: "UNETLoader",
-        requiredInputs: ["unet_name", "weight_dtype"]
-      },
-      {
-        id: "todo-dual-clip-loader",
-        classType: "DualCLIPLoader",
-        requiredInputs: ["clip_name1", "clip_name2", "type"]
-      },
-      {
-        id: "todo-flux-encode",
-        classType: "CLIPTextEncodeFlux",
-        requiredInputs: ["clip", "clip_l", "t5xxl", "guidance"]
-      }
-    ],
-    compatibilityNote:
-      "Flux Image to Image needs a dedicated source-image workflow. It should not use img2img-basic.",
-    disabledReason: "No validated OpenLayer API workflow JSON exists yet for Flux.1-dev Image to Image."
   }
 ];
 
