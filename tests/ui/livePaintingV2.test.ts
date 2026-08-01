@@ -43,7 +43,10 @@ function createFakeClient(overrides: Record<string, unknown> = {}) {
     submitPrompt: vi.fn(async () => `prompt-${++nextPrompt}`),
     pollUntilComplete: vi.fn(async () => completeHistory),
     retrieveFirstOutputImage: vi.fn(async () => ({ blob: new Blob(["result"], { type: "image/png" }) })),
-    cancelPrompt: vi.fn(async () => "interrupted" as const)
+    cancelPrompt: vi.fn(async () => "interrupted" as const),
+    watchProgress: vi.fn((_promptId: string, _options: { onCompleted?: () => void }) => ({
+      close: vi.fn()
+    }))
   };
 
   return Object.assign(client, overrides);
@@ -407,6 +410,8 @@ describe("LivePaintingSessionV2", () => {
 
     expect(harness.session.getCycleSamples()).toHaveLength(1);
     expect(aggregate).toContain("1 cycle measured");
+    expect(aggregate).toContain("at 512x256");
+    expect(aggregate).toContain("median unaccounted ");
     expect(aggregate).toContain("capture.pngEncode 4ms");
     // Ordered worst-first, because the point of the summary is to name the
     // phase worth optimising rather than to list them in pipeline order.
@@ -426,6 +431,81 @@ describe("LivePaintingSessionV2", () => {
 
     expect(harness.session.getCycleSamples()).toHaveLength(0);
     expect(harness.callbacks.onTimings).not.toHaveBeenCalled();
+  });
+
+  it("ends the poll wait early when ComfyUI reports the prompt finished", async () => {
+    let waking: Promise<void> | null = null;
+    const harness = createHarness({}, {
+      pollUntilComplete: vi.fn(async (_promptId: string, options: {
+        waitForWake?: (timeoutMs: number) => Promise<void>;
+      }) => {
+        // A real poll sleeps between history checks; this captures that sleep
+        // so the test can prove the socket event ends it rather than the timer.
+        waking = options.waitForWake?.(120000) ?? null;
+        return completeHistory;
+      })
+    });
+
+    await startAndWaitForLive(harness);
+
+    const watchOptions = harness.client.watchProgress.mock.calls[0][1];
+
+    expect(harness.client.watchProgress).toHaveBeenCalledWith("prompt-1", expect.any(Object));
+    expect(waking).not.toBeNull();
+
+    watchOptions.onCompleted?.();
+
+    // Resolves without any timer advancing; a 120s interval would never fire.
+    await expect(waking).resolves.toBeUndefined();
+  });
+
+  it("remembers a completion that arrives before the wait begins", async () => {
+    const harness = createHarness({}, {
+      pollUntilComplete: vi.fn(async (_promptId: string, options: {
+        waitForWake?: (timeoutMs: number) => Promise<void>;
+      }) => {
+        // Completion routinely lands while the history request is still in
+        // flight. A wake delivered to nobody must not be dropped, or the cycle
+        // waits out the full interval and the saving disappears silently.
+        harness.client.watchProgress.mock.calls[0][1].onCompleted?.();
+        await options.waitForWake?.(120000);
+        return completeHistory;
+      })
+    });
+
+    await startAndWaitForLive(harness);
+
+    expect(harness.callbacks.onPreviewBlob).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes the progress socket on every exit path", async () => {
+    const harness = createHarness();
+
+    await startAndWaitForLive(harness);
+    expect(harness.client.watchProgress.mock.results[0].value.close).toHaveBeenCalledTimes(1);
+
+    const failing = createHarness({}, {
+      retrieveFirstOutputImage: vi.fn(async () => {
+        throw new Error("ComfyUI vanished");
+      })
+    });
+
+    await failing.session.start();
+    await vi.waitFor(() =>
+      expect(failing.client.watchProgress.mock.results[0].value.close).toHaveBeenCalledTimes(1));
+  });
+
+  it("keeps polling on its interval when no progress socket is available", async () => {
+    const harness = createHarness({}, {
+      watchProgress: vi.fn(() => null)
+    });
+
+    await startAndWaitForLive(harness);
+
+    // Falling back must be a plain interval poll, exactly as before: passing a
+    // wake nothing can ever signal would stall the cycle for the full timeout.
+    expect(harness.client.pollUntilComplete.mock.calls[0][1].waitForWake).toBeUndefined();
+    expect(harness.callbacks.onPreviewBlob).toHaveBeenCalledTimes(1);
   });
 
   it("cancels a prompt ID that arrives after the session has stopped", async () => {

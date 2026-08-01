@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   aggregateCycles,
   deriveServerPhases,
+  formatAggregateLine,
   formatCycleLine,
   formatCyclesTable,
   LIVE_PHASE_IDS,
@@ -197,5 +198,28 @@ describe("live painting timing formatters", () => {
     expect(firstRow.slice(getPixelsIndex, getPixelsIndex + LIVE_PHASE_IDS.length)).toHaveLength(
       LIVE_PHASE_IDS.length
     );
+  });
+
+  it("names the generated size next to the medians, since it explains server.execute", () => {
+    const line = formatAggregateLine([
+      { ...sample(100, { "server.execute": 80 }), width: 512, height: 256 },
+      { ...sample(120, { "server.execute": 90 }, 2), width: 512, height: 256 }
+    ]);
+
+    expect(line).toContain("at 512x256");
+    expect(line).toContain("median unaccounted ");
+  });
+
+  it("lists every distinct size, so a session that changed shape mid-way is not mistaken for a steady one", () => {
+    const line = formatAggregateLine([
+      { ...sample(100), width: 512, height: 256 },
+      { ...sample(200, {}, 2), width: 1024, height: 512 }
+    ]);
+
+    expect(line).toContain("at 512x256, 1024x512");
+  });
+
+  it("says nothing was measured rather than dividing by zero", () => {
+    expect(formatAggregateLine([])).toBe("No Live Painting cycles were measured.");
   });
 });
