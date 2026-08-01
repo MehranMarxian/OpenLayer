@@ -14,9 +14,9 @@ OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop t
 
 New in `v0.12.0-alpha`:
 
-- **The Setup screen can install a missing model file.** A missing row grows an Install button, and pressing it opens a confirmation inside that row naming the file, its size, the folder it will be written to, and the host it comes from. Only the Download button in that block sends anything, and success is claimed by re-reading what ComfyUI can actually see rather than by the downloader reporting itself finished. It needs ComfyUI-Manager installed, and it will not touch licence-gated files, files already on disk in the wrong folder, or custom node packages — each of those rows says why.
 - **A Flux.2 dev (GGUF) Text to Image preset**, built on ComfyUI's own shipped Flux.2 template and the advanced sampler chain. Experimental, and honestly slow on a 12 GB card: an 18.7 GB model plus a 16.8 GB text encoder means minutes per image, not seconds.
 - **Every preset the panel lists is now one you can actually run.** The two Flux1-dev presets that had been advertising themselves as awaiting a workflow JSON since v0.2.2 are removed rather than finished — the full-precision weight has no 12 GB story and `txt2img-flux1-dev-fp8` already covers Flux Text to Image.
+- **Assisted install is withheld from this release.** It was built on the belief that ComfyUI-Manager's install endpoint would fetch a given URL on request; it will not, and only accepts models from its own curated catalogue on its own terms. The Setup screen therefore still reports and copies, as in v0.11.0. See the CHANGELOG for the full reasoning — including why mapping the fields across would not have fixed it.
 
 Also new in `v0.11.0-alpha`:
 
@@ -113,14 +113,8 @@ The earlier card-based dashboard established OpenLayer's honest available/experi
 
 v0.12.0-alpha tester focus:
 
-- With ComfyUI-Manager **not** installed, open **Setup** and confirm no row offers an Install button and the screen otherwise behaves exactly as it did in v0.11.0.
-- With ComfyUI-Manager installed and ComfyUI running, find a missing model row and confirm it has an **Install** button. Press it and read the confirmation *without* confirming: it should name the file, the size, the target folder as `models/<folder>/`, and the host the download comes from. Press Cancel and confirm nothing was downloaded.
-- Confirm a **licence-gated** row — either Flux.1 weight, or the Flux.2 model or its Mistral-3 encoder — has **no** Install button and explains that the licence has to be accepted in a browser.
-- Move a model into the wrong folder, check again, and confirm that row also has no Install button and says the file is already on disk.
-- Confirm **custom node package rows have no Install button** and still offer Copy Link.
-- Run one real install of a small ungated model. Watch the status line move through checking the queue, handing it over, downloading, and re-checking, and confirm the final message claims success only after the re-check — then verify the file really is in that folder.
-- Queue something in ComfyUI-Manager's own web interface first, then press Install in OpenLayer, and confirm OpenLayer refuses to start rather than running someone else's downloads.
-- Start an install, then **close the panel**. The download should continue in ComfyUI-Manager; reopen the panel and confirm nothing is stuck or duplicated.
+- Open **Setup** with ComfyUI running and confirm **no row anywhere offers an Install button**, including missing rows, with ComfyUI-Manager installed. Every row should offer only Copy Link, Copy Folder Path and Copy Page, exactly as in v0.11.0. This is the check that matters most in this release: an Install button appearing is a button that errors.
+- To make a missing row that is *not* licence-gated, temporarily rename a model you already have — `models/upscale_models/4x-UltraSharp.pth` is the smallest at 64 MB — then click **Check Again**. Confirm that row reports Missing, still offers no Install button, and names the folder and size correctly. Rename it back afterwards.
 - Open **Check Workflow Health** and confirm the **Flux.2 dev (GGUF)** preset appears, is marked experimental, and reports only the Mistral-3 encoder as missing if that is the only file you lack — not the 18.7 GB GGUF model you already have.
 - Confirm the two Flux1-dev presets are **gone** from every preset list, and that no remaining preset says it needs a workflow JSON.
 - Confirm the panel footer reads `v0.12.0`.
@@ -160,11 +154,8 @@ Also worth rechecking from v0.9.0-alpha:
 
 Known v0.12.0-alpha boundaries:
 
-- Assisted install covers **model files only**. Custom node packages still have to be installed through ComfyUI-Manager yourself, and their rows keep Copy Link.
-- Assisted install requires **ComfyUI-Manager**. Without it the Setup screen reports and copies exactly as it did in v0.11.0.
-- **Licence-gated models cannot be installed this way.** An unauthenticated download of a gated URL saves an HTML error page under the model's filename, which looks exactly like a corrupt model, so OpenLayer refuses rather than risking it.
-- A download **outlives the panel** — ComfyUI-Manager owns it. What stops when the panel closes is OpenLayer asking about it.
-- The **Flux.2 GGUF preset is slow on a 12 GB card**: minutes per image, not seconds, and its text encoder is licence-gated and therefore not installable from the Setup screen.
+- **The Setup screen reports and copies. It does not download or install anything.** Assisted install was built for this release and withheld: ComfyUI-Manager's install endpoint only accepts models from its own curated catalogue, matched exactly on `save_path`, `base` and `filename`, so every request OpenLayer could build was rejected. Only 7 of the 16 models this project pins are in that catalogue, and for several of those the catalogue's URL is not the one the registry verified — so the fix is a download path that honours our own URLs, not a field mapping. Full reasoning in the CHANGELOG.
+- The **Flux.2 GGUF preset is slow on a 12 GB card**: minutes per image, not seconds, and its text encoder is licence-gated, so accept the licence in a browser and download it by hand.
 - "What will run well" rates on published model weight sizes against reported VRAM. It is not a measurement of VRAM use during a run, and a preset with an unpublished model size is reported as unknown rather than guessed at.
 - Setup and Check Workflow Health overlap on purpose. Setup answers what you need and where it goes; Health answers whether a given preset can run right now.
 - Image to Image is an early foundation path, not a full production workflow yet.

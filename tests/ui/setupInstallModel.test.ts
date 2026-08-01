@@ -3,10 +3,12 @@ import { planAssistedInstall } from "../../src/comfy/assistedInstall";
 import { listRunnableWorkflowPresets } from "../../src/comfy/presetRegistry";
 import { evaluateSetupRequirements } from "../../src/comfy/setupRequirements";
 import {
+  ASSISTED_INSTALL_ENABLED,
   createInstallConfirmationView,
   createInstallStatusLine,
   describeDownloadSource,
   describeInstallResult,
+  findInstallOffer,
   getInstallOffer
 } from "../../src/ui/setupInstallModel";
 import type { ComfyModelInventory, WorkflowPresetDefinition } from "../../src/comfy/types";
@@ -16,16 +18,29 @@ const FIXED_TIMESTAMP = "2026-08-01T00:00:00.000Z";
 const MANAGER_VERSION = "V3.41";
 
 describe("setup install view model", () => {
-  it("offers an install only when the plan allows it and Manager is present", () => {
+  // ComfyUI-Manager's install_model endpoint rejects every request OpenLayer
+  // can currently build, so no row may offer a button. This asserts the release
+  // flag through the function the panel actually calls, rather than trusting the
+  // constant on its own: a row appearing here is a row that errors in the host.
+  it("offers no install at all while assisted install is withheld", () => {
+    const plan = planAssistedInstall(missingReport());
+    const item = plan.installable[0];
+
+    expect(ASSISTED_INSTALL_ENABLED).toBe(false);
+    expect(item).toBeDefined();
+    expect(getInstallOffer(plan, MANAGER_VERSION, item.key).kind).toBe("hidden");
+  });
+
+  it("keeps the plan-and-Manager rules under test while the feature is off", () => {
     const plan = planAssistedInstall(missingReport());
     const item = plan.installable[0];
 
     expect(item).toBeDefined();
-    expect(getInstallOffer(plan, MANAGER_VERSION, item.key)).toEqual({ kind: "offered", item });
+    expect(findInstallOffer(plan, MANAGER_VERSION, item.key)).toEqual({ kind: "offered", item });
     // The same row, with ComfyUI-Manager absent, must not grow a button that
     // would fail the moment it was pressed.
-    expect(getInstallOffer(plan, null, item.key).kind).toBe("hidden");
-    expect(getInstallOffer(null, MANAGER_VERSION, item.key).kind).toBe("hidden");
+    expect(findInstallOffer(plan, null, item.key).kind).toBe("hidden");
+    expect(findInstallOffer(null, MANAGER_VERSION, item.key).kind).toBe("hidden");
   });
 
   it("never offers an install for a requirement the plan excluded", () => {
@@ -34,6 +49,7 @@ describe("setup install view model", () => {
     const gated = report.models.find((model) => model.licenseGated);
 
     expect(gated).toBeDefined();
+    expect(findInstallOffer(plan, MANAGER_VERSION, gated!.key).kind).toBe("hidden");
     expect(getInstallOffer(plan, MANAGER_VERSION, gated!.key).kind).toBe("hidden");
   });
 
