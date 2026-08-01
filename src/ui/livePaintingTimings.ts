@@ -159,6 +159,65 @@ export function formatCycleLine(sample: LiveCycleSample): string {
   return `Cycle ${sample.cycleIndex} (${sample.kind}): ${fields.join(" | ")}`;
 }
 
+/**
+ * The per-cycle status line, showing only what was actually measured, most
+ * expensive first.
+ *
+ * Every phase is deliberately NOT printed. The panel is 356px wide and eleven
+ * phases plus their labels do not fit, but the stronger reason is that a line
+ * listing eight "not reported" entries buries the three numbers that matter.
+ * Unmeasured phases are still counted, in `unaccounted`, so nothing disappears
+ * silently.
+ */
+export function formatMeasuredCycleLine(sample: LiveCycleSample): string {
+  const summary = summariseCycle(sample);
+  const measured = LIVE_PHASE_IDS
+    .map((phaseId) => ({ phaseId, duration: sample.phases[phaseId] }))
+    .filter((entry): entry is { phaseId: LivePhaseId; duration: number } =>
+      entry.duration !== null && entry.duration !== undefined)
+    .sort((left, right) => right.duration - left.duration)
+    .map((entry) => `${entry.phaseId} ${entry.duration}ms`);
+
+  const fields = [
+    ...measured,
+    `unaccounted ${summary.unaccountedMs}ms`,
+    `total ${summary.totalMs}ms`
+  ];
+
+  if (summary.overAccounted) {
+    fields.push("OVER-ACCOUNTED");
+  }
+
+  return `Cycle ${sample.cycleIndex} (${sample.kind}): ${fields.join(" | ")}`;
+}
+
+/**
+ * The end-of-session line: median per phase across every cycle, worst first.
+ *
+ * This is the number the optimisation decision gets made from. A single cycle
+ * is noise -- the first one pays for a cold model load and any one of them can
+ * land badly against the poll interval -- so the panel shows this when the
+ * session stops rather than asking anyone to read medians off a moving line.
+ */
+export function formatAggregateLine(samples: readonly LiveCycleSample[]): string {
+  if (samples.length === 0) {
+    return "No Live Painting cycles were measured.";
+  }
+
+  const aggregate = aggregateCycles(samples);
+  const measured = LIVE_PHASE_IDS
+    .map((phaseId) => ({ phaseId, aggregated: aggregate.phases[phaseId] }))
+    .filter((entry) => entry.aggregated.median !== null)
+    .sort((left, right) => (right.aggregated.median ?? 0) - (left.aggregated.median ?? 0))
+    .map((entry) => `${entry.phaseId} ${entry.aggregated.median}ms`);
+
+  return [
+    `${samples.length} cycle${samples.length === 1 ? "" : "s"} measured`,
+    `median total ${aggregate.totalMs.median}ms`,
+    ...measured
+  ].join(" | ");
+}
+
 export function formatCyclesTable(samples: readonly LiveCycleSample[]): string {
   const headers = [
     "cycleIndex",

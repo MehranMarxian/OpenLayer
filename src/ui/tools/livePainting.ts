@@ -11,6 +11,12 @@ import {
 import type { ComfyHistoryItem, ComfyModelInventory, ComfyWorkflow } from "../../comfy/types";
 import type { PhotoshopDocumentIdentity } from "../../photoshop/documentContext";
 import type { LiveCaptureResult } from "../../photoshop/livePaintingCapture";
+import {
+  deriveServerPhases,
+  formatAggregateLine,
+  formatMeasuredCycleLine,
+  type LiveCycleSample
+} from "../livePaintingTimings";
 import { createOpenLayerError, getErrorMessage } from "../../utils/errors";
 
 export type LivePaintingState =
@@ -115,6 +121,13 @@ const MAX_CONSECUTIVE_FAILURES = 3;
 
 type JobKind = "live" | "refine";
 
+type SubmitOutcome = {
+  blob: Blob;
+  submitMs: number;
+  downloadMs: number;
+  serverPhases: ReturnType<typeof deriveServerPhases>;
+};
+
 export class LivePaintingSessionV2 {
   private readonly options: LivePaintingV2Options;
   private readonly callbacks: LivePaintingV2Callbacks;
@@ -129,6 +142,7 @@ export class LivePaintingSessionV2 {
   };
 
   private state: LivePaintingState = "idle";
+  private readonly cycleSamples: LiveCycleSample[] = [];
   private loraName = "";
   private refineGap: string | null = null;
   private registeredEvents: string[] = [];
@@ -237,6 +251,14 @@ export class LivePaintingSessionV2 {
     this.cancelCurrentPrompt();
     this.removeStrokeListeners();
     this.setState("stopped");
+
+    // The medians are the number the optimisation decision gets made from --
+    // a single cycle is noise (the first pays a cold model load) -- so they
+    // are reported once, when the session ends and the sample set is final.
+    if (this.cycleSamples.length > 0) {
+      this.callbacks.onTimings(formatAggregateLine(this.cycleSamples));
+    }
+
     this.callbacks.onStopped(reason);
   }
 
@@ -417,15 +439,16 @@ export class LivePaintingSessionV2 {
     this.liveCycles += 1;
     this.callbacks.onPreviewBlob(result.blob, capture.originatingDocument);
     this.callbacks.onStatus(`Live preview updated (cycle ${this.liveCycles}).`);
-    this.callbacks.onTimings(
-      [
-        `Cycle ${this.liveCycles}:`,
-        `capture ${capturedAt - cycleStart}ms (${capture.mode}, ${capture.width}x${capture.height})`,
-        `upload ${uploadedAt - capturedAt}ms`,
-        `generate ${finishedAt - uploadedAt}ms`,
-        `total ${((finishedAt - cycleStart) / 1000).toFixed(2)}s`
-      ].join(" | ")
-    );
+    this.recordCycleSample({
+      cycleIndex: this.liveCycles,
+      kind: "live",
+      cycleStart,
+      capturedAt,
+      uploadedAt,
+      finishedAt,
+      capture,
+      outcome: result
+    });
     this.setState("listening");
     return true;
   }
@@ -460,7 +483,7 @@ export class LivePaintingSessionV2 {
       height: capture.height
     });
 
-    let result: { blob: Blob } | null;
+    let result: SubmitOutcome | null;
 
     try {
       result = await this.submitAndRetrieve(
@@ -487,17 +510,73 @@ export class LivePaintingSessionV2 {
     this.refineCycles += 1;
     this.callbacks.onRefineResult(result.blob, capture.originatingDocument);
     this.callbacks.onStatus(`Refine result updated (cycle ${this.refineCycles}).`);
-    this.callbacks.onTimings(
-      [
-        `Refine ${this.refineCycles}:`,
-        `capture ${capturedAt - cycleStart}ms (${capture.mode}, ${capture.width}x${capture.height})`,
-        `upload ${uploadedAt - capturedAt}ms`,
-        `generate ${finishedAt - uploadedAt}ms`,
-        `total ${((finishedAt - cycleStart) / 1000).toFixed(2)}s`
-      ].join(" | ")
-    );
+    this.recordCycleSample({
+      cycleIndex: this.refineCycles,
+      kind: "refine",
+      cycleStart,
+      capturedAt,
+      uploadedAt,
+      finishedAt,
+      capture,
+      outcome: result
+    });
     this.setState("refined");
     return true;
+  }
+
+  /**
+   * Turn one cycle's marks into a phase sample.
+   *
+   * `upload.http` currently includes multipart body construction, and
+   * `upload.encodeBody` is therefore left unmeasured rather than guessed at:
+   * splitting them means changing `comfyClient.uploadImage`, which all eight
+   * tools share. If the measurement shows upload is expensive, that split is
+   * the follow-up. `paint` is unmeasured for the same reason -- the blob
+   * becomes visible inside the panel, past this callback.
+   *
+   * Capture phases are read defensively because a capture implementation that
+   * predates the phase field returns undefined here, and a missing measurement
+   * must degrade to "not reported" rather than throw inside the paint loop.
+   */
+  private recordCycleSample(input: {
+    cycleIndex: number;
+    kind: JobKind;
+    cycleStart: number;
+    capturedAt: number;
+    uploadedAt: number;
+    finishedAt: number;
+    capture: LiveCaptureResult;
+    outcome: SubmitOutcome;
+  }) {
+    const capturePhases = input.capture.phases as LiveCaptureResult["phases"] | undefined;
+    const sample: LiveCycleSample = {
+      cycleIndex: input.cycleIndex,
+      kind: input.kind,
+      totalMs: input.finishedAt - input.cycleStart,
+      captureMode: input.capture.mode,
+      width: input.capture.width,
+      height: input.capture.height,
+      phases: {
+        "capture.getPixels": capturePhases?.getPixelsMs ?? null,
+        "capture.toRgba": capturePhases?.toRgbaMs ?? null,
+        "capture.pngEncode": capturePhases?.pngEncodeMs ?? null,
+        "upload.encodeBody": null,
+        "upload.http": input.uploadedAt - input.capturedAt,
+        "submit.http": input.outcome.submitMs,
+        "server.queueWait": input.outcome.serverPhases.queueWaitMs,
+        "server.execute": input.outcome.serverPhases.executeMs,
+        "poll.overshoot": input.outcome.serverPhases.pollOvershootMs,
+        "download.http": input.outcome.downloadMs,
+        paint: null
+      }
+    };
+
+    this.cycleSamples.push(sample);
+    this.callbacks.onTimings(formatMeasuredCycleLine(sample));
+  }
+
+  getCycleSamples(): readonly LiveCycleSample[] {
+    return this.cycleSamples;
   }
 
   private async submitAndRetrieve(
@@ -506,8 +585,10 @@ export class LivePaintingSessionV2 {
     intervalMs: number,
     timeoutMs: number,
     isCancelled: () => boolean
-  ): Promise<{ blob: Blob } | null> {
+  ): Promise<SubmitOutcome | null> {
+    const submitStartedAt = Date.now();
     const promptId = await this.client.submitPrompt(workflow);
+    const submittedAt = Date.now();
 
     if (isCancelled()) {
       this.cancelPrompt(promptId);
@@ -522,6 +603,7 @@ export class LivePaintingSessionV2 {
         timeoutMs,
         isCancelled
       });
+      const observedCompleteAt = Date.now();
 
       if (isCancelled()) {
         this.cancelPrompt(promptId);
@@ -531,13 +613,26 @@ export class LivePaintingSessionV2 {
       const result = await this.client.retrieveFirstOutputImage(promptId, history, {
         preferredNodeId
       });
+      const downloadedAt = Date.now();
 
       if (isCancelled()) {
         this.cancelPrompt(promptId);
         return null;
       }
 
-      return result;
+      return {
+        blob: result.blob,
+        submitMs: submittedAt - submitStartedAt,
+        downloadMs: downloadedAt - observedCompleteAt,
+        // Submission returns once ComfyUI has accepted the prompt, which is the
+        // instant the queue wait starts. Measuring it from before the POST
+        // would count our own request in the server's waiting time.
+        serverPhases: deriveServerPhases(
+          submittedAt,
+          observedCompleteAt,
+          history.status?.messages
+        )
+      };
     } catch (caughtError) {
       if (isCancelled()) {
         this.cancelPrompt(promptId);
