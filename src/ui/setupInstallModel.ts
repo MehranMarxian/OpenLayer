@@ -29,15 +29,62 @@ const STEP_MESSAGES: Record<InstallStep, (modelName: string) => string> = {
 };
 
 /**
+ * Assisted install is withheld from this release.
+ *
+ * ComfyUI-Manager's `/manager/queue/install_model` is not the "download this
+ * URL for me" endpoint this feature was built against. Before it does anything
+ * it calls `check_whitelist_for_model`, which requires an exact match on
+ * `save_path` + `base` + `filename` against the Manager's own curated
+ * `model-list.json`. OpenLayer sends its own values -- the real ComfyUI folder
+ * name and an artist-facing label -- so every request is rejected with HTTP 400
+ * and nothing installs at all.
+ *
+ * Mapping the fields across is not a fix, which is why this is a flag and not a
+ * patch. Only 7 of the 16 models the registry pins are in that catalogue, and
+ * for several of the 7 the catalogue's URL is not ours: the Manager fetches
+ * `ae.safetensors` from `black-forest-labs/FLUX.1-schnell`, where this project
+ * deliberately uses the `Comfy-Org/z_image_turbo` mirror because the Black
+ * Forest Labs repos answer 401 without a token. Delegating that download saves
+ * an authentication page under the model's filename -- exactly the failure the
+ * licence-gate refusal exists to prevent, reintroduced by the mechanism meant
+ * to be the safe path.
+ *
+ * Everything below and in `assistedInstall.ts` is kept: the plan, the refusals
+ * and their reasons are all correct and are what a working version is built on.
+ * What is missing is a transport that honours the registry's pinned URLs.
+ */
+export const ASSISTED_INSTALL_ENABLED = false;
+
+/**
  * Whether a requirement row may show an Install button.
  *
- * Two things have to be true, and neither is a property of the row itself: the
- * plan has to consider the requirement installable at all (which is where every
- * licence and wrong-folder refusal lives), and ComfyUI-Manager has to be
- * present to do the downloading. A row is never offered an Install button that
- * would fail the moment it was pressed.
+ * Three things have to be true, and none is a property of the row itself:
+ * assisted install has to be enabled in this build at all, the plan has to
+ * consider the requirement installable (which is where every licence and
+ * wrong-folder refusal lives), and ComfyUI-Manager has to be present to do the
+ * downloading. A row is never offered an Install button that would fail the
+ * moment it was pressed.
  */
 export function getInstallOffer(
+  plan: AssistedInstallPlan | null,
+  managerVersion: string | null,
+  requirementKey: string
+): InstallOffer {
+  if (!ASSISTED_INSTALL_ENABLED) {
+    return { kind: "hidden" };
+  }
+
+  return findInstallOffer(plan, managerVersion, requirementKey);
+}
+
+/**
+ * The offer logic on its own, without the release flag.
+ *
+ * Kept separate and exported so the plan-and-Manager rules stay under test
+ * while `ASSISTED_INSTALL_ENABLED` is false. Turning the feature back on must
+ * not mean rediscovering what these rules were.
+ */
+export function findInstallOffer(
   plan: AssistedInstallPlan | null,
   managerVersion: string | null,
   requirementKey: string
