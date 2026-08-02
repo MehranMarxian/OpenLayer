@@ -76,7 +76,7 @@ describe("workflow compatibility", () => {
   it("reports missing ComfyUI node classes without touching ComfyUI", () => {
     const preset = getWorkflowPreset("sketch2img-linecn-basic");
     const availableNodes = createAvailableNodes(preset);
-    delete availableNodes.LineArtPreprocessor;
+    delete availableNodes.LineartStandardPreprocessor;
 
     const result = evaluateWorkflowCompatibility(preset, {
       selectedModelName: "epicrealism_naturalSinRC1VAE.safetensors",

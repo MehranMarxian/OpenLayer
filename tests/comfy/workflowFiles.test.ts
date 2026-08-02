@@ -29,7 +29,7 @@ function loadApiWorkflow(preset: WorkflowPresetDefinition): ComfyWorkflow {
 const EXPECTED_CUSTOM_NODE_CLASSES = [
   "Florence2ModelLoader",
   "Florence2Run",
-  "LineArtPreprocessor",
+  "LineartStandardPreprocessor",
   // Flux.2's quantised model. Note only the UNET loader appears: its text
   // encoder is a safetensors file read by core CLIPLoader, so CLIPLoaderGGUF is
   // mapped in the registry but not required by any shipped preset.

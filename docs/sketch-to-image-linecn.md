@@ -7,7 +7,7 @@ OpenLayer v0.2.1 added the Sketch to Image screen and capture/import foundation.
 - Checkpoint: `epicrealism_naturalSinRC1VAE.safetensors`
 - ControlNet style: SD 1.5 LineArt
 - ControlNet model: `control_v11p_sd15_lineart_fp16.safetensors`
-- Preprocessor: `LineArtPreprocessor`
+- Preprocessor: `LineartStandardPreprocessor`
 - OpenLayer preset id: `sketch2img-linecn-basic`
 
 ## Workflow File
@@ -27,7 +27,7 @@ The preset requires these ComfyUI node classes:
 - `CheckpointLoaderSimple`
 - `LoadImage`
 - `CLIPTextEncode`
-- `LineArtPreprocessor`
+- `LineartStandardPreprocessor`
 - `ControlNetLoader`
 - `ControlNetApplyAdvanced`
 - `VAEEncode`

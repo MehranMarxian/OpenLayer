@@ -745,7 +745,7 @@ export function createAppMarkup() {
             </div>
             <div class="source-card-body">
               <span class="source-title" id="sketch-source-title">No source captured</span>
-              <span class="source-card-meta" id="sketch-source-meta">ComfyUI LineArtPreprocessor creates the guide.</span>
+              <span class="source-card-meta" id="sketch-source-meta">ComfyUI Standard Lineart creates the guide.</span>
             </div>
           </div>
         </section>

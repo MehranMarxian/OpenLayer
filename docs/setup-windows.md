@@ -70,7 +70,7 @@ Required ComfyUI setup:
 
 - Checkpoint: `epicrealism_naturalSinRC1VAE.safetensors`
 - ControlNet model: `control_v11p_sd15_lineart_fp16.safetensors`
-- Node classes: `LineArtPreprocessor`, `ControlNetLoader`, and `ControlNetApplyAdvanced`
+- Node classes: `LineartStandardPreprocessor`, `ControlNetLoader`, and `ControlNetApplyAdvanced`
 
 Quick test:
 

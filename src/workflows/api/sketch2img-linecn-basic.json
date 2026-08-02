@@ -45,16 +45,15 @@
   },
   "12": {
     "inputs": {
-      "coarse": "disable",
       "resolution": 512,
       "image": [
         "10",
         0
       ]
     },
-    "class_type": "LineArtPreprocessor",
+    "class_type": "LineartStandardPreprocessor",
     "_meta": {
-      "title": "LineArt Preprocessor"
+      "title": "Standard Lineart Preprocessor"
     }
   },
   "13": {

@@ -27,7 +27,7 @@ import { getModelTargetFolder, getModelTargetPath, getRequiredModelKey, listPres
  * fails that test.
  */
 export const CUSTOM_NODE_PACKAGES: Record<string, { name: string; repoUrl: string }> = {
-  LineArtPreprocessor: {
+  LineartStandardPreprocessor: {
     name: "comfyui_controlnet_aux",
     repoUrl: "https://github.com/Fannovel16/comfyui_controlnet_aux"
   },

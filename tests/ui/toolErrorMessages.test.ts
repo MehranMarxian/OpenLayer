@@ -45,6 +45,15 @@ describe("hints recognise each tool's characteristic failure", () => {
     expect(hint).toContain("ControlNet");
   });
 
+  // The shipped preset now uses LineartStandardPreprocessor, whose lowercased name
+  // does NOT contain "lineartpreprocessor" — the substring the hint used to match on.
+  it("still recognises the rejection naming the Standard Lineart node we actually ship", () => {
+    const hint = getSketchFailureHint(comfyRejection("LineartStandardPreprocessor node type not found"));
+
+    expect(hint).toContain("LineArt");
+    expect(hint).toContain("ControlNet");
+  });
+
   it("names the whole Flux Fill stack for Outpaint, which is the setup people get wrong", () => {
     const hint = getOutpaintFailureHint(comfyRejection("missing node: ImagePadForOutpaint"));
 
