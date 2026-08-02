@@ -58,6 +58,8 @@ export async function acquireModelsFolder(
   }
 
   // 2. The quiet route. Free when it works, and the spike proved it resolves.
+  let directFailure = "";
+
   if (typeof deps.getEntryWithUrl === "function" && targetPath) {
     try {
       const folder = await deps.getEntryWithUrl(`file:${targetPath.replace(/\\/g, "/")}`);
@@ -65,15 +67,25 @@ export async function acquireModelsFolder(
       if (folder && await deps.canWrite(folder)) {
         return { kind: "ready", route: "direct", folder, note: "Writing straight to ComfyUI's models folder; no permission needed." };
       }
-    } catch {
-      // Falls through to the picker, which is the whole point of trying first.
+
+      directFailure = folder
+        ? "the folder resolved but could not be written to"
+        : "the folder path did not resolve";
+    } catch (caughtError) {
+      // Recorded, not swallowed. Falling back silently once hid a plain
+      // programming error -- an unbound UXP method -- behind what looked like a
+      // permissions problem, and cost a debugging round trip.
+      directFailure = messageOf(caughtError);
     }
   }
 
   if (!allowPicker) {
     return {
       kind: "needs-grant",
-      note: "OpenLayer needs permission to write into ComfyUI's models folder. Choose it once and it will be remembered."
+      note: withReason(
+        "OpenLayer needs permission to write into ComfyUI's models folder. Choose it once and it will be remembered.",
+        directFailure
+      )
     };
   }
 
@@ -87,7 +99,10 @@ export async function acquireModelsFolder(
   try {
     picked = await deps.pickFolder();
   } catch (caughtError) {
-    return { kind: "failed", note: `The folder picker failed. ${caughtError instanceof Error ? caughtError.message : String(caughtError)}` };
+    return {
+      kind: "failed",
+      note: withReason(`The folder picker failed. ${messageOf(caughtError)}`, directFailure)
+    };
   }
 
   if (!picked) {
@@ -108,6 +123,16 @@ export async function acquireModelsFolder(
   }
 
   return { kind: "ready", route: "granted", folder: picked, note: "Folder granted. OpenLayer will remember it for future downloads." };
+}
+
+function messageOf(caughtError: unknown) {
+  return caughtError instanceof Error ? caughtError.message : String(caughtError);
+}
+
+// Both halves matter when this goes wrong: what the artist should do, and what
+// actually failed underneath.
+function withReason(note: string, reason: string) {
+  return reason ? `${note} (Direct access failed: ${reason})` : note;
 }
 
 // A chosen folder is only the right one if the model can actually land where

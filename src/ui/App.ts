@@ -384,11 +384,19 @@ function createFolderAccessDeps(): FolderAccessDeps {
   };
   const lfs = uxp.storage.localFileSystem;
 
+  // Every one of these must stay bound to localFileSystem. Passing the bare
+  // function reference loses `this`, and UXP's implementations use it -- the
+  // picker fails with "this.__getInitialLocation is not a function", and
+  // getEntryWithUrl fails the same way but silently, because its caller treats
+  // a throw as "fall back to the picker".
+  const bound = <T>(method: unknown): T | undefined =>
+    typeof method === "function" ? ((method as (...args: never[]) => unknown).bind(lfs) as T) : undefined;
+
   return {
-    getEntryWithUrl: lfs.getEntryWithUrl as ((url: string) => Promise<unknown>) | undefined,
-    pickFolder: lfs.getFolder as (() => Promise<unknown | null>) | undefined,
-    createPersistentToken: lfs.createPersistentToken as ((entry: unknown) => Promise<string>) | undefined,
-    getEntryForPersistentToken: lfs.getEntryForPersistentToken as ((token: string) => Promise<unknown>) | undefined,
+    getEntryWithUrl: bound<(url: string) => Promise<unknown>>(lfs.getEntryWithUrl),
+    pickFolder: bound<() => Promise<unknown | null>>(lfs.getFolder),
+    createPersistentToken: bound<(entry: unknown) => Promise<string>>(lfs.createPersistentToken),
+    getEntryForPersistentToken: bound<(token: string) => Promise<unknown>>(lfs.getEntryForPersistentToken),
     readStoredToken: () => {
       try {
         return localStorage.getItem(MODELS_FOLDER_TOKEN_KEY);
