@@ -320,6 +320,30 @@ This creates a zip package from `dist` in the `packages` folder. For the current
 packages/openlayer-v0.12.0-alpha.zip
 ```
 
+`npm run package` also writes `packages/openlayer-v0.12.0-alpha.ccx` beside it, from the same files.
+
+## Trying the one-click install (unverified — please report either way)
+
+Every release also attaches a `.ccx`. In principle Creative Cloud installs one by double-click, with
+no UXP Developer Tool and no developer mode — which is the difference between "install a developer
+tool first" and "double-click this".
+
+**Nobody knows whether it works.** A `.ccx` for this plugin is an ordinary zip with no signature
+(`docs/DISTRIBUTION_SPIKE.md`, Finding 1), so whether it installs depends on whether Creative Cloud's
+installer agent accepts an unsigned non-Marketplace package. Answering that needs a machine that has
+**never** had the UXP Developer Tool installed, and the author does not have one — so this ships
+untested on purpose rather than staying unbuilt for another release.
+
+If you have such a machine, this is the single most useful ten minutes anyone could give the project:
+
+1. Download `openlayer-vX.Y.Z-alpha.ccx` and double-click it.
+2. Report exactly what happens, including the boring outcomes:
+   - Creative Cloud installs it → open Photoshop, check **Plugins > OpenLayer** appears and renders.
+   - An error dialog → copy the **exact** text, including any error code.
+   - Nothing happens, or Windows asks which app should open the file → that is a real answer too.
+
+If it fails, use the UXP Developer Tool route below; it is the supported path and is unaffected.
+
 ## Loading In UXP Developer Tool
 
 1. Open Adobe UXP Developer Tool.

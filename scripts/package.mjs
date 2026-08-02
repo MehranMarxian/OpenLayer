@@ -2,6 +2,7 @@ import { mkdir, readFile, readdir, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { writeZip } from "./lib/zipWriter.mjs";
+import { narrowManifestHostForCcx } from "./lib/ccxManifest.mjs";
 
 /**
  * Builds the plugin zip that is attached to a GitHub Release and loaded through
@@ -77,3 +78,35 @@ await writeZip(zipPath, entries);
 
 console.log(`Created ${zipPath}`);
 console.log(`  ${entries.length} files`);
+
+/**
+ * The `.ccx` is built from the same entries, because per Finding 1 of
+ * `docs/DISTRIBUTION_SPIKE.md` it is the same archive -- Adobe's own packager
+ * adds no signature and no metadata. It is written directly rather than by
+ * shelling out to `uxp plugin package`, because that CLI talks to the UXP
+ * Developer Tool Service on port 14001 and so would require UDT installed on
+ * whatever machine builds a release.
+ *
+ * Whether a double-click actually installs this on a machine that has never had
+ * UDT is still unanswered and cannot be answered here -- this machine has UDT,
+ * so a success proves nothing. It is built and published anyway: the archive
+ * costs nothing to produce, a release asset can be added at any time, and the
+ * question has stayed open across three releases precisely because nobody had
+ * an artifact to hand someone with a clean machine.
+ */
+const ccxPath = resolve(packagesDir, `openlayer-${releaseLabel}.ccx`);
+const manifestEntry = entries.find((entry) => entry.path === "manifest.json");
+const { json: ccxManifestJson, narrowed } = narrowManifestHostForCcx(
+  manifestEntry.data.toString("utf8")
+);
+const ccxEntries = entries.map((entry) =>
+  entry.path === "manifest.json"
+    ? { path: entry.path, data: Buffer.from(ccxManifestJson, "utf8") }
+    : entry
+);
+
+await rm(ccxPath, { force: true });
+await writeZip(ccxPath, ccxEntries);
+
+console.log(`Created ${ccxPath}`);
+console.log(`  ${ccxEntries.length} files${narrowed ? ", host narrowed to a single object" : ""}`);

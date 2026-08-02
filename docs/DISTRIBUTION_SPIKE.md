@@ -1,7 +1,21 @@
 # CCX Distribution Spike
 
-Status: **three candidate packages built; the install question is unanswered and only Mehran can answer it.**
+Status: **`.ccx` generation is now automated and shipped; the install question is still unanswered
+and still needs a clean machine.**
 Written 2026-07-24 against `main` at v0.6.0. Read `docs/ORCHESTRATION.md` first.
+
+> **Update 2026-08-01 — the gate at the bottom of this document was reversed, deliberately.**
+> This spike ended by saying `.ccx` generation was gated on the install answer, "because building it
+> before the gate would be building on a guess". That reasoning has been inverted for one reason:
+> the question stayed open across v0.10, v0.11 and v0.12 because **nobody ever had an artifact to
+> hand to someone with a clean machine.** Finding 1 says the archive is a plain zip with no signing
+> step, so producing it costs nothing and risks nothing, and a GitHub Release asset can be added to
+> a published release at any time.
+>
+> `npm run package` now emits `openlayer-vX.Y.Z-alpha.ccx` beside the plugin zip, built from the
+> same entries with the manifest transform in `scripts/lib/ccxManifest.mjs`. What remains gated is
+> any *claim* that it installs — the README and release notes ask people to try it and report back,
+> and promise nothing.
 
 > **Update 2026-07-31.** Finding 2 was re-verified against the current release and is **live, not a
 > v0.6.0 curiosity**: `openlayer-v0.9.0-alpha.zip`, the file testers download today, stores 44 of its
@@ -136,3 +150,15 @@ hand-rolled zip is equivalent, and `renamedzip` tests whether the separator bug 
 
 No changes to `scripts/package.mjs`, no `.ccx` npm script, no release-workflow changes. All of that
 is gated on the answer above, and building it before the gate would be building on a guess.
+
+**Superseded 2026-08-01 — see the update at the top.** The packaging half is done:
+`scripts/package.mjs` writes a `.ccx` from the same entries as the plugin zip, and
+`scripts/lib/ccxManifest.mjs` applies the one content difference Finding 1 measured against Adobe's
+own output (`host` narrowed from a single-element array to an object). It is written directly rather
+than through `uxp plugin package`, because that CLI talks to the UXP Developer Tool Service on port
+14001 and would make UDT a build dependency — Finding 1 says the direct write produces the same
+artifact.
+
+The install question itself is untouched by that and is still the only thing that matters here. The
+current artifact to test is `openlayer-v0.12.0-alpha.ccx` from the GitHub Release, and the
+click-path above applies to it unchanged.
