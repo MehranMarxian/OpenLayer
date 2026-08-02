@@ -52,6 +52,31 @@ describe("acquiring the models folder", () => {
     expect(result.kind).toBe("needs-grant");
   });
 
+  // A silent fallback once hid an unbound UXP method behind what looked like a
+  // permissions problem. The reason must survive into the message.
+  it("reports why the direct route failed instead of hiding it behind the fallback", async () => {
+    const result = await acquireModelsFolder("C:/comfy/models/loras", deps({
+      getEntryWithUrl: async () => {
+        throw new Error("this.__getInitialLocation is not a function");
+      }
+    }));
+
+    expect(result.note).toContain("__getInitialLocation");
+  });
+
+  it("distinguishes a path that did not resolve from one that is not writable", async () => {
+    const unresolved = await acquireModelsFolder("C:/comfy/models/loras", deps({
+      getEntryWithUrl: async () => null
+    }));
+    const unwritable = await acquireModelsFolder("C:/comfy/models/loras", deps({
+      getEntryWithUrl: async () => ({ name: "loras" }),
+      canWrite: async () => false
+    }));
+
+    expect(unresolved.note).toContain("did not resolve");
+    expect(unwritable.note).toContain("could not be written to");
+  });
+
   it("asks for a grant rather than opening a picker unprompted", async () => {
     const pickFolder = vi.fn();
 

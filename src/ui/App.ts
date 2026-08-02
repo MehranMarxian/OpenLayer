@@ -110,11 +110,8 @@ import {
 import {
   AssistedInstallItem,
   AssistedInstallPlan,
-  createInstallModelRequest,
-  evaluateQueuePrecondition,
   planAssistedInstall
 } from "../comfy/assistedInstall";
-import { isManagerSecurityLevelError, ManagerClient } from "../comfy/managerClient";
 import {
   createInstallConfirmationView,
   createInstallStatusLine,
@@ -140,6 +137,20 @@ import {
   importOutpaintResultExpandingCanvas,
   importUpscaleResultResizingDocument
 } from "../photoshop/photoshopAdapter";
+import {
+  downloadModelFile,
+  formatBytesForDownload,
+  formatDownloadProgress
+} from "../comfy/modelDownload";
+import {
+  acquireModelsFolder,
+  describeFolderMismatch,
+  FolderAccessDeps
+} from "../photoshop/modelFolderAccess";
+import {
+  createFolderDestination,
+  UxpFolderLike
+} from "../photoshop/modelFileDestination";
 import {
   formatSpikeReport,
   PROBE_MODELS_FOLDER,
@@ -359,6 +370,84 @@ type UpscaleResizeSource = Readonly<{
 type AppUpscaleImportContext = InpaintImportContext<UpscaleResizeSource, AppGeneratedImageResult>;
 type LiveGeneratedImageResult = DocumentContextBound<{ blob: Blob }>;
 
+// Where a granted models folder is remembered between sessions. A token that
+// stops working is treated as "ask again", never as an error -- Adobe documents
+// that folders moving or permissions changing can invalidate one.
+const MODELS_FOLDER_TOKEN_KEY = "openlayer.modelsFolderToken";
+
+function createFolderAccessDeps(): FolderAccessDeps {
+  const uxp = require("uxp") as {
+    storage: {
+      formats: { binary: unknown };
+      localFileSystem: Record<string, unknown>;
+    };
+  };
+  const lfs = uxp.storage.localFileSystem;
+
+  // Every one of these must stay bound to localFileSystem. Passing the bare
+  // function reference loses `this`, and UXP's implementations use it -- the
+  // picker fails with "this.__getInitialLocation is not a function", and
+  // getEntryWithUrl fails the same way but silently, because its caller treats
+  // a throw as "fall back to the picker".
+  const bound = <T>(method: unknown): T | undefined =>
+    typeof method === "function" ? ((method as (...args: never[]) => unknown).bind(lfs) as T) : undefined;
+
+  return {
+    getEntryWithUrl: bound<(url: string) => Promise<unknown>>(lfs.getEntryWithUrl),
+    pickFolder: bound<() => Promise<unknown | null>>(lfs.getFolder),
+    createPersistentToken: bound<(entry: unknown) => Promise<string>>(lfs.createPersistentToken),
+    getEntryForPersistentToken: bound<(token: string) => Promise<unknown>>(lfs.getEntryForPersistentToken),
+    readStoredToken: () => {
+      try {
+        return localStorage.getItem(MODELS_FOLDER_TOKEN_KEY);
+      } catch {
+        return null;
+      }
+    },
+    writeStoredToken: (token) => {
+      try {
+        if (token === null) localStorage.removeItem(MODELS_FOLDER_TOKEN_KEY);
+        else localStorage.setItem(MODELS_FOLDER_TOKEN_KEY, token);
+      } catch {
+        // Not remembering is survivable; it costs one extra picker next time.
+      }
+    },
+    // The spike's central finding: a folder that resolves is not necessarily a
+    // folder that can be written to, so every route proves itself first.
+    canWrite: async (folder) => {
+      const target = folder as UxpFolderLike | null;
+      if (!target || typeof target.createFile !== "function") return false;
+
+      try {
+        const probe = await target.createFile("openlayer-write-check.tmp", { overwrite: true });
+        await probe.write(new ArrayBuffer(1), { format: uxp.storage.formats.binary });
+        await probe.delete();
+        return true;
+      } catch {
+        return false;
+      }
+    }
+  };
+}
+
+// Reads a file's size without reading the file. Pulling an 18 GiB model into
+// memory to learn its length would defeat the entire chunked design, so this
+// goes through fs.lstat, which the feasibility spike confirmed is present.
+async function readNativeFileSize(nativePath: string): Promise<number | null> {
+  try {
+    const fs = (require as unknown as (name: string) => {
+      lstat?: (path: string) => Promise<{ size?: number }>;
+    })("fs");
+
+    if (typeof fs?.lstat !== "function") return null;
+
+    const stats = await fs.lstat(nativePath);
+    return typeof stats?.size === "number" ? stats.size : null;
+  } catch {
+    return null;
+  }
+}
+
 export function renderApp(rootElement: HTMLElement) {
   let currentView: AppView = "home";
   let isBusy = false;
@@ -416,7 +505,6 @@ export function renderApp(rootElement: HTMLElement) {
   // Null means "no ComfyUI-Manager", which is a normal install and not an error.
   // Install buttons appear only when this is set, so a row never offers an
   // action that would fail the moment it was pressed.
-  let setupManagerVersion: string | null = null;
   let setupInstallPlan: AssistedInstallPlan | null = null;
   // At most one row may be confirming, and at most one install may run. Both are
   // single-slot on purpose: the confirmation is per item by design, and the
@@ -424,6 +512,9 @@ export function renderApp(rootElement: HTMLElement) {
   // would be indistinguishable in its status counts.
   let setupConfirmingKey: string | null = null;
   let setupInstallingKey: string | null = null;
+  // Polled between chunks by the download engine. A partial file is resumable,
+  // so stopping is always safe.
+  let setupDownloadCancelled = false;
   const historyEntries: HistoryEntry[] = [];
   const objectUrls = createObjectUrlRegistry();
 
@@ -1207,16 +1298,6 @@ export function renderApp(rootElement: HTMLElement) {
         setupVramTotalBytes = null;
       }
 
-      // Also a bonus, and for the same reason as the device report: a ComfyUI
-      // without ComfyUI-Manager is a perfectly normal install. It costs the
-      // screen its Install buttons and nothing else, so it must not fail the
-      // check that produced the list those buttons sit on.
-      try {
-        setupManagerVersion = await new ManagerClient(elements.serverUrl.value).getManagerVersion();
-      } catch {
-        setupManagerVersion = null;
-      }
-
       setupReport = evaluateSetupRequirements({
         pluginVersion: APP_VERSION,
         inventory,
@@ -1240,10 +1321,6 @@ export function renderApp(rootElement: HTMLElement) {
       setupReport = createUncheckedSetupReport();
       hasCheckedSetup = false;
       setupCheckedAtLabel = null;
-      // An unchecked report offers nothing to install anyway, but clearing this
-      // means a Manager seen on an earlier check cannot leave Install buttons
-      // behind on a screen that no longer knows what is missing.
-      setupManagerVersion = null;
       renderSetupTab();
       // Reported on this screen's own bar and nowhere else. Writing the reason
       // to the panel-wide error line would put a red Setup message on Settings
@@ -1277,7 +1354,7 @@ export function renderApp(rootElement: HTMLElement) {
     });
     renderSetupSections(elements.setupSections, view.sections, handleSetupCopy, {
       getOffer: (requirementKey) =>
-        getInstallOffer(setupInstallPlan, setupManagerVersion, requirementKey),
+        getInstallOffer(setupInstallPlan, requirementKey),
       confirmingKey: setupConfirmingKey,
       installingKey: setupInstallingKey,
       busy: setupInstallingKey !== null,
@@ -1288,6 +1365,10 @@ export function renderApp(rootElement: HTMLElement) {
       onCancel: () => {
         setupConfirmingKey = null;
         renderSetupTab();
+      },
+      onStop: () => {
+        setupDownloadCancelled = true;
+        setSetupStatus(elements, "Stopping after the current chunk...", "idle");
       },
       onConfirm: (item) => {
         void handleInstallModel(item);
@@ -1325,9 +1406,9 @@ export function renderApp(rootElement: HTMLElement) {
       return;
     }
 
-    const manager = new ManagerClient(elements.serverUrl.value);
     setupConfirmingKey = null;
     setupInstallingKey = item.key;
+    setupDownloadCancelled = false;
     renderSetupTab();
 
     const report = (step: InstallStep) => {
@@ -1335,37 +1416,81 @@ export function renderApp(rootElement: HTMLElement) {
     };
 
     try {
-      report("checking-queue");
+      report("resolving-folder");
 
-      const verdict = evaluateQueuePrecondition(await manager.getQueueStatus());
+      const access = await acquireModelsFolder(item.targetPath, createFolderAccessDeps(), {
+        // The picker is opened only because the artist just pressed Download on
+        // this specific model, never speculatively.
+        allowPicker: true
+      });
 
-      if (!verdict.allowed) {
-        setSetupStatus(elements, verdict.message, "error");
+      if (access.kind !== "ready") {
+        setSetupStatus(elements, access.note, access.kind === "failed" ? "error" : "idle");
         return;
       }
 
-      report("queueing");
-      await manager.enqueueModelInstall(createInstallModelRequest(item));
-      await manager.startQueue();
+      const mismatch = describeFolderMismatch(
+        (access.folder as { nativePath?: string }).nativePath ?? null,
+        item.targetFolder
+      );
+
+      if (mismatch) {
+        // Warned, not refused: extra_model_paths.yaml can make an unexpected
+        // folder correct, and OpenLayer cannot see that file.
+        setSetupStatus(elements, mismatch, "idle");
+      }
 
       report("downloading");
-      await waitForManagerQueue(manager);
+
+      const outcome = await downloadModelFile(
+        {
+          url: item.downloadUrl,
+          expectedBytes: typeof item.sizeBytes === "number" ? item.sizeBytes : null
+        },
+        {
+          fetch: (...args) => fetch(...args),
+          destination: createFolderDestination({
+            folder: access.folder as UxpFolderLike,
+            fileName: item.modelName,
+            binaryFormat: (require("uxp") as { storage: { formats: { binary: unknown } } }).storage.formats.binary,
+            statSize: readNativeFileSize
+          }),
+          isCancelled: () => setupDownloadCancelled,
+          onProgress: (progress) => {
+            setSetupStatus(
+              elements,
+              `${item.modelName}: ${formatDownloadProgress(progress)}`,
+              "idle"
+            );
+          }
+        }
+      );
+
+      if (outcome.kind === "cancelled") {
+        setSetupStatus(
+          elements,
+          `Download stopped at ${formatBytesForDownload(outcome.receivedBytes)}. Pressing Download again resumes from there.`,
+          "idle"
+        );
+        return;
+      }
+
+      if (outcome.kind === "failed") {
+        setSetupStatus(elements, `Could not download ${item.modelName}. ${outcome.reason}`, "error");
+        return;
+      }
 
       report("verifying");
     } catch (caughtError) {
-      // A blocked security level is the most likely failure here and the least
-      // self-explanatory, so it keeps its own message rather than being folded
-      // into a generic HTTP failure the user can do nothing with.
       setSetupStatus(
         elements,
-        isManagerSecurityLevelError(caughtError)
-          ? caughtError.message
-          : `Could not install ${item.modelName}. ${getErrorMessage(caughtError)}`,
+        `Could not download ${item.modelName}. ${getErrorMessage(caughtError)}`,
         "error"
       );
       return;
     } finally {
       setupInstallingKey = null;
+      setupDownloadCancelled = false;
     }
 
     // The claim that it worked comes from re-reading ComfyUI's own inventory,
@@ -1389,32 +1514,6 @@ export function renderApp(rootElement: HTMLElement) {
    * The download itself is ComfyUI-Manager's and correctly survives this --
    * what stops is OpenLayer asking about it.
    */
-  async function waitForManagerQueue(manager: ManagerClient) {
-    const deadline = Date.now() + MANAGER_QUEUE_TIMEOUT_MS;
-
-    while (Date.now() < deadline) {
-      if (resourcesDisposed) {
-        return;
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, MANAGER_QUEUE_POLL_MS));
-
-      if (resourcesDisposed) {
-        return;
-      }
-
-      const status = await manager.getQueueStatus();
-
-      if (!status.is_processing && status.done_count >= status.total_count) {
-        return;
-      }
-    }
-
-    throw new Error(
-      "ComfyUI-Manager is still working after a long wait. The download may still be running -- check ComfyUI-Manager, then check again here."
-    );
-  }
-
   async function handleSetupCopy(action: SetupRowAction) {
     try {
       await navigator.clipboard.writeText(action.value);
@@ -5123,12 +5222,6 @@ function formatGigabytes(bytes: number): string {
   return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
 }
 
-// Model weights are gigabytes over a home connection, so the ceiling is hours
-// rather than minutes and the poll is slow on purpose: this only asks whether
-// ComfyUI-Manager is still busy, and asking twice a second would tell us
-// nothing a five-second interval does not.
-const MANAGER_QUEUE_POLL_MS = 5000;
-const MANAGER_QUEUE_TIMEOUT_MS = 6 * 60 * 60 * 1000;
 
 const SETUP_EXPECTATION_TONES: Record<VramExpectation, string> = {
   comfortable: "is-setup-ready",
@@ -5294,6 +5387,7 @@ type SetupInstallContext = {
   busy: boolean;
   onRequest: (requirementKey: string) => void;
   onCancel: () => void;
+  onStop: () => void;
   onConfirm: (item: AssistedInstallItem) => void;
 };
 
@@ -5440,9 +5534,15 @@ function createSetupRowElement(
       const installButton = document.createElement("button");
       installButton.type = "button";
       installButton.className = "button setup-row-action is-install";
-      installButton.textContent = isInstalling ? "Installing..." : "Install";
-      installButton.disabled = install.busy;
-      installButton.addEventListener("click", () => install.onRequest(row.key));
+      // A model download is gigabytes over a home connection, so the row that
+      // started one has to be able to stop it. The partial file is resumable,
+      // which is what makes stopping safe to offer rather than a trap.
+      installButton.textContent = isInstalling ? "Stop" : "Download";
+      installButton.disabled = install.busy && !isInstalling;
+      installButton.addEventListener("click", () => {
+        if (isInstalling) install.onStop();
+        else install.onRequest(row.key);
+      });
       actions.append(installButton);
     }
 

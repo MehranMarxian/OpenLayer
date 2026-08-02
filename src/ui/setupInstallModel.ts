@@ -19,41 +19,25 @@ export type InstallPhase =
   | { kind: "confirming"; requirementKey: string }
   | { kind: "working"; requirementKey: string; step: InstallStep };
 
-export type InstallStep = "checking-queue" | "queueing" | "downloading" | "verifying";
+export type InstallStep = "resolving-folder" | "downloading" | "verifying";
 
 const STEP_MESSAGES: Record<InstallStep, (modelName: string) => string> = {
-  "checking-queue": () => "Checking that ComfyUI-Manager is free...",
-  queueing: (modelName) => `Handing ${modelName} to ComfyUI-Manager...`,
-  downloading: (modelName) => `Downloading ${modelName}. This does not stop if you leave the screen.`,
+  "resolving-folder": () => "Finding ComfyUI's models folder...",
+  downloading: (modelName) => `Downloading ${modelName}...`,
   verifying: () => "Download finished. Re-checking what ComfyUI can see..."
 };
 
 /**
- * Assisted install is withheld from this release.
+ * Assisted install was withheld through v0.12 because it was built on
+ * ComfyUI-Manager's `install_model`, which only accepts models already in the
+ * Manager's own curated catalogue -- 7 of the 16 this registry pins, several at
+ * URLs that are not ours. The full reasoning is in the git history of this file.
  *
- * ComfyUI-Manager's `/manager/queue/install_model` is not the "download this
- * URL for me" endpoint this feature was built against. Before it does anything
- * it calls `check_whitelist_for_model`, which requires an exact match on
- * `save_path` + `base` + `filename` against the Manager's own curated
- * `model-list.json`. OpenLayer sends its own values -- the real ComfyUI folder
- * name and an artist-facing label -- so every request is rejected with HTTP 400
- * and nothing installs at all.
- *
- * Mapping the fields across is not a fix, which is why this is a flag and not a
- * patch. Only 7 of the 16 models the registry pins are in that catalogue, and
- * for several of the 7 the catalogue's URL is not ours: the Manager fetches
- * `ae.safetensors` from `black-forest-labs/FLUX.1-schnell`, where this project
- * deliberately uses the `Comfy-Org/z_image_turbo` mirror because the Black
- * Forest Labs repos answer 401 without a token. Delegating that download saves
- * an authentication page under the model's filename -- exactly the failure the
- * licence-gate refusal exists to prevent, reintroduced by the mechanism meant
- * to be the safe path.
- *
- * Everything below and in `assistedInstall.ts` is kept: the plan, the refusals
- * and their reasons are all correct and are what a working version is built on.
- * What is missing is a transport that honours the registry's pinned URLs.
+ * It downloads directly now, honouring the registry's pinned URLs, so the
+ * catalogue restriction is gone along with the flag. Everything that was kept
+ * during the withholding -- the plan, the refusals and their reasons -- is the
+ * part that was always correct, and is unchanged.
  */
-export const ASSISTED_INSTALL_ENABLED = false;
 
 /**
  * Whether a requirement row may show an Install button.
@@ -67,29 +51,23 @@ export const ASSISTED_INSTALL_ENABLED = false;
  */
 export function getInstallOffer(
   plan: AssistedInstallPlan | null,
-  managerVersion: string | null,
   requirementKey: string
 ): InstallOffer {
-  if (!ASSISTED_INSTALL_ENABLED) {
-    return { kind: "hidden" };
-  }
-
-  return findInstallOffer(plan, managerVersion, requirementKey);
+  return findInstallOffer(plan, requirementKey);
 }
 
 /**
- * The offer logic on its own, without the release flag.
+ * The offer logic on its own.
  *
- * Kept separate and exported so the plan-and-Manager rules stay under test
- * while `ASSISTED_INSTALL_ENABLED` is false. Turning the feature back on must
- * not mean rediscovering what these rules were.
+ * A row is never offered a Download button that would fail the moment it was
+ * pressed, so every licence-gate and wrong-folder refusal is decided here in
+ * `plan.installable` rather than discovered mid-download.
  */
 export function findInstallOffer(
   plan: AssistedInstallPlan | null,
-  managerVersion: string | null,
   requirementKey: string
 ): InstallOffer {
-  if (!plan || !managerVersion) {
+  if (!plan) {
     return { kind: "hidden" };
   }
 
@@ -115,8 +93,8 @@ export function createInstallConfirmationView(item: AssistedInstallItem): Instal
     ],
     note:
       item.layout === "repo-folder"
-        ? "ComfyUI-Manager downloads this in the background. This entry is a repository folder rather than a single file, so check the result before relying on it."
-        : "ComfyUI-Manager downloads this in the background. Nothing else is installed, and nothing is changed in Photoshop.",
+        ? "This entry is a repository folder rather than a single file, so OpenLayer cannot download it here. Use the model page."
+        : "OpenLayer downloads this itself and can resume if it is interrupted. Nothing else is installed, and nothing is changed in Photoshop.",
     confirmLabel: "Download",
     cancelLabel: "Cancel"
   };
@@ -141,11 +119,11 @@ export function createInstallStatusLine(step: InstallStep, modelName: string): s
 }
 
 /**
- * What the screen says once an install has finished and the setup check has
+ * What the screen says once a download has finished and the setup check has
  * re-run. The claim is deliberately made from the re-checked report rather than
- * from the installer reporting success: ComfyUI-Manager reports that it
- * finished its queue item, which is not the same as ComfyUI being able to see a
- * usable model in the folder its loader reads.
+ * from the download reporting success: bytes landing on disk is not the same
+ * fact as ComfyUI being able to see a usable model in the folder its loader
+ * reads, and only the second one is what the artist needs.
  */
 export function describeInstallResult(
   modelName: string,
@@ -153,7 +131,7 @@ export function describeInstallResult(
 ): { message: string; tone: "ready" | "error" } {
   return stillMissing
     ? {
-        message: `ComfyUI-Manager finished, but ComfyUI still cannot see ${modelName}. Refresh ComfyUI, then check again.`,
+        message: `The download finished, but ComfyUI still cannot see ${modelName}. Refresh ComfyUI, then check again.`,
         tone: "error"
       }
     : { message: `${modelName} is installed and ComfyUI can see it.`, tone: "ready" };
