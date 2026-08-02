@@ -94,8 +94,9 @@ describe("busy-state tables", () => {
       ...BUSY_GATED_ACTIONS.map(({ button }) => button)
     ];
 
-    // 35 = the original 29 plus Layer Tools' six export buttons.
-    expect(plainActions).toHaveLength(35);
+    // 36 = the original 29, plus Layer Tools' six export buttons, plus the
+    // model-download spike button. Deleting the spike takes this back to 35.
+    expect(plainActions).toHaveLength(36);
     expect(BUSY_GATED_ACTIONS).toHaveLength(11);
     expect(new Set(allActions).size).toBe(allActions.length);
   });
@@ -149,6 +150,8 @@ describe("busy-state tables", () => {
       "detectHardwareButton",
       "checkWorkflowHealthButton",
       "copyDiagnosticsButton",
+      // SPIKE: remove with the spike itself.
+      "spikeModelDownloadButton",
       "saveSettingsButton",
       "resetSettingsButton",
       "clearHistoryButton",

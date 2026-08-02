@@ -96,6 +96,8 @@ export const BUSY_ALWAYS_DISABLED_ACTIONS: readonly ActionElementKey[] = [
   "detectHardwareButton",
   "checkWorkflowHealthButton",
   "copyDiagnosticsButton",
+  // SPIKE: remove with the spike itself, taking the frozen count back to 35.
+  "spikeModelDownloadButton",
   "saveSettingsButton",
   "resetSettingsButton",
   "generateButton",
