@@ -36,7 +36,7 @@ describe("workflow diagnostics", () => {
   it("explains missing ComfyUI setup as setup-required", () => {
     const preset = getWorkflowPreset("sketch2img-linecn-basic");
     const availableNodes = createAvailableNodes(preset);
-    delete availableNodes.LineArtPreprocessor;
+    delete availableNodes.LineartStandardPreprocessor;
 
     const message = createWorkflowDiagnosticMessage(preset, {
       selectedModelName: "epicrealism_naturalSinRC1VAE.safetensors",
@@ -46,7 +46,7 @@ describe("workflow diagnostics", () => {
 
     expect(message.isWarning).toBe(true);
     expect(message.summary).toContain("needs setup");
-    expect(message.detail).toContain("LineArtPreprocessor");
+    expect(message.detail).toContain("LineartStandardPreprocessor");
   });
 
   it("explains missing required model files", () => {

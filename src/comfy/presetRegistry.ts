@@ -1231,7 +1231,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
       },
       {
         id: SKETCH2IMG_LINECN_BASIC_NODES.lineArtPreprocessor,
-        classType: "LineArtPreprocessor",
+        classType: "LineartStandardPreprocessor",
         requiredInputs: ["image"]
       },
       {

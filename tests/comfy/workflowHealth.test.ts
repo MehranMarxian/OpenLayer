@@ -117,7 +117,7 @@ describe("workflow health", () => {
   it("reports missing ComfyUI node classes", () => {
     const preset = getWorkflowPreset("sketch2img-linecn-basic");
     const availableNodes = createAvailableNodes(preset);
-    delete availableNodes.LineArtPreprocessor;
+    delete availableNodes.LineartStandardPreprocessor;
 
     const item = createWorkflowHealthItem(preset, {
       availableNodes,
@@ -127,7 +127,7 @@ describe("workflow health", () => {
     });
 
     expect(item.state).toBe("missing-node");
-    expect(item.summary).toContain("LineArtPreprocessor");
+    expect(item.summary).toContain("LineartStandardPreprocessor");
   });
 
   it("keeps enriched setup issues routed to missing-model and missing-node states", () => {

@@ -272,7 +272,7 @@
     },
     {
       "id": 12,
-      "type": "LineArtPreprocessor",
+      "type": "LineartStandardPreprocessor",
       "pos": [
         482.798828125,
         790
@@ -300,11 +300,11 @@
           ]
         }
       ],
-      "title": "LineArt Preprocessor",
+      "title": "Standard Lineart Preprocessor",
       "properties": {
         "cnr_id": "comfyui_controlnet_aux",
         "ver": "e8b689a513c3e6b63edc44066560ca5919c0576e",
-        "Node name for S&R": "LineArtPreprocessor",
+        "Node name for S&R": "LineartStandardPreprocessor",
         "ue_properties": {
           "widget_ue_connectable": {},
           "input_ue_unconnectable": {},
@@ -312,7 +312,8 @@
         }
       },
       "widgets_values": [
-        "disable",
+        6,
+        8,
         512
       ]
     },

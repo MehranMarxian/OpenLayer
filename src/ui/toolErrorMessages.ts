@@ -74,7 +74,9 @@ export function getSketchFailureHint(error: unknown) {
   }
 
   if (
-    details.includes("lineartpreprocessor") ||
+    // Matches both the old LineArtPreprocessor and the LineartStandardPreprocessor
+    // now shipped — "lineartpreprocessor" is not a substring of the latter.
+    details.includes("lineart") ||
     details.includes("controlnet") ||
     details.includes("aio aux preprocessor") ||
     details.includes("missing node")
@@ -110,7 +112,9 @@ export function getFriendlySketchErrorMessage(error: unknown) {
   }
 
   if (
-    details.includes("lineartpreprocessor") ||
+    // Matches both the old LineArtPreprocessor and the LineartStandardPreprocessor
+    // now shipped — "lineartpreprocessor" is not a substring of the latter.
+    details.includes("lineart") ||
     details.includes("controlnet") ||
     details.includes("aio aux preprocessor") ||
     details.includes("missing node")

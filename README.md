@@ -557,7 +557,7 @@ Sketch to Image uses the same Photoshop capture and ComfyUI upload path, then ru
 
 - `epicrealism_naturalSinRC1VAE.safetensors`
 - `control_v11p_sd15_lineart_fp16.safetensors`
-- `LineArtPreprocessor`
+- `LineartStandardPreprocessor`
 - `ControlNetLoader`
 - `ControlNetApplyAdvanced`
 
