@@ -3,7 +3,6 @@ import { planAssistedInstall } from "../../src/comfy/assistedInstall";
 import { listRunnableWorkflowPresets } from "../../src/comfy/presetRegistry";
 import { evaluateSetupRequirements } from "../../src/comfy/setupRequirements";
 import {
-  ASSISTED_INSTALL_ENABLED,
   createInstallConfirmationView,
   createInstallStatusLine,
   describeDownloadSource,
@@ -15,32 +14,26 @@ import type { ComfyModelInventory, WorkflowPresetDefinition } from "../../src/co
 
 const PLUGIN_VERSION = "9.9.9";
 const FIXED_TIMESTAMP = "2026-08-01T00:00:00.000Z";
-const MANAGER_VERSION = "V3.41";
 
 describe("setup install view model", () => {
-  // ComfyUI-Manager's install_model endpoint rejects every request OpenLayer
-  // can currently build, so no row may offer a button. This asserts the release
-  // flag through the function the panel actually calls, rather than trusting the
-  // constant on its own: a row appearing here is a row that errors in the host.
-  it("offers no install at all while assisted install is withheld", () => {
+  // OpenLayer downloads directly now, so a row no longer depends on
+  // ComfyUI-Manager being installed at all. What must stay true is that only
+  // rows the plan considers installable ever grow a button.
+  it("offers an install for a row the plan considers installable", () => {
     const plan = planAssistedInstall(missingReport());
     const item = plan.installable[0];
 
-    expect(ASSISTED_INSTALL_ENABLED).toBe(false);
     expect(item).toBeDefined();
-    expect(getInstallOffer(plan, MANAGER_VERSION, item.key).kind).toBe("hidden");
+    expect(getInstallOffer(plan, item.key)).toEqual({ kind: "offered", item });
   });
 
-  it("keeps the plan-and-Manager rules under test while the feature is off", () => {
+  it("hides every offer when there is no plan to consult", () => {
     const plan = planAssistedInstall(missingReport());
     const item = plan.installable[0];
 
-    expect(item).toBeDefined();
-    expect(findInstallOffer(plan, MANAGER_VERSION, item.key)).toEqual({ kind: "offered", item });
-    // The same row, with ComfyUI-Manager absent, must not grow a button that
-    // would fail the moment it was pressed.
-    expect(findInstallOffer(plan, null, item.key).kind).toBe("hidden");
-    expect(findInstallOffer(null, MANAGER_VERSION, item.key).kind).toBe("hidden");
+    expect(findInstallOffer(plan, item.key)).toEqual({ kind: "offered", item });
+    expect(findInstallOffer(null, item.key).kind).toBe("hidden");
+    expect(findInstallOffer(plan, "no-such-requirement").kind).toBe("hidden");
   });
 
   it("never offers an install for a requirement the plan excluded", () => {
@@ -49,8 +42,8 @@ describe("setup install view model", () => {
     const gated = report.models.find((model) => model.licenseGated);
 
     expect(gated).toBeDefined();
-    expect(findInstallOffer(plan, MANAGER_VERSION, gated!.key).kind).toBe("hidden");
-    expect(getInstallOffer(plan, MANAGER_VERSION, gated!.key).kind).toBe("hidden");
+    expect(findInstallOffer(plan, gated!.key).kind).toBe("hidden");
+    expect(getInstallOffer(plan, gated!.key).kind).toBe("hidden");
   });
 
   it("puts the file, the size, the destination and the host in the confirmation", () => {
@@ -77,7 +70,7 @@ describe("setup install view model", () => {
 
   it("names the model in the download step, because that is the slow one", () => {
     expect(createInstallStatusLine("downloading", "ae.safetensors")).toContain("ae.safetensors");
-    expect(createInstallStatusLine("checking-queue", "ae.safetensors")).toContain("ComfyUI-Manager");
+    expect(createInstallStatusLine("resolving-folder", "ae.safetensors")).toContain("models folder");
   });
 
   it("reports the result from the re-check, not from the installer finishing", () => {
