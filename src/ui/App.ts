@@ -141,6 +141,12 @@ import {
   importUpscaleResultResizingDocument
 } from "../photoshop/photoshopAdapter";
 import {
+  formatSpikeReport,
+  PROBE_MODELS_FOLDER,
+  runModelDownloadSpike,
+  summarizeSpike
+} from "./spikeModelDownload";
+import {
   createUpscaleResizePlan,
   formatUpscaleScale,
   validateUpscaleResultDimensions
@@ -779,6 +785,7 @@ export function renderApp(rootElement: HTMLElement) {
     checkWorkflowHealth: createActionRunner(elements, "checkWorkflowHealth", handleCheckWorkflowHealth),
     checkSetup: createActionRunner(elements, "checkSetup", handleCheckSetup),
     copyDiagnostics: createActionRunner(elements, "copyDiagnostics", handleCopyDiagnostics),
+    spikeModelDownload: createActionRunner(elements, "spikeModelDownload", handleSpikeModelDownload),
     exportLayerToFile: createActionRunner(elements, "exportLayerToFile", () => handleLayerExport("layer", "file")),
     exportLayerToComfyUI: createActionRunner(elements, "exportLayerToComfyUI", () => handleLayerExport("layer", "comfyui")),
     exportSelectionToFile: createActionRunner(elements, "exportSelectionToFile", () => handleLayerExport("selection", "file")),
@@ -854,6 +861,7 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.checkWorkflowHealthButton, actionHandlers.checkWorkflowHealth);
   bindActionControl(elements.setupCheck, actionHandlers.checkSetup);
   bindActionControl(elements.copyDiagnosticsButton, actionHandlers.copyDiagnostics);
+  bindActionControl(elements.spikeModelDownloadButton, actionHandlers.spikeModelDownload);
   bindActionControl(elements.exportLayerFileButton, actionHandlers.exportLayerToFile);
   bindActionControl(elements.exportLayerComfyButton, actionHandlers.exportLayerToComfyUI);
   bindActionControl(elements.exportSelectionFileButton, actionHandlers.exportSelectionToFile);
@@ -1414,6 +1422,29 @@ export function renderApp(rootElement: HTMLElement) {
     } catch (caughtError) {
       setSetupStatus(elements, `Could not copy to the clipboard. ${getErrorMessage(caughtError)}`, "error");
     }
+  }
+
+  // SPIKE: delete with src/ui/spikeModelDownload.ts and its button.
+  async function handleSpikeModelDownload() {
+    elements.settingsDiagnosticsText.textContent = "Running model download spike...";
+
+    const results = await runModelDownloadSpike({
+      loadUxp: () => require("uxp") as never,
+      loadFs: () => {
+        try {
+          return (require as unknown as (name: string) => unknown)("fs");
+        } catch {
+          return undefined;
+        }
+      },
+      fetch: (...args) => fetch(...args),
+      modelsFolderPath: PROBE_MODELS_FOLDER
+    });
+
+    const report = `${summarizeSpike(results)}\n\n${formatSpikeReport(results)}`;
+    elements.settingsDiagnosticsReport.value = report;
+    elements.settingsDiagnosticsReport.hidden = false;
+    elements.settingsDiagnosticsText.textContent = summarizeSpike(results);
   }
 
   async function handleCopyDiagnostics() {

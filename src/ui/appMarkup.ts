@@ -83,6 +83,7 @@ export type AppElements = {
   detectHardwareButton: HTMLElement;
   checkWorkflowHealthButton: HTMLElement;
   copyDiagnosticsButton: HTMLElement;
+  spikeModelDownloadButton: HTMLElement;
   saveSettingsButton: HTMLElement;
   resetSettingsButton: HTMLElement;
   generateButton: HTMLElement;
@@ -449,6 +450,8 @@ export function createAppMarkup() {
             <button class="button action-control" id="detect-gpu" data-openlayer-action="detectHardware" type="button">Detect GPU &amp; Recommend Models</button>
             <button class="button action-control" id="check-workflow-health" data-openlayer-action="checkWorkflowHealth" type="button">Check Workflow Health</button>
             <button class="button action-control" id="copy-diagnostics" data-openlayer-action="copyDiagnostics" type="button">Copy Diagnostics</button>
+            <!-- SPIKE, delete with src/ui/spikeModelDownload.ts once model acquisition is decided. -->
+            <button class="button action-control" id="spike-model-download" data-openlayer-action="spikeModelDownload" type="button">Spike: Model Download</button>
             <button class="button action-control" id="save-settings" data-openlayer-action="saveSettings" type="button">Save Settings</button>
             <button class="button action-control" id="reset-settings" data-openlayer-action="resetSettings" type="button">Reset Defaults</button>
           </div>
@@ -1443,6 +1446,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     detectHardwareButton: getElement<HTMLElement>(rootElement, "detect-gpu"),
     checkWorkflowHealthButton: getElement<HTMLElement>(rootElement, "check-workflow-health"),
     copyDiagnosticsButton: getElement<HTMLElement>(rootElement, "copy-diagnostics"),
+    spikeModelDownloadButton: getElement<HTMLElement>(rootElement, "spike-model-download"),
     saveSettingsButton: getElement<HTMLElement>(rootElement, "save-settings"),
     resetSettingsButton: getElement<HTMLElement>(rootElement, "reset-settings"),
     generateButton: getElement<HTMLElement>(rootElement, "generate"),
