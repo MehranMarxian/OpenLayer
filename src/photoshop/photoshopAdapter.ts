@@ -3,6 +3,7 @@ import { createOpenLayerError, getErrorMessage } from "../utils/errors";
 import { encodeRgbaPng } from "../utils/png";
 import { calculatePlacementOffset, createOpaqueGrayscaleMaskPng, PixelDimensions } from "./exactInpaintMask";
 import { OutpaintExpansionPlan } from "./outpaintExpansion";
+import { UpscaleResizePlan } from "./upscaleResize";
 import {
   createPaddedSelectionBounds,
   normalizeSelectionBounds,
@@ -1067,6 +1068,169 @@ export async function importOutpaintResultExpandingCanvas(
   } finally {
     await deleteTemporaryFileBestEffort(file);
   }
+}
+
+export type UpscaleDocumentImportOptions = {
+  blob: Blob;
+  originatingDocument: PhotoshopDocumentIdentity | null;
+  plan: UpscaleResizePlan;
+  layerName?: string;
+  onProgress?: ImportProgress;
+};
+
+// Resamples the artist's whole document up to the upscaled size and places the
+// result covering it exactly, so every existing layer stays in register with
+// the upscale instead of sitting in one corner of an oversized canvas. This
+// resamples the artist's other layers, which is lossy for them -- that is the
+// deliberate trade for keeping the document coherent, and it is why the caller
+// only reaches this path for a canvas capture whose result is a clean uniform
+// scale. Wrapped in a suspended history state: any failure removes the placed
+// layer and reverts the document, including the resize, in one step.
+export async function importUpscaleResultResizingDocument(
+  options: UpscaleDocumentImportOptions
+): Promise<string> {
+  const photoshop = getPhotoshop();
+  const layerName = options.layerName ?? createLayerName("OpenLayer_Upscale");
+  let file: UxpFile | undefined;
+
+  try {
+    assertActiveDocumentMatchesOrigin(photoshop, options.originatingDocument);
+    assertCanvasMatchesUpscalePlan(getActiveDocument(), options.plan);
+
+    if (!options.blob || options.blob.size === 0) {
+      throw new Error("The generated upscale image blob is empty.");
+    }
+
+    options.onProgress?.("Saving upscale result to a temporary PNG...");
+    file = await saveBlobToTemporaryFile(options.blob, `${layerName}.png`);
+    const uxp = getUxp();
+    options.onProgress?.("Creating Photoshop file token...");
+    const token = await uxp.storage.localFileSystem.createSessionToken(file);
+
+    options.onProgress?.("Resizing the document and placing the upscale result...");
+    await photoshop.core.executeAsModal(
+      async (executionContext) => {
+        assertActiveDocumentMatchesOrigin(photoshop, options.originatingDocument);
+        const transactionDocument = getActiveDocument();
+        assertCanvasMatchesUpscalePlan(transactionDocument, options.plan);
+
+        const hostControl = executionContext?.hostControl;
+        const canSuspendHistory = typeof transactionDocument.id === "number" &&
+          typeof hostControl?.suspendHistory === "function" &&
+          typeof hostControl?.resumeHistory === "function";
+        const suspensionId = canSuspendHistory
+          ? await hostControl!.suspendHistory!({
+            documentID: transactionDocument.id!,
+            name: "OpenLayer Upscale Document Resize"
+          })
+          : null;
+        let resultLayerId: number | undefined;
+        let operationError: unknown;
+
+        try {
+          const { resizedWidth, resizedHeight } = options.plan;
+
+          await resampleImageSize(photoshop, resizedWidth, resizedHeight);
+
+          await placeFileAsLayer(photoshop, token);
+          resultLayerId = getActiveDocument().activeLayers?.[0]?.id;
+          if (resultLayerId === undefined) throw new Error("Photoshop did not expose the imported upscale layer ID.");
+          await renameActiveLayer(photoshop, layerName);
+          await alignActiveLayerToBounds(photoshop, normalizeSelectionBounds(options.plan.resultBounds));
+
+          // The placed layer must cover the resized document exactly. This is
+          // also what catches Photoshop scaling an oversized placed image down
+          // to fit: the bounds would come back at the old canvas size.
+          const placedBounds = await readActiveLayerBounds(photoshop);
+          if (
+            placedBounds.left !== 0 ||
+            placedBounds.top !== 0 ||
+            placedBounds.width !== resizedWidth ||
+            placedBounds.height !== resizedHeight
+          ) {
+            throw new Error(
+              `The placed upscale layer covers ${placedBounds.width} x ${placedBounds.height} at ${placedBounds.left}, ${placedBounds.top}, not the resized ${resizedWidth} x ${resizedHeight} document.`
+            );
+          }
+
+          assertActiveDocumentMatchesOrigin(photoshop, options.originatingDocument);
+        } catch (caughtError) {
+          operationError = caughtError;
+        }
+
+        if (operationError) {
+          if (resultLayerId !== undefined) {
+            await deleteLayerById(photoshop, resultLayerId, true);
+          }
+        }
+
+        if (suspensionId !== null) {
+          await hostControl!.resumeHistory!(suspensionId, !operationError);
+        }
+
+        if (operationError) {
+          const revertNote = suspensionId !== null
+            ? " The document was reverted to its state before the import."
+            : " Undo (Ctrl+Z) restores the document if it was already resized.";
+          throw new Error(`${getErrorMessage(operationError)}${revertNote}`);
+        }
+      },
+      { commandName: "Import OpenLayer Upscale With Document Resize" }
+    );
+
+    options.onProgress?.(`Imported ${layerName} on a resized document.`);
+    return layerName;
+  } catch (caughtError) {
+    throw createOpenLayerError(
+      "PHOTOSHOP_IMPORT_FAILED",
+      `Could not import the upscale result with document resizing. ${getErrorMessage(caughtError)}`
+    );
+  } finally {
+    await deleteTemporaryFileBestEffort(file);
+  }
+}
+
+// Same guard as the outpaint path: the document must still be the size that was
+// captured, or resampling it would scale the artist's work by the wrong factor.
+function assertCanvasMatchesUpscalePlan(document: PhotoshopDocument, plan: UpscaleResizePlan) {
+  const width = Math.round(Number(document.width ?? 0));
+  const height = Math.round(Number(document.height ?? 0));
+
+  if (width !== plan.sourceDimensions.width || height !== plan.sourceDimensions.height) {
+    throw new Error(
+      `The document is now ${width} x ${height}, but this upscale was generated from a ${plan.sourceDimensions.width} x ${plan.sourceDimensions.height} canvas. Capture and generate again before importing with document resizing.`
+    );
+  }
+}
+
+// Photoshop's imageSize descriptor carries its interpolation method under the
+// legacy key "interfaceIconFrameDimmed". Hosts that reject it still accept the
+// plain resample, so the explicit-interpolation form is tried first and the
+// bare form is the fallback -- same tolerance pattern as placeFileAsLayer.
+async function resampleImageSize(photoshop: PhotoshopModule, width: number, height: number) {
+  const base = {
+    _obj: "imageSize",
+    width: { _unit: "pixelsUnit", _value: width },
+    height: { _unit: "pixelsUnit", _value: height },
+    constrainProportions: false,
+    _options: { dialogOptions: "dontDisplay" }
+  };
+  const commands: BatchPlayCommand[] = [
+    { ...base, interfaceIconFrameDimmed: { _enum: "interpolationType", _value: "bicubicSmoother" } },
+    base
+  ];
+  const failures: string[] = [];
+
+  for (const command of commands) {
+    try {
+      await photoshop.action.batchPlay([command], {});
+      return;
+    } catch (caughtError) {
+      failures.push(getErrorMessage(caughtError));
+    }
+  }
+
+  throw new Error(`Photoshop rejected the image size command. ${failures.filter(Boolean).join(" | ")}`);
 }
 
 // The canvas must still be exactly the size that was captured and padded; if

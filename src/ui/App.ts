@@ -137,8 +137,14 @@ import {
   getActiveDocumentInfo,
   importGeneratedImageAsLayer,
   importImageAlignedToSelectionWithLayerMask,
-  importOutpaintResultExpandingCanvas
+  importOutpaintResultExpandingCanvas,
+  importUpscaleResultResizingDocument
 } from "../photoshop/photoshopAdapter";
+import {
+  createUpscaleResizePlan,
+  formatUpscaleScale,
+  validateUpscaleResultDimensions
+} from "../photoshop/upscaleResize";
 import {
   bindDocumentContext,
   DocumentContextBound,
@@ -301,6 +307,7 @@ type HistoryEntry = {
   originatingDocument: PhotoshopDocumentIdentity | null;
   inpaintImportContext?: AppInpaintImportContext;
   outpaintImportContext?: AppOutpaintImportContext;
+  upscaleImportContext?: AppUpscaleImportContext;
   previewUrl: string;
   prompt: string;
   checkpointName: string;
@@ -337,6 +344,13 @@ type OutpaintExpansionSource = Readonly<{
   captureKind: OutpaintCaptureKind;
 }>;
 type AppOutpaintImportContext = InpaintImportContext<OutpaintExpansionSource, AppGeneratedImageResult>;
+// Upscale needs the same result-bound capture facts as outpaint: which document
+// size the result was made from, and whether it came from the canvas at all.
+type UpscaleResizeSource = Readonly<{
+  sourceDimensions: Readonly<{ width: number; height: number }>;
+  captureKind: OutpaintCaptureKind;
+}>;
+type AppUpscaleImportContext = InpaintImportContext<UpscaleResizeSource, AppGeneratedImageResult>;
 type LiveGeneratedImageResult = DocumentContextBound<{ blob: Blob }>;
 
 export function renderApp(rootElement: HTMLElement) {
@@ -357,6 +371,10 @@ export function renderApp(rootElement: HTMLElement) {
   let outpaintResult: AppGeneratedImageResult | null = null;
   let upscaleSource: ImageSourceState | null = null;
   let upscaleResult: AppGeneratedImageResult | null = null;
+  // Only a canvas capture has a fixed relationship to the document, so only a
+  // canvas capture may resize it. Layer captures keep the floating import.
+  let upscaleCaptureKind: OutpaintCaptureKind | null = null;
+  let activeUpscaleImportContext: AppUpscaleImportContext | null = null;
   let promptLayerSource: ImageSourceState | null = null;
   let importAutomatically = false;
   let imageImportAutomatically = false;
@@ -1814,6 +1832,7 @@ export function renderApp(rootElement: HTMLElement) {
         setView("outpaint");
         return;
       case "upscale":
+        activeUpscaleImportContext = entry.upscaleImportContext ?? null;
         setUpscaleResult(entry.result);
         setView("upscale");
         return;
@@ -1839,7 +1858,7 @@ export function renderApp(rootElement: HTMLElement) {
         await handleImportOutpaint(entry.outpaintImportContext);
         return;
       case "upscale":
-        await handleImportUpscale();
+        await handleImportUpscale(entry.upscaleImportContext);
         return;
       case "text-to-image":
       default:
@@ -2221,7 +2240,8 @@ export function renderApp(rootElement: HTMLElement) {
       progressMessage: "Capturing active Photoshop layer for Upscale...",
       statusMessage: "Capturing active layer...",
       successMessage: "Upscale source captured.",
-      capture: exportActiveLayerForImageToImage
+      capture: exportActiveLayerForImageToImage,
+      captureKind: "layer"
     });
   }
 
@@ -2230,7 +2250,8 @@ export function renderApp(rootElement: HTMLElement) {
       progressMessage: "Capturing Photoshop canvas for Upscale...",
       statusMessage: "Capturing canvas...",
       successMessage: "Upscale canvas captured.",
-      capture: exportCanvasForImageToImage
+      capture: exportCanvasForImageToImage,
+      captureKind: "canvas"
     });
   }
 
@@ -2239,6 +2260,7 @@ export function renderApp(rootElement: HTMLElement) {
     statusMessage: string;
     successMessage: string;
     capture: () => Promise<ExportedSourceImage>;
+    captureKind: OutpaintCaptureKind;
   }) {
     setUpscaleDiagnostics(elements, options.progressMessage);
     setUpscaleError(elements, "");
@@ -2254,6 +2276,7 @@ export function renderApp(rootElement: HTMLElement) {
         ...exportedSource,
         previewUrl: sourcePreview
       });
+      upscaleCaptureKind = options.captureKind;
       setUpscaleStatus(elements, options.successMessage, "ready");
       setUpscaleDiagnostics(
         elements,
@@ -2334,6 +2357,7 @@ export function renderApp(rootElement: HTMLElement) {
       // The commit closure runs after awaits; a const keeps the null-checked
       // source from the top of the handler rather than re-reading mutable state.
       const capturedSource = upscaleSource;
+      const capturedUpscaleCaptureKind = upscaleCaptureKind ?? "layer";
       const generatedResult = await generation.runPipeline({
         toolType: "upscale",
         client,
@@ -2351,7 +2375,15 @@ export function renderApp(rootElement: HTMLElement) {
           livePreview: "Live ComfyUI preview..."
         },
         commit: (generatedResult) => {
+        const generatedUpscaleContext = createInpaintImportContext<UpscaleResizeSource, AppGeneratedImageResult>(
+          {
+            sourceDimensions: { width: capturedSource.width, height: capturedSource.height },
+            captureKind: capturedUpscaleCaptureKind
+          },
+          generatedResult
+        );
         setUpscaleResult(generatedResult);
+        activeUpscaleImportContext = generatedUpscaleContext;
         addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
           prompt: `Upscale ${capturedSource.sourceName}`,
           checkpointName: modelName,
@@ -2362,6 +2394,7 @@ export function renderApp(rootElement: HTMLElement) {
           sizeLabel: "Upscale",
           dimensions: `${capturedSource.width} x ${capturedSource.height} source`,
           sourceMode: capturedSource.sourceName,
+          upscaleImportContext: generatedUpscaleContext,
           experimental: buildResult.preset.status === "experimental"
         });
         }
@@ -2398,14 +2431,21 @@ export function renderApp(rootElement: HTMLElement) {
     }
   }
 
-  async function handleImportUpscale() {
-    await importUpscaleResult("manual", true);
+  async function handleImportUpscale(savedHistoryContext?: AppUpscaleImportContext) {
+    await importUpscaleResult("manual", true, savedHistoryContext);
   }
 
-  async function importUpscaleResult(source: "manual" | "auto", manageBusy: boolean) {
+  async function importUpscaleResult(
+    source: "manual" | "auto",
+    manageBusy: boolean,
+    savedHistoryContext?: AppUpscaleImportContext
+  ) {
     setUpscaleDiagnostics(elements, source === "auto" ? "Upscale auto import started." : "Upscale import pressed.");
 
-    if (!upscaleResult) {
+    const importContext = resolveInpaintImportContext(savedHistoryContext, activeUpscaleImportContext);
+    const importResultImage = importContext?.result ?? upscaleResult;
+
+    if (!importResultImage) {
       setUpscaleError(elements, "Generate an Upscale result before importing.");
       return;
     }
@@ -2421,10 +2461,56 @@ export function renderApp(rootElement: HTMLElement) {
     try {
       const layerName = createLayerName("OpenLayer_Upscale");
 
-      setUpscaleDiagnostics(elements, `Importing into ${upscaleResult.originatingDocument?.name || "the originating document"}...`);
+      setUpscaleDiagnostics(elements, `Importing into ${importResultImage.originatingDocument?.name || "the originating document"}...`);
+
+      // Resizing the document resamples every layer the artist has, so it is
+      // reserved for a canvas capture whose result is a clean uniform scale of
+      // exactly what was captured. Everything else keeps the floating import,
+      // which leaves their document untouched.
+      let resizeBlockedReason = "";
+
+      if (importContext && importContext.source.captureKind === "canvas") {
+        const sourceDimensions = importContext.source.sourceDimensions;
+        const resultDimensions = await readImageDimensionsFromBlob(importResultImage.blob);
+        resizeBlockedReason = validateUpscaleResultDimensions(resultDimensions, sourceDimensions) ?? "";
+
+        if (!resizeBlockedReason && resultDimensions) {
+          const plan = createUpscaleResizePlan(sourceDimensions, {
+            width: Math.round(resultDimensions.width),
+            height: Math.round(resultDimensions.height)
+          });
+          setUpscaleStatus(elements, "Resizing the document for the upscale result...", "idle");
+          const importedLayerName = await importUpscaleResultResizingDocument({
+            blob: importResultImage.blob,
+            originatingDocument: importResultImage.originatingDocument,
+            plan,
+            layerName,
+            onProgress: (message) => {
+              setUpscaleStatus(elements, message, "idle");
+              setUpscaleDiagnostics(elements, message);
+            }
+          });
+          setUpscaleStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
+          flashImported(elements.upscaleStatusText);
+          markHistoryImported(elements, historyEntries, importResultImage, importedLayerName);
+          const resizeMetadataMessage = await writeMetadataForImportedResult(historyEntries, importResultImage, importedLayerName, (message) => {
+            setUpscaleDiagnostics(elements, message);
+          });
+          setUpscaleDiagnostics(
+            elements,
+            `Layer created: ${importedLayerName}. Document resized to ${plan.resizedWidth} x ${plan.resizedHeight} (${formatUpscaleScale(plan.scale)}); your existing layers were resampled to match. ${resizeMetadataMessage}`
+          );
+          return;
+        }
+      } else if (importContext) {
+        resizeBlockedReason = "This result was upscaled from a layer capture, which carries no canvas relationship; importing it as a floating layer instead.";
+      } else {
+        resizeBlockedReason = "This result predates document-resizing support; importing it as a floating layer.";
+      }
+
       const importedLayerName = await importGeneratedImageAsLayer({
-        blob: upscaleResult.blob,
-        originatingDocument: upscaleResult.originatingDocument,
+        blob: importResultImage.blob,
+        originatingDocument: importResultImage.originatingDocument,
         layerName,
         onProgress: (message) => {
           setUpscaleStatus(elements, message, "idle");
@@ -2433,11 +2519,14 @@ export function renderApp(rootElement: HTMLElement) {
       });
       setUpscaleStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
       flashImported(elements.upscaleStatusText);
-      markHistoryImported(elements, historyEntries, upscaleResult, importedLayerName);
-      const metadataMessage = await writeMetadataForImportedResult(historyEntries, upscaleResult, importedLayerName, (message) => {
+      markHistoryImported(elements, historyEntries, importResultImage, importedLayerName);
+      const metadataMessage = await writeMetadataForImportedResult(historyEntries, importResultImage, importedLayerName, (message) => {
         setUpscaleDiagnostics(elements, message);
       });
-      setUpscaleDiagnostics(elements, `Layer created: ${importedLayerName}. ${metadataMessage}`);
+      setUpscaleDiagnostics(
+        elements,
+        `Layer created: ${importedLayerName}. ${resizeBlockedReason} ${metadataMessage}`.replace(/\s+/g, " ").trim()
+      );
     } catch (caughtError) {
       setUpscaleStatus(elements, "Import failed.", "error");
       setUpscaleError(elements, getErrorMessage(caughtError));
@@ -5599,6 +5688,7 @@ function addHistoryEntry(
     contextBounds?: OpenLayerLayerBounds;
     inpaintImportContext?: AppInpaintImportContext;
     outpaintImportContext?: AppOutpaintImportContext;
+    upscaleImportContext?: AppUpscaleImportContext;
     experimental?: boolean;
     diagnosticsSummary?: string;
   }
@@ -5627,6 +5717,7 @@ function addHistoryEntry(
     originatingDocument: result.originatingDocument,
     inpaintImportContext: details.inpaintImportContext,
     outpaintImportContext: details.outpaintImportContext,
+    upscaleImportContext: details.upscaleImportContext,
     previewUrl: objectUrls.create(result.blob),
     prompt: details.prompt.trim() || "Untitled prompt",
     checkpointName: details.checkpointName,
