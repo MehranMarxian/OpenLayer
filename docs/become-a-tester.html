@@ -70,11 +70,10 @@
           <p class="eyebrow">Before you start</p>
           <h2 id="intro-title">What you need on the machine.</h2>
           <p class="intro-lede">
-            Photoshop 2024 or newer (the plugin manifest requires host version 25.0.0), a running
+            Photoshop 2024 or newer (the plugin manifest requires host version 25.0.0) and a running
             <a href="https://github.com/comfyanonymous/ComfyUI">ComfyUI</a> with at least one SD 1.x or SDXL
-            checkpoint installed, and the
-            <a href="https://developer.adobe.com/photoshop/uxp/2022/guides/devtool/">UXP Developer Tool</a>
-            to load the panel. If you do not have a checkpoint yet, the setup pack attached to the release
+            checkpoint installed. <strong>No developer tools</strong> — installing is a double-click now.
+            If you do not have a checkpoint yet, the setup pack attached to the release
             lists every model OpenLayer's presets need, with download URLs and the exact folder each one
             belongs in.
           </p>
@@ -91,8 +90,8 @@
             <article class="setup-step">
               <span>1</span>
               <h3>Install OpenLayer</h3>
-              <p>Download <code>openlayer-v0.12.0-alpha.zip</code> from the release and unzip it. In the UXP Developer Tool, click <strong>Add Plugin</strong>, select the unzipped <code>manifest.json</code>, then <strong>Load</strong>. The panel appears under <strong>Plugins &gt; OpenLayer</strong> in Photoshop.</p>
-              <p><strong>Optional, and the single most useful thing you can tell me:</strong> the release also has <code>openlayer-v0.12.0-alpha.ccx</code>. In theory you double-click it and Creative Cloud installs the panel with no developer tool at all. <strong>Nobody has ever confirmed that works.</strong> If you have five spare minutes, try it first and report what happened — installed cleanly, silently did nothing, or an error worth quoting. Either answer is a result. If it does not work, the zip path above is unaffected.</p>
+              <p>Download <code>openlayer-v0.12.0-alpha.ccx</code> from the release and <strong>double-click it</strong>. Creative Cloud installs the panel — no developer tool, nothing to unzip. Creative Cloud will warn that the plugin is not verified by Adobe, because it is not from Adobe Exchange; that prompt is expected. Keep the file on the same drive as Photoshop. Then open Photoshop: <strong>Plugins &gt; OpenLayer</strong>.</p>
+              <p><strong>If double-clicking does nothing at all</strong> — a known Windows 11 quirk — the release also has <code>openlayer-v0.12.0-alpha.zip</code>, which loads through the <a href="https://developer.adobe.com/photoshop/uxp/2022/guides/devtool/">UXP Developer Tool</a>: <strong>Add Plugin</strong>, select the unzipped <code>manifest.json</code>, then <strong>Load</strong>. And if that is what you had to do, please say so in your report — the one-click path is new and only verified on Windows 11 with Photoshop 2025 so far.</p>
             </article>
             <article class="setup-step">
               <span>2</span>

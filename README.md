@@ -260,10 +260,19 @@ Future placeholders are included for regional import alignment and selection pre
 
 ## Requirements
 
+**To use the plugin:**
+
 - Adobe Photoshop 2024 or newer
+- Adobe Creative Cloud desktop app, to install the `.ccx` by double-click
+- A local ComfyUI server for OpenLayer running at `http://127.0.0.1:8190`
+
+**To build from source instead:**
+
 - Adobe UXP Developer Tool
 - Node.js 18+
-- A local ComfyUI server for OpenLayer running at `http://127.0.0.1:8190`
+
+The UXP Developer Tool is no longer needed just to run OpenLayer — see
+[One-click install](#one-click-install-verified-2026-08-03).
 
 ## Local Permissions
 
@@ -322,27 +331,39 @@ packages/openlayer-v0.12.0-alpha.zip
 
 `npm run package` also writes `packages/openlayer-v0.12.0-alpha.ccx` beside it, from the same files.
 
-## Trying the one-click install (unverified — please report either way)
+## One-click install (verified 2026-08-03)
 
-Every release also attaches a `.ccx`. In principle Creative Cloud installs one by double-click, with
-no UXP Developer Tool and no developer mode — which is the difference between "install a developer
-tool first" and "double-click this".
+Every release attaches a `.ccx`. **Double-click it and Creative Cloud installs the panel — no UXP
+Developer Tool, no developer mode.** Photoshop then lists it under **Plugins > OpenLayer** like any
+other installed plugin.
 
-**Nobody knows whether it works.** A `.ccx` for this plugin is an ordinary zip with no signature
-(`docs/DISTRIBUTION_SPIKE.md`, Finding 1), so whether it installs depends on whether Creative Cloud's
-installer agent accepts an unsigned non-Marketplace package. Answering that needs a machine that has
-**never** had the UXP Developer Tool installed, and the author does not have one — so this ships
-untested on purpose rather than staying unbuilt for another release.
+This was an open question across three releases and is now answered. What was checked, on Windows 11
+with Photoshop 2025 (26.1.0): the package installs, Adobe's Unified Plugin Installer Agent reports it
+as `Enabled OpenLayer 0.12.0` under *Photoshop 2025 64*, it unpacks to
+`%APPDATA%\Adobe\UXP\Plugins\External\com.openlayer.photoshop_<version>\` with no `debug.json` — a
+packaged install rather than a developer load — and the panel opens and works in Photoshop.
 
-If you have such a machine, this is the single most useful ten minutes anyone could give the project:
+Two things worth knowing before you try it:
 
-1. Download `openlayer-vX.Y.Z-alpha.ccx` and double-click it.
-2. Report exactly what happens, including the boring outcomes:
-   - Creative Cloud installs it → open Photoshop, check **Plugins > OpenLayer** appears and renders.
-   - An error dialog → copy the **exact** text, including any error code.
-   - Nothing happens, or Windows asks which app should open the file → that is a real answer too.
+- The plugin is **not signed and not from Adobe Exchange**, so Creative Cloud shows a "not verified by
+  Adobe" trust prompt. That is expected; it is a prompt to click through, not a failure.
+- Keep the `.ccx` on the **same drive as Photoshop and Creative Cloud**. The installer only searches
+  the drive the file is sitting on, so a `.ccx` on `D:` with Photoshop on `C:` fails.
 
-If it fails, use the UXP Developer Tool route below; it is the supported path and is unaffected.
+If double-clicking does nothing at all — a known Windows 11 quirk where Creative Cloud opens with no
+progress and no error — install it directly instead:
+
+```text
+"C:\Program Files\Common Files\Adobe\Adobe Desktop Common\RemoteComponents\UPI\UnifiedPluginInstallerAgent\UnifiedPluginInstallerAgent.exe" /install "path\to\openlayer-vX.Y.Z-alpha.ccx"
+```
+
+`UnifiedPluginInstallerAgent.exe /list all` shows what is installed, and `/remove OpenLayer` uninstalls
+it. Note that `/list` needs `all` or the exact product display name (`"Photoshop 2025 64"`); a partial
+name like `"Photoshop"` prints nothing and no error, which looks exactly like "nothing installed".
+
+**Still unverified:** macOS, and any Photoshop other than 2025. Reports either way are welcome.
+
+The UXP Developer Tool route below still works and is what you want when building from source.
 
 ## Loading In UXP Developer Tool
 
