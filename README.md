@@ -387,9 +387,14 @@ In OpenLayer, keep the default server URL or enter your own:
 http://127.0.0.1:8190
 ```
 
-OpenLayer uses port `8190` by default so it does not interfere with another plugin that may already be using ComfyUI on port `8188`.
+OpenLayer uses port `8190` by default so it does not interfere with another tool that may already be
+using ComfyUI on port `8188`.
 
-If your other plugin is already using ComfyUI on `8188`, start a second ComfyUI instance for OpenLayer on `8190`, for example:
+**You do not have to move your server to 8190.** If ComfyUI is already running somewhere else — 8188
+or anywhere — open **Settings** and click **Find ComfyUI Active Port**. OpenLayer scans for the running
+server, connects to it, and reports `Ready`. Use your normal launch command and leave it where it is.
+
+Starting a dedicated instance on 8190 is the other option, not the required one:
 
 ```bash
 python main.py --listen 127.0.0.1 --port 8190 --preview-method auto
