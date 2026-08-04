@@ -17,7 +17,9 @@
     },
     "clipboard": "readAndWrite",
     "launchProcess": {
-      "schemes": ["https"],
+      "schemes": [
+        "https"
+      ],
       "extensions": []
     }
   },
@@ -49,15 +51,37 @@
           "width": 23,
           "height": 23,
           "path": "icons/icon_D.png",
-          "scale": [1, 2],
-          "theme": ["darkest", "dark", "medium"]
+          "scale": [
+            1,
+            2
+          ],
+          "theme": [
+            "darkest",
+            "dark",
+            "medium",
+            "all"
+          ],
+          "species": [
+            "generic",
+            "chrome"
+          ]
         },
         {
           "width": 23,
           "height": 23,
           "path": "icons/icon_N.png",
-          "scale": [1, 2],
-          "theme": ["lightest", "light"]
+          "scale": [
+            1,
+            2
+          ],
+          "theme": [
+            "lightest",
+            "light"
+          ],
+          "species": [
+            "generic",
+            "chrome"
+          ]
         }
       ]
     },
@@ -88,15 +112,37 @@
           "width": 23,
           "height": 23,
           "path": "icons/icon_D.png",
-          "scale": [1, 2],
-          "theme": ["darkest", "dark", "medium"]
+          "scale": [
+            1,
+            2
+          ],
+          "theme": [
+            "darkest",
+            "dark",
+            "medium",
+            "all"
+          ],
+          "species": [
+            "generic",
+            "chrome"
+          ]
         },
         {
           "width": 23,
           "height": 23,
           "path": "icons/icon_N.png",
-          "scale": [1, 2],
-          "theme": ["lightest", "light"]
+          "scale": [
+            1,
+            2
+          ],
+          "theme": [
+            "lightest",
+            "light"
+          ],
+          "species": [
+            "generic",
+            "chrome"
+          ]
         }
       ]
     }
@@ -106,17 +152,87 @@
       "width": 23,
       "height": 23,
       "path": "icons/icon_D.png",
-      "scale": [1, 2],
-      "theme": ["dark", "darkest"],
-      "species": ["generic"]
+      "scale": [
+        1,
+        2
+      ],
+      "theme": [
+        "dark",
+        "darkest"
+      ],
+      "species": [
+        "generic"
+      ]
     },
     {
       "width": 23,
       "height": 23,
       "path": "icons/icon_N.png",
-      "scale": [1, 2],
-      "theme": ["lightest", "light"],
-      "species": ["generic"]
+      "scale": [
+        1,
+        2
+      ],
+      "theme": [
+        "lightest",
+        "light"
+      ],
+      "species": [
+        "generic"
+      ]
+    },
+    {
+      "width": 48,
+      "height": 48,
+      "path": "icons/openlayer-48.png",
+      "scale": [
+        1
+      ],
+      "theme": [
+        "darkest",
+        "dark",
+        "medium",
+        "light",
+        "lightest"
+      ],
+      "species": [
+        "generic"
+      ]
+    },
+    {
+      "width": 96,
+      "height": 96,
+      "path": "icons/openlayer-96.png",
+      "scale": [
+        1
+      ],
+      "theme": [
+        "darkest",
+        "dark",
+        "medium",
+        "light",
+        "lightest"
+      ],
+      "species": [
+        "generic"
+      ]
+    },
+    {
+      "width": 144,
+      "height": 144,
+      "path": "icons/openlayer-144.png",
+      "scale": [
+        1
+      ],
+      "theme": [
+        "darkest",
+        "dark",
+        "medium",
+        "light",
+        "lightest"
+      ],
+      "species": [
+        "generic"
+      ]
     }
   ]
 }
