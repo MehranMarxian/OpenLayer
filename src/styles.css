@@ -1,6 +1,19 @@
 :root {
   color-scheme: dark;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* Type scale — Photoshop UI default (adobe-clean @ 12px) */
+  --ol-font: adobe-clean, "Source Sans Pro", "Segoe UI", -apple-system,
+    BlinkMacSystemFont, sans-serif;
+  --ol-font-mono: ui-monospace, Consolas, "Courier New", monospace;
+  --fs-nano: 9px;
+  --fs-micro: 10px;
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 18px;
+  --fs-2xl: 22px;
+  font-family: var(--ol-font);
+  font-size: var(--fs-sm);
   background: #2b2b2b;
   color: #eeeeee;
   font-synthesis: none;
@@ -98,7 +111,7 @@ a:hover {
   margin: 0;
   overflow: hidden;
   color: #f2f2f2;
-  font-size: 22px;
+  font-size: var(--fs-2xl);
   font-weight: 700;
   letter-spacing: 0;
   text-overflow: ellipsis;
@@ -148,14 +161,14 @@ a:hover {
   min-height: 30px;
   margin-top: -2px;
   color: #bdbdbd;
-  font-size: 12px;
+  font-size: var(--fs-sm);
 }
 
 .home-status-row strong {
   max-width: 170px;
   overflow: hidden;
   color: #35e05f;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -287,7 +300,7 @@ a:hover {
   border: 1px solid #8a8a8a;
   border-radius: 6px;
   color: #f0f0f0;
-  font-size: 9px;
+  font-size: var(--fs-micro);
   font-weight: 800;
   line-height: 22px;
   text-align: center;
@@ -381,7 +394,7 @@ a:hover {
   display: block;
   overflow: hidden;
   color: #f3f3f3;
-  font-size: 13px;
+  font-size: var(--fs-md);
   font-weight: 760;
   line-height: 1.25;
   text-overflow: ellipsis;
@@ -400,7 +413,7 @@ a:hover {
   display: block;
   margin-top: 3px;
   color: #cacaca;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   line-height: 1.25;
   max-height: 28px;
   overflow: hidden;
@@ -410,7 +423,7 @@ a:hover {
 .tool-status {
   display: block;
   margin-top: 3px;
-  font-size: 10px;
+  font-size: var(--fs-xs);
   font-weight: 760;
   line-height: 1.1;
 }
@@ -456,7 +469,7 @@ a:hover {
   border-radius: 6px;
   background: #5b4b18;
   color: #ffd95c;
-  font-size: 9px;
+  font-size: var(--fs-micro);
   font-weight: 800;
   line-height: 20px;
   text-align: center;
@@ -465,7 +478,7 @@ a:hover {
 .screen-title {
   overflow: hidden;
   color: #f3f3f3;
-  font-size: 13px;
+  font-size: var(--fs-md);
   font-weight: 760;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -482,7 +495,7 @@ a:hover {
   background: #353535;
   color: #e6e6e6;
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 700;
 }
 
@@ -499,7 +512,7 @@ a:hover {
   width: 22px;
   height: 18px;
   border-radius: 5px;
-  font-size: 8px;
+  font-size: var(--fs-nano);
 }
 
 .settings-panel {
@@ -559,7 +572,7 @@ a:hover {
   padding: 0 0 8px;
   margin: 0 0 8px;
   color: #bdbdbd;
-  font-size: 12px;
+  font-size: var(--fs-sm);
 }
 
 .settings-list div:last-child {
@@ -631,7 +644,7 @@ a:hover {
   display: block;
   margin: 0 0 7px;
   color: #bdbdbd;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   font-weight: 760;
   line-height: 1.3;
 }
@@ -671,7 +684,7 @@ a:hover {
   min-width: 0;
   overflow: hidden;
   color: #eeeeee;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 760;
   line-height: 1.2;
   text-overflow: ellipsis;
@@ -683,7 +696,7 @@ a:hover {
   margin-top: 2px;
   overflow: hidden;
   color: #9f9f9f;
-  font-size: 10px;
+  font-size: var(--fs-xs);
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -708,7 +721,7 @@ a:hover {
   padding: 3px 7px;
   background: #414141;
   color: #d0d0d0;
-  font-size: 9px;
+  font-size: var(--fs-micro);
   font-weight: 700;
   letter-spacing: 0.04em;
   line-height: 1.15;
@@ -747,7 +760,7 @@ a:hover {
   display: block;
   min-width: 0;
   overflow-wrap: anywhere;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   line-height: 1.35;
 }
 
@@ -802,7 +815,7 @@ a:hover {
   padding: 0 10px;
   background: #333333;
   color: #b4b4b4;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   line-height: 20px;
 }
 
@@ -814,8 +827,8 @@ a:hover {
 
 .setup-row-subtitle {
   overflow-wrap: anywhere;
-  font-family: ui-monospace, Consolas, "Courier New", monospace;
-  font-size: 10.5px;
+  font-family: var(--ol-font-mono);
+  font-size: var(--fs-xs);
 }
 
 .setup-row-fields {
@@ -826,7 +839,7 @@ a:hover {
 
 .setup-row-field {
   display: flex;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   line-height: 1.35;
 }
 
@@ -849,7 +862,7 @@ a:hover {
 .setup-row-note {
   margin-top: 6px;
   color: #b0b0b0;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   line-height: 1.4;
 }
 
@@ -865,7 +878,7 @@ a:hover {
   flex: 0 1 auto;
   margin: 4px 6px 0 0;
   padding: 4px 10px;
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 
 /* The one action in a setup row that spends bandwidth, so it is the one that
@@ -906,7 +919,7 @@ a:hover {
 .setup-install-headline {
   margin-bottom: 6px;
   color: #f1f1f1;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   line-height: 1.3;
 }
@@ -918,7 +931,7 @@ a:hover {
 .setup-installed-summary {
   padding: 5px 2px;
   color: #a0a0a0;
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 
 .setup-row.is-collapsed {
@@ -936,7 +949,7 @@ a:hover {
   margin: 0;
   overflow: hidden;
   color: #b7b7b7;
-  font-size: 13px;
+  font-size: var(--fs-md);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -947,7 +960,7 @@ a:hover {
   padding: 0;
   background: transparent;
   color: #c8c8c8;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   font-weight: 700;
 }
 
@@ -1037,7 +1050,7 @@ a:hover {
   min-height: 32px;
   border-color: #6a6a6a;
   background: #3d3d3d;
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 
 .source-action-button:hover:not(:disabled):not(.is-disabled) {
@@ -1084,7 +1097,7 @@ a:hover {
 
 .source-empty {
   color: #9b9b9b;
-  font-size: 10px;
+  font-size: var(--fs-xs);
   font-weight: 700;
 }
 
@@ -1098,7 +1111,7 @@ a:hover {
   display: block;
   overflow: hidden;
   color: #f0f0f0;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 760;
   line-height: 1.25;
   text-overflow: ellipsis;
@@ -1110,7 +1123,7 @@ a:hover {
   margin-top: 3px;
   overflow: hidden;
   color: #a8a8a8;
-  font-size: 10px;
+  font-size: var(--fs-xs);
   line-height: 1.3;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1120,7 +1133,7 @@ a:hover {
   display: block;
   margin-top: 5px;
   color: #a8a8a8;
-  font-size: 10px;
+  font-size: var(--fs-xs);
   line-height: 1.3;
 }
 
@@ -1136,7 +1149,7 @@ a:hover {
   padding: 8px 10px;
   background: rgba(215, 134, 21, 0.08);
   color: #e4d4a0;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   line-height: 1.35;
 }
 
@@ -1316,7 +1329,7 @@ a:hover {
   display: block;
   overflow: hidden;
   color: #a8a8a8;
-  font-size: 10px;
+  font-size: var(--fs-xs);
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1326,7 +1339,7 @@ a:hover {
   display: block;
   margin-top: 3px;
   color: #f0f0f0;
-  font-size: 18px;
+  font-size: var(--fs-xl);
   line-height: 1;
 }
 
@@ -1356,7 +1369,7 @@ a:hover {
   min-height: 28px;
   margin-top: 8px;
   padding: 5px 8px;
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 
 .diagnostic-scroll-safe {
@@ -1388,7 +1401,7 @@ a:hover {
 
 .label {
   color: #dedede;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 650;
 }
 
@@ -1579,7 +1592,7 @@ a:hover {
   border-color: #5c5c5c;
   background: #3a3a3a;
   color: #dddddd;
-  font-size: 12px;
+  font-size: var(--fs-sm);
 }
 
 .disclosure-button.is-active {
@@ -1594,7 +1607,7 @@ a:hover {
   border-color: #606060;
   background: #363636;
   color: #dcdcdc;
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 
 .experimental-toggle.is-active {
@@ -1650,7 +1663,7 @@ a:hover {
   margin-right: 12px;
   overflow: hidden;
   color: #e4e4e4;
-  font-size: 13px;
+  font-size: var(--fs-md);
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
@@ -1661,7 +1674,7 @@ a:hover {
   padding: 4px 8px;
   background: #414141;
   color: #c7c7c7;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   font-weight: 700;
 }
 
@@ -1692,7 +1705,7 @@ a:hover {
 
 .diagnostics-line {
   color: #9a9a9a;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   line-height: 1.35;
 }
 
@@ -1712,7 +1725,7 @@ a:hover {
 .muted-label {
   overflow: hidden;
   color: #9d9d9d;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1772,7 +1785,7 @@ a:hover {
   border-top: 1px solid #454545;
   padding: 7px 9px;
   color: #bfbfbf;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1784,7 +1797,7 @@ a:hover {
 
 .preview-empty {
   color: #aaaaaa;
-  font-size: 13px;
+  font-size: var(--fs-md);
 }
 
 .error-message {
@@ -1793,7 +1806,7 @@ a:hover {
   padding: 10px 12px;
   background: rgba(120, 46, 46, 0.28);
   color: #ffc2c2;
-  font-size: 13px;
+  font-size: var(--fs-md);
   line-height: 1.4;
 }
 
@@ -1880,7 +1893,7 @@ a:hover {
   border-color: #676767;
   background: #3a3a3a;
   color: #e6e6e6;
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 
 .import-actions .button {
@@ -1933,7 +1946,7 @@ a:hover {
 .shortcut-label {
   display: block;
   color: #fff4c7;
-  font-size: 13px;
+  font-size: var(--fs-md);
   font-weight: 760;
   line-height: 1.18;
 }
@@ -1942,7 +1955,7 @@ a:hover {
   display: block;
   margin-top: 2px;
   color: #c4c4c4;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   line-height: 1.2;
 }
 
@@ -1991,7 +2004,7 @@ a:hover {
 .history-title {
   overflow: hidden;
   color: #f2f2f2;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 760;
   line-height: 1.25;
   text-overflow: ellipsis;
@@ -2002,7 +2015,7 @@ a:hover {
 .history-time {
   overflow: hidden;
   color: #bfbfbf;
-  font-size: 10px;
+  font-size: var(--fs-xs);
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2024,7 +2037,7 @@ a:hover {
   flex: 1 1 70px;
   margin: 0 3px 6px;
   padding: 5px 8px;
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 
 .history-empty {
@@ -2033,7 +2046,7 @@ a:hover {
   padding: 18px 12px;
   background: #303030;
   color: #a8a8a8;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   text-align: center;
 }
 
@@ -2047,7 +2060,7 @@ a:hover {
   border-top: 1px solid #424242;
   padding-top: 6px;
   color: #8f8f8f;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   line-height: 1.25;
 }
 
@@ -2135,11 +2148,11 @@ a:hover {
   }
 
   .app-title {
-    font-size: 20px;
+    font-size: var(--fs-xl);
   }
 
   .app-subtitle {
-    font-size: 12px;
+    font-size: var(--fs-sm);
   }
 
   .home-status-row {
@@ -2279,19 +2292,19 @@ a:hover {
 
 .app-shell.theme-compact .app-title {
   color: var(--ol-text);
-  font-size: 17px;
+  font-size: var(--fs-lg);
   line-height: 1.1;
 }
 
 .app-shell.theme-compact .app-subtitle {
   color: var(--ol-muted);
-  font-size: 12px;
+  font-size: var(--fs-sm);
   line-height: 1.2;
 }
 
 .app-shell.theme-compact .version-badge {
   color: var(--ol-muted);
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 
 .app-shell.theme-compact .home-status-row {
@@ -2302,7 +2315,7 @@ a:hover {
   margin: 0;
   padding-bottom: 5px;
   color: var(--ol-muted);
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 
 .app-shell.theme-compact .home-status-row strong {
@@ -2354,7 +2367,7 @@ a:hover {
   border-bottom: 1px solid var(--ol-line-soft);
   padding: 6px 2px 4px;
   color: #d6d6d6;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   letter-spacing: 0;
   line-height: 1.2;
@@ -2413,7 +2426,7 @@ a:hover {
   border-radius: 3px;
   background: transparent !important;
   color: #d8d8d8 !important;
-  font-size: 7px;
+  font-size: var(--fs-nano);
   line-height: 16px;
 }
 
@@ -2435,7 +2448,7 @@ a:hover {
   flex: 1 1 auto;
   overflow: hidden;
   color: var(--ol-text);
-  font-size: 13px;
+  font-size: var(--fs-md);
   line-height: 1.15;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2452,7 +2465,7 @@ a:hover {
   margin-top: 1px;
   overflow: hidden;
   color: var(--ol-muted);
-  font-size: 11px;
+  font-size: var(--fs-sm);
   line-height: 1.18;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2468,7 +2481,7 @@ a:hover {
   padding: 0;
   background: transparent;
   color: var(--ol-muted);
-  font-size: 10px;
+  font-size: var(--fs-xs);
   line-height: 1.2;
   text-align: right;
   text-overflow: ellipsis;
@@ -2495,7 +2508,7 @@ a:hover {
   flex: 0 0 auto;
   margin-top: 2px;
   color: var(--ol-muted);
-  font-size: 16px;
+  font-size: var(--fs-lg);
   line-height: 1;
   text-align: right;
 }
@@ -2511,12 +2524,12 @@ a:hover {
   height: 20px;
   margin-right: 6px;
   border-radius: 5px;
-  font-size: 8px;
+  font-size: var(--fs-nano);
   line-height: 18px;
 }
 
 .app-shell.theme-compact .screen-title {
-  font-size: 13px;
+  font-size: var(--fs-md);
 }
 
 .app-shell.theme-compact .back-button,
@@ -2525,13 +2538,13 @@ a:hover {
 .app-shell.theme-compact .select {
   min-height: 30px;
   border-radius: 6px;
-  font-size: 12px;
+  font-size: var(--fs-sm);
 }
 
 .app-shell.theme-compact .textarea {
   min-height: 58px;
   border-radius: 7px;
-  font-size: 12px;
+  font-size: var(--fs-sm);
 }
 
 .app-shell.theme-compact .panel-section,
@@ -2555,14 +2568,14 @@ a:hover {
 .app-shell.theme-compact .section-heading .label,
 .app-shell.theme-compact .label {
   color: #e7e7e7;
-  font-size: 12px;
+  font-size: var(--fs-sm);
 }
 
 .app-shell.theme-compact .muted-label,
 .app-shell.theme-compact .diagnostics-line,
 .app-shell.theme-compact .source-card-meta {
   color: var(--ol-dim);
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 
 .app-shell.theme-compact .status-bar {
@@ -2574,12 +2587,12 @@ a:hover {
 }
 
 .app-shell.theme-compact .status-text {
-  font-size: 12px;
+  font-size: var(--fs-sm);
 }
 
 .app-shell.theme-compact .status-pill {
   padding: 3px 7px;
-  font-size: 10px;
+  font-size: var(--fs-xs);
 }
 
 .app-shell.theme-compact .settings-grid .field,
@@ -2625,12 +2638,12 @@ a:hover {
   margin-top: 0;
   padding: 6px 0 8px;
   color: var(--ol-dim);
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 
 .app-shell.theme-compact .footer-link {
   color: #d8d8d8;
-  font-size: 12px;
+  font-size: var(--fs-sm);
 }
 
 @media (max-width: 340px) {
@@ -2651,17 +2664,17 @@ a:hover {
   }
 
   .app-shell.theme-compact .app-title {
-    font-size: 15px;
+    font-size: var(--fs-lg);
   }
 
   .app-shell.theme-compact .app-subtitle,
   .app-shell.theme-compact .version-badge {
-    font-size: 10px;
+    font-size: var(--fs-xs);
   }
 
   .app-shell.theme-compact .home-status-row {
     min-height: 20px;
-    font-size: 10px;
+    font-size: var(--fs-xs);
   }
 
   .app-shell.theme-compact .home-section {
@@ -2670,7 +2683,7 @@ a:hover {
 
   .app-shell.theme-compact .home-section-title {
     padding-top: 5px;
-    font-size: 10px;
+    font-size: var(--fs-xs);
   }
 
   .app-shell.theme-compact .tool-card {
@@ -2687,7 +2700,7 @@ a:hover {
   .app-shell.theme-compact .icon-glyph {
     width: 16px;
     height: 16px;
-    font-size: 6px;
+    font-size: var(--fs-nano);
     line-height: 14px;
   }
 
@@ -2697,20 +2710,20 @@ a:hover {
 
   .app-shell.theme-compact .tool-title {
     display: block;
-    font-size: 12px;
+    font-size: var(--fs-sm);
   }
 
   .app-shell.theme-compact .tool-status {
     display: block;
     max-width: none;
     margin-top: 1px;
-    font-size: 9px;
+    font-size: var(--fs-micro);
     text-align: left;
   }
 
   .app-shell.theme-compact .tool-subtitle {
     margin-top: 1px;
-    font-size: 10px;
+    font-size: var(--fs-xs);
   }
 
   .app-shell.theme-compact .tool-arrow {
@@ -2720,11 +2733,11 @@ a:hover {
   .app-shell.theme-compact .app-footer {
     justify-content: flex-start;
     padding-bottom: 6px;
-    font-size: 10px;
+    font-size: var(--fs-xs);
   }
 
   .app-shell.theme-compact .footer-link {
-    font-size: 11px;
+    font-size: var(--fs-sm);
   }
 }
 
@@ -2775,7 +2788,7 @@ a:hover {
   padding: 3px 1px 3px;
   color: #c9c9c9;
   cursor: pointer;
-  font-size: 10px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   letter-spacing: 0;
   line-height: 1.1;
@@ -2854,7 +2867,7 @@ a:hover {
   border-radius: 3px;
   background: transparent !important;
   color: #d0d0d0 !important;
-  font-size: 6px;
+  font-size: var(--fs-nano);
   font-weight: 700;
   line-height: 15px;
 }
@@ -2893,7 +2906,7 @@ a:hover {
   min-width: 0;
   overflow: hidden;
   color: #eeeeee !important;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   line-height: 1.12;
   text-overflow: ellipsis;
@@ -2907,7 +2920,7 @@ a:hover {
   margin-top: 2px;
   overflow: hidden;
   color: #bcbcbc;
-  font-size: 10px;
+  font-size: var(--fs-xs);
   line-height: 1.15;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2924,7 +2937,7 @@ a:hover {
   padding: 0;
   background: transparent !important;
   color: #a9a9a9;
-  font-size: 9px;
+  font-size: var(--fs-micro);
   font-weight: 700;
   line-height: 1.1;
   text-align: right;
@@ -2950,7 +2963,7 @@ a:hover {
   flex: 0 0 8px;
   margin: 0;
   color: #a8a8a8;
-  font-size: 13px;
+  font-size: var(--fs-md);
   line-height: 1;
   text-align: right;
 }
@@ -2970,13 +2983,13 @@ a:hover {
   height: 17px;
   margin-right: 5px;
   border-radius: 4px;
-  font-size: 7px;
+  font-size: var(--fs-nano);
   line-height: 15px;
 }
 
 .app-shell.theme-compact .screen-title {
   overflow: hidden;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -3012,7 +3025,7 @@ a:hover {
   min-height: 0;
   margin: 0 6px 3px 0;
   color: #dddddd;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   line-height: 1.15;
 }
 
@@ -3029,7 +3042,7 @@ a:hover {
   min-height: 28px;
   border-radius: 4px;
   padding: 4px 8px;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   line-height: 1.2;
 }
 
@@ -3038,7 +3051,7 @@ a:hover {
   min-height: 54px;
   border-radius: 4px;
   padding: 7px 8px;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   line-height: 1.25;
 }
 
@@ -3118,14 +3131,14 @@ a:hover {
 }
 
 .app-shell.theme-compact .source-title {
-  font-size: 11px;
+  font-size: var(--fs-sm);
   line-height: 1.15;
 }
 
 .app-shell.theme-compact .source-card-meta,
 .app-shell.theme-compact .muted-label,
 .app-shell.theme-compact .diagnostics-line {
-  font-size: 10px;
+  font-size: var(--fs-xs);
   line-height: 1.25;
 }
 
@@ -3136,19 +3149,19 @@ a:hover {
 }
 
 .app-shell.theme-compact .status-text {
-  font-size: 11px;
+  font-size: var(--fs-sm);
   line-height: 1.25;
 }
 
 .app-shell.theme-compact .status-pill {
   padding: 2px 6px;
-  font-size: 9px;
+  font-size: var(--fs-micro);
 }
 
 .app-shell.theme-compact .error-message {
   border-radius: 5px;
   padding: 6px 8px;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   line-height: 1.25;
 }
 
@@ -3168,11 +3181,11 @@ a:hover {
 }
 
 .app-shell.theme-compact .shortcut-label {
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 
 .app-shell.theme-compact .shortcut-note {
-  font-size: 10px;
+  font-size: var(--fs-xs);
 }
 
 .app-shell.theme-compact .app-footer {
@@ -3181,7 +3194,7 @@ a:hover {
   align-items: center;
   justify-content: flex-end;
   padding: 4px 0 6px;
-  font-size: 10px;
+  font-size: var(--fs-xs);
 }
 
 .app-shell.theme-compact .app-footer span,
@@ -3191,7 +3204,7 @@ a:hover {
 }
 
 .app-shell.theme-compact .footer-link {
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 
 @media (max-width: 360px) {
@@ -3206,7 +3219,7 @@ a:hover {
   .app-shell.theme-compact .tool-status {
     width: 50px;
     flex-basis: 50px;
-    font-size: 8px;
+    font-size: var(--fs-nano);
   }
 
   .app-shell.theme-compact .settings-grid .field,
@@ -3272,7 +3285,7 @@ a:hover {
   flex: 0 1 auto;
   border-radius: 4px;
   padding: 3px 7px;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   line-height: 1.1;
   white-space: nowrap;
 }
@@ -3347,7 +3360,7 @@ a:hover {
   margin: 0;
   overflow: hidden;
   color: #dcdcdc;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   line-height: 1.15;
   text-overflow: ellipsis;
@@ -3357,7 +3370,7 @@ a:hover {
 .app-shell.theme-compact .muted-label {
   min-width: 0;
   overflow: hidden;
-  font-size: 10px;
+  font-size: var(--fs-xs);
   line-height: 1.15;
   text-align: right;
   text-overflow: ellipsis;
@@ -3396,7 +3409,7 @@ a:hover {
   justify-content: center;
   border-radius: 4px;
   padding: 4px 7px;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   line-height: 1.15;
 }
 
@@ -3413,7 +3426,7 @@ a:hover {
   min-width: 0;
   border-radius: 4px;
   padding: 7px;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   line-height: 1.25;
 }
 
@@ -3483,7 +3496,7 @@ a:hover {
   border-radius: 4px;
   margin: 0 !important;
   padding: 5px 7px;
-  font-size: 10px;
+  font-size: var(--fs-xs);
   line-height: 1.25;
   overflow-wrap: anywhere;
 }
@@ -3505,7 +3518,7 @@ a:hover {
 .app-shell.theme-compact .status-text {
   min-width: 0;
   margin: 0;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   line-height: 1.2;
 }
 
@@ -3513,7 +3526,7 @@ a:hover {
   min-width: 42px;
   flex: 0 0 auto;
   padding: 2px 5px;
-  font-size: 9px;
+  font-size: var(--fs-micro);
   text-align: center;
 }
 
@@ -3521,7 +3534,7 @@ a:hover {
   max-height: 34px;
   min-width: 0;
   overflow: auto;
-  font-size: 10px;
+  font-size: var(--fs-xs);
   line-height: 1.25;
   overflow-wrap: anywhere;
 }
@@ -3531,7 +3544,7 @@ a:hover {
   overflow: auto;
   border-radius: 4px;
   padding: 5px 7px;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   line-height: 1.25;
   overflow-wrap: anywhere;
 }
@@ -3595,7 +3608,7 @@ a:hover {
 
 .app-shell.theme-compact .shortcut-note {
   margin-top: 2px;
-  font-size: 10px;
+  font-size: var(--fs-xs);
 }
 
 .app-shell.theme-compact .app-footer,
@@ -3652,7 +3665,7 @@ a:hover {
   }
 
   .app-shell.theme-compact .app-title {
-    font-size: 15px;
+    font-size: var(--fs-lg);
   }
 }
 
@@ -3739,14 +3752,14 @@ a:hover {
   height: 26px;
   min-height: 26px;
   padding: 3px 7px;
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
 }
 
 .app-shell.theme-compact .button,
 .app-shell.theme-compact .ol-button {
   min-height: 26px;
   padding: 3px 7px;
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
 }
 
 .app-shell.theme-compact .button-primary,
@@ -3760,7 +3773,7 @@ a:hover {
   min-height: 46px;
   max-height: 84px;
   padding: 6px 7px;
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
 }
 
 .app-shell.theme-compact .compact-textarea {
@@ -3890,13 +3903,13 @@ a:hover {
 
 .app-shell.theme-compact .tool-title,
 .app-shell.theme-compact .ol-row-title {
-  font-size: 12px;
+  font-size: var(--fs-sm);
   line-height: 1.15;
 }
 
 .app-shell.theme-compact .tool-subtitle,
 .app-shell.theme-compact .ol-row-desc {
-  font-size: 10px;
+  font-size: var(--fs-xs);
   line-height: 1.15;
 }
 
@@ -3931,7 +3944,7 @@ a:hover {
   padding: 0;
   background: #343434;
   color: #bdbdbd;
-  font-size: 10px;
+  font-size: var(--fs-xs);
   line-height: 1;
 }
 
@@ -3955,7 +3968,7 @@ a:hover {
   padding: 5px 6px;
   background: #2b2b2b;
   color: #cfcfcf;
-  font-size: 10px;
+  font-size: var(--fs-xs);
   line-height: 1.3;
   overflow: auto;
   overflow-wrap: anywhere;
@@ -3981,7 +3994,7 @@ a:hover {
   justify-content: center;
   margin-right: 2px;
   color: #a9a9a9;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   line-height: 1;
 }
 
@@ -4115,8 +4128,8 @@ a:hover {
   padding: 3px 7px !important;
   color: #f0f0f0 !important;
   background-color: #242424;
-  font-family: "Segoe UI", Arial, sans-serif !important;
-  font-size: 12px !important;
+  font-family: var(--ol-font) !important;
+  font-size: var(--fs-sm) !important;
   font-weight: 500;
   line-height: 20px;
   text-align: left;
@@ -4163,7 +4176,7 @@ a:hover {
   padding: 0;
   background: #343434;
   color: #dcdcdc;
-  font-size: 12px !important;
+  font-size: var(--fs-sm) !important;
   font-weight: 700;
   line-height: 1;
   text-align: center;
@@ -4172,7 +4185,7 @@ a:hover {
 .app-shell.theme-compact .info-toggle-glyph {
   display: block;
   color: inherit;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   line-height: 16px;
 }
@@ -4244,8 +4257,8 @@ a:hover {
   --ol-gap: 8px;
   background: var(--ol-bg);
   color: var(--ol-text);
-  font-family: "Segoe UI", Arial, sans-serif;
-  font-size: 12px;
+  font-family: var(--ol-font);
+  font-size: var(--fs-sm);
   line-height: 1.32;
 }
 
@@ -4277,7 +4290,7 @@ a:hover {
 .app-shell.theme-compact .app-title {
   margin: 0;
   color: #f0f0f0;
-  font-size: 15px;
+  font-size: var(--fs-lg);
   font-weight: 760;
   letter-spacing: 0;
   line-height: 17px;
@@ -4286,7 +4299,7 @@ a:hover {
 .app-shell.theme-compact .app-subtitle {
   margin: 1px 0 0;
   color: var(--ol-muted);
-  font-size: 11px;
+  font-size: var(--fs-sm);
   line-height: 13px;
 }
 
@@ -4297,7 +4310,7 @@ a:hover {
   padding: 0;
   background: transparent;
   color: #d5d5d5;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   font-weight: 650;
 }
 
@@ -4306,7 +4319,7 @@ a:hover {
   padding: 2px 8px 5px;
   border-bottom: 1px solid var(--ol-border-soft);
   color: var(--ol-muted);
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 
 .app-shell.theme-compact .home-status-row strong {
@@ -4358,7 +4371,7 @@ a:hover {
   padding: 3px 9px;
   background: #333333;
   color: #eeeeee;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 650;
   line-height: 16px;
 }
@@ -4403,7 +4416,7 @@ a:hover {
   min-width: 0;
   overflow: hidden;
   color: #f3f3f3;
-  font-size: 13px;
+  font-size: var(--fs-md);
   font-weight: 760;
   line-height: 18px;
   text-overflow: ellipsis;
@@ -4451,7 +4464,7 @@ a:hover {
   flex: 0 0 10px;
   margin-right: 3px;
   color: #bdbdbd;
-  font-size: 10px;
+  font-size: var(--fs-xs);
   line-height: 14px;
 }
 
@@ -4463,7 +4476,7 @@ a:hover {
 .app-shell.theme-compact .label,
 .app-shell.theme-compact .ol-label {
   color: var(--ol-text);
-  font-size: 11.5px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   line-height: 15px;
 }
@@ -4473,7 +4486,7 @@ a:hover {
   min-width: 0;
   overflow: hidden;
   color: var(--ol-muted);
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
   font-weight: 500;
   line-height: 14px;
   text-align: right;
@@ -4496,7 +4509,7 @@ a:hover {
   display: block;
   margin: 0 0 3px;
   color: var(--ol-text);
-  font-size: 11.5px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   line-height: 15px;
 }
@@ -4527,8 +4540,8 @@ a:hover {
   border-radius: var(--ol-radius);
   background: var(--ol-input-bg);
   color: var(--ol-text);
-  font-family: "Segoe UI", Arial, sans-serif;
-  font-size: 12px;
+  font-family: var(--ol-font);
+  font-size: var(--fs-sm);
   font-weight: 500;
   outline: none;
 }
@@ -4583,7 +4596,7 @@ a:hover {
   border-radius: var(--ol-radius);
   padding: 4px 6px;
   overflow: hidden;
-  font-size: 11.5px;
+  font-size: var(--fs-sm);
   font-weight: 740;
   line-height: 15px;
   text-overflow: ellipsis;
@@ -4643,7 +4656,7 @@ a:hover {
 .app-shell.theme-compact .source-empty,
 .app-shell.theme-compact .preview-empty {
   color: var(--ol-muted);
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 
 .app-shell.theme-compact .source-card-body {
@@ -4654,7 +4667,7 @@ a:hover {
   display: block;
   overflow: hidden;
   color: #eeeeee;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 750;
   line-height: 16px;
   text-overflow: ellipsis;
@@ -4666,7 +4679,7 @@ a:hover {
   display: block;
   overflow: hidden;
   color: var(--ol-muted);
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
   line-height: 14px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -4705,7 +4718,7 @@ a:hover {
   min-width: 64px;
   margin: 0;
   color: #d7d7d7;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 650;
 }
 
@@ -4731,8 +4744,8 @@ a:hover {
   padding: 5px 10px;
   background: #393939;
   color: #eeeeee;
-  font-family: "Segoe UI", Arial, sans-serif;
-  font-size: 12px;
+  font-family: var(--ol-font);
+  font-size: var(--fs-sm);
   font-weight: 700;
   line-height: 16px;
   text-align: center;
@@ -4755,7 +4768,7 @@ a:hover {
   border-color: var(--ol-orange-border);
   background: linear-gradient(#e18d24, var(--ol-orange));
   color: #ffffff;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   font-weight: 780;
 }
 
@@ -4781,7 +4794,7 @@ a:hover {
   border-color: #6f561d;
   background: #332b19;
   color: #e7e0ca;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 650;
   text-align: left;
 }
@@ -4827,7 +4840,7 @@ a:hover {
   overflow: visible !important;
   background: var(--ol-warning-bg);
   color: var(--ol-warning-text);
-  font-size: 11px;
+  font-size: var(--fs-sm);
   line-height: 16px;
   white-space: normal;
 }
@@ -4852,7 +4865,7 @@ a:hover {
   border-radius: 50%;
   background: #b77717;
   color: #1f1f1f;
-  font-size: 13px;
+  font-size: var(--fs-md);
   font-weight: 900;
 }
 
@@ -4882,7 +4895,7 @@ a:hover {
   min-width: 0;
   overflow: hidden;
   color: #efefef;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   line-height: 16px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -4896,7 +4909,7 @@ a:hover {
   padding: 3px 9px;
   background: #444444;
   color: #d0d0d0;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   font-weight: 750;
 }
 
@@ -4912,7 +4925,7 @@ a:hover {
   border-radius: var(--ol-radius);
   padding: 7px 9px;
   overflow: visible;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   line-height: 15px;
   white-space: normal;
 }
@@ -4980,7 +4993,7 @@ a:hover {
   padding: 8px 10px 10px;
   background: #292929;
   color: var(--ol-muted);
-  font-size: 11px;
+  font-size: var(--fs-sm);
   line-height: 15px;
 }
 
@@ -5003,7 +5016,7 @@ a:hover {
   padding: 3px 5px;
   background: transparent;
   color: #f0f0f0;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 800;
   text-decoration: none;
   cursor: pointer;
@@ -5029,7 +5042,7 @@ a:hover {
   }
 
   .app-shell.theme-compact .screen-title {
-    font-size: 12.5px;
+    font-size: var(--fs-sm);
   }
 
   .app-shell.theme-compact .source-action-row,
@@ -5042,7 +5055,7 @@ a:hover {
     min-height: 31px;
     padding-left: 4px;
     padding-right: 4px;
-    font-size: 11px;
+    font-size: var(--fs-sm);
   }
 
   .app-shell.theme-compact .settings-grid .input,
@@ -5074,7 +5087,7 @@ a:hover {
   }
 
   .app-shell.theme-compact .source-action-button {
-    font-size: 10.5px;
+    font-size: var(--fs-xs);
   }
 
   .app-shell.theme-compact .source-card-meta,
@@ -5157,7 +5170,7 @@ a:hover {
   padding: 4px 8px !important;
   overflow: hidden;
   border-radius: 4px;
-  font-size: 12px !important;
+  font-size: var(--fs-sm) !important;
   line-height: 19px !important;
   text-align: left;
 }
@@ -5172,7 +5185,7 @@ a:hover {
   max-height: 74px;
   padding: 7px 9px;
   overflow: auto;
-  font-size: 12px !important;
+  font-size: var(--fs-sm) !important;
   line-height: 16px !important;
 }
 
@@ -5215,7 +5228,7 @@ a:hover {
   min-width: 0;
   margin: 0;
   color: #dcdcdc;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 650;
   line-height: 16px;
   text-align: left;
@@ -5263,7 +5276,7 @@ a:hover {
 .app-shell.theme-compact .info-toggle-glyph {
   display: block !important;
   color: #e2e2e2 !important;
-  font-size: 11px !important;
+  font-size: var(--fs-sm) !important;
   font-weight: 800;
   line-height: 15px !important;
 }
@@ -5276,7 +5289,7 @@ a:hover {
   padding: 6px 8px;
   max-height: none !important;
   overflow: visible !important;
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
   line-height: 15px;
 }
 
@@ -5285,7 +5298,7 @@ a:hover {
   width: 15px;
   height: 15px;
   flex-basis: 15px;
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 
 .app-shell.theme-compact .experimental-toggle {
@@ -5296,7 +5309,7 @@ a:hover {
   border-color: #66501d;
   background: #302816;
   color: #f0e4c8;
-  font-size: 11.5px;
+  font-size: var(--fs-sm);
   font-weight: 650;
 }
 
@@ -5327,7 +5340,7 @@ a:hover {
 .app-shell.theme-compact .status-pill {
   min-height: 18px;
   padding: 2px 8px;
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
 }
 
 .app-shell.theme-compact .app-footer,
@@ -5406,7 +5419,7 @@ a:hover {
   display: block;
   margin: 0 0 3px !important;
   color: #dfdfdf;
-  font-size: 11.5px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   line-height: 14px;
   text-align: left;
@@ -5429,7 +5442,7 @@ a:hover {
   border-radius: 4px;
   padding: 4px 8px !important;
   overflow: hidden;
-  font-size: 12px !important;
+  font-size: var(--fs-sm) !important;
   line-height: 19px !important;
   text-align: left !important;
 }
@@ -5444,7 +5457,7 @@ a:hover {
   max-height: 70px !important;
   padding: 7px 9px !important;
   overflow: auto;
-  font-size: 12px !important;
+  font-size: var(--fs-sm) !important;
   line-height: 16px !important;
 }
 
@@ -5568,7 +5581,7 @@ a:hover {
 .app-shell.theme-compact .info-toggle-glyph {
   display: block !important;
   color: inherit !important;
-  font-size: 11px !important;
+  font-size: var(--fs-sm) !important;
   font-weight: 800;
   line-height: 16px !important;
 }
@@ -5585,7 +5598,7 @@ a:hover {
   overflow: visible !important;
   background: #302918;
   color: #e1bd55;
-  font-size: 10.5px !important;
+  font-size: var(--fs-xs) !important;
   line-height: 15px !important;
   white-space: normal;
   overflow-wrap: anywhere;
@@ -5597,7 +5610,7 @@ a:hover {
   height: 15px !important;
   flex: 0 0 15px !important;
   margin-top: 0;
-  font-size: 11px !important;
+  font-size: var(--fs-sm) !important;
   line-height: 15px !important;
 }
 
@@ -5614,7 +5627,7 @@ a:hover {
   padding: 4px 8px !important;
   background: #302918;
   color: #e8dfc9;
-  font-size: 11.5px !important;
+  font-size: var(--fs-sm) !important;
   line-height: 16px;
   text-align: left;
 }
@@ -5646,7 +5659,7 @@ a:hover {
 .app-shell.theme-compact .status-pill {
   min-height: 18px;
   padding: 2px 8px;
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
 }
 
 .app-shell.theme-compact .app-footer,
@@ -5654,7 +5667,7 @@ a:hover {
   min-height: 34px;
   gap: 6px;
   padding: 7px 10px 8px;
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 
 .app-shell.theme-compact .app-footer span {
@@ -5737,7 +5750,7 @@ a:hover {
   min-width: 0 !important;
   margin: 0 !important;
   color: var(--ol-text, #e6e6e6) !important;
-  font-size: 12px !important;
+  font-size: var(--fs-sm) !important;
   font-weight: 650 !important;
   line-height: 16px !important;
   text-align: left !important;
@@ -5764,7 +5777,7 @@ a:hover {
   border-radius: 4px !important;
   background: var(--ol-input-bg, #202020) !important;
   color: var(--ol-text, #e6e6e6) !important;
-  font-size: 12px !important;
+  font-size: var(--fs-sm) !important;
   line-height: 16px !important;
   text-align: left !important;
   visibility: visible !important;
@@ -5861,7 +5874,7 @@ a:hover {
   min-width: 0 !important;
   margin: 0 !important;
   color: var(--ol-text, #e6e6e6) !important;
-  font-size: 12px !important;
+  font-size: var(--fs-sm) !important;
   font-weight: 650 !important;
   line-height: 16px !important;
   text-align: left !important;
@@ -5888,7 +5901,7 @@ a:hover {
   border-radius: 4px !important;
   background: var(--ol-input-bg, #202020) !important;
   color: var(--ol-text, #e6e6e6) !important;
-  font-size: 12px !important;
+  font-size: var(--fs-sm) !important;
   line-height: 16px !important;
   text-align: left !important;
   visibility: visible !important;
@@ -6031,7 +6044,7 @@ a:hover {
   flex: 1 1 auto !important;
   min-width: 0 !important;
   margin: 0 !important;
-  font-size: 12px !important;
+  font-size: var(--fs-sm) !important;
   font-weight: 650 !important;
   line-height: 16px !important;
   text-align: left !important;
@@ -6060,7 +6073,7 @@ a:hover {
   margin: 0 !important;
   padding: 4px 8px !important;
   overflow: hidden !important;
-  font-size: 12px !important;
+  font-size: var(--fs-sm) !important;
   line-height: 16px !important;
   text-align: left !important;
   visibility: visible !important;
@@ -6147,7 +6160,7 @@ a:hover {
   border-radius: 5px !important;
   background: #303030 !important;
   color: var(--ol-text) !important;
-  font-size: 12px !important;
+  font-size: var(--fs-sm) !important;
   line-height: 16px !important;
   white-space: nowrap !important;
 }
@@ -6165,7 +6178,7 @@ a:hover {
   max-width: 165px !important;
   overflow: hidden !important;
   color: var(--ol-text) !important;
-  font-size: 13px !important;
+  font-size: var(--fs-md) !important;
   font-weight: 760 !important;
   line-height: 18px !important;
   text-overflow: ellipsis !important;
@@ -6221,7 +6234,7 @@ a:hover {
   margin: 0 !important;
   overflow: hidden !important;
   color: var(--ol-text) !important;
-  font-size: 12px !important;
+  font-size: var(--fs-sm) !important;
   font-weight: 760 !important;
   line-height: 16px !important;
   text-align: left !important;
@@ -6252,7 +6265,7 @@ a:hover {
   border-radius: 6px !important;
   background: rgba(245, 158, 11, 0.1) !important;
   color: var(--ol-warning) !important;
-  font-size: 11.5px !important;
+  font-size: var(--fs-sm) !important;
   line-height: 16px !important;
   white-space: normal !important;
   overflow-wrap: anywhere !important;
@@ -6271,7 +6284,7 @@ a:hover {
   border-radius: 50% !important;
   background: rgba(245, 158, 11, 0.22) !important;
   color: var(--ol-warning) !important;
-  font-size: 11px !important;
+  font-size: var(--fs-sm) !important;
   font-weight: 900 !important;
   line-height: 16px !important;
 }
@@ -6307,7 +6320,7 @@ a:hover {
   overflow: visible !important;
   border-radius: 5px !important;
   color: #fff !important;
-  font-size: 11.5px !important;
+  font-size: var(--fs-sm) !important;
   font-weight: 760 !important;
   line-height: 13px !important;
   text-align: center !important;
@@ -6382,14 +6395,14 @@ a:hover {
 
 .app-shell.theme-compact .source-title {
   color: var(--ol-text) !important;
-  font-size: 12.5px !important;
+  font-size: var(--fs-sm) !important;
   font-weight: 760 !important;
   line-height: 16px !important;
 }
 
 .app-shell.theme-compact .source-card-meta {
   color: var(--ol-muted) !important;
-  font-size: 10.5px !important;
+  font-size: var(--fs-xs) !important;
   line-height: 14px !important;
 }
 
@@ -6410,7 +6423,7 @@ a:hover {
   display: block !important;
   margin: 0 0 5px !important;
   color: var(--ol-text) !important;
-  font-size: 12px !important;
+  font-size: var(--fs-sm) !important;
   font-weight: 760 !important;
   line-height: 15px !important;
 }
@@ -6442,7 +6455,7 @@ a:hover {
 .app-shell.theme-compact .info-toggle-glyph {
   display: block !important;
   color: #e4e4e4 !important;
-  font-size: 11px !important;
+  font-size: var(--fs-sm) !important;
   font-weight: 800 !important;
   line-height: 16px !important;
 }
@@ -6467,7 +6480,7 @@ a:hover {
   overflow: hidden !important;
   background: var(--ol-field-bg) !important;
   color: var(--ol-text) !important;
-  font-size: 12.5px !important;
+  font-size: var(--fs-sm) !important;
   line-height: 18px !important;
 }
 
@@ -6497,7 +6510,7 @@ a:hover {
   overflow: auto !important;
   background: var(--ol-field-bg) !important;
   color: var(--ol-text) !important;
-  font-size: 12.5px !important;
+  font-size: var(--fs-sm) !important;
   line-height: 16px !important;
   resize: vertical !important;
 }
@@ -6547,7 +6560,7 @@ a:hover {
   min-width: 0 !important;
   margin: 0 !important;
   color: var(--ol-text) !important;
-  font-size: 12.5px !important;
+  font-size: var(--fs-sm) !important;
   font-weight: 760 !important;
   line-height: 16px !important;
   white-space: nowrap !important;
@@ -6585,7 +6598,7 @@ a:hover {
   border-radius: 5px !important;
   background: rgba(245, 158, 11, 0.1) !important;
   color: #f2e6cf !important;
-  font-size: 11.5px !important;
+  font-size: var(--fs-sm) !important;
   font-weight: 700 !important;
   line-height: 16px !important;
 }
@@ -6607,7 +6620,7 @@ a:hover {
   padding: 5px 8px !important;
   background: var(--ol-orange) !important;
   color: #fff !important;
-  font-size: 12.5px !important;
+  font-size: var(--fs-sm) !important;
   font-weight: 760 !important;
   line-height: 17px !important;
 }
@@ -6637,7 +6650,7 @@ a:hover {
   min-width: 0 !important;
   overflow: hidden !important;
   color: var(--ol-text) !important;
-  font-size: 11.5px !important;
+  font-size: var(--fs-sm) !important;
   line-height: 16px !important;
   text-overflow: ellipsis !important;
   white-space: nowrap !important;
@@ -6648,7 +6661,7 @@ a:hover {
   min-height: 18px !important;
   padding: 2px 8px !important;
   border-radius: 20px !important;
-  font-size: 10.5px !important;
+  font-size: var(--fs-xs) !important;
   font-weight: 760 !important;
   line-height: 14px !important;
 }
@@ -6656,7 +6669,7 @@ a:hover {
 .app-shell.theme-compact .diagnostics-line {
   margin-top: 4px !important;
   color: var(--ol-muted) !important;
-  font-size: 10.5px !important;
+  font-size: var(--fs-xs) !important;
   line-height: 14px !important;
   overflow-wrap: anywhere !important;
 }
@@ -6700,7 +6713,7 @@ a:hover {
   padding: 8px 2px 6px !important;
   border-top: 1px solid var(--ol-border-soft) !important;
   color: var(--ol-muted) !important;
-  font-size: 11px !important;
+  font-size: var(--fs-sm) !important;
   line-height: 15px !important;
 }
 
@@ -6714,7 +6727,7 @@ a:hover {
   flex: 0 0 auto !important;
   margin-left: auto !important;
   color: #ffffff !important;
-  font-size: 12px !important;
+  font-size: var(--fs-sm) !important;
   font-weight: 760 !important;
 }
 
@@ -6727,7 +6740,7 @@ a:hover {
     min-height: 36px !important;
     height: 36px !important;
     padding: 3px 5px !important;
-    font-size: 11px !important;
+    font-size: var(--fs-sm) !important;
   }
 
   .app-shell.theme-compact .settings-grid > .field > input,
@@ -6833,7 +6846,7 @@ body,
   overflow: hidden !important;
   border-top: 1px solid var(--ol-border-soft) !important;
   background: var(--ol-bg) !important;
-  font-size: 9px !important;
+  font-size: var(--fs-micro) !important;
   line-height: 10px !important;
 }
 
@@ -6875,7 +6888,7 @@ body,
   background: transparent !important;
   box-shadow: none !important;
   color: #55d978 !important;
-  font-size: 10.5px !important;
+  font-size: var(--fs-xs) !important;
   line-height: 14px !important;
 }
 
@@ -7077,7 +7090,7 @@ body,
   float: right;
   margin-top: -14px;
   color: var(--ol-muted);
-  font-size: 9px;
+  font-size: var(--fs-micro);
   line-height: 10px;
 }
 
@@ -7107,7 +7120,7 @@ body,
   cursor: default;
   padding: 9px 2px 3px;
   color: #8f8f8f;
-  font-size: 9px;
+  font-size: var(--fs-micro);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -7155,13 +7168,13 @@ body,
 /* Smaller text. */
 .app-shell.theme-compact .tool-title,
 .app-shell.theme-compact .ol-row-title {
-  font-size: 11px;
+  font-size: var(--fs-sm);
   line-height: 1.15;
 }
 
 .app-shell.theme-compact .tool-subtitle,
 .app-shell.theme-compact .ol-row-desc {
-  font-size: 9px;
+  font-size: var(--fs-micro);
   line-height: 1.15;
   color: #9a9a9a;
 }
@@ -7219,7 +7232,7 @@ body,
   cursor: pointer;
   padding: 9px 2px 3px;
   color: #8f8f8f;
-  font-size: 9px;
+  font-size: var(--fs-micro);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -7278,7 +7291,7 @@ body,
   padding: 0 10px !important;
   background: #333333 !important;
   color: #b4b4b4 !important;
-  font-size: 11px !important;
+  font-size: var(--fs-sm) !important;
   font-weight: 600 !important;
   line-height: 20px !important;
 }
@@ -7317,7 +7330,7 @@ body,
   background: transparent !important;
   color: var(--ol-muted) !important;
   cursor: pointer;
-  font-size: 10px !important;
+  font-size: var(--fs-xs) !important;
   font-weight: 700 !important;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -7395,7 +7408,7 @@ body,
   border-radius: 50%;
   background: rgba(240, 177, 83, 0.14);
   color: #f0b153;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   font-style: italic;
   line-height: 16px;
@@ -7556,7 +7569,7 @@ body,
 .app-shell.theme-compact input,
 .app-shell.theme-compact select,
 .app-shell.theme-compact textarea {
-  font-family: Arial, sans-serif !important;
+  font-family: var(--ol-font) !important;
 }
 
 /* UXP does not consistently honor flex gap. Use explicit margins so the back
@@ -7605,7 +7618,7 @@ body,
   flex: 0 1 auto !important;
   max-width: none !important;
   margin: 0 !important;
-  font-size: 13px !important;
+  font-size: var(--fs-md) !important;
   font-weight: 600 !important;
 }
 
@@ -7675,8 +7688,8 @@ body,
   padding: 10px;
   background: #2b2b2b;
   color: #eeeeee;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-size: 12px;
+  font-family: var(--ol-font);
+  font-size: var(--fs-sm);
 }
 
 .openlayer-preview-panel-header {
@@ -7691,7 +7704,7 @@ body,
 .openlayer-preview-panel-badge {
   overflow: hidden;
   color: #9a9a9a;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   letter-spacing: 0.02em;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -7716,7 +7729,7 @@ body,
   color: #d7dde6;
   cursor: pointer;
   font-family: inherit;
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 
 .openlayer-preview-panel-pin:hover {
@@ -7732,7 +7745,7 @@ body,
   background: #383838;
   color: #d7dde6;
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 
 .openlayer-preview-panel-fit:hover {
@@ -7783,7 +7796,7 @@ body,
 .openlayer-preview-panel-empty {
   padding: 0 16px;
   color: #7f7f7f;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   text-align: center;
 }
 
@@ -7814,7 +7827,7 @@ body,
   color: #d7dde6;
   cursor: pointer;
   font-family: inherit;
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 
 .openlayer-preview-panel-import {
@@ -7854,7 +7867,7 @@ body,
   overflow: hidden;
   flex: 1 1 auto;
   color: #9a9a9a;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
