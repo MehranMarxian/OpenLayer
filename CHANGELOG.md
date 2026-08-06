@@ -1,5 +1,47 @@
 # Changelog
 
+## v0.13.0-alpha - 2026-08-07
+
+LoRAs, at last: every preset that loads a model and a text encoder — eleven of them, across Text to Image, Image to Image and Sketch to Image — now takes an optional LoRA. The panel has been able to list the LoRAs on your disk since long before it could use one.
+
+Two presets that were quietly broken are fixed. Sketch to Image fed ControlNet a blank control image for light-on-dark art, so the sketch was ignored with no error at all. The Flux.2 dev (GGUF) preset that headlined v0.12.0 could not actually be run: its model dropdown never listed a `.gguf` file, and choosing it and pressing Generate failed outright. Both were reported by a tester using the release, which is what the alpha is for.
+
+### Added
+
+- **An optional LoRA on eleven presets.** One dropdown and one strength control per tool. Choosing nothing leaves the workflow byte-identical to the one that ships, because a LoRA cannot be a permanently wired node whose value is merely set: ComfyUI's `LoraLoader` has no "none" entry, so a wired-in loader would force everyone to own and load a LoRA they may not want. The loader is spliced into the graph only when a LoRA is actually chosen, and the model and text-encode inputs downstream are rewired to it. This is the first time building a workflow changes its shape rather than its values, so each preset declares its own wiring rather than having it guessed — three genuinely different shapes turned up among the eleven, including one where the LoRA must be applied before a sampling-mode wrapper rather than at the sampler.
+- **A Depth ControlNet Sketch to Image preset.** LineArt and Scribble both hold the drawn stroke; neither carries depth. This one conditions on estimated scene depth, so it holds perspective and the relative distance of forms — the preset to reach for when a generated element has to sit inside an existing composite at the right camera angle. It works from any shaded image, not only a line drawing, and needs one new ControlNet model. No new custom node package: the depth estimator comes from `comfyui_controlnet_aux`, which the sketch presets already required.
+- **A Scribble Sketch to Image preset**, on the PiDiNet edge detector and the Scribble ControlNet, for loose gestural strokes where LineArt holds the drawn line too tightly. Its ControlNet model was already installed for most users and it needs no new node package.
+
+### Fixed
+
+- **Sketch to Image ignored the sketch entirely for a whole class of drawing.** `LineartStandardPreprocessor` assumes dark strokes on white paper, so light-on-dark art and solid filled shapes produced a pure-black control image — measured at 0% ink on a 1024px filled silhouette. ControlNet had no signal, the preset degraded to plain text-to-image, and nothing anywhere reported a problem. It now uses a learned, polarity-robust detector (`AnyLineArtPreprocessor_aux`, 1.14% ink on the same source). Both sketch preprocessors also run at 1024 rather than a hardcoded 512, which had been discarding line detail before ControlNet ever saw it.
+- **The Flux.2 dev (GGUF) preset could not be selected or run.** Its Model dropdown asked ComfyUI's core `UNETLoader` for the file list, and that loader does not enumerate `.gguf` files at all — so a correctly installed quantised model was invisible no matter where it was placed. Pressing Generate then failed regardless, because the builder required a negative-prompt target on a preset that deliberately has none, Flux.2 being guidance-distilled with no negative conditioning node in its reference graph.
+
+### Changed
+
+- The Flux.2 GGUF workflow is now bundled with the panel like every other preset's, instead of being fetched at runtime — it was the only runnable preset left out of that map.
+
+### Known limitations
+
+- **The LoRA list cannot be filtered by which model a LoRA suits, and a mismatched one fails silently.** ComfyUI reports only a LoRA's name, size and timestamps; nothing reachable over the wire says what it was trained against. The metadata that would say is not served, and is not reliable even when read directly — two LoRAs on the reference machine declare `ss_base_model_version: sd_1.5` while their tensor keys are plainly Flux. So the panel lists every LoRA, labels the entries whose *filenames* suggest a match or a mismatch, sorts likely matches first, and warns. Picking a LoRA meant for another model loads without any error and then does nothing: an unchanged image is the symptom to expect.
+- **A LoRA roughly doubles Flux.2's inference time**, which is already minutes per image on a 12 GB card.
+- **Whether a Krea-2 LoRA trained on Raw behaves correctly on the Turbo checkpoint is unverified.** Krea's own guidance is to train on Raw and marks Turbo as not recommended for training, but no source addresses applying the result at Turbo's 8 steps.
+- **The Depth preset downloads its depth estimator on first use.** The ControlNet weight is a normal setup download, but `DepthAnythingV2Preprocessor` fetches its own estimator the first time it runs, so the first generation is much slower than later ones. Depth estimation also needs tonal variation — a flat line drawing gives it little to read.
+- Batch generation is designed but not built; the design note is in `docs/BATCH_GENERATION.md`. Image to Image cannot batch at all without further work, because it builds its latent from the captured layer.
+- **Assisted install remains withheld, and the Setup screen still only reports and copies.** ComfyUI-Manager's `install_model` endpoint only accepts entries from its own curated catalogue, which holds 7 of the 16 model files this project pins, and for several of those its download URL is not the one the registry pins. Unchanged from v0.12.0.
+- **The Flux.2 GGUF preset is slow on a 12 GB card, by a wide margin** — an 18.7 GB quantised model plus a 16.8 GB text encoder means ComfyUI streams most of it from system RAM. It also needs `mistral_3_small_flux2_fp8.safetensors`, which is licence-gated: accept the licence in a browser and download it by hand.
+- **Live Painting is experimental.** The live tier needs an SD 1.5 LCM LoRA in `models/loras/`; the Refine tier additionally needs the three Krea-2 Turbo files.
+- Setup and Workflow Health overlap on purpose for now. Setup answers "what do I need and where does it go"; Health answers "can I run this preset right now".
+- "What will run well" reads the VRAM ComfyUI reports for its primary device. With ComfyUI stopped, every preset falls back to "Not known".
+- The panel still cannot open a browser, which is why rows offer Copy Link rather than a button that opens the page.
+- **The `.ccx` one-click install is verified on one configuration only** — Windows 11, Photoshop 2025 (26.1.0). macOS and every other Photoshop version remain untested.
+- The Layer Tools card on Home does not dim when ComfyUI is unreachable, unlike the generation tools.
+- Layer, canvas, selection, and mask capture is limited to 16 megapixels (4096 x 4096) until a downscale option is added.
+- The Preview panel offers each tool's primary import only.
+- The setup pack contains no model weights — it ships the list and the downloader instead, so an internet connection is required.
+- Inpaint and Outpaint remain experimental and should be tested on duplicate layers or disposable documents.
+- CI covers pure TypeScript behavior but does not run Photoshop, UXP Developer Tool, or ComfyUI integration tests.
+
 ## v0.12.0-alpha - 2026-08-01
 
 Two things for people running Flux: a Text to Image preset for the GGUF-quantised FLUX.2-dev, and the end of a long-standing embarrassment — every preset the panel lists is now one you can actually run, because the two that never could have been are gone rather than still promising a workflow that was never coming.
