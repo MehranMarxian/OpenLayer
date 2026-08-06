@@ -112,6 +112,8 @@ export async function buildImg2ImgWorkflow(
   setPresetInput(workflow, preset, "cfg", options.cfg, true);
   setPresetInput(workflow, preset, "denoise", options.denoise, true);
 
+  applyLoraSelection(workflow, preset, options.lora);
+
   validateWorkflowForPreset(workflow, preset);
 
   return {
@@ -147,6 +149,8 @@ export async function buildSketchToImageWorkflow(
   setPresetInput(workflow, preset, "cfg", options.cfg, true);
   setPresetInput(workflow, preset, "denoise", options.denoise, true);
   setPresetInput(workflow, preset, "controlStrength", options.controlStrength, true);
+
+  applyLoraSelection(workflow, preset, options.lora);
 
   validateWorkflowForPreset(workflow, preset);
 

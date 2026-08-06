@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { buildTxt2ImgWorkflow } from "../../src/comfy/workflowBuilder";
+import {
+  buildImg2ImgWorkflow,
+  buildSketchToImageWorkflow,
+  buildTxt2ImgWorkflow
+} from "../../src/comfy/workflowBuilder";
 import { WORKFLOW_PRESETS, getWorkflowPreset } from "../../src/comfy/presetRegistry";
+import { WorkflowPresetDefinition } from "../../src/comfy/types";
 
 const BASE = {
   presetId: "txt2img-krea2-turbo",
@@ -98,11 +103,47 @@ describe("optional LoRA insertion", () => {
   });
 });
 
+/** Builds a preset through whichever builder its mode belongs to. */
+async function buildForMode(preset: WorkflowPresetDefinition, lora?: typeof LORA) {
+  const shared = {
+    presetId: preset.id,
+    prompt: "a test",
+    width: 512,
+    height: 512,
+    steps: 4,
+    cfg: 1,
+    seed: 1,
+    lora
+  };
+
+  if (preset.mode === "txt2img") {
+    return buildTxt2ImgWorkflow(shared);
+  }
+
+  const imageShared = { ...shared, sourceImageName: "source.png", denoise: 0.6 };
+
+  if (preset.mode === "img2img") {
+    return buildImg2ImgWorkflow(imageShared);
+  }
+
+  if (preset.mode === "sketch2img") {
+    return buildSketchToImageWorkflow({ ...imageShared, controlStrength: 0.8 });
+  }
+
+  throw new Error(`no builder wired for mode ${preset.mode}`);
+}
+
 describe("every declared LoRA insertion point", () => {
   const withLora = WORKFLOW_PRESETS.filter((preset) => preset.loraInsertion);
 
   it("covers the presets that are meant to have one", () => {
     expect(withLora.map((preset) => preset.id).sort()).toEqual([
+      "img2img-basic",
+      "img2img-krea2-turbo",
+      "img2img-z-image-turbo",
+      "sketch2img-depth-basic",
+      "sketch2img-linecn-basic",
+      "sketch2img-scribble-basic",
       "txt2img-basic",
       "txt2img-flux1-dev-fp8",
       "txt2img-flux2-dev-gguf",
@@ -116,15 +157,7 @@ describe("every declared LoRA insertion point", () => {
       const insertion = preset.loraInsertion!;
 
       it("takes a node id its workflow does not already use", async () => {
-        const built = await buildTxt2ImgWorkflow({
-          presetId: preset.id,
-          prompt: "a test",
-          width: 512,
-          height: 512,
-          steps: 4,
-          cfg: 1,
-          seed: 1
-        });
+        const built = await buildForMode(preset);
 
         // Without this the splice would overwrite a real node and still pass
         // validation, because validateWorkflowForPreset only checks that the
@@ -133,16 +166,7 @@ describe("every declared LoRA insertion point", () => {
       });
 
       it("names sources and consumers that exist, and rewires all of them", async () => {
-        const built = await buildTxt2ImgWorkflow({
-          presetId: preset.id,
-          prompt: "a test",
-          width: 512,
-          height: 512,
-          steps: 4,
-          cfg: 1,
-          seed: 1,
-          lora: LORA
-        });
+        const built = await buildForMode(preset, LORA);
 
         expect(built.workflow[insertion.modelSource.nodeId]).toBeDefined();
         expect(built.workflow[insertion.clipSource.nodeId]).toBeDefined();
@@ -157,16 +181,7 @@ describe("every declared LoRA insertion point", () => {
       });
 
       it("leaves nothing downstream still reading the bare model or CLIP", async () => {
-        const built = await buildTxt2ImgWorkflow({
-          presetId: preset.id,
-          prompt: "a test",
-          width: 512,
-          height: 512,
-          steps: 4,
-          cfg: 1,
-          seed: 1,
-          lora: LORA
-        });
+        const built = await buildForMode(preset, LORA);
 
         // The failure this guards against is silent: a consumer left on the
         // original loader means the LoRA loads and then applies to nothing.

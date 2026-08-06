@@ -504,6 +504,57 @@ const FLUX2_DEV_GGUF_TXT2IMG_LORA_INSERTION = {
   clipConsumers: [{ nodeId: FLUX2_DEV_GGUF_TXT2IMG_NODES.positivePrompt, inputName: "clip" }]
 } as const;
 
+const IMG2IMG_BASIC_LORA_INSERTION = {
+  nodeId: "12",
+  familyTokens: ["sd15", "sd1.5", "sd_1.5"],
+  modelSource: { nodeId: IMG2IMG_BASIC_NODES.checkpointLoader, slot: 0 },
+  clipSource: { nodeId: IMG2IMG_BASIC_NODES.checkpointLoader, slot: 1 },
+  modelConsumers: [{ nodeId: IMG2IMG_BASIC_NODES.sampler, inputName: "model" }],
+  clipConsumers: [
+    { nodeId: IMG2IMG_BASIC_NODES.positivePrompt, inputName: "clip" },
+    { nodeId: IMG2IMG_BASIC_NODES.negativePrompt, inputName: "clip" }
+  ]
+} as const;
+
+
+
+/** Same wrapper caveat as the txt2img Z-Image preset: rewire modelSampling. */
+const Z_IMAGE_TURBO_IMG2IMG_LORA_INSERTION = {
+  nodeId: "24",
+  familyTokens: ["z-image", "zimage", "z_image"],
+  modelSource: { nodeId: Z_IMAGE_TURBO_IMG2IMG_NODES.diffusionModelLoader, slot: 0 },
+  clipSource: { nodeId: Z_IMAGE_TURBO_IMG2IMG_NODES.clipLoader, slot: 0 },
+  modelConsumers: [{ nodeId: Z_IMAGE_TURBO_IMG2IMG_NODES.modelSampling, inputName: "model" }],
+  clipConsumers: [
+    { nodeId: Z_IMAGE_TURBO_IMG2IMG_NODES.positivePrompt, inputName: "clip" },
+    { nodeId: Z_IMAGE_TURBO_IMG2IMG_NODES.negativePrompt, inputName: "clip" }
+  ]
+} as const;
+
+/**
+ * The three sketch presets share one graph shape by design, so they share this
+ * wiring too -- only the preprocessor and ControlNet differ between them, and
+ * neither touches the model or CLIP path.
+ */
+function createSketchLoraInsertion(nodes: {
+  readonly checkpointLoader: string;
+  readonly sampler: string;
+  readonly positivePrompt: string;
+  readonly negativePrompt: string;
+}) {
+  return {
+    nodeId: "15",
+    familyTokens: ["sd15", "sd1.5", "sd_1.5"],
+    modelSource: { nodeId: nodes.checkpointLoader, slot: 0 },
+    clipSource: { nodeId: nodes.checkpointLoader, slot: 1 },
+    modelConsumers: [{ nodeId: nodes.sampler, inputName: "model" }],
+    clipConsumers: [
+      { nodeId: nodes.positivePrompt, inputName: "clip" },
+      { nodeId: nodes.negativePrompt, inputName: "clip" }
+    ]
+  } as const;
+}
+
 const KREA2_TURBO_TXT2IMG_LORA_INSERTION = {
   nodeId: "23",
   familyTokens: ["krea2", "krea-2", "krea_2"],
@@ -527,6 +578,17 @@ const KREA2_TURBO_IMG2IMG_NODES = {
   sampler: "3",
   decode: "8",
   saveImage: "9"
+} as const;
+const KREA2_TURBO_IMG2IMG_LORA_INSERTION = {
+  nodeId: "23",
+  familyTokens: ["krea2", "krea-2", "krea_2"],
+  modelSource: { nodeId: KREA2_TURBO_IMG2IMG_NODES.diffusionModelLoader, slot: 0 },
+  clipSource: { nodeId: KREA2_TURBO_IMG2IMG_NODES.clipLoader, slot: 0 },
+  modelConsumers: [{ nodeId: KREA2_TURBO_IMG2IMG_NODES.sampler, inputName: "model" }],
+  clipConsumers: [
+    { nodeId: KREA2_TURBO_IMG2IMG_NODES.positivePrompt, inputName: "clip" },
+    { nodeId: KREA2_TURBO_IMG2IMG_NODES.negativePrompt, inputName: "clip" }
+  ]
 } as const;
 
 const PROMPT_FROM_LAYER_FLORENCE2_NODES = {
@@ -1253,6 +1315,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     modelSource: CHECKPOINT_MODEL_SOURCE,
     capability: IMG2IMG_BASIC_CAPABILITY,
     injections: IMG2IMG_BASIC_INJECTIONS,
+    loraInsertion: IMG2IMG_BASIC_LORA_INSERTION,
     compatibilityNote: "img2img-basic uses the standard CheckpointLoaderSimple, LoadImage, and VAEEncode SD/SDXL workflow.",
     requiredNodes: [
       {
@@ -1387,6 +1450,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     modelSource: CHECKPOINT_MODEL_SOURCE,
     capability: SKETCH2IMG_LINECN_BASIC_CAPABILITY,
     injections: SKETCH2IMG_LINECN_BASIC_INJECTIONS,
+    loraInsertion: createSketchLoraInsertion(SKETCH2IMG_LINECN_BASIC_NODES),
     compatibilityNote:
       "sketch2img-linecn-basic generates from an empty latent at the sketch size while the SD 1.5 LineArt ControlNet guides structure, so colors render fully instead of inheriting the white sketch paper. Keep denoise at 1 for a full render, or lower it only when blending with a colored source. It uses the AnyLine detector rather than the standard Lineart preprocessor, which returns a blank control image -- and so silently degrades to plain text-to-image -- for light-on-dark art or solid filled shapes.",
     requiredModels: [
@@ -1471,6 +1535,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     modelSource: CHECKPOINT_MODEL_SOURCE,
     capability: SKETCH2IMG_SCRIBBLE_BASIC_CAPABILITY,
     injections: SKETCH2IMG_SCRIBBLE_BASIC_INJECTIONS,
+    loraInsertion: createSketchLoraInsertion(SKETCH2IMG_SCRIBBLE_BASIC_NODES),
     compatibilityNote:
       "sketch2img-scribble-basic suits loose, gestural strokes: it keeps the sketch's broad shapes and lets the model invent the detail, where the LineArt preset holds the drawn line. Pick Scribble for a rough thumbnail, LineArt for clean inked art. It uses the PiDiNet edge detector rather than the plain Scribble preprocessor, which returns a blank control image -- and so silently degrades to plain text-to-image -- for light-on-dark art or solid filled shapes.",
     requiredModels: [
@@ -1555,6 +1620,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     modelSource: CHECKPOINT_MODEL_SOURCE,
     capability: SKETCH2IMG_DEPTH_BASIC_CAPABILITY,
     injections: SKETCH2IMG_DEPTH_BASIC_INJECTIONS,
+    loraInsertion: createSketchLoraInsertion(SKETCH2IMG_DEPTH_BASIC_NODES),
     compatibilityNote:
       "sketch2img-depth-basic conditions on estimated scene depth, so it holds perspective and the relative distance of forms while leaving surface detail free -- the preset to reach for when a generated element has to sit inside an existing composite at the right camera angle. LineArt and Scribble hold the drawn stroke instead, and neither carries depth. It works from any shaded image, not only a line drawing, and a flat drawing with no tonal variation gives the estimator little to read. DepthAnythingV2Preprocessor downloads its own estimator weights on first run, the same way the LineArt and Scribble preprocessors do, so the first generation after install is slower than later ones.",
     requiredModels: [
@@ -1956,6 +2022,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     modelStack: [...Z_IMAGE_TURBO_STACK],
     requiredModels: [...Z_IMAGE_TURBO_STACK],
     injections: Z_IMAGE_TURBO_IMG2IMG_INJECTIONS,
+    loraInsertion: Z_IMAGE_TURBO_IMG2IMG_LORA_INSERTION,
     requiredNodes: [
       {
         id: Z_IMAGE_TURBO_IMG2IMG_NODES.diffusionModelLoader,
@@ -2189,6 +2256,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     modelStack: [...KREA2_TURBO_STACK],
     requiredModels: [...KREA2_TURBO_STACK],
     injections: KREA2_TURBO_IMG2IMG_INJECTIONS,
+    loraInsertion: KREA2_TURBO_IMG2IMG_LORA_INSERTION,
     requiredNodes: [
       {
         id: KREA2_TURBO_IMG2IMG_NODES.diffusionModelLoader,

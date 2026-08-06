@@ -155,6 +155,7 @@ export type BuildImageToImageWorkflowOptions = {
   seed: number;
   denoise: number;
   requiredModelSelections?: Record<string, string>;
+  lora?: WorkflowLoraSelection;
 };
 
 export type BuildSketchToImageWorkflowOptions = BuildImageToImageWorkflowOptions & {
