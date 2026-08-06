@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildTxt2ImgWorkflow } from "../../src/comfy/workflowBuilder";
-import { getWorkflowPreset } from "../../src/comfy/presetRegistry";
-import { getTechnicalErrorDetails } from "../../src/utils/errors";
+import { WORKFLOW_PRESETS, getWorkflowPreset } from "../../src/comfy/presetRegistry";
 
 const BASE = {
   presetId: "txt2img-krea2-turbo",
@@ -81,17 +80,15 @@ describe("optional LoRA insertion", () => {
     }
   });
 
-  it("refuses a LoRA on a preset that declares no insertion point", async () => {
-    let thrown: unknown;
-
-    try {
-      await buildTxt2ImgWorkflow({ ...BASE, presetId: "txt2img-basic", lora: LORA });
-    } catch (error) {
-      thrown = error;
+  it("leaves presets that should not take a LoRA without an insertion point", () => {
+    // The builder's guard throws for a preset with no insertion point, but
+    // every txt2img preset now declares one, so that path is unreachable from
+    // buildTxt2ImgWorkflow and cannot honestly be exercised here. What is still
+    // worth pinning is that tools which never offer a LoRA have not quietly
+    // acquired one.
+    for (const id of ["inpaint-basic", "outpaint-flux-fill-basic", "upscale-basic"] as const) {
+      expect(getWorkflowPreset(id).loraInsertion).toBeUndefined();
     }
-
-    expect(thrown).toBeDefined();
-    expect(getTechnicalErrorDetails(thrown)).toContain("loraInsertion");
   });
 
   it("still passes the preset's own workflow validation after surgery", async () => {
@@ -99,4 +96,103 @@ describe("optional LoRA insertion", () => {
     // builder validates again after the splice.
     await expect(buildTxt2ImgWorkflow({ ...BASE, lora: LORA })).resolves.toBeDefined();
   });
+});
+
+describe("every declared LoRA insertion point", () => {
+  const withLora = WORKFLOW_PRESETS.filter((preset) => preset.loraInsertion);
+
+  it("covers the presets that are meant to have one", () => {
+    expect(withLora.map((preset) => preset.id).sort()).toEqual([
+      "txt2img-basic",
+      "txt2img-flux1-dev-fp8",
+      "txt2img-flux2-dev-gguf",
+      "txt2img-krea2-turbo",
+      "txt2img-z-image-turbo"
+    ]);
+  });
+
+  for (const preset of withLora) {
+    describe(preset.id, () => {
+      const insertion = preset.loraInsertion!;
+
+      it("takes a node id its workflow does not already use", async () => {
+        const built = await buildTxt2ImgWorkflow({
+          presetId: preset.id,
+          prompt: "a test",
+          width: 512,
+          height: 512,
+          steps: 4,
+          cfg: 1,
+          seed: 1
+        });
+
+        // Without this the splice would overwrite a real node and still pass
+        // validation, because validateWorkflowForPreset only checks that the
+        // required nodes are present.
+        expect(built.workflow[insertion.nodeId]).toBeUndefined();
+      });
+
+      it("names sources and consumers that exist, and rewires all of them", async () => {
+        const built = await buildTxt2ImgWorkflow({
+          presetId: preset.id,
+          prompt: "a test",
+          width: 512,
+          height: 512,
+          steps: 4,
+          cfg: 1,
+          seed: 1,
+          lora: LORA
+        });
+
+        expect(built.workflow[insertion.modelSource.nodeId]).toBeDefined();
+        expect(built.workflow[insertion.clipSource.nodeId]).toBeDefined();
+
+        for (const consumer of insertion.modelConsumers) {
+          expect(built.workflow[consumer.nodeId]?.inputs[consumer.inputName]).toEqual([insertion.nodeId, 0]);
+        }
+
+        for (const consumer of insertion.clipConsumers) {
+          expect(built.workflow[consumer.nodeId]?.inputs[consumer.inputName]).toEqual([insertion.nodeId, 1]);
+        }
+      });
+
+      it("leaves nothing downstream still reading the bare model or CLIP", async () => {
+        const built = await buildTxt2ImgWorkflow({
+          presetId: preset.id,
+          prompt: "a test",
+          width: 512,
+          height: 512,
+          steps: 4,
+          cfg: 1,
+          seed: 1,
+          lora: LORA
+        });
+
+        // The failure this guards against is silent: a consumer left on the
+        // original loader means the LoRA loads and then applies to nothing.
+        for (const [id, node] of Object.entries(built.workflow)) {
+          if (id === insertion.nodeId) {
+            continue;
+          }
+
+          for (const [inputName, value] of Object.entries(node.inputs)) {
+            if (!Array.isArray(value) || value.length < 2) {
+              continue;
+            }
+
+            const readsModel = String(value[0]) === insertion.modelSource.nodeId && value[1] === insertion.modelSource.slot;
+            const readsClip = String(value[0]) === insertion.clipSource.nodeId && value[1] === insertion.clipSource.slot;
+
+            if (readsModel && inputName === "model") {
+              throw new Error(`${preset.id}: node ${id}.${inputName} still reads the bare model`);
+            }
+
+            if (readsClip && inputName === "clip") {
+              throw new Error(`${preset.id}: node ${id}.${inputName} still reads the bare CLIP`);
+            }
+          }
+        }
+      });
+    });
+  }
 });

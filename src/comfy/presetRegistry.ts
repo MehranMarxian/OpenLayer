@@ -441,6 +441,69 @@ const KREA2_TURBO_TXT2IMG_NODES = {
  * workflow stops at 22, and applyLoraSelection refuses to overwrite an
  * occupied id rather than trusting this comment to stay true.
  */
+/**
+ * A checkpoint loader is its own CLIP source: CheckpointLoaderSimple outputs
+ * MODEL on slot 0 and CLIP on slot 1, where a diffusion-model stack has two
+ * separate loaders. Both shapes splice the same way, which is why the insertion
+ * declares a slot rather than assuming one.
+ */
+const TXT2IMG_BASIC_LORA_INSERTION = {
+  nodeId: "10",
+  familyTokens: ["sd15", "sd1.5", "sd_1.5"],
+  modelSource: { nodeId: TXT2IMG_BASIC_NODES.checkpointLoader, slot: 0 },
+  clipSource: { nodeId: TXT2IMG_BASIC_NODES.checkpointLoader, slot: 1 },
+  modelConsumers: [{ nodeId: TXT2IMG_BASIC_NODES.sampler, inputName: "model" }],
+  clipConsumers: [
+    { nodeId: TXT2IMG_BASIC_NODES.positivePrompt, inputName: "clip" },
+    { nodeId: TXT2IMG_BASIC_NODES.negativePrompt, inputName: "clip" }
+  ]
+} as const;
+
+const FLUX1_DEV_FP8_TXT2IMG_LORA_INSERTION = {
+  nodeId: "36",
+  familyTokens: ["flux"],
+  modelSource: { nodeId: FLUX1_DEV_FP8_TXT2IMG_NODES.checkpointLoader, slot: 0 },
+  clipSource: { nodeId: FLUX1_DEV_FP8_TXT2IMG_NODES.checkpointLoader, slot: 1 },
+  modelConsumers: [{ nodeId: FLUX1_DEV_FP8_TXT2IMG_NODES.sampler, inputName: "model" }],
+  clipConsumers: [
+    { nodeId: FLUX1_DEV_FP8_TXT2IMG_NODES.positivePrompt, inputName: "clip" },
+    { nodeId: FLUX1_DEV_FP8_TXT2IMG_NODES.negativePrompt, inputName: "clip" }
+  ]
+} as const;
+
+/**
+ * The model consumer here is ModelSamplingAuraFlow, not the sampler. A LoRA has
+ * to be applied *before* the sampling-mode wrapper, so the wrapper is what gets
+ * rewired -- pointing the sampler at the LoRA instead would silently bypass
+ * ModelSamplingAuraFlow and change how the model is sampled.
+ */
+const Z_IMAGE_TURBO_TXT2IMG_LORA_INSERTION = {
+  nodeId: "24",
+  familyTokens: ["z-image", "zimage", "z_image"],
+  modelSource: { nodeId: Z_IMAGE_TURBO_TXT2IMG_NODES.diffusionModelLoader, slot: 0 },
+  clipSource: { nodeId: Z_IMAGE_TURBO_TXT2IMG_NODES.clipLoader, slot: 0 },
+  modelConsumers: [{ nodeId: Z_IMAGE_TURBO_TXT2IMG_NODES.modelSampling, inputName: "model" }],
+  clipConsumers: [
+    { nodeId: Z_IMAGE_TURBO_TXT2IMG_NODES.positivePrompt, inputName: "clip" },
+    { nodeId: Z_IMAGE_TURBO_TXT2IMG_NODES.negativePrompt, inputName: "clip" }
+  ]
+} as const;
+
+/**
+ * Only one clip consumer, because Flux.2 is guidance-distilled and the
+ * reference graph has no negative conditioning node at all. The model consumer
+ * is BasicGuider rather than a KSampler, this preset being built on the
+ * advanced sampler chain.
+ */
+const FLUX2_DEV_GGUF_TXT2IMG_LORA_INSERTION = {
+  nodeId: "49",
+  familyTokens: ["flux2", "flux-2", "flux_2"],
+  modelSource: { nodeId: FLUX2_DEV_GGUF_TXT2IMG_NODES.diffusionModelLoader, slot: 0 },
+  clipSource: { nodeId: FLUX2_DEV_GGUF_TXT2IMG_NODES.clipLoader, slot: 0 },
+  modelConsumers: [{ nodeId: FLUX2_DEV_GGUF_TXT2IMG_NODES.guider, inputName: "model" }],
+  clipConsumers: [{ nodeId: FLUX2_DEV_GGUF_TXT2IMG_NODES.positivePrompt, inputName: "clip" }]
+} as const;
+
 const KREA2_TURBO_TXT2IMG_LORA_INSERTION = {
   nodeId: "23",
   familyTokens: ["krea2", "krea-2", "krea_2"],
@@ -1078,6 +1141,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     modelSource: CHECKPOINT_MODEL_SOURCE,
     capability: TXT2IMG_BASIC_CAPABILITY,
     injections: TXT2IMG_BASIC_INJECTIONS,
+    loraInsertion: TXT2IMG_BASIC_LORA_INSERTION,
     compatibilityNote: "txt2img-basic uses the standard CheckpointLoaderSimple SD/SDXL workflow.",
     requiredNodes: [
       {
@@ -1128,6 +1192,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     capability: FLUX1_DEV_FP8_TXT2IMG_CAPABILITY,
     requiredModels: [FLUX1_DEV_FP8_CHECKPOINT],
     injections: FLUX1_DEV_FP8_TXT2IMG_INJECTIONS,
+    loraInsertion: FLUX1_DEV_FP8_TXT2IMG_LORA_INSERTION,
     compatibilityNote:
       "txt2img-flux1-dev-fp8 follows the attached CheckpointLoaderSimple Flux workflow. KSampler CFG stays 1; OpenLayer maps the UI CFG control to FluxGuidance.",
     requiredNodes: [
@@ -1818,6 +1883,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     modelStack: [...Z_IMAGE_TURBO_STACK],
     requiredModels: [...Z_IMAGE_TURBO_STACK],
     injections: Z_IMAGE_TURBO_TXT2IMG_INJECTIONS,
+    loraInsertion: Z_IMAGE_TURBO_TXT2IMG_LORA_INSERTION,
     requiredNodes: [
       {
         id: Z_IMAGE_TURBO_TXT2IMG_NODES.diffusionModelLoader,
@@ -2034,6 +2100,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     modelStack: [...FLUX2_DEV_GGUF_STACK],
     requiredModels: [...FLUX2_DEV_GGUF_STACK],
     injections: FLUX2_DEV_GGUF_TXT2IMG_INJECTIONS,
+    loraInsertion: FLUX2_DEV_GGUF_TXT2IMG_LORA_INSERTION,
     requiredNodes: [
       {
         id: FLUX2_DEV_GGUF_TXT2IMG_NODES.diffusionModelLoader,

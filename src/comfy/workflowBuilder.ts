@@ -1,6 +1,7 @@
 import txt2imgBasicWorkflow from "../workflows/api/txt2img-basic.json";
 import img2imgBasicWorkflow from "../workflows/api/img2img-basic.json";
 import txt2imgFlux1DevFp8Workflow from "../workflows/api/txt2img-flux1-dev-fp8.json";
+import txt2imgFlux2DevGgufWorkflow from "../workflows/api/txt2img-flux2-dev-gguf.json";
 import txt2imgZImageTurboWorkflow from "../workflows/api/txt2img-z-image-turbo.json";
 import img2imgZImageTurboWorkflow from "../workflows/api/img2img-z-image-turbo.json";
 import txt2imgKrea2TurboWorkflow from "../workflows/api/txt2img-krea2-turbo.json";
@@ -37,6 +38,7 @@ const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
   "txt2img-basic": txt2imgBasicWorkflow as ComfyWorkflow,
   "img2img-basic": img2imgBasicWorkflow as ComfyWorkflow,
   "txt2img-flux1-dev-fp8": txt2imgFlux1DevFp8Workflow as ComfyWorkflow,
+  "txt2img-flux2-dev-gguf": txt2imgFlux2DevGgufWorkflow as ComfyWorkflow,
   "txt2img-z-image-turbo": txt2imgZImageTurboWorkflow as ComfyWorkflow,
   "img2img-z-image-turbo": img2imgZImageTurboWorkflow as ComfyWorkflow,
   "txt2img-krea2-turbo": txt2imgKrea2TurboWorkflow as ComfyWorkflow,
