@@ -1,7 +1,7 @@
 import { OpenLayerTheme } from "../utils/preferences";
 
 export const DEFAULT_SERVER_URL = "http://127.0.0.1:8190";
-export const APP_VERSION = "0.12.0";
+export const APP_VERSION = "0.13.0";
 export const DEVELOPER_GITHUB = "https://github.com/MehranMarxian";
 export const HISTORY_LIMIT = 5;
 export const COMFY_PORT_CANDIDATES = [8190, 8188, 8189, 8191, 8192, 8193, 7860];
