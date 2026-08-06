@@ -64,7 +64,7 @@ export async function buildTxt2ImgWorkflow(options: BuildWorkflowOptions): Promi
   }
 
   setPresetInput(workflow, preset, "positivePrompt", options.prompt, true);
-  setPresetInput(workflow, preset, "negativePrompt", options.negativePrompt ?? "", true);
+  setPresetInput(workflow, preset, "negativePrompt", options.negativePrompt ?? "");
   setPresetInput(workflow, preset, "width", options.width, true);
   setPresetInput(workflow, preset, "height", options.height, true);
   setPresetInput(workflow, preset, "seed", seed, true);
@@ -99,7 +99,7 @@ export async function buildImg2ImgWorkflow(
 
   setPresetInput(workflow, preset, "sourceImage", options.sourceImageName, true);
   setPresetInput(workflow, preset, "positivePrompt", options.prompt, true);
-  setPresetInput(workflow, preset, "negativePrompt", options.negativePrompt ?? "", true);
+  setPresetInput(workflow, preset, "negativePrompt", options.negativePrompt ?? "");
   setPresetInput(workflow, preset, "seed", seed, true);
   setPresetInput(workflow, preset, "steps", options.steps, true);
   setPresetInput(workflow, preset, "cfg", options.cfg, true);
@@ -132,7 +132,7 @@ export async function buildSketchToImageWorkflow(
 
   setPresetInput(workflow, preset, "sourceImage", options.sourceImageName, true);
   setPresetInput(workflow, preset, "positivePrompt", options.prompt, true);
-  setPresetInput(workflow, preset, "negativePrompt", options.negativePrompt ?? "", true);
+  setPresetInput(workflow, preset, "negativePrompt", options.negativePrompt ?? "");
   setPresetInput(workflow, preset, "width", options.width, true);
   setPresetInput(workflow, preset, "height", options.height, true);
   setPresetInput(workflow, preset, "seed", seed, true);

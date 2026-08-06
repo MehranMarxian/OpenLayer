@@ -62,6 +62,17 @@ const DIFFUSION_MODEL_SOURCE = {
   label: "Diffusion model"
 } as const;
 
+// UNETLoader's object_info does not enumerate .gguf files at all (verified live
+// against ComfyUI-GGUF) -- a preset built on UnetLoaderGGUF must ask that loader
+// for its own file list, or every .gguf model is invisible in the Model dropdown
+// no matter where it's placed.
+const DIFFUSION_MODEL_GGUF_SOURCE = {
+  kind: "diffusion-model-stack",
+  objectInfoNode: "UnetLoaderGGUF",
+  inputName: "unet_name",
+  label: "Diffusion model (GGUF)"
+} as const;
+
 const FLORENCE_MODEL_SOURCE = {
   kind: "vision-language",
   objectInfoNode: "Florence2ModelLoader",
@@ -1855,7 +1866,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     recommendedSettings: { steps: 20, cfg: 4 },
     supportedModelFamilies: ["flux2"],
     experimentalModelFamilies: ["unknown"],
-    modelSource: DIFFUSION_MODEL_SOURCE,
+    modelSource: DIFFUSION_MODEL_GGUF_SOURCE,
     capability: FLUX2_DEV_GGUF_TXT2IMG_CAPABILITY,
     modelStack: [...FLUX2_DEV_GGUF_STACK],
     requiredModels: [...FLUX2_DEV_GGUF_STACK],
