@@ -27,9 +27,13 @@ function loadApiWorkflow(preset: WorkflowPresetDefinition): ComfyWorkflow {
  * registered there would be silently reported as core, and this fails first.
  */
 const EXPECTED_CUSTOM_NODE_CLASSES = [
+  // Both sketch presets use a learned edge detector rather than the naive
+  // Lineart/Scribble preprocessors, which return a blank control image for
+  // light-on-dark art and so silently degrade the preset to text-to-image.
+  "AnyLineArtPreprocessor_aux",
   "Florence2ModelLoader",
   "Florence2Run",
-  "LineartStandardPreprocessor",
+  "Scribble_PiDiNet_Preprocessor",
   // Flux.2's quantised model. Note only the UNET loader appears: its text
   // encoder is a safetensors file read by core CLIPLoader, so CLIPLoaderGGUF is
   // mapped in the registry but not required by any shipped preset.

@@ -7,6 +7,7 @@ import txt2imgKrea2TurboWorkflow from "../workflows/api/txt2img-krea2-turbo.json
 import img2imgKrea2TurboWorkflow from "../workflows/api/img2img-krea2-turbo.json";
 import promptFromLayerFlorence2Workflow from "../workflows/api/prompt-from-layer-florence2.json";
 import sketch2imgLinecnBasicWorkflow from "../workflows/api/sketch2img-linecn-basic.json";
+import sketch2imgScribbleBasicWorkflow from "../workflows/api/sketch2img-scribble-basic.json";
 import inpaintBasicWorkflow from "../workflows/api/inpaint-basic.json";
 import inpaintFluxFillBasicWorkflow from "../workflows/api/inpaint-flux-fill-basic.json";
 import outpaintFluxFillBasicWorkflow from "../workflows/api/outpaint-flux-fill-basic.json";
@@ -40,6 +41,7 @@ const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
   "img2img-krea2-turbo": img2imgKrea2TurboWorkflow as ComfyWorkflow,
   "prompt-from-layer-florence2": promptFromLayerFlorence2Workflow as ComfyWorkflow,
   "sketch2img-linecn-basic": sketch2imgLinecnBasicWorkflow as ComfyWorkflow,
+  "sketch2img-scribble-basic": sketch2imgScribbleBasicWorkflow as ComfyWorkflow,
   "inpaint-basic": inpaintBasicWorkflow as ComfyWorkflow,
   "inpaint-flux-fill-basic": inpaintFluxFillBasicWorkflow as ComfyWorkflow,
   "outpaint-flux-fill-basic": outpaintFluxFillBasicWorkflow as ComfyWorkflow,

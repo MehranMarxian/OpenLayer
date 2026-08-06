@@ -9,6 +9,7 @@ export type WorkflowPreset =
   | "img2img-krea2-turbo"
   | "prompt-from-layer-florence2"
   | "sketch2img-linecn-basic"
+  | "sketch2img-scribble-basic"
   | "inpaint-basic"
   | "inpaint-flux-fill-basic"
   | "outpaint-flux-fill-basic"

@@ -287,6 +287,21 @@ const SKETCH2IMG_LINECN_BASIC_NODES = {
   saveImage: "9"
 } as const;
 
+// Same graph shape as the LineArt preset -- only the preprocessor and the
+// ControlNet it feeds differ -- so the node ids deliberately match.
+const SKETCH2IMG_SCRIBBLE_BASIC_NODES = {
+  checkpointLoader: "4",
+  loadImage: "10",
+  positivePrompt: "6",
+  negativePrompt: "7",
+  latentImage: "5",
+  scribblePreprocessor: "12",
+  controlNetLoader: "13",
+  controlNetApply: "14",
+  sampler: "3",
+  saveImage: "9"
+} as const;
+
 const INPAINT_BASIC_NODES = {
   checkpointLoader: "4",
   loadImage: "10",
@@ -462,6 +477,20 @@ const SKETCH2IMG_LINECN_BASIC_INJECTIONS = {
   cfg: target(SKETCH2IMG_LINECN_BASIC_NODES.sampler, "cfg"),
   denoise: target(SKETCH2IMG_LINECN_BASIC_NODES.sampler, "denoise"),
   controlStrength: target(SKETCH2IMG_LINECN_BASIC_NODES.controlNetApply, "strength")
+} as const;
+
+const SKETCH2IMG_SCRIBBLE_BASIC_INJECTIONS = {
+  checkpoint: target(SKETCH2IMG_SCRIBBLE_BASIC_NODES.checkpointLoader, "ckpt_name"),
+  sourceImage: target(SKETCH2IMG_SCRIBBLE_BASIC_NODES.loadImage, "image"),
+  positivePrompt: target(SKETCH2IMG_SCRIBBLE_BASIC_NODES.positivePrompt, "text"),
+  negativePrompt: target(SKETCH2IMG_SCRIBBLE_BASIC_NODES.negativePrompt, "text"),
+  width: target(SKETCH2IMG_SCRIBBLE_BASIC_NODES.latentImage, "width"),
+  height: target(SKETCH2IMG_SCRIBBLE_BASIC_NODES.latentImage, "height"),
+  seed: target(SKETCH2IMG_SCRIBBLE_BASIC_NODES.sampler, "seed"),
+  steps: target(SKETCH2IMG_SCRIBBLE_BASIC_NODES.sampler, "steps"),
+  cfg: target(SKETCH2IMG_SCRIBBLE_BASIC_NODES.sampler, "cfg"),
+  denoise: target(SKETCH2IMG_SCRIBBLE_BASIC_NODES.sampler, "denoise"),
+  controlStrength: target(SKETCH2IMG_SCRIBBLE_BASIC_NODES.controlNetApply, "strength")
 } as const;
 
 const INPAINT_BASIC_INJECTIONS = {
@@ -711,6 +740,26 @@ const SKETCH2IMG_LINECN_BASIC_CAPABILITY: WorkflowCapability = {
     modelSelectorLabel: "Checkpoint",
     primaryActionLabel: "Generate Sketch to Image",
     experimentalNote: "Starter SD 1.x LineArt ControlNet workflow."
+  }
+};
+
+const SKETCH2IMG_SCRIBBLE_BASIC_CAPABILITY: WorkflowCapability = {
+  toolType: "sketch2img",
+  loaderType: "checkpoint",
+  artistLabel: "Sketch to Image",
+  technicalLabel: "sketch2img-scribble-basic",
+  requiredPhotoshopInputs: [{ anyOf: ["active-layer", "canvas"], label: "an active layer or captured canvas" }],
+  controls: ["prompt", "negativePrompt", "steps", "cfg", "denoise", "seed", "controlStrength"],
+  output: {
+    kind: "source-sized-image",
+    size: "source",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Checkpoint",
+    primaryActionLabel: "Generate Sketch to Image",
+    experimentalNote: "Starter SD 1.x Scribble ControlNet workflow."
   }
 };
 
@@ -1188,7 +1237,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     capability: SKETCH2IMG_LINECN_BASIC_CAPABILITY,
     injections: SKETCH2IMG_LINECN_BASIC_INJECTIONS,
     compatibilityNote:
-      "sketch2img-linecn-basic generates from an empty latent at the sketch size while the SD 1.5 LineArt ControlNet guides structure, so colors render fully instead of inheriting the white sketch paper. Keep denoise at 1 for a full render, or lower it only when blending with a colored source.",
+      "sketch2img-linecn-basic generates from an empty latent at the sketch size while the SD 1.5 LineArt ControlNet guides structure, so colors render fully instead of inheriting the white sketch paper. Keep denoise at 1 for a full render, or lower it only when blending with a colored source. It uses the AnyLine detector rather than the standard Lineart preprocessor, which returns a blank control image -- and so silently degrades to plain text-to-image -- for light-on-dark art or solid filled shapes.",
     requiredModels: [
       {
         kind: "controlnet",
@@ -1231,7 +1280,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
       },
       {
         id: SKETCH2IMG_LINECN_BASIC_NODES.lineArtPreprocessor,
-        classType: "LineartStandardPreprocessor",
+        classType: "AnyLineArtPreprocessor_aux",
         requiredInputs: ["image"]
       },
       {
@@ -1251,6 +1300,90 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
       },
       {
         id: SKETCH2IMG_LINECN_BASIC_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images"]
+      }
+    ]
+  },
+  {
+    id: "sketch2img-scribble-basic",
+    label: "sketch2img-scribble-basic",
+    displayName: "Scribble ControlNet",
+    mode: "sketch2img",
+    description: "Experimental SD 1.x Scribble ControlNet sketch guidance workflow.",
+    workflowFile: "workflows/api/sketch2img-scribble-basic.json",
+    sourceWorkflowFile: "workflows/source/sketch2img-scribble-basic.workflow.json",
+    status: "stable",
+    recommendedSettings: { steps: 20, cfg: 7 },
+    supportedModelFamilies: ["sd1"],
+    experimentalModelFamilies: ["sdxl", "sd3", "flux", "zImage"],
+    modelSource: CHECKPOINT_MODEL_SOURCE,
+    capability: SKETCH2IMG_SCRIBBLE_BASIC_CAPABILITY,
+    injections: SKETCH2IMG_SCRIBBLE_BASIC_INJECTIONS,
+    compatibilityNote:
+      "sketch2img-scribble-basic suits loose, gestural strokes: it keeps the sketch's broad shapes and lets the model invent the detail, where the LineArt preset holds the drawn line. Pick Scribble for a rough thumbnail, LineArt for clean inked art. It uses the PiDiNet edge detector rather than the plain Scribble preprocessor, which returns a blank control image -- and so silently degrades to plain text-to-image -- for light-on-dark art or solid filled shapes.",
+    requiredModels: [
+      {
+        kind: "controlnet",
+        objectInfoNode: "ControlNetLoader",
+        inputName: "control_net_name",
+        label: "Scribble ControlNet",
+        modelName: "control_v11p_sd15_scribble_fp16.safetensors",
+        setupHint: "Install an SD 1.5 Scribble ControlNet model in ComfyUI's controlnet models folder.",
+        downloadUrl:
+          "https://huggingface.co/comfyanonymous/ControlNet-v1-1_fp16_safetensors/resolve/main/control_v11p_sd15_scribble_fp16.safetensors",
+        sourcePageUrl: "https://huggingface.co/comfyanonymous/ControlNet-v1-1_fp16_safetensors",
+        downloadSizeBytes: 722601100
+      }
+    ],
+    requiredNodes: [
+      {
+        id: SKETCH2IMG_SCRIBBLE_BASIC_NODES.checkpointLoader,
+        classType: "CheckpointLoaderSimple",
+        requiredInputs: ["ckpt_name"]
+      },
+      {
+        id: SKETCH2IMG_SCRIBBLE_BASIC_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: SKETCH2IMG_SCRIBBLE_BASIC_NODES.positivePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: SKETCH2IMG_SCRIBBLE_BASIC_NODES.negativePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: SKETCH2IMG_SCRIBBLE_BASIC_NODES.latentImage,
+        classType: "EmptyLatentImage",
+        requiredInputs: ["width", "height", "batch_size"]
+      },
+      {
+        id: SKETCH2IMG_SCRIBBLE_BASIC_NODES.scribblePreprocessor,
+        classType: "Scribble_PiDiNet_Preprocessor",
+        requiredInputs: ["image"]
+      },
+      {
+        id: SKETCH2IMG_SCRIBBLE_BASIC_NODES.controlNetLoader,
+        classType: "ControlNetLoader",
+        requiredInputs: ["control_net_name"]
+      },
+      {
+        id: SKETCH2IMG_SCRIBBLE_BASIC_NODES.controlNetApply,
+        classType: "ControlNetApplyAdvanced",
+        requiredInputs: ["positive", "negative", "control_net", "image", "strength", "start_percent", "end_percent"]
+      },
+      {
+        id: SKETCH2IMG_SCRIBBLE_BASIC_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["seed", "steps", "cfg", "denoise", "model", "positive", "negative", "latent_image"]
+      },
+      {
+        id: SKETCH2IMG_SCRIBBLE_BASIC_NODES.saveImage,
         classType: "SaveImage",
         requiredInputs: ["images"]
       }

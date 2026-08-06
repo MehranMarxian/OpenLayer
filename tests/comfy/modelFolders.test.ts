@@ -120,6 +120,7 @@ describe("required model inventory", () => {
         "LLM/Florence-2-base-PromptGen-v2.0",
         "checkpoints/flux1-dev-fp8.safetensors",
         "controlnet/control_v11p_sd15_lineart_fp16.safetensors",
+        "controlnet/control_v11p_sd15_scribble_fp16.safetensors",
         "diffusion_models/flux1-fill-dev.safetensors",
         "diffusion_models/flux2-dev-Q4_K_M.gguf",
         "diffusion_models/krea2_turbo_fp8_scaled.safetensors",
