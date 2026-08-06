@@ -10,6 +10,7 @@ export type WorkflowPreset =
   | "prompt-from-layer-florence2"
   | "sketch2img-linecn-basic"
   | "sketch2img-scribble-basic"
+  | "sketch2img-depth-basic"
   | "inpaint-basic"
   | "inpaint-flux-fill-basic"
   | "outpaint-flux-fill-basic"

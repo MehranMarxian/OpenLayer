@@ -313,6 +313,23 @@ const SKETCH2IMG_SCRIBBLE_BASIC_NODES = {
   saveImage: "9"
 } as const;
 
+// Third variant of the same graph. Depth differs from LineArt and Scribble in
+// what it preserves: those two hold the drawn *stroke*, while depth holds the
+// scene's geometry, which is what matters when a generated image has to sit in
+// an existing Photoshop composite at the right perspective.
+const SKETCH2IMG_DEPTH_BASIC_NODES = {
+  checkpointLoader: "4",
+  loadImage: "10",
+  positivePrompt: "6",
+  negativePrompt: "7",
+  latentImage: "5",
+  depthPreprocessor: "12",
+  controlNetLoader: "13",
+  controlNetApply: "14",
+  sampler: "3",
+  saveImage: "9"
+} as const;
+
 const INPAINT_BASIC_NODES = {
   checkpointLoader: "4",
   loadImage: "10",
@@ -502,6 +519,20 @@ const SKETCH2IMG_SCRIBBLE_BASIC_INJECTIONS = {
   cfg: target(SKETCH2IMG_SCRIBBLE_BASIC_NODES.sampler, "cfg"),
   denoise: target(SKETCH2IMG_SCRIBBLE_BASIC_NODES.sampler, "denoise"),
   controlStrength: target(SKETCH2IMG_SCRIBBLE_BASIC_NODES.controlNetApply, "strength")
+} as const;
+
+const SKETCH2IMG_DEPTH_BASIC_INJECTIONS = {
+  checkpoint: target(SKETCH2IMG_DEPTH_BASIC_NODES.checkpointLoader, "ckpt_name"),
+  sourceImage: target(SKETCH2IMG_DEPTH_BASIC_NODES.loadImage, "image"),
+  positivePrompt: target(SKETCH2IMG_DEPTH_BASIC_NODES.positivePrompt, "text"),
+  negativePrompt: target(SKETCH2IMG_DEPTH_BASIC_NODES.negativePrompt, "text"),
+  width: target(SKETCH2IMG_DEPTH_BASIC_NODES.latentImage, "width"),
+  height: target(SKETCH2IMG_DEPTH_BASIC_NODES.latentImage, "height"),
+  seed: target(SKETCH2IMG_DEPTH_BASIC_NODES.sampler, "seed"),
+  steps: target(SKETCH2IMG_DEPTH_BASIC_NODES.sampler, "steps"),
+  cfg: target(SKETCH2IMG_DEPTH_BASIC_NODES.sampler, "cfg"),
+  denoise: target(SKETCH2IMG_DEPTH_BASIC_NODES.sampler, "denoise"),
+  controlStrength: target(SKETCH2IMG_DEPTH_BASIC_NODES.controlNetApply, "strength")
 } as const;
 
 const INPAINT_BASIC_INJECTIONS = {
@@ -771,6 +802,26 @@ const SKETCH2IMG_SCRIBBLE_BASIC_CAPABILITY: WorkflowCapability = {
     modelSelectorLabel: "Checkpoint",
     primaryActionLabel: "Generate Sketch to Image",
     experimentalNote: "Starter SD 1.x Scribble ControlNet workflow."
+  }
+};
+
+const SKETCH2IMG_DEPTH_BASIC_CAPABILITY: WorkflowCapability = {
+  toolType: "sketch2img",
+  loaderType: "checkpoint",
+  artistLabel: "Sketch to Image",
+  technicalLabel: "sketch2img-depth-basic",
+  requiredPhotoshopInputs: [{ anyOf: ["active-layer", "canvas"], label: "an active layer or captured canvas" }],
+  controls: ["prompt", "negativePrompt", "steps", "cfg", "denoise", "seed", "controlStrength"],
+  output: {
+    kind: "source-sized-image",
+    size: "source",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Checkpoint",
+    primaryActionLabel: "Generate Sketch to Image",
+    experimentalNote: "Starter SD 1.x Depth ControlNet workflow."
   }
 };
 
@@ -1395,6 +1446,93 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
       },
       {
         id: SKETCH2IMG_SCRIBBLE_BASIC_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images"]
+      }
+    ]
+  },
+  {
+    id: "sketch2img-depth-basic",
+    label: "sketch2img-depth-basic",
+    displayName: "Depth ControlNet",
+    mode: "sketch2img",
+    description: "SD 1.x sketch-to-image workflow that conditions on the source layer's depth rather than its lines.",
+    workflowFile: "workflows/api/sketch2img-depth-basic.json",
+    sourceWorkflowFile: "workflows/source/sketch2img-depth-basic.workflow.json",
+    status: "stable",
+    recommendedSettings: { steps: 20, cfg: 7 },
+    supportedModelFamilies: ["sd1"],
+    experimentalModelFamilies: ["sdxl", "sd3", "flux", "zImage"],
+    modelSource: CHECKPOINT_MODEL_SOURCE,
+    capability: SKETCH2IMG_DEPTH_BASIC_CAPABILITY,
+    injections: SKETCH2IMG_DEPTH_BASIC_INJECTIONS,
+    compatibilityNote:
+      "sketch2img-depth-basic conditions on estimated scene depth, so it holds perspective and the relative distance of forms while leaving surface detail free -- the preset to reach for when a generated element has to sit inside an existing composite at the right camera angle. LineArt and Scribble hold the drawn stroke instead, and neither carries depth. It works from any shaded image, not only a line drawing, and a flat drawing with no tonal variation gives the estimator little to read. DepthAnythingV2Preprocessor downloads its own estimator weights on first run, the same way the LineArt and Scribble preprocessors do, so the first generation after install is slower than later ones.",
+    requiredModels: [
+      {
+        kind: "controlnet",
+        objectInfoNode: "ControlNetLoader",
+        inputName: "control_net_name",
+        label: "Depth ControlNet",
+        modelName: "control_v11f1p_sd15_depth_fp16.safetensors",
+        setupHint: "Install an SD 1.5 Depth ControlNet model in ComfyUI's controlnet models folder.",
+        downloadUrl:
+          "https://huggingface.co/comfyanonymous/ControlNet-v1-1_fp16_safetensors/resolve/main/control_v11f1p_sd15_depth_fp16.safetensors",
+        sourcePageUrl: "https://huggingface.co/comfyanonymous/ControlNet-v1-1_fp16_safetensors",
+        downloadSizeBytes: 722601100
+      }
+    ],
+    requiredNodes: [
+      {
+        id: SKETCH2IMG_DEPTH_BASIC_NODES.checkpointLoader,
+        classType: "CheckpointLoaderSimple",
+        requiredInputs: ["ckpt_name"]
+      },
+      {
+        id: SKETCH2IMG_DEPTH_BASIC_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: SKETCH2IMG_DEPTH_BASIC_NODES.positivePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: SKETCH2IMG_DEPTH_BASIC_NODES.negativePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: SKETCH2IMG_DEPTH_BASIC_NODES.latentImage,
+        classType: "EmptyLatentImage",
+        requiredInputs: ["width", "height", "batch_size"]
+      },
+      {
+        id: SKETCH2IMG_DEPTH_BASIC_NODES.depthPreprocessor,
+        // Only `image` is required; ckpt_name and resolution are optional inputs
+        // that the workflow pins explicitly so a run is reproducible rather than
+        // dependent on whatever default the node pack ships that week.
+        classType: "DepthAnythingV2Preprocessor",
+        requiredInputs: ["image"]
+      },
+      {
+        id: SKETCH2IMG_DEPTH_BASIC_NODES.controlNetLoader,
+        classType: "ControlNetLoader",
+        requiredInputs: ["control_net_name"]
+      },
+      {
+        id: SKETCH2IMG_DEPTH_BASIC_NODES.controlNetApply,
+        classType: "ControlNetApplyAdvanced",
+        requiredInputs: ["positive", "negative", "control_net", "image", "strength", "start_percent", "end_percent"]
+      },
+      {
+        id: SKETCH2IMG_DEPTH_BASIC_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["seed", "steps", "cfg", "denoise", "model", "positive", "negative", "latent_image"]
+      },
+      {
+        id: SKETCH2IMG_DEPTH_BASIC_NODES.saveImage,
         classType: "SaveImage",
         requiredInputs: ["images"]
       }
