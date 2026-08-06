@@ -23,6 +23,7 @@ import {
   BuildWorkflowOptions,
   BuildWorkflowResult,
   ComfyWorkflow,
+  WorkflowLoraSelection,
   WorkflowPreset,
   WorkflowPresetDefinition,
   WorkflowInjectionTargetList
@@ -72,6 +73,8 @@ export async function buildTxt2ImgWorkflow(options: BuildWorkflowOptions): Promi
   setPresetInput(workflow, preset, "seed", seed, true);
   setPresetInput(workflow, preset, "steps", options.steps, true);
   setPresetInput(workflow, preset, "cfg", options.cfg, true);
+
+  applyLoraSelection(workflow, preset, options.lora);
 
   validateWorkflowForPreset(workflow, preset);
 
@@ -312,6 +315,71 @@ function setPresetInput(
 
 function normalizeTargets(target: WorkflowInjectionTargetList) {
   return Array.isArray(target) ? target : [target];
+}
+
+/**
+ * Splices a `LoraLoader` between a preset's model/CLIP loaders and everything
+ * downstream of them.
+ *
+ * This is the one place a workflow's topology changes at build time, for the
+ * reason spelled out on `WorkflowLoraInsertion`: core `LoraLoader` has no "off"
+ * value, so an optional LoRA cannot be a permanently wired node whose value is
+ * merely injected. No selection leaves the graph exactly as shipped.
+ *
+ * Order matters. This must run after the value injections, because rewiring an
+ * input that a later `setPresetInput` overwrites would silently drop the LoRA
+ * out of the chain while still loading it -- an image that looks untouched with
+ * no error to explain why.
+ */
+function applyLoraSelection(
+  workflow: ComfyWorkflow,
+  preset: WorkflowPresetDefinition,
+  lora: WorkflowLoraSelection | undefined
+) {
+  if (!lora?.loraName) {
+    return;
+  }
+
+  const insertion = preset.loraInsertion;
+
+  if (!insertion) {
+    throw createOpenLayerError(
+      "WORKFLOW_INVALID",
+      `The ${preset.id} preset does not support a LoRA.`,
+      `Add a loraInsertion entry for ${preset.id} in src/comfy/presetRegistry.ts, or clear the LoRA selection.`
+    );
+  }
+
+  // A collision would overwrite a real node and produce a graph that still
+  // validates, because validateWorkflowForPreset only checks that required
+  // nodes are present -- so it has to be caught here or not at all.
+  if (workflow[insertion.nodeId]) {
+    throw createOpenLayerError(
+      "WORKFLOW_INVALID",
+      `The ${preset.id} workflow already uses node ${insertion.nodeId}.`,
+      `Give ${preset.id}'s loraInsertion an unused nodeId in src/comfy/presetRegistry.ts.`
+    );
+  }
+
+  workflow[insertion.nodeId] = {
+    class_type: "LoraLoader",
+    inputs: {
+      lora_name: lora.loraName,
+      strength_model: lora.strengthModel,
+      strength_clip: lora.strengthClip,
+      model: [insertion.modelSource.nodeId, insertion.modelSource.slot],
+      clip: [insertion.clipSource.nodeId, insertion.clipSource.slot]
+    },
+    _meta: { title: "Apply LoRA" }
+  };
+
+  for (const consumer of insertion.modelConsumers) {
+    setInput(workflow, consumer.nodeId, consumer.inputName, [insertion.nodeId, 0]);
+  }
+
+  for (const consumer of insertion.clipConsumers) {
+    setInput(workflow, consumer.nodeId, consumer.inputName, [insertion.nodeId, 1]);
+  }
 }
 
 function applyRequiredModelSelections(

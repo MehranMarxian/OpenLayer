@@ -120,7 +120,8 @@ import {
   InstallStep
 } from "./setupInstallModel";
 import type { WorkflowPhotoshopInputAvailability } from "../comfy/workflowCompatibility";
-import { GeneratedImageResult, WorkflowPresetDefinition } from "../comfy/types";
+import { GeneratedImageResult, WorkflowLoraSelection, WorkflowPresetDefinition } from "../comfy/types";
+import { formatLoraHintSuffix, getLoraFamilyHint } from "../comfy/loraCompatibility";
 import {
   ExportedSourceImage,
   SelectedRegionSourceImage,
@@ -268,6 +269,7 @@ import {
   DEFAULT_PROMPT_LAYER_NUM_BEAMS,
   DEFAULT_PROMPT_LAYER_TASK,
   DEFAULT_SERVER_URL,
+  DEFAULT_LORA_STRENGTH,
   DEFAULT_SKETCH_CONTROL_STRENGTH,
   DEFAULT_SKETCH_DENOISE,
   DEFAULT_SKETCH_STEPS,
@@ -1064,10 +1066,15 @@ export function renderApp(rootElement: HTMLElement) {
   elements.workflow.addEventListener("change", () => {
     applyRecommendedPresetSettings(elements.workflow, DEFAULT_WORKFLOW, elements.steps, elements.cfg);
     void refreshTextModelOptionsForSelectedPreset(elements).then(() => updateTextCheckpointCompatibility(elements));
+    void refreshLoraOptionsForSelectedPreset(elements);
   });
 
   elements.checkpoint.addEventListener("change", () => {
     updateTextCheckpointCompatibility(elements);
+  });
+
+  elements.loraName.addEventListener("change", () => {
+    updateLoraStrengthVisibility(elements);
   });
 
   elements.imgWorkflow.addEventListener("change", () => {
@@ -1133,6 +1140,7 @@ export function renderApp(rootElement: HTMLElement) {
       await refreshInpaintModelOptionsForSelectedPreset(elements, client);
       await refreshOutpaintModelOptionsForSelectedPreset(elements, client);
       await refreshUpscaleModelOptionsForSelectedPreset(elements, client);
+      await refreshLoraOptionsForSelectedPreset(elements, client);
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
       updateSketchCheckpointCompatibility(elements, sketchSource);
       updateInpaintCheckpointCompatibility(elements, inpaintSource);
@@ -1829,7 +1837,8 @@ export function renderApp(rootElement: HTMLElement) {
         height: settings.height,
         steps: settings.steps,
         cfg: settings.cfg,
-        seed: settings.seed
+        seed: settings.seed,
+        lora: readLoraSelection(elements)
       });
 
       const generatedResult = await generation.runPipeline({
@@ -4817,6 +4826,127 @@ function fillSingleCheckpointSelect(select: HTMLSelectElement, checkpoints: stri
   } else {
     select.value = checkpoints[0] ?? "";
   }
+}
+
+/**
+ * Shows the LoRA controls only for presets that declare an insertion point, and
+ * fills the list from ComfyUI.
+ *
+ * The list is deliberately NOT filtered by architecture. ComfyUI exposes only a
+ * LoRA's name, size and timestamps -- `/models/loras` and
+ * `/experiment/models/loras` both stop there -- so nothing reachable over the
+ * wire says which base model a file was trained against. The safetensors
+ * metadata that would say is not served, and is not trustworthy even when read
+ * directly: two LoRAs on the reference machine declare
+ * `ss_base_model_version: sd_1.5` while their tensor keys are plainly Flux.
+ * A filter built on any of that would hide working LoRAs and still admit broken
+ * ones, so the panel lists everything and warns instead.
+ */
+async function refreshLoraOptionsForSelectedPreset(
+  elements: AppElements,
+  client = new ComfyClient(elements.serverUrl.value)
+) {
+  const preset = getWorkflowPreset(readSelectValue(elements.workflow, DEFAULT_WORKFLOW));
+
+  updateLoraFieldVisibility(elements, preset);
+
+  if (!preset.loraInsertion) {
+    return;
+  }
+
+  try {
+    const loraNames = await client.getLoraNames();
+    const preferred = readSelectValue(elements.loraName);
+
+    fillLoraSelect(elements.loraName, loraNames, preset, preferred);
+  } catch {
+    // Keep whatever is listed if ComfyUI is offline; None stays selectable.
+  }
+
+  updateLoraStrengthVisibility(elements);
+}
+
+function updateLoraFieldVisibility(elements: AppElements, preset: WorkflowPresetDefinition) {
+  const supportsLora = Boolean(preset.loraInsertion);
+
+  elements.loraField.hidden = !supportsLora;
+
+  if (!supportsLora) {
+    // Leaving a stale selection behind would silently apply a LoRA the next
+    // time a LoRA-capable preset is chosen.
+    elements.loraName.value = "";
+    updateLoraStrengthVisibility(elements);
+  }
+}
+
+/** Strength only means something once a LoRA is actually selected. */
+function updateLoraStrengthVisibility(elements: AppElements) {
+  const selected = readSelectValue(elements.loraName);
+
+  elements.loraStrengthField.hidden = !selected;
+  elements.loraNote.hidden = !selected;
+
+  if (!selected) {
+    return;
+  }
+
+  const preset = getWorkflowPreset(readSelectValue(elements.workflow, DEFAULT_WORKFLOW));
+  const hint = getLoraFamilyHint(selected, preset);
+
+  elements.loraNote.textContent = hint === "foreign"
+    ? "This LoRA's name suggests it was trained for a different model. A mismatched LoRA loads without any error and then does nothing, so an unchanged image is the symptom to expect."
+    : "ComfyUI reports only a LoRA's name, never which model it was trained for. A mismatched LoRA loads without error and quietly does nothing, so if the image looks unchanged, check the LoRA suits this workflow's model.";
+}
+
+function fillLoraSelect(
+  select: HTMLSelectElement,
+  loraNames: string[],
+  preset: WorkflowPresetDefinition,
+  preferredValue?: string
+) {
+  select.innerHTML = "";
+
+  const none = document.createElement("option");
+  none.value = "";
+  none.textContent = "None";
+  select.append(none);
+
+  // Likely matches first, then unlabelled, then the ones whose names point at
+  // another model -- so the entry most likely to work is nearest the top
+  // without any of them being hidden.
+  const order: Record<string, number> = { matches: 0, unknown: 1, foreign: 2 };
+  const sorted = [...loraNames].sort((left, right) => (
+    order[getLoraFamilyHint(left, preset)] - order[getLoraFamilyHint(right, preset)]
+  ));
+
+  for (const loraName of sorted) {
+    const option = document.createElement("option");
+    option.value = loraName;
+    option.textContent = `${loraName}${formatLoraHintSuffix(getLoraFamilyHint(loraName, preset))}`;
+    select.append(option);
+  }
+
+  select.value = preferredValue && loraNames.includes(preferredValue) ? preferredValue : "";
+}
+
+/** The artist's LoRA choice, or undefined when None is selected. */
+function readLoraSelection(elements: AppElements): WorkflowLoraSelection | undefined {
+  const loraName = readSelectValue(elements.loraName);
+
+  if (!loraName) {
+    return undefined;
+  }
+
+  const parsed = Number.parseFloat(elements.loraStrength.value);
+  // One control drives both strengths; a blank or junk value falls back to the
+  // default rather than sending NaN to ComfyUI.
+  const strength = Number.isFinite(parsed) ? parsed : Number.parseFloat(DEFAULT_LORA_STRENGTH);
+
+  return {
+    loraName,
+    strengthModel: strength,
+    strengthClip: strength
+  };
 }
 
 function ensureCoreSelectDefaults(elements: AppElements) {

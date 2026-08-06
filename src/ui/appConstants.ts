@@ -23,6 +23,8 @@ export const DEFAULT_IMG2IMG_DENOISE = "0.55";
 export const DEFAULT_SKETCH_STEPS = "20";
 export const DEFAULT_SKETCH_DENOISE = "1";
 export const DEFAULT_SKETCH_CONTROL_STRENGTH = "0.8";
+/** One control drives both strength_model and strength_clip; 0.8 is the usual starting point. */
+export const DEFAULT_LORA_STRENGTH = "0.8";
 export const DEFAULT_INPAINT_STEPS = "16";
 export const DEFAULT_INPAINT_DENOISE = "0.75";
 export const DEFAULT_OUTPAINT_STEPS = "20";

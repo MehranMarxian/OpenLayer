@@ -429,6 +429,30 @@ const KREA2_TURBO_TXT2IMG_NODES = {
   saveImage: "9"
 } as const;
 
+/**
+ * Where an optional LoRA goes in the Krea-2 Turbo graph.
+ *
+ * Both text encodes are listed, not just the positive one. At CFG 1 the
+ * negative encode contributes nothing to the image, but leaving it reading the
+ * bare CLIP would mean two different text encoders in one graph -- harmless
+ * today and a confusing bug the moment this preset is used at a CFG above 1.
+ *
+ * Node id 23 is the next free id after the loaders (20-22); the shipped
+ * workflow stops at 22, and applyLoraSelection refuses to overwrite an
+ * occupied id rather than trusting this comment to stay true.
+ */
+const KREA2_TURBO_TXT2IMG_LORA_INSERTION = {
+  nodeId: "23",
+  familyTokens: ["krea2", "krea-2", "krea_2"],
+  modelSource: { nodeId: KREA2_TURBO_TXT2IMG_NODES.diffusionModelLoader, slot: 0 },
+  clipSource: { nodeId: KREA2_TURBO_TXT2IMG_NODES.clipLoader, slot: 0 },
+  modelConsumers: [{ nodeId: KREA2_TURBO_TXT2IMG_NODES.sampler, inputName: "model" }],
+  clipConsumers: [
+    { nodeId: KREA2_TURBO_TXT2IMG_NODES.positivePrompt, inputName: "clip" },
+    { nodeId: KREA2_TURBO_TXT2IMG_NODES.negativePrompt, inputName: "clip" }
+  ]
+} as const;
+
 const KREA2_TURBO_IMG2IMG_NODES = {
   diffusionModelLoader: "20",
   clipLoader: "21",
@@ -1942,6 +1966,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     modelStack: [...KREA2_TURBO_STACK],
     requiredModels: [...KREA2_TURBO_STACK],
     injections: KREA2_TURBO_TXT2IMG_INJECTIONS,
+    loraInsertion: KREA2_TURBO_TXT2IMG_LORA_INSERTION,
     requiredNodes: [
       {
         id: KREA2_TURBO_TXT2IMG_NODES.diffusionModelLoader,

@@ -7,6 +7,7 @@ import {
   DEFAULT_IMG2IMG_STEPS,
   DEFAULT_INPAINT_DENOISE,
   DEFAULT_INPAINT_STEPS,
+  DEFAULT_LORA_STRENGTH,
   DEFAULT_OUTPAINT_BOTTOM,
   DEFAULT_OUTPAINT_DENOISE,
   DEFAULT_OUTPAINT_FEATHERING,
@@ -73,6 +74,11 @@ export type AppElements = {
   negativePrompt: HTMLTextAreaElement;
   workflow: HTMLSelectElement;
   checkpoint: HTMLSelectElement;
+  loraField: HTMLElement;
+  loraName: HTMLSelectElement;
+  loraStrengthField: HTMLElement;
+  loraStrength: HTMLInputElement;
+  loraNote: HTMLElement;
   width: HTMLInputElement;
   height: HTMLInputElement;
   steps: HTMLInputElement;
@@ -565,6 +571,19 @@ export function createAppMarkup() {
               ${FALLBACK_CHECKPOINTS.map((checkpoint) => `<option value="${checkpoint}">${checkpoint}</option>`).join("")}
             </select>
           </label>
+          <section class="lora-section" id="lora-field" aria-label="LoRA" hidden>
+            <label class="field">
+              <span class="label">LoRA (optional)</span>
+              <select class="select" id="lora-name">
+                <option value="">None</option>
+              </select>
+            </label>
+            <label class="field" id="lora-strength-field" hidden>
+              <span class="label">LoRA strength</span>
+              <input class="input input-compact" id="lora-strength" type="number" min="0" max="2" step="0.05" value="${DEFAULT_LORA_STRENGTH}" />
+            </label>
+            <div class="diagnostics-line" id="lora-note" hidden></div>
+          </section>
           <div class="settings-grid" aria-label="Generation settings">
             <label class="field">
               <span class="label">Width</span>
@@ -1436,6 +1455,11 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     negativePrompt: getElement<HTMLTextAreaElement>(rootElement, "negative-prompt"),
     workflow: getElement<HTMLSelectElement>(rootElement, "workflow"),
     checkpoint: getElement<HTMLSelectElement>(rootElement, "checkpoint"),
+    loraField: getElement<HTMLElement>(rootElement, "lora-field"),
+    loraName: getElement<HTMLSelectElement>(rootElement, "lora-name"),
+    loraStrengthField: getElement<HTMLElement>(rootElement, "lora-strength-field"),
+    loraStrength: getElement<HTMLInputElement>(rootElement, "lora-strength"),
+    loraNote: getElement<HTMLElement>(rootElement, "lora-note"),
     width: getElement<HTMLInputElement>(rootElement, "width"),
     height: getElement<HTMLInputElement>(rootElement, "height"),
     steps: getElement<HTMLInputElement>(rootElement, "steps"),

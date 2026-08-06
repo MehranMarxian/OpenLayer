@@ -1620,6 +1620,19 @@ a:hover {
   margin-top: 1px;
 }
 
+/* Margins rather than flex gap: gap is inert in the compact panel widths. */
+.lora-section {
+  display: block;
+}
+
+.lora-section > .field {
+  margin-top: 8px;
+}
+
+.lora-section > .diagnostics-line {
+  margin-top: 6px;
+}
+
 .settings-grid {
   display: flex;
   flex-wrap: wrap;
