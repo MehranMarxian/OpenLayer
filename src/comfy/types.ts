@@ -9,6 +9,8 @@ export type WorkflowPreset =
   | "img2img-krea2-turbo"
   | "prompt-from-layer-florence2"
   | "sketch2img-linecn-basic"
+  | "sketch2img-scribble-basic"
+  | "sketch2img-depth-basic"
   | "inpaint-basic"
   | "inpaint-flux-fill-basic"
   | "outpaint-flux-fill-basic"
@@ -139,6 +141,7 @@ export type BuildWorkflowOptions = {
   steps: number;
   cfg: number;
   seed: number;
+  lora?: WorkflowLoraSelection;
 };
 
 export type BuildImageToImageWorkflowOptions = {
@@ -152,6 +155,7 @@ export type BuildImageToImageWorkflowOptions = {
   seed: number;
   denoise: number;
   requiredModelSelections?: Record<string, string>;
+  lora?: WorkflowLoraSelection;
 };
 
 export type BuildSketchToImageWorkflowOptions = BuildImageToImageWorkflowOptions & {
@@ -227,6 +231,53 @@ export type WorkflowInjectionName =
   | "outpaintFeathering";
 
 export type WorkflowInjectionTargetList = WorkflowInputTarget | readonly WorkflowInputTarget[];
+
+/** Where a link starts: a node and one of its output slots. */
+export type WorkflowLinkSource = {
+  nodeId: string;
+  slot: number;
+};
+
+/**
+ * How to splice an optional `LoraLoader` into a preset's graph.
+ *
+ * Every other injection sets a *value* on a node the shipped workflow already
+ * contains. A LoRA cannot work that way: core `LoraLoader` offers no "none"
+ * entry — `lora_name` is a combo of files that exist — so a permanently wired
+ * loader would force every user to own and load a LoRA they may not want. The
+ * node is therefore absent from the shipped workflow and spliced in only when
+ * an artist actually picks one, which is the first and only case where building
+ * a workflow changes its topology rather than its values.
+ *
+ * The wiring is declared here rather than inferred because inferring it means
+ * guessing which MODEL and CLIP edges are the "main" ones, and a wrong guess
+ * silently produces an image with the LoRA applied to nothing.
+ */
+export type WorkflowLoraInsertion = {
+  /** Id the inserted node takes. Must not already exist in the workflow. */
+  nodeId: string;
+  /**
+   * Filename fragments that suggest a LoRA was trained for this preset's model.
+   * Used only to label the dropdown, never to hide an entry -- see
+   * `loraCompatibility.ts` for why nothing stronger is available.
+   */
+  familyTokens?: readonly string[];
+  /** Feeds the loader's `model` input — normally the diffusion model loader. */
+  modelSource: WorkflowLinkSource;
+  /** Feeds the loader's `clip` input — normally the text encoder loader. */
+  clipSource: WorkflowLinkSource;
+  /** Inputs reading the model directly, rewired to the loader's MODEL output. */
+  modelConsumers: readonly WorkflowInputTarget[];
+  /** Inputs reading the CLIP directly, rewired to the loader's CLIP output. */
+  clipConsumers: readonly WorkflowInputTarget[];
+};
+
+/** An artist's LoRA choice. Absent or nameless means "no LoRA". */
+export type WorkflowLoraSelection = {
+  loraName: string;
+  strengthModel: number;
+  strengthClip: number;
+};
 
 export type WorkflowInjectionTargets = Partial<Record<WorkflowInjectionName, WorkflowInjectionTargetList>>;
 
@@ -327,6 +378,8 @@ export type WorkflowPresetDefinition = {
   requiredNodes: WorkflowNodeRequirement[];
   requiredModels?: WorkflowRequiredModel[];
   capability?: WorkflowCapability;
+  /** Present only on presets that can take an optional LoRA. */
+  loraInsertion?: WorkflowLoraInsertion;
   compatibilityNote?: string;
   disabledReason?: string;
 };

@@ -1,7 +1,7 @@
 import { OpenLayerTheme } from "../utils/preferences";
 
 export const DEFAULT_SERVER_URL = "http://127.0.0.1:8190";
-export const APP_VERSION = "0.12.0";
+export const APP_VERSION = "0.13.0";
 export const DEVELOPER_GITHUB = "https://github.com/MehranMarxian";
 export const HISTORY_LIMIT = 5;
 export const COMFY_PORT_CANDIDATES = [8190, 8188, 8189, 8191, 8192, 8193, 7860];
@@ -23,6 +23,8 @@ export const DEFAULT_IMG2IMG_DENOISE = "0.55";
 export const DEFAULT_SKETCH_STEPS = "20";
 export const DEFAULT_SKETCH_DENOISE = "1";
 export const DEFAULT_SKETCH_CONTROL_STRENGTH = "0.8";
+/** One control drives both strength_model and strength_clip; 0.8 is the usual starting point. */
+export const DEFAULT_LORA_STRENGTH = "0.8";
 export const DEFAULT_INPAINT_STEPS = "16";
 export const DEFAULT_INPAINT_DENOISE = "0.75";
 export const DEFAULT_OUTPAINT_STEPS = "20";

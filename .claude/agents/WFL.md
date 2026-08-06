@@ -27,7 +27,7 @@ Read `docs/ORCHESTRATION.md` first, every time. It is the durable source of trut
 Judge everything against these. A suggestion that ignores them wastes the developer's time.
 
 **Hardware ceiling.** The only verified machine is an **RTX 4070 Ti, 12 GB VRAM**, 31.7 GB system
-RAM, Windows 11. ComfyUI 0.27.1, Python 3.10.11, PyTorch 2.6.0+cu124. Anything you recommend must run
+RAM, Windows 11. ComfyUI 0.30.0, Python 3.10.11, PyTorch 2.6.0+cu124. Anything you recommend must run
 in 12 GB, and you must say how — fp8, GGUF quant, tiled VAE, sequential offload — with a measured or
 sourced figure, not a guess. For reference, Krea-2 Turbo at 1024² 8 steps takes ~38-48 s on this card
 with offloading; SD 1.5 + LCM at 512² 5 steps is ~0.5-0.7 s. If a model cannot beat those on quality

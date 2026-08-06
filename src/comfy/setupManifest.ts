@@ -27,7 +27,18 @@ import { getModelTargetFolder, getModelTargetPath, getRequiredModelKey, listPres
  * fails that test.
  */
 export const CUSTOM_NODE_PACKAGES: Record<string, { name: string; repoUrl: string }> = {
+  // Kept although no preset ships it any more: it is still a legal node in a
+  // user's own custom workflow, and naming its package is what lets Workflow
+  // Health say which install is missing rather than reporting an absent node.
   LineartStandardPreprocessor: {
+    name: "comfyui_controlnet_aux",
+    repoUrl: "https://github.com/Fannovel16/comfyui_controlnet_aux"
+  },
+  AnyLineArtPreprocessor_aux: {
+    name: "comfyui_controlnet_aux",
+    repoUrl: "https://github.com/Fannovel16/comfyui_controlnet_aux"
+  },
+  Scribble_PiDiNet_Preprocessor: {
     name: "comfyui_controlnet_aux",
     repoUrl: "https://github.com/Fannovel16/comfyui_controlnet_aux"
   },

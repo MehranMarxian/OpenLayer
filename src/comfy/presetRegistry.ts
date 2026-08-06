@@ -62,6 +62,17 @@ const DIFFUSION_MODEL_SOURCE = {
   label: "Diffusion model"
 } as const;
 
+// UNETLoader's object_info does not enumerate .gguf files at all (verified live
+// against ComfyUI-GGUF) -- a preset built on UnetLoaderGGUF must ask that loader
+// for its own file list, or every .gguf model is invisible in the Model dropdown
+// no matter where it's placed.
+const DIFFUSION_MODEL_GGUF_SOURCE = {
+  kind: "diffusion-model-stack",
+  objectInfoNode: "UnetLoaderGGUF",
+  inputName: "unet_name",
+  label: "Diffusion model (GGUF)"
+} as const;
+
 const FLORENCE_MODEL_SOURCE = {
   kind: "vision-language",
   objectInfoNode: "Florence2ModelLoader",
@@ -287,6 +298,38 @@ const SKETCH2IMG_LINECN_BASIC_NODES = {
   saveImage: "9"
 } as const;
 
+// Same graph shape as the LineArt preset -- only the preprocessor and the
+// ControlNet it feeds differ -- so the node ids deliberately match.
+const SKETCH2IMG_SCRIBBLE_BASIC_NODES = {
+  checkpointLoader: "4",
+  loadImage: "10",
+  positivePrompt: "6",
+  negativePrompt: "7",
+  latentImage: "5",
+  scribblePreprocessor: "12",
+  controlNetLoader: "13",
+  controlNetApply: "14",
+  sampler: "3",
+  saveImage: "9"
+} as const;
+
+// Third variant of the same graph. Depth differs from LineArt and Scribble in
+// what it preserves: those two hold the drawn *stroke*, while depth holds the
+// scene's geometry, which is what matters when a generated image has to sit in
+// an existing Photoshop composite at the right perspective.
+const SKETCH2IMG_DEPTH_BASIC_NODES = {
+  checkpointLoader: "4",
+  loadImage: "10",
+  positivePrompt: "6",
+  negativePrompt: "7",
+  latentImage: "5",
+  depthPreprocessor: "12",
+  controlNetLoader: "13",
+  controlNetApply: "14",
+  sampler: "3",
+  saveImage: "9"
+} as const;
+
 const INPAINT_BASIC_NODES = {
   checkpointLoader: "4",
   loadImage: "10",
@@ -386,6 +429,144 @@ const KREA2_TURBO_TXT2IMG_NODES = {
   saveImage: "9"
 } as const;
 
+/**
+ * Where an optional LoRA goes in the Krea-2 Turbo graph.
+ *
+ * Both text encodes are listed, not just the positive one. At CFG 1 the
+ * negative encode contributes nothing to the image, but leaving it reading the
+ * bare CLIP would mean two different text encoders in one graph -- harmless
+ * today and a confusing bug the moment this preset is used at a CFG above 1.
+ *
+ * Node id 23 is the next free id after the loaders (20-22); the shipped
+ * workflow stops at 22, and applyLoraSelection refuses to overwrite an
+ * occupied id rather than trusting this comment to stay true.
+ */
+/**
+ * A checkpoint loader is its own CLIP source: CheckpointLoaderSimple outputs
+ * MODEL on slot 0 and CLIP on slot 1, where a diffusion-model stack has two
+ * separate loaders. Both shapes splice the same way, which is why the insertion
+ * declares a slot rather than assuming one.
+ */
+const TXT2IMG_BASIC_LORA_INSERTION = {
+  nodeId: "10",
+  familyTokens: ["sd15", "sd1.5", "sd_1.5"],
+  modelSource: { nodeId: TXT2IMG_BASIC_NODES.checkpointLoader, slot: 0 },
+  clipSource: { nodeId: TXT2IMG_BASIC_NODES.checkpointLoader, slot: 1 },
+  modelConsumers: [{ nodeId: TXT2IMG_BASIC_NODES.sampler, inputName: "model" }],
+  clipConsumers: [
+    { nodeId: TXT2IMG_BASIC_NODES.positivePrompt, inputName: "clip" },
+    { nodeId: TXT2IMG_BASIC_NODES.negativePrompt, inputName: "clip" }
+  ]
+} as const;
+
+const FLUX1_DEV_FP8_TXT2IMG_LORA_INSERTION = {
+  nodeId: "36",
+  familyTokens: ["flux"],
+  modelSource: { nodeId: FLUX1_DEV_FP8_TXT2IMG_NODES.checkpointLoader, slot: 0 },
+  clipSource: { nodeId: FLUX1_DEV_FP8_TXT2IMG_NODES.checkpointLoader, slot: 1 },
+  modelConsumers: [{ nodeId: FLUX1_DEV_FP8_TXT2IMG_NODES.sampler, inputName: "model" }],
+  clipConsumers: [
+    { nodeId: FLUX1_DEV_FP8_TXT2IMG_NODES.positivePrompt, inputName: "clip" },
+    { nodeId: FLUX1_DEV_FP8_TXT2IMG_NODES.negativePrompt, inputName: "clip" }
+  ]
+} as const;
+
+/**
+ * The model consumer here is ModelSamplingAuraFlow, not the sampler. A LoRA has
+ * to be applied *before* the sampling-mode wrapper, so the wrapper is what gets
+ * rewired -- pointing the sampler at the LoRA instead would silently bypass
+ * ModelSamplingAuraFlow and change how the model is sampled.
+ */
+const Z_IMAGE_TURBO_TXT2IMG_LORA_INSERTION = {
+  nodeId: "24",
+  familyTokens: ["z-image", "zimage", "z_image"],
+  modelSource: { nodeId: Z_IMAGE_TURBO_TXT2IMG_NODES.diffusionModelLoader, slot: 0 },
+  clipSource: { nodeId: Z_IMAGE_TURBO_TXT2IMG_NODES.clipLoader, slot: 0 },
+  modelConsumers: [{ nodeId: Z_IMAGE_TURBO_TXT2IMG_NODES.modelSampling, inputName: "model" }],
+  clipConsumers: [
+    { nodeId: Z_IMAGE_TURBO_TXT2IMG_NODES.positivePrompt, inputName: "clip" },
+    { nodeId: Z_IMAGE_TURBO_TXT2IMG_NODES.negativePrompt, inputName: "clip" }
+  ]
+} as const;
+
+/**
+ * Only one clip consumer, because Flux.2 is guidance-distilled and the
+ * reference graph has no negative conditioning node at all. The model consumer
+ * is BasicGuider rather than a KSampler, this preset being built on the
+ * advanced sampler chain.
+ */
+const FLUX2_DEV_GGUF_TXT2IMG_LORA_INSERTION = {
+  nodeId: "49",
+  familyTokens: ["flux2", "flux-2", "flux_2"],
+  modelSource: { nodeId: FLUX2_DEV_GGUF_TXT2IMG_NODES.diffusionModelLoader, slot: 0 },
+  clipSource: { nodeId: FLUX2_DEV_GGUF_TXT2IMG_NODES.clipLoader, slot: 0 },
+  modelConsumers: [{ nodeId: FLUX2_DEV_GGUF_TXT2IMG_NODES.guider, inputName: "model" }],
+  clipConsumers: [{ nodeId: FLUX2_DEV_GGUF_TXT2IMG_NODES.positivePrompt, inputName: "clip" }]
+} as const;
+
+const IMG2IMG_BASIC_LORA_INSERTION = {
+  nodeId: "12",
+  familyTokens: ["sd15", "sd1.5", "sd_1.5"],
+  modelSource: { nodeId: IMG2IMG_BASIC_NODES.checkpointLoader, slot: 0 },
+  clipSource: { nodeId: IMG2IMG_BASIC_NODES.checkpointLoader, slot: 1 },
+  modelConsumers: [{ nodeId: IMG2IMG_BASIC_NODES.sampler, inputName: "model" }],
+  clipConsumers: [
+    { nodeId: IMG2IMG_BASIC_NODES.positivePrompt, inputName: "clip" },
+    { nodeId: IMG2IMG_BASIC_NODES.negativePrompt, inputName: "clip" }
+  ]
+} as const;
+
+
+
+/** Same wrapper caveat as the txt2img Z-Image preset: rewire modelSampling. */
+const Z_IMAGE_TURBO_IMG2IMG_LORA_INSERTION = {
+  nodeId: "24",
+  familyTokens: ["z-image", "zimage", "z_image"],
+  modelSource: { nodeId: Z_IMAGE_TURBO_IMG2IMG_NODES.diffusionModelLoader, slot: 0 },
+  clipSource: { nodeId: Z_IMAGE_TURBO_IMG2IMG_NODES.clipLoader, slot: 0 },
+  modelConsumers: [{ nodeId: Z_IMAGE_TURBO_IMG2IMG_NODES.modelSampling, inputName: "model" }],
+  clipConsumers: [
+    { nodeId: Z_IMAGE_TURBO_IMG2IMG_NODES.positivePrompt, inputName: "clip" },
+    { nodeId: Z_IMAGE_TURBO_IMG2IMG_NODES.negativePrompt, inputName: "clip" }
+  ]
+} as const;
+
+/**
+ * The three sketch presets share one graph shape by design, so they share this
+ * wiring too -- only the preprocessor and ControlNet differ between them, and
+ * neither touches the model or CLIP path.
+ */
+function createSketchLoraInsertion(nodes: {
+  readonly checkpointLoader: string;
+  readonly sampler: string;
+  readonly positivePrompt: string;
+  readonly negativePrompt: string;
+}) {
+  return {
+    nodeId: "15",
+    familyTokens: ["sd15", "sd1.5", "sd_1.5"],
+    modelSource: { nodeId: nodes.checkpointLoader, slot: 0 },
+    clipSource: { nodeId: nodes.checkpointLoader, slot: 1 },
+    modelConsumers: [{ nodeId: nodes.sampler, inputName: "model" }],
+    clipConsumers: [
+      { nodeId: nodes.positivePrompt, inputName: "clip" },
+      { nodeId: nodes.negativePrompt, inputName: "clip" }
+    ]
+  } as const;
+}
+
+const KREA2_TURBO_TXT2IMG_LORA_INSERTION = {
+  nodeId: "23",
+  familyTokens: ["krea2", "krea-2", "krea_2"],
+  modelSource: { nodeId: KREA2_TURBO_TXT2IMG_NODES.diffusionModelLoader, slot: 0 },
+  clipSource: { nodeId: KREA2_TURBO_TXT2IMG_NODES.clipLoader, slot: 0 },
+  modelConsumers: [{ nodeId: KREA2_TURBO_TXT2IMG_NODES.sampler, inputName: "model" }],
+  clipConsumers: [
+    { nodeId: KREA2_TURBO_TXT2IMG_NODES.positivePrompt, inputName: "clip" },
+    { nodeId: KREA2_TURBO_TXT2IMG_NODES.negativePrompt, inputName: "clip" }
+  ]
+} as const;
+
 const KREA2_TURBO_IMG2IMG_NODES = {
   diffusionModelLoader: "20",
   clipLoader: "21",
@@ -397,6 +578,17 @@ const KREA2_TURBO_IMG2IMG_NODES = {
   sampler: "3",
   decode: "8",
   saveImage: "9"
+} as const;
+const KREA2_TURBO_IMG2IMG_LORA_INSERTION = {
+  nodeId: "23",
+  familyTokens: ["krea2", "krea-2", "krea_2"],
+  modelSource: { nodeId: KREA2_TURBO_IMG2IMG_NODES.diffusionModelLoader, slot: 0 },
+  clipSource: { nodeId: KREA2_TURBO_IMG2IMG_NODES.clipLoader, slot: 0 },
+  modelConsumers: [{ nodeId: KREA2_TURBO_IMG2IMG_NODES.sampler, inputName: "model" }],
+  clipConsumers: [
+    { nodeId: KREA2_TURBO_IMG2IMG_NODES.positivePrompt, inputName: "clip" },
+    { nodeId: KREA2_TURBO_IMG2IMG_NODES.negativePrompt, inputName: "clip" }
+  ]
 } as const;
 
 const PROMPT_FROM_LAYER_FLORENCE2_NODES = {
@@ -462,6 +654,34 @@ const SKETCH2IMG_LINECN_BASIC_INJECTIONS = {
   cfg: target(SKETCH2IMG_LINECN_BASIC_NODES.sampler, "cfg"),
   denoise: target(SKETCH2IMG_LINECN_BASIC_NODES.sampler, "denoise"),
   controlStrength: target(SKETCH2IMG_LINECN_BASIC_NODES.controlNetApply, "strength")
+} as const;
+
+const SKETCH2IMG_SCRIBBLE_BASIC_INJECTIONS = {
+  checkpoint: target(SKETCH2IMG_SCRIBBLE_BASIC_NODES.checkpointLoader, "ckpt_name"),
+  sourceImage: target(SKETCH2IMG_SCRIBBLE_BASIC_NODES.loadImage, "image"),
+  positivePrompt: target(SKETCH2IMG_SCRIBBLE_BASIC_NODES.positivePrompt, "text"),
+  negativePrompt: target(SKETCH2IMG_SCRIBBLE_BASIC_NODES.negativePrompt, "text"),
+  width: target(SKETCH2IMG_SCRIBBLE_BASIC_NODES.latentImage, "width"),
+  height: target(SKETCH2IMG_SCRIBBLE_BASIC_NODES.latentImage, "height"),
+  seed: target(SKETCH2IMG_SCRIBBLE_BASIC_NODES.sampler, "seed"),
+  steps: target(SKETCH2IMG_SCRIBBLE_BASIC_NODES.sampler, "steps"),
+  cfg: target(SKETCH2IMG_SCRIBBLE_BASIC_NODES.sampler, "cfg"),
+  denoise: target(SKETCH2IMG_SCRIBBLE_BASIC_NODES.sampler, "denoise"),
+  controlStrength: target(SKETCH2IMG_SCRIBBLE_BASIC_NODES.controlNetApply, "strength")
+} as const;
+
+const SKETCH2IMG_DEPTH_BASIC_INJECTIONS = {
+  checkpoint: target(SKETCH2IMG_DEPTH_BASIC_NODES.checkpointLoader, "ckpt_name"),
+  sourceImage: target(SKETCH2IMG_DEPTH_BASIC_NODES.loadImage, "image"),
+  positivePrompt: target(SKETCH2IMG_DEPTH_BASIC_NODES.positivePrompt, "text"),
+  negativePrompt: target(SKETCH2IMG_DEPTH_BASIC_NODES.negativePrompt, "text"),
+  width: target(SKETCH2IMG_DEPTH_BASIC_NODES.latentImage, "width"),
+  height: target(SKETCH2IMG_DEPTH_BASIC_NODES.latentImage, "height"),
+  seed: target(SKETCH2IMG_DEPTH_BASIC_NODES.sampler, "seed"),
+  steps: target(SKETCH2IMG_DEPTH_BASIC_NODES.sampler, "steps"),
+  cfg: target(SKETCH2IMG_DEPTH_BASIC_NODES.sampler, "cfg"),
+  denoise: target(SKETCH2IMG_DEPTH_BASIC_NODES.sampler, "denoise"),
+  controlStrength: target(SKETCH2IMG_DEPTH_BASIC_NODES.controlNetApply, "strength")
 } as const;
 
 const INPAINT_BASIC_INJECTIONS = {
@@ -714,6 +934,46 @@ const SKETCH2IMG_LINECN_BASIC_CAPABILITY: WorkflowCapability = {
   }
 };
 
+const SKETCH2IMG_SCRIBBLE_BASIC_CAPABILITY: WorkflowCapability = {
+  toolType: "sketch2img",
+  loaderType: "checkpoint",
+  artistLabel: "Sketch to Image",
+  technicalLabel: "sketch2img-scribble-basic",
+  requiredPhotoshopInputs: [{ anyOf: ["active-layer", "canvas"], label: "an active layer or captured canvas" }],
+  controls: ["prompt", "negativePrompt", "steps", "cfg", "denoise", "seed", "controlStrength"],
+  output: {
+    kind: "source-sized-image",
+    size: "source",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Checkpoint",
+    primaryActionLabel: "Generate Sketch to Image",
+    experimentalNote: "Starter SD 1.x Scribble ControlNet workflow."
+  }
+};
+
+const SKETCH2IMG_DEPTH_BASIC_CAPABILITY: WorkflowCapability = {
+  toolType: "sketch2img",
+  loaderType: "checkpoint",
+  artistLabel: "Sketch to Image",
+  technicalLabel: "sketch2img-depth-basic",
+  requiredPhotoshopInputs: [{ anyOf: ["active-layer", "canvas"], label: "an active layer or captured canvas" }],
+  controls: ["prompt", "negativePrompt", "steps", "cfg", "denoise", "seed", "controlStrength"],
+  output: {
+    kind: "source-sized-image",
+    size: "source",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Checkpoint",
+    primaryActionLabel: "Generate Sketch to Image",
+    experimentalNote: "Starter SD 1.x Depth ControlNet workflow."
+  }
+};
+
 const INPAINT_BASIC_CAPABILITY: WorkflowCapability = {
   toolType: "inpaint",
   loaderType: "checkpoint",
@@ -943,6 +1203,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     modelSource: CHECKPOINT_MODEL_SOURCE,
     capability: TXT2IMG_BASIC_CAPABILITY,
     injections: TXT2IMG_BASIC_INJECTIONS,
+    loraInsertion: TXT2IMG_BASIC_LORA_INSERTION,
     compatibilityNote: "txt2img-basic uses the standard CheckpointLoaderSimple SD/SDXL workflow.",
     requiredNodes: [
       {
@@ -993,6 +1254,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     capability: FLUX1_DEV_FP8_TXT2IMG_CAPABILITY,
     requiredModels: [FLUX1_DEV_FP8_CHECKPOINT],
     injections: FLUX1_DEV_FP8_TXT2IMG_INJECTIONS,
+    loraInsertion: FLUX1_DEV_FP8_TXT2IMG_LORA_INSERTION,
     compatibilityNote:
       "txt2img-flux1-dev-fp8 follows the attached CheckpointLoaderSimple Flux workflow. KSampler CFG stays 1; OpenLayer maps the UI CFG control to FluxGuidance.",
     requiredNodes: [
@@ -1053,6 +1315,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     modelSource: CHECKPOINT_MODEL_SOURCE,
     capability: IMG2IMG_BASIC_CAPABILITY,
     injections: IMG2IMG_BASIC_INJECTIONS,
+    loraInsertion: IMG2IMG_BASIC_LORA_INSERTION,
     compatibilityNote: "img2img-basic uses the standard CheckpointLoaderSimple, LoadImage, and VAEEncode SD/SDXL workflow.",
     requiredNodes: [
       {
@@ -1187,8 +1450,9 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     modelSource: CHECKPOINT_MODEL_SOURCE,
     capability: SKETCH2IMG_LINECN_BASIC_CAPABILITY,
     injections: SKETCH2IMG_LINECN_BASIC_INJECTIONS,
+    loraInsertion: createSketchLoraInsertion(SKETCH2IMG_LINECN_BASIC_NODES),
     compatibilityNote:
-      "sketch2img-linecn-basic generates from an empty latent at the sketch size while the SD 1.5 LineArt ControlNet guides structure, so colors render fully instead of inheriting the white sketch paper. Keep denoise at 1 for a full render, or lower it only when blending with a colored source.",
+      "sketch2img-linecn-basic generates from an empty latent at the sketch size while the SD 1.5 LineArt ControlNet guides structure, so colors render fully instead of inheriting the white sketch paper. Keep denoise at 1 for a full render, or lower it only when blending with a colored source. It uses the AnyLine detector rather than the standard Lineart preprocessor, which returns a blank control image -- and so silently degrades to plain text-to-image -- for light-on-dark art or solid filled shapes.",
     requiredModels: [
       {
         kind: "controlnet",
@@ -1231,7 +1495,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
       },
       {
         id: SKETCH2IMG_LINECN_BASIC_NODES.lineArtPreprocessor,
-        classType: "LineartStandardPreprocessor",
+        classType: "AnyLineArtPreprocessor_aux",
         requiredInputs: ["image"]
       },
       {
@@ -1251,6 +1515,179 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
       },
       {
         id: SKETCH2IMG_LINECN_BASIC_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images"]
+      }
+    ]
+  },
+  {
+    id: "sketch2img-scribble-basic",
+    label: "sketch2img-scribble-basic",
+    displayName: "Scribble ControlNet",
+    mode: "sketch2img",
+    description: "Experimental SD 1.x Scribble ControlNet sketch guidance workflow.",
+    workflowFile: "workflows/api/sketch2img-scribble-basic.json",
+    sourceWorkflowFile: "workflows/source/sketch2img-scribble-basic.workflow.json",
+    status: "stable",
+    recommendedSettings: { steps: 20, cfg: 7 },
+    supportedModelFamilies: ["sd1"],
+    experimentalModelFamilies: ["sdxl", "sd3", "flux", "zImage"],
+    modelSource: CHECKPOINT_MODEL_SOURCE,
+    capability: SKETCH2IMG_SCRIBBLE_BASIC_CAPABILITY,
+    injections: SKETCH2IMG_SCRIBBLE_BASIC_INJECTIONS,
+    loraInsertion: createSketchLoraInsertion(SKETCH2IMG_SCRIBBLE_BASIC_NODES),
+    compatibilityNote:
+      "sketch2img-scribble-basic suits loose, gestural strokes: it keeps the sketch's broad shapes and lets the model invent the detail, where the LineArt preset holds the drawn line. Pick Scribble for a rough thumbnail, LineArt for clean inked art. It uses the PiDiNet edge detector rather than the plain Scribble preprocessor, which returns a blank control image -- and so silently degrades to plain text-to-image -- for light-on-dark art or solid filled shapes.",
+    requiredModels: [
+      {
+        kind: "controlnet",
+        objectInfoNode: "ControlNetLoader",
+        inputName: "control_net_name",
+        label: "Scribble ControlNet",
+        modelName: "control_v11p_sd15_scribble_fp16.safetensors",
+        setupHint: "Install an SD 1.5 Scribble ControlNet model in ComfyUI's controlnet models folder.",
+        downloadUrl:
+          "https://huggingface.co/comfyanonymous/ControlNet-v1-1_fp16_safetensors/resolve/main/control_v11p_sd15_scribble_fp16.safetensors",
+        sourcePageUrl: "https://huggingface.co/comfyanonymous/ControlNet-v1-1_fp16_safetensors",
+        downloadSizeBytes: 722601100
+      }
+    ],
+    requiredNodes: [
+      {
+        id: SKETCH2IMG_SCRIBBLE_BASIC_NODES.checkpointLoader,
+        classType: "CheckpointLoaderSimple",
+        requiredInputs: ["ckpt_name"]
+      },
+      {
+        id: SKETCH2IMG_SCRIBBLE_BASIC_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: SKETCH2IMG_SCRIBBLE_BASIC_NODES.positivePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: SKETCH2IMG_SCRIBBLE_BASIC_NODES.negativePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: SKETCH2IMG_SCRIBBLE_BASIC_NODES.latentImage,
+        classType: "EmptyLatentImage",
+        requiredInputs: ["width", "height", "batch_size"]
+      },
+      {
+        id: SKETCH2IMG_SCRIBBLE_BASIC_NODES.scribblePreprocessor,
+        classType: "Scribble_PiDiNet_Preprocessor",
+        requiredInputs: ["image"]
+      },
+      {
+        id: SKETCH2IMG_SCRIBBLE_BASIC_NODES.controlNetLoader,
+        classType: "ControlNetLoader",
+        requiredInputs: ["control_net_name"]
+      },
+      {
+        id: SKETCH2IMG_SCRIBBLE_BASIC_NODES.controlNetApply,
+        classType: "ControlNetApplyAdvanced",
+        requiredInputs: ["positive", "negative", "control_net", "image", "strength", "start_percent", "end_percent"]
+      },
+      {
+        id: SKETCH2IMG_SCRIBBLE_BASIC_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["seed", "steps", "cfg", "denoise", "model", "positive", "negative", "latent_image"]
+      },
+      {
+        id: SKETCH2IMG_SCRIBBLE_BASIC_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images"]
+      }
+    ]
+  },
+  {
+    id: "sketch2img-depth-basic",
+    label: "sketch2img-depth-basic",
+    displayName: "Depth ControlNet",
+    mode: "sketch2img",
+    description: "SD 1.x sketch-to-image workflow that conditions on the source layer's depth rather than its lines.",
+    workflowFile: "workflows/api/sketch2img-depth-basic.json",
+    sourceWorkflowFile: "workflows/source/sketch2img-depth-basic.workflow.json",
+    status: "stable",
+    recommendedSettings: { steps: 20, cfg: 7 },
+    supportedModelFamilies: ["sd1"],
+    experimentalModelFamilies: ["sdxl", "sd3", "flux", "zImage"],
+    modelSource: CHECKPOINT_MODEL_SOURCE,
+    capability: SKETCH2IMG_DEPTH_BASIC_CAPABILITY,
+    injections: SKETCH2IMG_DEPTH_BASIC_INJECTIONS,
+    loraInsertion: createSketchLoraInsertion(SKETCH2IMG_DEPTH_BASIC_NODES),
+    compatibilityNote:
+      "sketch2img-depth-basic conditions on estimated scene depth, so it holds perspective and the relative distance of forms while leaving surface detail free -- the preset to reach for when a generated element has to sit inside an existing composite at the right camera angle. LineArt and Scribble hold the drawn stroke instead, and neither carries depth. It works from any shaded image, not only a line drawing, and a flat drawing with no tonal variation gives the estimator little to read. DepthAnythingV2Preprocessor downloads its own estimator weights on first run, the same way the LineArt and Scribble preprocessors do, so the first generation after install is slower than later ones.",
+    requiredModels: [
+      {
+        kind: "controlnet",
+        objectInfoNode: "ControlNetLoader",
+        inputName: "control_net_name",
+        label: "Depth ControlNet",
+        modelName: "control_v11f1p_sd15_depth_fp16.safetensors",
+        setupHint: "Install an SD 1.5 Depth ControlNet model in ComfyUI's controlnet models folder.",
+        downloadUrl:
+          "https://huggingface.co/comfyanonymous/ControlNet-v1-1_fp16_safetensors/resolve/main/control_v11f1p_sd15_depth_fp16.safetensors",
+        sourcePageUrl: "https://huggingface.co/comfyanonymous/ControlNet-v1-1_fp16_safetensors",
+        downloadSizeBytes: 722601100
+      }
+    ],
+    requiredNodes: [
+      {
+        id: SKETCH2IMG_DEPTH_BASIC_NODES.checkpointLoader,
+        classType: "CheckpointLoaderSimple",
+        requiredInputs: ["ckpt_name"]
+      },
+      {
+        id: SKETCH2IMG_DEPTH_BASIC_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: SKETCH2IMG_DEPTH_BASIC_NODES.positivePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: SKETCH2IMG_DEPTH_BASIC_NODES.negativePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: SKETCH2IMG_DEPTH_BASIC_NODES.latentImage,
+        classType: "EmptyLatentImage",
+        requiredInputs: ["width", "height", "batch_size"]
+      },
+      {
+        id: SKETCH2IMG_DEPTH_BASIC_NODES.depthPreprocessor,
+        // Only `image` is required; ckpt_name and resolution are optional inputs
+        // that the workflow pins explicitly so a run is reproducible rather than
+        // dependent on whatever default the node pack ships that week.
+        classType: "DepthAnythingV2Preprocessor",
+        requiredInputs: ["image"]
+      },
+      {
+        id: SKETCH2IMG_DEPTH_BASIC_NODES.controlNetLoader,
+        classType: "ControlNetLoader",
+        requiredInputs: ["control_net_name"]
+      },
+      {
+        id: SKETCH2IMG_DEPTH_BASIC_NODES.controlNetApply,
+        classType: "ControlNetApplyAdvanced",
+        requiredInputs: ["positive", "negative", "control_net", "image", "strength", "start_percent", "end_percent"]
+      },
+      {
+        id: SKETCH2IMG_DEPTH_BASIC_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["seed", "steps", "cfg", "denoise", "model", "positive", "negative", "latent_image"]
+      },
+      {
+        id: SKETCH2IMG_DEPTH_BASIC_NODES.saveImage,
         classType: "SaveImage",
         requiredInputs: ["images"]
       }
@@ -1512,6 +1949,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     modelStack: [...Z_IMAGE_TURBO_STACK],
     requiredModels: [...Z_IMAGE_TURBO_STACK],
     injections: Z_IMAGE_TURBO_TXT2IMG_INJECTIONS,
+    loraInsertion: Z_IMAGE_TURBO_TXT2IMG_LORA_INSERTION,
     requiredNodes: [
       {
         id: Z_IMAGE_TURBO_TXT2IMG_NODES.diffusionModelLoader,
@@ -1584,6 +2022,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     modelStack: [...Z_IMAGE_TURBO_STACK],
     requiredModels: [...Z_IMAGE_TURBO_STACK],
     injections: Z_IMAGE_TURBO_IMG2IMG_INJECTIONS,
+    loraInsertion: Z_IMAGE_TURBO_IMG2IMG_LORA_INSERTION,
     requiredNodes: [
       {
         id: Z_IMAGE_TURBO_IMG2IMG_NODES.diffusionModelLoader,
@@ -1660,6 +2099,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     modelStack: [...KREA2_TURBO_STACK],
     requiredModels: [...KREA2_TURBO_STACK],
     injections: KREA2_TURBO_TXT2IMG_INJECTIONS,
+    loraInsertion: KREA2_TURBO_TXT2IMG_LORA_INSERTION,
     requiredNodes: [
       {
         id: KREA2_TURBO_TXT2IMG_NODES.diffusionModelLoader,
@@ -1722,11 +2162,12 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     recommendedSettings: { steps: 20, cfg: 4 },
     supportedModelFamilies: ["flux2"],
     experimentalModelFamilies: ["unknown"],
-    modelSource: DIFFUSION_MODEL_SOURCE,
+    modelSource: DIFFUSION_MODEL_GGUF_SOURCE,
     capability: FLUX2_DEV_GGUF_TXT2IMG_CAPABILITY,
     modelStack: [...FLUX2_DEV_GGUF_STACK],
     requiredModels: [...FLUX2_DEV_GGUF_STACK],
     injections: FLUX2_DEV_GGUF_TXT2IMG_INJECTIONS,
+    loraInsertion: FLUX2_DEV_GGUF_TXT2IMG_LORA_INSERTION,
     requiredNodes: [
       {
         id: FLUX2_DEV_GGUF_TXT2IMG_NODES.diffusionModelLoader,
@@ -1815,6 +2256,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     modelStack: [...KREA2_TURBO_STACK],
     requiredModels: [...KREA2_TURBO_STACK],
     injections: KREA2_TURBO_IMG2IMG_INJECTIONS,
+    loraInsertion: KREA2_TURBO_IMG2IMG_LORA_INSERTION,
     requiredNodes: [
       {
         id: KREA2_TURBO_IMG2IMG_NODES.diffusionModelLoader,

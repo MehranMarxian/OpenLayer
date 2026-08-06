@@ -1,5 +1,5 @@
 {
-  "id": "26d610c6-0420-4ac5-a99f-1da6e85f924f",
+  "id": "5f2a91c4-7b3e-4d16-9c48-2ae70b5d8f31",
   "revision": 0,
   "last_node_id": 14,
   "last_link_id": 28,
@@ -154,7 +154,7 @@
           ]
         }
       ],
-      "title": "Apply LineArt ControlNet",
+      "title": "Apply Depth ControlNet",
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.27.1",
@@ -267,19 +267,19 @@
         }
       },
       "widgets_values": [
-        "a refined image guided by clean lineart"
+        "a finished illustration matching the depth and perspective of the source"
       ]
     },
     {
       "id": 12,
-      "type": "AnyLineArtPreprocessor_aux",
+      "type": "DepthAnythingV2Preprocessor",
       "pos": [
         482.798828125,
         790
       ],
       "size": [
         270,
-        154
+        82
       ],
       "flags": {},
       "order": 6,
@@ -300,11 +300,11 @@
           ]
         }
       ],
-      "title": "AnyLine Lineart Preprocessor",
+      "title": "Depth Anything V2 - Relative",
       "properties": {
         "cnr_id": "comfyui_controlnet_aux",
         "ver": "e8b689a513c3e6b63edc44066560ca5919c0576e",
-        "Node name for S&R": "AnyLineArtPreprocessor_aux",
+        "Node name for S&R": "DepthAnythingV2Preprocessor",
         "ue_properties": {
           "widget_ue_connectable": {},
           "input_ue_unconnectable": {},
@@ -312,12 +312,8 @@
         }
       },
       "widgets_values": [
-        "lineart_standard",
-        1024,
-        0,
-        1,
-        36,
-        1
+        "depth_anything_v2_vitl.pth",
+        512
       ]
     },
     {
@@ -344,7 +340,7 @@
           ]
         }
       ],
-      "title": "Load LineArt ControlNet",
+      "title": "Load Depth ControlNet",
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.27.1",
@@ -356,7 +352,7 @@
         }
       },
       "widgets_values": [
-        "control_v11p_sd15_lineart_fp16.safetensors"
+        "control_v11f1p_sd15_depth_fp16.safetensors"
       ]
     },
     {

@@ -1,12 +1,15 @@
 import txt2imgBasicWorkflow from "../workflows/api/txt2img-basic.json";
 import img2imgBasicWorkflow from "../workflows/api/img2img-basic.json";
 import txt2imgFlux1DevFp8Workflow from "../workflows/api/txt2img-flux1-dev-fp8.json";
+import txt2imgFlux2DevGgufWorkflow from "../workflows/api/txt2img-flux2-dev-gguf.json";
 import txt2imgZImageTurboWorkflow from "../workflows/api/txt2img-z-image-turbo.json";
 import img2imgZImageTurboWorkflow from "../workflows/api/img2img-z-image-turbo.json";
 import txt2imgKrea2TurboWorkflow from "../workflows/api/txt2img-krea2-turbo.json";
 import img2imgKrea2TurboWorkflow from "../workflows/api/img2img-krea2-turbo.json";
 import promptFromLayerFlorence2Workflow from "../workflows/api/prompt-from-layer-florence2.json";
 import sketch2imgLinecnBasicWorkflow from "../workflows/api/sketch2img-linecn-basic.json";
+import sketch2imgScribbleBasicWorkflow from "../workflows/api/sketch2img-scribble-basic.json";
+import sketch2imgDepthBasicWorkflow from "../workflows/api/sketch2img-depth-basic.json";
 import inpaintBasicWorkflow from "../workflows/api/inpaint-basic.json";
 import inpaintFluxFillBasicWorkflow from "../workflows/api/inpaint-flux-fill-basic.json";
 import outpaintFluxFillBasicWorkflow from "../workflows/api/outpaint-flux-fill-basic.json";
@@ -21,6 +24,7 @@ import {
   BuildWorkflowOptions,
   BuildWorkflowResult,
   ComfyWorkflow,
+  WorkflowLoraSelection,
   WorkflowPreset,
   WorkflowPresetDefinition,
   WorkflowInjectionTargetList
@@ -34,12 +38,15 @@ const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
   "txt2img-basic": txt2imgBasicWorkflow as ComfyWorkflow,
   "img2img-basic": img2imgBasicWorkflow as ComfyWorkflow,
   "txt2img-flux1-dev-fp8": txt2imgFlux1DevFp8Workflow as ComfyWorkflow,
+  "txt2img-flux2-dev-gguf": txt2imgFlux2DevGgufWorkflow as ComfyWorkflow,
   "txt2img-z-image-turbo": txt2imgZImageTurboWorkflow as ComfyWorkflow,
   "img2img-z-image-turbo": img2imgZImageTurboWorkflow as ComfyWorkflow,
   "txt2img-krea2-turbo": txt2imgKrea2TurboWorkflow as ComfyWorkflow,
   "img2img-krea2-turbo": img2imgKrea2TurboWorkflow as ComfyWorkflow,
   "prompt-from-layer-florence2": promptFromLayerFlorence2Workflow as ComfyWorkflow,
   "sketch2img-linecn-basic": sketch2imgLinecnBasicWorkflow as ComfyWorkflow,
+  "sketch2img-scribble-basic": sketch2imgScribbleBasicWorkflow as ComfyWorkflow,
+  "sketch2img-depth-basic": sketch2imgDepthBasicWorkflow as ComfyWorkflow,
   "inpaint-basic": inpaintBasicWorkflow as ComfyWorkflow,
   "inpaint-flux-fill-basic": inpaintFluxFillBasicWorkflow as ComfyWorkflow,
   "outpaint-flux-fill-basic": outpaintFluxFillBasicWorkflow as ComfyWorkflow,
@@ -62,12 +69,14 @@ export async function buildTxt2ImgWorkflow(options: BuildWorkflowOptions): Promi
   }
 
   setPresetInput(workflow, preset, "positivePrompt", options.prompt, true);
-  setPresetInput(workflow, preset, "negativePrompt", options.negativePrompt ?? "", true);
+  setPresetInput(workflow, preset, "negativePrompt", options.negativePrompt ?? "");
   setPresetInput(workflow, preset, "width", options.width, true);
   setPresetInput(workflow, preset, "height", options.height, true);
   setPresetInput(workflow, preset, "seed", seed, true);
   setPresetInput(workflow, preset, "steps", options.steps, true);
   setPresetInput(workflow, preset, "cfg", options.cfg, true);
+
+  applyLoraSelection(workflow, preset, options.lora);
 
   validateWorkflowForPreset(workflow, preset);
 
@@ -97,11 +106,13 @@ export async function buildImg2ImgWorkflow(
 
   setPresetInput(workflow, preset, "sourceImage", options.sourceImageName, true);
   setPresetInput(workflow, preset, "positivePrompt", options.prompt, true);
-  setPresetInput(workflow, preset, "negativePrompt", options.negativePrompt ?? "", true);
+  setPresetInput(workflow, preset, "negativePrompt", options.negativePrompt ?? "");
   setPresetInput(workflow, preset, "seed", seed, true);
   setPresetInput(workflow, preset, "steps", options.steps, true);
   setPresetInput(workflow, preset, "cfg", options.cfg, true);
   setPresetInput(workflow, preset, "denoise", options.denoise, true);
+
+  applyLoraSelection(workflow, preset, options.lora);
 
   validateWorkflowForPreset(workflow, preset);
 
@@ -130,7 +141,7 @@ export async function buildSketchToImageWorkflow(
 
   setPresetInput(workflow, preset, "sourceImage", options.sourceImageName, true);
   setPresetInput(workflow, preset, "positivePrompt", options.prompt, true);
-  setPresetInput(workflow, preset, "negativePrompt", options.negativePrompt ?? "", true);
+  setPresetInput(workflow, preset, "negativePrompt", options.negativePrompt ?? "");
   setPresetInput(workflow, preset, "width", options.width, true);
   setPresetInput(workflow, preset, "height", options.height, true);
   setPresetInput(workflow, preset, "seed", seed, true);
@@ -138,6 +149,8 @@ export async function buildSketchToImageWorkflow(
   setPresetInput(workflow, preset, "cfg", options.cfg, true);
   setPresetInput(workflow, preset, "denoise", options.denoise, true);
   setPresetInput(workflow, preset, "controlStrength", options.controlStrength, true);
+
+  applyLoraSelection(workflow, preset, options.lora);
 
   validateWorkflowForPreset(workflow, preset);
 
@@ -308,6 +321,71 @@ function setPresetInput(
 
 function normalizeTargets(target: WorkflowInjectionTargetList) {
   return Array.isArray(target) ? target : [target];
+}
+
+/**
+ * Splices a `LoraLoader` between a preset's model/CLIP loaders and everything
+ * downstream of them.
+ *
+ * This is the one place a workflow's topology changes at build time, for the
+ * reason spelled out on `WorkflowLoraInsertion`: core `LoraLoader` has no "off"
+ * value, so an optional LoRA cannot be a permanently wired node whose value is
+ * merely injected. No selection leaves the graph exactly as shipped.
+ *
+ * Order matters. This must run after the value injections, because rewiring an
+ * input that a later `setPresetInput` overwrites would silently drop the LoRA
+ * out of the chain while still loading it -- an image that looks untouched with
+ * no error to explain why.
+ */
+function applyLoraSelection(
+  workflow: ComfyWorkflow,
+  preset: WorkflowPresetDefinition,
+  lora: WorkflowLoraSelection | undefined
+) {
+  if (!lora?.loraName) {
+    return;
+  }
+
+  const insertion = preset.loraInsertion;
+
+  if (!insertion) {
+    throw createOpenLayerError(
+      "WORKFLOW_INVALID",
+      `The ${preset.id} preset does not support a LoRA.`,
+      `Add a loraInsertion entry for ${preset.id} in src/comfy/presetRegistry.ts, or clear the LoRA selection.`
+    );
+  }
+
+  // A collision would overwrite a real node and produce a graph that still
+  // validates, because validateWorkflowForPreset only checks that required
+  // nodes are present -- so it has to be caught here or not at all.
+  if (workflow[insertion.nodeId]) {
+    throw createOpenLayerError(
+      "WORKFLOW_INVALID",
+      `The ${preset.id} workflow already uses node ${insertion.nodeId}.`,
+      `Give ${preset.id}'s loraInsertion an unused nodeId in src/comfy/presetRegistry.ts.`
+    );
+  }
+
+  workflow[insertion.nodeId] = {
+    class_type: "LoraLoader",
+    inputs: {
+      lora_name: lora.loraName,
+      strength_model: lora.strengthModel,
+      strength_clip: lora.strengthClip,
+      model: [insertion.modelSource.nodeId, insertion.modelSource.slot],
+      clip: [insertion.clipSource.nodeId, insertion.clipSource.slot]
+    },
+    _meta: { title: "Apply LoRA" }
+  };
+
+  for (const consumer of insertion.modelConsumers) {
+    setInput(workflow, consumer.nodeId, consumer.inputName, [insertion.nodeId, 0]);
+  }
+
+  for (const consumer of insertion.clipConsumers) {
+    setInput(workflow, consumer.nodeId, consumer.inputName, [insertion.nodeId, 1]);
+  }
 }
 
 function applyRequiredModelSelections(

@@ -19,7 +19,7 @@
   },
   "6": {
     "inputs": {
-      "text": "a refined image guided by clean lineart",
+      "text": "a finished illustration guided by a rough scribble",
       "clip": [
         "4",
         1
@@ -45,25 +45,21 @@
   },
   "12": {
     "inputs": {
-      "merge_with_lineart": "lineart_standard",
+      "safe": "enable",
       "resolution": 1024,
-      "lineart_lower_bound": 0,
-      "lineart_upper_bound": 1,
-      "object_min_size": 36,
-      "object_connectivity": 1,
       "image": [
         "10",
         0
       ]
     },
-    "class_type": "AnyLineArtPreprocessor_aux",
+    "class_type": "Scribble_PiDiNet_Preprocessor",
     "_meta": {
       "title": "Standard Lineart Preprocessor"
     }
   },
   "13": {
     "inputs": {
-      "control_net_name": "control_v11p_sd15_lineart_fp16.safetensors"
+      "control_net_name": "control_v11p_sd15_scribble_fp16.safetensors"
     },
     "class_type": "ControlNetLoader",
     "_meta": {

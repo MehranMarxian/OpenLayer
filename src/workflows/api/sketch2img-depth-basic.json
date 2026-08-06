@@ -19,7 +19,7 @@
   },
   "6": {
     "inputs": {
-      "text": "a refined image guided by clean lineart",
+      "text": "a finished illustration matching the depth and perspective of the source",
       "clip": [
         "4",
         1
@@ -45,29 +45,25 @@
   },
   "12": {
     "inputs": {
-      "merge_with_lineart": "lineart_standard",
-      "resolution": 1024,
-      "lineart_lower_bound": 0,
-      "lineart_upper_bound": 1,
-      "object_min_size": 36,
-      "object_connectivity": 1,
+      "ckpt_name": "depth_anything_v2_vitl.pth",
+      "resolution": 512,
       "image": [
         "10",
         0
       ]
     },
-    "class_type": "AnyLineArtPreprocessor_aux",
+    "class_type": "DepthAnythingV2Preprocessor",
     "_meta": {
-      "title": "Standard Lineart Preprocessor"
+      "title": "Depth Anything V2 Preprocessor"
     }
   },
   "13": {
     "inputs": {
-      "control_net_name": "control_v11p_sd15_lineart_fp16.safetensors"
+      "control_net_name": "control_v11f1p_sd15_depth_fp16.safetensors"
     },
     "class_type": "ControlNetLoader",
     "_meta": {
-      "title": "Load LineArt ControlNet"
+      "title": "Load Depth ControlNet"
     }
   },
   "14": {
@@ -94,7 +90,7 @@
     },
     "class_type": "ControlNetApplyAdvanced",
     "_meta": {
-      "title": "Apply LineArt ControlNet"
+      "title": "Apply Depth ControlNet"
     }
   },
   "5": {

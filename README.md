@@ -10,13 +10,14 @@ OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop t
 
 ## Alpha Release
 
-`v0.12.0-alpha` is the current public alpha checkpoint. It is intended for testing the core local workflows in Photoshop UXP, not for production work yet.
+`v0.13.0-alpha` is the current public alpha checkpoint. It is intended for testing the core local workflows in Photoshop UXP, not for production work yet.
 
-New in `v0.12.0-alpha`:
+New in `v0.13.0-alpha`:
 
-- **A Flux.2 dev (GGUF) Text to Image preset**, built on ComfyUI's own shipped Flux.2 template and the advanced sampler chain. Experimental, and honestly slow on a 12 GB card: an 18.7 GB model plus a 16.8 GB text encoder means minutes per image, not seconds.
-- **Every preset the panel lists is now one you can actually run.** The two Flux1-dev presets that had been advertising themselves as awaiting a workflow JSON since v0.2.2 are removed rather than finished — the full-precision weight has no 12 GB story and `txt2img-flux1-dev-fp8` already covers Flux Text to Image.
-- **Assisted install is withheld from this release.** It was built on the belief that ComfyUI-Manager's install endpoint would fetch a given URL on request; it will not, and only accepts models from its own curated catalogue on its own terms. The Setup screen therefore still reports and copies, as in v0.11.0. See the CHANGELOG for the full reasoning — including why mapping the fields across would not have fixed it.
+- **An optional LoRA on eleven presets**, across Text to Image, Image to Image and Sketch to Image. One dropdown and one strength control per tool. Choosing nothing leaves the shipped workflow untouched — the loader is spliced into the graph only when you actually pick a LoRA.
+- **A Depth ControlNet Sketch to Image preset.** LineArt and Scribble hold the drawn stroke; this one holds the scene's perspective, which is what you want when a generated element has to sit in an existing composite at the right camera angle. Needs one new ControlNet model, no new node package.
+- **Sketch to Image no longer ignores your sketch.** Light-on-dark art and solid filled shapes produced a blank control image, so ControlNet had no signal and the preset quietly became plain text-to-image. Fixed, and both sketch preprocessors now run at 1024 instead of 512.
+- **The Flux.2 dev (GGUF) preset actually runs now.** In v0.12.0 its model dropdown never listed a `.gguf` file and pressing Generate failed outright. Both were reported by a tester on the release.
 
 Also new in `v0.11.0-alpha`:
 
@@ -111,13 +112,15 @@ The earlier card-based dashboard established OpenLayer's honest available/experi
 
 </details>
 
-v0.12.0-alpha tester focus:
+v0.13.0-alpha tester focus:
 
-- Open **Setup** with ComfyUI running and confirm **no row anywhere offers an Install button**, including missing rows, with ComfyUI-Manager installed. Every row should offer only Copy Link, Copy Folder Path and Copy Page, exactly as in v0.11.0. This is the check that matters most in this release: an Install button appearing is a button that errors.
-- To make a missing row that is *not* licence-gated, temporarily rename a model you already have — `models/upscale_models/4x-UltraSharp.pth` is the smallest at 64 MB — then click **Check Again**. Confirm that row reports Missing, still offers no Install button, and names the folder and size correctly. Rename it back afterwards.
-- Open **Check Workflow Health** and confirm the **Flux.2 dev (GGUF)** preset appears, is marked experimental, and reports only the Mistral-3 encoder as missing if that is the only file you lack — not the 18.7 GB GGUF model you already have.
-- Confirm the two Flux1-dev presets are **gone** from every preset list, and that no remaining preset says it needs a workflow JSON.
-- Confirm the panel footer reads `v0.12.0`.
+- Open **Text to Image**, pick `txt2img-krea2-turbo`, and confirm a **LoRA (optional)** row appears with `None` selected and no strength field. Generate once with `None` — it must succeed — then pick a LoRA and generate again at the same seed. The two images must differ.
+- Switch the Workflow dropdown across every preset in Text to Image, Image to Image and Sketch to Image and confirm the LoRA row appears for all of them. Confirm it does **not** appear on Inpaint, Outpaint or Upscale.
+- Set a different LoRA in each of the three tools and generate in each. None should leak into another tool.
+- Pick a LoRA whose name mentions a different model family than the preset. It should still be selectable, marked `(name suggests another model)`, and generating should **succeed with a visibly unchanged image** — that is the silent failure the warning describes, not a bug.
+- Open **Sketch to Image**, pick the new **Depth ControlNet** preset, and generate from a *shaded* layer rather than flat line art. The first run downloads the depth estimator and is much slower than later ones.
+- Draw light strokes on a dark layer and run **LineArt**. The result must follow the drawing rather than ignoring it.
+- Confirm the panel footer reads `v0.13.0`.
 
 Also worth rechecking from v0.11.0-alpha:
 
@@ -152,7 +155,7 @@ Also worth rechecking from v0.9.0-alpha:
 - Run `npm run setup-pack` and confirm it reports no source/API mismatches at all.
 - Recheck the existing local generation, cancel, preview, import, History, and Workflow Health paths for regressions.
 
-Known v0.12.0-alpha boundaries:
+Known v0.13.0-alpha boundaries:
 
 - **The Setup screen reports and copies. It does not download or install anything.** Assisted install was built for this release and withheld: ComfyUI-Manager's install endpoint only accepts models from its own curated catalogue, matched exactly on `save_path`, `base` and `filename`, so every request OpenLayer could build was rejected. Only 7 of the 16 models this project pins are in that catalogue, and for several of those the catalogue's URL is not the one the registry verified — so the fix is a download path that honours our own URLs, not a field mapping. Full reasoning in the CHANGELOG.
 - The **Flux.2 GGUF preset is slow on a 12 GB card**: minutes per image, not seconds, and its text encoder is licence-gated, so accept the licence in a browser and download it by hand.
@@ -326,10 +329,10 @@ npm run package
 This creates a zip package from `dist` in the `packages` folder. For the current alpha, the expected package name is:
 
 ```text
-packages/openlayer-v0.12.0-alpha.zip
+packages/openlayer-v0.13.0-alpha.zip
 ```
 
-`npm run package` also writes `packages/openlayer-v0.12.0-alpha.ccx` beside it, from the same files.
+`npm run package` also writes `packages/openlayer-v0.13.0-alpha.ccx` beside it, from the same files.
 
 ## One-click install (verified 2026-08-03)
 
@@ -339,7 +342,7 @@ other installed plugin.
 
 This was an open question across three releases and is now answered. What was checked, on Windows 11
 with Photoshop 2025 (26.1.0): the package installs, Adobe's Unified Plugin Installer Agent reports it
-as `Enabled OpenLayer 0.12.0` under *Photoshop 2025 64*, it unpacks to
+as `Enabled OpenLayer 0.13.0` under *Photoshop 2025 64*, it unpacks to
 `%APPDATA%\Adobe\UXP\Plugins\External\com.openlayer.photoshop_<version>\` with no `debug.json` — a
 packaged install rather than a developer load — and the panel opens and works in Photoshop.
 
@@ -494,7 +497,7 @@ Inpaint output quality, mask interpretation, and Photoshop alignment are still b
 
 ## Pre-release Tester Checklist
 
-Use this quick pass before reporting a v0.12.0-alpha test result:
+Use this quick pass before reporting a v0.13.0-alpha test result:
 
 1. Start ComfyUI on `http://127.0.0.1:8190`.
 2. Build OpenLayer and load `dist/manifest.json` in Adobe UXP Developer Tool.
