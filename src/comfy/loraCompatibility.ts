@@ -1,4 +1,20 @@
-import { WorkflowPresetDefinition } from "./types";
+import { WorkflowLoraSelection, WorkflowPresetDefinition } from "./types";
+
+/**
+ * Value of the "None" entry in the LoRA dropdown.
+ *
+ * Not the empty string, which is the obvious choice and is wrong here.
+ * `readSelectValue` falls back to an option's *label* when its value is empty,
+ * because UXP selects do not always report `.value` -- harmless for every other
+ * dropdown in the panel, where the value and the label are the same string, but
+ * for an empty-valued "None" it hands back the literal text "None". That then
+ * reads as a LoRA choice: the strength field appears and ComfyUI rejects the
+ * prompt, because no file is called None.
+ *
+ * A sentinel that is neither empty nor a plausible filename survives that
+ * fallback intact.
+ */
+export const NO_LORA_VALUE = "__openlayer_no_lora__";
 
 /**
  * A guess, from the filename alone, about whether a LoRA suits a preset.
@@ -76,6 +92,50 @@ export function getLoraFamilyHint(loraName: string, preset: WorkflowPresetDefini
   }
 
   return "unknown";
+}
+
+/**
+ * Whether a raw dropdown value represents an actual LoRA choice.
+ *
+ * The bare label "None" is rejected as well as the sentinel. With the sentinel
+ * in place `readSelectValue` should never fall back to the label, so this is
+ * belt and braces -- but the fallback is a UXP behaviour rather than a choice
+ * this code controls, and the failure it caused was a rejected prompt rather
+ * than anything obvious. A real LoRA file would be "None.safetensors", which
+ * is a different string and still selectable.
+ */
+export function isLoraSelected(rawValue: string): boolean {
+  const trimmed = rawValue.trim();
+
+  return trimmed !== "" && trimmed !== NO_LORA_VALUE && trimmed !== "None";
+}
+
+/**
+ * Turns the two raw control values into a selection, or undefined for "None".
+ *
+ * Pure so the "None" case can be pinned by a test: it was a live defect, and
+ * the failure was invisible in the builder -- the workflow was built correctly
+ * from whatever it was handed, and the wrong thing was handed to it.
+ */
+export function resolveLoraSelection(
+  rawName: string,
+  rawStrength: string,
+  defaultStrength: number
+): WorkflowLoraSelection | undefined {
+  if (!isLoraSelected(rawName)) {
+    return undefined;
+  }
+
+  const parsed = Number.parseFloat(rawStrength);
+  // A blank or junk strength falls back rather than sending NaN to ComfyUI,
+  // which would fail validation with a far less obvious message.
+  const strength = Number.isFinite(parsed) ? parsed : defaultStrength;
+
+  return {
+    loraName: rawName.trim(),
+    strengthModel: strength,
+    strengthClip: strength
+  };
 }
 
 /** Short suffix for a dropdown entry. Empty when there is nothing useful to say. */

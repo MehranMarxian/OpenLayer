@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { formatLoraHintSuffix, getLoraFamilyHint } from "../../src/comfy/loraCompatibility";
+import {
+  NO_LORA_VALUE,
+  formatLoraHintSuffix,
+  getLoraFamilyHint,
+  isLoraSelected,
+  resolveLoraSelection
+} from "../../src/comfy/loraCompatibility";
 import { getWorkflowPreset } from "../../src/comfy/presetRegistry";
 
 const KREA2 = getWorkflowPreset("txt2img-krea2-turbo");
@@ -74,5 +80,47 @@ describe("LoRA family hints", () => {
     expect(formatLoraHintSuffix("matches")).toContain("matches this model");
     expect(formatLoraHintSuffix("foreign")).toContain("another model");
     expect(formatLoraHintSuffix("unknown")).toBe("");
+  });
+});
+
+describe("resolving the LoRA controls", () => {
+  const DEFAULT_STRENGTH = 0.8;
+
+  it("treats the None sentinel as no LoRA", () => {
+    expect(isLoraSelected(NO_LORA_VALUE)).toBe(false);
+    expect(resolveLoraSelection(NO_LORA_VALUE, "0.8", DEFAULT_STRENGTH)).toBeUndefined();
+  });
+
+  it("treats the literal label None as no LoRA", () => {
+    // The defect this pins: readSelectValue falls back to an option's LABEL
+    // when its value is empty, because UXP selects do not always report
+    // `.value`. An empty-valued "None" therefore came back as the string
+    // "None", which read as a real choice -- the strength field appeared and
+    // ComfyUI rejected the prompt, since no file is called None.
+    expect(isLoraSelected("None")).toBe(false);
+    expect(resolveLoraSelection("None", "0.8", DEFAULT_STRENGTH)).toBeUndefined();
+  });
+
+  it("treats an empty or whitespace value as no LoRA", () => {
+    expect(resolveLoraSelection("", "0.8", DEFAULT_STRENGTH)).toBeUndefined();
+    expect(resolveLoraSelection("   ", "0.8", DEFAULT_STRENGTH)).toBeUndefined();
+  });
+
+  it("resolves a real selection and drives both strengths from one control", () => {
+    expect(resolveLoraSelection("krea2_darkbrush.safetensors", "1.2", DEFAULT_STRENGTH)).toEqual({
+      loraName: "krea2_darkbrush.safetensors",
+      strengthModel: 1.2,
+      strengthClip: 1.2
+    });
+  });
+
+  it("falls back rather than sending NaN to ComfyUI", () => {
+    expect(resolveLoraSelection("krea2_darkbrush.safetensors", "", DEFAULT_STRENGTH)?.strengthModel).toBe(0.8);
+    expect(resolveLoraSelection("krea2_darkbrush.safetensors", "abc", DEFAULT_STRENGTH)?.strengthClip).toBe(0.8);
+  });
+
+  it("keeps a strength of zero rather than treating it as missing", () => {
+    // 0 is falsy but meaningful: it is a deliberate no-op the artist asked for.
+    expect(resolveLoraSelection("krea2_darkbrush.safetensors", "0", DEFAULT_STRENGTH)?.strengthModel).toBe(0);
   });
 });

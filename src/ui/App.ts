@@ -121,7 +121,13 @@ import {
 } from "./setupInstallModel";
 import type { WorkflowPhotoshopInputAvailability } from "../comfy/workflowCompatibility";
 import { GeneratedImageResult, WorkflowLoraSelection, WorkflowPresetDefinition } from "../comfy/types";
-import { formatLoraHintSuffix, getLoraFamilyHint } from "../comfy/loraCompatibility";
+import {
+  NO_LORA_VALUE,
+  formatLoraHintSuffix,
+  getLoraFamilyHint,
+  isLoraSelected,
+  resolveLoraSelection
+} from "../comfy/loraCompatibility";
 import {
   ExportedSourceImage,
   SelectedRegionSourceImage,
@@ -4874,7 +4880,7 @@ function updateLoraFieldVisibility(elements: AppElements, preset: WorkflowPreset
   if (!supportsLora) {
     // Leaving a stale selection behind would silently apply a LoRA the next
     // time a LoRA-capable preset is chosen.
-    elements.loraName.value = "";
+    elements.loraName.value = NO_LORA_VALUE;
     updateLoraStrengthVisibility(elements);
   }
 }
@@ -4882,11 +4888,12 @@ function updateLoraFieldVisibility(elements: AppElements, preset: WorkflowPreset
 /** Strength only means something once a LoRA is actually selected. */
 function updateLoraStrengthVisibility(elements: AppElements) {
   const selected = readSelectValue(elements.loraName);
+  const hasLora = isLoraSelected(selected);
 
-  elements.loraStrengthField.hidden = !selected;
-  elements.loraNote.hidden = !selected;
+  elements.loraStrengthField.hidden = !hasLora;
+  elements.loraNote.hidden = !hasLora;
 
-  if (!selected) {
+  if (!hasLora) {
     return;
   }
 
@@ -4907,7 +4914,7 @@ function fillLoraSelect(
   select.innerHTML = "";
 
   const none = document.createElement("option");
-  none.value = "";
+  none.value = NO_LORA_VALUE;
   none.textContent = "None";
   select.append(none);
 
@@ -4926,27 +4933,16 @@ function fillLoraSelect(
     select.append(option);
   }
 
-  select.value = preferredValue && loraNames.includes(preferredValue) ? preferredValue : "";
+  select.value = preferredValue && loraNames.includes(preferredValue) ? preferredValue : NO_LORA_VALUE;
 }
 
 /** The artist's LoRA choice, or undefined when None is selected. */
 function readLoraSelection(elements: AppElements): WorkflowLoraSelection | undefined {
-  const loraName = readSelectValue(elements.loraName);
-
-  if (!loraName) {
-    return undefined;
-  }
-
-  const parsed = Number.parseFloat(elements.loraStrength.value);
-  // One control drives both strengths; a blank or junk value falls back to the
-  // default rather than sending NaN to ComfyUI.
-  const strength = Number.isFinite(parsed) ? parsed : Number.parseFloat(DEFAULT_LORA_STRENGTH);
-
-  return {
-    loraName,
-    strengthModel: strength,
-    strengthClip: strength
-  };
+  return resolveLoraSelection(
+    readSelectValue(elements.loraName),
+    elements.loraStrength.value,
+    Number.parseFloat(DEFAULT_LORA_STRENGTH)
+  );
 }
 
 function ensureCoreSelectDefaults(elements: AppElements) {

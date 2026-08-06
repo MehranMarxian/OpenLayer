@@ -1,4 +1,5 @@
 import { listRunnableWorkflowPresets, listWorkflowPresets } from "../comfy/presetRegistry";
+import { NO_LORA_VALUE } from "../comfy/loraCompatibility";
 import {
   APP_VERSION,
   DEFAULT_CFG,
@@ -575,7 +576,7 @@ export function createAppMarkup() {
             <label class="field">
               <span class="label">LoRA (optional)</span>
               <select class="select" id="lora-name">
-                <option value="">None</option>
+                <option value="${NO_LORA_VALUE}">None</option>
               </select>
             </label>
             <label class="field" id="lora-strength-field" hidden>
