@@ -102,7 +102,8 @@ import {
 import {
   createSetupTabView,
   SetupFilterView,
-  SetupRowAction,
+  SetupRowCopyAction,
+  isSetupRowOpenAction,
   SetupRowView,
   SetupSectionView,
   SetupTallyView
@@ -1538,7 +1539,7 @@ export function renderApp(rootElement: HTMLElement) {
    * The download itself is ComfyUI-Manager's and correctly survives this --
    * what stops is OpenLayer asking about it.
    */
-  async function handleSetupCopy(action: SetupRowAction) {
+  async function handleSetupCopy(action: SetupRowCopyAction) {
     try {
       await navigator.clipboard.writeText(action.value);
       setSetupStatus(elements, action.copiedMessage, "ready");
@@ -5592,7 +5593,7 @@ type SetupInstallContext = {
 function renderSetupSections(
   container: HTMLElement,
   sections: readonly SetupSectionView[],
-  onCopy: (action: SetupRowAction) => void,
+  onCopy: (action: SetupRowCopyAction) => void,
   install: SetupInstallContext
 ) {
   container.innerHTML = "";
@@ -5654,7 +5655,7 @@ function renderSetupSections(
 
 function createSetupRowElement(
   row: SetupRowView,
-  onCopy: (action: SetupRowAction) => void,
+  onCopy: (action: SetupRowCopyAction) => void,
   install: SetupInstallContext
 ) {
   // Deliberately reuses the workflow-health card and pill classes rather than
@@ -5749,7 +5750,18 @@ function createSetupRowElement(
       button.type = "button";
       button.className = "button setup-row-action";
       button.textContent = action.label;
-      button.addEventListener("click", () => onCopy(action));
+
+      if (isSetupRowOpenAction(action)) {
+        // The delegated handler in bindExternalLinks reads this attribute and
+        // calls uxp.shell.openExternal; no click listener is wired here, so the
+        // button cannot open anything the handler would not.
+        button.className = "button setup-row-action is-open-external";
+        button.setAttribute("data-openlayer-external", action.url);
+        button.title = `Opens ${action.hostLabel} in your browser`;
+      } else {
+        button.addEventListener("click", () => onCopy(action));
+      }
+
       actions.append(button);
     }
 
@@ -5887,6 +5899,18 @@ function createWorkflowHealthCard(item: WorkflowHealthItem) {
   summary.className = "workflow-health-summary";
   summary.textContent = item.summary;
   row.append(summary);
+
+  // Sits above the details toggle on purpose: the page that fixes the row is
+  // more useful than the paragraph explaining it, and a row with an unread
+  // detail block should still offer the way out.
+  if (item.link) {
+    const openButton = document.createElement("button");
+    openButton.type = "button";
+    openButton.className = "button setup-row-action is-open-external";
+    openButton.textContent = item.link.label;
+    openButton.setAttribute("data-openlayer-external", item.link.url);
+    row.append(openButton);
+  }
 
   if (item.detail) {
     const toggle = document.createElement("button");

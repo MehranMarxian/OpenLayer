@@ -153,6 +153,90 @@ describe("workflow health", () => {
     expect(nodeItem.state).toBe("missing-node");
   });
 
+  it("links a missing custom node to the repository that provides it", () => {
+    const preset = getWorkflowPreset("sketch2img-linecn-basic");
+    const availableNodes = createAvailableNodes(preset);
+    delete availableNodes.AnyLineArtPreprocessor_aux;
+
+    const item = createWorkflowHealthItem(preset, {
+      availableNodes,
+      availableModels: createInventory({
+        controlNetModels: ["control_v11p_sd15_lineart_fp16.safetensors"]
+      })
+    });
+
+    expect(item.state).toBe("missing-node");
+    expect(item.link).toEqual({
+      label: "Open repository",
+      url: "https://github.com/Fannovel16/comfyui_controlnet_aux"
+    });
+  });
+
+  it("gives a core ComfyUI node no link, because there is nothing to install", () => {
+    const preset = getWorkflowPreset("txt2img-basic");
+    const availableNodes = createAvailableNodes(preset);
+    delete availableNodes.KSampler;
+
+    const item = createWorkflowHealthItem(preset, {
+      availableNodes,
+      availableModels: createInventory({
+        checkpoints: ["epicrealism_naturalSinRC1VAE.safetensors"]
+      })
+    });
+
+    expect(item.state).toBe("missing-node");
+    expect(item.link).toBeUndefined();
+  });
+
+  it("links a missing model to its page and never to its download URL", () => {
+    const preset = getWorkflowPreset("sketch2img-linecn-basic");
+    const item = createWorkflowHealthItem(preset, {
+      availableNodes: createAvailableNodes(preset),
+      availableModels: createInventory({
+        checkpoints: ["epicrealism_naturalSinRC1VAE.safetensors"]
+      })
+    });
+    const missingModel = preset.requiredModels?.find(
+      (model) => model.modelName === "control_v11p_sd15_lineart_fp16.safetensors"
+    );
+
+    expect(item.state).toBe("missing-model");
+    expect(missingModel?.sourcePageUrl).toBeDefined();
+    expect(item.link).toEqual({
+      label: "Open model page",
+      url: missingModel!.sourcePageUrl
+    });
+    expect(item.link?.url).not.toBe(missingModel!.downloadUrl);
+  });
+
+  it("gives a misplaced model no link, because it needs moving rather than fetching", () => {
+    const preset = getWorkflowPreset("txt2img-krea2-turbo");
+    const item = createWorkflowHealthItem(preset, {
+      availableNodes: createAvailableNodes(preset),
+      availableModels: createInventory({
+        // The right file, in a folder this preset's loader never reads.
+        checkpoints: ["krea2_turbo_fp8_scaled.safetensors"]
+      })
+    });
+
+    expect(item.state).toBe("missing-model");
+    expect(item.summary).toContain("krea2_turbo_fp8_scaled.safetensors");
+    expect(item.link).toBeUndefined();
+  });
+
+  it("gives a ready preset no link at all", () => {
+    const preset = getWorkflowPreset("txt2img-basic");
+    const item = createWorkflowHealthItem(preset, {
+      availableNodes: createAvailableNodes(preset),
+      availableModels: createInventory({
+        checkpoints: ["epicrealism_naturalSinRC1VAE.safetensors"]
+      })
+    });
+
+    expect(item.state).toBe("ready");
+    expect(item.link).toBeUndefined();
+  });
+
   it("reports an unauthored preset as missing workflow JSON before model or node details", () => {
     const preset = createUnauthoredPreset();
     const item = createWorkflowHealthItem(preset, {

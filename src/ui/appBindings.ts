@@ -526,8 +526,18 @@ export function bindExternalLinks(rootElement: HTMLElement) {
 
     lastRunAt = now;
     event.preventDefault();
-    void openExternalUrl(url);
-    console.log(`[OpenLayer] external link opened from ${eventName}: ${url}`);
+
+    // Logged from the outcome rather than from the attempt. Until this was
+    // reachable from a button it did not matter; now that a row offers Open, a
+    // log line claiming success before the shell had answered would be the only
+    // evidence available when someone reports that nothing happened.
+    void openExternalUrl(url).then((opened) => {
+      console.log(
+        opened
+          ? `[OpenLayer] external link opened from ${eventName}: ${url}`
+          : `[OpenLayer] external link could not be opened from ${eventName}: ${url}`
+      );
+    });
   };
 
   rootElement.addEventListener("click", (event) => runFromEvent("click", event), true);
@@ -597,21 +607,41 @@ function findHistoryActionElement(target: EventTarget | null, rootElement: HTMLE
   return null;
 }
 
-async function openExternalUrl(url: string) {
+/**
+ * Hands a URL to the host so the artist's own browser opens it.
+ *
+ * Returns whether either route actually ran. Both can fail quietly -- UXP's
+ * shell can reject, and there is no `window.open` in the Photoshop host -- and
+ * a button whose failure is invisible is worse than no button, so the caller is
+ * given something to report rather than an assumption.
+ */
+async function openExternalUrl(url: string): Promise<boolean> {
   try {
     const uxp = require("uxp") as UxpModule;
 
     if (uxp.shell?.openExternal) {
       await uxp.shell.openExternal(url);
-      return;
+      return true;
     }
   } catch {
-    // Browser preview builds do not expose UXP's shell module.
+    // Browser preview builds do not expose UXP's shell module, and the host can
+    // refuse a URL. Both fall through to the browser route below.
   }
 
-  if (typeof window.open === "function") {
-    window.open(url, "_blank", "noopener");
+  // Guarded as well as feature-checked. The Photoshop host defines `window` but
+  // is not a browser, so `open` existing is not a promise that calling it works
+  // -- and an exception here would reject a promise nothing is waiting on,
+  // which is a console error with no owner rather than a failure anyone sees.
+  try {
+    if (typeof window.open === "function") {
+      window.open(url, "_blank", "noopener");
+      return true;
+    }
+  } catch {
+    return false;
   }
+
+  return false;
 }
 
 function getEventElement(target: EventTarget | null) {

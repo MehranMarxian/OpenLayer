@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Setup and Workflow Health rows can open the page they are talking about.** An **Open** button sits beside Copy Link and opens the model card or the node package's repository in your own browser, through `uxp.shell.openExternal`. Copy Link stays exactly where it was: a panel that hands you a URL is still the only thing that works when the host refuses to open one, and Copy Folder Path was never a link at all. Open appears only where there is a human-readable page to open — never built from a model's direct download URL, because handing that to a browser starts fetching the file, and several of these are tens of gigabytes. A Workflow Health row for a node that ships with ComfyUI itself gets no button either, since there is nothing to install and therefore nothing to open. A missing model that is really just sitting in the wrong folder gets no button for the same kind of reason: it needs moving, not fetching.
+
 ## v0.13.0-alpha - 2026-08-07
 
 LoRAs, at last: every preset that loads a model and a text encoder — eleven of them, across Text to Image, Image to Image and Sketch to Image — now takes an optional LoRA. The panel has been able to list the LoRAs on your disk since long before it could use one.
@@ -40,7 +46,6 @@ The Setup screen also downloads models now, which ends the withholding that ran 
 - **Live Painting is experimental.** The live tier needs an SD 1.5 LCM LoRA in `models/loras/`; the Refine tier additionally needs the three Krea-2 Turbo files.
 - Setup and Workflow Health overlap on purpose for now. Setup answers "what do I need and where does it go"; Health answers "can I run this preset right now".
 - "What will run well" reads the VRAM ComfyUI reports for its primary device. With ComfyUI stopped, every preset falls back to "Not known".
-- The panel still cannot open a browser, which is why rows offer Copy Link rather than a button that opens the page.
 - **The `.ccx` one-click install is verified on one configuration only** — Windows 11, Photoshop 2025 (26.1.0). macOS and every other Photoshop version remain untested.
 - The Layer Tools card on Home does not dim when ComfyUI is unreachable, unlike the generation tools.
 - Layer, canvas, selection, and mask capture is limited to 16 megapixels (4096 x 4096) until a downscale option is added.
