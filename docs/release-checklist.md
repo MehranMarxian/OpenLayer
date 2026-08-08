@@ -20,6 +20,7 @@ Use this checklist before publishing an OpenLayer alpha release.
 - Confirm `README.md` release version.
 - Confirm `CHANGELOG.md` release section.
 - Confirm `docs/index.html` landing page version.
+- Confirm `docs/become-a-tester.html` version. It carries the version in several places at once — the hero badge, both Download buttons, the `.ccx` and `.zip` filenames in the install step, and the footer — and it has gone stale for two releases running because it is not the page anyone looks at while cutting a release. Grep it for the previous version number rather than reading it.
 - Confirm the package name matches the release, for example `openlayer-v0.7.0-alpha.zip`.
 
 ## Public Alpha Truth Check
