@@ -3,6 +3,7 @@ import {
   evaluateWorkflowCompatibility,
   WorkflowCompatibilityContext,
   WorkflowCompatibilityIssue,
+  WorkflowCompatibilityLink,
   WorkflowCompatibilityResult
 } from "./workflowCompatibility";
 import { WorkflowPresetDefinition } from "./types";
@@ -25,6 +26,12 @@ export type WorkflowHealthItem = {
   summary: string;
   detail: string;
   canRun: boolean;
+  /**
+   * The page that answers this row's primary issue, when there is one. Taken
+   * from the same issue the summary is written from, so the button and the
+   * sentence above it can never disagree about which problem they are about.
+   */
+  link?: WorkflowCompatibilityLink;
 };
 
 export type WorkflowHealthReport = {
@@ -79,7 +86,8 @@ export function createWorkflowHealthItem(
     stateLabel: STATE_LABELS[state],
     summary: createHealthSummary(preset, state, primaryIssue),
     detail: createHealthDetail(preset, context, state, primaryIssue),
-    canRun: result.canRun
+    canRun: result.canRun,
+    link: primaryIssue?.link
   };
 }
 

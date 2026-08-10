@@ -25,11 +25,26 @@ export type WorkflowCompatibilityLevel =
   | "setup-required"
   | "unsupported";
 
+/**
+ * A page that answers the issue, when one exists: the repository that provides
+ * a missing node, or the model card for a missing model.
+ *
+ * Only ever a human-readable page, never a direct model download URL. Handing a
+ * download URL to a browser starts fetching the file, and several of these are
+ * tens of gigabytes, so an "Open" that did that would not be doing what its
+ * label says.
+ */
+export type WorkflowCompatibilityLink = {
+  label: string;
+  url: string;
+};
+
 export type WorkflowCompatibilityIssue = {
   level: WorkflowCompatibilityLevel;
   code: string;
   artistMessage: string;
   technicalMessage?: string;
+  link?: WorkflowCompatibilityLink;
 };
 
 export type WorkflowNodeAvailability = Record<string, readonly string[]>;
@@ -148,11 +163,17 @@ function addNodeIssues(
     const availableInputs = context.availableNodes[requirement.classType];
 
     if (!availableInputs) {
+      const customNodePackage = CUSTOM_NODE_PACKAGES[requirement.classType];
+
       issues.push({
         level: "setup-required",
         code: "COMFY_NODE_MISSING",
         artistMessage: formatMissingNodeMessage(requirement.classType, preset.label),
-        technicalMessage: `Missing node class: ${requirement.classType}.`
+        technicalMessage: `Missing node class: ${requirement.classType}.`,
+        // No package means core ComfyUI, where there is nothing to open.
+        link: customNodePackage
+          ? { label: "Open repository", url: customNodePackage.repoUrl }
+          : undefined
       });
       continue;
     }
@@ -190,7 +211,14 @@ function addModelFileIssues(
         artistMessage: misplacedModel
           ? `${missingModelMessage} ${formatMisplacedModelMessage(misplacedModel)}`
           : missingModelMessage,
-        technicalMessage: model.setupHint
+        technicalMessage: model.setupHint,
+        // A misplaced model needs moving, not downloading, so it gets no link
+        // to a page that would only invite a second copy of a file already on
+        // disk. See `sourcePageUrl` on the type for why downloadUrl is not used.
+        link:
+          !misplacedModel && model.sourcePageUrl
+            ? { label: "Open model page", url: model.sourcePageUrl }
+            : undefined
       });
     }
   }

@@ -4,18 +4,42 @@ import {
   SetupRequirementStatus,
   SetupRequirementsReport
 } from "../comfy/setupRequirements";
+import { describeDownloadSource } from "./setupInstallModel";
 
 export type SetupBadgeTone = "ready" | "warning" | "error" | "neutral";
 export type SetupRowActionId =
   | "copy-download-link"
   | "copy-folder-path"
   | "copy-source-page";
-export type SetupRowAction = {
+export type SetupRowCopyAction = {
   id: SetupRowActionId;
   label: string;
   value: string;
   copiedMessage: string;
 };
+
+/**
+ * A row action that opens a page in the artist's browser instead of writing to
+ * the clipboard. Kept as a separate shape rather than a flag on the copy action
+ * because the two have nothing in common at the point of use: one needs a
+ * confirmation message, the other needs a URL that is safe to hand to the shell.
+ *
+ * `url` is the discriminant. Every open action carries one and no copy action
+ * does, so a renderer can tell them apart without a second field to keep in sync.
+ */
+export type SetupRowOpenAction = {
+  id: "open-page";
+  label: string;
+  url: string;
+  /** Names the destination for the button's tooltip, e.g. "huggingface.co". */
+  hostLabel: string;
+};
+
+export type SetupRowAction = SetupRowCopyAction | SetupRowOpenAction;
+
+export function isSetupRowOpenAction(action: SetupRowAction): action is SetupRowOpenAction {
+  return "url" in action;
+}
 export type SetupRowField = { label: string; value: string };
 export type SetupRowView = {
   key: string;
@@ -240,7 +264,36 @@ function createModelActions(model: SetupModelRequirement): SetupRowAction[] {
     });
   }
 
+  const openAction = createOpenPageAction(model.sourcePageUrl);
+
+  if (openAction) {
+    actions.push(openAction);
+  }
+
   return actions;
+}
+
+/**
+ * The Open button, when there is a page worth opening.
+ *
+ * Deliberately built from `sourcePageUrl` only, never from `downloadUrl`. A
+ * download URL handed to a browser starts fetching the file, and several of
+ * these are tens of gigabytes -- so an "Open" that silently began an 18 GB
+ * browser download would be a trap. A row with no source page keeps Copy Link
+ * and gets no Open button, which is the honest outcome rather than a button
+ * that does something the label does not say.
+ */
+function createOpenPageAction(sourcePageUrl: string | undefined): SetupRowOpenAction | null {
+  if (!sourcePageUrl) {
+    return null;
+  }
+
+  return {
+    id: "open-page",
+    label: "Open",
+    url: sourcePageUrl,
+    hostLabel: describeDownloadSource(sourcePageUrl)
+  };
 }
 
 function createNodeRow(node: SetupNodeRequirement): SetupRowView {
@@ -266,6 +319,8 @@ function createNodeRow(node: SetupNodeRequirement): SetupRowView {
     badgeTone: badge.tone,
     fields,
     notes: createNodeNotes(node),
+    // A node package's repoUrl is a repository page, not a file, so unlike a
+    // model's download URL it is safe to open in a browser.
     actions: installed
       ? []
       : [
@@ -274,6 +329,12 @@ function createNodeRow(node: SetupNodeRequirement): SetupRowView {
             label: "Copy Link",
             value: node.repoUrl,
             copiedMessage: `Copied the repository link for ${node.name}.`
+          },
+          {
+            id: "open-page",
+            label: "Open",
+            url: node.repoUrl,
+            hostLabel: describeDownloadSource(node.repoUrl)
           }
         ],
     collapsed: installed

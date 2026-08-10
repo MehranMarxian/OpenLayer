@@ -897,6 +897,20 @@ a:hover {
   background: #df8724;
 }
 
+/* Open leaves Photoshop, which is the one thing none of its neighbours do, so
+   it gets an edge rather than a fill: distinguishable from Copy at a glance
+   without competing with the install button for "this is the decision". The
+   margins come from `.setup-row-action` above and are explicit there, which is
+   what makes this safe to drop into a Workflow Health row that has no flex
+   container of its own. */
+.setup-row-action.is-open-external {
+  border-color: #6f7f92;
+}
+
+.setup-row-action.is-open-external:hover:not(:disabled):not(.is-disabled) {
+  border-color: #90a4bb;
+}
+
 /* Drawn inside the row it belongs to, so it needs a visible edge to read as a
    question rather than as more row content. Explicit margins throughout: flex
    gap is not honored reliably in the compact panel.

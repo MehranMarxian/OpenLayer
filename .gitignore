@@ -13,6 +13,9 @@ Thumbs.db
 .env
 .env.*
 
+# Draft shooting script for a promo video -- not part of the product.
+docs/video-01-intro-shooting-script.md
+
 # Assistant tooling, not project configuration. launch.json describes how to
 # start dev servers for a Claude Code session and settings.local.json holds
 # per-machine permissions; nothing in npm, the plugin, UXP, or CI reads either.

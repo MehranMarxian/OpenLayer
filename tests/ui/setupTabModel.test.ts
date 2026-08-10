@@ -15,7 +15,8 @@ import {
   SetupRowView,
   SetupSectionView,
   SetupTabView,
-  createSetupTabView
+  createSetupTabView,
+  isSetupRowOpenAction
 } from "../../src/ui/setupTabModel";
 
 const PLUGIN_VERSION = "9.9.9";
@@ -143,6 +144,52 @@ describe("setup tab model", () => {
     expect(getRow(view, folderModel!.key).notes).toContain(
       "Clone the whole repository folder, not a single file. This loader opens a directory."
     );
+  });
+
+  it("offers an Open action for a model's source page but never for its download URL", () => {
+    const presets = [getRunnablePreset("upscale-basic")];
+    const report = evaluateReport(presets, { inventory: createEmptyInventory() });
+    const view = createSetupTabView(report);
+
+    for (const model of report.models) {
+      const openActions = getRow(view, model.key).actions.filter(isSetupRowOpenAction);
+
+      if (!model.sourcePageUrl) {
+        // No page means no button, rather than an Open that quietly starts a
+        // multi-gigabyte download in the browser.
+        expect(openActions).toEqual([]);
+        continue;
+      }
+
+      expect(openActions).toHaveLength(1);
+      expect(openActions[0].url).toBe(model.sourcePageUrl);
+      expect(openActions[0].url).not.toBe(model.downloadUrl);
+    }
+  });
+
+  it("keeps Copy Link alongside the Open action on a custom node row", () => {
+    const presets = [getRunnablePreset("prompt-from-layer-florence2")];
+    const report = evaluateReport(presets, { nodeAvailability: {} });
+    const row = getRow(createSetupTabView(report), "ComfyUI-Florence2");
+    const repoUrl = report.customNodes[0].repoUrl;
+
+    expect(row.actions.map((action) => action.label)).toEqual(["Copy Link", "Open"]);
+    expect(row.actions.filter(isSetupRowOpenAction)[0]).toEqual({
+      id: "open-page",
+      label: "Open",
+      url: repoUrl,
+      hostLabel: "github.com"
+    });
+  });
+
+  it("gives an installed row no Open action, because there is nothing left to fetch", () => {
+    const presets = [getRunnablePreset("upscale-basic")];
+    const report = evaluateReport(presets, {
+      inventory: createCompleteInventory(presets)
+    });
+    const section = getSection(createSetupTabView(report), "models");
+
+    expect(section.collapsedRows[0].actions.filter(isSetupRowOpenAction)).toEqual([]);
   });
 
   it("explains a partially installed custom node package", () => {

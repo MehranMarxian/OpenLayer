@@ -304,6 +304,9 @@
             </article>
           </div>
           <p class="setup-note">
+            <strong>Missing a model?</strong> The Setup screen lists every one the presets need and downloads it for you — one at a time, resumable, and only after a confirmation naming the file size, the folder it lands in, and the host it comes from. Licence-gated weights and custom node packages are the exceptions and stay a manual job; the screen says which is which.
+          </p>
+          <p class="setup-note">
             OpenLayer defaults to <code>http://127.0.0.1:8190</code> so it can run beside other local tools that may already use port 8188 — but you do not have to move your server. If ComfyUI is already running anywhere, open <strong>Settings</strong> and click <strong>Find ComfyUI Active Port</strong>; OpenLayer finds it, connects, and reports Ready. <code>--preview-method auto</code> enables live step previews.
           </p>
         </div>
@@ -355,6 +358,7 @@
               <li>Live sampler previews require ComfyUI to be started with <code>--preview-method auto</code>.</li>
               <li>Progress is shown in the generation status panel rather than pinned to the screen header, so it scrolls with the form.</li>
               <li>The ComfyUI setup pack ships the requirements list and a downloader, not the model weights. An internet connection is required.</li>
+              <li>The Setup screen downloads models but not custom node packages, which keep Copy Link and go through ComfyUI-Manager. It also refuses to fetch licence-gated weights, because an unauthenticated download saves a sign-in page under the model's filename rather than a model.</li>
             </ul>
           </details>
         </div>
@@ -402,6 +406,10 @@
             <article>
               <h3>v0.12 · Flux.2 and an honest preset list</h3>
               <p>A Text to Image preset for the GGUF-quantised FLUX.2-dev, built on ComfyUI's own advanced sampler chain — and every preset the panel lists is now one you can actually run, because the two that never could have been are gone.</p>
+            </article>
+            <article>
+              <h3>v0.13 · LoRAs and in-panel downloads</h3>
+              <p>An optional LoRA on eleven presets, two new Sketch to Image ControlNet presets, and a Setup screen that downloads missing models itself from the project's own pinned URLs instead of only telling you where to find them.</p>
             </article>
             <article>
               <h3>Next · Reliability and artist control</h3>
