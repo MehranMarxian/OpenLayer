@@ -1106,7 +1106,9 @@ export function renderApp(rootElement: HTMLElement) {
 
   elements.sketchWorkflow.addEventListener("change", () => {
     applyRecommendedPresetSettings(elements.sketchWorkflow, DEFAULT_SKETCH_WORKFLOW, elements.sketchSteps, elements.sketchCfg);
-    updateSketchCheckpointCompatibility(elements, sketchSource);
+    void refreshSketchModelOptionsForSelectedPreset(elements).then(() =>
+      updateSketchCheckpointCompatibility(elements, sketchSource)
+    );
     void refreshLoraOptions(getSketchLoraControls(elements), elements);
   });
 
@@ -1154,6 +1156,7 @@ export function renderApp(rootElement: HTMLElement) {
       await loadCheckpoints(client, elements, preferences.checkpointName || readSelectValue(elements.checkpoint));
       await refreshTextModelOptionsForSelectedPreset(elements, client);
       await refreshImageModelOptionsForSelectedPreset(elements, client);
+      await refreshSketchModelOptionsForSelectedPreset(elements, client);
       await refreshInpaintModelOptionsForSelectedPreset(elements, client);
       await refreshOutpaintModelOptionsForSelectedPreset(elements, client);
       await refreshUpscaleModelOptionsForSelectedPreset(elements, client);
@@ -1184,6 +1187,7 @@ export function renderApp(rootElement: HTMLElement) {
       await loadCheckpoints(client, elements);
       await refreshTextModelOptionsForSelectedPreset(elements, client);
       await refreshImageModelOptionsForSelectedPreset(elements, client);
+      await refreshSketchModelOptionsForSelectedPreset(elements, client);
       await refreshInpaintModelOptionsForSelectedPreset(elements, client);
       await refreshOutpaintModelOptionsForSelectedPreset(elements, client);
       await refreshUpscaleModelOptionsForSelectedPreset(elements, client);
@@ -1225,6 +1229,7 @@ export function renderApp(rootElement: HTMLElement) {
       await loadCheckpoints(client, elements);
       await refreshTextModelOptionsForSelectedPreset(elements, client);
       await refreshImageModelOptionsForSelectedPreset(elements, client);
+      await refreshSketchModelOptionsForSelectedPreset(elements, client);
       await refreshInpaintModelOptionsForSelectedPreset(elements, client);
       await refreshOutpaintModelOptionsForSelectedPreset(elements, client);
       await refreshUpscaleModelOptionsForSelectedPreset(elements, client);
@@ -4737,6 +4742,31 @@ async function refreshModelOptionsForSelectedPreset(
       const preferredModel = modelNames.includes(preferredValue) ? preferredValue : preferredPresetModel;
 
       fillSingleCheckpointSelect(modelSelect, modelNames, preferredModel);
+    }
+  } catch {
+    // Keep the existing list if ComfyUI is offline or this model source is unavailable.
+  }
+}
+
+async function refreshSketchModelOptionsForSelectedPreset(
+  elements: AppElements,
+  client = new ComfyClient(elements.serverUrl.value),
+  preferredValue = readSelectValue(elements.sketchCheckpoint)
+) {
+  const preset = getWorkflowPreset(readSelectValue(elements.sketchWorkflow, DEFAULT_SKETCH_WORKFLOW));
+
+  try {
+    const modelNames = await client.getModelNamesForPreset(preset);
+
+    if (modelNames.length > 0) {
+      const preferredPresetModel = preset.modelStack?.find(
+        (model) => model.kind === preset.modelSource.kind && modelNames.includes(model.modelName)
+      )?.modelName;
+      const preferredModel = modelNames.includes(preferredValue)
+        ? preferredValue
+        : (modelNames.includes(RECOMMENDED_SKETCH_CHECKPOINT) ? RECOMMENDED_SKETCH_CHECKPOINT : preferredPresetModel);
+
+      fillSingleCheckpointSelect(elements.sketchCheckpoint, modelNames, preferredModel);
     }
   } catch {
     // Keep the existing list if ComfyUI is offline or this model source is unavailable.
