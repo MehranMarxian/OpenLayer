@@ -163,8 +163,7 @@ Known v0.13.0-alpha boundaries:
 - "What will run well" rates on published model weight sizes against reported VRAM. It is not a measurement of VRAM use during a run, and a preset with an unpublished model size is reported as unknown rather than guessed at.
 - Setup and Check Workflow Health overlap on purpose. Setup answers what you need and where it goes; Health answers whether a given preset can run right now.
 - Image to Image is an early foundation path, not a full production workflow yet.
-- Sketch to Image is limited to the first SD 1.x LINECN starter workflow.
-- Sketch to Image is currently tested with `epicrealism_naturalSinRC1VAE.safetensors` and `control_v11p_sd15_lineart_fp16.safetensors`.
+- Sketch to Image has four presets: three SD 1.x ControlNets (LineArt, Scribble, Depth) and `sketch2img-zimage-fun-controlnet`, which reads the sketch through Alibaba-PAI's Z-Image Fun ControlNet Union patch on the Z_image_Turbo stack. The SD 1.x presets are tested with `epicrealism_naturalSinRC1VAE.safetensors` and their respective `control_v11p_sd15_*` ControlNets; the Z_image_Turbo preset with `z_image_turbo_bf16.safetensors` and `Z-Image-Turbo-Fun-Controlnet-Union-2.1-lite-2602-8steps.safetensors`.
 - Active-layer and canvas capture now encode raw Photoshop Imaging API pixels as PNG/lossless source images.
 - Inpaint can detect and capture the selected rectangular region as a PNG/lossless source image.
 - Inpaint now attempts a temporary-layer grayscale PNG mask export and can run the experimental SD 1.x `inpaint-basic` workflow when ComfyUI has the required nodes.
@@ -195,7 +194,7 @@ Known v0.13.0-alpha boundaries:
 - The Layer Tools card on Home does not dim when ComfyUI is unreachable, unlike the generation tools. Saving to a file still works with ComfyUI stopped; Send to ComfyUI reports the connection error on the Layer Tools status line.
 - Live sampler previews require ComfyUI to be started with `--preview-method auto`, and the preview panel may flicker between steps until a future UI polish pass.
 - Classic v0.4 theme preserves the older visual feel, but it does not duplicate every old layout detail.
-- SDXL, SD3, Flux, and Z_image_Turbo Sketch to Image workflows need dedicated future presets.
+- SDXL, SD3, and Flux Sketch to Image workflows still need dedicated future presets.
 - Workflow node IDs may need adjustment for custom ComfyUI workflows.
 - Dedicated selected-layer PNG file export, selection preservation, aligned regional workflows, advanced ControlNet-style workflows, and generative upscaling are not included yet.
 - The UI is functional and responsive enough for testing, but final visual polish will continue in later releases.

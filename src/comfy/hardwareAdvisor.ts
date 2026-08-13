@@ -124,6 +124,10 @@ function createRecommendations(
   const hasFlux = hasFamily(inventory, "flux");
   const hasZImageTurbo = hasZImageTurboStack(inventory);
   const hasSketchPreset = presets.some((preset) => preset.id === "sketch2img-linecn-basic");
+  const hasZImageSketchPreset =
+    presets.some((preset) => preset.id === "sketch2img-zimage-fun-controlnet") &&
+    hasZImageTurbo &&
+    inventory.modelPatches.some((name) => name.toLowerCase().includes("controlnet-union-2.1-lite-2602"));
 
   return [
     {
@@ -138,10 +142,14 @@ function createRecommendations(
     },
     {
       task: "Sketch to Image",
-      recommendation: hasSketchPreset
-        ? "Use sketch2img-linecn-basic with an SD 1.x checkpoint for now."
-        : "Install the LINECN starter preset before using Sketch to Image.",
-      reason: "The current LINECN workflow is intentionally SD 1.x-first for reliability."
+      recommendation: hasZImageSketchPreset
+        ? "Use sketch2img-zimage-fun-controlnet: it follows the drawn structure more reliably than the SD 1.x ControlNets and needs only a 2 GB patch on top of the Z_image_Turbo stack."
+        : hasSketchPreset
+          ? "Use sketch2img-linecn-basic with an SD 1.x checkpoint for now, or install the Z_image_Turbo stack plus the Z-Image Fun ControlNet Union patch for sketch2img-zimage-fun-controlnet."
+          : "Install the LINECN starter preset before using Sketch to Image.",
+      reason: hasZImageSketchPreset
+        ? "Verified against real sketches: the SD 1.x ControlNets are the fallback now, not the default."
+        : "The LINECN workflow is SD 1.x-first for reliability until the Z_image_Turbo ControlNet stack is installed."
     },
     {
       task: "Future Realtime Preview",
