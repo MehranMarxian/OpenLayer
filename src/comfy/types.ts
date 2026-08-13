@@ -118,6 +118,7 @@ export type ComfyModelInventory = {
   controlNetModels: string[];
   visionLanguageModels: string[];
   upscaleModels: string[];
+  modelPatches: string[];
   missingSources: string[];
 };
 
@@ -288,7 +289,8 @@ export type WorkflowModelSourceKind =
   | "vae"
   | "controlnet"
   | "vision-language"
-  | "upscale";
+  | "upscale"
+  | "model-patch";
 
 export type WorkflowModelSource = {
   kind: WorkflowModelSourceKind;
@@ -310,7 +312,8 @@ export type WorkflowModelFolder =
   | "vae"
   | "controlnet"
   | "upscale_models"
-  | "LLM";
+  | "LLM"
+  | "model_patches";
 
 /**
  * A model whose terms have to be accepted by a person before it is fetched.

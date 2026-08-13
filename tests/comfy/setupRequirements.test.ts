@@ -268,6 +268,7 @@ function createEmptyInventory(): ComfyModelInventory {
     controlNetModels: [],
     visionLanguageModels: [],
     upscaleModels: [],
+    modelPatches: [],
     missingSources: []
   };
 }
@@ -303,6 +304,8 @@ function getInventoryBucket(
       return inventory.visionLanguageModels;
     case "upscale":
       return inventory.upscaleModels;
+    case "model-patch":
+      return inventory.modelPatches;
   }
 }
 

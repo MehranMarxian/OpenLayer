@@ -74,6 +74,9 @@ export const MODEL_INVENTORY_SOURCES = {
   ],
   upscaleModels: [
     { objectInfoNode: "UpscaleModelLoader", inputName: "model_name", label: "upscale model loader" }
+  ],
+  modelPatches: [
+    { objectInfoNode: "ModelPatchLoader", inputName: "name", label: "model patch loader" }
   ]
 } as const;
 
@@ -180,6 +183,7 @@ export class ComfyClient {
       controlNetModels: [],
       visionLanguageModels: [],
       upscaleModels: [],
+      modelPatches: [],
       missingSources: []
     };
 
@@ -190,6 +194,7 @@ export class ComfyClient {
     await this.collectInventoryNames(inventory, "controlNetModels", MODEL_INVENTORY_SOURCES.controlNetModels);
     await this.collectInventoryNames(inventory, "visionLanguageModels", MODEL_INVENTORY_SOURCES.visionLanguageModels);
     await this.collectInventoryNames(inventory, "upscaleModels", MODEL_INVENTORY_SOURCES.upscaleModels);
+    await this.collectInventoryNames(inventory, "modelPatches", MODEL_INVENTORY_SOURCES.modelPatches);
 
     return inventory;
   }

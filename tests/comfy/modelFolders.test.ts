@@ -43,7 +43,8 @@ describe("model folder mapping", () => {
       // offered flux2-dev-Q4_K_M.gguf straight out of models/diffusion_models/.
       UnetLoaderGGUF: "diffusion_models",
       CLIPLoaderGGUF: "text_encoders",
-      DualCLIPLoaderGGUF: "text_encoders"
+      DualCLIPLoaderGGUF: "text_encoders",
+      ModelPatchLoader: "model_patches"
     });
   });
 
@@ -55,7 +56,8 @@ describe("model folder mapping", () => {
       vaeModels: "vae",
       controlNetModels: "controlnet",
       visionLanguageModels: "LLM",
-      upscaleModels: "upscale_models"
+      upscaleModels: "upscale_models",
+      modelPatches: "model_patches"
     });
 
     const loaderFolders = Object.values(MODEL_FOLDER_BY_OBJECT_INFO_NODE);
