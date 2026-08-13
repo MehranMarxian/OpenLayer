@@ -11,6 +11,7 @@ export type WorkflowPreset =
   | "sketch2img-linecn-basic"
   | "sketch2img-scribble-basic"
   | "sketch2img-depth-basic"
+  | "sketch2img-zimage-fun-controlnet"
   | "inpaint-basic"
   | "inpaint-flux-fill-basic"
   | "outpaint-flux-fill-basic"
@@ -161,8 +162,16 @@ export type BuildImageToImageWorkflowOptions = {
 
 export type BuildSketchToImageWorkflowOptions = BuildImageToImageWorkflowOptions & {
   controlStrength: number;
+  /** Size the latent is sampled at, after any `minimumGenerationSize` floor. */
   width: number;
   height: number;
+  /**
+   * Size the finished image is scaled back to — the captured source size.
+   * Only presets declaring `minimumGenerationSize` need this; without it the
+   * generation size and the output size are the same thing.
+   */
+  outputWidth?: number;
+  outputHeight?: number;
 };
 
 export type BuildInpaintWorkflowOptions = BuildImageToImageWorkflowOptions & {
@@ -222,6 +231,8 @@ export type WorkflowInjectionName =
   | "denoise"
   | "sourceImage"
   | "maskImage"
+  | "outputWidth"
+  | "outputHeight"
   | "task"
   | "numBeams"
   | "controlStrength"
@@ -360,6 +371,13 @@ export type WorkflowRequiredModel = WorkflowModelSource & {
 export type WorkflowRecommendedSettings = {
   steps?: number;
   cfg?: number;
+  /**
+   * Only for sketch presets whose ControlNet wants a different strength from
+   * the panel's global default. The Z-Image Fun ControlNet lite weights apply
+   * control to 3 layer blocks where the full weights use 15, so they need 1.0
+   * to hold a sketch where 0.8 barely controls at all -- measured, not guessed.
+   */
+  controlStrength?: number;
 };
 
 export type WorkflowPresetDefinition = {
@@ -373,6 +391,18 @@ export type WorkflowPresetDefinition = {
   sourceWorkflowFile?: string;
   status: "stable" | "experimental" | "todo";
   recommendedSettings?: WorkflowRecommendedSettings;
+  /**
+   * Smallest long edge, in pixels, this preset's model can actually render at.
+   *
+   * Set only where the model has a native resolution well above the canvas
+   * sizes artists work at. Z_image_Turbo is one: on a 447px document it would
+   * otherwise sample a 28x28 latent, which does not resolve into an image at
+   * all -- it returns the ControlNet's own line map over a maze-like texture.
+   * The builder scales the generation up to this floor, keeps the source
+   * aspect, and scales the finished image back down to the captured size, so
+   * the imported layer still matches the artist's canvas.
+   */
+  minimumGenerationSize?: number;
   supportedModelFamilies: ModelFamily[];
   experimentalModelFamilies: ModelFamily[];
   modelSource: WorkflowModelSource;

@@ -10,6 +10,7 @@ import promptFromLayerFlorence2Workflow from "../workflows/api/prompt-from-layer
 import sketch2imgLinecnBasicWorkflow from "../workflows/api/sketch2img-linecn-basic.json";
 import sketch2imgScribbleBasicWorkflow from "../workflows/api/sketch2img-scribble-basic.json";
 import sketch2imgDepthBasicWorkflow from "../workflows/api/sketch2img-depth-basic.json";
+import sketch2imgZimageFunControlnetWorkflow from "../workflows/api/sketch2img-zimage-fun-controlnet.json";
 import inpaintBasicWorkflow from "../workflows/api/inpaint-basic.json";
 import inpaintFluxFillBasicWorkflow from "../workflows/api/inpaint-flux-fill-basic.json";
 import outpaintFluxFillBasicWorkflow from "../workflows/api/outpaint-flux-fill-basic.json";
@@ -47,6 +48,7 @@ const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
   "sketch2img-linecn-basic": sketch2imgLinecnBasicWorkflow as ComfyWorkflow,
   "sketch2img-scribble-basic": sketch2imgScribbleBasicWorkflow as ComfyWorkflow,
   "sketch2img-depth-basic": sketch2imgDepthBasicWorkflow as ComfyWorkflow,
+  "sketch2img-zimage-fun-controlnet": sketch2imgZimageFunControlnetWorkflow as ComfyWorkflow,
   "inpaint-basic": inpaintBasicWorkflow as ComfyWorkflow,
   "inpaint-flux-fill-basic": inpaintFluxFillBasicWorkflow as ComfyWorkflow,
   "outpaint-flux-fill-basic": outpaintFluxFillBasicWorkflow as ComfyWorkflow,
@@ -149,6 +151,10 @@ export async function buildSketchToImageWorkflow(
   setPresetInput(workflow, preset, "cfg", options.cfg, true);
   setPresetInput(workflow, preset, "denoise", options.denoise, true);
   setPresetInput(workflow, preset, "controlStrength", options.controlStrength, true);
+  // Only presets with a minimumGenerationSize carry these targets; for every
+  // other sketch preset the generation size already is the output size.
+  setPresetInput(workflow, preset, "outputWidth", options.outputWidth ?? options.width);
+  setPresetInput(workflow, preset, "outputHeight", options.outputHeight ?? options.height);
 
   applyLoraSelection(workflow, preset, options.lora);
 

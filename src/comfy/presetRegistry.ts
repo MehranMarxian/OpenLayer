@@ -47,6 +47,8 @@ const CITY96_FLUX2_DEV_GGUF_REPO = "https://huggingface.co/city96/FLUX.2-dev-ggu
 const COMFY_ORG_Z_IMAGE_TURBO_REPO = "https://huggingface.co/Comfy-Org/z_image_turbo";
 const COMFY_ORG_KREA2_REPO = "https://huggingface.co/Comfy-Org/Krea-2";
 const FLUX_TEXT_ENCODERS_REPO = "https://huggingface.co/comfyanonymous/flux_text_encoders";
+const ALIBABA_PAI_ZIMAGE_FUN_CONTROLNET_REPO =
+  "https://huggingface.co/alibaba-pai/Z-Image-Turbo-Fun-Controlnet-Union-2.1";
 
 const CHECKPOINT_MODEL_SOURCE = {
   kind: "checkpoint",
@@ -125,6 +127,26 @@ const Z_IMAGE_TURBO_STACK = [
     downloadSizeBytes: 335304388
   }
 ] as const;
+
+/**
+ * A ControlNet-as-model-patch for the Z_image_Turbo stack, applied through the
+ * core `ModelPatchLoader` / `ZImageFunControlnet` pair rather than the
+ * `ControlNetLoader` / `ControlNetApplyAdvanced` pair the SD 1.x sketch presets
+ * use -- verified live against ComfyUI's /object_info, this node patches the
+ * MODEL directly and has no CONTROL_NET output to apply to conditioning.
+ */
+const Z_IMAGE_FUN_CONTROLNET_UNION_MODEL = {
+  kind: "model-patch",
+  objectInfoNode: "ModelPatchLoader",
+  inputName: "name",
+  label: "Z-Image Fun ControlNet Union patch",
+  modelName: "Z-Image-Turbo-Fun-Controlnet-Union-2.1-lite-2602-8steps.safetensors",
+  setupHint:
+    "Install Z-Image-Turbo-Fun-Controlnet-Union-2.1-lite-2602-8steps.safetensors where ComfyUI's ModelPatchLoader can find it.",
+  downloadUrl: `${ALIBABA_PAI_ZIMAGE_FUN_CONTROLNET_REPO}/resolve/main/Z-Image-Turbo-Fun-Controlnet-Union-2.1-lite-2602-8steps.safetensors`,
+  sourcePageUrl: ALIBABA_PAI_ZIMAGE_FUN_CONTROLNET_REPO,
+  downloadSizeBytes: 2016627488
+} as const;
 
 const KREA2_TURBO_STACK = [
   {
@@ -414,6 +436,24 @@ const Z_IMAGE_TURBO_IMG2IMG_NODES = {
   negativePrompt: "7",
   sampler: "3",
   decode: "8",
+  saveImage: "9"
+} as const;
+
+const SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_NODES = {
+  diffusionModelLoader: "20",
+  clipLoader: "21",
+  vaeLoader: "22",
+  modelPatchLoader: "25",
+  loadImage: "10",
+  lineArtPreprocessor: "30",
+  controlnetApply: "26",
+  modelSampling: "23",
+  latentImage: "5",
+  positivePrompt: "6",
+  negativePrompt: "7",
+  sampler: "3",
+  decode: "8",
+  outputScale: "40",
   saveImage: "9"
 } as const;
 
@@ -766,6 +806,25 @@ const Z_IMAGE_TURBO_IMG2IMG_INJECTIONS = {
   denoise: target(Z_IMAGE_TURBO_IMG2IMG_NODES.sampler, "denoise")
 } as const;
 
+const SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_INJECTIONS = {
+  checkpoint: target(SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_NODES.diffusionModelLoader, "unet_name"),
+  sourceImage: target(SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_NODES.loadImage, "image"),
+  positivePrompt: target(SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_NODES.positivePrompt, "text"),
+  negativePrompt: target(SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_NODES.negativePrompt, "text"),
+  width: target(SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_NODES.latentImage, "width"),
+  height: target(SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_NODES.latentImage, "height"),
+  seed: target(SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_NODES.sampler, "seed"),
+  steps: target(SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_NODES.sampler, "steps"),
+  cfg: target(SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_NODES.sampler, "cfg"),
+  denoise: target(SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_NODES.sampler, "denoise"),
+  controlStrength: target(SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_NODES.controlnetApply, "strength"),
+  // width/height above are the *generation* size, floored to minimumGenerationSize.
+  // These two are the captured canvas size the finished image is scaled back to,
+  // which is why they cannot share an injection name with width/height.
+  outputWidth: target(SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_NODES.outputScale, "width"),
+  outputHeight: target(SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_NODES.outputScale, "height")
+} as const;
+
 const KREA2_TURBO_TXT2IMG_INJECTIONS = {
   checkpoint: target(KREA2_TURBO_TXT2IMG_NODES.diffusionModelLoader, "unet_name"),
   positivePrompt: target(KREA2_TURBO_TXT2IMG_NODES.positivePrompt, "text"),
@@ -971,6 +1030,27 @@ const SKETCH2IMG_DEPTH_BASIC_CAPABILITY: WorkflowCapability = {
     modelSelectorLabel: "Checkpoint",
     primaryActionLabel: "Generate Sketch to Image",
     experimentalNote: "Starter SD 1.x Depth ControlNet workflow."
+  }
+};
+
+const SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_CAPABILITY: WorkflowCapability = {
+  toolType: "sketch2img",
+  loaderType: "diffusion-model-stack",
+  artistLabel: "Sketch to Image",
+  technicalLabel: "sketch2img-zimage-fun-controlnet",
+  requiredPhotoshopInputs: [{ anyOf: ["active-layer", "canvas"], label: "an active layer or captured canvas" }],
+  controls: ["prompt", "negativePrompt", "steps", "cfg", "denoise", "seed", "controlStrength"],
+  output: {
+    kind: "source-sized-image",
+    size: "source",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Diffusion model",
+    primaryActionLabel: "Generate Sketch to Image",
+    experimentalNote:
+      "Z-Image Fun ControlNet reads your sketch through one modern ControlNet rather than the SD 1.x LineArt, Scribble, or Depth stack. It handles pencil on toned paper as happily as clean ink, and works from dark lines on a light background. Control strength 1.0 is the default and is what holds your drawing; lower it toward 0.6 to let the model stray further from the lines."
   }
 };
 
@@ -1694,6 +1774,110 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     ]
   },
   {
+    id: "sketch2img-zimage-fun-controlnet",
+    label: "sketch2img-zimage-fun-controlnet",
+    displayName: "Z-Image Fun ControlNet Union",
+    mode: "sketch2img",
+    description:
+      "Sketch guidance for the Z_image_Turbo diffusion model stack using Alibaba-PAI's Z-Image Fun ControlNet Union 2.1 model patch.",
+    workflowFile: "workflows/api/sketch2img-zimage-fun-controlnet.json",
+    sourceWorkflowFile: "workflows/source/sketch2img-zimage-fun-controlnet.workflow.json",
+    status: "stable",
+    recommendedSettings: { steps: 8, cfg: 1, controlStrength: 1 },
+    // Z_image_Turbo is a 1024-native model. Measured on a 447px canvas: at 448
+    // the result is the ControlNet's line map over a maze-like texture, at 768
+    // it is bare glowing lines on black, and at 1024 the same seed renders a
+    // clean portrait. The floor is not cosmetic -- below it nothing usable
+    // comes out at all.
+    minimumGenerationSize: 1024,
+    supportedModelFamilies: ["zImage"],
+    experimentalModelFamilies: ["unknown"],
+    modelSource: DIFFUSION_MODEL_SOURCE,
+    capability: SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_CAPABILITY,
+    modelStack: [...Z_IMAGE_TURBO_STACK, Z_IMAGE_FUN_CONTROLNET_UNION_MODEL],
+    requiredModels: [...Z_IMAGE_TURBO_STACK, Z_IMAGE_FUN_CONTROLNET_UNION_MODEL],
+    injections: SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_INJECTIONS,
+    compatibilityNote:
+      "sketch2img-zimage-fun-controlnet reads the sketch through ZImageFunControlnet, which patches the Z_image_Turbo model directly rather than steering conditioning the way ControlNetApplyAdvanced does. Apply it before ModelSamplingAuraFlow, the same ordering the optional LoRA insertion would use, since ModelSamplingAuraFlow must be the last wrapper before the sampler. The sketch goes through AnyLineArtPreprocessor_aux first, the same detector sketch2img-linecn-basic uses, because these weights want a real control map -- light lines on a genuinely black field -- and not a photograph of a drawing. Simply inverting the captured layer is not good enough and was the first thing tried: it only produces a black field when the paper is near-white, so a pencil drawing on toned paper inverts to a mid-grey field covering the whole canvas, the ControlNet reads that field as content, and the model reproduces the inverted sketch as glowing lines on a dark ground at every strength that controls anything at all. Plain Canny fails the opposite way, finding almost no edges in faint pencil at its default thresholds and double-tracing thick brush strokes into ribbons. The preprocessor normalises both cases, which is why it earns the dependency on comfyui_controlnet_aux that the rest of this graph would not otherwise need. The lite-2602-8steps weights are chosen over the full 2.1 union deliberately: they are 2.0 GB against 6.7 GB, they are distilled for the 8-step, cfg 1 operating point this preset actually runs at (the undistilled 2.1 weights state they need more steps and cfg than that), and they were retrained on multi-resolution control images from 512 to 1536 where the older weights saw only 512, which is what makes a 1024 canvas work instead of going blotchy. Because lite applies control to 3 layer blocks against the full model's 15, it wants strength 1.0. Measured by prompting for a subject the sketch does not depict, so that only real structural control could produce a match: a cat outline plus the prompt 'a bronze statue on a pedestal' returns a bronze cat in the drawn pose, while the full 2.1 weights at the same strength return an unrelated abstract sculpture. Finally, this preset renders at a floor of 1024 on the long edge and scales the finished image back down to the captured canvas, because Z_image_Turbo is a 1024-native model and does not degrade gracefully below that: on a 447px document the same seed gives the ControlNet's own line map over a maze-like texture at 448, bare glowing lines on black at 768, and a clean portrait at 1024. Generating small and scaling up afterwards would not fix it, since the artefact is in what the model samples, not in the pixels it is resized to.",
+    requiredNodes: [
+      {
+        id: SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_NODES.diffusionModelLoader,
+        classType: "UNETLoader",
+        requiredInputs: ["unet_name", "weight_dtype"]
+      },
+      {
+        id: SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_NODES.clipLoader,
+        classType: "CLIPLoader",
+        requiredInputs: ["clip_name", "type"]
+      },
+      {
+        id: SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_NODES.vaeLoader,
+        classType: "VAELoader",
+        requiredInputs: ["vae_name"]
+      },
+      {
+        id: SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_NODES.modelPatchLoader,
+        classType: "ModelPatchLoader",
+        requiredInputs: ["name"]
+      },
+      {
+        id: SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_NODES.lineArtPreprocessor,
+        classType: "AnyLineArtPreprocessor_aux",
+        requiredInputs: ["image"]
+      },
+      {
+        id: SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_NODES.controlnetApply,
+        classType: "ZImageFunControlnet",
+        requiredInputs: ["model", "model_patch", "vae", "strength"]
+      },
+      {
+        id: SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_NODES.modelSampling,
+        classType: "ModelSamplingAuraFlow",
+        requiredInputs: ["model", "shift"]
+      },
+      {
+        id: SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_NODES.latentImage,
+        classType: "EmptySD3LatentImage",
+        requiredInputs: ["width", "height", "batch_size"]
+      },
+      {
+        id: SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_NODES.positivePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_NODES.negativePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["seed", "steps", "cfg", "denoise", "model", "positive", "negative", "latent_image"]
+      },
+      {
+        id: SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_NODES.decode,
+        classType: "VAEDecode",
+        requiredInputs: ["samples", "vae"]
+      },
+      {
+        id: SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_NODES.outputScale,
+        classType: "ImageScale",
+        requiredInputs: ["image", "upscale_method", "width", "height", "crop"]
+      },
+      {
+        id: SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images"]
+      }
+    ]
+  },
+  {
     id: "inpaint-basic",
     label: "inpaint-basic",
     displayName: "Standard checkpoint",
@@ -2356,19 +2540,26 @@ export function getPresetTextOutputNodeId(preset: WorkflowPresetDefinition): str
 export type RecommendedPresetSettings = {
   steps: number;
   cfg: number;
+  /**
+   * Absent unless the preset declares one. Deliberately not defaulted: a preset
+   * with no opinion must leave the panel's control-strength box alone rather
+   * than resetting whatever the artist last dialled in.
+   */
+  controlStrength?: number;
 };
 
-const FALLBACK_RECOMMENDED_PRESET_SETTINGS: RecommendedPresetSettings = {
+const FALLBACK_RECOMMENDED_PRESET_SETTINGS = {
   steps: 20,
   cfg: 7
-};
+} as const;
 
 export function getRecommendedPresetSettings(presetId: string): RecommendedPresetSettings {
   const preset = WORKFLOW_PRESETS.find((candidate) => candidate.id === presetId);
 
   return {
     steps: preset?.recommendedSettings?.steps ?? FALLBACK_RECOMMENDED_PRESET_SETTINGS.steps,
-    cfg: preset?.recommendedSettings?.cfg ?? FALLBACK_RECOMMENDED_PRESET_SETTINGS.cfg
+    cfg: preset?.recommendedSettings?.cfg ?? FALLBACK_RECOMMENDED_PRESET_SETTINGS.cfg,
+    controlStrength: preset?.recommendedSettings?.controlStrength
   };
 }
 
