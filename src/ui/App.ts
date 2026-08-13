@@ -1105,7 +1105,13 @@ export function renderApp(rootElement: HTMLElement) {
   });
 
   elements.sketchWorkflow.addEventListener("change", () => {
-    applyRecommendedPresetSettings(elements.sketchWorkflow, DEFAULT_SKETCH_WORKFLOW, elements.sketchSteps, elements.sketchCfg);
+    applyRecommendedPresetSettings(
+      elements.sketchWorkflow,
+      DEFAULT_SKETCH_WORKFLOW,
+      elements.sketchSteps,
+      elements.sketchCfg,
+      elements.sketchControlStrength
+    );
     void refreshSketchModelOptionsForSelectedPreset(elements).then(() =>
       updateSketchCheckpointCompatibility(elements, sketchSource)
     );
@@ -3192,14 +3198,17 @@ export function renderApp(rootElement: HTMLElement) {
       setSketchStatus(elements, "Uploading source image to ComfyUI...", "idle");
       setSketchProgressPreview(elements, "Uploading source image...");
       const sourceImageName = await client.uploadImage(sketchSource.blob, sketchSource.filename);
+      const generationSize = getGenerationSize(preset, sketchSource.width, sketchSource.height);
       const buildResult = await buildSketchToImageWorkflow({
         presetId: preset.id,
         prompt: elements.sketchPrompt.value,
         negativePrompt: elements.sketchNegativePrompt.value,
         checkpointName,
         sourceImageName,
-        width: snapDimensionToLatentGrid(sketchSource.width),
-        height: snapDimensionToLatentGrid(sketchSource.height),
+        width: generationSize.width,
+        height: generationSize.height,
+        outputWidth: snapDimensionToLatentGrid(sketchSource.width),
+        outputHeight: snapDimensionToLatentGrid(sketchSource.height),
         steps: settings.steps,
         cfg: settings.cfg,
         seed: settings.seed,
@@ -4681,6 +4690,30 @@ function snapDimensionToLatentGrid(value: number) {
   return Math.max(64, Math.round(value / 8) * 8);
 }
 
+/**
+ * Generation size for a capture, honouring a preset's `minimumGenerationSize`.
+ *
+ * Scales the long edge up to the floor and keeps the source aspect, so a small
+ * canvas is rendered at a size the model can actually resolve and then scaled
+ * back down by the graph. Never scales *down*: a canvas already above the floor
+ * is generated at its own size, as every preset without a floor always is.
+ */
+function getGenerationSize(preset: WorkflowPresetDefinition, width: number, height: number) {
+  const floor = preset.minimumGenerationSize;
+  const longestEdge = Math.max(width, height);
+
+  if (!floor || longestEdge <= 0 || longestEdge >= floor) {
+    return { width: snapDimensionToLatentGrid(width), height: snapDimensionToLatentGrid(height) };
+  }
+
+  const scale = floor / longestEdge;
+
+  return {
+    width: snapDimensionToLatentGrid(width * scale),
+    height: snapDimensionToLatentGrid(height * scale)
+  };
+}
+
 function formatSourceCaptureLabel(_source: ExportedSourceImage) {
   return "PNG/lossless";
 }
@@ -5099,12 +5132,18 @@ function applyRecommendedPresetSettings(
   workflowSelect: HTMLSelectElement,
   defaultPresetId: string,
   stepsInput: HTMLInputElement,
-  cfgInput: HTMLInputElement
+  cfgInput: HTMLInputElement,
+  controlStrengthInput?: HTMLInputElement
 ) {
   const recommended = getRecommendedPresetSettings(readSelectValue(workflowSelect, defaultPresetId));
 
   stepsInput.value = String(recommended.steps);
   cfgInput.value = String(recommended.cfg);
+
+  // Only when the preset actually declares one -- see RecommendedPresetSettings.
+  if (controlStrengthInput && recommended.controlStrength !== undefined) {
+    controlStrengthInput.value = String(recommended.controlStrength);
+  }
 }
 
 function setSelectValueIfPresent(select: HTMLSelectElement, value: string) {
