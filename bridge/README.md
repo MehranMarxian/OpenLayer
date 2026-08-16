@@ -6,6 +6,11 @@ Photoshop panel's existing tools from natural language.
 Status: **Phase 1.** `text_to_image` only. See `docs/mcp-bridge.md` for the design and the
 phases after this one.
 
+Nothing here is Claude-specific. This is a standard MCP server over stdio — the most widely
+supported transport — so any MCP-speaking client can drive it (Claude Code and Desktop, Codex
+CLI, VS Code agent mode, Cursor, Windsurf, Zed, Cline, Continue, and others). Only the place
+you paste the config differs between them; the command is always the same.
+
 ## What it is
 
 A small local relay with two faces. It speaks MCP over stdio to your agent, and hosts a
@@ -57,9 +62,12 @@ npm run smoke
 ```
 
 Boots the real bridge, attaches a fake panel, and drives a full tool call over MCP. Needs
-neither Photoshop nor ComfyUI, so it is the last thing that can be verified before Photoshop is
-involved. The relay's logic is unit-tested from the repo root instead (`npm test` →
-`tests/scripts/bridge*.test.ts`).
+neither Photoshop nor ComfyUI. The relay's logic is unit-tested from the repo root instead
+(`npm test` → `tests/scripts/bridge*.test.ts`).
+
+From the repo root, `npm run test:e2e` goes one further: the same real bridge process, but
+talking to the **real panel modules** over a real socket rather than a fake panel. That is the
+last thing that can be verified before Photoshop is involved.
 
 If a call fails, ask the agent to call `get_panel_state` first — it answers instantly without
 touching Photoshop and tells you whether the panel ever connected.

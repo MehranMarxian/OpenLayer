@@ -21,6 +21,8 @@ import {
 import { createObjectUrlRegistry, ObjectUrlRegistry } from "./objectUrlRegistry";
 import { previewHub, PreviewPublicationKind, PreviewToolId } from "./previewHub";
 import { importBridge } from "./importBridge";
+import { agentBridge } from "./agentBridge";
+import { AgentConnectionStatus, createAgentConnection, openWebSocket } from "./agentConnection";
 import {
   createGenerationController,
   GenerationPipelineUi,
@@ -211,9 +213,12 @@ import {
 import { createLayerName, sweepStaleTemporaryFiles } from "../utils/fileUtils";
 import {
   clearOpenLayerPreferences,
+  DEFAULT_AGENT_BRIDGE_PORT,
+  loadAgentBridgeSettings,
   loadOpenLayerPreferences,
   OpenLayerTheme,
   OpenLayerPreferences,
+  saveAgentBridgeSettings,
   saveOpenLayerPreferences
 } from "../utils/preferences";
 import {
@@ -543,6 +548,151 @@ export function renderApp(rootElement: HTMLElement) {
     });
     updateInpaintReferenceControlLock(elements, isBusy && busyTool === "inpaint");
     syncImportBridge();
+    syncAgentBridge();
+  }
+
+  /**
+   * Tells the agent bridge whether a command may run right now.
+   *
+   * Called from `syncBusy` for the same reason `syncImportBridge` is, and with
+   * more riding on it. The Preview panel's Import button would merely look
+   * wrong if this drifted; an agent command that slipped through would start a
+   * second generation while one is already running, because the generation
+   * handlers do not check `isBusy` — they set it. The A4 lockout for a click
+   * lives in `setBusy` disabling the button, and a bridge-invoked handler never
+   * goes near a button. So this is the lockout, and it has to come from here.
+   */
+  function syncAgentBridge() {
+    agentBridge.publishCapability("text_to_image", {
+      canRun: !isBusy,
+      reason: isBusy
+        ? `OpenLayer is busy with ${busyTool ?? "another operation"}. Wait for it to finish.`
+        : ""
+    });
+  }
+
+  /**
+   * Points the agent bridge at the handler the Generate button already uses.
+   *
+   * Phase 1 registers Text to Image only (`docs/mcp-bridge.md` §4). Nothing is
+   * reimplemented here: `handleGenerate` is passed by reference, so an agent
+   * command and a button click run the same code and inherit the same
+   * invariants — with the explicit exception of A4, which `syncAgentBridge`
+   * enforces because the handler does not.
+   *
+   * `leadingParams` and `settle` exist because `workflow` rewrites other
+   * fields. Its own `change` listener does the same three things this `settle`
+   * does, but voids the promise, so waiting on the listener from outside the
+   * closure is not possible. Doing the work again here, awaited, is what lets
+   * an explicit `steps` survive the preset's recommendation and a `checkpoint`
+   * be validated against the list that exists *after* the refresh rather than
+   * before it.
+   */
+  /**
+   * Renders the Agent Bridge status line and keeps the toggle's label honest.
+   *
+   * `textContent`, never `innerHTML`: these strings carry a port number and a
+   * disconnect reason, and the health strings elsewhere in the panel are set
+   * the same way for the same reason.
+   */
+  function applyAgentBridgeStatus(status: AgentConnectionStatus) {
+    elements.agentBridgeStatusText.textContent = status.message;
+    elements.agentBridgeStatusPill.className = `status-pill ${
+      status.state === "error" ? "error" : status.state === "connected" ? "ready" : "idle"
+    }`;
+    elements.agentBridgeStatusPill.textContent =
+      status.state === "connected" ? "Connected" : status.state === "connecting" ? "Connecting" : status.state === "error" ? "Error" : "Off";
+
+    const isOn = status.state === "connected" || status.state === "connecting";
+
+    elements.agentBridgeToggle.setAttribute("aria-pressed", isOn ? "true" : "false");
+    elements.agentBridgeToggle.textContent = isOn ? "Turn Agent Bridge Off" : "Turn Agent Bridge On";
+    // The port cannot change under a live connection: the socket is already
+    // dialled, so an edited field would describe something that is not true.
+    elements.agentBridgePort.disabled = isOn;
+  }
+
+  function handleToggleAgentBridge() {
+    if (agentConnection.isEnabled()) {
+      agentConnection.disable();
+      saveAgentBridgeSettings({ enabled: false, port: readAgentBridgePort() });
+      return;
+    }
+
+    const port = readAgentBridgePort();
+
+    agentConnection.enable(port);
+    // Persisted as requested rather than as achieved. If the bridge is not
+    // running yet, the connection fails and says so — but the intent survives a
+    // panel reload, which is what makes "start the bridge, then reopen" work.
+    saveAgentBridgeSettings({ enabled: true, port });
+  }
+
+  function readAgentBridgePort() {
+    const port = Number(elements.agentBridgePort.value);
+
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      elements.agentBridgePort.value = String(DEFAULT_AGENT_BRIDGE_PORT);
+      return DEFAULT_AGENT_BRIDGE_PORT;
+    }
+
+    return port;
+  }
+
+  function registerAgentBridgeHandlers() {
+    agentBridge.register("text_to_image", {
+      run: handleGenerate,
+      fields: {
+        prompt: elements.prompt,
+        negativePrompt: elements.negativePrompt,
+        workflow: elements.workflow,
+        checkpoint: elements.checkpoint,
+        width: elements.width,
+        height: elements.height,
+        steps: elements.steps,
+        cfg: elements.cfg,
+        seed: elements.seed
+      },
+      leadingParams: ["workflow"],
+      settle: async () => {
+        applyRecommendedPresetSettings(elements.workflow, DEFAULT_WORKFLOW, elements.steps, elements.cfg);
+        await refreshTextModelOptionsForSelectedPreset(elements);
+        updateTextCheckpointCompatibility(elements);
+        await refreshLoraOptions(getTextLoraControls(elements), elements);
+      },
+      statusText: elements.statusText,
+      statusPill: elements.statusPill
+    });
+
+    // Published immediately so the tool is drivable before the first state
+    // change. `agentBridge.execute` treats an absent capability as "no", which
+    // is the right default but would otherwise mean nothing works until
+    // something happens to call syncBusy.
+    syncAgentBridge();
+  }
+
+  /**
+   * Reopens the connection if it was on when the panel last closed.
+   *
+   * Reconnecting on mount is the behaviour that makes the feature usable —
+   * without it every Photoshop restart is a trip to Setup. It is safe to do
+   * silently only because the stored default is off and `loadAgentBridgeSettings`
+   * treats anything that is not exactly `true` as off, so this can never turn
+   * itself on for someone who never opted in.
+   *
+   * Registration happens first, deliberately: the handshake reports
+   * `registeredTools()`, and connecting before Text to Image registers would
+   * announce a panel that offers nothing.
+   */
+  function restoreAgentBridgeSettings() {
+    const settings = loadAgentBridgeSettings();
+
+    elements.agentBridgePort.value = String(settings.port);
+    applyAgentBridgeStatus(agentConnection.status());
+
+    if (settings.enabled) {
+      agentConnection.enable(settings.port);
+    }
   }
 
   /**
@@ -797,6 +947,12 @@ export function renderApp(rootElement: HTMLElement) {
     metaElement: elements.upscaleSourceMeta,
     imageAlt: "Captured Photoshop source for Upscale"
   });
+  const agentConnection = createAgentConnection({
+    bridge: agentBridge,
+    openSocket: openWebSocket,
+    panelVersion: APP_VERSION,
+    onStatus: (status) => applyAgentBridgeStatus(status)
+  });
   const promptLayerSourcePanel = createSourcePreviewPanel({
     urls: objectUrls,
     panel: elements.promptLayerSourcePreviewPanel,
@@ -849,6 +1005,10 @@ export function renderApp(rootElement: HTMLElement) {
     objectUrls.revokeAll();
     previewHub.clear();
     livePreviewObjectUrl = "";
+    // Closed explicitly rather than left to the host: a socket outliving the
+    // panel would leave the bridge holding a connection whose handlers write
+    // into a torn-down DOM.
+    agentConnection.disable();
     window.removeEventListener("unload", disposeAppResources);
     resourceObserver?.disconnect();
     resourceObserver = null;
@@ -952,7 +1112,8 @@ export function renderApp(rootElement: HTMLElement) {
     importLiveResult: createActionRunner(elements, "importLiveResult", handleImportLiveResult),
     importLiveRefined: createActionRunner(elements, "importLiveRefined", handleImportLiveRefined),
     toggleLiveAutoImport: createActionRunner(elements, "toggleLiveAutoImport", handleToggleLiveAutoImport),
-    toggleLiveAutoRefine: createActionRunner(elements, "toggleLiveAutoRefine", handleToggleLiveAutoRefine)
+    toggleLiveAutoRefine: createActionRunner(elements, "toggleLiveAutoRefine", handleToggleLiveAutoRefine),
+    toggleAgentBridge: createActionRunner(elements, "toggleAgentBridge", handleToggleAgentBridge)
   };
 
   bindActionControl(elements.checkButton, actionHandlers.check);
@@ -1013,7 +1174,10 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.importLiveRefinedButton, actionHandlers.importLiveRefined);
   bindActionControl(elements.liveAutoImportToggle, actionHandlers.toggleLiveAutoImport);
   bindActionControl(elements.liveAutoRefineToggle, actionHandlers.toggleLiveAutoRefine);
+  bindActionControl(elements.agentBridgeToggle, actionHandlers.toggleAgentBridge);
   registerImportBridgeHandlers();
+  registerAgentBridgeHandlers();
+  restoreAgentBridgeSettings();
   bindDelegatedActions(rootElement, actionHandlers);
   bindDocumentActions(rootElement, actionHandlers);
   bindHomeSectionToggles(rootElement);

@@ -1,8 +1,10 @@
 # MCP Agent Bridge — Technical Specification
 
-Status: **Phase 1 in progress.** The bridge process half is built and verified end to end
-against a fake panel (`bridge/`, `npm run smoke`); the panel half (`src/ui/agentBridge.ts`) is
-not written yet. Written 2026-08-15, targeted at v0.15.
+Status: **Phase 1 complete, pending a Photoshop smoke test.** Both halves are built and the
+whole chain is verified outside Photoshop: `npm run test:e2e` drives the real bridge process
+over real MCP, through a real socket, into the real panel modules, and reads the panel's own
+status text back. What that cannot cover is UXP itself — see the note at the end of §4.1.
+Written 2026-08-15, targeted at v0.15.
 
 Read `docs/ORCHESTRATION.md` first — its safety invariants (§2) and the closure-extraction
 decision (§3) apply to every step here.
@@ -172,13 +174,29 @@ acceptable, since it's the already-trusted validation path.
    beyond that), panel-side `agentBridge.ts` connecting out, ONE tool wired end-to-end
    (`text_to_image`) via DOM injection, behind the opt-in toggle. Proves the whole chain.
 
-   *Bridge half done.* `bridge/` holds the relay; `bridge/src/panelLink.mjs` has all the
-   behaviour worth testing and no socket in it, so refusing a call with no panel attached,
+   *Done, pending Photoshop.* `bridge/` holds the relay; `bridge/src/panelLink.mjs` has all
+   the behaviour worth testing and no socket in it, so refusing a call with no panel attached,
    matching replies to requests, and surviving a reconnect mid-generation are unit-tested
    (`tests/scripts/bridge*.test.ts`). `npm run smoke` from `bridge/` boots the real process and
    drives a full tool call through MCP against a fake panel — needed because three failure
    modes are invisible to unit tests: stdout corruption (the MCP transport *is* stdout), a tool
-   schema the SDK only rejects at call time, and the socket actually binding. Panel half next.
+   schema the SDK only rejects at call time, and the socket actually binding.
+
+   The panel half is `src/ui/agentProtocol.ts` (wire format), `src/ui/agentBridge.ts`
+   (registry, A4 gate, parameter injection) and `src/ui/agentConnection.ts` (the outbound
+   socket, with the logic separated from it the same way). `renderApp` registers
+   `handleGenerate` by reference and pushes capability from `syncBusy`. The Setup screen has an
+   off-by-default toggle and a port field; the setting is stored under its own key rather than
+   in `OpenLayerPreferences`, so Reset Settings cannot open a socket.
+
+   `npm run test:e2e` joins the two: real bridge process, real MCP, real socket, real panel
+   modules, only the DOM stubbed.
+
+   **What no test here can cover, and what the Photoshop smoke test is for:** UXP is a DOM
+   subset, and two things this feature does are used nowhere else in `src/` — constructing an
+   `Event` to notify a field of a change, and `WebSocket` as a *client of a local server*
+   rather than of ComfyUI. Both are written to degrade rather than throw, but whether they work
+   is genuinely unknown until the panel runs in Photoshop.
 2. **State + remaining six tools**: `get_panel_state`, then the other six handlers registered
    the same way.
 3. **`ask_agent` bidirectional hook**: one UI affordance calling back out through the same

@@ -114,6 +114,81 @@ export function savePreviewPanelPin(toolId: string) {
   }
 }
 
+/**
+ * Agent Bridge settings, stored apart from `OpenLayerPreferences`.
+ *
+ * That object is the Text to Image form's saved state — it is written by Save
+ * Settings and cleared by Reset Settings, both of which are about generation
+ * defaults. Whether an external process may drive the panel is not a generation
+ * default, and someone resetting their prompt settings should not silently be
+ * opening or closing a socket.
+ *
+ * `enabled` defaults to false and every read path must preserve that: an absent
+ * or corrupt value means off. This is the only preference in the plugin where
+ * the failure direction matters, so it is spelled out rather than implied.
+ */
+export type AgentBridgeSettings = {
+  enabled: boolean;
+  port: number;
+};
+
+export const DEFAULT_AGENT_BRIDGE_PORT = 8199;
+
+const AGENT_BRIDGE_KEY = "openlayer.agentBridge.v1";
+
+export function loadAgentBridgeSettings(): AgentBridgeSettings {
+  const fallback: AgentBridgeSettings = { enabled: false, port: DEFAULT_AGENT_BRIDGE_PORT };
+  const storage = getStorage();
+
+  if (!storage) {
+    return fallback;
+  }
+
+  try {
+    const rawValue = storage.getItem(AGENT_BRIDGE_KEY);
+
+    if (!rawValue) {
+      return fallback;
+    }
+
+    const parsed = JSON.parse(rawValue) as Record<string, unknown>;
+
+    return {
+      // Strict equality, not truthiness: anything that is not exactly `true`
+      // leaves the bridge off.
+      enabled: parsed.enabled === true,
+      port: readPort(parsed.port)
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+export function saveAgentBridgeSettings(settings: AgentBridgeSettings) {
+  const storage = getStorage();
+
+  if (!storage) {
+    return false;
+  }
+
+  try {
+    storage.setItem(
+      AGENT_BRIDGE_KEY,
+      JSON.stringify({ enabled: settings.enabled === true, port: readPort(settings.port) })
+    );
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function readPort(value: unknown): number {
+  const port = Number(value);
+
+  return Number.isInteger(port) && port >= 1 && port <= 65535 ? port : DEFAULT_AGENT_BRIDGE_PORT;
+}
+
 function getStorage(): Storage | null {
   try {
     return typeof localStorage === "undefined" ? null : localStorage;
