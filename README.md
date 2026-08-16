@@ -10,9 +10,9 @@ OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop t
 
 ## Alpha Release
 
-`v0.14.0-alpha` is the current public alpha checkpoint. It is intended for testing the core local workflows in Photoshop UXP, not for production work yet.
+`v0.15.0-alpha` is the current public alpha checkpoint. It is intended for testing the core local workflows in Photoshop UXP, not for production work yet.
 
-New in `v0.14.0-alpha`:
+New in `v0.15.0-alpha`:
 
 - **Sketch to Image has two presets that are not SD 1.x.** Both load Alibaba-PAI's Z-Image Fun ControlNet Union patch on the Z_image_Turbo stack the other tools already use, so the only new download is the patch itself. They ship as a pair rather than one replacing the other: the **full** weights (6.7 GB) render shaded or densely drawn work far more photographically, while the **lite** weights (2.0 GB) hold bold sparse line art that the full weights flatten into a filled shape at any control strength. Draw dark lines on a lighter ground.
 - **Presets can declare a minimum generation size**, and the Z_image_Turbo sketch presets declare 1024. Z_image_Turbo does not degrade gracefully below its native resolution — on a 447px document the same seed gave a maze-like texture at 448 and a clean portrait at 1024 — so those presets now render at the floor and scale the result back to your canvas.
@@ -119,14 +119,14 @@ The earlier card-based dashboard established OpenLayer's honest available/experi
 
 </details>
 
-v0.14.0-alpha tester focus:
+v0.15.0-alpha tester focus:
 
 - Open **Sketch to Image** and switch the Workflow dropdown to **Z-Image Fun ControlNet Union (Lite)**. The **Checkpoint** dropdown must repopulate and offer `z_image_turbo_bf16.safetensors`; if it still lists SD 1.x checkpoints, that is the bug this release fixes.
 - Draw with a pencil or soft brush on a **toned or off-white** background, not pure white, and generate with each Z-Image preset. The result must follow your drawing without your strokes appearing on the finished image. Pencil lines visible on the rendered face mean control strength is too high.
 - Try both Z-Image presets on the same drawing. **Full** should suit shaded, densely drawn work; **Lite** should suit bold, sparse outlines. Report which one won on your own drawings — that split is measured on a small sample and is the thing most likely to be wrong.
 - Generate from a **small document**, under 1024px on the long edge. The imported layer must come back at your canvas size and must not show a maze-like texture or bare glowing lines on black.
 - Confirm the three SD 1.x sketch presets (LineArt, Scribble, Depth) still behave exactly as they did in v0.13.0-alpha, including their control-strength default.
-- Confirm the panel footer reads `v0.14.0`.
+- Confirm the panel footer reads `v0.15.0`.
 
 Also worth rechecking from v0.13.0-alpha:
 
@@ -167,7 +167,7 @@ Also worth rechecking from v0.9.0-alpha:
 - Run `npm run setup-pack` and confirm it reports no source/API mismatches at all.
 - Recheck the existing local generation, cancel, preview, import, History, and Workflow Health paths for regressions.
 
-Known v0.14.0-alpha boundaries:
+Known v0.15.0-alpha boundaries:
 
 - **The Setup screen downloads missing models, but not custom nodes.** A missing model's row offers **Download** beside Copy Link, and OpenLayer fetches the file from the URL the registry pins — in resumable 8 MiB chunks, one model at a time, and never before a confirmation naming the size, the destination folder and the download host. What it will not do is unchanged and deliberate: licence-gated weights are never fetched anonymously, because an unauthenticated request saves an HTML sign-in page under the model's filename; a model already on disk in the wrong folder asks you to move it rather than downloading a second copy; and an entry published as a repository folder rather than a single file points you at the model page. Custom node packages keep Copy Link and go through ComfyUI-Manager. Full reasoning in the CHANGELOG.
 - The **Flux.2 GGUF preset is slow on a 12 GB card**: minutes per image, not seconds, and its text encoder is licence-gated, so accept the licence in a browser and download it by hand.
@@ -340,10 +340,10 @@ npm run package
 This creates a zip package from `dist` in the `packages` folder. For the current alpha, the expected package name is:
 
 ```text
-packages/openlayer-v0.14.0-alpha.zip
+packages/openlayer-v0.15.0-alpha.zip
 ```
 
-`npm run package` also writes `packages/openlayer-v0.14.0-alpha.ccx` beside it, from the same files.
+`npm run package` also writes `packages/openlayer-v0.15.0-alpha.ccx` beside it, from the same files.
 
 ## One-click install (verified 2026-08-03)
 
@@ -508,7 +508,7 @@ Inpaint output quality, mask interpretation, and Photoshop alignment are still b
 
 ## Pre-release Tester Checklist
 
-Use this quick pass before reporting a v0.14.0-alpha test result:
+Use this quick pass before reporting a v0.15.0-alpha test result:
 
 1. Start ComfyUI on `http://127.0.0.1:8190`.
 2. Build OpenLayer and load `dist/manifest.json` in Adobe UXP Developer Tool.
