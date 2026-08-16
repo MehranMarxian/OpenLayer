@@ -12,6 +12,7 @@ export type WorkflowPreset =
   | "sketch2img-scribble-basic"
   | "sketch2img-depth-basic"
   | "sketch2img-zimage-fun-controlnet"
+  | "sketch2img-zimage-fun-controlnet-full"
   | "inpaint-basic"
   | "inpaint-flux-fill-basic"
   | "outpaint-flux-fill-basic"
