@@ -54,9 +54,13 @@ Decisions agreed with Mehran before design started:
   MCP bridge reuses this exact pattern at a different edge.**
 - **Safety invariants A1–B2** (`docs/ORCHESTRATION.md` §2 — document identity binding, mask
   ordering, transactional import, single active run, object-URL lifecycle, inpaint
-  submission-time snapshotting) are preserved automatically, because every MCP tool call routes
-  through the existing handler and `generationController.runPipeline`. No path in this design
-  calls `batchPlay` or `photoshopAdapter` directly from the bridge.
+  submission-time snapshotting) are preserved because every MCP tool call routes through the
+  existing handler and `generationController.runPipeline`. No path in this design calls
+  `batchPlay` or `photoshopAdapter` directly from the bridge.
+
+  **With one exception, found while building and worth reading before trusting this
+  paragraph: A4 is not automatic.** It lives in the disabled button, not in the handler, so it
+  has to be enforced explicitly at this new edge. See §3.3.
 
 ## 3. Architecture
 
@@ -87,13 +91,30 @@ Claude (MCP client) ──stdio──▶ openlayer-mcp-bridge (Node, loopback WS
    existing handlers into this module by tool id, the same way it registers into `importBridge`
    today. On an incoming command, `agentBridge`:
    - writes requested parameters into the same DOM elements a human would
-     (`elements.prompt.value = ...`), dispatching `input` events for any reactive listeners,
+     (`elements.prompt.value = ...`), dispatching `input`/`change` events for any reactive
+     listeners,
    - invokes the existing zero-arg handler,
-   - awaits `generationController`'s existing busy/result signals (`syncBusy`/status bars),
-   - reads the resulting status bar text to report success/error back over the socket, since
-     handlers swallow throws.
+   - reads the resulting status bar to report success/error back over the socket, since
+     handlers swallow throws. The tool's status *pill* is the signal, not words in the text:
+     the pill is what the handler actually set, and "Recovered from a ComfyUI error" is a
+     success whose text a regex would fail.
 
    Phase 1 requires **no changes to any handler's signature or internals.**
+
+   Two things this turned out to need beyond the sketch above, both found in the code rather
+   than by reasoning about it:
+
+   - **Parameters are applied in two passes.** Some fields rewrite others: Text to Image's
+     `workflow` listener overwrites `steps` and `cfg` with preset recommendations and kicks
+     off an *async* refresh of the checkpoint list. One-pass application therefore drops an
+     agent's explicit `steps` (the listener overwrites it moments later) and validates
+     `checkpoint` against a stale option list. So a registration names its rewriting fields as
+     `leadingParams` and supplies a `settle` that awaits their consequences; `execute` applies
+     those, awaits `settle`, then applies the rest — the order a person works in.
+   - **A rejected `<select>` value cancels the whole command.** Assigning an option a select
+     does not have is silently ignored, so an agent asking for an uninstalled checkpoint would
+     otherwise get a real generation on whatever was already selected, reported as success.
+     The rejection names the available options so the agent can retry correctly.
 
 3. **MCP tool surface**, exposed by the bridge process as thin wrappers over the WS protocol:
    - `get_panel_state` — active tool, ComfyUI health, current prompt/params per tool, last
@@ -126,8 +147,22 @@ acceptable, since it's the already-trusted validation path.
 - No raw `batchPlay` or direct `photoshopAdapter` access is ever exposed to the bridge — the
   only surface is "trigger this existing, already-safe handler" and "read this already-computed
   state." This is the load-bearing safety property of the whole design.
-- A4 (single active run) is inherited for free: an agent-issued command during a human's
-  in-flight generation hits the same busy lockout an extra click would.
+- ~~A4 (single active run) is inherited for free: an agent-issued command during a human's
+  in-flight generation hits the same busy lockout an extra click would.~~ **Wrong, corrected
+  while building `agentBridge.ts`.** The seven generation handlers do not check `isBusy` — they
+  *set* it. Nothing inside `handleGenerate` refuses to start. The lockout an extra *click* hits
+  is `syncBusy` disabling the button, and a direct call never goes near it, so injecting values
+  and invoking the handler would start a second pipeline against a document the first is still
+  writing to. (The only two `isBusy` guards in `App.ts` are in `handleHistoryAction` and
+  `handleStartLivePainting`.)
+
+  A4 is therefore enforced deliberately, not inherited: `renderApp` pushes a capability
+  snapshot from `syncBusy` — the same place it disables its own buttons — and
+  `agentBridge.execute` refuses when that snapshot says it must. This is the arrangement
+  `importBridge` already uses, and for the reason its own comment gives: a surface that
+  computes its own answer is free to disagree with the one the dashboard is enforcing. An
+  unpublished capability counts as "no", so a tool registered before the first `syncBusy`
+  cannot be driven.
 - Analytics: tag generation events with `origin: "agent" | "panel"` at the point `agentBridge`
   invokes a handler vs. a real click handler does — smallest possible hook, no new pipeline.
 
