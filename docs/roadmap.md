@@ -50,6 +50,14 @@ OpenLayer is a local-first Photoshop UXP plugin for artist-friendly ComfyUI work
 - Larger, scrollable prompt fields without unreliable auto-grow behavior
 - Consistent form gutters, status tones, toggle feedback, and import success feedback
 
+## v0.15 MCP Agent Bridge
+
+- Let an agentic AI (Claude first, any MCP client eventually) drive OpenLayer's tools from natural language
+- Local-first: a loopback-only bridge process speaking MCP (stdio) to the agent and WebSocket to the panel
+- Bidirectional: the panel can also ask the connected agent for help (e.g. suggest a prompt)
+- Off by default; explicit Setup-screen opt-in before any connection is made
+- Full architecture: [`docs/mcp-bridge.md`](mcp-bridge.md)
+
 ## Future Custom Workflow Importer
 
 - Guided API workflow import

@@ -206,6 +206,7 @@ LoRA browser are explicitly **out of v0.8 scope**.
 6. **Live Painting v2 (two-tier: SD1.5-LCM fast tier / Krea2-turbo quality tier)** — design exists in the assistant's memory notes; the current spike (event-candidate listeners, serial pump loop in `livePaintingSession.ts`) works but is primitive. Flagship feature. Architecture first, then incremental delegation.
 7. **Layer tools & new-tool pattern** — new tools go in their own `src/ui/tools/<name>.ts` modules (the forward-looking half of skipped step 5); wire through `generationController` + a new busy-table group + `generationToolUi` row + preset registry entry.
 8. **Housekeeping:** theme/CSS consolidation. ESLint in CI landed in v0.8; `dist/` and `packages/` are already gitignored.
+9. **MCP Agent Bridge (v0.15, design only)** — let an agentic AI drive the seven tools via natural language. Full spec in `docs/mcp-bridge.md`, agreed with Mehran 2026-08-15: local-first (loopback WebSocket bridge process, MCP stdio to the agent), bidirectional, off by default behind a Setup-screen toggle. Reuses the `importBridge.ts` (PR #47) pattern — register references to the existing closure-trapped handlers rather than refactoring them, since §3 already rejected touching `renderApp`'s internals. Not started; queued after item 7.
 
 ## 7. Advice for sessions without a frontier model
 
