@@ -1,6 +1,9 @@
 # MCP Agent Bridge — Technical Specification
 
-Status: **approved direction, not yet implemented.** Written 2026-08-15, targeted at v0.15.
+Status: **Phase 1 in progress.** The bridge process half is built and verified end to end
+against a fake panel (`bridge/`, `npm run smoke`); the panel half (`src/ui/agentBridge.ts`) is
+not written yet. Written 2026-08-15, targeted at v0.15.
+
 Read `docs/ORCHESTRATION.md` first — its safety invariants (§2) and the closure-extraction
 decision (§3) apply to every step here.
 
@@ -133,24 +136,50 @@ acceptable, since it's the already-trusted validation path.
 1. **Spike**: bridge process skeleton (MCP stdio + WS server, loopback only, no auth needed
    beyond that), panel-side `agentBridge.ts` connecting out, ONE tool wired end-to-end
    (`text_to_image`) via DOM injection, behind the opt-in toggle. Proves the whole chain.
+
+   *Bridge half done.* `bridge/` holds the relay; `bridge/src/panelLink.mjs` has all the
+   behaviour worth testing and no socket in it, so refusing a call with no panel attached,
+   matching replies to requests, and surviving a reconnect mid-generation are unit-tested
+   (`tests/scripts/bridge*.test.ts`). `npm run smoke` from `bridge/` boots the real process and
+   drives a full tool call through MCP against a fake panel — needed because three failure
+   modes are invisible to unit tests: stdout corruption (the MCP transport *is* stdout), a tool
+   schema the SDK only rejects at call time, and the socket actually binding. Panel half next.
 2. **State + remaining six tools**: `get_panel_state`, then the other six handlers registered
    the same way.
 3. **`ask_agent` bidirectional hook**: one UI affordance calling back out through the same
    socket.
 4. **Cloud transport**: explicitly deferred until local proves out.
 
-## 5. Open questions for whoever picks this up
+## 5. Open questions
 
-- Exact WS message schema (request id, tool name, args, timeout) — not designed yet, just the
-  shape above.
-- Whether the bridge process ships as part of the plugin package or as a separate install step
-  (`npx openlayer-mcp-bridge` or similar) — affects the "how does a user even start this"
-  onboarding story.
-- Multi-instance: what happens if two agent clients connect to one bridge, or one Claude
-  session tries to drive two open Photoshop documents.
+**Answered while building Phase 1:**
+
+- **WS message schema** — designed and implemented in `bridge/src/protocol.mjs`, which is the
+  canonical definition. Five frame types (`command` out; `hello`, `result`, `event`, `ask` in),
+  each carrying a protocol version `v` that the handshake checks in both directions. Version
+  mismatch names both sides in the error, because the bridge is installed separately from the
+  plugin and so the two really can drift by a release.
+- **Ships separately, not in the plugin package.** A `.ccx` is a Creative Cloud plugin
+  installer; it has no mechanism to install or start a Node process, and forcing one in would
+  break the one-click install path. The bridge is its own package under `bridge/`, started by
+  the user and registered with their MCP client. This also keeps its dependency tree out of a
+  plugin bundle that ships zero runtime deps. Cost: the feature is advanced/opt-in rather than
+  something every tester sees, which matches the off-by-default toggle anyway.
+- **Two panels on one bridge** — newest connection wins. The previous socket is closed and its
+  in-flight commands are failed with a reason, rather than the bridge holding a dead handle and
+  timing out every later call. Not full arbitration, but it fails understandably.
+
+**Still open:**
+
+- Multiple *agent clients* on one bridge (the case above is two panels). Today an MCP server is
+  one client per stdio process, so this only bites if a hosted transport is ever added.
+- One agent session driving two open Photoshop documents. The panel binds document identity at
+  submission time (A1), so this is safe rather than corrupting, but the agent has no way to
+  say which document it means.
 - `ask_agent` UX: what happens if no agent is connected when the button is pressed (must
   degrade gracefully — this is a bidirectional nice-to-have, not a dependency of the panel's
-  core function).
+  core function). The bridge already answers an `ask` frame with an explicit "not implemented"
+  result rather than silence, so the panel has something to render from day one.
 
 ## 6. See also
 

@@ -65,6 +65,17 @@ describe("version consistency", () => {
     expect(lock.packages[""].version).toBe(version);
   });
 
+  it("matches the MCP bridge package, which is installed separately", () => {
+    // The bridge is its own npm package, started with `npx openlayer-mcp-bridge`
+    // rather than shipped inside the .ccx, so it is the one component a tester
+    // can genuinely be running a different release of. Keeping the numbers in
+    // lockstep is what makes "we are both on 0.15.0" a question with an answer;
+    // PROTOCOL_VERSION handles actual wire compatibility.
+    const bridge = JSON.parse(read("bridge/package.json")) as { version: string };
+
+    expect(bridge.version).toBe(version);
+  });
+
   it("matches the UXP manifest, which is what Photoshop installs", () => {
     const manifest = JSON.parse(read("src/manifest.json")) as { version: string };
 

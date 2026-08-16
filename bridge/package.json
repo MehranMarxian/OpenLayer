@@ -1,0 +1,22 @@
+{
+  "name": "openlayer-mcp-bridge",
+  "version": "0.15.0",
+  "private": true,
+  "description": "Lets an MCP client drive the OpenLayer Photoshop panel's existing tools",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "openlayer-mcp-bridge": "./src/main.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "smoke": "node smoke.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "ws": "^8.21.3",
+    "zod": "^3.25.0"
+  }
+}

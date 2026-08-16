@@ -118,7 +118,12 @@ export default tseslint.config(
     // Build scripts, tests, and tool configs run in Node, never in the host, so
     // the UXP restrictions do not apply. The multipart tests use TextEncoder
     // deliberately, as the reference implementation to check ours against.
-    files: ["scripts/**/*.mjs", "tests/**/*.ts", "*.config.ts", "*.config.js"],
+    //
+    // `bridge/` is here for the same reason and one more: it is a separate npm
+    // package that never enters the UXP bundle (`npm run package` collects from
+    // `dist/`, which vite builds from `src/` alone). Its `node_modules` is
+    // excluded above along with every other one.
+    files: ["scripts/**/*.mjs", "bridge/**/*.mjs", "tests/**/*.ts", "*.config.ts", "*.config.js"],
     languageOptions: {
       globals: globals.node
     }
