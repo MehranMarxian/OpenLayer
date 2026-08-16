@@ -41,7 +41,12 @@ export const MODEL_FOLDER_BY_OBJECT_INFO_NODE = {
   // that is missing from this table.
   UnetLoaderGGUF: "diffusion_models",
   CLIPLoaderGGUF: "text_encoders",
-  DualCLIPLoaderGGUF: "text_encoders"
+  DualCLIPLoaderGGUF: "text_encoders",
+  // Verified live: ModelPatchLoader's `name` combo lists the same file the
+  // ComfyUI examples call a "model patch" (e.g. the Z-Image Fun ControlNet
+  // union weights) and it is read from models/model_patches/, a folder none
+  // of the other mapped loaders share.
+  ModelPatchLoader: "model_patches"
 } as const satisfies Record<string, WorkflowModelFolder>;
 
 export type ComfyModelInventoryBucket = Exclude<keyof ComfyModelInventory, "missingSources">;
@@ -54,7 +59,8 @@ export const MODEL_FOLDER_BY_INVENTORY_BUCKET = {
   vaeModels: "vae",
   controlNetModels: "controlnet",
   visionLanguageModels: "LLM",
-  upscaleModels: "upscale_models"
+  upscaleModels: "upscale_models",
+  modelPatches: "model_patches"
 } as const satisfies Record<ComfyModelInventoryBucket, WorkflowModelFolder>;
 
 export type MappedModelLoaderNode = keyof typeof MODEL_FOLDER_BY_OBJECT_INFO_NODE;

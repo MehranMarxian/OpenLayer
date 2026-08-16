@@ -43,7 +43,8 @@ describe("model folder mapping", () => {
       // offered flux2-dev-Q4_K_M.gguf straight out of models/diffusion_models/.
       UnetLoaderGGUF: "diffusion_models",
       CLIPLoaderGGUF: "text_encoders",
-      DualCLIPLoaderGGUF: "text_encoders"
+      DualCLIPLoaderGGUF: "text_encoders",
+      ModelPatchLoader: "model_patches"
     });
   });
 
@@ -55,7 +56,8 @@ describe("model folder mapping", () => {
       vaeModels: "vae",
       controlNetModels: "controlnet",
       visionLanguageModels: "LLM",
-      upscaleModels: "upscale_models"
+      upscaleModels: "upscale_models",
+      modelPatches: "model_patches"
     });
 
     const loaderFolders = Object.values(MODEL_FOLDER_BY_OBJECT_INFO_NODE);
@@ -126,6 +128,8 @@ describe("required model inventory", () => {
         "diffusion_models/flux2-dev-Q4_K_M.gguf",
         "diffusion_models/krea2_turbo_fp8_scaled.safetensors",
         "diffusion_models/z_image_turbo_bf16.safetensors",
+        "model_patches/Z-Image-Turbo-Fun-Controlnet-Union-2.1-lite-2602-8steps.safetensors",
+        "model_patches/Z-Image-Turbo-Fun-Controlnet-Union-2.1.safetensors",
         "text_encoders/clip_l.safetensors",
         "text_encoders/mistral_3_small_flux2_fp8.safetensors",
         "text_encoders/qwen3vl_4b_fp8_scaled.safetensors",

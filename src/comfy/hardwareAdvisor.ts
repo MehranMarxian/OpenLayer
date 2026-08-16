@@ -124,6 +124,19 @@ function createRecommendations(
   const hasFlux = hasFamily(inventory, "flux");
   const hasZImageTurbo = hasZImageTurboStack(inventory);
   const hasSketchPreset = presets.some((preset) => preset.id === "sketch2img-linecn-basic");
+  const hasZImageLitePatch = inventory.modelPatches.some((name) =>
+    name.toLowerCase().includes("controlnet-union-2.1-lite-2602")
+  );
+  const hasZImageFullPatch = inventory.modelPatches.some(
+    (name) => name.toLowerCase().includes("controlnet-union-2.1") && !name.toLowerCase().includes("lite")
+  );
+  const hasZImageSketchPreset =
+    hasZImageTurbo &&
+    (hasZImageLitePatch || hasZImageFullPatch) &&
+    presets.some(
+      (preset) =>
+        preset.id === "sketch2img-zimage-fun-controlnet" || preset.id === "sketch2img-zimage-fun-controlnet-full"
+    );
 
   return [
     {
@@ -138,10 +151,14 @@ function createRecommendations(
     },
     {
       task: "Sketch to Image",
-      recommendation: hasSketchPreset
-        ? "Use sketch2img-linecn-basic with an SD 1.x checkpoint for now."
-        : "Install the LINECN starter preset before using Sketch to Image.",
-      reason: "The current LINECN workflow is intentionally SD 1.x-first for reliability."
+      recommendation: hasZImageSketchPreset
+        ? chooseZImageSketchRecommendation(hasZImageLitePatch, hasZImageFullPatch)
+        : hasSketchPreset
+          ? "Use sketch2img-linecn-basic with an SD 1.x checkpoint for now, or install the Z_image_Turbo stack plus a Z-Image Fun ControlNet Union patch for sketch2img-zimage-fun-controlnet or its -full sibling."
+          : "Install the LINECN starter preset before using Sketch to Image.",
+      reason: hasZImageSketchPreset
+        ? "Verified against real sketches: the SD 1.x ControlNets are the fallback now, not the default."
+        : "The LINECN workflow is SD 1.x-first for reliability until the Z_image_Turbo ControlNet stack is installed."
     },
     {
       task: "Future Realtime Preview",
@@ -195,6 +212,26 @@ function chooseImageToImageRecommendation(tier: HardwareTier, hasSd1: boolean, h
   }
 
   return hasSdxl ? "Use SDXL for quality edits; SD 1.x remains fastest." : "Use SD 1.x, then add SDXL for quality.";
+}
+
+/**
+ * Neither Z-Image Fun ControlNet variant is recommended over the other here.
+ * They measured as complementary rather than ranked: the full weights render a
+ * dense pencil drawing more photographically, the lite weights hold a sparse
+ * bold outline the full weights flatten into a filled shape at any strength.
+ * This only names whichever one is actually installed, or splits the advice by
+ * drawing style when both are.
+ */
+function chooseZImageSketchRecommendation(hasLite: boolean, hasFull: boolean) {
+  if (hasLite && hasFull) {
+    return "Use sketch2img-zimage-fun-controlnet for bold, sparse line art and sketch2img-zimage-fun-controlnet-full for shaded or densely drawn work, where it renders more photographically. Both follow the drawn structure more reliably than the SD 1.x ControlNets.";
+  }
+
+  if (hasFull) {
+    return "Use sketch2img-zimage-fun-controlnet-full: it follows the drawn structure more reliably than the SD 1.x ControlNets. It is slower than the lite variant, but the 2 GB lite patch is not installed.";
+  }
+
+  return "Use sketch2img-zimage-fun-controlnet: it follows the drawn structure more reliably than the SD 1.x ControlNets and needs only a 2 GB patch on top of the Z_image_Turbo stack.";
 }
 
 function chooseRealtimeRecommendation(tier: HardwareTier, hasFlux: boolean, hasZImageTurbo: boolean) {

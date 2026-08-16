@@ -10,9 +10,15 @@ OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop t
 
 ## Alpha Release
 
-`v0.13.0-alpha` is the current public alpha checkpoint. It is intended for testing the core local workflows in Photoshop UXP, not for production work yet.
+`v0.14.0-alpha` is the current public alpha checkpoint. It is intended for testing the core local workflows in Photoshop UXP, not for production work yet.
 
-New in `v0.13.0-alpha`:
+New in `v0.14.0-alpha`:
+
+- **Sketch to Image has two presets that are not SD 1.x.** Both load Alibaba-PAI's Z-Image Fun ControlNet Union patch on the Z_image_Turbo stack the other tools already use, so the only new download is the patch itself. They ship as a pair rather than one replacing the other: the **full** weights (6.7 GB) render shaded or densely drawn work far more photographically, while the **lite** weights (2.0 GB) hold bold sparse line art that the full weights flatten into a filled shape at any control strength. Draw dark lines on a lighter ground.
+- **Presets can declare a minimum generation size**, and the Z_image_Turbo sketch presets declare 1024. Z_image_Turbo does not degrade gracefully below its native resolution — on a 447px document the same seed gave a maze-like texture at 448 and a clean portrait at 1024 — so those presets now render at the floor and scale the result back to your canvas.
+- **The Sketch to Image model dropdown refreshes for the selected preset.** It never did: all three older presets read the same checkpoint list, so nobody noticed until a preset needed a different one.
+
+Also new in `v0.13.0-alpha`:
 
 - **The Setup screen downloads missing models.** A missing model's row offers **Download** beside Copy Link, and the panel fetches the file from the URL the registry pins — resumable, one model at a time, and never before a confirmation naming the size, the destination folder and the download host. Licence-gated weights and custom node packages are still yours to install; see the boundaries below.
 - **An optional LoRA on eleven presets**, across Text to Image, Image to Image and Sketch to Image. One dropdown and one strength control per tool. Choosing nothing leaves the shipped workflow untouched — the loader is spliced into the graph only when you actually pick a LoRA.
@@ -113,15 +119,20 @@ The earlier card-based dashboard established OpenLayer's honest available/experi
 
 </details>
 
-v0.13.0-alpha tester focus:
+v0.14.0-alpha tester focus:
+
+- Open **Sketch to Image** and switch the Workflow dropdown to **Z-Image Fun ControlNet Union (Lite)**. The **Checkpoint** dropdown must repopulate and offer `z_image_turbo_bf16.safetensors`; if it still lists SD 1.x checkpoints, that is the bug this release fixes.
+- Draw with a pencil or soft brush on a **toned or off-white** background, not pure white, and generate with each Z-Image preset. The result must follow your drawing without your strokes appearing on the finished image. Pencil lines visible on the rendered face mean control strength is too high.
+- Try both Z-Image presets on the same drawing. **Full** should suit shaded, densely drawn work; **Lite** should suit bold, sparse outlines. Report which one won on your own drawings — that split is measured on a small sample and is the thing most likely to be wrong.
+- Generate from a **small document**, under 1024px on the long edge. The imported layer must come back at your canvas size and must not show a maze-like texture or bare glowing lines on black.
+- Confirm the three SD 1.x sketch presets (LineArt, Scribble, Depth) still behave exactly as they did in v0.13.0-alpha, including their control-strength default.
+- Confirm the panel footer reads `v0.14.0`.
+
+Also worth rechecking from v0.13.0-alpha:
 
 - Open **Text to Image**, pick `txt2img-krea2-turbo`, and confirm a **LoRA (optional)** row appears with `None` selected and no strength field. Generate once with `None` — it must succeed — then pick a LoRA and generate again at the same seed. The two images must differ.
 - Switch the Workflow dropdown across every preset in Text to Image, Image to Image and Sketch to Image and confirm the LoRA row appears for all of them. Confirm it does **not** appear on Inpaint, Outpaint or Upscale.
-- Set a different LoRA in each of the three tools and generate in each. None should leak into another tool.
 - Pick a LoRA whose name mentions a different model family than the preset. It should still be selectable, marked `(name suggests another model)`, and generating should **succeed with a visibly unchanged image** — that is the silent failure the warning describes, not a bug.
-- Open **Sketch to Image**, pick the new **Depth ControlNet** preset, and generate from a *shaded* layer rather than flat line art. The first run downloads the depth estimator and is much slower than later ones.
-- Draw light strokes on a dark layer and run **LineArt**. The result must follow the drawing rather than ignoring it.
-- Confirm the panel footer reads `v0.13.0`.
 
 Also worth rechecking from v0.11.0-alpha:
 
@@ -156,15 +167,14 @@ Also worth rechecking from v0.9.0-alpha:
 - Run `npm run setup-pack` and confirm it reports no source/API mismatches at all.
 - Recheck the existing local generation, cancel, preview, import, History, and Workflow Health paths for regressions.
 
-Known v0.13.0-alpha boundaries:
+Known v0.14.0-alpha boundaries:
 
 - **The Setup screen downloads missing models, but not custom nodes.** A missing model's row offers **Download** beside Copy Link, and OpenLayer fetches the file from the URL the registry pins — in resumable 8 MiB chunks, one model at a time, and never before a confirmation naming the size, the destination folder and the download host. What it will not do is unchanged and deliberate: licence-gated weights are never fetched anonymously, because an unauthenticated request saves an HTML sign-in page under the model's filename; a model already on disk in the wrong folder asks you to move it rather than downloading a second copy; and an entry published as a repository folder rather than a single file points you at the model page. Custom node packages keep Copy Link and go through ComfyUI-Manager. Full reasoning in the CHANGELOG.
 - The **Flux.2 GGUF preset is slow on a 12 GB card**: minutes per image, not seconds, and its text encoder is licence-gated, so accept the licence in a browser and download it by hand.
 - "What will run well" rates on published model weight sizes against reported VRAM. It is not a measurement of VRAM use during a run, and a preset with an unpublished model size is reported as unknown rather than guessed at.
 - Setup and Check Workflow Health overlap on purpose. Setup answers what you need and where it goes; Health answers whether a given preset can run right now.
 - Image to Image is an early foundation path, not a full production workflow yet.
-- Sketch to Image is limited to the first SD 1.x LINECN starter workflow.
-- Sketch to Image is currently tested with `epicrealism_naturalSinRC1VAE.safetensors` and `control_v11p_sd15_lineart_fp16.safetensors`.
+- Sketch to Image has five presets: three SD 1.x ControlNets (LineArt, Scribble, Depth) and two Z_image_Turbo presets that read the sketch through Alibaba-PAI's Z-Image Fun ControlNet Union patch -- `sketch2img-zimage-fun-controlnet` (lite, 2.0 GB, faster) and `sketch2img-zimage-fun-controlnet-full` (6.7 GB, slower). Neither Z_image_Turbo preset replaced the other, because they measured as complementary rather than ranked: the full weights render shaded or densely drawn work more photographically, while the lite weights hold bold sparse line art that the full weights flatten into a filled shape at any control strength. Their default control strengths differ for the same reason -- 1.0 for lite, 0.6 for full, which patches five times as many layer blocks. The SD 1.x presets are tested with `epicrealism_naturalSinRC1VAE.safetensors` and their respective `control_v11p_sd15_*` ControlNets; the Z_image_Turbo presets with `z_image_turbo_bf16.safetensors` and, respectively, `Z-Image-Turbo-Fun-Controlnet-Union-2.1-lite-2602-8steps.safetensors` and `Z-Image-Turbo-Fun-Controlnet-Union-2.1.safetensors`.
 - Active-layer and canvas capture now encode raw Photoshop Imaging API pixels as PNG/lossless source images.
 - Inpaint can detect and capture the selected rectangular region as a PNG/lossless source image.
 - Inpaint now attempts a temporary-layer grayscale PNG mask export and can run the experimental SD 1.x `inpaint-basic` workflow when ComfyUI has the required nodes.
@@ -195,7 +205,7 @@ Known v0.13.0-alpha boundaries:
 - The Layer Tools card on Home does not dim when ComfyUI is unreachable, unlike the generation tools. Saving to a file still works with ComfyUI stopped; Send to ComfyUI reports the connection error on the Layer Tools status line.
 - Live sampler previews require ComfyUI to be started with `--preview-method auto`, and the preview panel may flicker between steps until a future UI polish pass.
 - Classic v0.4 theme preserves the older visual feel, but it does not duplicate every old layout detail.
-- SDXL, SD3, Flux, and Z_image_Turbo Sketch to Image workflows need dedicated future presets.
+- SDXL, SD3, and Flux Sketch to Image workflows still need dedicated future presets.
 - Workflow node IDs may need adjustment for custom ComfyUI workflows.
 - Dedicated selected-layer PNG file export, selection preservation, aligned regional workflows, advanced ControlNet-style workflows, and generative upscaling are not included yet.
 - The UI is functional and responsive enough for testing, but final visual polish will continue in later releases.
@@ -330,10 +340,10 @@ npm run package
 This creates a zip package from `dist` in the `packages` folder. For the current alpha, the expected package name is:
 
 ```text
-packages/openlayer-v0.13.0-alpha.zip
+packages/openlayer-v0.14.0-alpha.zip
 ```
 
-`npm run package` also writes `packages/openlayer-v0.13.0-alpha.ccx` beside it, from the same files.
+`npm run package` also writes `packages/openlayer-v0.14.0-alpha.ccx` beside it, from the same files.
 
 ## One-click install (verified 2026-08-03)
 
@@ -498,7 +508,7 @@ Inpaint output quality, mask interpretation, and Photoshop alignment are still b
 
 ## Pre-release Tester Checklist
 
-Use this quick pass before reporting a v0.13.0-alpha test result:
+Use this quick pass before reporting a v0.14.0-alpha test result:
 
 1. Start ComfyUI on `http://127.0.0.1:8190`.
 2. Build OpenLayer and load `dist/manifest.json` in Adobe UXP Developer Tool.

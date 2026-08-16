@@ -61,6 +61,8 @@ function getModelBucket(inventory: Partial<ComfyModelInventory>, kind: WorkflowR
       return inventory.visionLanguageModels ?? [];
     case "upscale":
       return inventory.upscaleModels ?? [];
+    case "model-patch":
+      return inventory.modelPatches ?? [];
     default:
       return [];
   }

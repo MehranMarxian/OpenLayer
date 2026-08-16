@@ -2,9 +2,38 @@
 
 ## Unreleased
 
+## v0.14.0-alpha - 2026-08-16
+
+Sketch to Image finally has a preset that is not SD 1.x. Two, in fact: both load Alibaba-PAI's Z-Image Fun ControlNet Union patch on top of the Z_image_Turbo stack that Text to Image and Image to Image have used since v0.9.0, and neither needs a ControlNet in the sense the older presets do — the patch modifies the model itself rather than steering conditioning.
+
+Getting there took four separate corrections, every one of them found by drawing in Photoshop rather than by a test passing, and the notes in `presetRegistry.ts` record each in detail because every one of them failed silently and would otherwise be rediscovered from scratch.
+
 ### Added
 
+- **Two Z_image_Turbo Sketch to Image presets.** `sketch2img-zimage-fun-controlnet` uses the 2.0 GB lite weights, `sketch2img-zimage-fun-controlnet-full` the 6.7 GB full ones. They ship as siblings rather than one replacing the other because they measured as complementary rather than ranked: the full weights render shaded or densely drawn work far more photographically, while the lite weights hold bold sparse line art that the full weights flatten into a filled shape at any control strength. Their control-strength defaults differ for the same reason — 1.0 for lite, 0.6 for full, which patches fifteen layer blocks against lite's three, so an identical number is roughly five times the control.
+
+  Both run through `ModelPatchLoader` and `ZImageFunControlnet`, which are core ComfyUI nodes rather than a new package, and both reuse the Z_image_Turbo model, CLIP and VAE already on disk for the existing presets. The only new download is the patch itself.
+- **`model_patches` is a mapped model folder.** `ModelPatchLoader` reads `models/model_patches/`, which nothing in the registry described before, so the Setup and Workflow Health screens can now report a missing or misplaced patch the same way they already do for checkpoints, VAEs and ControlNets.
+- **A preset can declare a minimum generation size.** Z_image_Turbo is a 1024-native model and does not degrade gracefully below it: on a 447px document the same seed produced the ControlNet's own line map over a maze-like texture at 448, bare glowing lines on black at 768, and a clean portrait at 1024. Presets that declare a floor are now generated at it, keeping the source aspect, and the finished image is scaled back down to the captured canvas so the imported layer still matches the document. Generating small and upscaling afterwards does not help, because the artefact is in what the model samples rather than in the pixels it is resized to.
+- **A preset can override the panel's control-strength default**, which is what lets the two new presets ship the different defaults they need without touching the three SD 1.x sketch presets.
 - **Setup and Workflow Health rows can open the page they are talking about.** An **Open** button sits beside Copy Link and opens the model card or the node package's repository in your own browser, through `uxp.shell.openExternal`. Copy Link stays exactly where it was: a panel that hands you a URL is still the only thing that works when the host refuses to open one, and Copy Folder Path was never a link at all. Open appears only where there is a human-readable page to open — never built from a model's direct download URL, because handing that to a browser starts fetching the file, and several of these are tens of gigabytes. A Workflow Health row for a node that ships with ComfyUI itself gets no button either, since there is nothing to install and therefore nothing to open. A missing model that is really just sitting in the wrong folder gets no button for the same kind of reason: it needs moving, not fetching.
+
+### Fixed
+
+- **The Sketch to Image model dropdown never refreshed for the selected preset.** Every other tool re-queries ComfyUI when its Workflow dropdown changes; Sketch to Image never had that, because until now all three of its presets read the same `CheckpointLoaderSimple` list and nobody noticed. Choosing a preset built on a diffusion-model stack left the old checkpoint list in place, so the model it actually needs was not selectable.
+
+### Known limitations
+
+- **Neither new preset takes a LoRA yet.** The eleven presets that gained one in v0.13.0 still have it; these two do not.
+- **The three SD 1.x sketch presets are unchanged and still installed**, and `sketch2img-linecn-basic` is still the default Sketch to Image preset. Choosing a Z_image_Turbo preset is a deliberate act for now.
+- **Both new presets depend on `comfyui_controlnet_aux`**, for the same line-art detector the LineArt preset uses. The graph would otherwise need no custom node package at all, but feeding these weights a photograph of a drawing rather than a real control map does not work — see below.
+- **Sketches must be dark lines on a lighter ground.** Light-on-dark art needs inverting in Photoshop first.
+
+### Notes on what failed, for anyone reading the workflow later
+
+- Feeding the captured layer to the ControlNet unchanged renders the drawn strokes as an object embossed over an unrelated image. These weights expect the Canny/HED convention of light lines on a dark field.
+- Simply inverting the layer is not enough either. Inversion only yields a black field when the paper is near-white, so a pencil drawing on toned paper inverts to a mid-grey field across the whole canvas, which the ControlNet reads as content — the sketch then comes back as glowing lines on a dark ground at every strength that controls anything at all.
+- Plain Canny fails the other way, finding almost no edges in faint pencil at its default thresholds and double-tracing thick brush strokes into ribbons.
 
 ## v0.13.0-alpha - 2026-08-07
 
