@@ -1,4 +1,4 @@
-import { AGENT_TOOLS, buildCommand, buildResult, buildWelcome, parseFrame } from "./protocol.mjs";
+import { AGENT_TOOLS, buildAsk, buildCommand, buildResult, buildWelcome, parseFrame } from "./protocol.mjs";
 import { createPendingRequests } from "./pendingRequests.mjs";
 
 /**
@@ -39,6 +39,9 @@ export function createHubRouter({
   setTimer,
   clearTimer,
   commandTimeoutMs = 10 * 60 * 1000,
+  // Sampling is a model round trip, not a diffusion run. Sized so a client that
+  // silently declines still frees the panel's button in reasonable time.
+  askTimeoutMs = 2 * 60 * 1000,
   hubVersion = "0"
 } = {}) {
   /** Commands in flight toward the panel, keyed by the hub's own id. */
@@ -71,8 +74,27 @@ export function createHubRouter({
       panelVersion: panel?.panelVersion ?? null,
       tools: panel?.tools ?? [],
       inFlight: pending.size,
-      agents: agents.size
+      agents: agents.size,
+      // How many connected agents could answer an `ask` — that is, whose MCP
+      // client declared the sampling capability. Reported because it is the one
+      // thing that decides whether the panel's "Ask the agent" affordance can
+      // work at all, and it is otherwise invisible from both ends.
+      answeringAgents: [...agents].filter((agent) => agent.canAnswer).length
     };
+  }
+
+  /** The agent an `ask` should go to, or null when none can answer. */
+  function pickAnsweringAgent() {
+    // First capable one wins. With several agents connected there is no better
+    // signal available — they are peers, and "most recently active" would make
+    // the panel's button answer differently depending on invisible history.
+    for (const agent of agents) {
+      if (agent.canAnswer) {
+        return agent;
+      }
+    }
+
+    return null;
   }
 
   /** Fails an agent's command without it ever reaching the panel. */
@@ -122,19 +144,77 @@ export function createHubRouter({
   }
 
   /**
-   * Sends a reply to the agent that asked, if it is still there.
+   * Routes the panel's question to an agent that can answer it.
    *
-   * An agent that disconnected mid-generation is the ordinary case, not an
-   * error: the Claude session ended while Photoshop kept working. The panel
-   * still finishes the job, and the answer has nowhere to go.
+   * The mirror image of `handleAgentCommand`, and it reuses the same id-minting
+   * and origin-mapping for the same reason: the panel picks its own ask ids,
+   * the agent picks its own reply ids, and only the hub sees both.
+   *
+   * Every refusal here is immediate and specific. This affordance is a
+   * nice-to-have sitting next to a prompt box, so a button that silently spins
+   * for two minutes is worse than one that says "no agent is connected" in
+   * milliseconds.
+   */
+  function handlePanelAsk(connection, message) {
+    const agent = pickAnsweringAgent();
+
+    if (!agent) {
+      send(
+        connection,
+        buildResult({
+          id: message.id,
+          ok: false,
+          status:
+            agents.size === 0
+              ? "No agent is connected to the hub. Start a Claude or Codex session with the openlayer MCP server registered."
+              : `${agents.size} agent(s) are connected, but none can answer questions — their MCP client did not offer sampling. This is a client feature, not a setting in OpenLayer.`
+        })
+      );
+      return;
+    }
+
+    const hubId = `ask-${nextCommandId++}`;
+
+    origins.set(hubId, { connection, agentId: message.id });
+
+    pending
+      .open(hubId, askTimeoutMs)
+      .then((outcome) => {
+        deliver(hubId, buildResult({ id: message.id, ok: outcome.ok, status: outcome.status }));
+      })
+      .catch((error) => {
+        deliver(hubId, buildResult({ id: message.id, ok: false, status: error.message }));
+      });
+
+    send(agent, buildAsk({ id: hubId, question: message.question }));
+  }
+
+  /**
+   * Sends a reply back to whoever started the exchange, if they are still there.
+   *
+   * Both directions come through here — an agent's command answered by the
+   * panel, and the panel's ask answered by an agent — so liveness is checked
+   * against the right side rather than assuming the origin is an agent.
+   *
+   * A vanished origin is the ordinary case, not an error. A Claude session ends
+   * mid-generation and Photoshop keeps working; a panel is closed while an
+   * agent is still composing an answer. Either way the work completes and the
+   * reply has nowhere to go.
    */
   function deliver(hubId, frame) {
     const origin = origins.get(hubId);
 
     origins.delete(hubId);
 
-    if (!origin || !agents.has(origin.connection)) {
-      log(`Dropped a reply for ${hubId}: the agent that asked is gone.`);
+    if (!origin) {
+      return;
+    }
+
+    const stillThere =
+      origin.connection.role === "panel" ? panel === origin.connection : agents.has(origin.connection);
+
+    if (!stillThere) {
+      log(`Dropped a reply for ${hubId}: the ${origin.connection.role} that asked is gone.`);
       return;
     }
 
@@ -215,11 +295,15 @@ export function createHubRouter({
   function promote(connection, message) {
     if (message.role === "agent") {
       connection.role = "agent";
+      connection.canAnswer = message.canAnswer === true;
       agents.add(connection);
       // Acknowledged so the agent can tell a real hub from anything else that
       // happens to be listening on this port. See `buildWelcome`.
       send(connection, buildWelcome(hubVersion, panelState()));
-      log(`Agent connected (${message.client} ${message.clientVersion}). ${agents.size} connected.`);
+      log(
+        `Agent connected (${message.client} ${message.clientVersion}, ` +
+          `${connection.canAnswer ? "can" : "cannot"} answer asks). ${agents.size} connected.`
+      );
       return;
     }
 
@@ -262,11 +346,36 @@ export function createHubRouter({
       return;
     }
 
+    if (message.type === "result") {
+      // An agent's answer to an `ask`. The prefix check is not ceremony: both
+      // directions settle through one registry, so without it an agent could
+      // answer a `hub-` id belonging to a command *it* issued, quietly
+      // resolving an exchange the panel was still working on and leaving the
+      // panel's real answer to be discarded as unmatched later.
+      if (!message.id.startsWith("ask-")) {
+        log(`Ignoring an agent result for ${message.id}, which is not an ask.`);
+        return;
+      }
+
+      if (!pending.settle(message.id, { ok: message.ok, status: message.status })) {
+        log(`Discarded a late or unmatched answer for ${message.id}.`);
+      }
+
+      return;
+    }
+
     log(`Ignoring a ${message.type} from an agent, which may not send one.`);
   }
 
   function receiveFromPanel(connection, message) {
     if (message.type === "result") {
+      // Mirror of the check in `receiveFromAgent`: the panel answers commands
+      // (`hub-`), never asks (`ask-`), which it is the one asking.
+      if (!message.id.startsWith("hub-")) {
+        log(`Ignoring a panel result for ${message.id}, which is not a command.`);
+        return;
+      }
+
       if (!pending.settle(message.id, { ok: message.ok, status: message.status })) {
         // Expected, not alarming: the panel finished after the deadline, or
         // after being replaced. Logged because a run of these is the signature
@@ -284,10 +393,7 @@ export function createHubRouter({
     }
 
     if (message.type === "ask") {
-      send(
-        connection,
-        buildResult({ id: message.id, ok: false, status: "This hub does not implement ask_agent yet." })
-      );
+      handlePanelAsk(connection, message);
       return;
     }
 

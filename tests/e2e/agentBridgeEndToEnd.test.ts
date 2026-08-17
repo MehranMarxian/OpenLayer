@@ -267,6 +267,129 @@ describe("agent bridge end to end", () => {
     connection.disable();
   }, 30_000);
 
+  it("carries an ask from the panel to a sampling-capable client and back", async () => {
+    // The bidirectional loop, whole. This is the only flow that runs against
+    // MCP's grain — the server asking its client something — so it is worth
+    // proving against a real MCP process rather than a stub on either side.
+    //
+    // A separate MCP process from the shared one above, because this client
+    // must declare `sampling` at initialize and the shared one deliberately
+    // does not.
+    const ASK_PORT = 8699;
+    const askHub = spawn(process.execPath, ["src/hub.mjs", "--port", String(ASK_PORT)], {
+      cwd: bridgeDir,
+      stdio: ["ignore", "pipe", "pipe"]
+    }) as ChildProcessWithoutNullStreams;
+
+    await new Promise((done) => setTimeout(done, 600));
+
+    const mcp = spawn(process.execPath, ["src/main.mjs", "--port", String(ASK_PORT)], {
+      cwd: bridgeDir,
+      stdio: ["pipe", "pipe", "pipe"]
+    }) as ChildProcessWithoutNullStreams;
+
+    const seen = new Map<number, Record<string, unknown>>();
+    /** The question the server asked us, via sampling. */
+    let samplingRequest: Record<string, never> | null = null;
+    let buffer = "";
+
+    mcp.stdout.on("data", (chunk) => {
+      buffer += String(chunk);
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+
+      for (const line of lines) {
+        if (!line.trim()) {
+          continue;
+        }
+
+        const message = JSON.parse(line) as { id?: number; method?: string };
+
+        // A server-to-client *request* rather than a reply to one of ours.
+        if (message.method === "sampling/createMessage") {
+          samplingRequest = message as Record<string, never>;
+          continue;
+        }
+
+        if (message.id !== undefined) {
+          seen.set(message.id, message as Record<string, unknown>);
+        }
+      }
+    });
+
+    const write = (message: Record<string, unknown>) => mcp.stdin.write(`${JSON.stringify(message)}\n`);
+
+    try {
+      await new Promise((done) => setTimeout(done, 800));
+
+      write({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: {
+          protocolVersion: "2024-11-05",
+          // The whole point: this client can answer.
+          capabilities: { sampling: {} },
+          clientInfo: { name: "e2e-sampling", version: "0" }
+        }
+      });
+
+      await vi.waitFor(() => expect(seen.has(1)).toBe(true), { timeout: 10_000, interval: 25 });
+      write({ jsonrpc: "2.0", method: "notifications/initialized" });
+
+      // The MCP process connects to the hub lazily, so nudge it with a call.
+      write({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "get_panel_state" } });
+      await vi.waitFor(() => expect(seen.has(2)).toBe(true), { timeout: 10_000, interval: 25 });
+
+      const state = JSON.parse(
+        (seen.get(2) as { result: { content: { text: string }[] } }).result.content[0].text
+      ) as { answeringAgents: number };
+
+      // Detected from the client's declared capabilities, not assumed.
+      expect(state.answeringAgents).toBe(1);
+
+      // Now the panel side, using the real modules.
+      const bridge = createAgentBridge();
+      const statuses: string[] = [];
+      const connection = createAgentConnection({
+        bridge,
+        openSocket: openWebSocket,
+        panelVersion: "0.15.0",
+        onStatus: (status) => statuses.push(status.state),
+        log: () => {}
+      });
+
+      connection.enable(ASK_PORT);
+      await vi.waitFor(() => expect(statuses).toContain("connected"), { timeout: 10_000 });
+
+      const asked = connection.ask("Suggest a prompt");
+
+      // The server should now be asking *us* for a completion.
+      await vi.waitFor(() => expect(samplingRequest).not.toBeNull(), { timeout: 10_000, interval: 25 });
+      expect(samplingRequest!.params.messages[0].content.text).toBe("Suggest a prompt");
+
+      write({
+        jsonrpc: "2.0",
+        id: samplingRequest!.id,
+        result: {
+          role: "assistant",
+          content: { type: "text", text: "a red fox curled in fresh snow" },
+          model: "e2e-model"
+        }
+      });
+
+      await expect(asked).resolves.toEqual({
+        ok: true,
+        answer: "a red fox curled in fresh snow"
+      });
+
+      connection.disable();
+    } finally {
+      mcp.kill();
+      askHub.kill();
+    }
+  }, 40_000);
+
   it("kept stdout clean, because stdout is the MCP transport", () => {
     expect(corruptedStdout).toBeNull();
   });

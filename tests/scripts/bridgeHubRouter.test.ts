@@ -64,11 +64,18 @@ function hub(options: Record<string, unknown> = {}) {
     return peer;
   }
 
-  function agent(name = "claude") {
+  function agent(name = "claude", canAnswer = false) {
     const peer = connect();
 
     peer.receive(
-      JSON.stringify({ v: 1, type: "hello", role: "agent", client: name, clientVersion: "1" })
+      JSON.stringify({
+        v: 1,
+        type: "hello",
+        role: "agent",
+        client: name,
+        clientVersion: "1",
+        canAnswer
+      })
     );
 
     // The hub welcomes every agent. That is handshake noise for every test but
@@ -149,6 +156,121 @@ describe("createHubRouter", () => {
 
     expect(agent.sent[0]).toMatchObject({ ok: false });
     expect(agent.sent[0].status).toContain("does not offer inpaint");
+  });
+
+  describe("asks, the panel asking an agent", () => {
+    const ask = (id: string, question = "Suggest a prompt") =>
+      JSON.stringify({ v: 1, type: "ask", id, question });
+
+    it("refuses immediately when no agent is connected", () => {
+      const test = hub();
+      const panel = test.panel();
+
+      panel.receive(ask("panel-1"));
+
+      // This is a button beside a prompt box. Spinning for two minutes because
+      // nobody is listening is worse than saying so instantly.
+      expect(panel.sent[0]).toMatchObject({ type: "result", id: "panel-1", ok: false });
+      expect(panel.sent[0].status).toContain("No agent is connected");
+    });
+
+    it("refuses when agents are connected but none can answer", () => {
+      const test = hub();
+      const panel = test.panel();
+
+      test.agent("claude", false);
+      panel.receive(ask("panel-1"));
+
+      // Sampling is an MCP *client* capability. A user cannot fix this in
+      // OpenLayer, so the message must not imply they can.
+      expect(panel.sent[0].ok).toBe(false);
+      expect(panel.sent[0].status).toContain("did not offer sampling");
+      expect(panel.sent[0].status).toContain("not a setting in OpenLayer");
+    });
+
+    it("routes to an answering agent and relays the answer back", async () => {
+      const test = hub();
+      const panel = test.panel();
+
+      test.agent("cannot", false);
+      const answering = test.agent("claude", true);
+
+      panel.receive(ask("panel-1"));
+
+      // Skipped the agent that cannot answer rather than trying it first.
+      expect(answering.sent).toHaveLength(1);
+      expect(answering.sent[0]).toMatchObject({ type: "ask", question: "Suggest a prompt" });
+      expect(answering.sent[0].id).not.toBe("panel-1");
+
+      answering.receive(
+        JSON.stringify({
+          v: 1,
+          type: "result",
+          id: answering.sent[0].id,
+          ok: true,
+          status: "a red fox in snow"
+        })
+      );
+
+      await flush();
+
+      expect(panel.sent[0]).toMatchObject({
+        type: "result",
+        id: "panel-1",
+        ok: true,
+        status: "a red fox in snow"
+      });
+    });
+
+    it("reports how many connected agents could answer", () => {
+      const test = hub();
+
+      test.agent("claude", true);
+      test.agent("codex", false);
+
+      expect(test.router.state()).toMatchObject({ agents: 2, answeringAgents: 1 });
+    });
+
+    it("times an ask out rather than leaving the panel waiting", async () => {
+      const test = hub({ askTimeoutMs: 120_000 });
+      const panel = test.panel();
+
+      test.agent("claude", true);
+      panel.receive(ask("panel-1"));
+      test.timers.fireAll();
+
+      await flush();
+
+      expect(panel.sent[0]).toMatchObject({ id: "panel-1", ok: false });
+    });
+
+    it("ignores an agent result carrying a command id, not an ask id", async () => {
+      const test = hub();
+      const panel = test.panel();
+      const agent = test.agent("claude", true);
+
+      agent.receive(command("a-1"));
+      const commandId = panel.sent[0].id;
+
+      // Both directions settle through one registry, so without the prefix
+      // check an agent could resolve a command the panel is still running and
+      // the panel's real answer would later be discarded as unmatched.
+      agent.receive(
+        JSON.stringify({ v: 1, type: "result", id: commandId, ok: true, status: "forged" })
+      );
+
+      await flush();
+
+      expect(agent.sent).toHaveLength(0);
+
+      panel.receive(
+        JSON.stringify({ v: 1, type: "result", id: commandId, ok: true, status: "the real one" })
+      );
+
+      await flush();
+
+      expect(agent.sent[0]).toMatchObject({ id: "a-1", status: "the real one" });
+    });
   });
 
   it("forwards a command to the panel and routes the reply back", async () => {

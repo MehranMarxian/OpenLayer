@@ -58,6 +58,7 @@ export type AppElements = {
   setupSections: HTMLElement;
   setupVramLabel: HTMLElement;
   setupOutlookList: HTMLElement;
+  suggestPrompt: HTMLElement;
   agentBridgePort: HTMLInputElement;
   agentBridgeToggle: HTMLElement;
   agentBridgeStatusText: HTMLElement;
@@ -568,6 +569,7 @@ export function createAppMarkup() {
             <span class="label">Prompt</span>
             <textarea class="textarea" id="prompt" placeholder="Describe the image you want to generate..."></textarea>
           </label>
+          <button class="button action-control" id="suggest-prompt" data-openlayer-action="suggestPrompt" type="button">Ask the Agent for a Prompt</button>
           <section class="negative-prompt-section" aria-label="Negative prompt">
             <button class="button disclosure-button action-control" id="negative-prompt-toggle" data-openlayer-action="toggleNegativePrompt" type="button">Show Negative Prompt</button>
             <label class="field negative-prompt-field" id="negative-prompt-field" hidden>
@@ -1500,6 +1502,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     setupSections: getElement<HTMLElement>(rootElement, "setup-sections"),
     setupVramLabel: getElement<HTMLElement>(rootElement, "setup-vram-label"),
     setupOutlookList: getElement<HTMLElement>(rootElement, "setup-outlook-list"),
+    suggestPrompt: getElement<HTMLElement>(rootElement, "suggest-prompt"),
     agentBridgePort: getElement<HTMLInputElement>(rootElement, "agent-bridge-port"),
     agentBridgeToggle: getElement<HTMLElement>(rootElement, "agent-bridge-toggle"),
     agentBridgeStatusText: getElement<HTMLElement>(rootElement, "agent-bridge-status-text"),

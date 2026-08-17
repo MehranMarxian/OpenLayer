@@ -3,10 +3,20 @@
 Lets an MCP client — Claude first, any MCP-speaking client eventually — drive the OpenLayer
 Photoshop panel's existing tools from natural language.
 
-Status: **Phase 2.** All seven generation tools are wired up: `text_to_image`,
+Status: **Phases 1–3 complete.** All seven generation tools are wired up: `text_to_image`,
 `image_to_image`, `sketch_to_image`, `inpaint`, `outpaint`, `upscale`, `prompt_from_layer`.
-`ask_agent` (the panel asking the agent for help) is Phase 3, not yet built. See
-`docs/mcp-bridge.md` for the design and the phases after this one.
+The panel can also ask a connected agent for a prompt, which needs the client to support MCP
+*sampling* — see below. Cloud transport is deferred. `docs/mcp-bridge.md` has the design.
+
+### The panel asking the agent
+
+"Ask the Agent for a Prompt" in the panel sends a question the other way down this socket. It
+works only with an MCP client that declared the **sampling** capability, because that is the
+only mechanism MCP offers for a server to ask its client anything — and it is optional. The hub
+refuses instantly and says so when no connected client can answer, rather than hanging.
+
+`get_panel_state` reports `answeringAgents`, which is how you tell whether the button can work
+at all right now.
 
 Nothing here is Claude-specific. This is a standard MCP server over stdio — the most widely
 supported transport — so any MCP-speaking client can drive it (Claude Code and Desktop, Codex

@@ -47,8 +47,24 @@ export type AgentCommand = {
   params: AgentParams;
 };
 
-export type ParsedCommand =
-  | { ok: true; command: AgentCommand }
+/** An agent's answer to a question the panel asked. */
+export type AgentAnswer = {
+  id: string;
+  ok: boolean;
+  status: string;
+};
+
+/**
+ * What the panel can receive: a command to run, or an answer to something it
+ * asked. Discriminated by `kind` rather than by which key is present, so a
+ * caller that forgets a case fails to compile.
+ */
+export type PanelFrame =
+  | { kind: "command"; command: AgentCommand }
+  | { kind: "answer"; answer: AgentAnswer };
+
+export type ParsedPanelFrame =
+  | { ok: true; frame: PanelFrame }
   | { ok: false; reason: string };
 
 /**
@@ -76,18 +92,30 @@ export function buildEvent(name: string, payload?: unknown) {
   return { v: PROTOCOL_VERSION, type: "event" as const, name, payload };
 }
 
+/**
+ * The panel asking a connected agent a question.
+ *
+ * The only frame that runs against MCP's grain — see `buildAsk` in
+ * `bridge/src/protocol.mjs` for why it needs sampling, and why the hub refuses
+ * it outright rather than trying when no connected agent can answer.
+ */
+export function buildAsk(id: string, question: string) {
+  return { v: PROTOCOL_VERSION, type: "ask" as const, id, question };
+}
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /**
- * Parses a frame from the bridge. `command` is the only type the panel receives.
+ * Parses a frame from the hub: a `command` to run, or a `result` answering
+ * something this panel asked.
  *
  * Returns a result rather than throwing: this runs on a socket's message
  * handler, where an exception would tear down a connection that should survive
  * one bad frame.
  */
-export function parseCommand(raw: unknown): ParsedCommand {
+export function parsePanelFrame(raw: unknown): ParsedPanelFrame {
   let parsed: unknown;
 
   try {
@@ -109,12 +137,27 @@ export function parseCommand(raw: unknown): ParsedCommand {
     };
   }
 
-  if (parsed.type !== "command") {
+  if (parsed.type !== "command" && parsed.type !== "result") {
     return { ok: false, reason: `Unexpected message type ${JSON.stringify(parsed.type)}.` };
   }
 
   if (typeof parsed.id !== "string" || parsed.id === "") {
-    return { ok: false, reason: "command is missing a non-empty string id." };
+    return { ok: false, reason: `${parsed.type} is missing a non-empty string id.` };
+  }
+
+  if (parsed.type === "result") {
+    if (typeof parsed.ok !== "boolean") {
+      return { ok: false, reason: "result is missing a boolean ok." };
+    }
+
+    if (typeof parsed.status !== "string") {
+      return { ok: false, reason: "result is missing a string status." };
+    }
+
+    return {
+      ok: true,
+      frame: { kind: "answer", answer: { id: parsed.id, ok: parsed.ok, status: parsed.status } }
+    };
   }
 
   if (!AGENT_TOOL_IDS.includes(parsed.tool as AgentToolId)) {
@@ -127,12 +170,15 @@ export function parseCommand(raw: unknown): ParsedCommand {
 
   return {
     ok: true,
-    command: {
-      v: PROTOCOL_VERSION,
-      type: "command",
-      id: parsed.id,
-      tool: parsed.tool as AgentToolId,
-      params: (parsed.params ?? {}) as AgentParams
+    frame: {
+      kind: "command",
+      command: {
+        v: PROTOCOL_VERSION,
+        type: "command",
+        id: parsed.id,
+        tool: parsed.tool as AgentToolId,
+        params: (parsed.params ?? {}) as AgentParams
+      }
     }
   };
 }

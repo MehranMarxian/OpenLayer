@@ -637,6 +637,57 @@ export function renderApp(rootElement: HTMLElement) {
     saveAgentBridgeSettings({ enabled: true, port });
   }
 
+  /**
+   * Asks a connected agent to write a prompt, and puts it in the prompt box.
+   *
+   * The bidirectional half of the bridge (`docs/mcp-bridge.md` §4.3), and the
+   * only place the panel talks *to* an agent rather than the other way round.
+   *
+   * Every failure path ends in a status message rather than an exception,
+   * because this button sits next to a prompt box and is a convenience: no
+   * agent connected, an agent whose MCP client cannot answer, a two-minute
+   * timeout. None of them should look like the panel is broken, and none of
+   * them should touch what the user already typed.
+   */
+  async function handleSuggestPrompt() {
+    if (isBusy) {
+      setTextToImageStatus(elements, "Wait for the current generation to finish.", "error");
+      return;
+    }
+
+    const existing = elements.prompt.value.trim();
+    // The existing prompt is context, not something to overwrite blindly: on a
+    // second press this reads as "give me another angle on this", which is how
+    // the button actually gets used.
+    const question = existing
+      ? `Write a single improved image-generation prompt based on this one: "${existing}". ` +
+        `Reply with only the prompt text, no preamble, no quotes, under 60 words.`
+      : `Write a single vivid image-generation prompt for an interesting picture. ` +
+        `Reply with only the prompt text, no preamble, no quotes, under 60 words.`;
+
+    setActionDisabled(elements.suggestPrompt, true);
+    setTextToImageStatus(elements, "Asking the agent...", "idle");
+
+    try {
+      const { ok, answer } = await agentConnection.ask(question);
+
+      if (!ok || !answer) {
+        setTextToImageStatus(elements, "The agent could not answer.", "error");
+        setTextToImageError(elements, answer || "The agent returned nothing.");
+        return;
+      }
+
+      elements.prompt.value = answer;
+      setTextToImageError(elements, "");
+      setTextToImageStatus(elements, "Prompt suggested by the agent.", "ready");
+      setTextToImageDiagnostics(elements, "The prompt field was filled by a connected agent.");
+    } finally {
+      // In `finally` because an unexpected throw must not leave the only way of
+      // asking again permanently greyed out.
+      setActionDisabled(elements.suggestPrompt, false);
+    }
+  }
+
   function readAgentBridgePort() {
     const port = Number(elements.agentBridgePort.value);
 
@@ -1287,7 +1338,8 @@ export function renderApp(rootElement: HTMLElement) {
     importLiveRefined: createActionRunner(elements, "importLiveRefined", handleImportLiveRefined),
     toggleLiveAutoImport: createActionRunner(elements, "toggleLiveAutoImport", handleToggleLiveAutoImport),
     toggleLiveAutoRefine: createActionRunner(elements, "toggleLiveAutoRefine", handleToggleLiveAutoRefine),
-    toggleAgentBridge: createActionRunner(elements, "toggleAgentBridge", handleToggleAgentBridge)
+    toggleAgentBridge: createActionRunner(elements, "toggleAgentBridge", handleToggleAgentBridge),
+    suggestPrompt: createActionRunner(elements, "suggestPrompt", handleSuggestPrompt)
   };
 
   bindActionControl(elements.checkButton, actionHandlers.check);
@@ -1349,6 +1401,7 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.liveAutoImportToggle, actionHandlers.toggleLiveAutoImport);
   bindActionControl(elements.liveAutoRefineToggle, actionHandlers.toggleLiveAutoRefine);
   bindActionControl(elements.agentBridgeToggle, actionHandlers.toggleAgentBridge);
+  bindActionControl(elements.suggestPrompt, actionHandlers.suggestPrompt);
   registerImportBridgeHandlers();
   registerAgentBridgeHandlers();
   restoreAgentBridgeSettings();

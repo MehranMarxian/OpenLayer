@@ -2,17 +2,20 @@ import { describe, expect, it } from "vitest";
 
 import {
   AGENT_TOOL_IDS,
+  buildAsk as buildPanelAsk,
   buildEvent,
   buildHello,
   buildResult,
-  parseCommand,
+  parsePanelFrame,
   PROTOCOL_VERSION as PANEL_VERSION
 } from "../../src/ui/agentProtocol";
 
 // @ts-expect-error -- bridge/ is plain .mjs and sits outside the tsconfig `include`.
 import {
   AGENT_TOOLS,
+  buildAsk as buildHubAsk,
   buildCommand,
+  buildResult as buildHubResult,
   parseFrame,
   PROTOCOL_VERSION as BRIDGE_VERSION
 } from "../../bridge/src/protocol.mjs";
@@ -44,15 +47,43 @@ describe("bridge and panel protocol parity", () => {
       params: { prompt: "a cat", steps: 30 }
     });
 
-    const parsed = parseCommand(JSON.stringify(command));
+    const parsed = parsePanelFrame(JSON.stringify(command));
 
     expect(parsed.ok).toBe(true);
-    expect(parsed.ok && parsed.command).toEqual({
+    expect(parsed.ok && parsed.frame.kind).toBe("command");
+    expect(parsed.ok && parsed.frame.kind === "command" && parsed.frame.command).toEqual({
       v: PANEL_VERSION,
       type: "command",
       id: "req-1",
       tool: "text_to_image",
       params: { prompt: "a cat", steps: 30 }
+    });
+  });
+
+  it("round-trips an ask in both directions", () => {
+    // The panel asks, the hub relays under its own id, an agent answers, and
+    // the hub relays the answer back. Every hop crosses the two copies of the
+    // protocol, so this is where they would silently disagree.
+    const fromPanel = buildPanelAsk("panel-1", "Suggest a prompt");
+    const atHub = parseFrame(JSON.stringify(fromPanel));
+
+    expect(atHub.ok).toBe(true);
+    expect(atHub.message.type).toBe("ask");
+    expect(atHub.message.question).toBe("Suggest a prompt");
+
+    // The hub re-mints the id before forwarding, exactly as it does for commands.
+    const toAgent = buildHubAsk({ id: "ask-1", question: atHub.message.question });
+
+    expect(parseFrame(JSON.stringify(toAgent)).ok).toBe(true);
+
+    const answer = buildHubResult({ id: "panel-1", ok: true, status: "a red fox in snow" });
+    const atPanel = parsePanelFrame(JSON.stringify(answer));
+
+    expect(atPanel.ok && atPanel.frame.kind).toBe("answer");
+    expect(atPanel.ok && atPanel.frame.kind === "answer" && atPanel.frame.answer).toEqual({
+      id: "panel-1",
+      ok: true,
+      status: "a red fox in snow"
     });
   });
 
@@ -87,7 +118,7 @@ describe("bridge and panel protocol parity", () => {
     const staleFromBridge = JSON.stringify({ ...buildCommand({ id: "req-1", tool: "upscale" }), v: 99 });
     const staleFromPanel = JSON.stringify({ ...buildResult("req-1", true, "Done."), v: 99 });
 
-    const panelSaw = parseCommand(staleFromBridge);
+    const panelSaw = parsePanelFrame(staleFromBridge);
     const bridgeSaw = parseFrame(staleFromPanel);
 
     expect(panelSaw.ok).toBe(false);

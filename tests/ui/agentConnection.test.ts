@@ -230,6 +230,124 @@ describe("createAgentConnection", () => {
     expect(test.connection.isEnabled()).toBe(false);
   });
 
+  describe("ask", () => {
+    it("refuses without sending when not connected", async () => {
+      const test = harness();
+
+      // Answered synchronously rather than sent into a socket that isn't there
+      // and left to time out — "turn it on in Setup" is immediately actionable.
+      await expect(test.connection.ask("Suggest a prompt")).resolves.toEqual({
+        ok: false,
+        answer: "Agent Bridge is not connected. Turn it on in Setup, with the hub running."
+      });
+      expect(test.sent).toHaveLength(0);
+    });
+
+    it("sends the question and resolves with the answer", async () => {
+      const test = harness();
+
+      test.connection.enable(8199);
+      test.handlers.onOpen();
+
+      const asked = test.connection.ask("Suggest a prompt");
+
+      expect(test.sent[1]).toMatchObject({ type: "ask", question: "Suggest a prompt" });
+
+      test.handlers.onMessage(
+        JSON.stringify({
+          v: 1,
+          type: "result",
+          id: test.sent[1].id,
+          ok: true,
+          status: "a red fox in snow"
+        })
+      );
+
+      await expect(asked).resolves.toEqual({ ok: true, answer: "a red fox in snow" });
+    });
+
+    it("resolves a refusal as an answer rather than rejecting", async () => {
+      const test = harness();
+
+      test.connection.enable(8199);
+      test.handlers.onOpen();
+
+      const asked = test.connection.ask("Suggest a prompt");
+
+      test.handlers.onMessage(
+        JSON.stringify({
+          v: 1,
+          type: "result",
+          id: test.sent[1].id,
+          ok: false,
+          status: "No agent is connected to the hub."
+        })
+      );
+
+      // This drives a button's status line, so a refusal is a sentence to show,
+      // not an exception to catch.
+      await expect(asked).resolves.toEqual({
+        ok: false,
+        answer: "No agent is connected to the hub."
+      });
+    });
+
+    it("fails outstanding questions when the socket closes", async () => {
+      const test = harness();
+
+      test.connection.enable(8199);
+      test.handlers.onOpen();
+
+      const asked = test.connection.ask("Suggest a prompt");
+
+      test.handlers.onClose();
+
+      // The hub owns the real timeout; this covers what it cannot see. Without
+      // it the button stays disabled for two minutes after the hub dies.
+      await expect(asked).resolves.toEqual({
+        ok: false,
+        answer: "The connection to the agent bridge closed."
+      });
+    });
+
+    it("fails outstanding questions when the bridge is switched off", async () => {
+      const test = harness();
+
+      test.connection.enable(8199);
+      test.handlers.onOpen();
+
+      const asked = test.connection.ask("Suggest a prompt");
+
+      test.connection.disable();
+
+      await expect(asked).resolves.toEqual({
+        ok: false,
+        answer: "Agent Bridge was turned off."
+      });
+    });
+
+    it("does not confuse an answer with a command", async () => {
+      const test = harness();
+
+      test.connection.enable(8199);
+      test.handlers.onOpen();
+
+      const asked = test.connection.ask("Suggest a prompt");
+      const askId = test.sent[1].id;
+
+      // A command arriving while a question is outstanding must run as a
+      // command, and must not settle the question.
+      test.handlers.onMessage(command("req-9", "text_to_image", { prompt: "a cat" }));
+      await vi.waitFor(() => expect(test.execute).toHaveBeenCalled());
+
+      test.handlers.onMessage(
+        JSON.stringify({ v: 1, type: "result", id: askId, ok: true, status: "the answer" })
+      );
+
+      await expect(asked).resolves.toEqual({ ok: true, answer: "the answer" });
+    });
+  });
+
   it("ignores a second enable while already connected", () => {
     const test = harness();
 

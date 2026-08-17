@@ -1,5 +1,5 @@
 import { AgentBridge } from "./agentBridge";
-import { AgentToolId, buildHello, buildResult, parseCommand } from "./agentProtocol";
+import { AgentToolId, buildAsk, buildHello, buildResult, parsePanelFrame } from "./agentProtocol";
 
 /**
  * Holds the panel's outbound connection to the bridge process, and turns
@@ -48,7 +48,17 @@ export type AgentConnection = {
   disable: () => void;
   isEnabled: () => boolean;
   status: () => AgentConnectionStatus;
+  /**
+   * Asks a connected agent a question and resolves with its answer.
+   *
+   * Always resolves, never rejects: this is wired to a button next to a prompt
+   * box, and every refusal — no connection, no agent, an agent whose client
+   * cannot answer — is a sentence to show the user, not an exception to handle.
+   */
+  ask: (question: string) => Promise<AgentAskResult>;
 };
+
+export type AgentAskResult = { ok: boolean; answer: string };
 
 /**
  * How a tester starts the missing half. Repeated in the status line because
@@ -98,8 +108,12 @@ export function createAgentConnection({
     }
   };
 
-  async function handleCommand(raw: unknown) {
-    const parsed = parseCommand(raw);
+  /** Questions this panel has asked and is still waiting on, by id. */
+  const pendingAsks = new Map<string, (result: AgentAskResult) => void>();
+  let nextAskId = 1;
+
+  function handleFrame(raw: unknown) {
+    const parsed = parsePanelFrame(raw);
 
     if (!parsed.ok) {
       // Nothing to reply to — a frame this broken has no id to answer with —
@@ -108,7 +122,35 @@ export function createAgentConnection({
       return;
     }
 
-    const { id, tool, params } = parsed.command;
+    if (parsed.frame.kind === "answer") {
+      const { id, ok, status: text } = parsed.frame.answer;
+      const settle = pendingAsks.get(id);
+
+      pendingAsks.delete(id);
+
+      if (!settle) {
+        // Ordinary rather than alarming: the hub timed this out and the panel
+        // already reported it, then the answer arrived anyway.
+        log(`Discarded a late or unmatched answer for ${id}.`);
+        return;
+      }
+
+      settle({ ok, answer: text });
+      return;
+    }
+
+    void handleCommand(parsed.frame.command);
+  }
+
+  async function handleCommand({
+    id,
+    tool,
+    params
+  }: {
+    id: string;
+    tool: AgentToolId;
+    params: Record<string, string | number | boolean>;
+  }) {
 
     // `execute` is written to always resolve, but a reply is the one thing that
     // must not depend on that: without it the agent waits out a ten-minute
@@ -152,10 +194,13 @@ export function createAgentConnection({
             });
           },
           onMessage: (data) => {
-            void handleCommand(data);
+            handleFrame(data);
           },
           onClose: () => {
             socket = null;
+            // Nothing can answer these now, and a button left spinning until
+            // the hub's two-minute timeout is worse than one that says so.
+            failPendingAsks("The connection to the agent bridge closed.");
 
             if (enabled) {
               // Enabled but closed means either the bridge went away or it was
@@ -195,6 +240,7 @@ export function createAgentConnection({
       const open = socket;
 
       socket = null;
+      failPendingAsks("Agent Bridge was turned off.");
       setStatus({ state: "off", message: "Agent Bridge is off." });
 
       try {
@@ -205,8 +251,43 @@ export function createAgentConnection({
     },
 
     isEnabled: () => enabled,
-    status: () => status
+    status: () => status,
+
+    ask(question) {
+      if (!socket || status.state !== "connected") {
+        // Answered synchronously rather than sent and timed out, because "turn
+        // Agent Bridge on" is something the user can act on immediately.
+        return Promise.resolve({
+          ok: false,
+          answer: "Agent Bridge is not connected. Turn it on in Setup, with the hub running."
+        });
+      }
+
+      const id = `panel-${nextAskId++}`;
+
+      return new Promise<AgentAskResult>((resolve) => {
+        pendingAsks.set(id, resolve);
+        send(buildAsk(id, question));
+      });
+    }
   };
+
+  /**
+   * Settles every outstanding question with the same refusal.
+   *
+   * The hub owns the real timeout; this covers the cases it cannot see — the
+   * socket closing, or the user switching the bridge off mid-question — where
+   * no answer is ever going to arrive.
+   */
+  function failPendingAsks(reason: string) {
+    const outstanding = [...pendingAsks.values()];
+
+    pendingAsks.clear();
+
+    for (const settle of outstanding) {
+      settle({ ok: false, answer: reason });
+    }
+  }
 }
 
 /**

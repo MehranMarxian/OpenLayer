@@ -56,15 +56,49 @@ function isPlainObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** An agent's opening frame. The panel builds its own in `agentProtocol.ts`. */
-export function buildAgentHello(client, clientVersion) {
+/**
+ * An agent's opening frame. The panel builds its own in `agentProtocol.ts`.
+ *
+ * `canAnswer` reports whether this agent's *MCP client* declared the sampling
+ * capability at initialize. Only a sampling-capable client can answer an `ask`
+ * — see `buildAsk` — and the hub needs to know before it routes one, because
+ * an ask sent to a client that cannot answer is a guaranteed timeout rather
+ * than a refusal anyone can act on.
+ */
+export function buildAgentHello(client, clientVersion, canAnswer = false) {
   return {
     v: PROTOCOL_VERSION,
     type: "hello",
     role: "agent",
     client: String(client ?? "unknown"),
-    clientVersion: String(clientVersion ?? "0")
+    clientVersion: String(clientVersion ?? "0"),
+    canAnswer: canAnswer === true
   };
+}
+
+/**
+ * The panel asking a connected agent a question. Panel to hub, hub to agent.
+ *
+ * This is the one flow that runs against MCP's grain. MCP is client-to-server:
+ * an agent calls tools on us, and there is no ordinary way for us to ask it
+ * anything back. The mechanism that does exist is *sampling*
+ * (`sampling/createMessage`), where a server asks its client for a model
+ * completion — but it is optional, and a client that did not declare it will
+ * never answer. So the hub only ever routes an ask to an agent whose hello
+ * said `canAnswer`, and refuses immediately otherwise. The panel's affordance
+ * is a nice-to-have; making it fail visibly and instantly matters more than
+ * making it work everywhere.
+ */
+export function buildAsk({ id, question }) {
+  if (typeof id !== "string" || id === "") {
+    throw new TypeError("An ask needs a non-empty string id.");
+  }
+
+  if (typeof question !== "string" || question === "") {
+    throw new TypeError("An ask needs a non-empty question.");
+  }
+
+  return { v: PROTOCOL_VERSION, type: "ask", id, question };
 }
 
 /**

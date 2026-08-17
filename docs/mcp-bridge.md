@@ -251,8 +251,30 @@ Without that, two sessions generating at once receive each other's results.
    gained an optional `describeResult`, called only after a successful run and appended to the
    status rather than replacing it, so a broken describer degrades to the plain status instead
    of turning a real success into a reported failure.
-3. **`ask_agent` bidirectional hook**: one UI affordance calling back out through the same
-   socket.
+3. **`ask_agent` bidirectional hook.** *Done.* "Ask the Agent for a Prompt" sits under the
+   Text to Image prompt box, sends the question out through the hub, and writes the answer
+   into the prompt field. An existing prompt is passed as context rather than overwritten
+   blindly, so pressing it twice reads as "give me another angle on this".
+
+   **The mechanism, and its one real constraint.** MCP is client-to-server: an agent calls
+   tools on us, and there is no ordinary way for us to ask it anything back. The one mechanism
+   that exists is *sampling* (`sampling/createMessage`), where a server requests a model
+   completion from its client — and it is **optional**. A client that did not declare it has no
+   handler for the request, so asking anyway hangs until the timeout rather than being refused.
+
+   So the MCP process reports its client's sampling capability to the hub in its hello, and the
+   hub only ever routes an ask to an agent that can answer, refusing in milliseconds otherwise
+   with a message that says whose limitation it is. `get_panel_state` reports `answeringAgents`
+   so the situation is visible from outside rather than being guessed at.
+
+   **This means the button's usefulness depends on the MCP client, not on OpenLayer.** If no
+   connected client offers sampling, it will always refuse — correctly, and with an explanation,
+   but it will refuse. That is the honest cost of the only mechanism MCP provides.
+
+   Capability is read *live*, never cached at startup: `server.connect()` resolves before the
+   client has sent `initialize`, so capabilities read straight after it are always empty and a
+   cached answer reports "no sampling" even for a client that offers it. That bug was written
+   and caught here; the lazy read is the fix.
 4. **Cloud transport**: explicitly deferred until local proves out.
 
 ## 5. Open questions

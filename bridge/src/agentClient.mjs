@@ -1,6 +1,6 @@
 import { WebSocket } from "ws";
 
-import { buildAgentHello, buildCommand, buildStateRequest, parseFrame } from "./protocol.mjs";
+import { buildAgentHello, buildCommand, buildResult, buildStateRequest, parseFrame } from "./protocol.mjs";
 import { createPendingRequests } from "./pendingRequests.mjs";
 
 /**
@@ -26,7 +26,23 @@ export function createAgentClient({
   clientVersion = "0",
   log = () => {},
   requestTimeoutMs = 10 * 60 * 1000,
-  connectTimeoutMs = 5000
+  connectTimeoutMs = 5000,
+  /**
+   * Answers a question the panel asked. Injected rather than reaching for the
+   * MCP server from here, so this module stays testable without one.
+   */
+  answerAsk = null,
+  /**
+   * Whether this agent can answer asks, evaluated when the hello is sent.
+   *
+   * A function, not a boolean, and that matters: the connection is opened
+   * lazily on the first tool call, while the MCP client's capabilities only
+   * become known after `initialize`. Capturing a boolean at construction time
+   * would read it before it exists and claim sampling support that was never
+   * offered — which the hub would then trust, routing asks that hang until the
+   * timeout instead of being refused instantly.
+   */
+  canAnswer = () => Boolean(answerAsk)
 }) {
   const pending = createPendingRequests();
 
@@ -78,7 +94,7 @@ export function createAgentClient({
       opened.on("open", () => {
         // Deliberately not resolved here. An open socket only proves *something*
         // is listening on this port; the `welcome` below proves it is a hub.
-        opened.send(JSON.stringify(buildAgentHello(client, clientVersion)));
+        opened.send(JSON.stringify(buildAgentHello(client, clientVersion, canAnswer() === true)));
       });
 
       opened.on("message", (data) => {
@@ -94,6 +110,11 @@ export function createAgentClient({
           socket = opened;
           log(`Connected to the hub v${parsed.message.hubVersion} at ${url}.`);
           resolve(opened);
+          return;
+        }
+
+        if (parsed.message.type === "ask") {
+          void handleAsk(opened, parsed.message);
           return;
         }
 
@@ -124,6 +145,41 @@ export function createAgentClient({
     });
 
     return connecting;
+  }
+
+  /**
+   * Answers a question the panel asked, and always replies.
+   *
+   * The hub is holding a two-minute timer and the panel is showing a spinner,
+   * so every path here ends in a `result` — including the paths where sampling
+   * throws, which it will whenever a client declines the request or the user
+   * rejects it. Failing silently would leave the panel's button stuck until the
+   * timeout for something the user could be told about instantly.
+   */
+  async function handleAsk(open, message) {
+    const reply = (ok, status) => {
+      try {
+        open.send(JSON.stringify(buildResult({ id: message.id, ok, status })));
+      } catch (error) {
+        log(`Could not answer the panel's question: ${error.message}`);
+      }
+    };
+
+    if (!answerAsk || !canAnswer()) {
+      // The hub should not have routed here at all — it filters on `canAnswer`
+      // — so this is defence against a hub and client that disagree, not an
+      // expected path.
+      reply(false, "This agent's MCP client cannot answer questions.");
+      return;
+    }
+
+    try {
+      const answer = await answerAsk(message.question);
+
+      reply(Boolean(answer), answer || "The agent returned an empty answer.");
+    } catch (error) {
+      reply(false, `The agent could not answer: ${error instanceof Error ? error.message : error}`);
+    }
   }
 
   async function request(frame) {
