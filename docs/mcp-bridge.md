@@ -80,11 +80,14 @@ Claude (MCP client) ──stdio──▶ openlayer-mcp-bridge (Node, loopback WS
                           (unchanged) ──▶ generationController.runPipeline (unchanged)
 ```
 
-1. **`openlayer-mcp-bridge`** — standalone local Node process, new package at repo root
-   (e.g. `bridge/`), not inside `src/` since it never ships in the UXP bundle. Speaks MCP over
-   stdio to Claude Code/Desktop; hosts a loopback-only WebSocket server (e.g.
-   `ws://127.0.0.1:8199`) the panel connects out to. Pure protocol relay: request/response and
-   event-push with request IDs and timeouts. Holds no Photoshop or ComfyUI logic itself.
+1. **`openlayer-hub` + `openlayer-mcp`** — a new package at `bridge/`, outside `src/` since it
+   never ships in the UXP bundle. Pure protocol relay: request/response with request IDs and
+   timeouts, no Photoshop or ComfyUI logic.
+
+   **Originally designed as one process, and it had to be split** — see §3.4. `hub.mjs` is
+   long-lived and owns the loopback WebSocket server on `ws://127.0.0.1:8199`, which both the
+   panel and any number of MCP clients dial. `main.mjs` is what an MCP client launches: a thin
+   agent speaking MCP on stdio that connects to the hub.
 
 2. **`src/ui/agentBridge.ts`** (panel side, new module, modeled directly on `importBridge.ts`)
    — connects to the bridge process's WebSocket when a new **explicit opt-in toggle** is
@@ -167,6 +170,32 @@ acceptable, since it's the already-trusted validation path.
   cannot be driven.
 - Analytics: tag generation events with `origin: "agent" | "panel"` at the point `agentBridge`
   invokes a handler vs. a real click handler does — smallest possible hook, no new pipeline.
+
+### 3.4 Why the bridge is two processes
+
+The original design had one process doing both jobs: MCP stdio server, and WebSocket server for
+the panel. It was built that way, shipped in Phase 1, and worked in Photoshop — and then failed
+the moment it was used the way a real person would use it.
+
+**An MCP stdio server's lifetime belongs to its client.** Claude spawns it when a session opens
+and kills it when the session closes. `claude mcp add` starts nothing; it writes a config entry.
+But the panel needs something *already listening* to dial. Those two facts cannot both hold in
+one process, and the consequences were:
+
+- The panel had to be toggled on *after* Claude, every time.
+- Restarting Claude silently killed the panel's connection.
+- A second Claude session died on `EADDRINUSE`, appearing to the user as a broken MCP server.
+
+Splitting the two fixes all three, and buys something the single process could never do: many
+agents, one panel. Claude, Codex and VS Code can all be connected at once.
+
+The cost is one more thing to keep running. That was judged acceptable because OpenLayer users
+already keep ComfyUI running — "start the hub like you start ComfyUI" is a model they have.
+
+**Consequence for ids:** an agent picks the id on its own command, and two agents will
+eventually pick the same one — they cannot coordinate, and `req-1` is everybody's first guess.
+So the hub mints its own id toward the panel and maps the reply back to the agent that asked.
+Without that, two sessions generating at once receive each other's results.
 
 ## 4. Phasing (all v0.15, in order)
 

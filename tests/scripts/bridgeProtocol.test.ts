@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 // @ts-expect-error -- bridge/ is plain .mjs and sits outside the tsconfig `include`.
-import { buildCommand, parseInbound, PROTOCOL_VERSION } from "../../bridge/src/protocol.mjs";
+import { buildCommand, parseFrame, PROTOCOL_VERSION } from "../../bridge/src/protocol.mjs";
 // @ts-expect-error -- see above.
 import { createPendingRequests } from "../../bridge/src/pendingRequests.mjs";
 
@@ -25,11 +25,11 @@ describe("buildCommand", () => {
   });
 });
 
-describe("parseInbound", () => {
+describe("parseFrame", () => {
   const frame = (message: Record<string, unknown>) => JSON.stringify(message);
 
   it("accepts a well-formed result", () => {
-    const parsed = parseInbound(
+    const parsed = parseFrame(
       frame({ v: 1, type: "result", id: "req-1", ok: true, status: "Imported as new layer." })
     );
 
@@ -39,20 +39,20 @@ describe("parseInbound", () => {
 
   it("accepts a hello and an event", () => {
     expect(
-      parseInbound(frame({ v: 1, type: "hello", panelVersion: "0.15.0", tools: ["text_to_image"] }))
+      parseFrame(frame({ v: 1, type: "hello", panelVersion: "0.15.0", tools: ["text_to_image"] }))
         .ok
     ).toBe(true);
-    expect(parseInbound(frame({ v: 1, type: "event", name: "busy" })).ok).toBe(true);
+    expect(parseFrame(frame({ v: 1, type: "event", name: "busy" })).ok).toBe(true);
   });
 
   it("reports rather than throws on junk, since this runs on a socket handler", () => {
-    expect(parseInbound("not json")).toEqual({ ok: false, reason: "Frame was not valid JSON." });
-    expect(parseInbound("[1,2,3]").ok).toBe(false);
-    expect(parseInbound(frame({ v: 1, type: "nonsense" })).ok).toBe(false);
+    expect(parseFrame("not json")).toEqual({ ok: false, reason: "Frame was not valid JSON." });
+    expect(parseFrame("[1,2,3]").ok).toBe(false);
+    expect(parseFrame(frame({ v: 1, type: "nonsense" })).ok).toBe(false);
   });
 
   it("names both versions in a mismatch, because that is the update-one-half error", () => {
-    const parsed = parseInbound(frame({ v: 99, type: "event", name: "busy" }));
+    const parsed = parseFrame(frame({ v: 99, type: "event", name: "busy" }));
 
     expect(parsed.ok).toBe(false);
     // A tester who updated the plugin but not the separately installed bridge
@@ -62,9 +62,9 @@ describe("parseInbound", () => {
   });
 
   it("rejects a result missing the fields that make it a result", () => {
-    expect(parseInbound(frame({ v: 1, type: "result", ok: true, status: "x" })).ok).toBe(false);
-    expect(parseInbound(frame({ v: 1, type: "result", id: "req-1", status: "x" })).ok).toBe(false);
-    expect(parseInbound(frame({ v: 1, type: "result", id: "req-1", ok: true })).ok).toBe(false);
+    expect(parseFrame(frame({ v: 1, type: "result", ok: true, status: "x" })).ok).toBe(false);
+    expect(parseFrame(frame({ v: 1, type: "result", id: "req-1", status: "x" })).ok).toBe(false);
+    expect(parseFrame(frame({ v: 1, type: "result", id: "req-1", ok: true })).ok).toBe(false);
   });
 });
 

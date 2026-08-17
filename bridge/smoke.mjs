@@ -23,10 +23,22 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 
-// Deliberately not the default 8199: this must not fight a bridge the developer
+// Deliberately not the default 8199: this must not fight a hub the developer
 // already has running for a real Photoshop session.
 const PORT = 8399;
 const bridgeDir = dirname(fileURLToPath(import.meta.url));
+
+// Two processes now, because their lifetimes differ: the hub outlives every MCP
+// session, and the MCP server is spawned and killed by its client.
+const hub = spawn(process.execPath, ["src/hub.mjs", "--port", String(PORT)], {
+  cwd: bridgeDir,
+  stdio: ["ignore", "pipe", "pipe"]
+});
+
+const hubStderr = [];
+hub.stderr.on("data", (chunk) => hubStderr.push(chunk.toString()));
+
+await new Promise((resolve) => setTimeout(resolve, 600));
 
 const child = spawn(process.execPath, ["src/main.mjs", "--port", String(PORT)], {
   cwd: bridgeDir,
@@ -207,12 +219,14 @@ check("stdout carried nothing but JSON-RPC", corrupted === null, corrupted ?? ""
 
 panel.close();
 child.kill();
+hub.kill();
 
 const failed = results.filter((result) => !result.ok);
 
 console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
 
 if (failed.length > 0) {
-  console.log(`\n--- bridge stderr ---\n${stderr.join("")}`);
+  console.log(`\n--- mcp stderr ---\n${stderr.join("")}`);
+  console.log(`\n--- hub stderr ---\n${hubStderr.join("")}`);
   process.exit(1);
 }

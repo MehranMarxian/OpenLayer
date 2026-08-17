@@ -13,15 +13,32 @@ you paste the config differs between them; the command is always the same.
 
 ## What it is
 
-A small local relay with two faces. It speaks MCP over stdio to your agent, and hosts a
-loopback WebSocket server that the OpenLayer panel dials out to:
+**Two processes**, because they need different lifetimes:
 
 ```
-Claude ──stdio──▶ openlayer-mcp-bridge ◀──WebSocket── OpenLayer panel ──▶ existing handlers
+Photoshop panel ──────────────┐
+                               ├──▶ openlayer-hub  (long-lived, owns 127.0.0.1:8199)
+Claude ──stdio──▶ openlayer-mcp ┘
+Codex  ──stdio──▶ openlayer-mcp ┘
 ```
 
-The panel is the WebSocket *client* even though it sounds like the server, because a
-Photoshop UXP panel cannot listen on a port — it can only make outbound connections.
+- **`src/hub.mjs`** — you start it once and leave it running, the way you leave ComfyUI
+  running. It owns the socket and outlives everything else.
+- **`src/main.mjs`** — what your MCP client launches. A thin agent that connects to the hub.
+
+The panel is a WebSocket *client* even though it sounds like the server, because a Photoshop
+UXP panel cannot listen on a port — it can only dial out.
+
+### Why not one process
+
+An MCP stdio server's lifetime belongs to its client: Claude spawns it when a session opens and
+kills it when the session closes. But the panel needs something *already listening* before it
+can connect. The first version of this feature put both jobs in one process and hit all three
+consequences: the panel had to be toggled on after Claude every time, it broke whenever Claude
+restarted, and a second Claude session died on `EADDRINUSE`.
+
+Splitting them also means several clients — Claude, Codex, VS Code — can drive one Photoshop
+panel at once, and closing any of them takes nothing down.
 
 ## What it deliberately cannot do
 
@@ -37,23 +54,38 @@ mid-run hits the same busy lockout an extra click would, because it goes through
 
 ## Running it
 
-It is not installed by the `.ccx`. A Photoshop plugin package has no way to install or start a
-Node process, so this is a separate step, and the feature is off by default at both ends.
+Not installed by the `.ccx` — a Photoshop plugin package has no way to install or start a Node
+process — so this is a separate step, and the feature is off by default at both ends.
+
+**1. Install once:**
 
 ```bash
 cd bridge && npm install
 ```
 
-Then point your MCP client at it. For Claude Code:
+**2. Start the hub, and leave it running:**
+
+```bash
+npm run hub
+```
+
+This is the step people miss. Nothing connects until the hub is listening, and `claude mcp add`
+does *not* start it — it only writes a config entry.
+
+**3. Register the MCP client, once:**
 
 ```bash
 claude mcp add openlayer -- node /absolute/path/to/OpenLayer/bridge/src/main.mjs
 ```
 
-And in Photoshop: open the OpenLayer panel, go to **Setup**, and turn on **Agent Bridge**.
-Both halves must be on before anything connects.
+**4. In Photoshop:** open the OpenLayer panel, go to **Setup**, and turn on **Agent Bridge**.
 
-`--port <n>` moves the WebSocket off the default 8199; the panel's Setup field has to match.
+Order between 2, 3 and 4 does not matter much — the MCP client connects to the hub lazily on
+its first tool call, so starting Claude before the hub is fine. Only the hub has to be running
+by the time you actually ask for something.
+
+`--port <n>` moves the socket off the default 8199. Pass it to *both* commands, and set the
+same port in the panel's Setup field.
 
 ## Checking it works
 
@@ -78,10 +110,12 @@ touching Photoshop and tells you whether the panel ever connected.
 | --- | --- |
 | `src/protocol.mjs` | The wire format. Canonical; `src/ui/agentProtocol.ts` mirrors it. |
 | `src/pendingRequests.mjs` | Outstanding commands, and the three ways one ends. |
-| `src/panelLink.mjs` | The relay. All the behaviour worth testing, no sockets. |
+| `src/hubRouter.mjs` | The routing. All the behaviour worth testing, no sockets. |
+| `src/hub.mjs` | Hub entrypoint: the WebSocket server. |
+| `src/agentClient.mjs` | The MCP process's connection to the hub. |
 | `src/tools.mjs` | The MCP tool surface and its schemas. |
-| `src/server.mjs` | WebSocket and MCP plumbing. |
-| `src/main.mjs` | Entrypoint. |
+| `src/server.mjs` | MCP plumbing. |
+| `src/main.mjs` | MCP entrypoint. |
 
 One rule worth knowing before editing any of it: **stdout belongs to MCP.** It carries framed
 JSON-RPC, so a single stray `console.log` corrupts the session and usually presents as a client

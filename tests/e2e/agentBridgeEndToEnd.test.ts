@@ -24,6 +24,7 @@ import { createAgentConnection, openWebSocket } from "../../src/ui/agentConnecti
 const PORT = 8499;
 const bridgeDir = resolve(__dirname, "..", "..", "bridge");
 
+let hub: ChildProcessWithoutNullStreams;
 let child: ChildProcessWithoutNullStreams;
 const responses = new Map<number, Record<string, unknown>>();
 const stderr: string[] = [];
@@ -43,6 +44,15 @@ async function waitFor(id: number, label: string) {
 }
 
 beforeAll(async () => {
+  // Two processes, because their lifetimes differ: the hub owns the socket and
+  // outlives every MCP session, and the MCP server is spawned by its client.
+  hub = spawn(process.execPath, ["src/hub.mjs", "--port", String(PORT)], {
+    cwd: bridgeDir,
+    stdio: ["ignore", "pipe", "pipe"]
+  }) as ChildProcessWithoutNullStreams;
+
+  await new Promise((done) => setTimeout(done, 600));
+
   child = spawn(process.execPath, ["src/main.mjs", "--port", String(PORT)], {
     cwd: bridgeDir,
     stdio: ["pipe", "pipe", "pipe"]
@@ -93,6 +103,7 @@ beforeAll(async () => {
 
 afterAll(() => {
   child?.kill();
+  hub?.kill();
 });
 
 describe("agent bridge end to end", () => {
@@ -208,4 +219,78 @@ describe("agent bridge end to end", () => {
   it("kept stdout clean, because stdout is the MCP transport", () => {
     expect(corruptedStdout).toBeNull();
   });
+
+  it("tells an agent how to start the hub when there is no hub", async () => {
+    // The first-run experience, and the one that used to be a dead end: an MCP
+    // client is registered, the hub was never started, and the error has to say
+    // so rather than surfacing ECONNREFUSED.
+    const orphan = spawn(process.execPath, ["src/main.mjs", "--port", "8598"], {
+      cwd: bridgeDir,
+      stdio: ["pipe", "pipe", "pipe"]
+    }) as ChildProcessWithoutNullStreams;
+
+    const seen = new Map<number, Record<string, unknown>>();
+    let buffer = "";
+
+    orphan.stdout.on("data", (chunk) => {
+      buffer += String(chunk);
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+
+      for (const line of lines) {
+        if (!line.trim()) {
+          continue;
+        }
+
+        try {
+          const message = JSON.parse(line) as { id?: number };
+
+          if (message.id !== undefined) {
+            seen.set(message.id, message as Record<string, unknown>);
+          }
+        } catch {
+          // Covered by the stdout test above.
+        }
+      }
+    });
+
+    const write = (message: Record<string, unknown>) =>
+      orphan.stdin.write(`${JSON.stringify(message)}\n`);
+
+    try {
+      await new Promise((done) => setTimeout(done, 800));
+
+      write({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: {
+          protocolVersion: "2024-11-05",
+          capabilities: {},
+          clientInfo: { name: "e2e", version: "0" }
+        }
+      });
+
+      await vi.waitFor(() => expect(seen.has(1)).toBe(true), { timeout: 10_000, interval: 25 });
+      write({ jsonrpc: "2.0", method: "notifications/initialized" });
+
+      write({
+        jsonrpc: "2.0",
+        id: 2,
+        method: "tools/call",
+        params: { name: "text_to_image", arguments: { prompt: "a cat" } }
+      });
+
+      await vi.waitFor(() => expect(seen.has(2)).toBe(true), { timeout: 15_000, interval: 25 });
+
+      const result = (seen.get(2) as { result: { content: { text: string }[]; isError?: boolean } })
+        .result;
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("No OpenLayer hub is listening");
+      expect(result.content[0].text).toContain("node bridge/src/hub.mjs");
+    } finally {
+      orphan.kill();
+    }
+  }, 30_000);
 });

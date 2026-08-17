@@ -6,12 +6,14 @@
   "license": "MIT",
   "type": "module",
   "bin": {
-    "openlayer-mcp-bridge": "./src/main.mjs"
+    "openlayer-hub": "./src/hub.mjs",
+    "openlayer-mcp": "./src/main.mjs"
   },
   "engines": {
     "node": ">=20"
   },
   "scripts": {
+    "hub": "node src/hub.mjs",
     "smoke": "node smoke.mjs"
   },
   "dependencies": {

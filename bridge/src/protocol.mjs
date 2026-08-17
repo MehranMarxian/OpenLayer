@@ -1,57 +1,45 @@
 /**
- * The wire format between the bridge process and the OpenLayer panel.
+ * The wire format spoken on the hub's socket.
  *
- * This file is the canonical definition. `src/ui/agentProtocol.ts` mirrors it
- * on the panel side, and `tests/scripts/agentProtocolParity.test.ts` builds the
- * same messages through both and asserts they are byte-identical — the two
- * copies exist because the panel is TypeScript bundled into UXP and the bridge
- * is plain Node ESM that must never enter that bundle, not because anyone is
- * free to change one alone.
+ * `src/ui/agentProtocol.ts` mirrors the panel's half of this, and
+ * `tests/scripts/agentProtocolParity.test.ts` builds frames through both and
+ * parses them with the other so the two copies cannot drift silently.
  *
- * ## Shape
+ * ## Who talks to whom
  *
- * Every frame is a JSON object carrying `v` and `type`. Direction is fixed per
- * type, so a message can never be ambiguous about who was supposed to send it:
+ * One long-lived hub owns the socket. Two kinds of client dial it:
  *
- * - `command` — bridge to panel. "Run this tool with these parameters."
- * - `hello`   — panel to bridge, once on connect. Announces the panel's version
- *               and which tools it actually registered, so the bridge can
- *               reject a call for a tool this panel build does not have rather
- *               than time out waiting for a reply that will never come.
- * - `result`  — panel to bridge, exactly one per `command`, matched by `id`.
- * - `event`   — panel to bridge, unsolicited. Busy-state and status changes.
- * - `ask`     — panel to bridge, Phase 3's bidirectional half. Reserved and
- *               parsed now so an older bridge gives a clear version error
- *               instead of "unknown type" when a newer panel starts sending it.
+ * ```
+ * Photoshop panel ──role:"panel"──┐
+ *                                  ├──▶ openlayer-hub (owns 127.0.0.1:8199)
+ * Claude / Codex / VS Code ──stdio──▶ mcp client ──role:"agent"──┘
+ * ```
  *
- * ## Why `ok` is not the same as "no exception"
+ * The hub is the only party that sees both sides, so the same frame type can
+ * travel in both directions without ambiguity: an agent sends `command` to the
+ * hub, and the hub sends `command` to the panel. The ids differ — the hub mints
+ * its own toward the panel and maps the reply back — because two agents must be
+ * free to pick the same id without their results crossing.
  *
- * A `result` carries `ok` *and* `status`. The panel's tool handlers swallow
- * their own errors — they catch, write the tool's status bar, and return — so
- * the panel side cannot learn success from an absent throw and neither can we.
- * `ok` is the panel's reading of its own status bar, and `status` is the text it
- * read, passed through so the agent can relay the real message to the user
- * rather than a generic failure. See `docs/mcp-bridge.md` §2.
+ * ## Why `role` is optional and defaults to "panel"
+ *
+ * The panel shipped first and sends a `hello` with no `role`. Treating an
+ * absent role as "panel" keeps an already-loaded plugin working against a newer
+ * hub, which is worth more than the tidiness of requiring the field: a tester
+ * who updates the bridge but not the plugin gets a working system rather than a
+ * version error. Agents are new code and always send theirs.
+ *
+ * `PROTOCOL_VERSION` is therefore unchanged. Bump it only when a frame changes
+ * shape in a way an older peer cannot ignore.
  */
 
-/**
- * Bumped only for a breaking change to the shapes below. The handshake compares
- * it in both directions, because the bridge is installed separately from the
- * plugin (`npx openlayer-mcp-bridge`) and so the two can drift by a release in
- * a way an all-in-one plugin never could.
- */
 export const PROTOCOL_VERSION = 1;
 
-/** Loopback port the panel dials. Never bound on 0.0.0.0 — see server.mjs. */
+/** Loopback port the hub owns and both client kinds dial. */
 export const DEFAULT_PORT = 8199;
 
-/**
- * The tools the bridge may ask for, in `docs/mcp-bridge.md` §3.1 order.
- *
- * This is the bridge's view of what *could* exist. What a given panel actually
- * registered arrives in its `hello`, and the two are intersected: a panel built
- * before a tool existed simply does not list it.
- */
+export const ROLES = ["panel", "agent"];
+
 export const AGENT_TOOLS = [
   "text_to_image",
   "image_to_image",
@@ -62,9 +50,24 @@ export const AGENT_TOOLS = [
   "prompt_from_layer"
 ];
 
-const INBOUND_TYPES = new Set(["hello", "result", "event", "ask"]);
+const FRAME_TYPES = new Set(["hello", "command", "result", "event", "state", "ask"]);
 
-/** Builds the one frame the bridge sends. */
+function isPlainObject(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** An agent's opening frame. The panel builds its own in `agentProtocol.ts`. */
+export function buildAgentHello(client, clientVersion) {
+  return {
+    v: PROTOCOL_VERSION,
+    type: "hello",
+    role: "agent",
+    client: String(client ?? "unknown"),
+    clientVersion: String(clientVersion ?? "0")
+  };
+}
+
+/** A request to run a tool. Agent to hub, and hub to panel. */
 export function buildCommand({ id, tool, params }) {
   if (typeof id !== "string" || id === "") {
     throw new TypeError("A command needs a non-empty string id.");
@@ -85,19 +88,38 @@ export function buildCommand({ id, tool, params }) {
   };
 }
 
-function isPlainObject(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+/** An agent asking what the hub knows about the panel. */
+export function buildStateRequest(id) {
+  return { v: PROTOCOL_VERSION, type: "state", id };
 }
 
 /**
- * Parses a frame from the panel.
+ * A reply. Panel to hub, and hub to agent.
+ *
+ * `data` carries structured payloads (the panel state) that `status` cannot,
+ * and is omitted rather than null when there is none, so a reply stays the same
+ * shape it has always been.
+ */
+export function buildResult({ id, ok, status, data }) {
+  const result = { v: PROTOCOL_VERSION, type: "result", id, ok, status };
+
+  if (data !== undefined) {
+    result.data = data;
+  }
+
+  return result;
+}
+
+/**
+ * Parses any frame.
  *
  * Returns a discriminated result rather than throwing, because every caller is
- * a socket data handler: an exception there takes down a relay that is supposed
- * to survive one bad frame. The `reason` is written to be read by a human in
- * the bridge's stderr log, since that is the only place it will ever surface.
+ * a socket data handler: an exception there takes down a process that is
+ * supposed to survive one bad frame. Callers check `message.type` themselves —
+ * this validates that a frame is well-formed, not that it was expected from
+ * that direction, which only the receiver knows.
  */
-export function parseInbound(raw) {
+export function parseFrame(raw) {
   let parsed;
 
   try {
@@ -112,31 +134,55 @@ export function parseInbound(raw) {
 
   if (parsed.v !== PROTOCOL_VERSION) {
     // Named in both directions on purpose. This is the error a tester hits
-    // after updating the plugin but not the separately installed bridge, and
-    // "expected 1, got 2" is the difference between a five-second fix and a
-    // bug report.
+    // after updating one half and not the other, and "expected 1, got 2" is the
+    // difference between a five-second fix and a bug report.
     return {
       ok: false,
       reason:
-        `Protocol version mismatch: this bridge speaks v${PROTOCOL_VERSION}, the panel sent ` +
+        `Protocol version mismatch: this build speaks v${PROTOCOL_VERSION}, the peer sent ` +
         `v${JSON.stringify(parsed.v)}. Update whichever of the two is older.`
     };
   }
 
-  if (typeof parsed.type !== "string" || !INBOUND_TYPES.has(parsed.type)) {
+  if (typeof parsed.type !== "string" || !FRAME_TYPES.has(parsed.type)) {
     return { ok: false, reason: `Unknown message type ${JSON.stringify(parsed.type)}.` };
   }
 
   if (parsed.type === "hello") {
-    if (typeof parsed.panelVersion !== "string") {
-      return { ok: false, reason: "hello is missing a string panelVersion." };
+    // Absent means panel — see the header. Anything else present must be valid.
+    const role = parsed.role ?? "panel";
+
+    if (!ROLES.includes(role)) {
+      return { ok: false, reason: `Unknown role ${JSON.stringify(parsed.role)}.` };
     }
 
-    if (!Array.isArray(parsed.tools) || parsed.tools.some((tool) => typeof tool !== "string")) {
-      return { ok: false, reason: "hello is missing a string[] tools." };
+    if (role === "panel") {
+      if (typeof parsed.panelVersion !== "string") {
+        return { ok: false, reason: "A panel hello is missing a string panelVersion." };
+      }
+
+      if (!Array.isArray(parsed.tools) || parsed.tools.some((tool) => typeof tool !== "string")) {
+        return { ok: false, reason: "A panel hello is missing a string[] tools." };
+      }
     }
 
-    return { ok: true, message: parsed };
+    return { ok: true, message: { ...parsed, role } };
+  }
+
+  if (parsed.type === "command") {
+    if (typeof parsed.id !== "string" || parsed.id === "") {
+      return { ok: false, reason: "command is missing a non-empty string id." };
+    }
+
+    if (!AGENT_TOOLS.includes(parsed.tool)) {
+      return { ok: false, reason: `Unknown tool ${JSON.stringify(parsed.tool)}.` };
+    }
+
+    if (parsed.params !== undefined && !isPlainObject(parsed.params)) {
+      return { ok: false, reason: "command params must be an object when present." };
+    }
+
+    return { ok: true, message: { ...parsed, params: parsed.params ?? {} } };
   }
 
   if (parsed.type === "result") {
@@ -163,7 +209,16 @@ export function parseInbound(raw) {
     return { ok: true, message: parsed };
   }
 
-  // ask
+  if (parsed.type === "state") {
+    if (typeof parsed.id !== "string" || parsed.id === "") {
+      return { ok: false, reason: "state is missing a non-empty string id." };
+    }
+
+    return { ok: true, message: parsed };
+  }
+
+  // ask — Phase 3's bidirectional half. Parsed now so a newer panel gets a real
+  // answer rather than silence, which looks identical to a hung hub.
   if (typeof parsed.id !== "string" || parsed.id === "") {
     return { ok: false, reason: "ask is missing a non-empty string id." };
   }

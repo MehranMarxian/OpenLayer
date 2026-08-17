@@ -51,8 +51,21 @@ export type ParsedCommand =
   | { ok: true; command: AgentCommand }
   | { ok: false; reason: string };
 
+/**
+ * The panel's opening frame.
+ *
+ * `role` is sent explicitly even though the hub defaults a missing one to
+ * "panel" for the benefit of already-installed builds. Relying on that default
+ * from new code would leave the wire ambiguous for no gain.
+ */
 export function buildHello(panelVersion: string, tools: readonly AgentToolId[]) {
-  return { v: PROTOCOL_VERSION, type: "hello" as const, panelVersion, tools: [...tools] };
+  return {
+    v: PROTOCOL_VERSION,
+    type: "hello" as const,
+    role: "panel" as const,
+    panelVersion,
+    tools: [...tools]
+  };
 }
 
 export function buildResult(id: string, ok: boolean, status: string) {

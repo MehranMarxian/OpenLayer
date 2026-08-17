@@ -88,6 +88,9 @@ describe("createAgentConnection", () => {
     expect(test.sent[0]).toEqual({
       v: 1,
       type: "hello",
+      // Sent explicitly rather than relying on the hub's default, so the wire
+      // is unambiguous even though an older panel omitting it still works.
+      role: "panel",
       panelVersion: "0.15.0",
       tools: ["text_to_image"]
     });

@@ -13,7 +13,7 @@ import {
 import {
   AGENT_TOOLS,
   buildCommand,
-  parseInbound,
+  parseFrame,
   PROTOCOL_VERSION as BRIDGE_VERSION
 } from "../../bridge/src/protocol.mjs";
 
@@ -57,9 +57,30 @@ describe("bridge and panel protocol parity", () => {
   });
 
   it("parses the panel's hello, result and event with the bridge's parser", () => {
-    expect(parseInbound(JSON.stringify(buildHello("0.15.0", ["text_to_image"]))).ok).toBe(true);
-    expect(parseInbound(JSON.stringify(buildResult("req-1", true, "Done."))).ok).toBe(true);
-    expect(parseInbound(JSON.stringify(buildEvent("busy", { isBusy: true }))).ok).toBe(true);
+    expect(parseFrame(JSON.stringify(buildHello("0.15.0", ["text_to_image"]))).ok).toBe(true);
+    expect(parseFrame(JSON.stringify(buildResult("req-1", true, "Done."))).ok).toBe(true);
+    expect(parseFrame(JSON.stringify(buildEvent("busy", { isBusy: true }))).ok).toBe(true);
+  });
+
+  it("reads the panel's hello as the panel role", () => {
+    const parsed = parseFrame(JSON.stringify(buildHello("0.15.0", ["text_to_image"])));
+
+    expect(parsed.ok && parsed.message.role).toBe("panel");
+  });
+
+  it("still reads a role-less hello as a panel, so an installed build keeps working", () => {
+    // The panel shipped before `role` existed. A tester who updates the bridge
+    // but not the plugin should get a working system, not a version error.
+    const legacy = JSON.stringify({
+      v: PANEL_VERSION,
+      type: "hello",
+      panelVersion: "0.15.0",
+      tools: ["text_to_image"]
+    });
+
+    const parsed = parseFrame(legacy);
+
+    expect(parsed.ok && parsed.message.role).toBe("panel");
   });
 
   it("rejects each other's version mismatch the same way", () => {
@@ -67,7 +88,7 @@ describe("bridge and panel protocol parity", () => {
     const staleFromPanel = JSON.stringify({ ...buildResult("req-1", true, "Done."), v: 99 });
 
     const panelSaw = parseCommand(staleFromBridge);
-    const bridgeSaw = parseInbound(staleFromPanel);
+    const bridgeSaw = parseFrame(staleFromPanel);
 
     expect(panelSaw.ok).toBe(false);
     expect(bridgeSaw.ok).toBe(false);
