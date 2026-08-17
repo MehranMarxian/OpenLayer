@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+## v0.15.0-alpha - 2026-08-17
+
+OpenLayer's tools can be driven by an AI assistant now, not only by clicking the panel. Ask Claude — or Codex, or anything else that speaks the Model Context Protocol — to generate an image, upscale a layer or caption a selection, and it drives the panel's own buttons in your open Photoshop document. It runs entirely on your machine, and it is off until you turn it on.
+
+The important part is what it *cannot* do. The bridge holds no Photoshop code at all: its only two verbs are "run a tool the panel already has" and "read back what the panel said happened". Nothing in it can touch a layer, build a workflow, or reach `batchPlay`. An agent-driven generation and a clicked one are the same code path, so every safety rule the panel already enforces applies identically to both.
+
+### Added
+
+- **The Agent Bridge, covering all seven tools.** Text to Image, Image to Image, Sketch to Image, Inpaint, Outpaint, Upscale and Prompt from Layer are all reachable, plus a `get_panel_state` call that reports what the panel is doing without touching Photoshop. Only the parameters an agent passes are changed; anything it leaves out keeps whatever is currently in the panel, which is what makes "try that again at 30 steps" work as a sentence.
+
+  Turn it on in **Setup → Agent Bridge**. It is off by default and stored separately from your generation settings, so Reset Settings cannot switch it on.
+- **A `bridge/` folder holding two small Node programs.** `npm run hub` is the one you start and leave running, the way you leave ComfyUI running; the other is launched by your AI client and connects to it. They are separate because their lifetimes are: an MCP client starts and kills its own server with each session, while the panel needs something already listening before it can connect. Splitting them also means Claude, Codex and VS Code can all be connected at once, and closing any of them takes nothing down.
+- **Ask the Agent for a Prompt**, under the Text to Image prompt box — the panel asking the assistant, rather than the other way round. Whatever is already in the prompt box is passed as context rather than overwritten, so pressing it a second time asks for another angle on the same idea. This one depends on your AI client rather than on OpenLayer; see the limitations below.
+- **`npm test` now fails when the version numbers disagree.** The release version lives in eight places, and keeping them in step used to be a checklist item someone read. It is a test now, and it names whichever file is wrong.
+
+### Fixed
+
+- **v0.14.0-alpha displayed the wrong version in the panel.** It reported `v0.13.0` in the footer, in both diagnostics lines, and in the version stamped onto every entry in session history — so every tester report from that release named the wrong build. The constant had moved to a different file and the bump list quietly stopped including it. `package-lock.json` had been stale for two releases for the same kind of reason. Both are fixed, and the test above exists so this class of mistake cannot ship again.
+
+### Known limitations
+
+- **The bridge is not inside the download.** The `.ccx` and `.zip` contain the Photoshop panel only — a plugin package has no way to install or start a Node program. To use the Agent Bridge you need the repository: clone or download it, then `cd bridge && npm install && npm run hub`. `bridge/README.md` has the whole setup, including the one line to register it with Claude Code or Codex.
+- **Ask the Agent for a Prompt only works with an AI client that supports MCP *sampling*.** That is the sole mechanism the protocol offers for a server to ask its client a question, and it is optional — a client that does not offer it has nowhere to send the request. When none of your connected clients can answer, the button refuses immediately and says so rather than hanging. Whether it works is a property of Claude Code, Codex or whatever you have connected, not a setting in OpenLayer. `get_panel_state` reports `answeringAgents`, which is how to tell.
+- **An agent cannot capture a source for you.** Image to Image, Sketch to Image, Inpaint, Outpaint and Upscale all need a Photoshop layer or selection captured in the panel first, and there is no way for an assistant to do that — it has no hands in your document. Asking for one of these with nothing captured returns the same clear refusal a person gets for clicking Generate too early.
+- **Everything is loopback-only and local.** The bridge binds `127.0.0.1` and nothing else. There is no cloud relay, by design and by omission.
+- **One panel at a time.** If a second Photoshop panel connects, it replaces the first, and the first is told why. Several AI clients driving one panel is supported; one client driving two documents is not.
+
 ## v0.14.0-alpha - 2026-08-16
 
 Sketch to Image finally has a preset that is not SD 1.x. Two, in fact: both load Alibaba-PAI's Z-Image Fun ControlNet Union patch on top of the Z_image_Turbo stack that Text to Image and Image to Image have used since v0.9.0, and neither needs a ControlNet in the sense the older presets do — the patch modifies the model itself rather than steering conditioning.

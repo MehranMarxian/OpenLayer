@@ -323,6 +323,10 @@
               <h3>Separated preview panel is ready to test</h3>
               <p>A second dockable panel shows the current generation at any size, mirroring every tool including Live Painting. It can be pinned to one tool, and it imports the result into your document without going back to the dashboard. It has passed a real Photoshop UXP smoke test.</p>
             </article>
+            <article class="status-card status-card-ready">
+              <h3>An AI assistant can drive the panel</h3>
+              <p>Claude, Codex, or anything else that speaks the Model Context Protocol can call OpenLayer's seven tools directly, running the panel's own buttons in your open document. It is local-only, off until you turn it on, and not included in the download &mdash; it lives in the repository. Verified end to end generating real images in Photoshop with Claude, and separately confirmed connecting and reading panel state with Codex.</p>
+            </article>
             <article class="status-card">
               <h3>Testing alpha</h3>
               <p>OpenLayer v0.15.0-alpha is for local testing and feedback. It is not production-ready yet.</p>
@@ -359,6 +363,7 @@
               <li>Progress is shown in the generation status panel rather than pinned to the screen header, so it scrolls with the form.</li>
               <li>The ComfyUI setup pack ships the requirements list and a downloader, not the model weights. An internet connection is required.</li>
               <li>The Setup screen downloads models but not custom node packages, which keep Copy Link and go through ComfyUI-Manager. It also refuses to fetch licence-gated weights, because an unauthenticated download saves a sign-in page under the model's filename rather than a model.</li>
+              <li>The Agent Bridge is not part of the <code>.ccx</code>/<code>.zip</code> download &mdash; a Photoshop plugin package cannot start a Node program, so it lives in the repository. The panel asking the assistant for a prompt additionally depends on the AI client supporting MCP sampling, which is optional in the protocol.</li>
             </ul>
           </details>
         </div>

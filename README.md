@@ -14,6 +14,15 @@ OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop t
 
 New in `v0.15.0-alpha`:
 
+- **An AI assistant can drive OpenLayer's tools.** Ask Claude — or Codex, or anything else that speaks the Model Context Protocol — to generate an image, upscale a layer or caption a selection, and it works the panel's own buttons in your open document. All seven tools are reachable. It runs entirely on your machine and is **off until you turn it on**, in Setup → Agent Bridge.
+
+  The bridge contains no Photoshop code: it can only run a tool the panel already has and read back what the panel said happened. An agent-driven generation and a clicked one are the same code path, so the same safety rules apply to both.
+- **The bridge is not in the download.** A Photoshop plugin package cannot install or start a Node program, so it lives in the repository: clone or download it, then `cd bridge && npm install && npm run hub`. `bridge/README.md` covers the setup and the one line that registers it with your AI client.
+- **Ask the Agent for a Prompt**, under the Text to Image prompt box — the panel asking the assistant for once. Needs an AI client that supports MCP *sampling*; see the boundaries below.
+- **Version drift is a test failure now.** v0.14.0-alpha displayed `v0.13.0` in the panel footer, in both diagnostics lines, and in the version recorded against every session-history entry, because the number lives in eight places and one of them moved file. `npm test` now names whichever file disagrees.
+
+Also new in `v0.14.0-alpha`:
+
 - **Sketch to Image has two presets that are not SD 1.x.** Both load Alibaba-PAI's Z-Image Fun ControlNet Union patch on the Z_image_Turbo stack the other tools already use, so the only new download is the patch itself. They ship as a pair rather than one replacing the other: the **full** weights (6.7 GB) render shaded or densely drawn work far more photographically, while the **lite** weights (2.0 GB) hold bold sparse line art that the full weights flatten into a filled shape at any control strength. Draw dark lines on a lighter ground.
 - **Presets can declare a minimum generation size**, and the Z_image_Turbo sketch presets declare 1024. Z_image_Turbo does not degrade gracefully below its native resolution — on a 447px document the same seed gave a maze-like texture at 448 and a clean portrait at 1024 — so those presets now render at the floor and scale the result back to your canvas.
 - **The Sketch to Image model dropdown refreshes for the selected preset.** It never did: all three older presets read the same checkpoint list, so nobody noticed until a preset needed a different one.
@@ -121,12 +130,22 @@ The earlier card-based dashboard established OpenLayer's honest available/experi
 
 v0.15.0-alpha tester focus:
 
-- Open **Sketch to Image** and switch the Workflow dropdown to **Z-Image Fun ControlNet Union (Lite)**. The **Checkpoint** dropdown must repopulate and offer `z_image_turbo_bf16.safetensors`; if it still lists SD 1.x checkpoints, that is the bug this release fixes.
-- Draw with a pencil or soft brush on a **toned or off-white** background, not pure white, and generate with each Z-Image preset. The result must follow your drawing without your strokes appearing on the finished image. Pencil lines visible on the rendered face mean control strength is too high.
-- Try both Z-Image presets on the same drawing. **Full** should suit shaded, densely drawn work; **Lite** should suit bold, sparse outlines. Report which one won on your own drawings — that split is measured on a small sample and is the thing most likely to be wrong.
+- **Confirm the panel footer reads `v0.15.0`.** It read the wrong version for the whole of v0.14.0-alpha, so this is worth a glance before anything else.
+- **Confirm ordinary use is unaffected if you never turn the Agent Bridge on.** Text to Image gains one new button, "Ask the Agent for a Prompt" — clicking it with the bridge off should show a clear "not connected" status, not an error or a broken panel. Everything else should behave exactly as it did in v0.14. This is the most important check in the list: everything below is opt-in.
+- Open **Setup** and find the **Agent Bridge** section at the bottom. With nothing running, press **Turn Agent Bridge On** — it must report that no bridge is listening and tell you how to start one, not hang or claim to be connected.
+- Start the hub (`cd bridge && npm install && npm run hub`), then turn the toggle on. It should connect **without any AI client running at all** — the hub is independent of them.
+- Register the bridge with Claude Code or Codex (`bridge/README.md` has the line), then ask it to call `get_panel_state`. It should report `connected: true` and list all seven tools.
+- Ask it to generate something. The prompt should appear in the panel by itself and run exactly as if you had typed it. Then ask for a model or size it has not used — the panel's own dropdowns should follow.
+- **Start a generation by hand, and while it runs, ask the assistant to generate something.** It must refuse with "OpenLayer is busy", not start a second run. This is the safety rule most worth confirming in the real app.
+- Ask for one of the capture-based tools (**Upscale**, **Inpaint**, **Image to Image**) with nothing captured. It should come back with the same clear "capture a source first" refusal you would get from clicking Generate too early.
+- Try **Ask the Agent for a Prompt** under the Text to Image prompt box. If your AI client supports MCP sampling it fills the box; if not it should refuse instantly with an explanation, and that refusal is the correct behaviour rather than a bug. Report which client you used either way — that answer is genuinely unknown for most clients.
+- Close your AI client mid-generation. Photoshop should finish the job normally.
+
+Also worth rechecking from v0.14.0-alpha:
+
+- Open **Sketch to Image** and switch the Workflow dropdown to **Z-Image Fun ControlNet Union (Lite)**. The **Checkpoint** dropdown must repopulate and offer `z_image_turbo_bf16.safetensors`.
+- Draw with a pencil or soft brush on a **toned or off-white** background, not pure white, and generate with each Z-Image preset. The result must follow your drawing without your strokes appearing on the finished image.
 - Generate from a **small document**, under 1024px on the long edge. The imported layer must come back at your canvas size and must not show a maze-like texture or bare glowing lines on black.
-- Confirm the three SD 1.x sketch presets (LineArt, Scribble, Depth) still behave exactly as they did in v0.13.0-alpha, including their control-strength default.
-- Confirm the panel footer reads `v0.15.0`.
 
 Also worth rechecking from v0.13.0-alpha:
 
@@ -169,6 +188,7 @@ Also worth rechecking from v0.9.0-alpha:
 
 Known v0.15.0-alpha boundaries:
 
+- **The Agent Bridge is not in the `.ccx`/`.zip` download.** A Photoshop plugin package cannot install or start a Node program, so it lives in the repository — see `bridge/README.md`. It is off by default in the panel either way. "Ask the Agent for a Prompt" additionally depends on your AI client supporting MCP *sampling*, which is optional in the protocol; a client that does not offer it gets a clear, instant refusal rather than the button working.
 - **The Setup screen downloads missing models, but not custom nodes.** A missing model's row offers **Download** beside Copy Link, and OpenLayer fetches the file from the URL the registry pins — in resumable 8 MiB chunks, one model at a time, and never before a confirmation naming the size, the destination folder and the download host. What it will not do is unchanged and deliberate: licence-gated weights are never fetched anonymously, because an unauthenticated request saves an HTML sign-in page under the model's filename; a model already on disk in the wrong folder asks you to move it rather than downloading a second copy; and an entry published as a repository folder rather than a single file points you at the model page. Custom node packages keep Copy Link and go through ComfyUI-Manager. Full reasoning in the CHANGELOG.
 - The **Flux.2 GGUF preset is slow on a 12 GB card**: minutes per image, not seconds, and its text encoder is licence-gated, so accept the licence in a browser and download it by hand.
 - "What will run well" rates on published model weight sizes against reported VRAM. It is not a measurement of VRAM use during a run, and a preset with an unpublished model size is reported as unknown rather than guessed at.
