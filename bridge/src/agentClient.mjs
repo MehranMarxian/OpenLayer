@@ -61,17 +61,24 @@ export function createAgentClient({
         return;
       }
 
+      // Covers the whole handshake, not just the TCP connect. Something is
+      // listening but never says `welcome` — a stale build, or an unrelated
+      // program on this port — and the failure has to be seconds and specific
+      // rather than a silent wait for the generation timeout.
       const timer = setTimeout(() => {
         opened.terminate();
-        reject(new Error(`Timed out connecting to the OpenLayer hub at ${url}.`));
+        reject(
+          new Error(
+            `Something is listening on ${url} but it did not answer as an OpenLayer hub. ` +
+              `Check for an old bridge still running, or another program using that port.`
+          )
+        );
       }, connectTimeoutMs);
 
       opened.on("open", () => {
-        clearTimeout(timer);
-        socket = opened;
+        // Deliberately not resolved here. An open socket only proves *something*
+        // is listening on this port; the `welcome` below proves it is a hub.
         opened.send(JSON.stringify(buildAgentHello(client, clientVersion)));
-        log(`Connected to the hub at ${url}.`);
-        resolve(opened);
       });
 
       opened.on("message", (data) => {
@@ -79,6 +86,14 @@ export function createAgentClient({
 
         if (!parsed.ok) {
           log(`Ignoring a frame from the hub: ${parsed.reason}`);
+          return;
+        }
+
+        if (parsed.message.type === "welcome") {
+          clearTimeout(timer);
+          socket = opened;
+          log(`Connected to the hub v${parsed.message.hubVersion} at ${url}.`);
+          resolve(opened);
           return;
         }
 

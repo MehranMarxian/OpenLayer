@@ -1,4 +1,4 @@
-import { AGENT_TOOLS, buildCommand, buildResult, parseFrame } from "./protocol.mjs";
+import { AGENT_TOOLS, buildCommand, buildResult, buildWelcome, parseFrame } from "./protocol.mjs";
 import { createPendingRequests } from "./pendingRequests.mjs";
 
 /**
@@ -34,7 +34,13 @@ import { createPendingRequests } from "./pendingRequests.mjs";
  * said happened". Nothing here can reach `batchPlay`, which is the load-bearing
  * safety property of the whole feature.
  */
-export function createHubRouter({ log = () => {}, setTimer, clearTimer, commandTimeoutMs = 10 * 60 * 1000 } = {}) {
+export function createHubRouter({
+  log = () => {},
+  setTimer,
+  clearTimer,
+  commandTimeoutMs = 10 * 60 * 1000,
+  hubVersion = "0"
+} = {}) {
   /** Commands in flight toward the panel, keyed by the hub's own id. */
   const pending = createPendingRequests({ setTimer, clearTimer });
   /** Where each in-flight command came from, so its reply can go home. */
@@ -210,6 +216,9 @@ export function createHubRouter({ log = () => {}, setTimer, clearTimer, commandT
     if (message.role === "agent") {
       connection.role = "agent";
       agents.add(connection);
+      // Acknowledged so the agent can tell a real hub from anything else that
+      // happens to be listening on this port. See `buildWelcome`.
+      send(connection, buildWelcome(hubVersion, panelState()));
       log(`Agent connected (${message.client} ${message.clientVersion}). ${agents.size} connected.`);
       return;
     }

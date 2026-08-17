@@ -50,7 +50,7 @@ export const AGENT_TOOLS = [
   "prompt_from_layer"
 ];
 
-const FRAME_TYPES = new Set(["hello", "command", "result", "event", "state", "ask"]);
+const FRAME_TYPES = new Set(["hello", "welcome", "command", "result", "event", "state", "ask"]);
 
 function isPlainObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -65,6 +65,24 @@ export function buildAgentHello(client, clientVersion) {
     client: String(client ?? "unknown"),
     clientVersion: String(clientVersion ?? "0")
   };
+}
+
+/**
+ * The hub's answer to an agent's hello.
+ *
+ * Exists so an agent can tell a real hub from *anything else listening on that
+ * port*. Without it, connecting to the wrong process looks identical to
+ * connecting to the right one — the socket opens, the command goes out, and
+ * nothing ever comes back, so the agent waits out the full generation timeout.
+ * That is not hypothetical: a stale pre-split bridge left running on 8199
+ * accepted an agent connection, mistook it for a panel, kicked the real panel
+ * off, and hung the client for minutes.
+ *
+ * Sent to agents only. The panel ignores unknown frames, so adding it there
+ * would mean a plugin change for no gain today.
+ */
+export function buildWelcome(hubVersion, state) {
+  return { v: PROTOCOL_VERSION, type: "welcome", hubVersion: String(hubVersion ?? "0"), state };
 }
 
 /** A request to run a tool. Agent to hub, and hub to panel. */
@@ -167,6 +185,14 @@ export function parseFrame(raw) {
     }
 
     return { ok: true, message: { ...parsed, role } };
+  }
+
+  if (parsed.type === "welcome") {
+    if (typeof parsed.hubVersion !== "string") {
+      return { ok: false, reason: "welcome is missing a string hubVersion." };
+    }
+
+    return { ok: true, message: parsed };
   }
 
   if (parsed.type === "command") {

@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { spawn, ChildProcessWithoutNullStreams } from "node:child_process";
 import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import { createAgentBridge } from "../../src/ui/agentBridge";
 import { createAgentConnection, openWebSocket } from "../../src/ui/agentConnection";
@@ -219,6 +220,43 @@ describe("agent bridge end to end", () => {
   it("kept stdout clean, because stdout is the MCP transport", () => {
     expect(corruptedStdout).toBeNull();
   });
+
+  it("fails fast against something that listens but is not a hub", async () => {
+    // The exact shape of a real failure: a stale pre-split bridge was still
+    // holding 8199. It accepted the connection, mistook the agent for a panel,
+    // kicked the real Photoshop panel off, and then never replied — so the
+    // client sat waiting on a ten-minute generation timeout with no clue why.
+    // `ws` is a dependency of bridge/, not of the repo root, so it has to be
+    // reached where it is actually installed.
+    const wsModule = (await import(
+      pathToFileURL(resolve(bridgeDir, "node_modules", "ws", "index.js")).href
+    )) as { WebSocketServer?: typeof import("ws").WebSocketServer; default?: { Server: unknown } };
+    const WebSocketServer = (wsModule.WebSocketServer ??
+      wsModule.default?.Server) as typeof import("ws").WebSocketServer;
+
+    const impostor = new WebSocketServer({ host: "127.0.0.1", port: 8599 });
+
+    // Accepts connections, reads frames, answers nothing. Like the stale build.
+    impostor.on("connection", () => {});
+
+    const { createAgentClient } = await import("../../bridge/src/agentClient.mjs");
+    const agent = createAgentClient({
+      url: "ws://127.0.0.1:8599",
+      client: "e2e",
+      clientVersion: "0",
+      log: () => {},
+      connectTimeoutMs: 1500
+    });
+
+    try {
+      await expect(
+        agent.runTool({ tool: "text_to_image", params: { prompt: "a cat" } })
+      ).rejects.toThrow(/did not answer as an OpenLayer hub/);
+    } finally {
+      agent.close();
+      impostor.close();
+    }
+  }, 30_000);
 
   it("tells an agent how to start the hub when there is no hub", async () => {
     // The first-run experience, and the one that used to be a dead end: an MCP

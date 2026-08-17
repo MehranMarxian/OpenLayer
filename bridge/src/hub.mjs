@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { readFileSync } from "node:fs";
+
 import { WebSocketServer } from "ws";
 
 import { createHubRouter } from "./hubRouter.mjs";
@@ -46,8 +48,10 @@ function parsePort(argv) {
   return port;
 }
 
+const { version } = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+
 const port = parsePort(process.argv.slice(2));
-const router = createHubRouter({ log });
+const router = createHubRouter({ log, hubVersion: version });
 
 // `host` is not a default worth leaving to convention. Bound to 0.0.0.0 this
 // would offer "run arbitrary generations in this person's Photoshop" to every

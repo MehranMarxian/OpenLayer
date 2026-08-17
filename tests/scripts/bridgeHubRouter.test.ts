@@ -29,6 +29,8 @@ type Peer = {
   closed: boolean;
   receive: (raw: string) => void;
   detach: (reason?: string) => number;
+  /** The hub's handshake reply, for agents. */
+  welcome?: Record<string, never>;
 };
 
 function hub(options: Record<string, unknown> = {}) {
@@ -69,6 +71,13 @@ function hub(options: Record<string, unknown> = {}) {
       JSON.stringify({ v: 1, type: "hello", role: "agent", client: name, clientVersion: "1" })
     );
 
+    // The hub welcomes every agent. That is handshake noise for every test but
+    // the one about the handshake, so it is lifted out of `sent` and kept
+    // separately rather than shifting the index of every reply under test.
+    const [welcome] = peer.sent.splice(0, peer.sent.length);
+
+    peer.welcome = welcome;
+
     return peer;
   }
 
@@ -99,6 +108,25 @@ describe("createHubRouter", () => {
 
     expect(test.router.hasPanel()).toBe(true);
     expect(test.router.state().panelVersion).toBe("0.15.0");
+  });
+
+  it("welcomes an agent, so it can tell a real hub from anything else on the port", () => {
+    const test = hub({ hubVersion: "0.15.0" });
+    const agent = test.agent();
+
+    // Without this the only signal an agent gets is an open socket, which any
+    // listening program provides. A stale pre-split bridge on 8199 accepted a
+    // connection, mistook it for a panel, kicked the real panel off, and hung
+    // the client for minutes — all of which looked like "connected".
+    expect(agent.welcome).toMatchObject({ type: "welcome", hubVersion: "0.15.0" });
+    expect(agent.welcome?.state).toMatchObject({ connected: false });
+  });
+
+  it("does not welcome a panel, which has its own status and ignores it", () => {
+    const test = hub();
+    const panel = test.panel();
+
+    expect(panel.sent).toHaveLength(0);
   });
 
   it("refuses an agent command when no panel is connected", () => {
