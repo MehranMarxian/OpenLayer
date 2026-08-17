@@ -102,6 +102,19 @@ export type AgentToolRegistration = {
    * never lost.
    */
   describeResult?: () => string;
+  /**
+   * The tool's own error line, read only when the run failed.
+   *
+   * A failed generation's status line is a category, not a reason — "Generation
+   * failed.", "Source required." — and the specific cause a person can act on
+   * (a ComfyUI error message, which checkpoint was missing, why the source was
+   * rejected) is written to this separate element by the same catch block. Left
+   * unread, an agent can only tell the user "it failed" and send them to open
+   * the panel and look, which defeats driving the tool from outside Photoshop
+   * in the first place. Appended to the status rather than replacing it, for
+   * the same reason `describeResult` is: nothing already true is lost.
+   */
+  errorText?: HTMLElement;
 };
 
 export type AgentCapability = {
@@ -391,6 +404,23 @@ export function createAgentBridge(): AgentBridge {
           // result; a broken describer must not turn a real success into a
           // reported failure. Fall back to the plain status.
           console.warn("[OpenLayer] describeResult threw.", error);
+        }
+      }
+
+      if (!outcome.ok && registration.errorText) {
+        try {
+          const detail = registration.errorText.textContent?.trim();
+
+          // Skipped when empty (nothing was written, or it was already
+          // cleared) or identical to the status (nothing new to say) — an
+          // agent should not have to parse out a doubled sentence.
+          return detail && detail !== outcome.status
+            ? { ok: false, status: `${outcome.status} ${detail}` }
+            : outcome;
+        } catch (error) {
+          // A failure is already being reported; a broken reader here must not
+          // hide that behind an exception. Fall back to the plain status.
+          console.warn("[OpenLayer] Could not read the tool's error text.", error);
         }
       }
 

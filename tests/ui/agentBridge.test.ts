@@ -412,6 +412,135 @@ describe("createAgentBridge", () => {
     });
   });
 
+  describe("errorText", () => {
+    it("appends the tool's own error detail to a failed outcome", async () => {
+      const bridge = createAgentBridge();
+
+      bridge.register(
+        "text_to_image",
+        registration({
+          statusText: statusElement("Generation failed."),
+          statusPill: statusElement("", ["error"]),
+          errorText: statusElement("ComfyUI HTTP 500: checkpoint failed to load.")
+        })
+      );
+      bridge.publishCapability("text_to_image", { canRun: true, reason: "" });
+
+      // "Generation failed." alone sends an agent no further than telling the
+      // user to go open the panel — this is the real, reason a person could act
+      // on, and it lives in a separate element the status line never carries.
+      await expect(bridge.execute("text_to_image", {})).resolves.toEqual({
+        ok: false,
+        status: "Generation failed. ComfyUI HTTP 500: checkpoint failed to load."
+      });
+    });
+
+    it("appends the detail on a source-required refusal too, not only on a thrown error", async () => {
+      const bridge = createAgentBridge();
+
+      bridge.register(
+        "image_to_image",
+        registration({
+          statusText: statusElement("Source required."),
+          statusPill: statusElement("", ["error"]),
+          errorText: statusElement("Capture the active Photoshop layer before generating Image to Image.")
+        })
+      );
+      bridge.publishCapability("image_to_image", { canRun: true, reason: "" });
+
+      await expect(bridge.execute("image_to_image", {})).resolves.toEqual({
+        ok: false,
+        status: "Source required. Capture the active Photoshop layer before generating Image to Image."
+      });
+    });
+
+    it("does not call errorText on a successful outcome", async () => {
+      const bridge = createAgentBridge();
+      const read = vi.fn(() => "should never be read");
+      const errorText = {} as HTMLElement;
+
+      Object.defineProperty(errorText, "textContent", { get: read });
+
+      bridge.register(
+        "text_to_image",
+        registration({ statusText: statusElement("Generation complete."), errorText })
+      );
+      bridge.publishCapability("text_to_image", { canRun: true, reason: "" });
+
+      await expect(bridge.execute("text_to_image", {})).resolves.toEqual({
+        ok: true,
+        status: "Generation complete."
+      });
+      expect(read).not.toHaveBeenCalled();
+    });
+
+    it("leaves the status alone when the error element is empty or unset", async () => {
+      const bridge = createAgentBridge();
+
+      bridge.register(
+        "text_to_image",
+        registration({
+          statusText: statusElement("Generation failed."),
+          statusPill: statusElement("", ["error"]),
+          // Cleared to "" on the next successful run, same as every tool's
+          // error element — this is what a fresh run looks like before it fails.
+          errorText: statusElement("")
+        })
+      );
+      bridge.publishCapability("text_to_image", { canRun: true, reason: "" });
+
+      await expect(bridge.execute("text_to_image", {})).resolves.toEqual({
+        ok: false,
+        status: "Generation failed."
+      });
+    });
+
+    it("does not double a detail that already matches the status", async () => {
+      const bridge = createAgentBridge();
+
+      bridge.register(
+        "text_to_image",
+        registration({
+          statusText: statusElement("Prompt required."),
+          statusPill: statusElement("", ["error"]),
+          errorText: statusElement("Prompt required.")
+        })
+      );
+      bridge.publishCapability("text_to_image", { canRun: true, reason: "" });
+
+      await expect(bridge.execute("text_to_image", {})).resolves.toEqual({
+        ok: false,
+        status: "Prompt required."
+      });
+    });
+
+    it("falls back to the plain status when reading errorText throws", async () => {
+      const bridge = createAgentBridge();
+      const errorText = {
+        get textContent(): string {
+          throw new Error("element is gone");
+        }
+      } as unknown as HTMLElement;
+
+      bridge.register(
+        "text_to_image",
+        registration({
+          statusText: statusElement("Generation failed."),
+          statusPill: statusElement("", ["error"]),
+          errorText
+        })
+      );
+      bridge.publishCapability("text_to_image", { canRun: true, reason: "" });
+
+      // A failure is already being reported; a broken reader must not hide that
+      // behind an exception of its own.
+      await expect(bridge.execute("text_to_image", {})).resolves.toEqual({
+        ok: false,
+        status: "Generation failed."
+      });
+    });
+  });
+
   it("reports which tools registered, for the handshake", () => {
     const bridge = createAgentBridge();
 

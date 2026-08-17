@@ -670,7 +670,8 @@ export function renderApp(rootElement: HTMLElement) {
         await refreshLoraOptions(getTextLoraControls(elements), elements);
       },
       statusText: elements.statusText,
-      statusPill: elements.statusPill
+      statusPill: elements.statusPill,
+      errorText: elements.errorMessage
     });
 
     /**
@@ -684,6 +685,14 @@ export function renderApp(rootElement: HTMLElement) {
      * Generate without capturing first, and `readOutcome` relays that status
      * unchanged. An agent cannot capture a Photoshop selection or layer itself,
      * so that refusal is the correct outcome, not a gap to close.
+     *
+     * `errorText` is each tool's own error element. A status line is a
+     * category — "Generation failed.", "Source required." — and the specific,
+     * actionable reason a real run failed (which checkpoint was missing, what
+     * ComfyUI actually said) is written there by the same catch block, not into
+     * the status line. Without it an agent can only say "it failed" and send
+     * the user to open the panel and read the real reason themselves, which
+     * defeats driving the tool from outside Photoshop in the first place.
      */
     agentBridge.register("image_to_image", {
       run: handleGenerateImg2Img,
@@ -705,7 +714,8 @@ export function renderApp(rootElement: HTMLElement) {
         await refreshLoraOptions(getImageLoraControls(elements), elements);
       },
       statusText: elements.imgStatusText,
-      statusPill: elements.imgStatusPill
+      statusPill: elements.imgStatusPill,
+      errorText: elements.imgErrorMessage
     });
 
     agentBridge.register("sketch_to_image", {
@@ -735,7 +745,8 @@ export function renderApp(rootElement: HTMLElement) {
         await refreshLoraOptions(getSketchLoraControls(elements), elements);
       },
       statusText: elements.sketchStatusText,
-      statusPill: elements.sketchStatusPill
+      statusPill: elements.sketchStatusPill,
+      errorText: elements.sketchErrorMessage
     });
 
     agentBridge.register("inpaint", {
@@ -758,7 +769,8 @@ export function renderApp(rootElement: HTMLElement) {
         updateInpaintCheckpointCompatibility(elements, inpaintSource);
       },
       statusText: elements.inpaintStatusText,
-      statusPill: elements.inpaintStatusPill
+      statusPill: elements.inpaintStatusPill,
+      errorText: elements.inpaintErrorMessage
     });
 
     agentBridge.register("outpaint", {
@@ -784,7 +796,8 @@ export function renderApp(rootElement: HTMLElement) {
         updateOutpaintCheckpointCompatibility(elements, outpaintSource);
       },
       statusText: elements.outpaintStatusText,
-      statusPill: elements.outpaintStatusPill
+      statusPill: elements.outpaintStatusPill,
+      errorText: elements.outpaintErrorMessage
     });
 
     agentBridge.register("upscale", {
@@ -799,7 +812,8 @@ export function renderApp(rootElement: HTMLElement) {
         updateUpscaleCompatibility(elements, upscaleSource);
       },
       statusText: elements.upscaleStatusText,
-      statusPill: elements.upscaleStatusPill
+      statusPill: elements.upscaleStatusPill,
+      errorText: elements.upscaleErrorMessage
     });
 
     // No leadingParams: task and numBeams are independent selects with no
@@ -812,6 +826,7 @@ export function renderApp(rootElement: HTMLElement) {
       },
       statusText: elements.promptLayerStatusText,
       statusPill: elements.promptLayerStatusPill,
+      errorText: elements.promptLayerErrorMessage,
       // The status line settles to "Prompt text generated." — true, and useless
       // to an agent that asked for the caption. The actual text lands in a
       // separate field a human would read visually; an agent cannot, so it is
