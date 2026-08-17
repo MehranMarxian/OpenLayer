@@ -217,6 +217,56 @@ describe("agent bridge end to end", () => {
     connection.disable();
   }, 30_000);
 
+  it("carries a second, different tool's result — including describeResult — through the same chain", async () => {
+    // Proves two things unit tests stub around: that more than one tool
+    // survives real MCP schema registration together (a zod schema mistake in
+    // one tool's registerTool call can break another's), and that
+    // describeResult's appended text — Prompt from Layer's whole reason to
+    // exist over MCP — actually arrives at an MCP client, not just at a stub.
+    const bridge = createAgentBridge();
+    const generatedText = { value: "" } as unknown as HTMLTextAreaElement;
+
+    bridge.register("prompt_from_layer", {
+      run: () => {
+        generatedText.value = "a red fox curled up in fresh snow";
+      },
+      fields: { task: { value: "detailed_caption" } as unknown as HTMLInputElement },
+      statusText: { textContent: "Prompt text generated." } as unknown as HTMLElement,
+      statusPill: { classList: { contains: () => false } } as unknown as HTMLElement,
+      describeResult: () => `Generated text: "${generatedText.value}"`
+    });
+    bridge.publishCapability("prompt_from_layer", { canRun: true, reason: "" });
+
+    const statuses: string[] = [];
+    const connection = createAgentConnection({
+      bridge,
+      openSocket: openWebSocket,
+      panelVersion: "0.15.0",
+      onStatus: (status) => statuses.push(status.state),
+      log: () => {}
+    });
+
+    connection.enable(PORT);
+    await vi.waitFor(() => expect(statuses).toContain("connected"), { timeout: 10_000 });
+
+    send({
+      jsonrpc: "2.0",
+      id: 5,
+      method: "tools/call",
+      params: { name: "prompt_from_layer", arguments: { task: "detailed_caption" } }
+    });
+
+    const called = await waitFor(5, "prompt_from_layer");
+    const content = (called.result as { content: { text: string }[]; isError?: boolean }).content;
+
+    expect(content[0].text).toBe(
+      'Prompt text generated. Generated text: "a red fox curled up in fresh snow"'
+    );
+    expect((called.result as { isError?: boolean }).isError).not.toBe(true);
+
+    connection.disable();
+  }, 30_000);
+
   it("kept stdout clean, because stdout is the MCP transport", () => {
     expect(corruptedStdout).toBeNull();
   });

@@ -93,6 +93,15 @@ export type AgentToolRegistration = {
   statusText: HTMLElement;
   /** The tool's status pill, whose `error` class is the reliable failure signal. */
   statusPill?: HTMLElement;
+  /**
+   * Reads the actual output a run produced, when the status line alone is not
+   * the point of the call. Prompt from Layer's status settles to "Prompt text
+   * generated." — true, and useless to an agent that asked *for the caption*.
+   * Called only when `run` succeeded, and appended to the status text rather
+   * than replacing it, so the human-readable outcome an agent might relay is
+   * never lost.
+   */
+  describeResult?: () => string;
 };
 
 export type AgentCapability = {
@@ -370,7 +379,22 @@ export function createAgentBridge(): AgentBridge {
         };
       }
 
-      return readOutcome(registration.statusText, registration.statusPill);
+      const outcome = readOutcome(registration.statusText, registration.statusPill);
+
+      if (outcome.ok && registration.describeResult) {
+        try {
+          const description = registration.describeResult();
+
+          return description ? { ok: true, status: `${outcome.status} ${description}` } : outcome;
+        } catch (error) {
+          // The generation already succeeded and the panel already has its
+          // result; a broken describer must not turn a real success into a
+          // reported failure. Fall back to the plain status.
+          console.warn("[OpenLayer] describeResult threw.", error);
+        }
+      }
+
+      return outcome;
     },
 
     subscribe(listener) {

@@ -226,8 +226,31 @@ Without that, two sessions generating at once receive each other's results.
    `Event` to notify a field of a change, and `WebSocket` as a *client of a local server*
    rather than of ComfyUI. Both are written to degrade rather than throw, but whether they work
    is genuinely unknown until the panel runs in Photoshop.
-2. **State + remaining six tools**: `get_panel_state`, then the other six handlers registered
-   the same way.
+2. **State + remaining six tools.** *Done.* `get_panel_state` answers from the hub's own
+   routing state (`connected`, `panelVersion`, `tools`, `inFlight`, `agents`) without touching
+   the panel. `image_to_image`, `sketch_to_image`, `inpaint`, `outpaint`, `upscale` and
+   `prompt_from_layer` are registered exactly like `text_to_image`: existing handler by
+   reference, `leadingParams`/`settle` for the workflow field's rewrite (every tool but
+   `prompt_from_layer` has one), `readOutcome`'s status-pill check for success/failure.
+
+   No special-casing for "no source captured." Five of the six need a Photoshop layer or
+   selection captured first, and an agent cannot do that capturing — but the handler already
+   refuses cleanly with a status like *"Capture the active Photoshop layer before generating
+   Image to Image"*, exactly as it would for a person who clicked Generate too early, and
+   `readOutcome` relays that unchanged. Treating it as a gap to close would have meant a second
+   implementation of a check the handler already gets right.
+
+   One real gap found and closed: `text_to_image`'s Phase 1 schema had `prompt` as *required*,
+   contradicting its own design intent — "try that again at 30 steps" should not force
+   restating a prompt the agent never touched. Fixed across all seven schemas, with a test that
+   checks every field of every tool accepts an omitted value.
+
+   One gap found that needed new capability, not just a fix: Prompt from Layer's status line
+   settles to *"Prompt text generated"* — true, and useless to an agent that asked for the
+   caption, which lands in a separate panel field a human reads visually. `AgentToolRegistration`
+   gained an optional `describeResult`, called only after a successful run and appended to the
+   status rather than replacing it, so a broken describer degrades to the plain status instead
+   of turning a real success into a reported failure.
 3. **`ask_agent` bidirectional hook**: one UI affordance calling back out through the same
    socket.
 4. **Cloud transport**: explicitly deferred until local proves out.

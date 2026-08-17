@@ -328,6 +328,90 @@ describe("createAgentBridge", () => {
     });
   });
 
+  describe("describeResult", () => {
+    it("appends the described result to a successful outcome", async () => {
+      const bridge = createAgentBridge();
+
+      bridge.register(
+        "prompt_from_layer",
+        registration({
+          statusText: statusElement("Prompt text generated."),
+          describeResult: () => 'Generated text: "a red fox in snow"'
+        })
+      );
+      bridge.publishCapability("prompt_from_layer", { canRun: true, reason: "" });
+
+      // The status line alone ("Prompt text generated.") is true and useless —
+      // it doesn't say what was generated, which is the entire reason to call
+      // this tool from an agent instead of clicking the button.
+      await expect(bridge.execute("prompt_from_layer", {})).resolves.toEqual({
+        ok: true,
+        status: 'Prompt text generated. Generated text: "a red fox in snow"'
+      });
+    });
+
+    it("does not call describeResult when the run failed", async () => {
+      const bridge = createAgentBridge();
+      const describeResult = vi.fn(() => "should not appear");
+
+      bridge.register(
+        "prompt_from_layer",
+        registration({
+          statusText: statusElement("Source required."),
+          statusPill: statusElement("", ["error"]),
+          describeResult
+        })
+      );
+      bridge.publishCapability("prompt_from_layer", { canRun: true, reason: "" });
+
+      const outcome = await bridge.execute("prompt_from_layer", {});
+
+      expect(outcome).toEqual({ ok: false, status: "Source required." });
+      expect(describeResult).not.toHaveBeenCalled();
+    });
+
+    it("leaves the status alone when describeResult has nothing to add", async () => {
+      const bridge = createAgentBridge();
+
+      bridge.register(
+        "prompt_from_layer",
+        registration({
+          statusText: statusElement("Prompt text generated."),
+          // A field could theoretically be empty even on a reported success.
+          describeResult: () => ""
+        })
+      );
+      bridge.publishCapability("prompt_from_layer", { canRun: true, reason: "" });
+
+      await expect(bridge.execute("prompt_from_layer", {})).resolves.toEqual({
+        ok: true,
+        status: "Prompt text generated."
+      });
+    });
+
+    it("falls back to the plain status when describeResult throws", async () => {
+      const bridge = createAgentBridge();
+
+      bridge.register(
+        "prompt_from_layer",
+        registration({
+          statusText: statusElement("Prompt text generated."),
+          describeResult: () => {
+            throw new Error("field is gone");
+          }
+        })
+      );
+      bridge.publishCapability("prompt_from_layer", { canRun: true, reason: "" });
+
+      // The generation already succeeded and the panel already has its result;
+      // a broken describer must not turn a real success into a reported failure.
+      await expect(bridge.execute("prompt_from_layer", {})).resolves.toEqual({
+        ok: true,
+        status: "Prompt text generated."
+      });
+    });
+  });
+
   it("reports which tools registered, for the handshake", () => {
     const bridge = createAgentBridge();
 

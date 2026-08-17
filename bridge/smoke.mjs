@@ -125,8 +125,18 @@ send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
 const list = await waitFor(2, "tools/list");
 const toolNames = (list.result?.tools ?? []).map((tool) => tool.name).sort();
 check(
-  "exposes get_panel_state and text_to_image",
-  toolNames.join(",") === "get_panel_state,text_to_image",
+  "exposes get_panel_state and all seven generation tools",
+  toolNames.join(",") ===
+    [
+      "get_panel_state",
+      "image_to_image",
+      "inpaint",
+      "outpaint",
+      "prompt_from_layer",
+      "sketch_to_image",
+      "text_to_image",
+      "upscale"
+    ].join(","),
   toolNames.join(",")
 );
 
