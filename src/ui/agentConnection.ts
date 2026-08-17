@@ -55,7 +55,8 @@ export type AgentConnection = {
  * "could not connect" without it is a dead end — the bridge is a separate
  * install, so a perfectly healthy panel legitimately shows this on first run.
  */
-export const BRIDGE_START_HINT = "Start it from the OpenLayer folder: cd bridge && npm install, then run it from your MCP client.";
+export const BRIDGE_START_HINT =
+  "The bridge has to already be running before you turn this on. Start it in a terminal with: node bridge/src/main.mjs";
 
 export function createAgentConnection({
   bridge,
@@ -72,6 +73,16 @@ export function createAgentConnection({
 }): AgentConnection {
   let socket: AgentSocket | null = null;
   let enabled = false;
+  /**
+   * Whether *this* attempt ever reached `onopen`.
+   *
+   * A refused connection and a dropped one both arrive as `onclose`, and
+   * reporting them the same way is actively misleading: "the bridge
+   * disconnected" tells someone whose bridge was never running that it was, and
+   * sends them looking for the wrong problem. This is the only thing that
+   * distinguishes the two.
+   */
+  let hasOpened = false;
   let status: AgentConnectionStatus = { state: "off", message: "Agent Bridge is off." };
 
   const setStatus = (next: AgentConnectionStatus) => {
@@ -118,6 +129,7 @@ export function createAgentConnection({
       }
 
       enabled = true;
+      hasOpened = false;
 
       const url = `ws://127.0.0.1:${port}`;
 
@@ -126,6 +138,8 @@ export function createAgentConnection({
       try {
         socket = openSocket(url, {
           onOpen: () => {
+            hasOpened = true;
+
             // The handshake tells the bridge which tools this build actually
             // registered, so it can refuse a call for a missing one instead of
             // sending a command nothing will answer.
@@ -144,12 +158,15 @@ export function createAgentConnection({
             socket = null;
 
             if (enabled) {
-              // Enabled but closed means the bridge went away, not that the
-              // user turned this off. Say so, and say the toggle is the retry.
+              // Enabled but closed means either the bridge went away or it was
+              // never there. Those need different advice, and `hasOpened` is
+              // the only thing that tells them apart.
               enabled = false;
               setStatus({
                 state: "error",
-                message: `The agent bridge on 127.0.0.1:${port} disconnected. Turn Agent Bridge off and on to reconnect.`
+                message: hasOpened
+                  ? `The agent bridge on 127.0.0.1:${port} stopped. Turn Agent Bridge off and on to reconnect.`
+                  : `No agent bridge is listening on 127.0.0.1:${port}. ${BRIDGE_START_HINT}`
               });
             } else {
               setStatus({ state: "off", message: "Agent Bridge is off." });

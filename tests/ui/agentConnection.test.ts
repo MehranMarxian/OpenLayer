@@ -160,7 +160,7 @@ describe("createAgentConnection", () => {
     expect(test.execute).not.toHaveBeenCalled();
   });
 
-  it("reports an unexpected disconnect and does not retry", () => {
+  it("reports a bridge that stopped after being connected", () => {
     const test = harness();
 
     test.connection.enable(8199);
@@ -168,10 +168,41 @@ describe("createAgentConnection", () => {
     test.handlers.onClose();
 
     expect(test.latest().state).toBe("error");
+    expect(test.latest().message).toContain("stopped");
     expect(test.latest().message).toContain("Turn Agent Bridge off and on");
     // Silent redialling is indistinguishable from a hung plugin, so the toggle
     // is the retry. Enabled must be cleared or the toggle would read as "on".
     expect(test.connection.isEnabled()).toBe(false);
+  });
+
+  it("distinguishes a bridge that was never there from one that stopped", () => {
+    const test = harness();
+
+    test.connection.enable(8199);
+    // A refused connection arrives as onClose with no onOpen before it. Saying
+    // "disconnected" here sends someone whose bridge was never running off
+    // looking for the wrong problem — which is exactly what it did once.
+    test.handlers.onClose();
+
+    expect(test.latest().state).toBe("error");
+    expect(test.latest().message).toContain("No agent bridge is listening");
+    expect(test.latest().message).toContain("node bridge/src/main.mjs");
+    expect(test.latest().message).not.toContain("stopped");
+  });
+
+  it("does not carry a previous success into the next attempt", () => {
+    const test = harness();
+
+    test.connection.enable(8199);
+    test.handlers.onOpen();
+    test.handlers.onClose();
+
+    // Second attempt fails to connect. It must report "never there", not
+    // inherit hasOpened from the attempt before it.
+    test.connection.enable(8199);
+    test.handlers.onClose();
+
+    expect(test.latest().message).toContain("No agent bridge is listening");
   });
 
   it("reports a close after disable as off, not as an error", () => {
