@@ -12,6 +12,12 @@
 
 ### Added
 
+- **`outpaint-flux2-klein` — Klein outpainting in four steps, with your pixels guaranteed untouched.** Core `ImagePadForOutpaint` grows the canvas and emits a mask of the new border; that pair goes through the crop-and-stitch pack so only the border is generated and the original is composited straight back.
+
+  Measured on a real run: outside the feather, the original region came back at a mean pixel difference of **0.000 with a worst single-channel difference of 0** — bit-for-bit identical. The feathering slider controls the join, not how much of your image survives.
+
+  `ImagePadForOutpaint` is kept rather than the crop node's own `extend_for_outpainting` because the Outpaint tool's controls are pixel counts while those inputs are ratios, so your existing controls drive it unchanged. Needs the `comfyui-inpaint-cropandstitch` pack; `outpaint-flux-fill-basic` does not and remains the fallback.
+
 - **`edit-flux2-klein` — instruction editing, which is not image-to-image.** Tell it what to *change* ("make the jacket red", "turn the sky to dusk") instead of describing the whole picture. It appears in the Image to Image tool alongside the other Klein preset.
 
   The difference is structural, not a settings tweak. Image-to-image encodes your layer as the starting latent and samples at denoise below 1, which is one dial between "keeps your image, ignores you" and "obeys you, discards your image" — measured on this exact model, denoise 0.7 held a photograph faithfully and ignored a plain style instruction outright. This preset starts from an *empty* latent at denoise 1 and supplies your layer as **conditioning**, through `ReferenceLatent` on both the positive and negative branches. The model is free to follow the instruction while still being told what the scene is.

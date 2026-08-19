@@ -18,6 +18,7 @@ import img2imgFlux2KleinWorkflow from "../workflows/api/img2img-flux2-klein.json
 import editFlux2KleinWorkflow from "../workflows/api/edit-flux2-klein.json";
 import inpaintFluxFillBasicWorkflow from "../workflows/api/inpaint-flux-fill-basic.json";
 import inpaintFluxFillCropStitchWorkflow from "../workflows/api/inpaint-flux-fill-cropstitch.json";
+import outpaintFlux2KleinWorkflow from "../workflows/api/outpaint-flux2-klein.json";
 import outpaintFluxFillBasicWorkflow from "../workflows/api/outpaint-flux-fill-basic.json";
 import upscaleBasicWorkflow from "../workflows/api/upscale-basic.json";
 import {
@@ -62,6 +63,7 @@ const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
   "inpaint-flux-fill-basic": inpaintFluxFillBasicWorkflow as ComfyWorkflow,
   "inpaint-flux-fill-cropstitch": inpaintFluxFillCropStitchWorkflow as ComfyWorkflow,
   "outpaint-flux-fill-basic": outpaintFluxFillBasicWorkflow as ComfyWorkflow,
+  "outpaint-flux2-klein": outpaintFlux2KleinWorkflow as ComfyWorkflow,
   "upscale-basic": upscaleBasicWorkflow as ComfyWorkflow
 };
 
@@ -254,7 +256,15 @@ export async function buildOutpaintWorkflow(
   setPresetInput(workflow, preset, "seed", seed, true);
   setPresetInput(workflow, preset, "steps", options.steps, true);
   setPresetInput(workflow, preset, "cfg", options.cfg, true);
-  setPresetInput(workflow, preset, "denoise", options.denoise, true);
+  // Same rule as buildImg2ImgWorkflow: required only when the preset offers the
+  // control. outpaint-flux2-klein fixes denoise at 1 and has no target for it.
+  setPresetInput(
+    workflow,
+    preset,
+    "denoise",
+    options.denoise,
+    preset.capability?.controls.includes("denoise") ?? true
+  );
   setPresetInput(workflow, preset, "outpaintLeft", options.left, true);
   setPresetInput(workflow, preset, "outpaintTop", options.top, true);
   setPresetInput(workflow, preset, "outpaintRight", options.right, true);

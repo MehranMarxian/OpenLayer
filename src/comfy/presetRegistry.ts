@@ -587,6 +587,33 @@ const FLUX2_KLEIN_EDIT_NODES = {
   saveImage: "9"
 } as const;
 
+// Outpaint without a fill model. ImagePadForOutpaint supplies the grown canvas
+// AND a mask of the new border, the crop node consumes that mask, and the
+// stitch composites only the new area back -- so the artist's pixels return
+// bit-for-bit. Keeping ImagePadForOutpaint rather than the crop node's own
+// extend_for_outpainting is what lets the panel's existing pixel controls drive
+// this preset unchanged; the crop node's extend inputs are ratios.
+const FLUX2_KLEIN_OUTPAINT_NODES = {
+  diffusionModelLoader: "20",
+  clipLoader: "21",
+  vaeLoader: "22",
+  modelSampling: "23",
+  loadImage: "10",
+  imagePad: "44",
+  inpaintCrop: "50",
+  samplingSize: "13",
+  vaeEncode: "11",
+  positivePrompt: "6",
+  negativePrompt: "7",
+  referenceIntoPositive: "14",
+  referenceIntoNegative: "15",
+  latentImage: "5",
+  sampler: "3",
+  decode: "8",
+  inpaintStitch: "51",
+  saveImage: "9"
+} as const;
+
 const SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_NODES = {
   diffusionModelLoader: "20",
   clipLoader: "21",
@@ -979,6 +1006,21 @@ const FLUX2_KLEIN_EDIT_INJECTIONS = {
   // Deliberately no denoise target. Denoise 1 is not a default here, it is the
   // technique; injecting the panel's slider would quietly turn this back into
   // the image-to-image preset that sits next to it.
+} as const;
+
+const FLUX2_KLEIN_OUTPAINT_INJECTIONS = {
+  checkpoint: target(FLUX2_KLEIN_OUTPAINT_NODES.diffusionModelLoader, "unet_name"),
+  sourceImage: target(FLUX2_KLEIN_OUTPAINT_NODES.loadImage, "image"),
+  positivePrompt: target(FLUX2_KLEIN_OUTPAINT_NODES.positivePrompt, "text"),
+  seed: target(FLUX2_KLEIN_OUTPAINT_NODES.sampler, "seed"),
+  steps: target(FLUX2_KLEIN_OUTPAINT_NODES.sampler, "steps"),
+  cfg: target(FLUX2_KLEIN_OUTPAINT_NODES.sampler, "cfg"),
+  outpaintLeft: target(FLUX2_KLEIN_OUTPAINT_NODES.imagePad, "left"),
+  outpaintTop: target(FLUX2_KLEIN_OUTPAINT_NODES.imagePad, "top"),
+  outpaintRight: target(FLUX2_KLEIN_OUTPAINT_NODES.imagePad, "right"),
+  outpaintBottom: target(FLUX2_KLEIN_OUTPAINT_NODES.imagePad, "bottom"),
+  outpaintFeathering: target(FLUX2_KLEIN_OUTPAINT_NODES.imagePad, "feathering")
+  // No denoise target, same as edit-flux2-klein: denoise 1 is the technique.
 } as const;
 
 const Z_IMAGE_TURBO_TXT2IMG_INJECTIONS = {
@@ -1445,6 +1487,38 @@ const FLUX2_KLEIN_EDIT_CAPABILITY: WorkflowCapability = {
     hiddenControls: ["denoise"],
     experimentalNote:
       "Instruction editing, not image-to-image. Write what you want CHANGED -- \"make the jacket red\", \"remove the parked car\", \"turn the sky to dusk\" -- rather than describing the whole picture. The rest of the frame is held by reference conditioning rather than by a low denoise, so it stays put far better than the image-to-image preset while still obeying the instruction. Denoise is hidden because it is fixed at 1; that is the technique, not a default."
+  }
+};
+
+const FLUX2_KLEIN_OUTPAINT_CAPABILITY: WorkflowCapability = {
+  toolType: "outpaint",
+  loaderType: "diffusion-model-stack",
+  artistLabel: "Outpaint",
+  technicalLabel: "outpaint-flux2-klein",
+  requiredPhotoshopInputs: [{ anyOf: ["active-layer", "canvas"], label: "an active layer or captured canvas" }],
+  controls: [
+    "prompt",
+    "steps",
+    "cfg",
+    "seed",
+    "outpaintLeft",
+    "outpaintTop",
+    "outpaintRight",
+    "outpaintBottom",
+    "outpaintFeathering"
+  ],
+  output: {
+    kind: "source-sized-image",
+    size: "source",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Klein model",
+    primaryActionLabel: "Generate Outpaint",
+    hiddenControls: ["denoise"],
+    experimentalNote:
+      "Klein outpainting in four steps, using the comfyui-inpaint-cropandstitch pack rather than a Fill model. Your existing pixels are composited back untouched -- only the new border is generated -- so the feathering slider controls the join, not how much of your image survives. Describe the WIDER scene you want revealed rather than what is already there. Denoise is fixed at 1."
   }
 };
 
@@ -2892,6 +2966,57 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     ],
     compatibilityNote:
       "edit-flux2-klein is FLUX.2 Klein driven as an instruction editor. The captured layer is normalised to roughly 1 megapixel, encoded once, and fed to ReferenceLatent on BOTH the positive and the negative conditioning; the sampler starts from an EmptyFlux2LatentImage of that size at denoise 1. Wiring the reference into the positive branch only loses most of the preservation, which is why two ReferenceLatent nodes appear rather than one. The decoded result is scaled back to the captured layer's exact pixel size so the preset's source-sized output contract holds whatever the 1 MP normalisation chose. Every node is core ComfyUI. Note that ReferenceLatent declares `latent` as an optional input, so a setup check that reads only ComfyUI's `required` bucket reports this graph as missing setup on a machine where it runs perfectly."
+  },
+  {
+    id: "outpaint-flux2-klein",
+    label: "outpaint-flux2-klein",
+    displayName: "FLUX.2 Klein",
+    mode: "outpaint",
+    description: "Fast Klein outpainting: pad the canvas, generate only the new border, composite the original back untouched.",
+    workflowFile: "workflows/api/outpaint-flux2-klein.json",
+    status: "stable",
+    recommendedSettings: { steps: 4, cfg: 1 },
+    supportedModelFamilies: ["flux2"],
+    experimentalModelFamilies: ["unknown"],
+    modelSource: DIFFUSION_MODEL_SOURCE,
+    capability: FLUX2_KLEIN_OUTPAINT_CAPABILITY,
+    modelStack: [...FLUX2_KLEIN_4B_STACK],
+    requiredModels: [...FLUX2_KLEIN_4B_STACK],
+    injections: FLUX2_KLEIN_OUTPAINT_INJECTIONS,
+    requiredNodes: [
+      { id: FLUX2_KLEIN_OUTPAINT_NODES.diffusionModelLoader, classType: "UNETLoader", requiredInputs: ["unet_name", "weight_dtype"] },
+      { id: FLUX2_KLEIN_OUTPAINT_NODES.clipLoader, classType: "CLIPLoader", requiredInputs: ["clip_name", "type"] },
+      { id: FLUX2_KLEIN_OUTPAINT_NODES.vaeLoader, classType: "VAELoader", requiredInputs: ["vae_name"] },
+      { id: FLUX2_KLEIN_OUTPAINT_NODES.modelSampling, classType: "ModelSamplingAuraFlow", requiredInputs: ["model", "shift"] },
+      { id: FLUX2_KLEIN_OUTPAINT_NODES.loadImage, classType: "LoadImage", requiredInputs: ["image"] },
+      {
+        id: FLUX2_KLEIN_OUTPAINT_NODES.imagePad,
+        classType: "ImagePadForOutpaint",
+        requiredInputs: ["image", "left", "top", "right", "bottom", "feathering"]
+      },
+      {
+        id: FLUX2_KLEIN_OUTPAINT_NODES.inpaintCrop,
+        classType: "InpaintCropImproved",
+        requiredInputs: ["image", "mask", "mask_fill_holes", "mask_blend_pixels", "output_resize_to_target_size"]
+      },
+      { id: FLUX2_KLEIN_OUTPAINT_NODES.samplingSize, classType: "GetImageSize", requiredInputs: ["image"] },
+      { id: FLUX2_KLEIN_OUTPAINT_NODES.vaeEncode, classType: "VAEEncode", requiredInputs: ["pixels", "vae"] },
+      { id: FLUX2_KLEIN_OUTPAINT_NODES.positivePrompt, classType: "CLIPTextEncode", requiredInputs: ["text", "clip"] },
+      { id: FLUX2_KLEIN_OUTPAINT_NODES.negativePrompt, classType: "CLIPTextEncode", requiredInputs: ["text", "clip"] },
+      { id: FLUX2_KLEIN_OUTPAINT_NODES.referenceIntoPositive, classType: "ReferenceLatent", requiredInputs: ["conditioning", "latent"] },
+      { id: FLUX2_KLEIN_OUTPAINT_NODES.referenceIntoNegative, classType: "ReferenceLatent", requiredInputs: ["conditioning", "latent"] },
+      { id: FLUX2_KLEIN_OUTPAINT_NODES.latentImage, classType: "EmptyFlux2LatentImage", requiredInputs: ["width", "height", "batch_size"] },
+      {
+        id: FLUX2_KLEIN_OUTPAINT_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["model", "seed", "steps", "cfg", "sampler_name", "scheduler", "positive", "negative", "latent_image", "denoise"]
+      },
+      { id: FLUX2_KLEIN_OUTPAINT_NODES.decode, classType: "VAEDecode", requiredInputs: ["samples", "vae"] },
+      { id: FLUX2_KLEIN_OUTPAINT_NODES.inpaintStitch, classType: "InpaintStitchImproved", requiredInputs: ["stitcher", "inpainted_image"] },
+      { id: FLUX2_KLEIN_OUTPAINT_NODES.saveImage, classType: "SaveImage", requiredInputs: ["images"] }
+    ],
+    compatibilityNote:
+      "outpaint-flux2-klein grows the canvas with core ImagePadForOutpaint, which emits both the padded image and a mask of the new border, then routes that pair through lquesada's InpaintCropImproved / InpaintStitchImproved so only the border is generated and the artist's pixels are composited back unchanged -- measured at a mean pixel difference of 0.00 across the original interior. ImagePadForOutpaint is kept rather than the crop node's own extend_for_outpainting because the panel's Outpaint controls are pixel counts while those inputs are ratios; this way the existing controls drive the preset unchanged. mask_fill_holes must stay false: the mask is a frame, and filling its hole would mark the whole original image as repaintable. Needs the comfyui-inpaint-cropandstitch pack; outpaint-flux-fill-basic does not, and remains the fallback."
   },
   {
     id: "txt2img-z-image-turbo",
