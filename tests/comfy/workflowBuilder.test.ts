@@ -379,47 +379,6 @@ describe("workflowBuilder", () => {
     expect(result.workflow["34"].inputs.clip_name2).toBe("t5xxl_fp8_e4m3fn.safetensors");
   });
 
-  it("drives Klein outpaint through ImagePadForOutpaint and composites only the new border", async () => {
-    const result = await buildOutpaintWorkflow({
-      presetId: "outpaint-flux2-klein",
-      prompt: "a wide farmhouse kitchen",
-      negativePrompt: "",
-      checkpointName: "flux-2-klein-4b-fp8.safetensors",
-      sourceImageName: "openlayer-source.png",
-      steps: 4,
-      cfg: 1,
-      seed: 909,
-      // Ignored: this preset fixes denoise at 1, as edit-flux2-klein does.
-      denoise: 0.4,
-      left: 256,
-      top: 0,
-      right: 256,
-      bottom: 192,
-      feathering: 40
-    });
-
-    // The panel's pixel controls reach ImagePadForOutpaint unchanged. The crop
-    // node's own extend inputs are ratios, which these numbers are not.
-    expect(result.workflow["44"].class_type).toBe("ImagePadForOutpaint");
-    expect(result.workflow["44"].inputs.left).toBe(256);
-    expect(result.workflow["44"].inputs.bottom).toBe(192);
-    expect(result.workflow["44"].inputs.feathering).toBe(40);
-
-    // Image AND mask both come from the pad node: the mask is what confines
-    // generation to the new border.
-    expect(result.workflow["50"].inputs.image).toEqual(["44", 0]);
-    expect(result.workflow["50"].inputs.mask).toEqual(["44", 1]);
-
-    // The mask is a frame. Filling its hole would mark the artist's whole image
-    // as repaintable, which is the difference between outpainting and
-    // regenerating the picture.
-    expect(result.workflow["50"].inputs.mask_fill_holes).toBe(false);
-
-    expect(result.workflow["3"].inputs.denoise).toBe(1);
-    expect(result.workflow["51"].class_type).toBe("InpaintStitchImproved");
-    expect(result.workflow["9"].inputs.images).toEqual(["51", 0]);
-  });
-
   it("injects Flux Fill outpaint source, padding, prompt, model, and seed", async () => {
     const result = await buildOutpaintWorkflow({
       presetId: "outpaint-flux-fill-basic",

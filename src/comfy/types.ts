@@ -20,7 +20,6 @@ export type WorkflowPreset =
   | "inpaint-flux-fill-basic"
   | "inpaint-flux-fill-cropstitch"
   | "outpaint-flux-fill-basic"
-  | "outpaint-flux2-klein"
   | "upscale-basic";
 export type WorkflowMode =
   | "txt2img"

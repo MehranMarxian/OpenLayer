@@ -60,8 +60,8 @@ describe("presetRegistry", () => {
       "inpaint-flux-fill-basic",
       "inpaint-flux-fill-cropstitch"
     ]);
-    expect(allOutpaintIds).toEqual(["outpaint-flux-fill-basic", "outpaint-flux2-klein"]);
-    expect(runnableOutpaintIds).toEqual(["outpaint-flux-fill-basic", "outpaint-flux2-klein"]);
+    expect(allOutpaintIds).toEqual(["outpaint-flux-fill-basic"]);
+    expect(runnableOutpaintIds).toEqual(["outpaint-flux-fill-basic"]);
     expect(runnableUpscaleIds).toEqual(["upscale-basic"]);
   });
 
