@@ -20,6 +20,10 @@ New in `v0.15.0-alpha`:
 - **The bridge is not in the download.** A Photoshop plugin package cannot install or start a Node program, so it lives in the repository: clone or download it, then `cd bridge && npm install && npm run hub`. `bridge/README.md` covers the setup and the one line that registers it with your AI client.
 - **Ask the Agent for a Prompt**, under the Text to Image prompt box — the panel asking the assistant for once. Needs an AI client that supports MCP *sampling*; see the boundaries below.
 - **Version drift is a test failure now.** v0.14.0-alpha displayed `v0.13.0` in the panel footer, in both diagnostics lines, and in the version recorded against every session-history entry, because the number lives in eight places and one of them moved file. `npm test` now names whichever file disagrees.
+- **FLUX.2 Klein 4B, text-to-image, image-to-image, and instruction editing.** Three new presets — `txt2img-flux2-klein`, `img2img-flux2-klein`, and `edit-flux2-klein` — run Black Forest Labs' distilled Klein 4B at **4 steps, CFG 1**. A 1024x1024 generation completed in **11.6 seconds** on a 4070 Ti. The download is **4.07 GB** (`flux-2-klein-4b-fp8.safetensors`) plus a 336 MB VAE; the 8 GB `qwen_3_4b.safetensors` text encoder is the same file the Z_image_Turbo presets already use. Every node is core ComfyUI — no new custom-node packages — and Klein is Apache-2.0 and ungated.
+- **Instruction editing is not image-to-image.** `edit-flux2-klein` tells the model what to *change* ("make the jacket red", "turn the sky to dusk") instead of describing the whole picture. It starts from an empty latent at denoise 1 and supplies your layer as conditioning through `ReferenceLatent`, so the model follows the instruction while seeing what the scene is. Denoise is hidden because it is fixed at 1 — that is the technique, not a default.
+- **Context-aware Inpaint: `inpaint-flux-fill-cropstitch`.** A second Flux Fill preset that crops to your mask plus context, samples that at 1024x1024, and stitches the patch back with a blended seam, using lquesada's ComfyUI-Inpaint-CropAndStitch. A small mask on a large document no longer samples a few hundred pixels, and a large one no longer samples several thousand. It ships alongside `inpaint-flux-fill-basic` rather than replacing it, because the custom-node dependency is optional.
+- **Image to Image results land where they came from.** The imported layer could arrive offset from the layer it was generated from. Capture now records where in the document it read from, and the import moves the layer there explicitly.
 
 Also new in `v0.14.0-alpha`:
 
@@ -92,6 +96,8 @@ Included in this alpha:
 - Global Cancel Generation button path for Text to Image, Image to Image, Sketch to Image, Inpaint, Outpaint, and Prompt from Layer using ComfyUI's local interrupt endpoint
 - Prompt from Layer workflow using Florence-2 PromptGen to describe a captured layer or canvas when the local setup is installed
 - Experimental Flux Fill Outpaint workflow using `ImagePadForOutpaint`
+- FLUX.2 Klein 4B Text to Image, Image to Image, and instruction editing presets
+- Context-aware Inpaint preset using ComfyUI-Inpaint-CropAndStitch for fixed 1024 sampling
 - Image to Image `Import Automatically` toggle for sending generated results straight back into Photoshop
 - Upscale screen using ComfyUI pixel/model upscale, not generative upscale
 - `upscale-basic` workflow using `LoadImage`, `UpscaleModelLoader`, `ImageUpscaleWithModel`, and `SaveImage`
@@ -130,6 +136,10 @@ The earlier card-based dashboard established OpenLayer's honest available/experi
 
 v0.15.0-alpha tester focus:
 
+- **Generate with `txt2img-flux2-klein`.** It should complete in under 15 seconds on a 4070 Ti at 1024x1024. Confirm the result is coherent and the prompt was followed.
+- **Open Image to Image, switch to `img2img-flux2-klein`, capture a layer, and generate.** The result should follow your layer. Then switch to `edit-flux2-klein`, enter a change instruction ("make the sky orange"), and generate again — the edit should apply the instruction while keeping the rest of the scene.
+- **Open Inpaint, make a selection, and switch to `inpaint-flux-fill-cropstitch`.** Generate and confirm the inpainted area blends into the surrounding image. Compare with `inpaint-flux-fill-basic` at the same selection — crop-and-stitch should produce sharper detail on small selections in large documents.
+- **Generate an Image to Image result from a layer that is not at the canvas origin**, then import it. The imported layer must land where the source layer was, not centred on the canvas.
 - **Confirm the panel footer reads `v0.15.0`.** It read the wrong version for the whole of v0.14.0-alpha, so this is worth a glance before anything else.
 - **Confirm ordinary use is unaffected if you never turn the Agent Bridge on.** Text to Image gains one new button, "Ask the Agent for a Prompt" — clicking it with the bridge off should show a clear "not connected" status, not an error or a broken panel. Everything else should behave exactly as it did in v0.14. This is the most important check in the list: everything below is opt-in.
 - Open **Setup** and find the **Agent Bridge** section at the bottom. With nothing running, press **Turn Agent Bridge On** — it must report that no bridge is listening and tell you how to start one, not hang or claim to be connected.
@@ -199,10 +209,11 @@ Known v0.15.0-alpha boundaries:
 - Inpaint can detect and capture the selected rectangular region as a PNG/lossless source image.
 - Inpaint now attempts a temporary-layer grayscale PNG mask export and can run the experimental SD 1.x `inpaint-basic` workflow when ComfyUI has the required nodes.
 - Inpainting is available for testing, but output quality and Photoshop alignment are not confirmed stable yet.
-- The first Inpaint preset is intended for SD 1.x checkpoints. SDXL, SD3, Flux, and Z_image_Turbo inpainting need dedicated future presets.
+- Inpaint has three presets: `inpaint-basic` (SD 1.x), `inpaint-flux-fill-basic` (Flux Fill), and `inpaint-flux-fill-cropstitch` (Flux Fill with crop-and-stitch). The crop-and-stitch preset requires lquesada's `comfyui-inpaint-cropandstitch` custom-node package; without it the preset is unavailable and the original Flux Fill preset still works.
 - `img2img-basic` is the default SD 1.x/SDXL preset. SD3, SD3.5, and Flux checkpoints remain visible but are marked experimental because they usually need dedicated future workflow presets.
 - Z_image_Turbo presets are experimental and use `UNETLoader`, `CLIPLoader`, and `VAELoader` instead of the checkpoint loader.
 - `txt2img-flux1-dev-fp8` is an experimental checkpoint-style Flux Text to Image preset for `flux1-dev-fp8.safetensors`.
+- FLUX.2 Klein presets (`txt2img-flux2-klein`, `img2img-flux2-klein`, `edit-flux2-klein`) use `flux-2-klein-4b-fp8.safetensors` (4.07 GB), `qwen_3_4b.safetensors` (8 GB, shared with Z_image_Turbo), and `ae.safetensors` (336 MB). Klein is Apache-2.0 and ungated. `edit-flux2-klein` is structurally different from image-to-image: it uses `ReferenceLatent` conditioning at denoise 1, not a starting latent at partial denoise.
 - Full-precision Flux1-dev Text to Image and Image to Image presets have been removed rather than left disabled. The bf16 weight is 23.8 GB before its text encoders and VAE, which does not fit the 12 GB cards this project targets, and `txt2img-flux1-dev-fp8` already covers Flux Text to Image. Every preset the panel lists is now one you can actually run.
 - Cancel Generation uses ComfyUI's interrupt endpoint and stops OpenLayer watchers/polling for active generation tools, but cancellation cannot undo work ComfyUI already completed.
 - The Settings workflow health checker reports local readiness, but it does not auto-fix missing models, missing nodes, or workflow mappings.
@@ -522,7 +533,7 @@ This alpha includes the first experimental SD 1.x mask-based inpainting path.
 8. Wait for the result preview.
 9. Click `Import to Layers`.
 
-The first `inpaint-basic` preset is experimental and intended for SD 1.x inpaint checkpoints first. `inpaint-flux-fill-basic` is also available as an experimental Flux Fill path when your local ComfyUI exposes the required Flux Fill model stack.
+The first `inpaint-basic` preset is experimental and intended for SD 1.x inpaint checkpoints first. `inpaint-flux-fill-basic` is also available as an experimental Flux Fill path when your local ComfyUI exposes the required Flux Fill model stack. `inpaint-flux-fill-cropstitch` adds crop-and-stitch sampling at 1024 on top of the same Flux Fill stack, and needs lquesada's `comfyui-inpaint-cropandstitch` node package.
 
 Inpaint output quality, mask interpretation, and Photoshop alignment are still being tested. Use this path for debugging and feedback rather than production work.
 
