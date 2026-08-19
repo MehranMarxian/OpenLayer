@@ -4,6 +4,12 @@
 
 ### Added
 
+- **`edit-flux2-klein` — instruction editing, which is not image-to-image.** Tell it what to *change* ("make the jacket red", "turn the sky to dusk") instead of describing the whole picture. It appears in the Image to Image tool alongside the other Klein preset.
+
+  The difference is structural, not a settings tweak. Image-to-image encodes your layer as the starting latent and samples at denoise below 1, which is one dial between "keeps your image, ignores you" and "obeys you, discards your image" — measured on this exact model, denoise 0.7 held a photograph faithfully and ignored a plain style instruction outright. This preset starts from an *empty* latent at denoise 1 and supplies your layer as **conditioning**, through `ReferenceLatent` on both the positive and negative branches. The model is free to follow the instruction while still being told what the scene is.
+
+  Asked to turn a wooden table to polished marble, it produced marble with a correct reflection of the teapot standing on it, and left the teapot, window and lighting alone. Denoise is hidden in the panel because it is fixed at 1 — that is the technique, not a default.
+
 - **FLUX.2 Klein 4B, text-to-image and image-to-image.** `txt2img-flux2-klein` and `img2img-flux2-klein` run Black Forest Labs' distilled Klein 4B at **4 steps, CFG 1** (`er_sde` / `simple`, `ModelSamplingAuraFlow` shift 3). That operating point is the whole point: a 1024x1024 generation completed in **11.6 seconds** on a 4070 Ti, against Flux.2 Dev's 20 steps through a 20 GB model. If Flux.2 has felt like a batch job rather than something you iterate with, this is the answer.
 
   The download is **4.07 GB** (`flux-2-klein-4b-fp8.safetensors`) plus a 336 MB VAE. The 8 GB `qwen_3_4b.safetensors` text encoder is the *same file* the Z_image_Turbo presets already use, and is named identically in the registry so the setup pack downloads it once rather than twice — if you already run Z_image_Turbo, Klein costs you 4.4 GB.

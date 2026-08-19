@@ -15,6 +15,7 @@ import sketch2imgZimageFunControlnetFullWorkflow from "../workflows/api/sketch2i
 import inpaintBasicWorkflow from "../workflows/api/inpaint-basic.json";
 import txt2imgFlux2KleinWorkflow from "../workflows/api/txt2img-flux2-klein.json";
 import img2imgFlux2KleinWorkflow from "../workflows/api/img2img-flux2-klein.json";
+import editFlux2KleinWorkflow from "../workflows/api/edit-flux2-klein.json";
 import inpaintFluxFillBasicWorkflow from "../workflows/api/inpaint-flux-fill-basic.json";
 import inpaintFluxFillCropStitchWorkflow from "../workflows/api/inpaint-flux-fill-cropstitch.json";
 import outpaintFluxFillBasicWorkflow from "../workflows/api/outpaint-flux-fill-basic.json";
@@ -57,6 +58,7 @@ const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
   "inpaint-basic": inpaintBasicWorkflow as ComfyWorkflow,
   "txt2img-flux2-klein": txt2imgFlux2KleinWorkflow as ComfyWorkflow,
   "img2img-flux2-klein": img2imgFlux2KleinWorkflow as ComfyWorkflow,
+  "edit-flux2-klein": editFlux2KleinWorkflow as ComfyWorkflow,
   "inpaint-flux-fill-basic": inpaintFluxFillBasicWorkflow as ComfyWorkflow,
   "inpaint-flux-fill-cropstitch": inpaintFluxFillCropStitchWorkflow as ComfyWorkflow,
   "outpaint-flux-fill-basic": outpaintFluxFillBasicWorkflow as ComfyWorkflow,
@@ -120,7 +122,19 @@ export async function buildImg2ImgWorkflow(
   setPresetInput(workflow, preset, "seed", seed, true);
   setPresetInput(workflow, preset, "steps", options.steps, true);
   setPresetInput(workflow, preset, "cfg", options.cfg, true);
-  setPresetInput(workflow, preset, "denoise", options.denoise, true);
+  // Required only when the preset actually offers a denoise control. Every
+  // image-to-image preset had one until edit-flux2-klein, where denoise 1 IS
+  // the technique and there is deliberately nowhere to put the panel's slider.
+  // Keying off the declared capability rather than relaxing the check for
+  // everyone means a preset that offers the control but forgets to wire it
+  // still fails loudly.
+  setPresetInput(
+    workflow,
+    preset,
+    "denoise",
+    options.denoise,
+    preset.capability?.controls.includes("denoise") ?? true
+  );
 
   applyLoraSelection(workflow, preset, options.lora);
 

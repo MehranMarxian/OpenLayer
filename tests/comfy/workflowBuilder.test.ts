@@ -230,6 +230,42 @@ describe("workflowBuilder", () => {
     expect(result.workflow["5"]).toBeUndefined();
   });
 
+  it("feeds the Klein edit reference into both conditioning branches and never injects denoise", async () => {
+    const result = await buildImg2ImgWorkflow({
+      presetId: "edit-flux2-klein",
+      prompt: "make the jacket red",
+      negativePrompt: "",
+      checkpointName: "flux-2-klein-4b-fp8.safetensors",
+      sourceImageName: "openlayer-source.png",
+      steps: 4,
+      cfg: 1,
+      seed: 11,
+      // The panel always passes a denoise. The preset must ignore it: denoise 1
+      // is the technique here, and honouring the slider would silently turn this
+      // back into the image-to-image preset sitting next to it.
+      denoise: 0.35
+    });
+
+    expect(result.workflow["3"].inputs.denoise).toBe(1);
+    expect(result.workflow["5"].class_type).toBe("EmptyFlux2LatentImage");
+    expect(result.workflow["3"].inputs.latent_image).toEqual(["5", 0]);
+
+    // One encode, reaching BOTH branches. Wiring it into the positive only
+    // loses most of the preservation this preset exists for.
+    expect(result.workflow["14"].class_type).toBe("ReferenceLatent");
+    expect(result.workflow["15"].class_type).toBe("ReferenceLatent");
+    expect(result.workflow["14"].inputs.latent).toEqual(["11", 0]);
+    expect(result.workflow["15"].inputs.latent).toEqual(["11", 0]);
+    expect(result.workflow["3"].inputs.positive).toEqual(["14", 0]);
+    expect(result.workflow["3"].inputs.negative).toEqual(["15", 0]);
+
+    // Sampled at ~1 MP, returned at the captured layer's exact size.
+    expect(result.workflow["5"].inputs.width).toEqual(["13", 0]);
+    expect(result.workflow["17"].inputs.width).toEqual(["16", 0]);
+    expect(result.workflow["16"].inputs.image).toEqual(["10", 0]);
+    expect(result.workflow["9"].inputs.images).toEqual(["17", 0]);
+  });
+
   it("injects Flux Fill inpaint embedded source, prompt, model, and seed while preserving reference defaults", async () => {
     const result = await buildInpaintWorkflow({
       presetId: "inpaint-flux-fill-basic",

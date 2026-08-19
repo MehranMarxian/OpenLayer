@@ -40,9 +40,12 @@ describe("presetRegistry", () => {
       "txt2img-flux2-dev-gguf"
     ]);
     expect(allImg2ImgIds).toContain("img2img-z-image-turbo");
+    // edit-flux2-klein lives in img2img mode on purpose: it takes the same
+    // Photoshop inputs and shares the tool, but it is a different technique.
     expect(runnableImg2ImgIds).toEqual([
       "img2img-basic",
       "img2img-flux2-klein",
+      "edit-flux2-klein",
       "img2img-z-image-turbo",
       "img2img-krea2-turbo"
     ]);
@@ -117,6 +120,20 @@ describe("presetRegistry", () => {
     expect(preset.requiredNodes.some((node) => node.classType === "InpaintModelConditioning")).toBe(true);
     expect(preset.requiredNodes.some((node) => node.classType === "ImageToMask")).toBe(true);
     expect(preset.requiredNodes.some((node) => node.classType === "ImageCompositeMasked")).toBe(true);
+  });
+
+  it("gives every preset that offers a denoise control somewhere to put it", () => {
+    // buildImg2ImgWorkflow now decides whether denoise is required from the
+    // capability's control list, so the two must not drift: a preset that
+    // advertises the slider and has no injection target would throw at submit
+    // time, and one that hides it but keeps a target would silently accept a
+    // value the panel never shows.
+    for (const preset of listRunnableWorkflowPresets()) {
+      const offersDenoise = preset.capability?.controls.includes("denoise") ?? false;
+      const hasTarget = preset.injections.denoise !== undefined;
+
+      expect(hasTarget, `${preset.id} offers denoise but has no injection target`).toBe(offersDenoise);
+    }
   });
 
   it("registers the crop & stitch inpaint preset alongside the plain Flux Fill one", () => {
