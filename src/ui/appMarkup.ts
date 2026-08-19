@@ -33,6 +33,7 @@ import {
   ToolCard,
   ToolIconName
 } from "./appConstants";
+import { DEFAULT_AGENT_BRIDGE_PORT } from "../utils/preferences";
 
 export type AppElements = {
   appShell: HTMLElement;
@@ -57,6 +58,11 @@ export type AppElements = {
   setupSections: HTMLElement;
   setupVramLabel: HTMLElement;
   setupOutlookList: HTMLElement;
+  suggestPrompt: HTMLElement;
+  agentBridgePort: HTMLInputElement;
+  agentBridgeToggle: HTMLElement;
+  agentBridgeStatusText: HTMLElement;
+  agentBridgeStatusPill: HTMLElement;
   historyView: HTMLElement;
   layerToolsView: HTMLElement;
   exportLayerFileButton: HTMLElement;
@@ -563,6 +569,7 @@ export function createAppMarkup() {
             <span class="label">Prompt</span>
             <textarea class="textarea" id="prompt" placeholder="Describe the image you want to generate..."></textarea>
           </label>
+          <button class="button action-control" id="suggest-prompt" data-openlayer-action="suggestPrompt" type="button">Ask the Agent for a Prompt</button>
           <section class="negative-prompt-section" aria-label="Negative prompt">
             <button class="button disclosure-button action-control" id="negative-prompt-toggle" data-openlayer-action="toggleNegativePrompt" type="button">Show Negative Prompt</button>
             <label class="field negative-prompt-field" id="negative-prompt-field" hidden>
@@ -1305,6 +1312,27 @@ export function createAppMarkup() {
           </div>
           <div id="setup-outlook-list"></div>
         </section>
+
+        <section class="panel-section settings-panel diagnostic-section diagnostic-scroll-safe" aria-label="Agent Bridge">
+          <div class="section-heading">
+            <span class="label">Agent Bridge</span>
+            <span class="muted-label">Experimental</span>
+          </div>
+          <div class="diagnostics-line setup-paragraph">
+            Lets an AI assistant drive OpenLayer's tools through the Model Context Protocol, instead of only panel clicks. It runs entirely on this machine and is off unless you turn it on. The bridge program is installed separately &mdash; see <code>bridge/README.md</code>.
+          </div>
+          <div class="settings-grid" aria-label="Agent Bridge settings">
+            <label class="field">
+              <span class="label">Bridge port</span>
+              <input class="input input-compact" id="agent-bridge-port" type="number" min="1" max="65535" step="1" value="${DEFAULT_AGENT_BRIDGE_PORT}" />
+            </label>
+          </div>
+          <button class="button action-control" id="agent-bridge-toggle" data-openlayer-action="toggleAgentBridge" type="button" aria-pressed="false">Turn Agent Bridge On</button>
+          <div class="status-bar" role="status">
+            <span class="status-text" id="agent-bridge-status-text">Agent Bridge is off.</span>
+            <span class="status-pill idle" id="agent-bridge-status-pill">Status</span>
+          </div>
+        </section>
       </section>
 
       <section class="history-view" id="history-view" aria-label="History" hidden>
@@ -1474,6 +1502,11 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     setupSections: getElement<HTMLElement>(rootElement, "setup-sections"),
     setupVramLabel: getElement<HTMLElement>(rootElement, "setup-vram-label"),
     setupOutlookList: getElement<HTMLElement>(rootElement, "setup-outlook-list"),
+    suggestPrompt: getElement<HTMLElement>(rootElement, "suggest-prompt"),
+    agentBridgePort: getElement<HTMLInputElement>(rootElement, "agent-bridge-port"),
+    agentBridgeToggle: getElement<HTMLElement>(rootElement, "agent-bridge-toggle"),
+    agentBridgeStatusText: getElement<HTMLElement>(rootElement, "agent-bridge-status-text"),
+    agentBridgeStatusPill: getElement<HTMLElement>(rootElement, "agent-bridge-status-pill"),
     historyView: getElement<HTMLElement>(rootElement, "history-view"),
     layerToolsView: getElement<HTMLElement>(rootElement, "layer-tools-view"),
     exportLayerFileButton: getElement<HTMLElement>(rootElement, "export-layer-file"),

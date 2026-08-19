@@ -71,6 +71,19 @@ export const CUSTOM_NODE_PACKAGES: Record<string, { name: string; repoUrl: strin
   DualCLIPLoaderGGUF: {
     name: "ComfyUI-GGUF",
     repoUrl: "https://github.com/city96/ComfyUI-GGUF"
+  },
+  // Context-aware inpainting: crop to the mask plus context, sample at a sane
+  // resolution, stitch the result back with a blended seam. Both halves are
+  // listed because they are two node classes from one package, and Workflow
+  // Health names the *package* to install -- reporting "InpaintStitchImproved
+  // is absent" tells a user nothing they can act on.
+  InpaintCropImproved: {
+    name: "comfyui-inpaint-cropandstitch",
+    repoUrl: "https://github.com/lquesada/ComfyUI-Inpaint-CropAndStitch"
+  },
+  InpaintStitchImproved: {
+    name: "comfyui-inpaint-cropandstitch",
+    repoUrl: "https://github.com/lquesada/ComfyUI-Inpaint-CropAndStitch"
   }
 };
 

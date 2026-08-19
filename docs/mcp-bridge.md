@@ -1,6 +1,11 @@
 # MCP Agent Bridge — Technical Specification
 
-Status: **approved direction, not yet implemented.** Written 2026-08-15, targeted at v0.15.
+Status: **Phase 1 complete, pending a Photoshop smoke test.** Both halves are built and the
+whole chain is verified outside Photoshop: `npm run test:e2e` drives the real bridge process
+over real MCP, through a real socket, into the real panel modules, and reads the panel's own
+status text back. What that cannot cover is UXP itself — see the note at the end of §4.1.
+Written 2026-08-15, targeted at v0.15.
+
 Read `docs/ORCHESTRATION.md` first — its safety invariants (§2) and the closure-extraction
 decision (§3) apply to every step here.
 
@@ -51,9 +56,13 @@ Decisions agreed with Mehran before design started:
   MCP bridge reuses this exact pattern at a different edge.**
 - **Safety invariants A1–B2** (`docs/ORCHESTRATION.md` §2 — document identity binding, mask
   ordering, transactional import, single active run, object-URL lifecycle, inpaint
-  submission-time snapshotting) are preserved automatically, because every MCP tool call routes
-  through the existing handler and `generationController.runPipeline`. No path in this design
-  calls `batchPlay` or `photoshopAdapter` directly from the bridge.
+  submission-time snapshotting) are preserved because every MCP tool call routes through the
+  existing handler and `generationController.runPipeline`. No path in this design calls
+  `batchPlay` or `photoshopAdapter` directly from the bridge.
+
+  **With one exception, found while building and worth reading before trusting this
+  paragraph: A4 is not automatic.** It lives in the disabled button, not in the handler, so it
+  has to be enforced explicitly at this new edge. See §3.3.
 
 ## 3. Architecture
 
@@ -71,11 +80,14 @@ Claude (MCP client) ──stdio──▶ openlayer-mcp-bridge (Node, loopback WS
                           (unchanged) ──▶ generationController.runPipeline (unchanged)
 ```
 
-1. **`openlayer-mcp-bridge`** — standalone local Node process, new package at repo root
-   (e.g. `bridge/`), not inside `src/` since it never ships in the UXP bundle. Speaks MCP over
-   stdio to Claude Code/Desktop; hosts a loopback-only WebSocket server (e.g.
-   `ws://127.0.0.1:8199`) the panel connects out to. Pure protocol relay: request/response and
-   event-push with request IDs and timeouts. Holds no Photoshop or ComfyUI logic itself.
+1. **`openlayer-hub` + `openlayer-mcp`** — a new package at `bridge/`, outside `src/` since it
+   never ships in the UXP bundle. Pure protocol relay: request/response with request IDs and
+   timeouts, no Photoshop or ComfyUI logic.
+
+   **Originally designed as one process, and it had to be split** — see §3.4. `hub.mjs` is
+   long-lived and owns the loopback WebSocket server on `ws://127.0.0.1:8199`, which both the
+   panel and any number of MCP clients dial. `main.mjs` is what an MCP client launches: a thin
+   agent speaking MCP on stdio that connects to the hub.
 
 2. **`src/ui/agentBridge.ts`** (panel side, new module, modeled directly on `importBridge.ts`)
    — connects to the bridge process's WebSocket when a new **explicit opt-in toggle** is
@@ -84,13 +96,30 @@ Claude (MCP client) ──stdio──▶ openlayer-mcp-bridge (Node, loopback WS
    existing handlers into this module by tool id, the same way it registers into `importBridge`
    today. On an incoming command, `agentBridge`:
    - writes requested parameters into the same DOM elements a human would
-     (`elements.prompt.value = ...`), dispatching `input` events for any reactive listeners,
+     (`elements.prompt.value = ...`), dispatching `input`/`change` events for any reactive
+     listeners,
    - invokes the existing zero-arg handler,
-   - awaits `generationController`'s existing busy/result signals (`syncBusy`/status bars),
-   - reads the resulting status bar text to report success/error back over the socket, since
-     handlers swallow throws.
+   - reads the resulting status bar to report success/error back over the socket, since
+     handlers swallow throws. The tool's status *pill* is the signal, not words in the text:
+     the pill is what the handler actually set, and "Recovered from a ComfyUI error" is a
+     success whose text a regex would fail.
 
    Phase 1 requires **no changes to any handler's signature or internals.**
+
+   Two things this turned out to need beyond the sketch above, both found in the code rather
+   than by reasoning about it:
+
+   - **Parameters are applied in two passes.** Some fields rewrite others: Text to Image's
+     `workflow` listener overwrites `steps` and `cfg` with preset recommendations and kicks
+     off an *async* refresh of the checkpoint list. One-pass application therefore drops an
+     agent's explicit `steps` (the listener overwrites it moments later) and validates
+     `checkpoint` against a stale option list. So a registration names its rewriting fields as
+     `leadingParams` and supplies a `settle` that awaits their consequences; `execute` applies
+     those, awaits `settle`, then applies the rest — the order a person works in.
+   - **A rejected `<select>` value cancels the whole command.** Assigning an option a select
+     does not have is silently ignored, so an agent asking for an uninstalled checkpoint would
+     otherwise get a real generation on whatever was already selected, reported as success.
+     The rejection names the available options so the agent can retry correctly.
 
 3. **MCP tool surface**, exposed by the bridge process as thin wrappers over the WS protocol:
    - `get_panel_state` — active tool, ComfyUI health, current prompt/params per tool, last
@@ -123,34 +152,161 @@ acceptable, since it's the already-trusted validation path.
 - No raw `batchPlay` or direct `photoshopAdapter` access is ever exposed to the bridge — the
   only surface is "trigger this existing, already-safe handler" and "read this already-computed
   state." This is the load-bearing safety property of the whole design.
-- A4 (single active run) is inherited for free: an agent-issued command during a human's
-  in-flight generation hits the same busy lockout an extra click would.
+- ~~A4 (single active run) is inherited for free: an agent-issued command during a human's
+  in-flight generation hits the same busy lockout an extra click would.~~ **Wrong, corrected
+  while building `agentBridge.ts`.** The seven generation handlers do not check `isBusy` — they
+  *set* it. Nothing inside `handleGenerate` refuses to start. The lockout an extra *click* hits
+  is `syncBusy` disabling the button, and a direct call never goes near it, so injecting values
+  and invoking the handler would start a second pipeline against a document the first is still
+  writing to. (The only two `isBusy` guards in `App.ts` are in `handleHistoryAction` and
+  `handleStartLivePainting`.)
+
+  A4 is therefore enforced deliberately, not inherited: `renderApp` pushes a capability
+  snapshot from `syncBusy` — the same place it disables its own buttons — and
+  `agentBridge.execute` refuses when that snapshot says it must. This is the arrangement
+  `importBridge` already uses, and for the reason its own comment gives: a surface that
+  computes its own answer is free to disagree with the one the dashboard is enforcing. An
+  unpublished capability counts as "no", so a tool registered before the first `syncBusy`
+  cannot be driven.
 - Analytics: tag generation events with `origin: "agent" | "panel"` at the point `agentBridge`
   invokes a handler vs. a real click handler does — smallest possible hook, no new pipeline.
+
+### 3.4 Why the bridge is two processes
+
+The original design had one process doing both jobs: MCP stdio server, and WebSocket server for
+the panel. It was built that way, shipped in Phase 1, and worked in Photoshop — and then failed
+the moment it was used the way a real person would use it.
+
+**An MCP stdio server's lifetime belongs to its client.** Claude spawns it when a session opens
+and kills it when the session closes. `claude mcp add` starts nothing; it writes a config entry.
+But the panel needs something *already listening* to dial. Those two facts cannot both hold in
+one process, and the consequences were:
+
+- The panel had to be toggled on *after* Claude, every time.
+- Restarting Claude silently killed the panel's connection.
+- A second Claude session died on `EADDRINUSE`, appearing to the user as a broken MCP server.
+
+Splitting the two fixes all three, and buys something the single process could never do: many
+agents, one panel. Claude, Codex and VS Code can all be connected at once.
+
+The cost is one more thing to keep running. That was judged acceptable because OpenLayer users
+already keep ComfyUI running — "start the hub like you start ComfyUI" is a model they have.
+
+**Consequence for ids:** an agent picks the id on its own command, and two agents will
+eventually pick the same one — they cannot coordinate, and `req-1` is everybody's first guess.
+So the hub mints its own id toward the panel and maps the reply back to the agent that asked.
+Without that, two sessions generating at once receive each other's results.
 
 ## 4. Phasing (all v0.15, in order)
 
 1. **Spike**: bridge process skeleton (MCP stdio + WS server, loopback only, no auth needed
    beyond that), panel-side `agentBridge.ts` connecting out, ONE tool wired end-to-end
    (`text_to_image`) via DOM injection, behind the opt-in toggle. Proves the whole chain.
-2. **State + remaining six tools**: `get_panel_state`, then the other six handlers registered
-   the same way.
-3. **`ask_agent` bidirectional hook**: one UI affordance calling back out through the same
-   socket.
+
+   *Done, pending Photoshop.* `bridge/` holds the relay; `bridge/src/panelLink.mjs` has all
+   the behaviour worth testing and no socket in it, so refusing a call with no panel attached,
+   matching replies to requests, and surviving a reconnect mid-generation are unit-tested
+   (`tests/scripts/bridge*.test.ts`). `npm run smoke` from `bridge/` boots the real process and
+   drives a full tool call through MCP against a fake panel — needed because three failure
+   modes are invisible to unit tests: stdout corruption (the MCP transport *is* stdout), a tool
+   schema the SDK only rejects at call time, and the socket actually binding.
+
+   The panel half is `src/ui/agentProtocol.ts` (wire format), `src/ui/agentBridge.ts`
+   (registry, A4 gate, parameter injection) and `src/ui/agentConnection.ts` (the outbound
+   socket, with the logic separated from it the same way). `renderApp` registers
+   `handleGenerate` by reference and pushes capability from `syncBusy`. The Setup screen has an
+   off-by-default toggle and a port field; the setting is stored under its own key rather than
+   in `OpenLayerPreferences`, so Reset Settings cannot open a socket.
+
+   `npm run test:e2e` joins the two: real bridge process, real MCP, real socket, real panel
+   modules, only the DOM stubbed.
+
+   **What no test here can cover, and what the Photoshop smoke test is for:** UXP is a DOM
+   subset, and two things this feature does are used nowhere else in `src/` — constructing an
+   `Event` to notify a field of a change, and `WebSocket` as a *client of a local server*
+   rather than of ComfyUI. Both are written to degrade rather than throw, but whether they work
+   is genuinely unknown until the panel runs in Photoshop.
+2. **State + remaining six tools.** *Done.* `get_panel_state` answers from the hub's own
+   routing state (`connected`, `panelVersion`, `tools`, `inFlight`, `agents`) without touching
+   the panel. `image_to_image`, `sketch_to_image`, `inpaint`, `outpaint`, `upscale` and
+   `prompt_from_layer` are registered exactly like `text_to_image`: existing handler by
+   reference, `leadingParams`/`settle` for the workflow field's rewrite (every tool but
+   `prompt_from_layer` has one), `readOutcome`'s status-pill check for success/failure.
+
+   No special-casing for "no source captured." Five of the six need a Photoshop layer or
+   selection captured first, and an agent cannot do that capturing — but the handler already
+   refuses cleanly with a status like *"Capture the active Photoshop layer before generating
+   Image to Image"*, exactly as it would for a person who clicked Generate too early, and
+   `readOutcome` relays that unchanged. Treating it as a gap to close would have meant a second
+   implementation of a check the handler already gets right.
+
+   One real gap found and closed: `text_to_image`'s Phase 1 schema had `prompt` as *required*,
+   contradicting its own design intent — "try that again at 30 steps" should not force
+   restating a prompt the agent never touched. Fixed across all seven schemas, with a test that
+   checks every field of every tool accepts an omitted value.
+
+   One gap found that needed new capability, not just a fix: Prompt from Layer's status line
+   settles to *"Prompt text generated"* — true, and useless to an agent that asked for the
+   caption, which lands in a separate panel field a human reads visually. `AgentToolRegistration`
+   gained an optional `describeResult`, called only after a successful run and appended to the
+   status rather than replacing it, so a broken describer degrades to the plain status instead
+   of turning a real success into a reported failure.
+3. **`ask_agent` bidirectional hook.** *Done.* "Ask the Agent for a Prompt" sits under the
+   Text to Image prompt box, sends the question out through the hub, and writes the answer
+   into the prompt field. An existing prompt is passed as context rather than overwritten
+   blindly, so pressing it twice reads as "give me another angle on this".
+
+   **The mechanism, and its one real constraint.** MCP is client-to-server: an agent calls
+   tools on us, and there is no ordinary way for us to ask it anything back. The one mechanism
+   that exists is *sampling* (`sampling/createMessage`), where a server requests a model
+   completion from its client — and it is **optional**. A client that did not declare it has no
+   handler for the request, so asking anyway hangs until the timeout rather than being refused.
+
+   So the MCP process reports its client's sampling capability to the hub in its hello, and the
+   hub only ever routes an ask to an agent that can answer, refusing in milliseconds otherwise
+   with a message that says whose limitation it is. `get_panel_state` reports `answeringAgents`
+   so the situation is visible from outside rather than being guessed at.
+
+   **This means the button's usefulness depends on the MCP client, not on OpenLayer.** If no
+   connected client offers sampling, it will always refuse — correctly, and with an explanation,
+   but it will refuse. That is the honest cost of the only mechanism MCP provides.
+
+   Capability is read *live*, never cached at startup: `server.connect()` resolves before the
+   client has sent `initialize`, so capabilities read straight after it are always empty and a
+   cached answer reports "no sampling" even for a client that offers it. That bug was written
+   and caught here; the lazy read is the fix.
 4. **Cloud transport**: explicitly deferred until local proves out.
 
-## 5. Open questions for whoever picks this up
+## 5. Open questions
 
-- Exact WS message schema (request id, tool name, args, timeout) — not designed yet, just the
-  shape above.
-- Whether the bridge process ships as part of the plugin package or as a separate install step
-  (`npx openlayer-mcp-bridge` or similar) — affects the "how does a user even start this"
-  onboarding story.
-- Multi-instance: what happens if two agent clients connect to one bridge, or one Claude
-  session tries to drive two open Photoshop documents.
+**Answered while building Phase 1:**
+
+- **WS message schema** — designed and implemented in `bridge/src/protocol.mjs`, which is the
+  canonical definition. Five frame types (`command` out; `hello`, `result`, `event`, `ask` in),
+  each carrying a protocol version `v` that the handshake checks in both directions. Version
+  mismatch names both sides in the error, because the bridge is installed separately from the
+  plugin and so the two really can drift by a release.
+- **Ships separately, not in the plugin package.** A `.ccx` is a Creative Cloud plugin
+  installer; it has no mechanism to install or start a Node process, and forcing one in would
+  break the one-click install path. The bridge is its own package under `bridge/`, started by
+  the user and registered with their MCP client. This also keeps its dependency tree out of a
+  plugin bundle that ships zero runtime deps. Cost: the feature is advanced/opt-in rather than
+  something every tester sees, which matches the off-by-default toggle anyway.
+- **Two panels on one bridge** — newest connection wins. The previous socket is closed and its
+  in-flight commands are failed with a reason, rather than the bridge holding a dead handle and
+  timing out every later call. Not full arbitration, but it fails understandably.
+
+**Still open:**
+
+- Multiple *agent clients* on one bridge (the case above is two panels). Today an MCP server is
+  one client per stdio process, so this only bites if a hosted transport is ever added.
+- One agent session driving two open Photoshop documents. The panel binds document identity at
+  submission time (A1), so this is safe rather than corrupting, but the agent has no way to
+  say which document it means.
 - `ask_agent` UX: what happens if no agent is connected when the button is pressed (must
   degrade gracefully — this is a bidirectional nice-to-have, not a dependency of the panel's
-  core function).
+  core function). The bridge already answers an `ask` frame with an explicit "not implemented"
+  result rather than silence, so the panel has something to render from day one.
 
 ## 6. See also
 

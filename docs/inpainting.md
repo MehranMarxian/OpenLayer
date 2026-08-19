@@ -83,6 +83,37 @@ OpenLayer checks that the captured source PNG and mask PNG both exist, have know
 
 After generation, OpenLayer records local debug information and temporary copies of the source PNG, mask PNG, and raw result PNG. These files stay local and are intended for tester troubleshooting.
 
+## Context-aware crop and stitch
+
+`inpaint-flux-fill-cropstitch` is the same Flux Fill graph with lquesada's
+[ComfyUI-Inpaint-CropAndStitch](https://github.com/lquesada/ComfyUI-Inpaint-CropAndStitch)
+wrapped around the sampler. It needs that node pack installed; `inpaint-flux-fill-basic`
+does not, and stays the fallback for anyone who has not installed it.
+
+What it changes: `InpaintCropImproved` crops the uploaded context down to the mask
+plus 50% of the mask's size in every direction, resizes that to 1024x1024 for
+sampling, and hands `InpaintStitchImproved` a stitcher handle that puts the
+result back with a 32-pixel blended seam.
+
+Why it matters in Photoshop. OpenLayer already crops on the Photoshop side --
+`createInpaintContextBounds` captures the selection plus adaptive padding rather
+than the whole document -- so this is not the difference between "the whole
+canvas" and "a crop". It is the difference between sampling that captured
+context at *whatever size it happened to be* and sampling it at the resolution
+Flux Fill was trained for. A 200x200 mask on a 4096x3072 document yields a
+context of a few hundred pixels, which Flux Fill renders poorly; a large
+selection yields a multi-thousand-pixel context, which is slow and drifts. Both
+land on 1024 here.
+
+The stitched output is the same size as the uploaded context, which is what keeps
+the translate-only aligned import valid. If that ever stops being true the import
+falls back to the context-sized path rather than misplacing the patch, but the
+symptom to watch for is a result that is 1024px rather than context-sized -- that
+means `SaveImage` is reading the decode rather than the stitcher.
+
+The models are identical to `inpaint-flux-fill-basic`, so switching between the
+two costs no extra download.
+
 Suggested Flux Fill test:
 
 1. Use a small clear selection.

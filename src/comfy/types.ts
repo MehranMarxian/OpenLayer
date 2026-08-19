@@ -3,6 +3,9 @@ export type WorkflowPreset =
   | "img2img-basic"
   | "txt2img-flux1-dev-fp8"
   | "txt2img-flux2-dev-gguf"
+  | "txt2img-flux2-klein"
+  | "img2img-flux2-klein"
+  | "edit-flux2-klein"
   | "txt2img-z-image-turbo"
   | "img2img-z-image-turbo"
   | "txt2img-krea2-turbo"
@@ -15,6 +18,7 @@ export type WorkflowPreset =
   | "sketch2img-zimage-fun-controlnet-full"
   | "inpaint-basic"
   | "inpaint-flux-fill-basic"
+  | "inpaint-flux-fill-cropstitch"
   | "outpaint-flux-fill-basic"
   | "upscale-basic";
 export type WorkflowMode =
@@ -543,6 +547,14 @@ export type ComfyObjectInfoResponse = Record<
   {
     input?: {
       required?: {
+        [inputName: string]: unknown;
+      };
+      // ComfyUI's own required/optional split, which is about what the node
+      // will run without -- not about what OpenLayer depends on. A preset that
+      // wires an input the node declares optional still needs it to exist, so
+      // the setup check reads both. InpaintCropImproved declares `mask`
+      // optional and OpenLayer's whole inpaint contract rides on it.
+      optional?: {
         [inputName: string]: unknown;
       };
     };

@@ -265,8 +265,17 @@ export class ComfyClient {
       try {
         const objectInfo = await this.getObjectInfo(requirement.classType);
         const schema = objectInfo[requirement.classType];
-        const requiredInputs = schema?.input?.required ?? {};
-        const missingInputs = requirement.requiredInputs.filter((inputName) => !(inputName in requiredInputs));
+        // Both halves, deliberately. `requiredInputs` in the preset registry
+        // means "inputs OpenLayer wires and depends on", which is a different
+        // question from ComfyUI's own required/optional split -- an input the
+        // node declares optional is still present and still wireable. Reading
+        // only `required` reported InpaintCropImproved's `mask` as missing
+        // setup on a machine where the node pack was installed and working.
+        const declaredInputs = {
+          ...(schema?.input?.required ?? {}),
+          ...(schema?.input?.optional ?? {})
+        };
+        const missingInputs = requirement.requiredInputs.filter((inputName) => !(inputName in declaredInputs));
 
         if (!schema) {
           problems.push(`Missing ComfyUI node class "${requirement.classType}".`);

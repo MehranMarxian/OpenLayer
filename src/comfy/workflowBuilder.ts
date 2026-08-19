@@ -13,7 +13,11 @@ import sketch2imgDepthBasicWorkflow from "../workflows/api/sketch2img-depth-basi
 import sketch2imgZimageFunControlnetWorkflow from "../workflows/api/sketch2img-zimage-fun-controlnet.json";
 import sketch2imgZimageFunControlnetFullWorkflow from "../workflows/api/sketch2img-zimage-fun-controlnet-full.json";
 import inpaintBasicWorkflow from "../workflows/api/inpaint-basic.json";
+import txt2imgFlux2KleinWorkflow from "../workflows/api/txt2img-flux2-klein.json";
+import img2imgFlux2KleinWorkflow from "../workflows/api/img2img-flux2-klein.json";
+import editFlux2KleinWorkflow from "../workflows/api/edit-flux2-klein.json";
 import inpaintFluxFillBasicWorkflow from "../workflows/api/inpaint-flux-fill-basic.json";
+import inpaintFluxFillCropStitchWorkflow from "../workflows/api/inpaint-flux-fill-cropstitch.json";
 import outpaintFluxFillBasicWorkflow from "../workflows/api/outpaint-flux-fill-basic.json";
 import upscaleBasicWorkflow from "../workflows/api/upscale-basic.json";
 import {
@@ -33,7 +37,7 @@ import {
 } from "./types";
 import { getPresetInputTarget, getWorkflowPreset, validateWorkflowForPreset } from "./presetRegistry";
 import { createRequiredModelSelectionKey } from "./workflowModelRequirements";
-import { applyFluxFillReferenceDefaults, FLUX_FILL_PRESET_ID } from "./fluxFillDefaults";
+import { applyFluxFillReferenceDefaults, isFluxFillPreset } from "./fluxFillDefaults";
 import { createOpenLayerError } from "../utils/errors";
 
 const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
@@ -52,7 +56,11 @@ const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
   "sketch2img-zimage-fun-controlnet": sketch2imgZimageFunControlnetWorkflow as ComfyWorkflow,
   "sketch2img-zimage-fun-controlnet-full": sketch2imgZimageFunControlnetFullWorkflow as ComfyWorkflow,
   "inpaint-basic": inpaintBasicWorkflow as ComfyWorkflow,
+  "txt2img-flux2-klein": txt2imgFlux2KleinWorkflow as ComfyWorkflow,
+  "img2img-flux2-klein": img2imgFlux2KleinWorkflow as ComfyWorkflow,
+  "edit-flux2-klein": editFlux2KleinWorkflow as ComfyWorkflow,
   "inpaint-flux-fill-basic": inpaintFluxFillBasicWorkflow as ComfyWorkflow,
+  "inpaint-flux-fill-cropstitch": inpaintFluxFillCropStitchWorkflow as ComfyWorkflow,
   "outpaint-flux-fill-basic": outpaintFluxFillBasicWorkflow as ComfyWorkflow,
   "upscale-basic": upscaleBasicWorkflow as ComfyWorkflow
 };
@@ -114,7 +122,19 @@ export async function buildImg2ImgWorkflow(
   setPresetInput(workflow, preset, "seed", seed, true);
   setPresetInput(workflow, preset, "steps", options.steps, true);
   setPresetInput(workflow, preset, "cfg", options.cfg, true);
-  setPresetInput(workflow, preset, "denoise", options.denoise, true);
+  // Required only when the preset actually offers a denoise control. Every
+  // image-to-image preset had one until edit-flux2-klein, where denoise 1 IS
+  // the technique and there is deliberately nowhere to put the panel's slider.
+  // Keying off the declared capability rather than relaxing the check for
+  // everyone means a preset that offers the control but forgets to wire it
+  // still fails loudly.
+  setPresetInput(
+    workflow,
+    preset,
+    "denoise",
+    options.denoise,
+    preset.capability?.controls.includes("denoise") ?? true
+  );
 
   applyLoraSelection(workflow, preset, options.lora);
 
@@ -186,12 +206,14 @@ export async function buildInpaintWorkflow(
   }
 
   setPresetInput(workflow, preset, "sourceImage", options.sourceImageName, true);
-  setPresetInput(workflow, preset, "maskImage", options.maskImageName, preset.id !== "inpaint-flux-fill-basic");
+  // Every Flux Fill preset carries the mask in the source PNG's alpha channel
+  // and so has no separate mask target to inject into.
+  setPresetInput(workflow, preset, "maskImage", options.maskImageName, !isFluxFillPreset(preset.id));
   setPresetInput(workflow, preset, "positivePrompt", options.prompt, true);
   setPresetInput(workflow, preset, "negativePrompt", options.negativePrompt ?? "");
   setPresetInput(workflow, preset, "seed", seed, true);
 
-  if (preset.id === FLUX_FILL_PRESET_ID) {
+  if (isFluxFillPreset(preset.id)) {
     applyFluxFillReferenceDefaults(workflow);
   } else {
     setPresetInput(workflow, preset, "steps", options.steps, true);

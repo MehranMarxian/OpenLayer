@@ -1,6 +1,6 @@
 {
   "name": "openlayer",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "private": true,
   "description": "Local AI layers for Photoshop",
   "license": "MIT",
@@ -13,7 +13,8 @@
     "package": "npm run build && node scripts/package.mjs",
     "setup-pack": "node scripts/build-setup-pack.mjs",
     "audit-css": "node scripts/audit-css.mjs",
-    "test": "vitest run --config vitest.config.ts"
+    "test": "vitest run --config vitest.config.ts",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

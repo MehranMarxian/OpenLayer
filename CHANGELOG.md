@@ -1,6 +1,51 @@
 # Changelog
 
-## Unreleased
+## v0.15.0-alpha - 2026-08-19
+
+OpenLayer's tools can be driven by an AI assistant now, not only by clicking the panel. Ask Claude — or Codex, or anything else that speaks the Model Context Protocol — to generate an image, upscale a layer or caption a selection, and it drives the panel's own buttons in your open Photoshop document. It runs entirely on your machine, and it is off until you turn it on.
+
+The important part is what it *cannot* do. The bridge holds no Photoshop code at all: its only two verbs are "run a tool the panel already has" and "read back what the panel said happened". Nothing in it can touch a layer, build a workflow, or reach `batchPlay`. An agent-driven generation and a clicked one are the same code path, so every safety rule the panel already enforces applies identically to both.
+
+### Added
+
+- **The Agent Bridge, covering all seven tools.** Text to Image, Image to Image, Sketch to Image, Inpaint, Outpaint, Upscale and Prompt from Layer are all reachable, plus a `get_panel_state` call that reports what the panel is doing without touching Photoshop. Only the parameters an agent passes are changed; anything it leaves out keeps whatever is currently in the panel, which is what makes "try that again at 30 steps" work as a sentence.
+
+  Turn it on in **Setup → Agent Bridge**. It is off by default and stored separately from your generation settings, so Reset Settings cannot switch it on.
+- **A `bridge/` folder holding two small Node programs.** `npm run hub` is the one you start and leave running, the way you leave ComfyUI running; the other is launched by your AI client and connects to it. They are separate because their lifetimes are: an MCP client starts and kills its own server with each session, while the panel needs something already listening before it can connect. Splitting them also means Claude, Codex and VS Code can all be connected at once, and closing any of them takes nothing down.
+- **Ask the Agent for a Prompt**, under the Text to Image prompt box — the panel asking the assistant, rather than the other way round. Whatever is already in the prompt box is passed as context rather than overwritten, so pressing it a second time asks for another angle on the same idea. This one depends on your AI client rather than on OpenLayer; see the limitations below.
+- **`npm test` now fails when the version numbers disagree.** The release version lives in eight places, and keeping them in step used to be a checklist item someone read. It is a test now, and it names whichever file is wrong.
+- **FLUX.2 Klein 4B, text-to-image and image-to-image.** `txt2img-flux2-klein` and `img2img-flux2-klein` run Black Forest Labs' distilled Klein 4B at **4 steps, CFG 1** (`er_sde` / `simple`, `ModelSamplingAuraFlow` shift 3). That operating point is the whole point: a 1024x1024 generation completed in **11.6 seconds** on a 4070 Ti, against Flux.2 Dev's 20 steps through a 20 GB model. If Flux.2 has felt like a batch job rather than something you iterate with, this is the answer.
+
+  The download is **4.07 GB** (`flux-2-klein-4b-fp8.safetensors`) plus a 336 MB VAE. The 8 GB `qwen_3_4b.safetensors` text encoder is the *same file* the Z_image_Turbo presets already use, and is named identically in the registry so the setup pack downloads it once rather than twice — if you already run Z_image_Turbo, Klein costs you 4.4 GB.
+
+  Every node is core ComfyUI. **No new custom-node packages**, and unlike FLUX.1-dev and FLUX.2-dev, Klein is Apache-2.0 and ungated, so there is no licence click-through before you can download it.
+- **`edit-flux2-klein` — instruction editing, which is not image-to-image.** Tell it what to *change* ("make the jacket red", "turn the sky to dusk") instead of describing the whole picture. It appears in the Image to Image tool alongside the other Klein preset.
+
+  The difference is structural, not a settings tweak. Image-to-image encodes your layer as the starting latent and samples at denoise below 1, which is one dial between "keeps your image, ignores you" and "obeys you, discards your image" — measured on this exact model, denoise 0.7 held a photograph faithfully and ignored a plain style instruction outright. This preset starts from an *empty* latent at denoise 1 and supplies your layer as **conditioning**, through `ReferenceLatent` on both the positive and negative branches. The model is free to follow the instruction while still being told what the scene is.
+
+  Asked to turn a wooden table to polished marble, it produced marble with a correct reflection of the teapot standing on it, and left the teapot, window and lighting alone. Denoise is hidden in the panel because it is fixed at 1 — that is the technique, not a default.
+- **Context-aware Inpaint: `inpaint-flux-fill-cropstitch`.** A second Flux Fill preset that crops to your mask plus 50% context, samples that at 1024x1024, and stitches the patch back with a 32-pixel blended seam, using lquesada's [ComfyUI-Inpaint-CropAndStitch](https://github.com/lquesada/ComfyUI-Inpaint-CropAndStitch).
+
+  OpenLayer already captured the selection plus padding rather than the whole document, so the win is not "we stopped sending the whole canvas" — it is that the captured context is now sampled at the resolution Flux Fill was trained for instead of at whatever size the selection happened to produce. A small mask on a large document no longer samples a few hundred pixels, and a large one no longer samples several thousand.
+
+  It ships **alongside** `inpaint-flux-fill-basic` rather than replacing it, because it is the only preset whose custom-node dependency is optional: without the pack installed you keep the original preset and lose only the quality option. Both use the same model files, so the choice costs no extra download. The node pack is declared in the setup manifest, so Setup lists it as a requirement and Workflow Health names `comfyui-inpaint-cropandstitch` when it is missing rather than reporting an unexplained absent node.
+
+### Fixed
+
+- **Image to Image results sometimes landed in the wrong place.** The imported layer could arrive offset from the layer it was generated from, leaving you to drag it back by hand.
+
+  The import never positioned the layer at all — it placed the file and let Photoshop decide. Photoshop's `placeEvent` centres on the active **selection** when one exists, and on the canvas otherwise, so a selection left over from Inpaint work silently pulled every subsequent Image to Image result towards it. Neither of those is the captured layer's position.
+
+  Capture now records where in the document it read from, that position is frozen at submission time the way Outpaint already freezes its padding, and the import moves the layer there explicitly. With no captured region to return to, it centres on the canvas deliberately rather than by side effect.
+- **v0.14.0-alpha displayed the wrong version in the panel.** It reported `v0.13.0` in the footer, in both diagnostics lines, and in the version stamped onto every entry in session history — so every tester report from that release named the wrong build. The constant had moved to a different file and the bump list quietly stopped including it. `package-lock.json` had been stale for two releases for the same kind of reason. Both are fixed, and the test above exists so this class of mistake cannot ship again.
+
+### Known limitations
+
+- **The bridge is not inside the download.** The `.ccx` and `.zip` contain the Photoshop panel only — a plugin package has no way to install or start a Node program. To use the Agent Bridge you need the repository: clone or download it, then `cd bridge && npm install && npm run hub`. `bridge/README.md` has the whole setup, including the one line to register it with Claude Code or Codex.
+- **Ask the Agent for a Prompt only works with an AI client that supports MCP *sampling*.** That is the sole mechanism the protocol offers for a server to ask its client a question, and it is optional — a client that does not offer it has nowhere to send the request. When none of your connected clients can answer, the button refuses immediately and says so rather than hanging. Whether it works is a property of Claude Code, Codex or whatever you have connected, not a setting in OpenLayer. `get_panel_state` reports `answeringAgents`, which is how to tell.
+- **An agent cannot capture a source for you.** Image to Image, Sketch to Image, Inpaint, Outpaint and Upscale all need a Photoshop layer or selection captured in the panel first, and there is no way for an assistant to do that — it has no hands in your document. Asking for one of these with nothing captured returns the same clear refusal a person gets for clicking Generate too early.
+- **Everything is loopback-only and local.** The bridge binds `127.0.0.1` and nothing else. There is no cloud relay, by design and by omission.
+- **One panel at a time.** If a second Photoshop panel connects, it replaces the first, and the first is told why. Several AI clients driving one panel is supported; one client driving two documents is not.
 
 ## v0.14.0-alpha - 2026-08-16
 

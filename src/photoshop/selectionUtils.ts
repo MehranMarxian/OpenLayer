@@ -129,3 +129,22 @@ export function formatSelectionBounds(bounds: SelectionBounds) {
 function isFiniteNumber(value: number) {
   return Number.isFinite(value);
 }
+
+/**
+ * Top-left a layer of `layerSize` needs so it sits centred on a canvas of
+ * `canvasSize`. Extracted from the import path so the arithmetic is testable
+ * without a Photoshop host: it is what decides where a generated layer lands
+ * when there is no captured region to put it back into.
+ *
+ * A layer larger than the canvas centres too, which yields a negative origin --
+ * correct, and what Photoshop itself does when placing an oversized image.
+ */
+export function calculateCenteredOrigin(
+  canvasSize: { width: number; height: number },
+  layerSize: { width: number; height: number }
+) {
+  return {
+    left: Math.round((canvasSize.width - layerSize.width) / 2),
+    top: Math.round((canvasSize.height - layerSize.height) / 2)
+  };
+}

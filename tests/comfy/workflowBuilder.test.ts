@@ -176,6 +176,96 @@ describe("workflowBuilder", () => {
     expect(result.workflow["9"].inputs.images).toEqual(["14", 0]);
   });
 
+  it("keeps the Klein distilled operating point and its Flux.2 latent", async () => {
+    const result = await buildTxt2ImgWorkflow({
+      presetId: "txt2img-flux2-klein",
+      prompt: "a red ceramic teapot",
+      negativePrompt: "",
+      checkpointName: "flux-2-klein-4b-fp8.safetensors",
+      width: 1024,
+      height: 1024,
+      steps: 4,
+      cfg: 1,
+      seed: 99
+    });
+
+    expect(result.workflow["20"].inputs.unet_name).toBe("flux-2-klein-4b-fp8.safetensors");
+    // type must be flux2. The Z_image_Turbo preset loads the same encoder file
+    // with type lumina2, so copying that preset's CLIPLoader wholesale would
+    // load real weights under the wrong text-encoder contract.
+    expect(result.workflow["21"].inputs.type).toBe("flux2");
+    expect(result.workflow["21"].inputs.clip_name).toBe("qwen_3_4b.safetensors");
+    expect(result.workflow["22"].inputs.vae_name).toBe("flux2-vae.safetensors");
+
+    // Flux.2 latent geometry, not SD3's.
+    expect(result.workflow["5"].class_type).toBe("EmptyFlux2LatentImage");
+
+    expect(result.workflow["23"].class_type).toBe("ModelSamplingAuraFlow");
+    expect(result.workflow["23"].inputs.shift).toBe(3);
+    expect(result.workflow["3"].inputs.sampler_name).toBe("er_sde");
+    expect(result.workflow["3"].inputs.scheduler).toBe("simple");
+    expect(result.workflow["3"].inputs.denoise).toBe(1);
+    expect(result.workflow["3"].inputs.seed).toBe(99);
+  });
+
+  it("routes the Klein image-to-image preset through VAEEncode with an injectable denoise", async () => {
+    const result = await buildImg2ImgWorkflow({
+      presetId: "img2img-flux2-klein",
+      prompt: "repaint in oils",
+      negativePrompt: "",
+      checkpointName: "flux-2-klein-4b-fp8.safetensors",
+      sourceImageName: "openlayer-source.png",
+      steps: 4,
+      cfg: 1,
+      seed: 7,
+      denoise: 0.55
+    });
+
+    expect(result.workflow["10"].inputs.image).toBe("openlayer-source.png");
+    expect(result.workflow["11"].class_type).toBe("VAEEncode");
+    expect(result.workflow["3"].inputs.latent_image).toEqual(["11", 0]);
+    expect(result.workflow["3"].inputs.denoise).toBe(0.55);
+    expect(result.workflow["3"].inputs.sampler_name).toBe("er_sde");
+    // No empty latent in this graph -- the source is the latent.
+    expect(result.workflow["5"]).toBeUndefined();
+  });
+
+  it("feeds the Klein edit reference into both conditioning branches and never injects denoise", async () => {
+    const result = await buildImg2ImgWorkflow({
+      presetId: "edit-flux2-klein",
+      prompt: "make the jacket red",
+      negativePrompt: "",
+      checkpointName: "flux-2-klein-4b-fp8.safetensors",
+      sourceImageName: "openlayer-source.png",
+      steps: 4,
+      cfg: 1,
+      seed: 11,
+      // The panel always passes a denoise. The preset must ignore it: denoise 1
+      // is the technique here, and honouring the slider would silently turn this
+      // back into the image-to-image preset sitting next to it.
+      denoise: 0.35
+    });
+
+    expect(result.workflow["3"].inputs.denoise).toBe(1);
+    expect(result.workflow["5"].class_type).toBe("EmptyFlux2LatentImage");
+    expect(result.workflow["3"].inputs.latent_image).toEqual(["5", 0]);
+
+    // One encode, reaching BOTH branches. Wiring it into the positive only
+    // loses most of the preservation this preset exists for.
+    expect(result.workflow["14"].class_type).toBe("ReferenceLatent");
+    expect(result.workflow["15"].class_type).toBe("ReferenceLatent");
+    expect(result.workflow["14"].inputs.latent).toEqual(["11", 0]);
+    expect(result.workflow["15"].inputs.latent).toEqual(["11", 0]);
+    expect(result.workflow["3"].inputs.positive).toEqual(["14", 0]);
+    expect(result.workflow["3"].inputs.negative).toEqual(["15", 0]);
+
+    // Sampled at ~1 MP, returned at the captured layer's exact size.
+    expect(result.workflow["5"].inputs.width).toEqual(["13", 0]);
+    expect(result.workflow["17"].inputs.width).toEqual(["16", 0]);
+    expect(result.workflow["16"].inputs.image).toEqual(["10", 0]);
+    expect(result.workflow["9"].inputs.images).toEqual(["17", 0]);
+  });
+
   it("injects Flux Fill inpaint embedded source, prompt, model, and seed while preserving reference defaults", async () => {
     const result = await buildInpaintWorkflow({
       presetId: "inpaint-flux-fill-basic",
@@ -212,6 +302,53 @@ describe("workflowBuilder", () => {
     expect(result.workflow["39"].inputs.strength).toBe(FLUX_FILL_REFERENCE_DEFAULTS.differentialDiffusionStrength);
     expect(result.workflow["46"].class_type).toBe("ConditioningZeroOut");
     expect(result.workflow["9"].inputs.images).toEqual(["8", 0]);
+  });
+
+  it("routes the Flux Fill crop & stitch preset through InpaintCropImproved and back out through the stitcher", async () => {
+    const result = await buildInpaintWorkflow({
+      presetId: "inpaint-flux-fill-cropstitch",
+      prompt: "repair the moon surface",
+      negativePrompt: "black square",
+      checkpointName: "flux1-fill-dev.safetensors",
+      sourceImageName: "openlayer-flux-source-mask.png",
+      maskImageName: "openlayer-separate-mask-should-not-be-injected.png",
+      steps: 18,
+      cfg: 3.5,
+      denoise: 0.8,
+      seed: 4242,
+      width: 4096,
+      height: 3072
+    });
+
+    expect(result.preset.id).toBe("inpaint-flux-fill-cropstitch");
+    expect(result.workflow["17"].inputs.image).toBe("openlayer-flux-source-mask.png");
+
+    // The crop node reads the image AND the mask from the single uploaded PNG,
+    // exactly as the conditioning node used to. Losing the mask edge here is
+    // the failure that would look like a working generation of the wrong area.
+    expect(result.workflow["50"].class_type).toBe("InpaintCropImproved");
+    expect(result.workflow["50"].inputs.image).toEqual(["17", 0]);
+    expect(result.workflow["50"].inputs.mask).toEqual(["17", 1]);
+    expect(result.workflow["50"].inputs.context_from_mask_extend_factor).toBe(1.5);
+    expect(result.workflow["50"].inputs.output_resize_to_target_size).toBe(true);
+    expect(result.workflow["50"].inputs.output_target_width).toBe(1024);
+    expect(result.workflow["50"].inputs.output_target_height).toBe(1024);
+    expect(result.workflow["50"].inputs.mask_blend_pixels).toBe(32);
+
+    // The sampler chain is the untouched reference graph, fed the crop instead
+    // of the full canvas.
+    expect(result.workflow["38"].inputs.pixels).toEqual(["50", 1]);
+    expect(result.workflow["38"].inputs.mask).toEqual(["50", 2]);
+    expect(result.workflow["3"].inputs.steps).toBe(FLUX_FILL_REFERENCE_DEFAULTS.steps);
+    expect(result.workflow["3"].inputs.seed).toBe(4242);
+
+    // SaveImage must take the stitched image, not the decode. Wiring it to "8"
+    // would save a 1024px patch and silently break the aligned Photoshop
+    // import, which expects a result the size of the captured context.
+    expect(result.workflow["51"].class_type).toBe("InpaintStitchImproved");
+    expect(result.workflow["51"].inputs.stitcher).toEqual(["50", 0]);
+    expect(result.workflow["51"].inputs.inpainted_image).toEqual(["8", 0]);
+    expect(result.workflow["9"].inputs.images).toEqual(["51", 0]);
   });
 
   it("can inject the accepted Flux Fill T5 fallback when fp16 is unavailable", async () => {

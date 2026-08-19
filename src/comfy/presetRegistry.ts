@@ -45,6 +45,10 @@ const COMFY_ORG_FLUX1_DEV_REPO = "https://huggingface.co/Comfy-Org/flux1-dev";
 const COMFY_ORG_FLUX2_DEV_REPO = "https://huggingface.co/Comfy-Org/flux2-dev";
 const CITY96_FLUX2_DEV_GGUF_REPO = "https://huggingface.co/city96/FLUX.2-dev-gguf";
 const COMFY_ORG_Z_IMAGE_TURBO_REPO = "https://huggingface.co/Comfy-Org/z_image_turbo";
+// Klein ships Apache-2.0 and ungated, unlike FLUX.1-dev and FLUX.2-dev, so
+// there is deliberately no licenseGate on the stack below -- the setup pack can
+// point straight at the file with no click-through.
+const BFL_FLUX2_KLEIN_4B_FP8_REPO = "https://huggingface.co/black-forest-labs/FLUX.2-klein-4b-fp8";
 const COMFY_ORG_KREA2_REPO = "https://huggingface.co/Comfy-Org/Krea-2";
 const FLUX_TEXT_ENCODERS_REPO = "https://huggingface.co/comfyanonymous/flux_text_encoders";
 const ALIBABA_PAI_ZIMAGE_FUN_CONTROLNET_REPO =
@@ -88,6 +92,46 @@ const UPSCALE_MODEL_SOURCE = {
   inputName: "model_name",
   label: "Upscale model"
 } as const;
+
+const FLUX2_KLEIN_4B_STACK = [
+  {
+    kind: "diffusion-model-stack",
+    objectInfoNode: "UNETLoader",
+    inputName: "unet_name",
+    label: "FLUX.2 Klein 4B diffusion model",
+    modelName: "flux-2-klein-4b-fp8.safetensors",
+    setupHint: "Install flux-2-klein-4b-fp8.safetensors where ComfyUI's UNETLoader can find it.",
+    downloadUrl: `${BFL_FLUX2_KLEIN_4B_FP8_REPO}/resolve/main/flux-2-klein-4b-fp8.safetensors`,
+    sourcePageUrl: BFL_FLUX2_KLEIN_4B_FP8_REPO,
+    downloadSizeBytes: 4070624520
+  },
+  {
+    // Byte-identical to the Z_image_Turbo stack's encoder, and named identically
+    // so the setup pack de-duplicates it and downloads 8 GB once rather than
+    // twice. The URL points at the Z-Image repo for the same reason: one source
+    // of truth for one file.
+    kind: "clip",
+    objectInfoNode: "CLIPLoader",
+    inputName: "clip_name",
+    label: "Qwen3 4B text encoder",
+    modelName: "qwen_3_4b.safetensors",
+    setupHint: "Install qwen_3_4b.safetensors where ComfyUI's CLIPLoader can find it.",
+    downloadUrl: `${COMFY_ORG_Z_IMAGE_TURBO_REPO}/resolve/main/split_files/text_encoders/qwen_3_4b.safetensors`,
+    sourcePageUrl: COMFY_ORG_Z_IMAGE_TURBO_REPO,
+    downloadSizeBytes: 8044982048
+  },
+  {
+    kind: "vae",
+    objectInfoNode: "VAELoader",
+    inputName: "vae_name",
+    label: "Flux.2 VAE",
+    modelName: "flux2-vae.safetensors",
+    setupHint: "Install flux2-vae.safetensors in ComfyUI models/vae.",
+    downloadUrl: `${COMFY_ORG_FLUX2_DEV_REPO}/resolve/main/split_files/vae/flux2-vae.safetensors`,
+    sourcePageUrl: COMFY_ORG_FLUX2_DEV_REPO,
+    downloadSizeBytes: 336211292
+  }
+] as const;
 
 const Z_IMAGE_TURBO_STACK = [
   {
@@ -401,6 +445,28 @@ const INPAINT_FLUX_FILL_BASIC_NODES = {
   saveImage: "9"
 } as const;
 
+// Same Flux Fill stack as above with lquesada's crop-and-stitch pair wrapped
+// around the sampler chain. Ids 31/39/34/32/17/23/26/46/38/3/8/9 are kept
+// identical to inpaint-flux-fill-basic on purpose: fluxFillDefaults.ts pins
+// the guidance, sampler and Differential Diffusion nodes by literal id, so a
+// renumbered graph would silently stop receiving the reference defaults.
+const INPAINT_FLUX_FILL_CROPSTITCH_NODES = {
+  diffusionModelLoader: "31",
+  differentialDiffusion: "39",
+  dualClipLoader: "34",
+  vaeLoader: "32",
+  loadImage: "17",
+  inpaintCrop: "50",
+  positivePrompt: "23",
+  fluxGuidance: "26",
+  negativeConditioning: "46",
+  inpaintConditioning: "38",
+  sampler: "3",
+  decode: "8",
+  inpaintStitch: "51",
+  saveImage: "9"
+} as const;
+
 const OUTPAINT_FLUX_FILL_BASIC_NODES = {
   diffusionModelLoader: "31",
   differentialDiffusion: "39",
@@ -457,6 +523,67 @@ const Z_IMAGE_TURBO_IMG2IMG_NODES = {
   negativePrompt: "7",
   sampler: "3",
   decode: "8",
+  saveImage: "9"
+} as const;
+
+// Klein is distilled: 4 steps at cfg 1 with er_sde/simple and an AuraFlow shift
+// of 3. Those numbers are the whole reason this preset exists -- they are what
+// makes Flux.2 usable interactively rather than as a batch job -- and they are
+// pinned in the shipped JSON rather than left to the panel's defaults.
+const FLUX2_KLEIN_TXT2IMG_NODES = {
+  diffusionModelLoader: "20",
+  clipLoader: "21",
+  vaeLoader: "22",
+  modelSampling: "23",
+  latentImage: "5",
+  positivePrompt: "6",
+  negativePrompt: "7",
+  sampler: "3",
+  decode: "8",
+  saveImage: "9"
+} as const;
+
+const FLUX2_KLEIN_IMG2IMG_NODES = {
+  diffusionModelLoader: "20",
+  clipLoader: "21",
+  vaeLoader: "22",
+  modelSampling: "23",
+  loadImage: "10",
+  vaeEncode: "11",
+  positivePrompt: "6",
+  negativePrompt: "7",
+  sampler: "3",
+  decode: "8",
+  saveImage: "9"
+} as const;
+
+// The edit paradigm, and the reason it is a separate preset rather than a
+// denoise setting on img2img. Image-to-image encodes the source AS the starting
+// latent and samples at denoise < 1, which is a single dial between "keeps the
+// source, ignores you" and "obeys you, discards the source" -- measured on this
+// very model, denoise 0.7 preserved a photograph faithfully and ignored a plain
+// style instruction outright. Here the latent starts EMPTY at denoise 1 and the
+// source is supplied as *conditioning* through ReferenceLatent on both
+// branches, so the model is free to follow the instruction while still being
+// told what the scene is.
+const FLUX2_KLEIN_EDIT_NODES = {
+  diffusionModelLoader: "20",
+  clipLoader: "21",
+  vaeLoader: "22",
+  modelSampling: "23",
+  loadImage: "10",
+  referenceScale: "12",
+  samplingSize: "13",
+  originalSize: "16",
+  vaeEncode: "11",
+  positivePrompt: "6",
+  negativePrompt: "7",
+  referenceIntoPositive: "14",
+  referenceIntoNegative: "15",
+  latentImage: "5",
+  sampler: "3",
+  decode: "8",
+  outputScale: "17",
   saveImage: "9"
 } as const;
 
@@ -767,6 +894,20 @@ const INPAINT_FLUX_FILL_BASIC_INJECTIONS = {
   denoise: target(INPAINT_FLUX_FILL_BASIC_NODES.sampler, "denoise")
 } as const;
 
+const INPAINT_FLUX_FILL_CROPSTITCH_INJECTIONS = {
+  checkpoint: target(INPAINT_FLUX_FILL_CROPSTITCH_NODES.diffusionModelLoader, "unet_name"),
+  sourceImage: target(INPAINT_FLUX_FILL_CROPSTITCH_NODES.loadImage, "image"),
+  positivePrompt: target(INPAINT_FLUX_FILL_CROPSTITCH_NODES.positivePrompt, "text"),
+  seed: target(INPAINT_FLUX_FILL_CROPSTITCH_NODES.sampler, "seed"),
+  steps: target(INPAINT_FLUX_FILL_CROPSTITCH_NODES.sampler, "steps"),
+  cfg: target(INPAINT_FLUX_FILL_CROPSTITCH_NODES.fluxGuidance, "guidance"),
+  denoise: target(INPAINT_FLUX_FILL_CROPSTITCH_NODES.sampler, "denoise")
+  // Deliberately no width/height injection. The panel's source dimensions
+  // describe the captured selection context, and the sampling resolution here
+  // is InpaintCropImproved's target size, which is a property of the technique
+  // rather than something the artist picks per generation.
+} as const;
+
 const OUTPAINT_FLUX_FILL_BASIC_INJECTIONS = {
   checkpoint: target(OUTPAINT_FLUX_FILL_BASIC_NODES.diffusionModelLoader, "unet_name"),
   sourceImage: target(OUTPAINT_FLUX_FILL_BASIC_NODES.loadImage, "image"),
@@ -803,6 +944,41 @@ const FLUX2_DEV_GGUF_TXT2IMG_INJECTIONS = {
   // Same remap as txt2img-flux1-dev-fp8: there is no KSampler and therefore no
   // cfg widget, so the panel's CFG control drives FluxGuidance instead.
   cfg: target(FLUX2_DEV_GGUF_TXT2IMG_NODES.fluxGuidance, "guidance")
+} as const;
+
+const FLUX2_KLEIN_TXT2IMG_INJECTIONS = {
+  checkpoint: target(FLUX2_KLEIN_TXT2IMG_NODES.diffusionModelLoader, "unet_name"),
+  positivePrompt: target(FLUX2_KLEIN_TXT2IMG_NODES.positivePrompt, "text"),
+  negativePrompt: target(FLUX2_KLEIN_TXT2IMG_NODES.negativePrompt, "text"),
+  width: target(FLUX2_KLEIN_TXT2IMG_NODES.latentImage, "width"),
+  height: target(FLUX2_KLEIN_TXT2IMG_NODES.latentImage, "height"),
+  seed: target(FLUX2_KLEIN_TXT2IMG_NODES.sampler, "seed"),
+  steps: target(FLUX2_KLEIN_TXT2IMG_NODES.sampler, "steps"),
+  cfg: target(FLUX2_KLEIN_TXT2IMG_NODES.sampler, "cfg")
+} as const;
+
+const FLUX2_KLEIN_IMG2IMG_INJECTIONS = {
+  checkpoint: target(FLUX2_KLEIN_IMG2IMG_NODES.diffusionModelLoader, "unet_name"),
+  sourceImage: target(FLUX2_KLEIN_IMG2IMG_NODES.loadImage, "image"),
+  positivePrompt: target(FLUX2_KLEIN_IMG2IMG_NODES.positivePrompt, "text"),
+  negativePrompt: target(FLUX2_KLEIN_IMG2IMG_NODES.negativePrompt, "text"),
+  seed: target(FLUX2_KLEIN_IMG2IMG_NODES.sampler, "seed"),
+  steps: target(FLUX2_KLEIN_IMG2IMG_NODES.sampler, "steps"),
+  cfg: target(FLUX2_KLEIN_IMG2IMG_NODES.sampler, "cfg"),
+  denoise: target(FLUX2_KLEIN_IMG2IMG_NODES.sampler, "denoise")
+} as const;
+
+const FLUX2_KLEIN_EDIT_INJECTIONS = {
+  checkpoint: target(FLUX2_KLEIN_EDIT_NODES.diffusionModelLoader, "unet_name"),
+  sourceImage: target(FLUX2_KLEIN_EDIT_NODES.loadImage, "image"),
+  positivePrompt: target(FLUX2_KLEIN_EDIT_NODES.positivePrompt, "text"),
+  negativePrompt: target(FLUX2_KLEIN_EDIT_NODES.negativePrompt, "text"),
+  seed: target(FLUX2_KLEIN_EDIT_NODES.sampler, "seed"),
+  steps: target(FLUX2_KLEIN_EDIT_NODES.sampler, "steps"),
+  cfg: target(FLUX2_KLEIN_EDIT_NODES.sampler, "cfg")
+  // Deliberately no denoise target. Denoise 1 is not a default here, it is the
+  // technique; injecting the panel's slider would quietly turn this back into
+  // the image-to-image preset that sits next to it.
 } as const;
 
 const Z_IMAGE_TURBO_TXT2IMG_INJECTIONS = {
@@ -1134,6 +1310,27 @@ const INPAINT_FLUX_FILL_BASIC_CAPABILITY: WorkflowCapability = {
   }
 };
 
+const INPAINT_FLUX_FILL_CROPSTITCH_CAPABILITY: WorkflowCapability = {
+  toolType: "inpaint",
+  loaderType: "diffusion-model-stack",
+  artistLabel: "Inpaint",
+  technicalLabel: "inpaint-flux-fill-cropstitch",
+  requiredPhotoshopInputs: ["selection", "selection-mask"],
+  controls: ["prompt", "negativePrompt", "steps", "guidance", "denoise", "seed", "contextPadding", "maskBlur"],
+  output: {
+    kind: "selection-patch",
+    size: "selection-context",
+    importBehavior: "aligned-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Flux Fill model",
+    primaryActionLabel: "Generate Inpaint",
+    experimentalNote:
+      "Needs the comfyui-inpaint-cropandstitch node pack. It crops to your mask plus 50% context, samples that at 1024px, and stitches the patch back with a 32px blended seam -- so a small mask on a big document is sampled at the resolution Flux Fill was trained for instead of at whatever size the selection happened to be. Prefer the plain Flux Fill preset when the masked area already fills most of the captured context."
+  }
+};
+
 const OUTPAINT_FLUX_FILL_BASIC_CAPABILITY: WorkflowCapability = {
   toolType: "outpaint",
   loaderType: "diffusion-model-stack",
@@ -1186,6 +1383,68 @@ const FLUX2_DEV_GGUF_TXT2IMG_CAPABILITY: WorkflowCapability = {
     hiddenControls: ["negativePrompt"],
     experimentalNote:
       "Flux.2 dev is a very large stack: an 18.7 GB quantised model plus a 16.8 GB text encoder. On a 12 GB card ComfyUI streams most of it from system RAM, so expect minutes per image rather than seconds."
+  }
+};
+
+const FLUX2_KLEIN_TXT2IMG_CAPABILITY: WorkflowCapability = {
+  toolType: "txt2img",
+  loaderType: "diffusion-model-stack",
+  artistLabel: "Text to Image",
+  technicalLabel: "txt2img-flux2-klein",
+  requiredPhotoshopInputs: [],
+  controls: ["prompt", "negativePrompt", "width", "height", "steps", "cfg", "seed"],
+  output: {
+    kind: "full-image",
+    size: "preset",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Klein model",
+    primaryActionLabel: "Generate",
+    experimentalNote:
+      "FLUX.2 Klein 4B, distilled: 4 steps at CFG 1. This is the answer to \"why does Flux.2 Dev feel slow\" -- Dev wants 20 steps through a 20 GB model, Klein wants 4 through a 4 GB one. Raising steps or CFG will not improve it; the model is distilled for this operating point and drifts away from it."
+  }
+};
+
+const FLUX2_KLEIN_IMG2IMG_CAPABILITY: WorkflowCapability = {
+  toolType: "img2img",
+  loaderType: "diffusion-model-stack",
+  artistLabel: "Image to Image",
+  technicalLabel: "img2img-flux2-klein",
+  requiredPhotoshopInputs: [{ anyOf: ["active-layer", "canvas"], label: "an active layer or captured canvas" }],
+  controls: ["prompt", "negativePrompt", "steps", "cfg", "denoise", "seed"],
+  output: {
+    kind: "source-sized-image",
+    size: "source",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Klein model",
+    primaryActionLabel: "Generate Image to Image"
+  }
+};
+
+const FLUX2_KLEIN_EDIT_CAPABILITY: WorkflowCapability = {
+  toolType: "img2img",
+  loaderType: "diffusion-model-stack",
+  artistLabel: "Image to Image",
+  technicalLabel: "edit-flux2-klein",
+  requiredPhotoshopInputs: [{ anyOf: ["active-layer", "canvas"], label: "an active layer or captured canvas" }],
+  controls: ["prompt", "negativePrompt", "steps", "cfg", "seed"],
+  output: {
+    kind: "source-sized-image",
+    size: "source",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Klein model",
+    primaryActionLabel: "Generate Edit",
+    hiddenControls: ["denoise"],
+    experimentalNote:
+      "Instruction editing, not image-to-image. Write what you want CHANGED -- \"make the jacket red\", \"remove the parked car\", \"turn the sky to dusk\" -- rather than describing the whole picture. The rest of the frame is held by reference conditioning rather than by a low denoise, so it stays put far better than the image-to-image preset while still obeying the instruction. Denoise is hidden because it is fixed at 1; that is the technique, not a default."
   }
 };
 
@@ -2183,6 +2442,106 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
       "inpaint-flux-fill-basic follows the Flux Fill reference graph: UNETLoader, DifferentialDiffusion, DualCLIPLoader, FluxGuidance, InpaintModelConditioning, KSampler, VAEDecode, and SaveImage. OpenLayer embeds the Photoshop mask into the uploaded PNG alpha channel for the LoadImage mask output. T5 prefers t5xxl_fp16.safetensors and accepts t5xxl_fp8_e4m3fn.safetensors as a fallback."
   },
   {
+    id: "inpaint-flux-fill-cropstitch",
+    label: "inpaint-flux-fill-cropstitch",
+    displayName: "Flux Fill (crop & stitch)",
+    mode: "inpaint",
+    description:
+      "Flux Fill inpainting that crops to the mask plus context, samples at 1024px, and stitches the patch back with a blended seam.",
+    workflowFile: "workflows/api/inpaint-flux-fill-cropstitch.json",
+    status: "stable",
+    recommendedSettings: { steps: 20, cfg: 30 },
+    supportedModelFamilies: ["flux"],
+    experimentalModelFamilies: ["sd1", "sdxl", "sd3", "zImage", "unknown"],
+    modelSource: DIFFUSION_MODEL_SOURCE,
+    capability: INPAINT_FLUX_FILL_CROPSTITCH_CAPABILITY,
+    modelStack: [...FLUX_FILL_STACK],
+    requiredModels: [...FLUX_FILL_STACK],
+    injections: INPAINT_FLUX_FILL_CROPSTITCH_INJECTIONS,
+    requiredNodes: [
+      {
+        id: INPAINT_FLUX_FILL_CROPSTITCH_NODES.diffusionModelLoader,
+        classType: "UNETLoader",
+        requiredInputs: ["unet_name", "weight_dtype"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_CROPSTITCH_NODES.differentialDiffusion,
+        classType: "DifferentialDiffusion",
+        requiredInputs: ["model"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_CROPSTITCH_NODES.dualClipLoader,
+        classType: "DualCLIPLoader",
+        requiredInputs: ["clip_name1", "clip_name2", "type"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_CROPSTITCH_NODES.vaeLoader,
+        classType: "VAELoader",
+        requiredInputs: ["vae_name"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_CROPSTITCH_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_CROPSTITCH_NODES.inpaintCrop,
+        classType: "InpaintCropImproved",
+        requiredInputs: [
+          "image",
+          "mask",
+          "context_from_mask_extend_factor",
+          "output_resize_to_target_size",
+          "output_target_width",
+          "output_target_height",
+          "mask_blend_pixels"
+        ]
+      },
+      {
+        id: INPAINT_FLUX_FILL_CROPSTITCH_NODES.positivePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_CROPSTITCH_NODES.fluxGuidance,
+        classType: "FluxGuidance",
+        requiredInputs: ["conditioning", "guidance"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_CROPSTITCH_NODES.negativeConditioning,
+        classType: "ConditioningZeroOut",
+        requiredInputs: ["conditioning"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_CROPSTITCH_NODES.inpaintConditioning,
+        classType: "InpaintModelConditioning",
+        requiredInputs: ["positive", "negative", "vae", "pixels", "mask", "noise_mask"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_CROPSTITCH_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["model", "seed", "steps", "cfg", "sampler_name", "scheduler", "positive", "negative", "latent_image", "denoise"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_CROPSTITCH_NODES.decode,
+        classType: "VAEDecode",
+        requiredInputs: ["samples", "vae"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_CROPSTITCH_NODES.inpaintStitch,
+        classType: "InpaintStitchImproved",
+        requiredInputs: ["stitcher", "inpainted_image"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_CROPSTITCH_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images", "filename_prefix"]
+      }
+    ],
+    compatibilityNote:
+      "inpaint-flux-fill-cropstitch is inpaint-flux-fill-basic with InpaintCropImproved and InpaintStitchImproved from lquesada's comfyui-inpaint-cropandstitch wrapped around the sampler chain. The crop node takes the LoadImage image and mask, so OpenLayer still uploads one PNG carrying the Photoshop mask in its alpha channel, and the stitch node returns an image the same size as that upload -- which is what keeps the aligned Photoshop import valid."
+  },
+  {
     id: "outpaint-flux-fill-basic",
     label: "outpaint-flux-fill-basic",
     displayName: "Flux Fill",
@@ -2268,6 +2627,271 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     ],
     compatibilityNote:
       "outpaint-flux-fill-basic follows the attached Flux Fill outpaint graph: ImagePadForOutpaint creates the padded image and mask, then Flux Fill generates the expanded result. T5 prefers t5xxl_fp16.safetensors and accepts t5xxl_fp8_e4m3fn.safetensors as a fallback."
+  },
+  {
+    id: "txt2img-flux2-klein",
+    label: "txt2img-flux2-klein",
+    displayName: "FLUX.2 Klein",
+    mode: "txt2img",
+    description: "Fast text-to-image preset for the distilled FLUX.2 Klein 4B diffusion model stack.",
+    workflowFile: "workflows/api/txt2img-flux2-klein.json",
+    status: "stable",
+    recommendedSettings: { steps: 4, cfg: 1 },
+    supportedModelFamilies: ["flux2"],
+    experimentalModelFamilies: ["unknown"],
+    modelSource: DIFFUSION_MODEL_SOURCE,
+    capability: FLUX2_KLEIN_TXT2IMG_CAPABILITY,
+    modelStack: [...FLUX2_KLEIN_4B_STACK],
+    requiredModels: [...FLUX2_KLEIN_4B_STACK],
+    injections: FLUX2_KLEIN_TXT2IMG_INJECTIONS,
+    requiredNodes: [
+      {
+        id: FLUX2_KLEIN_TXT2IMG_NODES.diffusionModelLoader,
+        classType: "UNETLoader",
+        requiredInputs: ["unet_name", "weight_dtype"]
+      },
+      {
+        id: FLUX2_KLEIN_TXT2IMG_NODES.clipLoader,
+        classType: "CLIPLoader",
+        requiredInputs: ["clip_name", "type"]
+      },
+      {
+        id: FLUX2_KLEIN_TXT2IMG_NODES.vaeLoader,
+        classType: "VAELoader",
+        requiredInputs: ["vae_name"]
+      },
+      {
+        id: FLUX2_KLEIN_TXT2IMG_NODES.modelSampling,
+        classType: "ModelSamplingAuraFlow",
+        requiredInputs: ["model", "shift"]
+      },
+      {
+        id: FLUX2_KLEIN_TXT2IMG_NODES.positivePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: FLUX2_KLEIN_TXT2IMG_NODES.negativePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: FLUX2_KLEIN_TXT2IMG_NODES.latentImage,
+        classType: "EmptyFlux2LatentImage",
+        requiredInputs: ["width", "height", "batch_size"]
+      },
+      {
+        id: FLUX2_KLEIN_TXT2IMG_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["model", "seed", "steps", "cfg", "sampler_name", "scheduler", "positive", "negative", "latent_image", "denoise"]
+      },
+      {
+        id: FLUX2_KLEIN_TXT2IMG_NODES.decode,
+        classType: "VAEDecode",
+        requiredInputs: ["samples", "vae"]
+      },
+      {
+        id: FLUX2_KLEIN_TXT2IMG_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images"]
+      }
+    ],
+    compatibilityNote:
+      "FLUX.2 Klein 4B is a diffusion model stack, not a checkpoint: UNETLoader, CLIPLoader with type flux2, and VAELoader. It shares qwen_3_4b.safetensors with the Z_image_Turbo stack, so a user who already has that preset downloads only the 4 GB model and the 336 MB Flux.2 VAE. The latent is EmptyFlux2LatentImage rather than EmptySD3LatentImage -- Flux.2's latent geometry differs, and the SD3 node produces a tensor the sampler silently mis-shapes. Sampler settings are the distilled operating point: 4 steps, CFG 1, er_sde, simple, with ModelSamplingAuraFlow shift 3. Klein is Apache-2.0 and ungated, unlike FLUX.1-dev and FLUX.2-dev."
+  },
+  {
+    id: "img2img-flux2-klein",
+    label: "img2img-flux2-klein",
+    displayName: "FLUX.2 Klein",
+    mode: "img2img",
+    description: "Fast image-to-image preset for the distilled FLUX.2 Klein 4B diffusion model stack.",
+    workflowFile: "workflows/api/img2img-flux2-klein.json",
+    status: "stable",
+    recommendedSettings: { steps: 4, cfg: 1 },
+    supportedModelFamilies: ["flux2"],
+    experimentalModelFamilies: ["unknown"],
+    modelSource: DIFFUSION_MODEL_SOURCE,
+    capability: FLUX2_KLEIN_IMG2IMG_CAPABILITY,
+    modelStack: [...FLUX2_KLEIN_4B_STACK],
+    requiredModels: [...FLUX2_KLEIN_4B_STACK],
+    injections: FLUX2_KLEIN_IMG2IMG_INJECTIONS,
+    requiredNodes: [
+      {
+        id: FLUX2_KLEIN_IMG2IMG_NODES.diffusionModelLoader,
+        classType: "UNETLoader",
+        requiredInputs: ["unet_name", "weight_dtype"]
+      },
+      {
+        id: FLUX2_KLEIN_IMG2IMG_NODES.clipLoader,
+        classType: "CLIPLoader",
+        requiredInputs: ["clip_name", "type"]
+      },
+      {
+        id: FLUX2_KLEIN_IMG2IMG_NODES.vaeLoader,
+        classType: "VAELoader",
+        requiredInputs: ["vae_name"]
+      },
+      {
+        id: FLUX2_KLEIN_IMG2IMG_NODES.modelSampling,
+        classType: "ModelSamplingAuraFlow",
+        requiredInputs: ["model", "shift"]
+      },
+      {
+        id: FLUX2_KLEIN_IMG2IMG_NODES.positivePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: FLUX2_KLEIN_IMG2IMG_NODES.negativePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: FLUX2_KLEIN_IMG2IMG_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: FLUX2_KLEIN_IMG2IMG_NODES.vaeEncode,
+        classType: "VAEEncode",
+        requiredInputs: ["pixels", "vae"]
+      },
+      {
+        id: FLUX2_KLEIN_IMG2IMG_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["model", "seed", "steps", "cfg", "sampler_name", "scheduler", "positive", "negative", "latent_image", "denoise"]
+      },
+      {
+        id: FLUX2_KLEIN_IMG2IMG_NODES.decode,
+        classType: "VAEDecode",
+        requiredInputs: ["samples", "vae"]
+      },
+      {
+        id: FLUX2_KLEIN_IMG2IMG_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images"]
+      }
+    ],
+    compatibilityNote:
+      "FLUX.2 Klein 4B is a diffusion model stack, not a checkpoint: UNETLoader, CLIPLoader with type flux2, and VAELoader. It shares qwen_3_4b.safetensors with the Z_image_Turbo stack, so a user who already has that preset downloads only the 4 GB model and the 336 MB Flux.2 VAE. The latent is EmptyFlux2LatentImage rather than EmptySD3LatentImage -- Flux.2's latent geometry differs, and the SD3 node produces a tensor the sampler silently mis-shapes. Sampler settings are the distilled operating point: 4 steps, CFG 1, er_sde, simple, with ModelSamplingAuraFlow shift 3. Klein is Apache-2.0 and ungated, unlike FLUX.1-dev and FLUX.2-dev. This preset re-encodes the captured layer with VAEEncode and samples at a denoise below 1, which is the ordinary image-to-image trade: low denoise preserves the source but barely listens to the prompt, high denoise obeys the prompt but discards the source."
+  },
+  {
+    // Deliberately not named img2img-*: it sits in the Image to Image tool and
+    // shares its inputs, but it is a different technique with a different
+    // contract, and calling it img2img-flux2-klein-edit would read as a variant
+    // of the preset it exists to replace.
+    id: "edit-flux2-klein",
+    label: "edit-flux2-klein",
+    displayName: "FLUX.2 Klein (edit)",
+    mode: "img2img",
+    description: "Instruction editing with FLUX.2 Klein: reference conditioning on both branches at denoise 1, so the frame holds while the instruction lands.",
+    workflowFile: "workflows/api/edit-flux2-klein.json",
+    status: "stable",
+    recommendedSettings: { steps: 4, cfg: 1 },
+    supportedModelFamilies: ["flux2"],
+    experimentalModelFamilies: ["unknown"],
+    modelSource: DIFFUSION_MODEL_SOURCE,
+    capability: FLUX2_KLEIN_EDIT_CAPABILITY,
+    modelStack: [...FLUX2_KLEIN_4B_STACK],
+    requiredModels: [...FLUX2_KLEIN_4B_STACK],
+    injections: FLUX2_KLEIN_EDIT_INJECTIONS,
+    requiredNodes: [
+      {
+        id: FLUX2_KLEIN_EDIT_NODES.diffusionModelLoader,
+        classType: "UNETLoader",
+        requiredInputs: ["unet_name", "weight_dtype"]
+      },
+      {
+        id: FLUX2_KLEIN_EDIT_NODES.clipLoader,
+        classType: "CLIPLoader",
+        requiredInputs: ["clip_name", "type"]
+      },
+      {
+        id: FLUX2_KLEIN_EDIT_NODES.vaeLoader,
+        classType: "VAELoader",
+        requiredInputs: ["vae_name"]
+      },
+      {
+        id: FLUX2_KLEIN_EDIT_NODES.modelSampling,
+        classType: "ModelSamplingAuraFlow",
+        requiredInputs: ["model", "shift"]
+      },
+      {
+        id: FLUX2_KLEIN_EDIT_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: FLUX2_KLEIN_EDIT_NODES.referenceScale,
+        classType: "ImageScaleToTotalPixels",
+        requiredInputs: ["image", "upscale_method", "megapixels"]
+      },
+      {
+        id: FLUX2_KLEIN_EDIT_NODES.samplingSize,
+        classType: "GetImageSize",
+        requiredInputs: ["image"]
+      },
+      {
+        id: FLUX2_KLEIN_EDIT_NODES.originalSize,
+        classType: "GetImageSize",
+        requiredInputs: ["image"]
+      },
+      {
+        id: FLUX2_KLEIN_EDIT_NODES.vaeEncode,
+        classType: "VAEEncode",
+        requiredInputs: ["pixels", "vae"]
+      },
+      {
+        id: FLUX2_KLEIN_EDIT_NODES.positivePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: FLUX2_KLEIN_EDIT_NODES.negativePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        // `latent` is an OPTIONAL input on ReferenceLatent. Listing it here is
+        // what makes the setup check verify the link exists, and reading only
+        // ComfyUI's `required` bucket is what used to make that a false alarm.
+        id: FLUX2_KLEIN_EDIT_NODES.referenceIntoPositive,
+        classType: "ReferenceLatent",
+        requiredInputs: ["conditioning", "latent"]
+      },
+      {
+        id: FLUX2_KLEIN_EDIT_NODES.referenceIntoNegative,
+        classType: "ReferenceLatent",
+        requiredInputs: ["conditioning", "latent"]
+      },
+      {
+        id: FLUX2_KLEIN_EDIT_NODES.latentImage,
+        classType: "EmptyFlux2LatentImage",
+        requiredInputs: ["width", "height", "batch_size"]
+      },
+      {
+        id: FLUX2_KLEIN_EDIT_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["model", "seed", "steps", "cfg", "sampler_name", "scheduler", "positive", "negative", "latent_image", "denoise"]
+      },
+      {
+        id: FLUX2_KLEIN_EDIT_NODES.decode,
+        classType: "VAEDecode",
+        requiredInputs: ["samples", "vae"]
+      },
+      {
+        id: FLUX2_KLEIN_EDIT_NODES.outputScale,
+        classType: "ImageScale",
+        requiredInputs: ["image", "upscale_method", "width", "height", "crop"]
+      },
+      {
+        id: FLUX2_KLEIN_EDIT_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images"]
+      }
+    ],
+    compatibilityNote:
+      "edit-flux2-klein is FLUX.2 Klein driven as an instruction editor. The captured layer is normalised to roughly 1 megapixel, encoded once, and fed to ReferenceLatent on BOTH the positive and the negative conditioning; the sampler starts from an EmptyFlux2LatentImage of that size at denoise 1. Wiring the reference into the positive branch only loses most of the preservation, which is why two ReferenceLatent nodes appear rather than one. The decoded result is scaled back to the captured layer's exact pixel size so the preset's source-sized output contract holds whatever the 1 MP normalisation chose. Every node is core ComfyUI. Note that ReferenceLatent declares `latent` as an optional input, so a setup check that reads only ComfyUI's `required` bucket reports this graph as missing setup on a machine where it runs perfectly."
   },
   {
     id: "txt2img-z-image-turbo",

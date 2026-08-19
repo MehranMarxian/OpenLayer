@@ -1,3 +1,4 @@
+import { isFluxFillPreset } from "./fluxFillDefaults";
 import { WorkflowPreset } from "./types";
 
 export type FluxFillInpaintSourceInfo = {
@@ -20,7 +21,7 @@ export type FluxFillInpaintDebugInput = FluxFillInpaintSourceInfo & {
 };
 
 export function createFluxFillInpaintDebugSummary(input: FluxFillInpaintDebugInput) {
-  if (input.presetId !== "inpaint-flux-fill-basic") {
+  if (!isFluxFillPreset(String(input.presetId))) {
     return "";
   }
 
@@ -33,7 +34,7 @@ export function createFluxFillInpaintDebugSummary(input: FluxFillInpaintDebugInp
   const vaeName = input.vaeName || "ae.safetensors";
 
   return [
-    `Flux Fill debug: preset inpaint-flux-fill-basic.`,
+    `Flux Fill debug: preset ${input.presetId}.`,
     `Source ${sourceSize}; mask ${maskSize}.`,
     `Model ${selectedModelName}.`,
     `Text encoders ${t5TextEncoderName} preferred, ${t5FallbackName} fallback, ${clipLName}.`,

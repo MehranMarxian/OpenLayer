@@ -8,9 +8,9 @@ import {
 import { createFluxFillInpaintDebugSummary } from "../comfy/inpaintValidation";
 import { createFluxFillEmbeddedMaskSource } from "../comfy/fluxFillMaskBridge";
 import {
-  FLUX_FILL_PRESET_ID,
   formatFluxFillLockedControlsNote,
   formatFluxFillReferenceDefaults,
+  isFluxFillPreset,
   presetLocksSamplerControls
 } from "../comfy/fluxFillDefaults";
 import {
@@ -21,6 +21,8 @@ import {
 import { createObjectUrlRegistry, ObjectUrlRegistry } from "./objectUrlRegistry";
 import { previewHub, PreviewPublicationKind, PreviewToolId } from "./previewHub";
 import { importBridge } from "./importBridge";
+import { agentBridge } from "./agentBridge";
+import { AgentConnectionStatus, createAgentConnection, openWebSocket } from "./agentConnection";
 import {
   createGenerationController,
   GenerationPipelineUi,
@@ -183,6 +185,7 @@ import {
 } from "../photoshop/inpaintSourceMode";
 import { writeOpenLayerLayerMetadata } from "../photoshop/layerMetadata";
 import { formatSelectionBounds } from "../photoshop/selectionUtils";
+import type { NormalizedSelectionBounds } from "../photoshop/selectionUtils";
 import {
   createOutpaintExpansionPlan,
   OutpaintPads,
@@ -211,9 +214,12 @@ import {
 import { createLayerName, sweepStaleTemporaryFiles } from "../utils/fileUtils";
 import {
   clearOpenLayerPreferences,
+  DEFAULT_AGENT_BRIDGE_PORT,
+  loadAgentBridgeSettings,
   loadOpenLayerPreferences,
   OpenLayerTheme,
   OpenLayerPreferences,
+  saveAgentBridgeSettings,
   saveOpenLayerPreferences
 } from "../utils/preferences";
 import {
@@ -464,6 +470,11 @@ export function renderApp(rootElement: HTMLElement) {
   let result: AppGeneratedImageResult | null = null;
   let imageSource: ImageSourceState | null = null;
   let imageResult: AppGeneratedImageResult | null = null;
+  // Frozen at submission time, the same way outpaint freezes its pads: where in
+  // the document the captured layer sat, so the result goes back there rather
+  // than wherever placeEvent would drop it. Re-reading imageSource at import
+  // time would use whatever the artist has captured since.
+  let imageImportBounds: NormalizedSelectionBounds | null = null;
   let sketchSource: ImageSourceState | null = null;
   let sketchResult: AppGeneratedImageResult | null = null;
   let inpaintSource: InpaintSourceState | null = null;
@@ -543,6 +554,376 @@ export function renderApp(rootElement: HTMLElement) {
     });
     updateInpaintReferenceControlLock(elements, isBusy && busyTool === "inpaint");
     syncImportBridge();
+    syncAgentBridge();
+  }
+
+  /**
+   * Tells the agent bridge whether a command may run right now.
+   *
+   * Called from `syncBusy` for the same reason `syncImportBridge` is, and with
+   * more riding on it. The Preview panel's Import button would merely look
+   * wrong if this drifted; an agent command that slipped through would start a
+   * second generation while one is already running, because the generation
+   * handlers do not check `isBusy` — they set it. The A4 lockout for a click
+   * lives in `setBusy` disabling the button, and a bridge-invoked handler never
+   * goes near a button. So this is the lockout, and it has to come from here.
+   */
+  function syncAgentBridge() {
+    const reason = isBusy
+      ? `OpenLayer is busy with ${busyTool ?? "another operation"}. Wait for it to finish.`
+      : "";
+
+    for (const toolId of [
+      "text_to_image",
+      "image_to_image",
+      "sketch_to_image",
+      "inpaint",
+      "outpaint",
+      "upscale",
+      "prompt_from_layer"
+    ] as const) {
+      agentBridge.publishCapability(toolId, { canRun: !isBusy, reason });
+    }
+  }
+
+  /**
+   * Points the agent bridge at the handler the Generate button already uses.
+   *
+   * Phase 1 registers Text to Image only (`docs/mcp-bridge.md` §4). Nothing is
+   * reimplemented here: `handleGenerate` is passed by reference, so an agent
+   * command and a button click run the same code and inherit the same
+   * invariants — with the explicit exception of A4, which `syncAgentBridge`
+   * enforces because the handler does not.
+   *
+   * `leadingParams` and `settle` exist because `workflow` rewrites other
+   * fields. Its own `change` listener does the same three things this `settle`
+   * does, but voids the promise, so waiting on the listener from outside the
+   * closure is not possible. Doing the work again here, awaited, is what lets
+   * an explicit `steps` survive the preset's recommendation and a `checkpoint`
+   * be validated against the list that exists *after* the refresh rather than
+   * before it.
+   */
+  /**
+   * Renders the Agent Bridge status line and keeps the toggle's label honest.
+   *
+   * `textContent`, never `innerHTML`: these strings carry a port number and a
+   * disconnect reason, and the health strings elsewhere in the panel are set
+   * the same way for the same reason.
+   */
+  function applyAgentBridgeStatus(status: AgentConnectionStatus) {
+    elements.agentBridgeStatusText.textContent = status.message;
+    elements.agentBridgeStatusPill.className = `status-pill ${
+      status.state === "error" ? "error" : status.state === "connected" ? "ready" : "idle"
+    }`;
+    elements.agentBridgeStatusPill.textContent =
+      status.state === "connected" ? "Connected" : status.state === "connecting" ? "Connecting" : status.state === "error" ? "Error" : "Off";
+
+    const isOn = status.state === "connected" || status.state === "connecting";
+
+    elements.agentBridgeToggle.setAttribute("aria-pressed", isOn ? "true" : "false");
+    elements.agentBridgeToggle.textContent = isOn ? "Turn Agent Bridge Off" : "Turn Agent Bridge On";
+    // The port cannot change under a live connection: the socket is already
+    // dialled, so an edited field would describe something that is not true.
+    elements.agentBridgePort.disabled = isOn;
+  }
+
+  function handleToggleAgentBridge() {
+    if (agentConnection.isEnabled()) {
+      agentConnection.disable();
+      saveAgentBridgeSettings({ enabled: false, port: readAgentBridgePort() });
+      return;
+    }
+
+    const port = readAgentBridgePort();
+
+    agentConnection.enable(port);
+    // Persisted as requested rather than as achieved. If the bridge is not
+    // running yet, the connection fails and says so — but the intent survives a
+    // panel reload, which is what makes "start the bridge, then reopen" work.
+    saveAgentBridgeSettings({ enabled: true, port });
+  }
+
+  /**
+   * Asks a connected agent to write a prompt, and puts it in the prompt box.
+   *
+   * The bidirectional half of the bridge (`docs/mcp-bridge.md` §4.3), and the
+   * only place the panel talks *to* an agent rather than the other way round.
+   *
+   * Every failure path ends in a status message rather than an exception,
+   * because this button sits next to a prompt box and is a convenience: no
+   * agent connected, an agent whose MCP client cannot answer, a two-minute
+   * timeout. None of them should look like the panel is broken, and none of
+   * them should touch what the user already typed.
+   */
+  async function handleSuggestPrompt() {
+    if (isBusy) {
+      setTextToImageStatus(elements, "Wait for the current generation to finish.", "error");
+      return;
+    }
+
+    const existing = elements.prompt.value.trim();
+    // The existing prompt is context, not something to overwrite blindly: on a
+    // second press this reads as "give me another angle on this", which is how
+    // the button actually gets used.
+    const question = existing
+      ? `Write a single improved image-generation prompt based on this one: "${existing}". ` +
+        `Reply with only the prompt text, no preamble, no quotes, under 60 words.`
+      : `Write a single vivid image-generation prompt for an interesting picture. ` +
+        `Reply with only the prompt text, no preamble, no quotes, under 60 words.`;
+
+    setActionDisabled(elements.suggestPrompt, true);
+    setTextToImageStatus(elements, "Asking the agent...", "idle");
+
+    try {
+      const { ok, answer } = await agentConnection.ask(question);
+
+      if (!ok || !answer) {
+        setTextToImageStatus(elements, "The agent could not answer.", "error");
+        setTextToImageError(elements, answer || "The agent returned nothing.");
+        return;
+      }
+
+      elements.prompt.value = answer;
+      setTextToImageError(elements, "");
+      setTextToImageStatus(elements, "Prompt suggested by the agent.", "ready");
+      setTextToImageDiagnostics(elements, "The prompt field was filled by a connected agent.");
+    } finally {
+      // In `finally` because an unexpected throw must not leave the only way of
+      // asking again permanently greyed out.
+      setActionDisabled(elements.suggestPrompt, false);
+    }
+  }
+
+  function readAgentBridgePort() {
+    const port = Number(elements.agentBridgePort.value);
+
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      elements.agentBridgePort.value = String(DEFAULT_AGENT_BRIDGE_PORT);
+      return DEFAULT_AGENT_BRIDGE_PORT;
+    }
+
+    return port;
+  }
+
+  function registerAgentBridgeHandlers() {
+    agentBridge.register("text_to_image", {
+      run: handleGenerate,
+      fields: {
+        prompt: elements.prompt,
+        negativePrompt: elements.negativePrompt,
+        workflow: elements.workflow,
+        checkpoint: elements.checkpoint,
+        width: elements.width,
+        height: elements.height,
+        steps: elements.steps,
+        cfg: elements.cfg,
+        seed: elements.seed
+      },
+      leadingParams: ["workflow"],
+      settle: async () => {
+        applyRecommendedPresetSettings(elements.workflow, DEFAULT_WORKFLOW, elements.steps, elements.cfg);
+        await refreshTextModelOptionsForSelectedPreset(elements);
+        updateTextCheckpointCompatibility(elements);
+        await refreshLoraOptions(getTextLoraControls(elements), elements);
+      },
+      statusText: elements.statusText,
+      statusPill: elements.statusPill,
+      errorText: elements.errorMessage
+    });
+
+    /**
+     * The six remaining tools, Phase 2 of `docs/mcp-bridge.md` §4.2. Same
+     * pattern as text_to_image throughout: the existing handler by reference,
+     * a `settle` that redoes what the workflow field's own `change` listener
+     * does (because that listener voids its promise and cannot be awaited from
+     * here), and no special-casing for "no source captured" — the handler
+     * already refuses with a clear status ("Capture the active Photoshop layer
+     * before generating...") exactly as it does for a human who clicks
+     * Generate without capturing first, and `readOutcome` relays that status
+     * unchanged. An agent cannot capture a Photoshop selection or layer itself,
+     * so that refusal is the correct outcome, not a gap to close.
+     *
+     * `errorText` is each tool's own error element. A status line is a
+     * category — "Generation failed.", "Source required." — and the specific,
+     * actionable reason a real run failed (which checkpoint was missing, what
+     * ComfyUI actually said) is written there by the same catch block, not into
+     * the status line. Without it an agent can only say "it failed" and send
+     * the user to open the panel and read the real reason themselves, which
+     * defeats driving the tool from outside Photoshop in the first place.
+     */
+    agentBridge.register("image_to_image", {
+      run: handleGenerateImg2Img,
+      fields: {
+        prompt: elements.imgPrompt,
+        negativePrompt: elements.imgNegativePrompt,
+        workflow: elements.imgWorkflow,
+        checkpoint: elements.imgCheckpoint,
+        steps: elements.imgSteps,
+        cfg: elements.imgCfg,
+        seed: elements.imgSeed,
+        denoise: elements.imgDenoise
+      },
+      leadingParams: ["workflow"],
+      settle: async () => {
+        applyRecommendedPresetSettings(elements.imgWorkflow, DEFAULT_IMAGE_WORKFLOW, elements.imgSteps, elements.imgCfg);
+        await refreshImageModelOptionsForSelectedPreset(elements);
+        updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
+        await refreshLoraOptions(getImageLoraControls(elements), elements);
+      },
+      statusText: elements.imgStatusText,
+      statusPill: elements.imgStatusPill,
+      errorText: elements.imgErrorMessage
+    });
+
+    agentBridge.register("sketch_to_image", {
+      run: handleGenerateSketch,
+      fields: {
+        prompt: elements.sketchPrompt,
+        negativePrompt: elements.sketchNegativePrompt,
+        workflow: elements.sketchWorkflow,
+        checkpoint: elements.sketchCheckpoint,
+        steps: elements.sketchSteps,
+        cfg: elements.sketchCfg,
+        seed: elements.sketchSeed,
+        denoise: elements.sketchDenoise,
+        controlStrength: elements.sketchControlStrength
+      },
+      leadingParams: ["workflow"],
+      settle: async () => {
+        applyRecommendedPresetSettings(
+          elements.sketchWorkflow,
+          DEFAULT_SKETCH_WORKFLOW,
+          elements.sketchSteps,
+          elements.sketchCfg,
+          elements.sketchControlStrength
+        );
+        await refreshSketchModelOptionsForSelectedPreset(elements);
+        updateSketchCheckpointCompatibility(elements, sketchSource);
+        await refreshLoraOptions(getSketchLoraControls(elements), elements);
+      },
+      statusText: elements.sketchStatusText,
+      statusPill: elements.sketchStatusPill,
+      errorText: elements.sketchErrorMessage
+    });
+
+    agentBridge.register("inpaint", {
+      run: handleGenerateInpaint,
+      fields: {
+        prompt: elements.inpaintPrompt,
+        negativePrompt: elements.inpaintNegativePrompt,
+        workflow: elements.inpaintWorkflow,
+        checkpoint: elements.inpaintCheckpoint,
+        steps: elements.inpaintSteps,
+        cfg: elements.inpaintCfg,
+        seed: elements.inpaintSeed,
+        denoise: elements.inpaintDenoise
+      },
+      leadingParams: ["workflow"],
+      settle: async () => {
+        applyRecommendedPresetSettings(elements.inpaintWorkflow, DEFAULT_INPAINT_WORKFLOW, elements.inpaintSteps, elements.inpaintCfg);
+        updateInpaintReferenceControlLock(elements);
+        await refreshInpaintModelOptionsForSelectedPreset(elements);
+        updateInpaintCheckpointCompatibility(elements, inpaintSource);
+      },
+      statusText: elements.inpaintStatusText,
+      statusPill: elements.inpaintStatusPill,
+      errorText: elements.inpaintErrorMessage
+    });
+
+    agentBridge.register("outpaint", {
+      run: handleGenerateOutpaint,
+      fields: {
+        prompt: elements.outpaintPrompt,
+        workflow: elements.outpaintWorkflow,
+        checkpoint: elements.outpaintCheckpoint,
+        steps: elements.outpaintSteps,
+        guidance: elements.outpaintGuidance,
+        seed: elements.outpaintSeed,
+        denoise: elements.outpaintDenoise,
+        left: elements.outpaintLeft,
+        top: elements.outpaintTop,
+        right: elements.outpaintRight,
+        bottom: elements.outpaintBottom,
+        feathering: elements.outpaintFeathering
+      },
+      leadingParams: ["workflow"],
+      settle: async () => {
+        applyRecommendedPresetSettings(elements.outpaintWorkflow, DEFAULT_OUTPAINT_WORKFLOW, elements.outpaintSteps, elements.outpaintGuidance);
+        await refreshOutpaintModelOptionsForSelectedPreset(elements);
+        updateOutpaintCheckpointCompatibility(elements, outpaintSource);
+      },
+      statusText: elements.outpaintStatusText,
+      statusPill: elements.outpaintStatusPill,
+      errorText: elements.outpaintErrorMessage
+    });
+
+    agentBridge.register("upscale", {
+      run: handleGenerateUpscale,
+      fields: {
+        workflow: elements.upscaleWorkflow,
+        model: elements.upscaleModel
+      },
+      leadingParams: ["workflow"],
+      settle: async () => {
+        await refreshUpscaleModelOptionsForSelectedPreset(elements);
+        updateUpscaleCompatibility(elements, upscaleSource);
+      },
+      statusText: elements.upscaleStatusText,
+      statusPill: elements.upscaleStatusPill,
+      errorText: elements.upscaleErrorMessage
+    });
+
+    // No leadingParams: task and numBeams are independent selects with no
+    // change listener that rewrites another field, unlike every tool above.
+    agentBridge.register("prompt_from_layer", {
+      run: handleGeneratePromptFromLayer,
+      fields: {
+        task: elements.promptLayerTask,
+        numBeams: elements.promptLayerNumBeams
+      },
+      statusText: elements.promptLayerStatusText,
+      statusPill: elements.promptLayerStatusPill,
+      errorText: elements.promptLayerErrorMessage,
+      // The status line settles to "Prompt text generated." — true, and useless
+      // to an agent that asked for the caption. The actual text lands in a
+      // separate field a human would read visually; an agent cannot, so it is
+      // appended to the reply here.
+      describeResult: () => {
+        const caption = elements.promptLayerGeneratedText.value.trim();
+
+        return caption ? `Generated text: "${caption}"` : "";
+      }
+    });
+
+    // Published immediately so every tool is drivable before the first state
+    // change. `agentBridge.execute` treats an absent capability as "no", which
+    // is the right default but would otherwise mean nothing works until
+    // something happens to call syncBusy.
+    syncAgentBridge();
+  }
+
+  /**
+   * Reopens the connection if it was on when the panel last closed.
+   *
+   * Reconnecting on mount is the behaviour that makes the feature usable —
+   * without it every Photoshop restart is a trip to Setup. It is safe to do
+   * silently only because the stored default is off and `loadAgentBridgeSettings`
+   * treats anything that is not exactly `true` as off, so this can never turn
+   * itself on for someone who never opted in.
+   *
+   * Registration happens first, deliberately: the handshake reports
+   * `registeredTools()`, and connecting before Text to Image registers would
+   * announce a panel that offers nothing.
+   */
+  function restoreAgentBridgeSettings() {
+    const settings = loadAgentBridgeSettings();
+
+    elements.agentBridgePort.value = String(settings.port);
+    applyAgentBridgeStatus(agentConnection.status());
+
+    if (settings.enabled) {
+      agentConnection.enable(settings.port);
+    }
   }
 
   /**
@@ -797,6 +1178,12 @@ export function renderApp(rootElement: HTMLElement) {
     metaElement: elements.upscaleSourceMeta,
     imageAlt: "Captured Photoshop source for Upscale"
   });
+  const agentConnection = createAgentConnection({
+    bridge: agentBridge,
+    openSocket: openWebSocket,
+    panelVersion: APP_VERSION,
+    onStatus: (status) => applyAgentBridgeStatus(status)
+  });
   const promptLayerSourcePanel = createSourcePreviewPanel({
     urls: objectUrls,
     panel: elements.promptLayerSourcePreviewPanel,
@@ -849,6 +1236,10 @@ export function renderApp(rootElement: HTMLElement) {
     objectUrls.revokeAll();
     previewHub.clear();
     livePreviewObjectUrl = "";
+    // Closed explicitly rather than left to the host: a socket outliving the
+    // panel would leave the bridge holding a connection whose handlers write
+    // into a torn-down DOM.
+    agentConnection.disable();
     window.removeEventListener("unload", disposeAppResources);
     resourceObserver?.disconnect();
     resourceObserver = null;
@@ -952,7 +1343,9 @@ export function renderApp(rootElement: HTMLElement) {
     importLiveResult: createActionRunner(elements, "importLiveResult", handleImportLiveResult),
     importLiveRefined: createActionRunner(elements, "importLiveRefined", handleImportLiveRefined),
     toggleLiveAutoImport: createActionRunner(elements, "toggleLiveAutoImport", handleToggleLiveAutoImport),
-    toggleLiveAutoRefine: createActionRunner(elements, "toggleLiveAutoRefine", handleToggleLiveAutoRefine)
+    toggleLiveAutoRefine: createActionRunner(elements, "toggleLiveAutoRefine", handleToggleLiveAutoRefine),
+    toggleAgentBridge: createActionRunner(elements, "toggleAgentBridge", handleToggleAgentBridge),
+    suggestPrompt: createActionRunner(elements, "suggestPrompt", handleSuggestPrompt)
   };
 
   bindActionControl(elements.checkButton, actionHandlers.check);
@@ -1013,7 +1406,11 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.importLiveRefinedButton, actionHandlers.importLiveRefined);
   bindActionControl(elements.liveAutoImportToggle, actionHandlers.toggleLiveAutoImport);
   bindActionControl(elements.liveAutoRefineToggle, actionHandlers.toggleLiveAutoRefine);
+  bindActionControl(elements.agentBridgeToggle, actionHandlers.toggleAgentBridge);
+  bindActionControl(elements.suggestPrompt, actionHandlers.suggestPrompt);
   registerImportBridgeHandlers();
+  registerAgentBridgeHandlers();
+  restoreAgentBridgeSettings();
   bindDelegatedActions(rootElement, actionHandlers);
   bindDocumentActions(rootElement, actionHandlers);
   bindHomeSectionToggles(rootElement);
@@ -2286,6 +2683,7 @@ export function renderApp(rootElement: HTMLElement) {
       // The commit closure runs after awaits; a const keeps the null-checked
       // source from the top of the handler rather than re-reading mutable state.
       const capturedSource = imageSource;
+      imageImportBounds = capturedSource.captureBounds ?? null;
       const generatedResult = await generation.runPipeline({
         toolType: "image-to-image",
         client,
@@ -2379,6 +2777,7 @@ export function renderApp(rootElement: HTMLElement) {
         blob: imageResult.blob,
         originatingDocument: imageResult.originatingDocument,
         layerName,
+        targetBounds: imageImportBounds ?? undefined,
         onProgress: (message) => {
           setImageStatus(elements, message, "idle");
           setImageDiagnostics(elements, message);
@@ -3534,7 +3933,7 @@ export function renderApp(rootElement: HTMLElement) {
       let maskUploadFilename = submittedMask.filename;
       let fluxEmbeddedMaskMessage = "";
 
-      if (preset.id === "inpaint-flux-fill-basic") {
+      if (isFluxFillPreset(preset.id)) {
         setInpaintStatus(elements, "Preparing Flux Fill masked source...", "idle");
         setInpaintProgressPreview(elements, "Embedding mask into Flux Fill source...");
         const embeddedSource = await createFluxFillEmbeddedMaskSource(submittedSource.blob, submittedMask.blob);
@@ -3547,7 +3946,7 @@ export function renderApp(rootElement: HTMLElement) {
 
       const sourceImageName = await client.uploadImage(sourceUploadBlob, sourceUploadFilename);
       const maskImageName =
-        preset.id === "inpaint-flux-fill-basic"
+        isFluxFillPreset(preset.id)
           ? sourceImageName
           : await client.uploadImage(maskUploadBlob, maskUploadFilename);
       const buildResult = await buildInpaintWorkflow({
@@ -3567,7 +3966,7 @@ export function renderApp(rootElement: HTMLElement) {
       });
 
       const fluxDefaultsMessage =
-        preset.id === FLUX_FILL_PRESET_ID ? formatFluxFillReferenceDefaults() : "";
+        isFluxFillPreset(preset.id) ? formatFluxFillReferenceDefaults() : "";
       if (fluxDefaultsMessage) {
         setInpaintDiagnostics(
           elements,

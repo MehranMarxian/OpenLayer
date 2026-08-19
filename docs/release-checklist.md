@@ -13,14 +13,24 @@ Use this checklist before publishing an OpenLayer alpha release.
 
 ## Version Consistency
 
-- Confirm `package.json` version.
-- Confirm `package-lock.json` root version.
-- Confirm `src/manifest.json` version.
-- Confirm the visible UI version label.
-- Confirm `README.md` release version.
-- Confirm `CHANGELOG.md` release section.
-- Confirm `docs/index.html` landing page version.
-- Confirm `docs/become-a-tester.html` version. It carries the version in several places at once — the hero badge, both Download buttons, the `.ccx` and `.zip` filenames in the install step, and the footer — and it has gone stale for two releases running because it is not the page anyone looks at while cutting a release. Grep it for the previous version number rather than reading it.
+**`npm test` now checks this.** `tests/scripts/versionConsistency.test.ts` treats
+`package.json` as the source of truth and fails if `package-lock.json` (both root-project
+fields), `src/manifest.json`, `APP_VERSION` in `src/ui/appConstants.ts`, `docs/index.html`,
+`docs/become-a-tester.html`, or README's checkpoint line and package filenames disagree with
+it. Bump `package.json` first, then run `npm test` and fix what it names.
+
+This list used to be a manual grep, and it failed silently twice: v0.14.0 shipped with the
+panel footer still reading v0.13.0 (`APP_VERSION` had moved file, so the bump commit's list of
+"all four sites" quietly dropped it), and `package-lock.json` sat at 0.12.0 for two releases.
+Naming files is what failed — a location that moves between files stops being checked while
+the list still looks complete. The test names values and reads them out of the real files.
+
+Still manual, because no test can judge them:
+
+- Confirm `CHANGELOG.md` has a section for this release and that every claim in it survives a
+  reading of `git log <lasttag>..main` — not of the task list.
+- Confirm README's "New in `vX.Y.Z-alpha`" list describes *this* release, not the last one.
+  The test pins README's version numbers, not its prose.
 - Confirm the package name matches the release, for example `openlayer-v0.7.0-alpha.zip`.
 
 ## Public Alpha Truth Check

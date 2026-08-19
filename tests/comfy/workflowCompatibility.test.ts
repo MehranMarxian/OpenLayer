@@ -162,6 +162,56 @@ describe("workflow compatibility", () => {
     expect(issue?.artistMessage).toContain("https://github.com/kijai/ComfyUI-Florence2");
   });
 
+  it("names comfyui-inpaint-cropandstitch when the crop & stitch pack is absent", () => {
+    const preset = getWorkflowPreset("inpaint-flux-fill-cropstitch");
+    const availableNodes = createAvailableNodes(preset);
+    delete availableNodes.InpaintCropImproved;
+    delete availableNodes.InpaintStitchImproved;
+
+    const result = evaluateWorkflowCompatibility(preset, {
+      availableNodes,
+      availableModels: createInventory({
+        diffusionModels: ["flux1-fill-dev.safetensors"],
+        clipModels: ["clip_l.safetensors", "t5xxl_fp16.safetensors"],
+        vaeModels: ["ae.safetensors"]
+      })
+    });
+    const issue = result.issues.find((candidate) => candidate.code === "COMFY_NODE_MISSING");
+
+    expect(issue?.artistMessage).toContain("Install comfyui-inpaint-cropandstitch from");
+    expect(issue?.artistMessage).toContain("https://github.com/lquesada/ComfyUI-Inpaint-CropAndStitch");
+    // Not "an absent node called InpaintCropImproved", which names nothing a
+    // user can install.
+    expect(issue?.artistMessage).not.toContain("your ComfyUI install is likely out of date");
+  });
+
+  it("names Flux.2 by name when a preset cannot use it", () => {
+    // Regression: `flux2` was added to ModelFamily without a case in
+    // formatModelFamily, so a correctly detected Klein model was reported as
+    // "Unknown model family is not supported" -- which tells an artist their
+    // file is unrecognised when it is recognised exactly and simply not usable
+    // by this preset. Seen in the panel selecting Klein under Inpaint.
+    const preset = getWorkflowPreset("inpaint-flux-fill-cropstitch");
+    const result = evaluateWorkflowCompatibility(preset, {
+      selectedModelName: "flux-2-klein-4b-fp8.safetensors"
+    });
+    const issue = result.issues.find((candidate) => candidate.code === "MODEL_FAMILY_UNSUPPORTED");
+
+    expect(issue?.artistMessage).toBe("Flux.2 is not supported by this workflow preset.");
+    expect(result.canRun).toBe(false);
+  });
+
+  it("accepts a Klein model on the Klein presets with no issues at all", () => {
+    for (const presetId of ["txt2img-flux2-klein", "img2img-flux2-klein"]) {
+      const result = evaluateWorkflowCompatibility(getWorkflowPreset(presetId), {
+        selectedModelName: "flux-2-klein-4b-fp8.safetensors"
+      });
+
+      expect(result.canRun, `${presetId} rejected its own model`).toBe(true);
+      expect(result.issues, `${presetId} raised an issue for its own model`).toEqual([]);
+    }
+  });
+
   it("diagnoses a missing core node as an outdated or broken ComfyUI install", () => {
     const preset = getWorkflowPreset("txt2img-basic");
     const availableNodes = createAvailableNodes(preset);

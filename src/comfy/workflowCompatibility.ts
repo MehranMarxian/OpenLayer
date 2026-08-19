@@ -315,19 +315,29 @@ function getRecommendedAction(issues: WorkflowCompatibilityIssue[]) {
   return blockingIssue?.artistMessage ?? issues[0]?.artistMessage;
 }
 
+/**
+ * A Record rather than a switch with a default, on purpose.
+ *
+ * This was a switch, and `flux2` was added to `ModelFamily` for the Flux.2 GGUF
+ * preset without a case being added here. The default arm swallowed it, so a
+ * correctly *detected* Flux.2 model was reported to the artist as "Unknown model
+ * family is not supported" -- which reads as "OpenLayer does not recognise this
+ * file" when the truth is "OpenLayer recognises it exactly and this preset
+ * cannot use it". The two send an artist to completely different places.
+ *
+ * As a Record keyed by ModelFamily, omitting a member is a compile error, so the
+ * next family added cannot repeat this.
+ */
+const MODEL_FAMILY_MESSAGE_LABELS: Record<ModelFamily, string> = {
+  sd1: "SD 1.x",
+  sdxl: "SDXL",
+  sd3: "SD3 / SD3.5",
+  flux: "Flux",
+  flux2: "Flux.2",
+  zImage: "Z_image_Turbo",
+  unknown: "Unknown model family"
+};
+
 function formatModelFamily(family: ModelFamily) {
-  switch (family) {
-    case "sd1":
-      return "SD 1.x";
-    case "sdxl":
-      return "SDXL";
-    case "sd3":
-      return "SD3 / SD3.5";
-    case "flux":
-      return "Flux";
-    case "zImage":
-      return "Z_image_Turbo";
-    default:
-      return "Unknown model family";
-  }
+  return MODEL_FAMILY_MESSAGE_LABELS[family] ?? MODEL_FAMILY_MESSAGE_LABELS.unknown;
 }

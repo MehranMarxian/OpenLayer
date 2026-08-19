@@ -2,6 +2,12 @@ node_modules/
 dist/
 packages/
 
+# Written by external tooling (e.g. an Adobe design skill) into the repo root
+# rather than a scratch directory -- not a build artifact of this project, and
+# not meant to be committed. One such file was swept in by `git add -A` once;
+# this stops it recurring rather than relying on remembering to check.
+output/
+
 .pnpm-store/
 pnpm-lock.yaml
 pnpm-workspace.yaml

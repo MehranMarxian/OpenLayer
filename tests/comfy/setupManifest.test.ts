@@ -77,16 +77,21 @@ describe("setup manifest", () => {
     expect(sharedVae?.usedByPresets).toContain("txt2img-z-image-turbo");
   });
 
-  it("requires only the three custom node packages that are left", () => {
+  it("requires only the four custom node packages that are left", () => {
     const manifest = build();
 
     // ComfyUI-GGUF joined when the Flux.2 preset landed. It is worth naming
     // here because it is the one pack that can be installed and still register
     // nothing, when its gguf Python dependency is missing from the environment.
+    // comfyui-inpaint-cropandstitch is required by inpaint-flux-fill-cropstitch
+    // only. It is declared here, rather than left to be discovered as an
+    // unexplained absent node, because a preset built without a manifest entry
+    // works on the machine that has the pack and fails silently everywhere else.
     expect(manifest.customNodes.map((node) => node.name)).toEqual([
       "comfyui_controlnet_aux",
       "ComfyUI-Florence2",
-      "ComfyUI-GGUF"
+      "ComfyUI-GGUF",
+      "comfyui-inpaint-cropandstitch"
     ]);
 
     for (const node of manifest.customNodes) {

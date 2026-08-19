@@ -5,6 +5,7 @@ import { calculatePlacementOffset, createOpaqueGrayscaleMaskPng, PixelDimensions
 import { OutpaintExpansionPlan } from "./outpaintExpansion";
 import { UpscaleResizePlan } from "./upscaleResize";
 import {
+  calculateCenteredOrigin,
   createPaddedSelectionBounds,
   normalizeSelectionBounds,
   NormalizedSelectionBounds,
@@ -169,6 +170,12 @@ export type ExportedSourceImage = {
   sourceName: string;
   captureFormat: SourceCaptureFormat;
   originatingDocument: PhotoshopDocumentIdentity;
+  /**
+   * Where in the document this capture came from, so a result made from it can
+   * be put back in the same place. Absent only when Photoshop would not report
+   * bounds, in which case the import falls back to centring on the canvas.
+   */
+  captureBounds?: NormalizedSelectionBounds;
 };
 
 export type SelectionMaskExport = {
@@ -196,6 +203,13 @@ export type GeneratedImageImportOptions = {
   originatingDocument: PhotoshopDocumentIdentity | null;
   layerName?: string;
   onProgress?: ImportProgress;
+  /**
+   * Where the result belongs, normally the bounds of the layer it was generated
+   * from. Without it the layer lands wherever `placeEvent` decides, which is
+   * the centre of the active *selection* when one exists and the centre of the
+   * canvas otherwise -- neither of which is the captured layer's position.
+   */
+  targetBounds?: SelectionBounds;
 };
 
 export type SelectedRegionSourceImage = ExportedSourceImage & {
@@ -283,6 +297,17 @@ export async function importGeneratedImageAsLayer(
         await placeFileAsLayer(photoshop, token);
         options.onProgress?.("Renaming imported layer...");
         await renameActiveLayer(photoshop, layerName);
+        // Always position explicitly. placeEvent's own centring is not a
+        // reliable placement: with a selection active it centres on the
+        // selection, so a leftover Inpaint selection silently drops an Image to
+        // Image result somewhere the artist then has to drag back by hand.
+        options.onProgress?.("Positioning imported layer...");
+
+        if (options.targetBounds) {
+          await alignActiveLayerToBounds(photoshop, normalizeSelectionBounds(options.targetBounds));
+        } else {
+          await centerActiveLayerOnCanvas(photoshop);
+        }
       },
       { commandName: "Import OpenLayer Result" }
     );
@@ -326,7 +351,12 @@ export async function exportActiveLayerForImageToImage(): Promise<ExportedSource
           );
         }
 
-        return captureSourceImage(imaging, {
+        // Read where the layer sits before capturing it. getPixels with a
+        // layerID and no sourceBounds returns the layer's own bounding box, so
+        // the result is only in the right place if it goes back to these
+        // coordinates rather than to the middle of the canvas.
+        const captureBounds = await readActiveLayerBoundsBestEffort(photoshop);
+        const captured = await captureSourceImage(imaging, {
           pixelOptions: {
             documentID: document.id,
             layerID: activeLayer.id,
@@ -338,11 +368,16 @@ export async function exportActiveLayerForImageToImage(): Promise<ExportedSource
           sourceName: activeLayer.name || "Active layer",
           originatingDocument: readDocumentIdentity(document)
         });
+
+        return { captured, captureBounds };
       },
       { commandName: "Capture OpenLayer Source" }
     );
 
-    return createExportedSourceImage(capturedSource);
+    return {
+      ...createExportedSourceImage(capturedSource.captured),
+      captureBounds: capturedSource.captureBounds ?? undefined
+    };
   } catch (caughtError) {
     throw createOpenLayerError(
       "PHOTOSHOP_EXPORT_FAILED",
@@ -368,7 +403,7 @@ export async function exportCanvasForImageToImage(): Promise<ExportedSourceImage
           );
         }
 
-        return captureSourceImage(imaging, {
+        const captured = await captureSourceImage(imaging, {
           pixelOptions: {
             documentID: document.id,
             ...createDocumentSourceBounds(document),
@@ -380,11 +415,26 @@ export async function exportCanvasForImageToImage(): Promise<ExportedSourceImage
           sourceName: document.title ?? document.name ?? "Canvas composite",
           originatingDocument: readDocumentIdentity(document)
         });
+
+        // A canvas capture covers the whole document, so a result made from it
+        // belongs at the document origin.
+        return {
+          captured,
+          captureBounds: normalizeSelectionBounds({
+            left: 0,
+            top: 0,
+            right: Number(document.width ?? 0),
+            bottom: Number(document.height ?? 0)
+          })
+        };
       },
       { commandName: "Capture OpenLayer Canvas" }
     );
 
-    return createExportedSourceImage(capturedSource);
+    return {
+      ...createExportedSourceImage(capturedSource.captured),
+      captureBounds: capturedSource.captureBounds
+    };
   } catch (caughtError) {
     throw createOpenLayerError(
       "PHOTOSHOP_EXPORT_FAILED",
@@ -2006,6 +2056,52 @@ async function alignActiveLayerToBounds(
 
   await moveActiveLayerBy(photoshop, deltaX, deltaY);
   return { deltaX, deltaY };
+}
+
+/**
+ * Centres the active layer on the canvas the way an artist expects a fresh
+ * generated layer to arrive. This is what `placeEvent` does on its own when no
+ * selection is active; doing it explicitly makes the outcome independent of
+ * whatever selection happens to be lying around.
+ */
+async function centerActiveLayerOnCanvas(photoshop: PhotoshopModule) {
+  const document = photoshop.app.activeDocument;
+  const documentWidth = Number(document?.width ?? 0);
+  const documentHeight = Number(document?.height ?? 0);
+
+  if (!Number.isFinite(documentWidth) || !Number.isFinite(documentHeight) || documentWidth <= 0 || documentHeight <= 0) {
+    return { deltaX: 0, deltaY: 0 };
+  }
+
+  const layerBounds = await readActiveLayerBounds(photoshop);
+  const target = calculateCenteredOrigin(
+    { width: documentWidth, height: documentHeight },
+    {
+      width: layerBounds.right - layerBounds.left,
+      height: layerBounds.bottom - layerBounds.top
+    }
+  );
+  const { deltaX, deltaY } = calculatePlacementOffset(layerBounds, target);
+
+  if (deltaX === 0 && deltaY === 0) {
+    return { deltaX, deltaY };
+  }
+
+  await moveActiveLayerBy(photoshop, deltaX, deltaY);
+  return { deltaX, deltaY };
+}
+
+/**
+ * Bounds are a placement hint, never a reason to fail a capture. If Photoshop
+ * will not report them the import centres on the canvas, which is exactly the
+ * behaviour that existed before placement was made explicit.
+ */
+async function readActiveLayerBoundsBestEffort(photoshop: PhotoshopModule) {
+  try {
+    return await readActiveLayerBounds(photoshop);
+  } catch {
+    return null;
+  }
 }
 
 async function readActiveLayerBounds(photoshop: PhotoshopModule): Promise<NormalizedSelectionBounds> {

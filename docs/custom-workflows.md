@@ -49,6 +49,8 @@ The mapping for prompt, negative prompt, checkpoint, source image, mask image, s
 
 `inpaint-flux-fill-basic` is an experimental Flux Fill preset. It uses a diffusion model stack instead of `CheckpointLoaderSimple`, so the model selector must point to `UNETLoader` models such as `flux1-fill-dev.safetensors`. It follows the reference-style graph in `src/workflows/source/inpaint-flux-fill-basic.workflow.json` and expects `UNETLoader`, `DifferentialDiffusion`, `DualCLIPLoader`, `VAELoader`, `LoadImage`, `CLIPTextEncode`, `FluxGuidance`, `ConditioningZeroOut`, `InpaintModelConditioning`, regular `KSampler`, `VAEDecode`, and `SaveImage`.
 
+`inpaint-flux-fill-cropstitch` is the same graph with `InpaintCropImproved` between `LoadImage` and `InpaintModelConditioning`, and `InpaintStitchImproved` between `VAEDecode` and `SaveImage`. Those two classes come from lquesada's `comfyui-inpaint-cropandstitch`, which is the only extra requirement over `inpaint-flux-fill-basic`. The crop node takes both the image and the mask from the single `LoadImage`, and the stitch node consumes the `STITCHER` handle from the crop node's first output -- a custom graph that drops that link cannot stitch the patch back.
+
 The current Flux Fill API workflow maps `clip_l.safetensors` to `DualCLIPLoader.clip_name1` and `t5xxl_fp16.safetensors` to `DualCLIPLoader.clip_name2`. `t5xxl_fp8_e4m3fn.safetensors` is accepted as a fallback for the T5 encoder when fp16 is not installed.
 
 The Flux Fill graph expects one `LoadImage` node with an embedded alpha mask. OpenLayer captures source and mask separately, then creates a single alpha-masked upload for this preset. White Photoshop mask pixels mean repaint.

@@ -1,0 +1,317 @@
+import { AgentBridge } from "./agentBridge";
+import { AgentToolId, buildAsk, buildHello, buildResult, parsePanelFrame } from "./agentProtocol";
+
+/**
+ * Holds the panel's outbound connection to the bridge process, and turns
+ * incoming commands into `agentBridge.execute` calls.
+ *
+ * The panel dials out because it has no choice: a UXP panel cannot listen on a
+ * port. So the bridge is the server even though the panel is the thing being
+ * driven.
+ *
+ * ## Why it never reconnects on its own
+ *
+ * A dropped connection sets an error status and stops. It does not retry on a
+ * timer, and that is a deliberate choice rather than a missing feature: a panel
+ * quietly redialling a socket every few seconds is indistinguishable, from the
+ * outside, from a plugin that has hung — and it would keep a failed connection
+ * producing log noise for the rest of the session. The toggle is the retry.
+ *
+ * The socket is injected rather than constructed here so the whole of this
+ * module's behaviour is testable in the node suite. `openWebSocket` below is
+ * the only part that touches UXP, and it holds no decisions.
+ */
+
+export type AgentConnectionState = "off" | "connecting" | "connected" | "error";
+
+export type AgentConnectionStatus = {
+  state: AgentConnectionState;
+  message: string;
+};
+
+export type AgentSocket = {
+  send: (data: string) => void;
+  close: () => void;
+};
+
+export type SocketHandlers = {
+  onOpen: () => void;
+  onMessage: (data: unknown) => void;
+  onClose: () => void;
+  onError: (message: string) => void;
+};
+
+export type OpenSocket = (url: string, handlers: SocketHandlers) => AgentSocket;
+
+export type AgentConnection = {
+  enable: (port: number) => void;
+  disable: () => void;
+  isEnabled: () => boolean;
+  status: () => AgentConnectionStatus;
+  /**
+   * Asks a connected agent a question and resolves with its answer.
+   *
+   * Always resolves, never rejects: this is wired to a button next to a prompt
+   * box, and every refusal — no connection, no agent, an agent whose client
+   * cannot answer — is a sentence to show the user, not an exception to handle.
+   */
+  ask: (question: string) => Promise<AgentAskResult>;
+};
+
+export type AgentAskResult = { ok: boolean; answer: string };
+
+/**
+ * How a tester starts the missing half. Repeated in the status line because
+ * "could not connect" without it is a dead end — the bridge is a separate
+ * install, so a perfectly healthy panel legitimately shows this on first run.
+ */
+export const BRIDGE_START_HINT =
+  "The bridge has to already be running before you turn this on. Start it in a terminal with: node bridge/src/main.mjs";
+
+export function createAgentConnection({
+  bridge,
+  openSocket,
+  panelVersion,
+  onStatus,
+  log = (message: string) => console.warn(`[OpenLayer] ${message}`)
+}: {
+  bridge: AgentBridge;
+  openSocket: OpenSocket;
+  panelVersion: string;
+  onStatus: (status: AgentConnectionStatus) => void;
+  log?: (message: string) => void;
+}): AgentConnection {
+  let socket: AgentSocket | null = null;
+  let enabled = false;
+  /**
+   * Whether *this* attempt ever reached `onopen`.
+   *
+   * A refused connection and a dropped one both arrive as `onclose`, and
+   * reporting them the same way is actively misleading: "the bridge
+   * disconnected" tells someone whose bridge was never running that it was, and
+   * sends them looking for the wrong problem. This is the only thing that
+   * distinguishes the two.
+   */
+  let hasOpened = false;
+  let status: AgentConnectionStatus = { state: "off", message: "Agent Bridge is off." };
+
+  const setStatus = (next: AgentConnectionStatus) => {
+    status = next;
+    onStatus(next);
+  };
+
+  const send = (payload: unknown) => {
+    try {
+      socket?.send(JSON.stringify(payload));
+    } catch (error) {
+      log(`Could not send to the agent bridge. ${error instanceof Error ? error.message : error}`);
+    }
+  };
+
+  /** Questions this panel has asked and is still waiting on, by id. */
+  const pendingAsks = new Map<string, (result: AgentAskResult) => void>();
+  let nextAskId = 1;
+
+  function handleFrame(raw: unknown) {
+    const parsed = parsePanelFrame(raw);
+
+    if (!parsed.ok) {
+      // Nothing to reply to — a frame this broken has no id to answer with —
+      // so it is logged and dropped rather than crashing the socket handler.
+      log(`Ignoring a frame from the agent bridge: ${parsed.reason}`);
+      return;
+    }
+
+    if (parsed.frame.kind === "answer") {
+      const { id, ok, status: text } = parsed.frame.answer;
+      const settle = pendingAsks.get(id);
+
+      pendingAsks.delete(id);
+
+      if (!settle) {
+        // Ordinary rather than alarming: the hub timed this out and the panel
+        // already reported it, then the answer arrived anyway.
+        log(`Discarded a late or unmatched answer for ${id}.`);
+        return;
+      }
+
+      settle({ ok, answer: text });
+      return;
+    }
+
+    void handleCommand(parsed.frame.command);
+  }
+
+  async function handleCommand({
+    id,
+    tool,
+    params
+  }: {
+    id: string;
+    tool: AgentToolId;
+    params: Record<string, string | number | boolean>;
+  }) {
+
+    // `execute` is written to always resolve, but a reply is the one thing that
+    // must not depend on that: without it the agent waits out a ten-minute
+    // timeout. The catch is the belt to that braces.
+    try {
+      const outcome = await bridge.execute(tool as AgentToolId, params);
+
+      send(buildResult(id, outcome.ok, outcome.status));
+    } catch (error) {
+      send(buildResult(id, false, error instanceof Error ? error.message : String(error)));
+    }
+  }
+
+  return {
+    enable(port) {
+      if (enabled) {
+        return;
+      }
+
+      enabled = true;
+      hasOpened = false;
+
+      const url = `ws://127.0.0.1:${port}`;
+
+      setStatus({ state: "connecting", message: `Connecting to the agent bridge on 127.0.0.1:${port}...` });
+
+      try {
+        socket = openSocket(url, {
+          onOpen: () => {
+            hasOpened = true;
+
+            // The handshake tells the bridge which tools this build actually
+            // registered, so it can refuse a call for a missing one instead of
+            // sending a command nothing will answer.
+            const tools = bridge.registeredTools();
+
+            send(buildHello(panelVersion, tools));
+            setStatus({
+              state: "connected",
+              message: `Connected. An agent can drive: ${tools.join(", ") || "nothing yet"}.`
+            });
+          },
+          onMessage: (data) => {
+            handleFrame(data);
+          },
+          onClose: () => {
+            socket = null;
+            // Nothing can answer these now, and a button left spinning until
+            // the hub's two-minute timeout is worse than one that says so.
+            failPendingAsks("The connection to the agent bridge closed.");
+
+            if (enabled) {
+              // Enabled but closed means either the bridge went away or it was
+              // never there. Those need different advice, and `hasOpened` is
+              // the only thing that tells them apart.
+              enabled = false;
+              setStatus({
+                state: "error",
+                message: hasOpened
+                  ? `The agent bridge on 127.0.0.1:${port} stopped. Turn Agent Bridge off and on to reconnect.`
+                  : `No agent bridge is listening on 127.0.0.1:${port}. ${BRIDGE_START_HINT}`
+              });
+            } else {
+              setStatus({ state: "off", message: "Agent Bridge is off." });
+            }
+          },
+          onError: (message) => {
+            log(`Agent bridge socket error. ${message}`);
+          }
+        });
+      } catch (error) {
+        enabled = false;
+        socket = null;
+        setStatus({
+          state: "error",
+          message: `Could not reach the agent bridge on 127.0.0.1:${port}. ${BRIDGE_START_HINT}`
+        });
+        log(`Could not open the agent bridge socket. ${error instanceof Error ? error.message : error}`);
+      }
+    },
+
+    disable() {
+      // Cleared before closing so the close handler reports "off" rather than
+      // the disconnected-unexpectedly error.
+      enabled = false;
+
+      const open = socket;
+
+      socket = null;
+      failPendingAsks("Agent Bridge was turned off.");
+      setStatus({ state: "off", message: "Agent Bridge is off." });
+
+      try {
+        open?.close();
+      } catch (error) {
+        log(`Could not close the agent bridge socket. ${error instanceof Error ? error.message : error}`);
+      }
+    },
+
+    isEnabled: () => enabled,
+    status: () => status,
+
+    ask(question) {
+      if (!socket || status.state !== "connected") {
+        // Answered synchronously rather than sent and timed out, because "turn
+        // Agent Bridge on" is something the user can act on immediately.
+        return Promise.resolve({
+          ok: false,
+          answer: "Agent Bridge is not connected. Turn it on in Setup, with the hub running."
+        });
+      }
+
+      const id = `panel-${nextAskId++}`;
+
+      return new Promise<AgentAskResult>((resolve) => {
+        pendingAsks.set(id, resolve);
+        send(buildAsk(id, question));
+      });
+    }
+  };
+
+  /**
+   * Settles every outstanding question with the same refusal.
+   *
+   * The hub owns the real timeout; this covers the cases it cannot see — the
+   * socket closing, or the user switching the bridge off mid-question — where
+   * no answer is ever going to arrive.
+   */
+  function failPendingAsks(reason: string) {
+    const outstanding = [...pendingAsks.values()];
+
+    pendingAsks.clear();
+
+    for (const settle of outstanding) {
+      settle({ ok: false, answer: reason });
+    }
+  }
+}
+
+/**
+ * The real socket. The only UXP-touching code here, and it holds no decisions.
+ *
+ * `WebSocket` is feature-detected because `comfyClient.watchProgress` already
+ * does the same — UXP has shipped builds without it, and a missing constructor
+ * must surface as a status message rather than a thrown ReferenceError during
+ * panel setup.
+ */
+export const openWebSocket: OpenSocket = (url, handlers) => {
+  if (typeof WebSocket !== "function") {
+    throw new Error("WebSocket is unavailable in this UXP environment.");
+  }
+
+  const socket = new WebSocket(url);
+
+  socket.onopen = () => handlers.onOpen();
+  socket.onmessage = (event) => handlers.onMessage(event.data);
+  socket.onclose = () => handlers.onClose();
+  socket.onerror = () => handlers.onError("The connection reported an error.");
+
+  return {
+    send: (data) => socket.send(data),
+    close: () => socket.close()
+  };
+};

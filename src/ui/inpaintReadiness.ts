@@ -2,6 +2,7 @@ import type { SelectedRegionSourceImage } from "../photoshop/photoshopAdapter";
 import type { PixelDimensions } from "../photoshop/exactInpaintMask";
 import type { NormalizedSelectionBounds } from "../photoshop/selectionUtils";
 import type { WorkflowPresetDefinition } from "../comfy/types";
+import { isFluxFillPreset } from "../comfy/fluxFillDefaults";
 import {
   evaluateWorkflowCompatibility,
   WorkflowCompatibilityContext
@@ -13,7 +14,7 @@ import {
 // than a warning. Mirrors INPAINT_CONTEXT_MULTIPLE in photoshopAdapter.
 const INPAINT_CONTEXT_MULTIPLE = 8;
 
-export const FLUX_FILL_PRESET_ID = "inpaint-flux-fill-basic";
+export { FLUX_FILL_PRESET_ID } from "../comfy/fluxFillDefaults";
 
 export type InpaintReadinessReason =
   | "workflow-unresolved"
@@ -210,12 +211,12 @@ function evaluateWorkflowReadiness(
     );
   }
 
-  if (preset.id === FLUX_FILL_PRESET_ID && input.maskBridgeAvailable === false) {
+  if (isFluxFillPreset(preset.id) && input.maskBridgeAvailable === false) {
     return blocked(
       "flux-fill-mask-bridge-unavailable",
       "OpenLayer could not embed the Photoshop mask into the Flux Fill source image, so Flux Fill would repaint the wrong area. Capture the selection again.",
       warnings,
-      "inpaint-flux-fill-basic uploads one PNG whose alpha channel carries the mask for the LoadImage mask output."
+      `${preset.id} uploads one PNG whose alpha channel carries the mask for the LoadImage mask output.`
     );
   }
 
