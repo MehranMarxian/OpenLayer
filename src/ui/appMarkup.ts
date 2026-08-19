@@ -1,5 +1,7 @@
 import { listRunnableWorkflowPresets, listWorkflowPresets } from "../comfy/presetRegistry";
 import { NO_LORA_VALUE } from "../comfy/loraCompatibility";
+// SPIKE, delete with src/ui/spikeArtistControls.ts once control design is decided.
+import { SPIKE_ARTIST_CONTROLS_MARKUP } from "./spikeArtistControls";
 import {
   APP_VERSION,
   DEFAULT_CFG,
@@ -480,7 +482,7 @@ export function createAppMarkup() {
           </div>
           <textarea class="textarea compact-textarea diagnostics-report" id="settings-diagnostics-report" readonly hidden></textarea>
         </section>
-
+${SPIKE_ARTIST_CONTROLS_MARKUP}
         <section class="panel-section settings-panel diagnostic-section diagnostic-scroll-safe" aria-label="Status report">
           <div class="section-heading">
             <span class="label">Status report</span>

@@ -167,6 +167,8 @@ import {
   runModelDownloadSpike,
   summarizeSpike
 } from "./spikeModelDownload";
+// SPIKE, delete with src/ui/spikeArtistControls.ts once control design is decided.
+import { wireSpikeArtistControls } from "./spikeArtistControls";
 import {
   createUpscaleResizePlan,
   formatUpscaleScale,
@@ -1268,6 +1270,8 @@ export function renderApp(rootElement: HTMLElement) {
   applyTheme(elements, preferences.theme || DEFAULT_THEME);
   fillCheckpointOptions(elements, FALLBACK_CHECKPOINTS, preferences.checkpointName || FALLBACK_CHECKPOINTS[0]);
   ensureCoreSelectDefaults(elements);
+  // SPIKE, delete with src/ui/spikeArtistControls.ts once control design is decided.
+  wireSpikeArtistControls(rootElement);
 
   const actionHandlers: ActionHandlers = {
     check: createActionRunner(elements, "check", handleCheckComfy),

@@ -7902,3 +7902,114 @@ body,
 .openlayer-preview-panel-import-status.is-error {
   color: #e06c6c;
 }
+
+/* ==========================================================================
+   SPIKE: artist controls probe (v0.16)
+   Delete with src/ui/spikeArtistControls.ts once the control design is decided.
+   Deliberately NOT scoped to .theme-compact -- the point is to see the host's
+   own rendering, not the panel's existing look.
+   ========================================================================== */
+
+.spike-controls .spike-row {
+  display: block;
+  margin-bottom: 14px;
+}
+
+.spike-controls .spike-tag {
+  display: block;
+  font-size: var(--fs-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #9a9a9a;
+  margin-bottom: 6px;
+}
+
+/* B: does appearance:none plus a custom track/thumb take effect at all? */
+.spike-controls .spike-range-styled {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #d9a441 0%, #d9a441 50%, #4a4a4a 50%, #4a4a4a 100%);
+  outline: none;
+}
+
+.spike-controls .spike-range-styled::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #f0f0f0;
+  border: 2px solid #d9a441;
+}
+
+.spike-controls .spike-range-styled::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+}
+
+/* C: do flanking icons sit on the slider's centre line?
+   Uses margins, not flex gap -- gap is inert in compact UXP panels. */
+.spike-controls .spike-slider-line {
+  display: flex;
+  align-items: center;
+}
+
+.spike-controls .spike-slider-line .spike-range-styled {
+  margin: 0 8px;
+}
+
+.spike-controls .spike-endpoint {
+  display: inline-flex;
+  align-items: center;
+  color: #cfcfcf;
+  flex: 0 0 auto;
+}
+
+/* D: four icon techniques, same nominal 16px box. */
+.spike-controls .spike-icon-strip {
+  display: flex;
+  align-items: flex-start;
+}
+
+.spike-controls .spike-icon-cell {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  color: #cfcfcf;
+  margin-right: 14px;
+}
+
+.spike-controls .spike-icon-cell em {
+  font-size: var(--fs-nano);
+  font-style: normal;
+  color: #8a8a8a;
+  margin-top: 4px;
+}
+
+.spike-controls .spike-icon-datauri {
+  display: block;
+  width: 16px;
+  height: 16px;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="12" rx="2" fill="none" stroke="%23cfcfcf" stroke-width="1.5"/></svg>');
+}
+
+.spike-controls .spike-icon-glyph {
+  display: block;
+  font-size: 16px;
+  line-height: 16px;
+  font-weight: normal;
+}
+
+.spike-controls .spike-icon-css {
+  display: block;
+  width: 12px;
+  height: 12px;
+  margin: 2px;
+  border: 1.5px solid #cfcfcf;
+  border-radius: 3px;
+}
