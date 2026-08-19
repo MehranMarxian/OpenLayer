@@ -1,120 +1,119 @@
 /**
- * SPIKE: does UXP render and style a slider, and which icon technique survives?
+ * SPIKE round 2: how do we get a usable slider out of UXP's NATIVE range widget?
  *
  * Delete this file, its markup block in appMarkup.ts, its CSS block in
  * styles.css, and its wiring in App.ts once v0.16.0's control design is decided.
  *
- * Everything the v0.16 artist-friendly control work rests on is unproven in this
- * host: the panel has never shipped a single `<input type="range">` or any icon
- * that was not a bitmap `<img>`. UXP has already refused `visibility:hidden`,
- * flex `gap` in compact panels, and sticky reflow, so "it works in a browser" is
- * not evidence. This renders the candidates side by side in the real panel so
- * one screenshot answers all of it.
+ * Round 1 settled the premise and killed two assumptions:
+ *   - `type="range"` survives, renders, drags, and fires change events. Good.
+ *   - UXP IGNORES `step`. With no step attribute (HTML default 1) it returned
+ *     40.541, 47.147, 45.675. Continuous floats. So quantisation is ours to do.
+ *   - `appearance:none` + `::-webkit-slider-thumb` did NOT take. The gradient
+ *     track never painted and the thumb collapsed to a faint notch. The BARE
+ *     native slider looked better than the styled one, so round 2 works with
+ *     the native widget instead of against it.
+ *   - Inline SVG, unicode and CSS shapes all render. A data-URI SVG background
+ *     renders NOTHING -- do not use that technique anywhere in the panel.
  *
- * Questions, in the order they matter:
- *   A. Does a bare range input appear at all, and can it be dragged?
- *   B. Does `appearance: none` + custom track/thumb styling take effect?
- *   C. Do the endpoint icons flanking a slider line up with it?
- *   D. Which icon technique renders: inline SVG, data-URI SVG, unicode, or CSS?
+ * Round 2 questions:
+ *   E. Does an EXPLICIT step attribute quantise, or is step ignored outright?
+ *   F. Does `accent-color` brand the native slider? (cheapest possible win)
+ *   G. Can JS snapping produce clean values from a continuous input?
+ *   H. Does the label-as-prefix row survive a narrow panel? (Krita AI's trick)
  */
 
 export const SPIKE_ARTIST_CONTROLS_MARKUP = `
         <!-- SPIKE, delete with src/ui/spikeArtistControls.ts once control design is decided. -->
         <section class="panel-section settings-panel spike-controls" aria-label="Spike: artist controls">
           <div class="section-heading">
-            <span class="label">Spike: Artist Controls</span>
+            <span class="label">Spike: Artist Controls 2</span>
             <span class="muted-label">v0.16 probe</span>
           </div>
 
           <div class="spike-row">
-            <span class="spike-tag">A. bare range, no CSS</span>
-            <input type="range" id="spike-range-bare" min="0" max="100" value="50" />
+            <span class="spike-tag">E1. explicit step="1" (0-100)</span>
+            <input type="range" id="spike-step-int" min="0" max="100" step="1" value="50" />
           </div>
 
           <div class="spike-row">
-            <span class="spike-tag">B. styled range</span>
-            <input type="range" class="spike-range-styled" id="spike-range-styled" min="0" max="100" value="70" />
+            <span class="spike-tag">E2. explicit step="0.05" (0-1, denoise shape)</span>
+            <input type="range" id="spike-step-frac" min="0" max="1" step="0.05" value="0.6" />
           </div>
 
           <div class="spike-row">
-            <span class="spike-tag">C. endpoint icons + styled range</span>
-            <div class="spike-slider-line">
-              <span class="spike-endpoint" aria-hidden="true">
-                <svg viewBox="0 0 16 16" width="14" height="14"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg>
-              </span>
-              <input type="range" class="spike-range-styled" id="spike-range-endpoints" min="0" max="100" value="35" />
-              <span class="spike-endpoint" aria-hidden="true">
-                <svg viewBox="0 0 16 16" width="14" height="14"><path d="M8 1.5 L9.8 6 L14.5 6 L10.8 8.9 L12.2 13.5 L8 10.8 L3.8 13.5 L5.2 8.9 L1.5 6 L6.2 6 Z" fill="currentColor"/></svg>
-              </span>
+            <span class="spike-tag">F. accent-color on native widget</span>
+            <input type="range" class="spike-accent" id="spike-accent" min="0" max="100" step="1" value="60" />
+          </div>
+
+          <div class="spike-row">
+            <span class="spike-tag">G. JS-snapped to whole steps (4-60)</span>
+            <input type="range" id="spike-snapped" min="4" max="60" step="1" value="20" />
+            <div class="diagnostics-line" id="spike-snapped-readout">Steps: 20</div>
+          </div>
+
+          <div class="spike-row">
+            <span class="spike-tag">H. label-as-prefix row (Krita AI trick)</span>
+            <div class="spike-prefix-row">
+              <span class="spike-prefix-label" id="spike-prefix-readout">Strength (denoise): 60%</span>
+              <input type="range" class="spike-accent" id="spike-prefix" min="0" max="100" step="1" value="60" />
             </div>
           </div>
 
-          <div class="spike-row">
-            <span class="spike-tag">D. icon techniques</span>
-            <div class="spike-icon-strip">
-              <span class="spike-icon-cell">
-                <svg viewBox="0 0 16 16" width="16" height="16"><rect x="2" y="2" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
-                <em>inline svg</em>
-              </span>
-              <span class="spike-icon-cell">
-                <i class="spike-icon-datauri"></i>
-                <em>data-uri</em>
-              </span>
-              <span class="spike-icon-cell">
-                <b class="spike-icon-glyph">&#9673;</b>
-                <em>unicode</em>
-              </span>
-              <span class="spike-icon-cell">
-                <i class="spike-icon-css"></i>
-                <em>css shape</em>
-              </span>
-            </div>
-          </div>
-
-          <div class="diagnostics-line" id="spike-controls-readout">Drag a slider to test event delivery.</div>
+          <div class="diagnostics-line" id="spike-controls-readout">Drag each slider.</div>
         </section>
 `;
 
-/**
- * Reports what the host actually did, so a screenshot carries the answer.
- *
- * Reads back the computed appearance rather than trusting that the CSS applied:
- * UXP silently drops declarations it does not implement, so a styled-looking
- * rule in the stylesheet proves nothing on its own.
- */
+/** Rounds a continuous UXP range value onto the control's declared step grid. */
+export function snapToStep(rawValue: number, min: number, max: number, step: number): number {
+  if (!Number.isFinite(rawValue) || step <= 0) {
+    return rawValue;
+  }
+  const clamped = Math.min(max, Math.max(min, rawValue));
+  const snapped = min + Math.round((clamped - min) / step) * step;
+  // Re-round to the step's own precision so 0.30000000000000004 does not escape.
+  const decimals = (String(step).split(".")[1] || "").length;
+  return Number(Math.min(max, Math.max(min, snapped)).toFixed(decimals));
+}
+
 export function wireSpikeArtistControls(root: ParentNode): void {
   const readout = root.querySelector<HTMLElement>("#spike-controls-readout");
   if (!readout) {
     return;
   }
 
-  const ranges = Array.from(
-    root.querySelectorAll<HTMLInputElement>('input[type="range"]')
-  );
-
+  const ranges = Array.from(root.querySelectorAll<HTMLInputElement>('input[type="range"]'));
   if (ranges.length === 0) {
-    readout.textContent =
-      "No range inputs found in the DOM at all -- UXP did not construct them.";
+    readout.textContent = "No range inputs in the DOM at all.";
     return;
   }
 
-  const describeSupport = () => {
-    const probe = ranges[0];
-    // An unsupported input type falls back to "text" in the `type` property on
-    // hosts that do not implement it, which is the cheapest reliable tell.
-    const keptType = probe.type === "range";
-    return `type kept as range: ${keptType ? "yes" : `NO (reports "${probe.type}")`}`;
-  };
+  const snappedInput = root.querySelector<HTMLInputElement>("#spike-snapped");
+  const snappedReadout = root.querySelector<HTMLElement>("#spike-snapped-readout");
+  const prefixInput = root.querySelector<HTMLInputElement>("#spike-prefix");
+  const prefixReadout = root.querySelector<HTMLElement>("#spike-prefix-readout");
 
-  const report = (note: string) => {
-    const values = ranges.map((range) => `${range.id.replace("spike-range-", "")}=${range.value}`);
-    readout.textContent = `${describeSupport()} | ${values.join(" ")} | ${note}`;
+  const report = () => {
+    // Whether an explicit step actually quantised is the whole question, so
+    // report the raw values verbatim rather than anything already rounded.
+    const parts = ranges
+      .filter((range) => range.id === "spike-step-int" || range.id === "spike-step-frac")
+      .map((range) => `${range.id.replace("spike-step-", "")}=${range.value}`);
+    readout.textContent = `raw with explicit step: ${parts.join(" ")}`;
   };
 
   for (const range of ranges) {
-    range.addEventListener("input", () => report("input event fired"));
-    range.addEventListener("change", () => report("change event fired"));
+    range.addEventListener("input", () => {
+      report();
+      if (snappedInput && snappedReadout && range === snappedInput) {
+        const steps = snapToStep(Number(snappedInput.value), 4, 60, 1);
+        snappedReadout.textContent = `Steps: ${steps}`;
+      }
+      if (prefixInput && prefixReadout && range === prefixInput) {
+        const pct = snapToStep(Number(prefixInput.value), 0, 100, 1);
+        prefixReadout.textContent = `Strength (denoise): ${pct === 0 ? "Off" : `${pct}%`}`;
+      }
+    });
   }
 
-  report("no drag yet");
+  report();
 }
