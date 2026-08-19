@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { snapToStep } from "../../src/ui/spikeArtistControls";
+import { snapToStep } from "../../src/utils/snapToStep";
 
 /**
- * SPIKE support, delete with src/ui/spikeArtistControls.ts.
- *
- * These cases are not hypothetical: UXP ignores a range input's `step` and
- * hands back continuous floats. Round 1 of the spike measured 40.541, 47.147
- * and 45.675 from sliders whose step was the HTML default of 1. Quantising is
- * therefore ours to do, and submitting 20.4 steps to ComfyUI is the bug this
+ * The float cases here are not hypothetical. Spike round 1 measured 40.541,
+ * 47.147 and 45.675 back from UXP sliders that relied on the IMPLICIT default
+ * step, which UXP does not apply. Declaring step explicitly fixed the widget,
+ * but preset recommendations and persisted preferences are still plain numbers
+ * bound by nothing -- and submitting 20.4 steps to ComfyUI is the bug this
  * prevents.
  */
 describe("snapToStep", () => {

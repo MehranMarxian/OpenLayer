@@ -1,4 +1,20 @@
-export type OpenLayerTheme = "compact" | "classic";
+/**
+ * Panel themes, in the order they are offered in Settings.
+ *
+ * "artist" is not a standalone stylesheet: it renders as the compact theme
+ * with a set of token overrides on top, so it inherits every compact layout
+ * rule. See applyTheme in App.ts for the class stacking that makes that work.
+ */
+export const OPEN_LAYER_THEMES = ["compact", "artist", "classic"] as const;
+
+export type OpenLayerTheme = (typeof OPEN_LAYER_THEMES)[number];
+
+/** Coerces untrusted input (stored prefs, a select value) to a known theme. */
+export function normalizeTheme(value: unknown): OpenLayerTheme {
+  return OPEN_LAYER_THEMES.includes(value as OpenLayerTheme)
+    ? (value as OpenLayerTheme)
+    : "compact";
+}
 
 export type OpenLayerPreferences = {
   serverUrl: string;
@@ -222,5 +238,5 @@ function readString(value: unknown) {
 }
 
 function readTheme(value: unknown): OpenLayerTheme {
-  return value === "classic" ? "classic" : "compact";
+  return normalizeTheme(value);
 }

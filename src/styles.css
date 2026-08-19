@@ -7957,57 +7957,78 @@ body,
 }
 
 /* ==========================================================================
-   SPIKE: artist controls probe, round 3 (v0.16)
-   Delete with src/ui/spikeArtistControls.ts once the control design is decided.
+   THEME: Artist-Friendly Dark (v0.16)
 
-   Settled by rounds 1-2 in real Photoshop -- do not re-test these:
-     - appearance:none + ::-webkit-slider-thumb does NOT take. The bare native
-       slider looked BETTER than the styled one, so we work with the widget.
-     - An EXPLICIT step attribute DOES quantise (int=44, frac=0.55). Round 1's
-       continuous floats came from relying on the implicit default step, which
-       UXP ignores. Always declare step.
-     - accent-color does NOT take. There is no cheap recolour of the native
-       track or thumb, so branding lives in the label row, not the control.
+   This block is the whole theme. It is only token overrides, and that is the
+   point: the compact rules ARE the stylesheet (1,158 of them against 9
+   unprefixed base rules), so Artist-Friendly Dark keeps the .theme-compact
+   class and stacks .theme-artist on top rather than standing alone. Dropping
+   the compact class would inherit almost nothing and force the whole panel to
+   be re-stated -- which is how Classic v0.4 became a veneer.
 
-   Round 3 question:
-     I. Does `background` on the range ELEMENT paint the track? The pseudo-
-        element route is dead, but the element's own box may still honour it.
-        UXP's native track default is #535353, which reads as a light bar
-        floating on the #2b2b2b section behind it.
+   Specificity is deliberately equal to .app-shell.theme-compact (0,2,0), so
+   these win on source order. Keep this block LAST in the file.
+
+   body.theme-artist is listed because html/body/#root paint the shell behind
+   the panel from --ol-section-bg and are ancestors of the app shell, so a
+   token set only on the shell cannot reach them.
+
+   Intent: warm the neutrals off pure grey, drop the chrome contrast so the
+   image is the brightest thing on screen, and soften pure-white text to a
+   warm off-white that is easier to sit in front of for hours.
    ========================================================================== */
 
-.spike-controls .spike-row {
-  display: block;
-  margin-bottom: 14px;
-}
+body.theme-artist,
+.app-shell.theme-artist {
+  /* Surfaces: warm-tinted neutrals instead of pure grey. */
+  --ol-input-bg: #1e1c1a;
+  --ol-field-bg: #1e1c1a;
+  --ol-bg: #232120;
+  --ol-panel-soft: #262422;
+  --ol-panel: #2b2927;
+  --ol-surface: #2f2c2a;
+  --ol-surface-alt: #322f2c;
+  --ol-surface-strong: #35322e;
+  --ol-surface-soft: #383431;
+  --ol-panel-raised: #3b3733;
 
-.spike-controls .spike-tag {
-  display: block;
-  font-size: var(--fs-micro);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--ol-muted);
-  margin-bottom: 6px;
-}
+  /* The outer Photoshop shell. Compact runs this at #535353, which frames the
+     panel in something brighter than the artwork inside it. */
+  --ol-section-bg: #3a3634;
 
-/* I: sink the track into the section instead of floating a light bar on it.
-   var(--ol-panel) is #2b2b2b -- the exact value .panel-section resolves to in
-   the compact theme, so a match here stays a match if the theme changes. */
-.spike-controls input[type="range"] {
-  width: 100%;
-  background: var(--ol-panel);
-}
+  /* Borders: present but quiet. Alpha keeps them correct over any surface. */
+  --ol-border-soft: rgba(255, 255, 255, 0.06);
+  --ol-border-subtle: rgba(255, 255, 255, 0.08);
+  --ol-line-soft: rgba(255, 255, 255, 0.09);
+  --ol-border: rgba(255, 255, 255, 0.12);
+  --ol-line: rgba(255, 255, 255, 0.12);
+  --ol-hover: #3f3b37;
+  --ol-hover-border: #4a453f;
 
-/* H: Krita AI's row shape -- label and value on one line as a prefix, slider
-   beneath, so a parameter costs one text row instead of a label row plus a
-   control row. Margins, not flex gap: gap is inert in compact UXP panels. */
-.spike-controls .spike-prefix-row {
-  display: block;
-}
+  /* Text: warm off-white, never #ffffff. */
+  --ol-text: #f2efe9;
+  --ol-text-soft: #e9e5dd;
+  --ol-text-secondary: #ded9d0;
+  --ol-link: #d9d3c8;
+  --ol-muted: #a9a39a;
+  --ol-muted-soft: #8b867d;
+  --ol-dim: #928d85;
 
-.spike-controls .spike-prefix-label {
-  display: block;
-  font-size: var(--fs-xs);
-  color: #e0e0e0;
-  margin-bottom: 4px;
+  /* Accent: the same gold, slightly richer against warm surfaces. */
+  --ol-accent: #e0a83c;
+  --ol-accent-soft: #4a3c1a;
+  --ol-accent-border: #e0a83c;
+  --ol-accent-bright: #ffd36b;
+  --ol-accent-glow: #fff0cc;
+
+  /* Status: kept clearly distinct, warmed to match. */
+  --ol-success: #4ec26a;
+  --ol-danger: #e06a6a;
+  --ol-warning: #eba13c;
+  --ol-blue: #4076c4;
+  --ol-green: #2f7d47;
+  --ol-orange: #d98b2a;
+  --ol-orange-hover: #b8701c;
+
+  --ol-radius: 7px;
 }
