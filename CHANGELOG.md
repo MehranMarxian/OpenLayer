@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Fixed
+
+- **Image to Image results sometimes landed in the wrong place.** The imported layer could arrive offset from the layer it was generated from, leaving you to drag it back by hand.
+
+  The import never positioned the layer at all — it placed the file and let Photoshop decide. Photoshop's `placeEvent` centres on the active **selection** when one exists, and on the canvas otherwise, so a selection left over from Inpaint work silently pulled every subsequent Image to Image result towards it. Neither of those is the captured layer's position.
+
+  Capture now records where in the document it read from, that position is frozen at submission time the way Outpaint already freezes its padding, and the import moves the layer there explicitly. With no captured region to return to, it centres on the canvas deliberately rather than by side effect.
+
 ### Added
 
 - **`edit-flux2-klein` — instruction editing, which is not image-to-image.** Tell it what to *change* ("make the jacket red", "turn the sky to dusk") instead of describing the whole picture. It appears in the Image to Image tool alongside the other Klein preset.

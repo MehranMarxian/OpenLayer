@@ -185,6 +185,7 @@ import {
 } from "../photoshop/inpaintSourceMode";
 import { writeOpenLayerLayerMetadata } from "../photoshop/layerMetadata";
 import { formatSelectionBounds } from "../photoshop/selectionUtils";
+import type { NormalizedSelectionBounds } from "../photoshop/selectionUtils";
 import {
   createOutpaintExpansionPlan,
   OutpaintPads,
@@ -469,6 +470,11 @@ export function renderApp(rootElement: HTMLElement) {
   let result: AppGeneratedImageResult | null = null;
   let imageSource: ImageSourceState | null = null;
   let imageResult: AppGeneratedImageResult | null = null;
+  // Frozen at submission time, the same way outpaint freezes its pads: where in
+  // the document the captured layer sat, so the result goes back there rather
+  // than wherever placeEvent would drop it. Re-reading imageSource at import
+  // time would use whatever the artist has captured since.
+  let imageImportBounds: NormalizedSelectionBounds | null = null;
   let sketchSource: ImageSourceState | null = null;
   let sketchResult: AppGeneratedImageResult | null = null;
   let inpaintSource: InpaintSourceState | null = null;
@@ -2677,6 +2683,7 @@ export function renderApp(rootElement: HTMLElement) {
       // The commit closure runs after awaits; a const keeps the null-checked
       // source from the top of the handler rather than re-reading mutable state.
       const capturedSource = imageSource;
+      imageImportBounds = capturedSource.captureBounds ?? null;
       const generatedResult = await generation.runPipeline({
         toolType: "image-to-image",
         client,
@@ -2770,6 +2777,7 @@ export function renderApp(rootElement: HTMLElement) {
         blob: imageResult.blob,
         originatingDocument: imageResult.originatingDocument,
         layerName,
+        targetBounds: imageImportBounds ?? undefined,
         onProgress: (message) => {
           setImageStatus(elements, message, "idle");
           setImageDiagnostics(elements, message);

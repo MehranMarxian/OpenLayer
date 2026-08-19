@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  calculateCenteredOrigin,
   createPaddedSelectionBounds,
   formatSelectionBounds,
   normalizeSelectionBounds,
@@ -156,5 +157,31 @@ describe("selectionUtils", () => {
       expect(snapped.right).toBeLessThanOrEqual(documentSize.width);
       expect(snapped.bottom).toBeLessThanOrEqual(documentSize.height);
     }
+  });
+});
+
+describe("calculateCenteredOrigin", () => {
+  it("centres a layer smaller than the canvas", () => {
+    expect(calculateCenteredOrigin({ width: 1024, height: 1024 }, { width: 512, height: 256 }))
+      .toEqual({ left: 256, top: 384 });
+  });
+
+  it("returns the origin when the layer fills the canvas exactly", () => {
+    // The reported bug's shape: a 1024x1024 result on a 1024x1024 document must
+    // land at 0,0. It was landing at the centre of a stale Inpaint selection.
+    expect(calculateCenteredOrigin({ width: 1024, height: 1024 }, { width: 1024, height: 1024 }))
+      .toEqual({ left: 0, top: 0 });
+  });
+
+  it("goes negative for a layer larger than the canvas rather than clamping", () => {
+    // Clamping to 0 would shove an oversized layer into the top-left corner
+    // instead of centring it, which is not what Photoshop does when placing.
+    expect(calculateCenteredOrigin({ width: 800, height: 600 }, { width: 1000, height: 900 }))
+      .toEqual({ left: -100, top: -150 });
+  });
+
+  it("rounds a half-pixel offset to a whole pixel", () => {
+    expect(calculateCenteredOrigin({ width: 1025, height: 1025 }, { width: 1024, height: 1024 }))
+      .toEqual({ left: 1, top: 1 });
   });
 });
