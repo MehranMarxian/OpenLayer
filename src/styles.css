@@ -8032,3 +8032,46 @@ body.theme-artist,
 
   --ol-radius: 7px;
 }
+
+/* ==========================================================================
+   Artist-Friendly Dark: the slider face of the numeric parameter fields.
+
+   One control, two faces. The number input is the source of truth and stays
+   in the DOM in every theme; these rules only decide which face is painted.
+   Compact Adobe Dark never matches any of this and is untouched.
+
+   Row shape is Krita AI's: the label carries the value as a prefix
+   ("Strength (denoise): 60%") and the track sits under it, so a parameter
+   costs one text row plus a track instead of a label row beside a box.
+   Margins, not flex gap -- gap is inert in compact UXP panels.
+   ========================================================================== */
+
+.artist-label,
+.artist-slider {
+  display: none;
+}
+
+.app-shell.theme-artist .field.has-artist-slider {
+  display: block;
+}
+
+/* The original label and the number box are the compact face. */
+.app-shell.theme-artist .field.has-artist-slider > .label,
+.app-shell.theme-artist .field.has-artist-slider > .input {
+  display: none;
+}
+
+.app-shell.theme-artist .field.has-artist-slider > .artist-label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--ol-text-secondary);
+  font-size: var(--fs-xs);
+  font-weight: 620;
+  line-height: 1.2;
+}
+
+.app-shell.theme-artist .field.has-artist-slider > .artist-slider {
+  display: block;
+  width: 100%;
+  margin-bottom: 2px;
+}
