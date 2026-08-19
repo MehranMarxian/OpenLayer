@@ -29,15 +29,23 @@ describe("presetRegistry", () => {
     // the first time. A future unauthored preset would break this deliberately.
     expect(allTxt2ImgIds).toEqual(runnableTxt2ImgIds);
     expect(allImg2ImgIds).toEqual(runnableImg2ImgIds);
+    // Order is registry order, which is the order the panel's workflow dropdown
+    // shows. The Klein pair sits with the other Flux.2 stack presets.
     expect(runnableTxt2ImgIds).toEqual([
       "txt2img-basic",
       "txt2img-flux1-dev-fp8",
+      "txt2img-flux2-klein",
       "txt2img-z-image-turbo",
       "txt2img-krea2-turbo",
       "txt2img-flux2-dev-gguf"
     ]);
     expect(allImg2ImgIds).toContain("img2img-z-image-turbo");
-    expect(runnableImg2ImgIds).toEqual(["img2img-basic", "img2img-z-image-turbo", "img2img-krea2-turbo"]);
+    expect(runnableImg2ImgIds).toEqual([
+      "img2img-basic",
+      "img2img-flux2-klein",
+      "img2img-z-image-turbo",
+      "img2img-krea2-turbo"
+    ]);
     expect(runnablePromptIds).toEqual(["prompt-from-layer-florence2"]);
     expect(allInpaintIds).toEqual([
       "inpaint-basic",

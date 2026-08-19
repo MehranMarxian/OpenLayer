@@ -45,6 +45,10 @@ const COMFY_ORG_FLUX1_DEV_REPO = "https://huggingface.co/Comfy-Org/flux1-dev";
 const COMFY_ORG_FLUX2_DEV_REPO = "https://huggingface.co/Comfy-Org/flux2-dev";
 const CITY96_FLUX2_DEV_GGUF_REPO = "https://huggingface.co/city96/FLUX.2-dev-gguf";
 const COMFY_ORG_Z_IMAGE_TURBO_REPO = "https://huggingface.co/Comfy-Org/z_image_turbo";
+// Klein ships Apache-2.0 and ungated, unlike FLUX.1-dev and FLUX.2-dev, so
+// there is deliberately no licenseGate on the stack below -- the setup pack can
+// point straight at the file with no click-through.
+const BFL_FLUX2_KLEIN_4B_FP8_REPO = "https://huggingface.co/black-forest-labs/FLUX.2-klein-4b-fp8";
 const COMFY_ORG_KREA2_REPO = "https://huggingface.co/Comfy-Org/Krea-2";
 const FLUX_TEXT_ENCODERS_REPO = "https://huggingface.co/comfyanonymous/flux_text_encoders";
 const ALIBABA_PAI_ZIMAGE_FUN_CONTROLNET_REPO =
@@ -88,6 +92,46 @@ const UPSCALE_MODEL_SOURCE = {
   inputName: "model_name",
   label: "Upscale model"
 } as const;
+
+const FLUX2_KLEIN_4B_STACK = [
+  {
+    kind: "diffusion-model-stack",
+    objectInfoNode: "UNETLoader",
+    inputName: "unet_name",
+    label: "FLUX.2 Klein 4B diffusion model",
+    modelName: "flux-2-klein-4b-fp8.safetensors",
+    setupHint: "Install flux-2-klein-4b-fp8.safetensors where ComfyUI's UNETLoader can find it.",
+    downloadUrl: `${BFL_FLUX2_KLEIN_4B_FP8_REPO}/resolve/main/flux-2-klein-4b-fp8.safetensors`,
+    sourcePageUrl: BFL_FLUX2_KLEIN_4B_FP8_REPO,
+    downloadSizeBytes: 4070624520
+  },
+  {
+    // Byte-identical to the Z_image_Turbo stack's encoder, and named identically
+    // so the setup pack de-duplicates it and downloads 8 GB once rather than
+    // twice. The URL points at the Z-Image repo for the same reason: one source
+    // of truth for one file.
+    kind: "clip",
+    objectInfoNode: "CLIPLoader",
+    inputName: "clip_name",
+    label: "Qwen3 4B text encoder",
+    modelName: "qwen_3_4b.safetensors",
+    setupHint: "Install qwen_3_4b.safetensors where ComfyUI's CLIPLoader can find it.",
+    downloadUrl: `${COMFY_ORG_Z_IMAGE_TURBO_REPO}/resolve/main/split_files/text_encoders/qwen_3_4b.safetensors`,
+    sourcePageUrl: COMFY_ORG_Z_IMAGE_TURBO_REPO,
+    downloadSizeBytes: 8044982048
+  },
+  {
+    kind: "vae",
+    objectInfoNode: "VAELoader",
+    inputName: "vae_name",
+    label: "Flux.2 VAE",
+    modelName: "flux2-vae.safetensors",
+    setupHint: "Install flux2-vae.safetensors in ComfyUI models/vae.",
+    downloadUrl: `${COMFY_ORG_FLUX2_DEV_REPO}/resolve/main/split_files/vae/flux2-vae.safetensors`,
+    sourcePageUrl: COMFY_ORG_FLUX2_DEV_REPO,
+    downloadSizeBytes: 336211292
+  }
+] as const;
 
 const Z_IMAGE_TURBO_STACK = [
   {
@@ -482,6 +526,37 @@ const Z_IMAGE_TURBO_IMG2IMG_NODES = {
   saveImage: "9"
 } as const;
 
+// Klein is distilled: 4 steps at cfg 1 with er_sde/simple and an AuraFlow shift
+// of 3. Those numbers are the whole reason this preset exists -- they are what
+// makes Flux.2 usable interactively rather than as a batch job -- and they are
+// pinned in the shipped JSON rather than left to the panel's defaults.
+const FLUX2_KLEIN_TXT2IMG_NODES = {
+  diffusionModelLoader: "20",
+  clipLoader: "21",
+  vaeLoader: "22",
+  modelSampling: "23",
+  latentImage: "5",
+  positivePrompt: "6",
+  negativePrompt: "7",
+  sampler: "3",
+  decode: "8",
+  saveImage: "9"
+} as const;
+
+const FLUX2_KLEIN_IMG2IMG_NODES = {
+  diffusionModelLoader: "20",
+  clipLoader: "21",
+  vaeLoader: "22",
+  modelSampling: "23",
+  loadImage: "10",
+  vaeEncode: "11",
+  positivePrompt: "6",
+  negativePrompt: "7",
+  sampler: "3",
+  decode: "8",
+  saveImage: "9"
+} as const;
+
 const SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_NODES = {
   diffusionModelLoader: "20",
   clipLoader: "21",
@@ -839,6 +914,28 @@ const FLUX2_DEV_GGUF_TXT2IMG_INJECTIONS = {
   // Same remap as txt2img-flux1-dev-fp8: there is no KSampler and therefore no
   // cfg widget, so the panel's CFG control drives FluxGuidance instead.
   cfg: target(FLUX2_DEV_GGUF_TXT2IMG_NODES.fluxGuidance, "guidance")
+} as const;
+
+const FLUX2_KLEIN_TXT2IMG_INJECTIONS = {
+  checkpoint: target(FLUX2_KLEIN_TXT2IMG_NODES.diffusionModelLoader, "unet_name"),
+  positivePrompt: target(FLUX2_KLEIN_TXT2IMG_NODES.positivePrompt, "text"),
+  negativePrompt: target(FLUX2_KLEIN_TXT2IMG_NODES.negativePrompt, "text"),
+  width: target(FLUX2_KLEIN_TXT2IMG_NODES.latentImage, "width"),
+  height: target(FLUX2_KLEIN_TXT2IMG_NODES.latentImage, "height"),
+  seed: target(FLUX2_KLEIN_TXT2IMG_NODES.sampler, "seed"),
+  steps: target(FLUX2_KLEIN_TXT2IMG_NODES.sampler, "steps"),
+  cfg: target(FLUX2_KLEIN_TXT2IMG_NODES.sampler, "cfg")
+} as const;
+
+const FLUX2_KLEIN_IMG2IMG_INJECTIONS = {
+  checkpoint: target(FLUX2_KLEIN_IMG2IMG_NODES.diffusionModelLoader, "unet_name"),
+  sourceImage: target(FLUX2_KLEIN_IMG2IMG_NODES.loadImage, "image"),
+  positivePrompt: target(FLUX2_KLEIN_IMG2IMG_NODES.positivePrompt, "text"),
+  negativePrompt: target(FLUX2_KLEIN_IMG2IMG_NODES.negativePrompt, "text"),
+  seed: target(FLUX2_KLEIN_IMG2IMG_NODES.sampler, "seed"),
+  steps: target(FLUX2_KLEIN_IMG2IMG_NODES.sampler, "steps"),
+  cfg: target(FLUX2_KLEIN_IMG2IMG_NODES.sampler, "cfg"),
+  denoise: target(FLUX2_KLEIN_IMG2IMG_NODES.sampler, "denoise")
 } as const;
 
 const Z_IMAGE_TURBO_TXT2IMG_INJECTIONS = {
@@ -1243,6 +1340,46 @@ const FLUX2_DEV_GGUF_TXT2IMG_CAPABILITY: WorkflowCapability = {
     hiddenControls: ["negativePrompt"],
     experimentalNote:
       "Flux.2 dev is a very large stack: an 18.7 GB quantised model plus a 16.8 GB text encoder. On a 12 GB card ComfyUI streams most of it from system RAM, so expect minutes per image rather than seconds."
+  }
+};
+
+const FLUX2_KLEIN_TXT2IMG_CAPABILITY: WorkflowCapability = {
+  toolType: "txt2img",
+  loaderType: "diffusion-model-stack",
+  artistLabel: "Text to Image",
+  technicalLabel: "txt2img-flux2-klein",
+  requiredPhotoshopInputs: [],
+  controls: ["prompt", "negativePrompt", "width", "height", "steps", "cfg", "seed"],
+  output: {
+    kind: "full-image",
+    size: "preset",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Klein model",
+    primaryActionLabel: "Generate",
+    experimentalNote:
+      "FLUX.2 Klein 4B, distilled: 4 steps at CFG 1. This is the answer to \"why does Flux.2 Dev feel slow\" -- Dev wants 20 steps through a 20 GB model, Klein wants 4 through a 4 GB one. Raising steps or CFG will not improve it; the model is distilled for this operating point and drifts away from it."
+  }
+};
+
+const FLUX2_KLEIN_IMG2IMG_CAPABILITY: WorkflowCapability = {
+  toolType: "img2img",
+  loaderType: "diffusion-model-stack",
+  artistLabel: "Image to Image",
+  technicalLabel: "img2img-flux2-klein",
+  requiredPhotoshopInputs: [{ anyOf: ["active-layer", "canvas"], label: "an active layer or captured canvas" }],
+  controls: ["prompt", "negativePrompt", "steps", "cfg", "denoise", "seed"],
+  output: {
+    kind: "source-sized-image",
+    size: "source",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Klein model",
+    primaryActionLabel: "Generate Image to Image"
   }
 };
 
@@ -2425,6 +2562,153 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     ],
     compatibilityNote:
       "outpaint-flux-fill-basic follows the attached Flux Fill outpaint graph: ImagePadForOutpaint creates the padded image and mask, then Flux Fill generates the expanded result. T5 prefers t5xxl_fp16.safetensors and accepts t5xxl_fp8_e4m3fn.safetensors as a fallback."
+  },
+  {
+    id: "txt2img-flux2-klein",
+    label: "txt2img-flux2-klein",
+    displayName: "FLUX.2 Klein",
+    mode: "txt2img",
+    description: "Fast text-to-image preset for the distilled FLUX.2 Klein 4B diffusion model stack.",
+    workflowFile: "workflows/api/txt2img-flux2-klein.json",
+    status: "stable",
+    recommendedSettings: { steps: 4, cfg: 1 },
+    supportedModelFamilies: ["flux2"],
+    experimentalModelFamilies: ["unknown"],
+    modelSource: DIFFUSION_MODEL_SOURCE,
+    capability: FLUX2_KLEIN_TXT2IMG_CAPABILITY,
+    modelStack: [...FLUX2_KLEIN_4B_STACK],
+    requiredModels: [...FLUX2_KLEIN_4B_STACK],
+    injections: FLUX2_KLEIN_TXT2IMG_INJECTIONS,
+    requiredNodes: [
+      {
+        id: FLUX2_KLEIN_TXT2IMG_NODES.diffusionModelLoader,
+        classType: "UNETLoader",
+        requiredInputs: ["unet_name", "weight_dtype"]
+      },
+      {
+        id: FLUX2_KLEIN_TXT2IMG_NODES.clipLoader,
+        classType: "CLIPLoader",
+        requiredInputs: ["clip_name", "type"]
+      },
+      {
+        id: FLUX2_KLEIN_TXT2IMG_NODES.vaeLoader,
+        classType: "VAELoader",
+        requiredInputs: ["vae_name"]
+      },
+      {
+        id: FLUX2_KLEIN_TXT2IMG_NODES.modelSampling,
+        classType: "ModelSamplingAuraFlow",
+        requiredInputs: ["model", "shift"]
+      },
+      {
+        id: FLUX2_KLEIN_TXT2IMG_NODES.positivePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: FLUX2_KLEIN_TXT2IMG_NODES.negativePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: FLUX2_KLEIN_TXT2IMG_NODES.latentImage,
+        classType: "EmptyFlux2LatentImage",
+        requiredInputs: ["width", "height", "batch_size"]
+      },
+      {
+        id: FLUX2_KLEIN_TXT2IMG_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["model", "seed", "steps", "cfg", "sampler_name", "scheduler", "positive", "negative", "latent_image", "denoise"]
+      },
+      {
+        id: FLUX2_KLEIN_TXT2IMG_NODES.decode,
+        classType: "VAEDecode",
+        requiredInputs: ["samples", "vae"]
+      },
+      {
+        id: FLUX2_KLEIN_TXT2IMG_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images"]
+      }
+    ],
+    compatibilityNote:
+      "FLUX.2 Klein 4B is a diffusion model stack, not a checkpoint: UNETLoader, CLIPLoader with type flux2, and VAELoader. It shares qwen_3_4b.safetensors with the Z_image_Turbo stack, so a user who already has that preset downloads only the 4 GB model and the 336 MB Flux.2 VAE. The latent is EmptyFlux2LatentImage rather than EmptySD3LatentImage -- Flux.2's latent geometry differs, and the SD3 node produces a tensor the sampler silently mis-shapes. Sampler settings are the distilled operating point: 4 steps, CFG 1, er_sde, simple, with ModelSamplingAuraFlow shift 3. Klein is Apache-2.0 and ungated, unlike FLUX.1-dev and FLUX.2-dev."
+  },
+  {
+    id: "img2img-flux2-klein",
+    label: "img2img-flux2-klein",
+    displayName: "FLUX.2 Klein",
+    mode: "img2img",
+    description: "Fast image-to-image preset for the distilled FLUX.2 Klein 4B diffusion model stack.",
+    workflowFile: "workflows/api/img2img-flux2-klein.json",
+    status: "stable",
+    recommendedSettings: { steps: 4, cfg: 1 },
+    supportedModelFamilies: ["flux2"],
+    experimentalModelFamilies: ["unknown"],
+    modelSource: DIFFUSION_MODEL_SOURCE,
+    capability: FLUX2_KLEIN_IMG2IMG_CAPABILITY,
+    modelStack: [...FLUX2_KLEIN_4B_STACK],
+    requiredModels: [...FLUX2_KLEIN_4B_STACK],
+    injections: FLUX2_KLEIN_IMG2IMG_INJECTIONS,
+    requiredNodes: [
+      {
+        id: FLUX2_KLEIN_IMG2IMG_NODES.diffusionModelLoader,
+        classType: "UNETLoader",
+        requiredInputs: ["unet_name", "weight_dtype"]
+      },
+      {
+        id: FLUX2_KLEIN_IMG2IMG_NODES.clipLoader,
+        classType: "CLIPLoader",
+        requiredInputs: ["clip_name", "type"]
+      },
+      {
+        id: FLUX2_KLEIN_IMG2IMG_NODES.vaeLoader,
+        classType: "VAELoader",
+        requiredInputs: ["vae_name"]
+      },
+      {
+        id: FLUX2_KLEIN_IMG2IMG_NODES.modelSampling,
+        classType: "ModelSamplingAuraFlow",
+        requiredInputs: ["model", "shift"]
+      },
+      {
+        id: FLUX2_KLEIN_IMG2IMG_NODES.positivePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: FLUX2_KLEIN_IMG2IMG_NODES.negativePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: FLUX2_KLEIN_IMG2IMG_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: FLUX2_KLEIN_IMG2IMG_NODES.vaeEncode,
+        classType: "VAEEncode",
+        requiredInputs: ["pixels", "vae"]
+      },
+      {
+        id: FLUX2_KLEIN_IMG2IMG_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["model", "seed", "steps", "cfg", "sampler_name", "scheduler", "positive", "negative", "latent_image", "denoise"]
+      },
+      {
+        id: FLUX2_KLEIN_IMG2IMG_NODES.decode,
+        classType: "VAEDecode",
+        requiredInputs: ["samples", "vae"]
+      },
+      {
+        id: FLUX2_KLEIN_IMG2IMG_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images"]
+      }
+    ],
+    compatibilityNote:
+      "FLUX.2 Klein 4B is a diffusion model stack, not a checkpoint: UNETLoader, CLIPLoader with type flux2, and VAELoader. It shares qwen_3_4b.safetensors with the Z_image_Turbo stack, so a user who already has that preset downloads only the 4 GB model and the 336 MB Flux.2 VAE. The latent is EmptyFlux2LatentImage rather than EmptySD3LatentImage -- Flux.2's latent geometry differs, and the SD3 node produces a tensor the sampler silently mis-shapes. Sampler settings are the distilled operating point: 4 steps, CFG 1, er_sde, simple, with ModelSamplingAuraFlow shift 3. Klein is Apache-2.0 and ungated, unlike FLUX.1-dev and FLUX.2-dev. This preset re-encodes the captured layer with VAEEncode and samples at a denoise below 1, which is the ordinary image-to-image trade: low denoise preserves the source but barely listens to the prompt, high denoise obeys the prompt but discards the source."
   },
   {
     id: "txt2img-z-image-turbo",

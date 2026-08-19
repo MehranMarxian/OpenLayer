@@ -176,6 +176,60 @@ describe("workflowBuilder", () => {
     expect(result.workflow["9"].inputs.images).toEqual(["14", 0]);
   });
 
+  it("keeps the Klein distilled operating point and its Flux.2 latent", async () => {
+    const result = await buildTxt2ImgWorkflow({
+      presetId: "txt2img-flux2-klein",
+      prompt: "a red ceramic teapot",
+      negativePrompt: "",
+      checkpointName: "flux-2-klein-4b-fp8.safetensors",
+      width: 1024,
+      height: 1024,
+      steps: 4,
+      cfg: 1,
+      seed: 99
+    });
+
+    expect(result.workflow["20"].inputs.unet_name).toBe("flux-2-klein-4b-fp8.safetensors");
+    // type must be flux2. The Z_image_Turbo preset loads the same encoder file
+    // with type lumina2, so copying that preset's CLIPLoader wholesale would
+    // load real weights under the wrong text-encoder contract.
+    expect(result.workflow["21"].inputs.type).toBe("flux2");
+    expect(result.workflow["21"].inputs.clip_name).toBe("qwen_3_4b.safetensors");
+    expect(result.workflow["22"].inputs.vae_name).toBe("flux2-vae.safetensors");
+
+    // Flux.2 latent geometry, not SD3's.
+    expect(result.workflow["5"].class_type).toBe("EmptyFlux2LatentImage");
+
+    expect(result.workflow["23"].class_type).toBe("ModelSamplingAuraFlow");
+    expect(result.workflow["23"].inputs.shift).toBe(3);
+    expect(result.workflow["3"].inputs.sampler_name).toBe("er_sde");
+    expect(result.workflow["3"].inputs.scheduler).toBe("simple");
+    expect(result.workflow["3"].inputs.denoise).toBe(1);
+    expect(result.workflow["3"].inputs.seed).toBe(99);
+  });
+
+  it("routes the Klein image-to-image preset through VAEEncode with an injectable denoise", async () => {
+    const result = await buildImg2ImgWorkflow({
+      presetId: "img2img-flux2-klein",
+      prompt: "repaint in oils",
+      negativePrompt: "",
+      checkpointName: "flux-2-klein-4b-fp8.safetensors",
+      sourceImageName: "openlayer-source.png",
+      steps: 4,
+      cfg: 1,
+      seed: 7,
+      denoise: 0.55
+    });
+
+    expect(result.workflow["10"].inputs.image).toBe("openlayer-source.png");
+    expect(result.workflow["11"].class_type).toBe("VAEEncode");
+    expect(result.workflow["3"].inputs.latent_image).toEqual(["11", 0]);
+    expect(result.workflow["3"].inputs.denoise).toBe(0.55);
+    expect(result.workflow["3"].inputs.sampler_name).toBe("er_sde");
+    // No empty latent in this graph -- the source is the latent.
+    expect(result.workflow["5"]).toBeUndefined();
+  });
+
   it("injects Flux Fill inpaint embedded source, prompt, model, and seed while preserving reference defaults", async () => {
     const result = await buildInpaintWorkflow({
       presetId: "inpaint-flux-fill-basic",

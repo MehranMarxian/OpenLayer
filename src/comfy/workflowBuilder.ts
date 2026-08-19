@@ -13,6 +13,8 @@ import sketch2imgDepthBasicWorkflow from "../workflows/api/sketch2img-depth-basi
 import sketch2imgZimageFunControlnetWorkflow from "../workflows/api/sketch2img-zimage-fun-controlnet.json";
 import sketch2imgZimageFunControlnetFullWorkflow from "../workflows/api/sketch2img-zimage-fun-controlnet-full.json";
 import inpaintBasicWorkflow from "../workflows/api/inpaint-basic.json";
+import txt2imgFlux2KleinWorkflow from "../workflows/api/txt2img-flux2-klein.json";
+import img2imgFlux2KleinWorkflow from "../workflows/api/img2img-flux2-klein.json";
 import inpaintFluxFillBasicWorkflow from "../workflows/api/inpaint-flux-fill-basic.json";
 import inpaintFluxFillCropStitchWorkflow from "../workflows/api/inpaint-flux-fill-cropstitch.json";
 import outpaintFluxFillBasicWorkflow from "../workflows/api/outpaint-flux-fill-basic.json";
@@ -53,6 +55,8 @@ const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
   "sketch2img-zimage-fun-controlnet": sketch2imgZimageFunControlnetWorkflow as ComfyWorkflow,
   "sketch2img-zimage-fun-controlnet-full": sketch2imgZimageFunControlnetFullWorkflow as ComfyWorkflow,
   "inpaint-basic": inpaintBasicWorkflow as ComfyWorkflow,
+  "txt2img-flux2-klein": txt2imgFlux2KleinWorkflow as ComfyWorkflow,
+  "img2img-flux2-klein": img2imgFlux2KleinWorkflow as ComfyWorkflow,
   "inpaint-flux-fill-basic": inpaintFluxFillBasicWorkflow as ComfyWorkflow,
   "inpaint-flux-fill-cropstitch": inpaintFluxFillCropStitchWorkflow as ComfyWorkflow,
   "outpaint-flux-fill-basic": outpaintFluxFillBasicWorkflow as ComfyWorkflow,

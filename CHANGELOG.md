@@ -4,6 +4,12 @@
 
 ### Added
 
+- **FLUX.2 Klein 4B, text-to-image and image-to-image.** `txt2img-flux2-klein` and `img2img-flux2-klein` run Black Forest Labs' distilled Klein 4B at **4 steps, CFG 1** (`er_sde` / `simple`, `ModelSamplingAuraFlow` shift 3). That operating point is the whole point: a 1024x1024 generation completed in **11.6 seconds** on a 4070 Ti, against Flux.2 Dev's 20 steps through a 20 GB model. If Flux.2 has felt like a batch job rather than something you iterate with, this is the answer.
+
+  The download is **4.07 GB** (`flux-2-klein-4b-fp8.safetensors`) plus a 336 MB VAE. The 8 GB `qwen_3_4b.safetensors` text encoder is the *same file* the Z_image_Turbo presets already use, and is named identically in the registry so the setup pack downloads it once rather than twice — if you already run Z_image_Turbo, Klein costs you 4.4 GB.
+
+  Every node is core ComfyUI. **No new custom-node packages**, and unlike FLUX.1-dev and FLUX.2-dev, Klein is Apache-2.0 and ungated, so there is no licence click-through before you can download it.
+
 - **Context-aware Inpaint: `inpaint-flux-fill-cropstitch`.** A second Flux Fill preset that crops to your mask plus 50% context, samples that at 1024x1024, and stitches the patch back with a 32-pixel blended seam, using lquesada's [ComfyUI-Inpaint-CropAndStitch](https://github.com/lquesada/ComfyUI-Inpaint-CropAndStitch).
 
   OpenLayer already captured the selection plus padding rather than the whole document, so the win is not "we stopped sending the whole canvas" -- it is that the captured context is now sampled at the resolution Flux Fill was trained for instead of at whatever size the selection happened to produce. A small mask on a large document no longer samples a few hundred pixels, and a large one no longer samples several thousand.

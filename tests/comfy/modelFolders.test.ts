@@ -125,6 +125,7 @@ describe("required model inventory", () => {
         "controlnet/control_v11p_sd15_lineart_fp16.safetensors",
         "controlnet/control_v11p_sd15_scribble_fp16.safetensors",
         "diffusion_models/flux1-fill-dev.safetensors",
+        "diffusion_models/flux-2-klein-4b-fp8.safetensors",
         "diffusion_models/flux2-dev-Q4_K_M.gguf",
         "diffusion_models/krea2_turbo_fp8_scaled.safetensors",
         "diffusion_models/z_image_turbo_bf16.safetensors",
@@ -137,10 +138,23 @@ describe("required model inventory", () => {
         "text_encoders/t5xxl_fp16.safetensors",
         "upscale_models/4x-UltraSharp.pth",
         "vae/ae.safetensors",
+        "vae/flux2-vae.safetensors",
         "vae/full_encoder_small_decoder.safetensors",
         "vae/qwen_image_vae.safetensors"
       ].sort()
     );
+  });
+
+  it("counts qwen_3_4b.safetensors once across the Klein and Z_image_Turbo stacks", () => {
+    const klein = listPresetRequiredModels(getWorkflowPreset("txt2img-flux2-klein"));
+    const zImage = listPresetRequiredModels(getWorkflowPreset("txt2img-z-image-turbo"));
+
+    // Both stacks name the same 8 GB encoder file. If they ever stop agreeing on
+    // the filename the setup pack downloads it twice, which is the whole reason
+    // the Klein entry points at the Z-Image repo URL.
+    expect(klein.filter((entry) => entry.modelName === "qwen_3_4b.safetensors")).toHaveLength(1);
+    expect(zImage.filter((entry) => entry.modelName === "qwen_3_4b.safetensors")).toHaveLength(1);
+    expect(runnableModels.filter((entry) => entry.modelName === "qwen_3_4b.safetensors")).toHaveLength(1);
   });
 
   it("counts ae.safetensors once even though two stacks load it", () => {
