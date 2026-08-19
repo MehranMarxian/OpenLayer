@@ -7957,14 +7957,23 @@ body,
 }
 
 /* ==========================================================================
-   SPIKE: artist controls probe, round 2 (v0.16)
+   SPIKE: artist controls probe, round 3 (v0.16)
    Delete with src/ui/spikeArtistControls.ts once the control design is decided.
 
-   Round 1 proved appearance:none + ::-webkit-slider-thumb does NOT take in UXP
-   -- the gradient track never painted and the thumb collapsed to a notch, so
-   the bare native slider looked BETTER than the styled one. Round 2 therefore
-   leaves the native widget alone and only tries accent-color, which is the
-   one branding hook that does not require replacing the thumb.
+   Settled by rounds 1-2 in real Photoshop -- do not re-test these:
+     - appearance:none + ::-webkit-slider-thumb does NOT take. The bare native
+       slider looked BETTER than the styled one, so we work with the widget.
+     - An EXPLICIT step attribute DOES quantise (int=44, frac=0.55). Round 1's
+       continuous floats came from relying on the implicit default step, which
+       UXP ignores. Always declare step.
+     - accent-color does NOT take. There is no cheap recolour of the native
+       track or thumb, so branding lives in the label row, not the control.
+
+   Round 3 question:
+     I. Does `background` on the range ELEMENT paint the track? The pseudo-
+        element route is dead, but the element's own box may still honour it.
+        UXP's native track default is #535353, which reads as a light bar
+        floating on the #2b2b2b section behind it.
    ========================================================================== */
 
 .spike-controls .spike-row {
@@ -7981,13 +7990,12 @@ body,
   margin-bottom: 6px;
 }
 
+/* I: sink the track into the section instead of floating a light bar on it.
+   var(--ol-panel) is #2b2b2b -- the exact value .panel-section resolves to in
+   the compact theme, so a match here stays a match if the theme changes. */
 .spike-controls input[type="range"] {
   width: 100%;
-}
-
-/* F: the cheapest possible branding of a native widget. */
-.spike-controls .spike-accent {
-  accent-color: #d9a441;
+  background: var(--ol-panel);
 }
 
 /* H: Krita AI's row shape -- label and value on one line as a prefix, slider
