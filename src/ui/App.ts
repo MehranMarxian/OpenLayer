@@ -8,9 +8,9 @@ import {
 import { createFluxFillInpaintDebugSummary } from "../comfy/inpaintValidation";
 import { createFluxFillEmbeddedMaskSource } from "../comfy/fluxFillMaskBridge";
 import {
-  FLUX_FILL_PRESET_ID,
   formatFluxFillLockedControlsNote,
   formatFluxFillReferenceDefaults,
+  isFluxFillPreset,
   presetLocksSamplerControls
 } from "../comfy/fluxFillDefaults";
 import {
@@ -3925,7 +3925,7 @@ export function renderApp(rootElement: HTMLElement) {
       let maskUploadFilename = submittedMask.filename;
       let fluxEmbeddedMaskMessage = "";
 
-      if (preset.id === "inpaint-flux-fill-basic") {
+      if (isFluxFillPreset(preset.id)) {
         setInpaintStatus(elements, "Preparing Flux Fill masked source...", "idle");
         setInpaintProgressPreview(elements, "Embedding mask into Flux Fill source...");
         const embeddedSource = await createFluxFillEmbeddedMaskSource(submittedSource.blob, submittedMask.blob);
@@ -3938,7 +3938,7 @@ export function renderApp(rootElement: HTMLElement) {
 
       const sourceImageName = await client.uploadImage(sourceUploadBlob, sourceUploadFilename);
       const maskImageName =
-        preset.id === "inpaint-flux-fill-basic"
+        isFluxFillPreset(preset.id)
           ? sourceImageName
           : await client.uploadImage(maskUploadBlob, maskUploadFilename);
       const buildResult = await buildInpaintWorkflow({
@@ -3958,7 +3958,7 @@ export function renderApp(rootElement: HTMLElement) {
       });
 
       const fluxDefaultsMessage =
-        preset.id === FLUX_FILL_PRESET_ID ? formatFluxFillReferenceDefaults() : "";
+        isFluxFillPreset(preset.id) ? formatFluxFillReferenceDefaults() : "";
       if (fluxDefaultsMessage) {
         setInpaintDiagnostics(
           elements,

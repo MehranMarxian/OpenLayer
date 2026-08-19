@@ -39,8 +39,16 @@ describe("presetRegistry", () => {
     expect(allImg2ImgIds).toContain("img2img-z-image-turbo");
     expect(runnableImg2ImgIds).toEqual(["img2img-basic", "img2img-z-image-turbo", "img2img-krea2-turbo"]);
     expect(runnablePromptIds).toEqual(["prompt-from-layer-florence2"]);
-    expect(allInpaintIds).toEqual(["inpaint-basic", "inpaint-flux-fill-basic"]);
-    expect(runnableInpaintIds).toEqual(["inpaint-basic", "inpaint-flux-fill-basic"]);
+    expect(allInpaintIds).toEqual([
+      "inpaint-basic",
+      "inpaint-flux-fill-basic",
+      "inpaint-flux-fill-cropstitch"
+    ]);
+    expect(runnableInpaintIds).toEqual([
+      "inpaint-basic",
+      "inpaint-flux-fill-basic",
+      "inpaint-flux-fill-cropstitch"
+    ]);
     expect(allOutpaintIds).toEqual(["outpaint-flux-fill-basic"]);
     expect(runnableOutpaintIds).toEqual(["outpaint-flux-fill-basic"]);
     expect(runnableUpscaleIds).toEqual(["upscale-basic"]);
@@ -101,6 +109,24 @@ describe("presetRegistry", () => {
     expect(preset.requiredNodes.some((node) => node.classType === "InpaintModelConditioning")).toBe(true);
     expect(preset.requiredNodes.some((node) => node.classType === "ImageToMask")).toBe(true);
     expect(preset.requiredNodes.some((node) => node.classType === "ImageCompositeMasked")).toBe(true);
+  });
+
+  it("registers the crop & stitch inpaint preset alongside the plain Flux Fill one", () => {
+    const cropStitch = getWorkflowPreset("inpaint-flux-fill-cropstitch");
+    const basic = getWorkflowPreset("inpaint-flux-fill-basic");
+
+    expect(cropStitch.status).toBe("stable");
+    expect(cropStitch.modelSource.kind).toBe("diffusion-model-stack");
+    expect(cropStitch.supportedModelFamilies).toEqual(["flux"]);
+    // Same model stack, so adding this preset costs no extra download.
+    expect(cropStitch.requiredModels).toEqual(basic.requiredModels);
+    expect(cropStitch.requiredNodes.some((node) => node.classType === "InpaintCropImproved")).toBe(true);
+    expect(cropStitch.requiredNodes.some((node) => node.classType === "InpaintStitchImproved")).toBe(true);
+
+    // The plain preset must stay free of the custom node: it is what a user
+    // without the pack installed falls back to.
+    expect(basic.requiredNodes.some((node) => node.classType.startsWith("Inpaint" + "Crop"))).toBe(false);
+    expect(basic.requiredNodes.some((node) => node.classType.startsWith("Inpaint" + "Stitch"))).toBe(false);
   });
 
   it("registers Flux Fill inpaint as a diffusion model stack preset", () => {

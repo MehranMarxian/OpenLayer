@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { getWorkflowPreset } from "../../src/comfy/presetRegistry";
 import {
   ComfyClient,
   findImageOutput,
@@ -209,5 +210,98 @@ describe("ComfyClient object_info model parsing", () => {
     );
 
     expect(names).toEqual(["model-a.safetensors", "model-b.safetensors"]);
+  });
+});
+
+describe("ComfyClient preset setup validation", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  /**
+   * Serves an /object_info reply built from the preset's own requirements, but
+   * moves the named inputs into ComfyUI's `optional` bucket — which is where
+   * InpaintCropImproved really declares `mask`.
+   */
+  function stubObjectInfo(presetId: string, optionalInputs: Record<string, string[]>) {
+    const preset = getWorkflowPreset(presetId);
+
+    vi.stubGlobal("fetch", async (url: string) => {
+      const classType = String(url).split("/object_info/")[1] ?? "";
+      const requirement = preset.requiredNodes.find((node) => node.classType === classType);
+      const optional = optionalInputs[classType] ?? [];
+      const body: Record<string, unknown> = {};
+
+      if (requirement) {
+        body[classType] = {
+          input: {
+            required: Object.fromEntries(
+              requirement.requiredInputs
+                .filter((name) => !optional.includes(name))
+                .map((name) => [name, ["*"]])
+            ),
+            optional: Object.fromEntries(optional.map((name) => [name, ["*"]]))
+          }
+        };
+      }
+
+      // Every required model reads its name list off a loader node, so serve
+      // the ones this preset asks for rather than failing on models.
+      for (const model of preset.requiredModels ?? []) {
+        if (model.objectInfoNode === classType) {
+          const node = (body[classType] ??= { input: { required: {} } }) as {
+            input: { required: Record<string, unknown> };
+          };
+          node.input.required[model.inputName] = [[model.modelName]];
+        }
+      }
+
+      return new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    });
+
+    return preset;
+  }
+
+  it("accepts an input the node declares optional rather than required", async () => {
+    // The real defect this guards: InpaintCropImproved puts `mask` in
+    // `input.optional`, so reading only `input.required` reported "ComfyUI is
+    // missing setup" on a machine where the node pack was installed and the
+    // graph ran fine. `requiredInputs` in the registry means "OpenLayer wires
+    // this and depends on it", which is not ComfyUI's required/optional split.
+    stubObjectInfo("inpaint-flux-fill-cropstitch", { InpaintCropImproved: ["mask"] });
+
+    const client = new ComfyClient("http://127.0.0.1:8190");
+
+    await expect(client.validatePresetSetup(getWorkflowPreset("inpaint-flux-fill-cropstitch")))
+      .resolves.toBeTypeOf("object");
+  });
+
+  it("still reports an input the node does not declare at all", async () => {
+    stubObjectInfo("inpaint-flux-fill-cropstitch", {});
+    const preset = getWorkflowPreset("inpaint-flux-fill-cropstitch");
+    const cropRequirement = preset.requiredNodes.find(
+      (node) => node.classType === "InpaintCropImproved"
+    );
+
+    const client = new ComfyClient("http://127.0.0.1:8190");
+    const probed = {
+      ...preset,
+      requiredNodes: preset.requiredNodes.map((node) =>
+        node === cropRequirement
+          ? { ...node, requiredInputs: [...node.requiredInputs, "not_a_real_input"] }
+          : node
+      )
+    };
+
+    // The summary names the preset; the actionable detail names the input.
+    const failure = await client.validatePresetSetup(probed).catch((error: unknown) => error);
+
+    expect(String((failure as { message?: string }).message)).toContain(
+      "missing setup required by inpaint-flux-fill-cropstitch"
+    );
+    expect(JSON.stringify(failure)).toContain("not_a_real_input");
   });
 });

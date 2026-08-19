@@ -401,6 +401,28 @@ const INPAINT_FLUX_FILL_BASIC_NODES = {
   saveImage: "9"
 } as const;
 
+// Same Flux Fill stack as above with lquesada's crop-and-stitch pair wrapped
+// around the sampler chain. Ids 31/39/34/32/17/23/26/46/38/3/8/9 are kept
+// identical to inpaint-flux-fill-basic on purpose: fluxFillDefaults.ts pins
+// the guidance, sampler and Differential Diffusion nodes by literal id, so a
+// renumbered graph would silently stop receiving the reference defaults.
+const INPAINT_FLUX_FILL_CROPSTITCH_NODES = {
+  diffusionModelLoader: "31",
+  differentialDiffusion: "39",
+  dualClipLoader: "34",
+  vaeLoader: "32",
+  loadImage: "17",
+  inpaintCrop: "50",
+  positivePrompt: "23",
+  fluxGuidance: "26",
+  negativeConditioning: "46",
+  inpaintConditioning: "38",
+  sampler: "3",
+  decode: "8",
+  inpaintStitch: "51",
+  saveImage: "9"
+} as const;
+
 const OUTPAINT_FLUX_FILL_BASIC_NODES = {
   diffusionModelLoader: "31",
   differentialDiffusion: "39",
@@ -767,6 +789,20 @@ const INPAINT_FLUX_FILL_BASIC_INJECTIONS = {
   denoise: target(INPAINT_FLUX_FILL_BASIC_NODES.sampler, "denoise")
 } as const;
 
+const INPAINT_FLUX_FILL_CROPSTITCH_INJECTIONS = {
+  checkpoint: target(INPAINT_FLUX_FILL_CROPSTITCH_NODES.diffusionModelLoader, "unet_name"),
+  sourceImage: target(INPAINT_FLUX_FILL_CROPSTITCH_NODES.loadImage, "image"),
+  positivePrompt: target(INPAINT_FLUX_FILL_CROPSTITCH_NODES.positivePrompt, "text"),
+  seed: target(INPAINT_FLUX_FILL_CROPSTITCH_NODES.sampler, "seed"),
+  steps: target(INPAINT_FLUX_FILL_CROPSTITCH_NODES.sampler, "steps"),
+  cfg: target(INPAINT_FLUX_FILL_CROPSTITCH_NODES.fluxGuidance, "guidance"),
+  denoise: target(INPAINT_FLUX_FILL_CROPSTITCH_NODES.sampler, "denoise")
+  // Deliberately no width/height injection. The panel's source dimensions
+  // describe the captured selection context, and the sampling resolution here
+  // is InpaintCropImproved's target size, which is a property of the technique
+  // rather than something the artist picks per generation.
+} as const;
+
 const OUTPAINT_FLUX_FILL_BASIC_INJECTIONS = {
   checkpoint: target(OUTPAINT_FLUX_FILL_BASIC_NODES.diffusionModelLoader, "unet_name"),
   sourceImage: target(OUTPAINT_FLUX_FILL_BASIC_NODES.loadImage, "image"),
@@ -1131,6 +1167,27 @@ const INPAINT_FLUX_FILL_BASIC_CAPABILITY: WorkflowCapability = {
     showModelSelector: true,
     modelSelectorLabel: "Flux Fill model",
     primaryActionLabel: "Generate Inpaint"
+  }
+};
+
+const INPAINT_FLUX_FILL_CROPSTITCH_CAPABILITY: WorkflowCapability = {
+  toolType: "inpaint",
+  loaderType: "diffusion-model-stack",
+  artistLabel: "Inpaint",
+  technicalLabel: "inpaint-flux-fill-cropstitch",
+  requiredPhotoshopInputs: ["selection", "selection-mask"],
+  controls: ["prompt", "negativePrompt", "steps", "guidance", "denoise", "seed", "contextPadding", "maskBlur"],
+  output: {
+    kind: "selection-patch",
+    size: "selection-context",
+    importBehavior: "aligned-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Flux Fill model",
+    primaryActionLabel: "Generate Inpaint",
+    experimentalNote:
+      "Needs the comfyui-inpaint-cropandstitch node pack. It crops to your mask plus 50% context, samples that at 1024px, and stitches the patch back with a 32px blended seam -- so a small mask on a big document is sampled at the resolution Flux Fill was trained for instead of at whatever size the selection happened to be. Prefer the plain Flux Fill preset when the masked area already fills most of the captured context."
   }
 };
 
@@ -2181,6 +2238,106 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     ],
     compatibilityNote:
       "inpaint-flux-fill-basic follows the Flux Fill reference graph: UNETLoader, DifferentialDiffusion, DualCLIPLoader, FluxGuidance, InpaintModelConditioning, KSampler, VAEDecode, and SaveImage. OpenLayer embeds the Photoshop mask into the uploaded PNG alpha channel for the LoadImage mask output. T5 prefers t5xxl_fp16.safetensors and accepts t5xxl_fp8_e4m3fn.safetensors as a fallback."
+  },
+  {
+    id: "inpaint-flux-fill-cropstitch",
+    label: "inpaint-flux-fill-cropstitch",
+    displayName: "Flux Fill (crop & stitch)",
+    mode: "inpaint",
+    description:
+      "Flux Fill inpainting that crops to the mask plus context, samples at 1024px, and stitches the patch back with a blended seam.",
+    workflowFile: "workflows/api/inpaint-flux-fill-cropstitch.json",
+    status: "stable",
+    recommendedSettings: { steps: 20, cfg: 30 },
+    supportedModelFamilies: ["flux"],
+    experimentalModelFamilies: ["sd1", "sdxl", "sd3", "zImage", "unknown"],
+    modelSource: DIFFUSION_MODEL_SOURCE,
+    capability: INPAINT_FLUX_FILL_CROPSTITCH_CAPABILITY,
+    modelStack: [...FLUX_FILL_STACK],
+    requiredModels: [...FLUX_FILL_STACK],
+    injections: INPAINT_FLUX_FILL_CROPSTITCH_INJECTIONS,
+    requiredNodes: [
+      {
+        id: INPAINT_FLUX_FILL_CROPSTITCH_NODES.diffusionModelLoader,
+        classType: "UNETLoader",
+        requiredInputs: ["unet_name", "weight_dtype"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_CROPSTITCH_NODES.differentialDiffusion,
+        classType: "DifferentialDiffusion",
+        requiredInputs: ["model"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_CROPSTITCH_NODES.dualClipLoader,
+        classType: "DualCLIPLoader",
+        requiredInputs: ["clip_name1", "clip_name2", "type"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_CROPSTITCH_NODES.vaeLoader,
+        classType: "VAELoader",
+        requiredInputs: ["vae_name"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_CROPSTITCH_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_CROPSTITCH_NODES.inpaintCrop,
+        classType: "InpaintCropImproved",
+        requiredInputs: [
+          "image",
+          "mask",
+          "context_from_mask_extend_factor",
+          "output_resize_to_target_size",
+          "output_target_width",
+          "output_target_height",
+          "mask_blend_pixels"
+        ]
+      },
+      {
+        id: INPAINT_FLUX_FILL_CROPSTITCH_NODES.positivePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_CROPSTITCH_NODES.fluxGuidance,
+        classType: "FluxGuidance",
+        requiredInputs: ["conditioning", "guidance"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_CROPSTITCH_NODES.negativeConditioning,
+        classType: "ConditioningZeroOut",
+        requiredInputs: ["conditioning"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_CROPSTITCH_NODES.inpaintConditioning,
+        classType: "InpaintModelConditioning",
+        requiredInputs: ["positive", "negative", "vae", "pixels", "mask", "noise_mask"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_CROPSTITCH_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["model", "seed", "steps", "cfg", "sampler_name", "scheduler", "positive", "negative", "latent_image", "denoise"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_CROPSTITCH_NODES.decode,
+        classType: "VAEDecode",
+        requiredInputs: ["samples", "vae"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_CROPSTITCH_NODES.inpaintStitch,
+        classType: "InpaintStitchImproved",
+        requiredInputs: ["stitcher", "inpainted_image"]
+      },
+      {
+        id: INPAINT_FLUX_FILL_CROPSTITCH_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images", "filename_prefix"]
+      }
+    ],
+    compatibilityNote:
+      "inpaint-flux-fill-cropstitch is inpaint-flux-fill-basic with InpaintCropImproved and InpaintStitchImproved from lquesada's comfyui-inpaint-cropandstitch wrapped around the sampler chain. The crop node takes the LoadImage image and mask, so OpenLayer still uploads one PNG carrying the Photoshop mask in its alpha channel, and the stitch node returns an image the same size as that upload -- which is what keeps the aligned Photoshop import valid."
   },
   {
     id: "outpaint-flux-fill-basic",

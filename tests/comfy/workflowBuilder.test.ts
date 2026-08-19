@@ -214,6 +214,53 @@ describe("workflowBuilder", () => {
     expect(result.workflow["9"].inputs.images).toEqual(["8", 0]);
   });
 
+  it("routes the Flux Fill crop & stitch preset through InpaintCropImproved and back out through the stitcher", async () => {
+    const result = await buildInpaintWorkflow({
+      presetId: "inpaint-flux-fill-cropstitch",
+      prompt: "repair the moon surface",
+      negativePrompt: "black square",
+      checkpointName: "flux1-fill-dev.safetensors",
+      sourceImageName: "openlayer-flux-source-mask.png",
+      maskImageName: "openlayer-separate-mask-should-not-be-injected.png",
+      steps: 18,
+      cfg: 3.5,
+      denoise: 0.8,
+      seed: 4242,
+      width: 4096,
+      height: 3072
+    });
+
+    expect(result.preset.id).toBe("inpaint-flux-fill-cropstitch");
+    expect(result.workflow["17"].inputs.image).toBe("openlayer-flux-source-mask.png");
+
+    // The crop node reads the image AND the mask from the single uploaded PNG,
+    // exactly as the conditioning node used to. Losing the mask edge here is
+    // the failure that would look like a working generation of the wrong area.
+    expect(result.workflow["50"].class_type).toBe("InpaintCropImproved");
+    expect(result.workflow["50"].inputs.image).toEqual(["17", 0]);
+    expect(result.workflow["50"].inputs.mask).toEqual(["17", 1]);
+    expect(result.workflow["50"].inputs.context_from_mask_extend_factor).toBe(1.5);
+    expect(result.workflow["50"].inputs.output_resize_to_target_size).toBe(true);
+    expect(result.workflow["50"].inputs.output_target_width).toBe(1024);
+    expect(result.workflow["50"].inputs.output_target_height).toBe(1024);
+    expect(result.workflow["50"].inputs.mask_blend_pixels).toBe(32);
+
+    // The sampler chain is the untouched reference graph, fed the crop instead
+    // of the full canvas.
+    expect(result.workflow["38"].inputs.pixels).toEqual(["50", 1]);
+    expect(result.workflow["38"].inputs.mask).toEqual(["50", 2]);
+    expect(result.workflow["3"].inputs.steps).toBe(FLUX_FILL_REFERENCE_DEFAULTS.steps);
+    expect(result.workflow["3"].inputs.seed).toBe(4242);
+
+    // SaveImage must take the stitched image, not the decode. Wiring it to "8"
+    // would save a 1024px patch and silently break the aligned Photoshop
+    // import, which expects a result the size of the captured context.
+    expect(result.workflow["51"].class_type).toBe("InpaintStitchImproved");
+    expect(result.workflow["51"].inputs.stitcher).toEqual(["50", 0]);
+    expect(result.workflow["51"].inputs.inpainted_image).toEqual(["8", 0]);
+    expect(result.workflow["9"].inputs.images).toEqual(["51", 0]);
+  });
+
   it("can inject the accepted Flux Fill T5 fallback when fp16 is unavailable", async () => {
     const preset = getWorkflowPreset("inpaint-flux-fill-basic");
     const t5Requirement = preset.requiredModels?.find((model) => model.modelName === "t5xxl_fp16.safetensors");

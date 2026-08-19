@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Added
+
+- **Context-aware Inpaint: `inpaint-flux-fill-cropstitch`.** A second Flux Fill preset that crops to your mask plus 50% context, samples that at 1024x1024, and stitches the patch back with a 32-pixel blended seam, using lquesada's [ComfyUI-Inpaint-CropAndStitch](https://github.com/lquesada/ComfyUI-Inpaint-CropAndStitch).
+
+  OpenLayer already captured the selection plus padding rather than the whole document, so the win is not "we stopped sending the whole canvas" -- it is that the captured context is now sampled at the resolution Flux Fill was trained for instead of at whatever size the selection happened to produce. A small mask on a large document no longer samples a few hundred pixels, and a large one no longer samples several thousand.
+
+  It ships **alongside** `inpaint-flux-fill-basic` rather than replacing it, because it is the only preset whose custom-node dependency is optional: without the pack installed you keep the original preset and lose only the quality option. Both use the same model files, so the choice costs no extra download. The node pack is declared in the setup manifest, so Setup lists it as a requirement and Workflow Health names `comfyui-inpaint-cropandstitch` when it is missing rather than reporting an unexplained absent node.
+
 ## v0.15.0-alpha - 2026-08-17
 
 OpenLayer's tools can be driven by an AI assistant now, not only by clicking the panel. Ask Claude — or Codex, or anything else that speaks the Model Context Protocol — to generate an image, upscale a layer or caption a selection, and it drives the panel's own buttons in your open Photoshop document. It runs entirely on your machine, and it is off until you turn it on.

@@ -14,6 +14,7 @@ import sketch2imgZimageFunControlnetWorkflow from "../workflows/api/sketch2img-z
 import sketch2imgZimageFunControlnetFullWorkflow from "../workflows/api/sketch2img-zimage-fun-controlnet-full.json";
 import inpaintBasicWorkflow from "../workflows/api/inpaint-basic.json";
 import inpaintFluxFillBasicWorkflow from "../workflows/api/inpaint-flux-fill-basic.json";
+import inpaintFluxFillCropStitchWorkflow from "../workflows/api/inpaint-flux-fill-cropstitch.json";
 import outpaintFluxFillBasicWorkflow from "../workflows/api/outpaint-flux-fill-basic.json";
 import upscaleBasicWorkflow from "../workflows/api/upscale-basic.json";
 import {
@@ -33,7 +34,7 @@ import {
 } from "./types";
 import { getPresetInputTarget, getWorkflowPreset, validateWorkflowForPreset } from "./presetRegistry";
 import { createRequiredModelSelectionKey } from "./workflowModelRequirements";
-import { applyFluxFillReferenceDefaults, FLUX_FILL_PRESET_ID } from "./fluxFillDefaults";
+import { applyFluxFillReferenceDefaults, isFluxFillPreset } from "./fluxFillDefaults";
 import { createOpenLayerError } from "../utils/errors";
 
 const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
@@ -53,6 +54,7 @@ const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
   "sketch2img-zimage-fun-controlnet-full": sketch2imgZimageFunControlnetFullWorkflow as ComfyWorkflow,
   "inpaint-basic": inpaintBasicWorkflow as ComfyWorkflow,
   "inpaint-flux-fill-basic": inpaintFluxFillBasicWorkflow as ComfyWorkflow,
+  "inpaint-flux-fill-cropstitch": inpaintFluxFillCropStitchWorkflow as ComfyWorkflow,
   "outpaint-flux-fill-basic": outpaintFluxFillBasicWorkflow as ComfyWorkflow,
   "upscale-basic": upscaleBasicWorkflow as ComfyWorkflow
 };
@@ -186,12 +188,14 @@ export async function buildInpaintWorkflow(
   }
 
   setPresetInput(workflow, preset, "sourceImage", options.sourceImageName, true);
-  setPresetInput(workflow, preset, "maskImage", options.maskImageName, preset.id !== "inpaint-flux-fill-basic");
+  // Every Flux Fill preset carries the mask in the source PNG's alpha channel
+  // and so has no separate mask target to inject into.
+  setPresetInput(workflow, preset, "maskImage", options.maskImageName, !isFluxFillPreset(preset.id));
   setPresetInput(workflow, preset, "positivePrompt", options.prompt, true);
   setPresetInput(workflow, preset, "negativePrompt", options.negativePrompt ?? "");
   setPresetInput(workflow, preset, "seed", seed, true);
 
-  if (preset.id === FLUX_FILL_PRESET_ID) {
+  if (isFluxFillPreset(preset.id)) {
     applyFluxFillReferenceDefaults(workflow);
   } else {
     setPresetInput(workflow, preset, "steps", options.steps, true);

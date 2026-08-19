@@ -162,6 +162,29 @@ describe("workflow compatibility", () => {
     expect(issue?.artistMessage).toContain("https://github.com/kijai/ComfyUI-Florence2");
   });
 
+  it("names comfyui-inpaint-cropandstitch when the crop & stitch pack is absent", () => {
+    const preset = getWorkflowPreset("inpaint-flux-fill-cropstitch");
+    const availableNodes = createAvailableNodes(preset);
+    delete availableNodes.InpaintCropImproved;
+    delete availableNodes.InpaintStitchImproved;
+
+    const result = evaluateWorkflowCompatibility(preset, {
+      availableNodes,
+      availableModels: createInventory({
+        diffusionModels: ["flux1-fill-dev.safetensors"],
+        clipModels: ["clip_l.safetensors", "t5xxl_fp16.safetensors"],
+        vaeModels: ["ae.safetensors"]
+      })
+    });
+    const issue = result.issues.find((candidate) => candidate.code === "COMFY_NODE_MISSING");
+
+    expect(issue?.artistMessage).toContain("Install comfyui-inpaint-cropandstitch from");
+    expect(issue?.artistMessage).toContain("https://github.com/lquesada/ComfyUI-Inpaint-CropAndStitch");
+    // Not "an absent node called InpaintCropImproved", which names nothing a
+    // user can install.
+    expect(issue?.artistMessage).not.toContain("your ComfyUI install is likely out of date");
+  });
+
   it("diagnoses a missing core node as an outdated or broken ComfyUI install", () => {
     const preset = getWorkflowPreset("txt2img-basic");
     const availableNodes = createAvailableNodes(preset);
