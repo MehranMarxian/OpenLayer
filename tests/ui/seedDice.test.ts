@@ -7,12 +7,14 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { rollSeed, setSeedDiceEnabled } from "../../src/ui/seedDice";
 
 describe("rollSeed", () => {
-  it("returns a non-negative integer within the seed range", () => {
-    for (let i = 0; i < 20; i += 1) {
+  it("stays inside what a UXP number input can actually hold", () => {
+    // Above 2^31-1 a UXP <input type="number"> hands back "214748.36" -- the
+    // same mangled value every time -- so rolling looked like it did nothing.
+    for (let i = 0; i < 200; i += 1) {
       const seed = rollSeed();
       expect(Number.isInteger(seed)).toBe(true);
       expect(seed).toBeGreaterThanOrEqual(0);
-      expect(seed).toBeLessThan(Number.MAX_SAFE_INTEGER);
+      expect(seed).toBeLessThan(2147483647);
     }
   });
 
@@ -60,6 +62,16 @@ describe("setSeedDiceEnabled", () => {
     expect(row.querySelector(".seed-dice-button")).not.toBeNull();
     // The input is still the direct value holder, just re-parented.
     expect(row.contains(input)).toBe(true);
+  });
+
+  it("draws the die face from CSS pips rather than an icon", () => {
+    // An inline <svg> assigned via innerHTML painted an empty box in
+    // Photoshop. Elements, not markup, so there is nothing to fail to parse.
+    setSeedDiceEnabled(root, true);
+    const button = root.querySelector<HTMLButtonElement>(".seed-dice-button")!;
+
+    expect(button.querySelectorAll(".seed-pip")).toHaveLength(3);
+    expect(button.querySelector("svg")).toBeNull();
   });
 
   it("leaves the field's own label untouched and in place", () => {

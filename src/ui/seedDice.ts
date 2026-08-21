@@ -24,27 +24,41 @@
 
 const SEED_INPUT_IDS = ["seed", "img-seed", "sketch-seed", "inpaint-seed", "outpaint-seed"];
 
-const MAX_SEED = Number.MAX_SAFE_INTEGER;
+/**
+ * Rolled seeds stop at 2^31-1, NOT Number.MAX_SAFE_INTEGER.
+ *
+ * A UXP <input type="number"> cannot hold a value above the signed 32-bit
+ * maximum. Anything larger comes back out as "214748.36" -- 2147483647 with a
+ * decimal point pushed in -- and it is the SAME mangled value every time, so
+ * rolling appeared to do nothing. That display bug predates the dice button
+ * (it was visible on the seed field in earlier screenshots) but the button
+ * made it reproducible on demand.
+ *
+ * This range is not a compromise: 2^31 seeds is the range most tools expose,
+ * and generation is unaffected either way -- readSeed in comfy/settings.ts
+ * still rolls its own full-width seed server-side when the field is blank.
+ */
+const MAX_ROLLED_SEED = 2147483647;
 
-/** A fresh seed in the same [0, MAX_SAFE_INTEGER) range the server itself uses. */
+/** A fresh seed in [0, 2^31-1), the widest range a UXP number input can hold. */
 export function rollSeed(): number {
-  return Math.floor(Math.random() * MAX_SEED);
+  return Math.floor(Math.random() * MAX_ROLLED_SEED);
 }
 
 const ROW_CLASS = "seed-row";
 const FIELD_CLASS = "has-seed-dice";
 
-// Minimal six-face die outline with three pips. Inline SVG, not a data-URI --
-// the spike found data-URI SVG backgrounds render nothing in UXP, and this
-// codebase has not shipped an emoji glyph anywhere for the same reason
-// (see the advanced-toggle comment in appBindings.ts).
-const DICE_ICON =
-  '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">' +
-  '<rect x="1.5" y="1.5" width="13" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.4"></rect>' +
-  '<circle cx="5" cy="5" r="1.15" fill="currentColor"></circle>' +
-  '<circle cx="8" cy="8" r="1.15" fill="currentColor"></circle>' +
-  '<circle cx="11" cy="11" r="1.15" fill="currentColor"></circle>' +
-  "</svg>";
+/**
+ * The die face is built from three plain <span> pips, not an icon.
+ *
+ * An inline <svg> assigned through innerHTML rendered as an empty box in
+ * Photoshop -- the button painted, the glyph did not. Emoji and geometric
+ * glyphs are already known-unreliable here (see the plain-text caret in
+ * bindAdvancedToggles), and a data-URI SVG background renders nothing at all.
+ * CSS shapes are the one icon technique the spike confirmed does work, so the
+ * button's own border is the die outline and these are its pips.
+ */
+const PIP_COUNT = 3;
 
 function dispatch(target: HTMLElement, type: string): void {
   try {
@@ -71,7 +85,12 @@ function build(input: HTMLInputElement): void {
   button.className = "seed-dice-button";
   button.setAttribute("aria-label", "Roll a new seed");
   button.title = "Roll a new seed";
-  button.innerHTML = DICE_ICON;
+
+  for (let index = 0; index < PIP_COUNT; index += 1) {
+    const pip = doc.createElement("span");
+    pip.className = `seed-pip seed-pip-${index + 1}`;
+    button.appendChild(pip);
+  }
 
   field.classList.add(FIELD_CLASS);
   field.insertBefore(row, input);
