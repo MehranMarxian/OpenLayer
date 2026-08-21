@@ -3,17 +3,30 @@ import { snapToStep } from "../utils/snapToStep";
 /**
  * Artist-Friendly Dark's slider face for the numeric parameter fields.
  *
- * The number input stays the single source of truth. A slider is injected
- * beside it, writes through to it, and re-dispatches input/change so every
- * existing handler fires exactly as it did before -- no handler is rebound and
- * no view code is refactored. Compact Adobe Dark keeps showing the number
- * input and never sees the slider; CSS decides which face is visible, so there
- * is only ever ONE control and the two faces cannot drift apart.
+ * The number input stays the single source of truth. The slider is built only
+ * while Artist-Friendly Dark is active and torn out again on the way back, so
+ * Compact Adobe Dark's DOM is byte-identical to what it was before this file
+ * existed. That is stricter than hiding with CSS, and deliberately so -- see
+ * the two traps below, both of which were found in Photoshop the hard way.
  *
- * UXP constraints this is built around (see openlayer-uxp-slider-findings):
- *   - an IMPLICIT step is ignored, so every range declares `step` explicitly;
- *   - the native track and thumb cannot be recoloured by any CSS route, so the
- *     branding lives in the label row rather than in the control.
+ * TRAP 1: the compact stylesheet contains
+ *     .app-shell.theme-compact ... > .field > input { display: block !important; width: 96px !important }
+ * An injected <input type="range"> IS an input, so it matched, and at
+ * specificity (0,5,1) with !important it beat a plain `display: none` -- and
+ * would beat [hidden] too. Hence the .artist-row wrapper: the compact rules use
+ * child combinators, so a GRANDCHILD escapes them entirely. Do not flatten it.
+ *
+ * TRAP 2: nothing in the app listens to these inputs -- generation reads
+ * `.value` directly at submit time. So re-dispatching input/change had no real
+ * consumer, while its own sync listener was subscribed to it. If UXP fires
+ * `input` on a programmatic `.value` assignment (it is not a standard DOM and
+ * cannot be assumed to match one), that is unbounded recursion, and a stack
+ * overflow inside UXP takes Photoshop down with it. The event is still
+ * dispatched so later observers work, but `syncing` makes re-entry impossible.
+ *
+ * Also settled in Photoshop (see openlayer-uxp-slider-findings): an IMPLICIT
+ * step is ignored, so every range declares `step`; and the native track and
+ * thumb cannot be recoloured by any CSS route, so branding lives in the label.
  */
 
 export interface ArtistControlSpec {
@@ -25,7 +38,6 @@ export interface ArtistControlSpec {
   softMin: number;
   softMax: number;
   step: number;
-  /** Renders the value shown in the label. */
   format: (value: number) => string;
 }
 
@@ -34,10 +46,10 @@ const decimal = (places: number) => (value: number) => value.toFixed(places);
 
 /**
  * Soft ranges deliberately narrower than the typed input allows: steps go to
- * 150 and CFG to 30 in the markup, but a slider that spends 90% of its travel
- * in territory nobody uses is a worse control than a narrow one. widenToFit
- * below extends the range rather than clamping if a real value lands outside,
- * so nothing is ever silently changed. This is SwarmUI's ViewMax idea.
+ * 150 and CFG to 30 in the markup, but a slider that spends most of its travel
+ * in territory nobody uses is a worse control than a short one. widenToFit
+ * extends the range rather than clamping if a real value lands outside, so a
+ * theme switch can never silently rewrite a setting. SwarmUI's ViewMax idea.
  */
 export const ARTIST_CONTROLS: ArtistControlSpec[] = [
   // Text to Image
@@ -96,25 +108,43 @@ export function formatArtistLabel(spec: ArtistControlSpec, value: number): strin
   return `${spec.label}: ${spec.format(value)}`;
 }
 
-const SLIDER_SUFFIX = "-artist-slider";
-const LABEL_SUFFIX = "-artist-label";
+const ROW_CLASS = "artist-row";
+const FIELD_CLASS = "has-artist-slider";
 
-function dispatch(target: HTMLElement, type: string): void {
-  // UXP's Event constructor is available, but guard anyway: a failure here
-  // would silently stop generation parameters from updating.
+/**
+ * Re-entrancy latch. See TRAP 2: this is the only thing standing between a
+ * programmatic `.value` assignment and an unbounded event cycle if UXP echoes
+ * one back as an `input` event. Never remove it on the grounds that the
+ * browser would not recurse -- UXP is not the browser.
+ */
+let syncing = false;
+
+function withSyncLatch(run: () => void): void {
+  if (syncing) {
+    return;
+  }
+  syncing = true;
   try {
-    target.dispatchEvent(new Event(type, { bubbles: true }));
-  } catch {
-    /* no-op: the value is already written, only observers miss the notice */
+    run();
+  } finally {
+    syncing = false;
   }
 }
 
-function syncSliderFromInput(
-  input: HTMLInputElement,
-  slider: HTMLInputElement,
-  label: HTMLElement,
-  spec: ArtistControlSpec
-): void {
+function dispatch(target: HTMLElement, type: string): void {
+  try {
+    target.dispatchEvent(new Event(type, { bubbles: true }));
+  } catch {
+    /* the value is already written; only observers miss the notice */
+  }
+}
+
+function render(row: HTMLElement, input: HTMLInputElement, spec: ArtistControlSpec): void {
+  const label = row.querySelector<HTMLElement>(`.artist-label`);
+  const slider = row.querySelector<HTMLInputElement>(`.artist-slider`);
+  if (!label || !slider) {
+    return;
+  }
   const raw = Number(input.value);
   if (!Number.isFinite(raw)) {
     label.textContent = formatArtistLabel(spec, Number.NaN);
@@ -127,75 +157,101 @@ function syncSliderFromInput(
   label.textContent = formatArtistLabel(spec, raw);
 }
 
+function build(input: HTMLInputElement, spec: ArtistControlSpec): void {
+  const field = input.parentElement;
+  if (!field || field.querySelector(`.${ROW_CLASS}`)) {
+    return;
+  }
+  const doc = input.ownerDocument;
+
+  // The wrapper is load-bearing, not cosmetic. See TRAP 1.
+  const row = doc.createElement("div");
+  row.className = ROW_CLASS;
+
+  const label = doc.createElement("span");
+  label.className = "artist-label";
+
+  const slider = doc.createElement("input");
+  slider.type = "range";
+  slider.className = "artist-slider";
+  // Explicit step is mandatory: UXP does not apply the implicit default.
+  slider.step = String(spec.step);
+  slider.setAttribute("aria-label", spec.label);
+
+  row.append(label, slider);
+  field.classList.add(FIELD_CLASS);
+  field.insertBefore(row, input);
+
+  slider.addEventListener("input", () => {
+    withSyncLatch(() => {
+      const value = snapToStep(Number(slider.value), Number(slider.min), Number(slider.max), spec.step);
+      input.value = String(value);
+      label.textContent = formatArtistLabel(spec, value);
+      dispatch(input, "input");
+    });
+  });
+
+  // `change` fires once when the drag ends, not on every pixel of travel.
+  slider.addEventListener("change", () => {
+    withSyncLatch(() => dispatch(input, "change"));
+  });
+
+  // Presets and restored preferences write straight to the number input.
+  const follow = () => withSyncLatch(() => render(row, input, spec));
+  input.addEventListener("input", follow);
+  input.addEventListener("change", follow);
+
+  withSyncLatch(() => render(row, input, spec));
+}
+
+function teardown(input: HTMLInputElement): void {
+  const field = input.parentElement;
+  if (!field) {
+    return;
+  }
+  field.querySelector(`.${ROW_CLASS}`)?.remove();
+  field.classList.remove(FIELD_CLASS);
+}
+
 /**
- * Injects the slider face for every control whose number input is present.
- * Safe to call once; returns how many controls were wired.
+ * Builds the slider face when Artist-Friendly Dark is active and removes it
+ * entirely otherwise. Returns the number of controls currently built.
+ *
+ * Tearing down rather than hiding is what guarantees Compact Adobe Dark is
+ * unaffected: with the row gone there is no element left for a stray
+ * `!important` rule to paint, and no extra child in the settings grid.
  */
-export function wireArtistControls(root: ParentNode): number {
-  let wired = 0;
+export function setArtistControlsEnabled(root: ParentNode, enabled: boolean): number {
+  let built = 0;
 
   for (const spec of ARTIST_CONTROLS) {
     const input = root.querySelector<HTMLInputElement>(`#${spec.inputId}`);
     if (!input) {
       continue;
     }
-    const field = input.parentElement;
-    if (!field || field.querySelector(`#${spec.inputId}${SLIDER_SUFFIX}`)) {
-      continue;
+    if (enabled) {
+      build(input, spec);
+      built += 1;
+    } else {
+      teardown(input);
     }
-
-    const doc = input.ownerDocument;
-    const label = doc.createElement("span");
-    label.className = "artist-label";
-    label.id = `${spec.inputId}${LABEL_SUFFIX}`;
-
-    const slider = doc.createElement("input");
-    slider.type = "range";
-    slider.className = "artist-slider";
-    slider.id = `${spec.inputId}${SLIDER_SUFFIX}`;
-    // Explicit step is mandatory: UXP does not apply the implicit default and
-    // hands back continuous floats without it.
-    slider.step = String(spec.step);
-    slider.setAttribute("aria-label", spec.label);
-
-    field.classList.add("has-artist-slider");
-    field.insertBefore(label, input);
-    field.insertBefore(slider, input);
-
-    slider.addEventListener("input", () => {
-      const value = snapToStep(Number(slider.value), Number(slider.min), Number(slider.max), spec.step);
-      input.value = String(value);
-      label.textContent = formatArtistLabel(spec, value);
-      // Drive the existing handlers rather than reimplementing them.
-      dispatch(input, "input");
-      dispatch(input, "change");
-    });
-
-    // Presets and restored preferences write straight to the number input.
-    input.addEventListener("input", () => syncSliderFromInput(input, slider, label, spec));
-    input.addEventListener("change", () => syncSliderFromInput(input, slider, label, spec));
-
-    syncSliderFromInput(input, slider, label, spec);
-    wired += 1;
   }
 
-  return wired;
+  return built;
 }
 
 /**
  * Re-reads every number input into its slider.
  *
  * Code that assigns `input.value` without dispatching an event leaves the
- * slider stale, which is invisible until the theme is switched and a wrong
- * number appears. Calling this on theme change closes that gap cheaply.
+ * slider stale, which is invisible until the slider is the visible face.
  */
 export function syncArtistControls(root: ParentNode): void {
   for (const spec of ARTIST_CONTROLS) {
     const input = root.querySelector<HTMLInputElement>(`#${spec.inputId}`);
-    const slider = root.querySelector<HTMLInputElement>(`#${spec.inputId}${SLIDER_SUFFIX}`);
-    const label = root.querySelector<HTMLElement>(`#${spec.inputId}${LABEL_SUFFIX}`);
-    if (input && slider && label) {
-      syncSliderFromInput(input, slider, label, spec);
+    const row = input?.parentElement?.querySelector<HTMLElement>(`.${ROW_CLASS}`);
+    if (input && row) {
+      withSyncLatch(() => render(row, input, spec));
     }
   }
 }

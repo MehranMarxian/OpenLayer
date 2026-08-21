@@ -8036,42 +8036,70 @@ body.theme-artist,
 /* ==========================================================================
    Artist-Friendly Dark: the slider face of the numeric parameter fields.
 
-   One control, two faces. The number input is the source of truth and stays
-   in the DOM in every theme; these rules only decide which face is painted.
-   Compact Adobe Dark never matches any of this and is untouched.
+   The row is only in the DOM while the artist theme is active (see
+   setArtistControlsEnabled), so these rules never apply in Compact Adobe Dark.
+   The `display: none` default below is a second line of defence for a row that
+   somehow outlives a theme switch.
 
-   Row shape is Krita AI's: the label carries the value as a prefix
-   ("Strength (denoise): 60%") and the track sits under it, so a parameter
-   costs one text row plus a track instead of a label row beside a box.
-   Margins, not flex gap -- gap is inert in compact UXP panels.
+   Specificity here is deliberate, not decorative. The compact sheet carries,
+   all with !important:
+       ... .settings-grid > .field           { display: grid }   (0,5,0)
+       ... .settings-grid > .field > input   { display: block; width: 96px }  (0,5,1)
+       ... .settings-grid > .field > .label  { display: block }  (0,6,0)
+   .field is sometimes a <div> and sometimes a <label>, so it cannot be
+   qualified by element, and UXP will not let CSSOM inline styles beat
+   !important either (see the nav-separator finding). That leaves selector
+   weight as the only lever: .has-artist-slider is repeated three times to
+   reach (0,6,0) and (0,7,0), which clears every rule above outright.
+   Do NOT "simplify" the repetition -- at two repeats the field rule merely
+   TIES and wins on source order, and the label rule loses outright, which is
+   how the panel ended up showing both faces at once.
+
+   The .artist-row wrapper is what keeps the slider itself out of that fight:
+   the compact rules use child combinators, so a grandchild never matches.
    ========================================================================== */
 
-.artist-label,
-.artist-slider {
+.artist-row {
   display: none;
 }
 
-.app-shell.theme-artist .field.has-artist-slider {
-  display: block;
+.app-shell.theme-artist .field.has-artist-slider.has-artist-slider.has-artist-slider {
+  display: block !important;
+  align-items: stretch !important;
 }
 
-/* The original label and the number box are the compact face. */
-.app-shell.theme-artist .field.has-artist-slider > .label,
-.app-shell.theme-artist .field.has-artist-slider > .input {
-  display: none;
+/* The original label and number box are the compact face; retire them. */
+.app-shell.theme-artist .field.has-artist-slider.has-artist-slider.has-artist-slider > .label,
+.app-shell.theme-artist .field.has-artist-slider.has-artist-slider.has-artist-slider > .input {
+  display: none !important;
 }
 
-.app-shell.theme-artist .field.has-artist-slider > .artist-label {
+.app-shell.theme-artist .field.has-artist-slider > .artist-row {
   display: block;
-  margin-bottom: 4px;
+  width: 100%;
+  min-width: 0;
+}
+
+/* Krita AI's row shape: the label carries the value as a prefix, the track
+   sits under it. One text row plus a track, instead of a label row beside a
+   box. Margins, not flex gap -- gap is inert in compact UXP panels. */
+.app-shell.theme-artist .artist-row > .artist-label {
+  display: block;
+  margin-bottom: 5px;
   color: var(--ol-text-secondary);
   font-size: var(--fs-xs);
   font-weight: 620;
   line-height: 1.2;
 }
 
-.app-shell.theme-artist .field.has-artist-slider > .artist-slider {
+.app-shell.theme-artist .artist-row > .artist-slider {
   display: block;
   width: 100%;
-  margin-bottom: 2px;
+  min-width: 0;
+  max-width: 100%;
+  height: 18px;
+  margin: 0 0 2px;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }

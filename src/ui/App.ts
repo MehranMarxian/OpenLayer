@@ -167,7 +167,7 @@ import {
   runModelDownloadSpike,
   summarizeSpike
 } from "./spikeModelDownload";
-import { syncArtistControls, wireArtistControls } from "./artistControls";
+import { setArtistControlsEnabled, syncArtistControls } from "./artistControls";
 import {
   createUpscaleResizePlan,
   formatUpscaleScale,
@@ -1267,9 +1267,6 @@ export function renderApp(rootElement: HTMLElement) {
   });
   const preferences = loadOpenLayerPreferences();
   applyPreferences(elements, preferences);
-  // Inject the slider face before the theme is applied so a panel restored
-  // into Artist-Friendly Dark paints sliders on its first frame.
-  wireArtistControls(rootElement);
   applyTheme(elements, preferences.theme || DEFAULT_THEME);
   fillCheckpointOptions(elements, FALLBACK_CHECKPOINTS, preferences.checkpointName || FALLBACK_CHECKPOINTS[0]);
   ensureCoreSelectDefaults(elements);
@@ -5770,9 +5767,11 @@ function applyTheme(elements: AppElements, theme: OpenLayerTheme) {
   // override scoped to the shell cannot reach them. Mirror the class onto body.
   elements.appShell.ownerDocument?.body?.classList.toggle("theme-artist", nextTheme === "artist");
 
-  // Anything that assigned input.value without dispatching an event has left
-  // its slider stale. That is invisible until the slider becomes the visible
-  // face, so reconcile on every theme change.
+  // Build the slider face only for Artist-Friendly Dark, and tear it out
+  // again otherwise, so Compact Adobe Dark keeps the DOM it always had. The
+  // compact stylesheet has `.field > input { display: block !important }`
+  // rules that would paint a hidden slider anyway, so hiding is not enough.
+  setArtistControlsEnabled(elements.appShell, nextTheme === "artist");
   syncArtistControls(elements.appShell);
 }
 
