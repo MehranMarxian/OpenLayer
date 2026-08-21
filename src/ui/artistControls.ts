@@ -157,9 +157,21 @@ function render(row: HTMLElement, input: HTMLInputElement, spec: ArtistControlSp
   label.textContent = formatArtistLabel(spec, raw);
 }
 
+/** The field's own <span class="label">, if it still has one. */
+function findOwnLabel(field: HTMLElement): HTMLElement | null {
+  for (const child of Array.from(field.children)) {
+    if (child.classList.contains("label")) {
+      return child as HTMLElement;
+    }
+  }
+  return null;
+}
+
 function build(input: HTMLInputElement, spec: ArtistControlSpec): void {
   const field = input.parentElement;
-  if (!field || field.querySelector(`.${ROW_CLASS}`)) {
+  // Once built, the input's parent IS the row -- checking only for a
+  // descendant row would look inside it and happily nest another one.
+  if (!field || field.classList.contains(ROW_CLASS) || field.querySelector(`.${ROW_CLASS}`)) {
     return;
   }
   const doc = input.ownerDocument;
@@ -181,6 +193,18 @@ function build(input: HTMLInputElement, spec: ArtistControlSpec): void {
   row.append(label, slider);
   field.classList.add(FIELD_CLASS);
   field.insertBefore(row, input);
+
+  // Move the compact face INSIDE the row. Hiding it in place meant winning a
+  // specificity fight against `.field > .label` / `.field > input` rules that
+  // are restated per view with different weights -- Sketch to Image showed all
+  // three faces at once because one of those variants outranked the override.
+  // As grandchildren they match no `.field > X` rule at all, in any view, so
+  // there is no fight left to lose. Order is restored on teardown.
+  const ownLabel = findOwnLabel(field);
+  if (ownLabel) {
+    row.appendChild(ownLabel);
+  }
+  row.appendChild(input);
 
   slider.addEventListener("input", () => {
     withSyncLatch(() => {
@@ -205,11 +229,22 @@ function build(input: HTMLInputElement, spec: ArtistControlSpec): void {
 }
 
 function teardown(input: HTMLInputElement): void {
-  const field = input.parentElement;
+  const row = input.parentElement;
+  if (!row || !row.classList.contains(ROW_CLASS)) {
+    return;
+  }
+  const field = row.parentElement;
   if (!field) {
     return;
   }
-  field.querySelector(`.${ROW_CLASS}`)?.remove();
+  // Put the compact face back exactly where it was: label first, then the
+  // number input, both immediately before the row that is about to go.
+  const ownLabel = findOwnLabel(row);
+  if (ownLabel) {
+    field.insertBefore(ownLabel, row);
+  }
+  field.insertBefore(input, row);
+  row.remove();
   field.classList.remove(FIELD_CLASS);
 }
 
@@ -249,7 +284,8 @@ export function setArtistControlsEnabled(root: ParentNode, enabled: boolean): nu
 export function syncArtistControls(root: ParentNode): void {
   for (const spec of ARTIST_CONTROLS) {
     const input = root.querySelector<HTMLInputElement>(`#${spec.inputId}`);
-    const row = input?.parentElement?.querySelector<HTMLElement>(`.${ROW_CLASS}`);
+    const parent = input?.parentElement;
+    const row = parent?.classList.contains(ROW_CLASS) ? parent : null;
     if (input && row) {
       withSyncLatch(() => render(row, input, spec));
     }

@@ -8037,47 +8037,36 @@ body.theme-artist,
    Artist-Friendly Dark: the slider face of the numeric parameter fields.
 
    The row is only in the DOM while the artist theme is active (see
-   setArtistControlsEnabled), so these rules never apply in Compact Adobe Dark.
-   The `display: none` default below is a second line of defence for a row that
-   somehow outlives a theme switch.
+   setArtistControlsEnabled), so none of this applies in Compact Adobe Dark.
 
-   Specificity here is deliberate, not decorative. The compact sheet carries,
-   all with !important:
-       ... .settings-grid > .field           { display: grid }   (0,5,0)
-       ... .settings-grid > .field > input   { display: block; width: 96px }  (0,5,1)
-       ... .settings-grid > .field > .label  { display: block }  (0,6,0)
-   .field is sometimes a <div> and sometimes a <label>, so it cannot be
-   qualified by element, and UXP will not let CSSOM inline styles beat
-   !important either (see the nav-separator finding). That leaves selector
-   weight as the only lever: .has-artist-slider is repeated three times to
-   reach (0,6,0) and (0,7,0), which clears every rule above outright.
-   Do NOT "simplify" the repetition -- at two repeats the field rule merely
-   TIES and wins on source order, and the label rule loses outright, which is
-   how the panel ended up showing both faces at once.
-
-   The .artist-row wrapper is what keeps the slider itself out of that fight:
-   the compact rules use child combinators, so a grandchild never matches.
+   Note what is NOT here any more: a pile of repeated classes to out-specify
+   the compact sheet. The field's own label and number input are MOVED INTO
+   .artist-row when the theme builds, which makes them grandchildren of the
+   field. Every compact rule that would fight us -- `.field > .label`,
+   `.field > input { width: 96px !important }` and their per-view restatements
+   -- uses a child combinator, so none of them match any more. Trying to win
+   that fight on specificity is what left Sketch to Image showing all three
+   faces at once; not being in the fight is more robust than winning it.
    ========================================================================== */
 
 .artist-row {
   display: none;
 }
 
-.app-shell.theme-artist .field.has-artist-slider.has-artist-slider.has-artist-slider {
+.app-shell.theme-artist .field.has-artist-slider {
   display: block !important;
-  align-items: stretch !important;
-}
-
-/* The original label and number box are the compact face; retire them. */
-.app-shell.theme-artist .field.has-artist-slider.has-artist-slider.has-artist-slider > .label,
-.app-shell.theme-artist .field.has-artist-slider.has-artist-slider.has-artist-slider > .input {
-  display: none !important;
 }
 
 .app-shell.theme-artist .field.has-artist-slider > .artist-row {
   display: block;
   width: 100%;
   min-width: 0;
+}
+
+/* The compact face, parked inside the row and out of sight. */
+.app-shell.theme-artist .artist-row > .label,
+.app-shell.theme-artist .artist-row > .input {
+  display: none !important;
 }
 
 /* Krita AI's row shape: the label carries the value as a prefix, the track
@@ -8102,4 +8091,23 @@ body.theme-artist,
   padding: 0;
   border: 0;
   background: transparent;
+}
+
+/* UNVERIFIED IN PHOTOSHOP. UXP's native track paints #535353, which floats a
+   light bar on the #2b2b2b section. Three routes to recolouring it are already
+   disproved: `accent-color`, `background` on the element, and
+   ::-webkit-slider-thumb with appearance:none. The track pseudo-element itself
+   has never actually been tried -- round 1 only ever tested the THUMB -- so
+   this is the last cheap thing to attempt. If it does nothing, it costs
+   nothing, and the honest answer is that the native track cannot be themed. */
+.app-shell.theme-artist .artist-row > .artist-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--ol-panel);
+}
+
+.app-shell.theme-artist .artist-row > .artist-slider::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--ol-panel);
 }

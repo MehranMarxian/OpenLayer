@@ -105,6 +105,32 @@ describe("setArtistControlsEnabled", () => {
     expect(slider.parentElement!.parentElement!.classList.contains("field")).toBe(true);
   });
 
+  it("moves the compact face inside the row so no .field > X rule can reach it", () => {
+    // Sketch to Image showed all three faces at once because a per-view
+    // restatement of `.field > .label` outranked the override. As
+    // grandchildren, the label and number input match none of those rules.
+    setArtistControlsEnabled(root, true);
+
+    const field = root.querySelector<HTMLElement>(".field")!;
+    const row = field.querySelector<HTMLElement>(".artist-row")!;
+
+    expect(row.querySelector(".label")).not.toBeNull();
+    expect(row.querySelector("#steps")).not.toBeNull();
+    // Nothing but the row is left as a direct child of the field.
+    expect(Array.from(field.children)).toEqual([row]);
+  });
+
+  it("puts the compact face back in its original order on teardown", () => {
+    const field = root.querySelector<HTMLElement>(".field")!;
+    const before = Array.from(field.children).map((child) => child.className);
+
+    setArtistControlsEnabled(root, true);
+    setArtistControlsEnabled(root, false);
+
+    expect(Array.from(field.children).map((child) => child.className)).toEqual(before);
+    expect(field.querySelector(".artist-row")).toBeNull();
+  });
+
   it("removes every trace of itself when the theme goes back to compact", () => {
     setArtistControlsEnabled(root, true);
     expect(root.querySelectorAll(".artist-row")).toHaveLength(2);
