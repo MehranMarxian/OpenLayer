@@ -8155,55 +8155,29 @@ body.theme-artist,
   font-size: var(--fs-sm);
 }
 
+/* A text label, not a drawn die. Two icon attempts painted an empty box in
+   Photoshop -- an inline <svg> via innerHTML, and CSS-shape pips -- so this
+   uses the one thing that has never failed to render here. See seedDice.ts. */
 .app-shell.theme-artist .seed-dice-button {
   flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
   height: 28px;
   margin-left: 6px;
-  padding: 0;
+  padding: 0 12px;
   border: 1px solid var(--ol-border);
   border-radius: var(--ol-radius);
   background: var(--ol-surface-alt);
-  color: var(--ol-accent-bright);
+  color: var(--ol-text-secondary);
+  font-size: var(--fs-xs);
+  font-weight: 650;
+  line-height: 26px;
+  text-align: center;
   cursor: pointer;
 }
 
 .app-shell.theme-artist .seed-dice-button:hover {
-  background: var(--ol-hover);
   border-color: var(--ol-accent-border);
-}
-
-/* Pips, positioned on the die's diagonal. The button's own border is the
-   die outline. See the comment in seedDice.ts for why this is not an icon:
-   an inline <svg> set through innerHTML painted nothing in Photoshop. */
-.app-shell.theme-artist .seed-dice-button {
-  position: relative;
-}
-
-.app-shell.theme-artist .seed-pip {
-  position: absolute;
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: currentColor;
-}
-
-.app-shell.theme-artist .seed-pip-1 {
-  top: 6px;
-  left: 6px;
-}
-
-.app-shell.theme-artist .seed-pip-2 {
-  top: 12px;
-  left: 12px;
-}
-
-.app-shell.theme-artist .seed-pip-3 {
-  top: 18px;
-  left: 18px;
+  background: var(--ol-hover);
+  color: var(--ol-accent-bright);
 }
 
 /* ==========================================================================

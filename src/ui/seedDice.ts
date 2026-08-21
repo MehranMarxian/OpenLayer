@@ -1,10 +1,10 @@
 /**
- * Artist-Friendly Dark's dice button for the seed fields.
+ * Artist-Friendly Dark's "Roll" button for the seed fields.
  *
  * Nobody should have to type a 64-bit integer as the primary way to pick a
- * seed. The number input stays -- it is still the fastest way to reproduce a
- * seed you already know, e.g. from History -- but a dice button sits beside
- * it and rolls a fresh one on click.
+ * seed. The text input stays -- it is still the fastest way to reproduce a
+ * seed you already know, e.g. from History -- but a Roll button sits beside
+ * it and generates a fresh one on click.
  *
  * Built only while Artist-Friendly Dark is active and torn down on the way
  * back, same lifecycle as the sliders in artistControls.ts, for the same
@@ -25,22 +25,20 @@
 const SEED_INPUT_IDS = ["seed", "img-seed", "sketch-seed", "inpaint-seed", "outpaint-seed"];
 
 /**
- * Rolled seeds stop at 2^31-1, NOT Number.MAX_SAFE_INTEGER.
+ * The seed fields are <input type="text">, not type="number", and that is
+ * load-bearing -- see the note in appMarkup.ts. A UXP number input clamps at
+ * roughly 214748.36 (2147483647 scaled by 1/10000), so every seed wider than
+ * six digits came back as that identical mangled string. Two rounds of capping
+ * the roll chased that ceiling without reaching it; the input type was the
+ * actual cause.
  *
- * A UXP <input type="number"> cannot hold a value above the signed 32-bit
- * maximum. Anything larger comes back out as "214748.36" -- 2147483647 with a
- * decimal point pushed in -- and it is the SAME mangled value every time, so
- * rolling appeared to do nothing. That display bug predates the dice button
- * (it was visible on the seed field in earlier screenshots) but the button
- * made it reproducible on demand.
- *
- * This range is not a compromise: 2^31 seeds is the range most tools expose,
- * and generation is unaffected either way -- readSeed in comfy/settings.ts
- * still rolls its own full-width seed server-side when the field is blank.
+ * With a text input there is no clamp, so this matches the range
+ * createRandomSeed in comfy/settings.ts already uses server-side. One concept
+ * of "a seed", one range.
  */
-const MAX_ROLLED_SEED = 2147483647;
+const MAX_ROLLED_SEED = Number.MAX_SAFE_INTEGER;
 
-/** A fresh seed in [0, 2^31-1), the widest range a UXP number input can hold. */
+/** A fresh seed in [0, MAX_SAFE_INTEGER), matching the server-side roll. */
 export function rollSeed(): number {
   return Math.floor(Math.random() * MAX_ROLLED_SEED);
 }
@@ -49,16 +47,19 @@ const ROW_CLASS = "seed-row";
 const FIELD_CLASS = "has-seed-dice";
 
 /**
- * The die face is built from three plain <span> pips, not an icon.
+ * The button is labelled with a word, not drawn as a die.
  *
- * An inline <svg> assigned through innerHTML rendered as an empty box in
- * Photoshop -- the button painted, the glyph did not. Emoji and geometric
- * glyphs are already known-unreliable here (see the plain-text caret in
- * bindAdvancedToggles), and a data-URI SVG background renders nothing at all.
- * CSS shapes are the one icon technique the spike confirmed does work, so the
- * button's own border is the die outline and these are its pips.
+ * Two icon techniques were tried in Photoshop and BOTH painted an empty box:
+ * an inline <svg> assigned through innerHTML, and three CSS-shape pips
+ * positioned on the diagonal. A data-URI SVG background renders nothing at
+ * all, and emoji/geometric glyphs are already known-unreliable here (hence the
+ * plain-text caret in bindAdvancedToggles). Text is the one thing in this host
+ * that has never failed to render.
+ *
+ * It also happens to be the better control for the audience this theme is for:
+ * "Roll" states what the button does, where a die face has to be interpreted.
  */
-const PIP_COUNT = 3;
+const BUTTON_LABEL = "Roll";
 
 function dispatch(target: HTMLElement, type: string): void {
   try {
@@ -86,11 +87,7 @@ function build(input: HTMLInputElement): void {
   button.setAttribute("aria-label", "Roll a new seed");
   button.title = "Roll a new seed";
 
-  for (let index = 0; index < PIP_COUNT; index += 1) {
-    const pip = doc.createElement("span");
-    pip.className = `seed-pip seed-pip-${index + 1}`;
-    button.appendChild(pip);
-  }
+  button.textContent = BUTTON_LABEL;
 
   field.classList.add(FIELD_CLASS);
   field.insertBefore(row, input);

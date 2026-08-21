@@ -7,14 +7,15 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { rollSeed, setSeedDiceEnabled } from "../../src/ui/seedDice";
 
 describe("rollSeed", () => {
-  it("stays inside what a UXP number input can actually hold", () => {
-    // Above 2^31-1 a UXP <input type="number"> hands back "214748.36" -- the
-    // same mangled value every time -- so rolling looked like it did nothing.
+  it("returns a whole number a seed field can hold", () => {
+    // Must be an INTEGER specifically: readRequiredInteger in comfy/settings.ts
+    // rejects anything else, which is how the clamped "214748.36" turned into
+    // a "Seed must be a whole number" failure at generate time.
     for (let i = 0; i < 200; i += 1) {
       const seed = rollSeed();
       expect(Number.isInteger(seed)).toBe(true);
       expect(seed).toBeGreaterThanOrEqual(0);
-      expect(seed).toBeLessThan(2147483647);
+      expect(seed).toBeLessThan(Number.MAX_SAFE_INTEGER);
     }
   });
 
@@ -32,9 +33,10 @@ function buildSeedField(id: string): HTMLElement {
   label.textContent = "Seed";
   const input = document.createElement("input");
   input.className = "input input-compact";
-  input.type = "number";
+  // Mirrors appMarkup: text, NOT number. A UXP number input clamps large
+  // seeds to 214748.36, which is what made rolling look like it did nothing.
+  input.type = "text";
   input.id = id;
-  input.min = "0";
   input.placeholder = "Random";
   field.append(label, input);
   return field;
@@ -64,14 +66,15 @@ describe("setSeedDiceEnabled", () => {
     expect(row.contains(input)).toBe(true);
   });
 
-  it("draws the die face from CSS pips rather than an icon", () => {
-    // An inline <svg> assigned via innerHTML painted an empty box in
-    // Photoshop. Elements, not markup, so there is nothing to fail to parse.
+  it("labels the button with text rather than a drawn icon", () => {
+    // Two icon techniques painted an empty box in Photoshop: an inline <svg>
+    // via innerHTML, and CSS-shape pips. Text is what actually renders.
     setSeedDiceEnabled(root, true);
     const button = root.querySelector<HTMLButtonElement>(".seed-dice-button")!;
 
-    expect(button.querySelectorAll(".seed-pip")).toHaveLength(3);
+    expect(button.textContent).toBe("Roll");
     expect(button.querySelector("svg")).toBeNull();
+    expect(button.querySelector(".seed-pip")).toBeNull();
   });
 
   it("leaves the field's own label untouched and in place", () => {
