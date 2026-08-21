@@ -205,6 +205,55 @@ function readPort(value: unknown): number {
   return Number.isInteger(port) && port >= 1 && port <= 65535 ? port : DEFAULT_AGENT_BRIDGE_PORT;
 }
 
+/**
+ * Which "Advanced settings" disclosures the user last left open, stored apart
+ * from `OpenLayerPreferences` for the same reason as the preview panel pin:
+ * this is not a form field, and Reset Settings should not silently re-collapse
+ * a screen the user chose to leave expanded.
+ *
+ * Keyed by each settings grid's own `aria-label` (e.g. "Generation settings"),
+ * which is already unique per screen and needs no new DOM attribute. The
+ * value is a plain array rather than a Set because JSON has no Set type;
+ * bindAdvancedToggles is the only reader and turns it into a Set on load.
+ */
+const ADVANCED_SECTIONS_KEY = "openlayer.advancedSections.v1";
+
+export function loadOpenAdvancedSections(): string[] {
+  const storage = getStorage();
+
+  if (!storage) {
+    return [];
+  }
+
+  try {
+    const rawValue = storage.getItem(ADVANCED_SECTIONS_KEY);
+
+    if (!rawValue) {
+      return [];
+    }
+
+    const parsed = JSON.parse(rawValue);
+    return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveOpenAdvancedSections(keys: readonly string[]) {
+  const storage = getStorage();
+
+  if (!storage) {
+    return false;
+  }
+
+  try {
+    storage.setItem(ADVANCED_SECTIONS_KEY, JSON.stringify(Array.from(new Set(keys))));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function getStorage(): Storage | null {
   try {
     return typeof localStorage === "undefined" ? null : localStorage;

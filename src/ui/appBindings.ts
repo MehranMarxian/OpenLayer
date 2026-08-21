@@ -1,5 +1,6 @@
 import { AppView } from "./appConstants";
 import { AppElements } from "./appMarkup";
+import { loadOpenAdvancedSections, saveOpenAdvancedSections } from "../utils/preferences";
 import { setGlobalDiagnostics } from "./statusBars";
 
 /**
@@ -471,8 +472,14 @@ export function bindAdvancedToggles(rootElement: HTMLElement) {
     grid.querySelector('input[id$="steps"], input[id$="cfg"], input[id$="seed"], input[id$="guidance"]')
   );
 
+  // Remembers which screens the user chose to leave expanded, so switching
+  // views or reopening the panel does not silently re-collapse them. Keyed by
+  // each grid's own aria-label, which is already unique per screen.
+  const openKeys = new Set(loadOpenAdvancedSections());
+
   for (const grid of grids) {
     const parent = grid.parentElement;
+    const key = grid.getAttribute("aria-label");
 
     if (!parent) {
       continue;
@@ -481,13 +488,16 @@ export function bindAdvancedToggles(rootElement: HTMLElement) {
     const toggle = document.createElement("button");
     toggle.type = "button";
     toggle.className = "advanced-toggle";
-    toggle.setAttribute("aria-expanded", "false");
     // Plain-text caret (UXP does not render triangle/emoji glyphs reliably).
-    toggle.textContent = "+ Advanced settings";
 
     const body = document.createElement("div");
     body.className = "advanced-body";
-    body.hidden = true;
+
+    const isOpen = key !== null && openKeys.has(key);
+    body.hidden = !isOpen;
+    toggle.setAttribute("aria-expanded", String(isOpen));
+    toggle.classList.toggle("is-open", isOpen);
+    toggle.textContent = isOpen ? "− Advanced settings" : "+ Advanced settings";
 
     parent.insertBefore(toggle, grid);
     parent.insertBefore(body, grid);
@@ -500,6 +510,15 @@ export function bindAdvancedToggles(rootElement: HTMLElement) {
       toggle.setAttribute("aria-expanded", String(shouldOpen));
       toggle.classList.toggle("is-open", shouldOpen);
       toggle.textContent = shouldOpen ? "− Advanced settings" : "+ Advanced settings";
+
+      if (key !== null) {
+        if (shouldOpen) {
+          openKeys.add(key);
+        } else {
+          openKeys.delete(key);
+        }
+        saveOpenAdvancedSections(Array.from(openKeys));
+      }
     });
   }
 }
