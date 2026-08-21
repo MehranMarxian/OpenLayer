@@ -7069,11 +7069,11 @@ body,
 
 .app-shell.theme-compact .status-progress {
   width: 100% !important;
-  height: 3px !important;
-  margin: 6px 0 0 !important;
+  height: 5px !important;
+  margin: 8px 0 0 !important;
   overflow: hidden !important;
   border-radius: 999px !important;
-  background: rgba(0, 0, 0, 0.24) !important;
+  background: var(--ol-border-subtle, rgba(0, 0, 0, 0.24)) !important;
 }
 
 .app-shell.theme-compact .status-progress > span {
@@ -7081,20 +7081,8 @@ body,
   width: 42% !important;
   height: 100% !important;
   border-radius: inherit !important;
-  background: linear-gradient(90deg, #1c7ed6, var(--ol-warning), #22c55e) !important;
-}
-
-.app-shell.theme-compact .status-progress.is-active > span {
-  animation: openlayer-progress-sweep 1.15s ease-in-out infinite !important;
-}
-
-@keyframes openlayer-progress-sweep {
-  0% {
-    transform: translateX(-110%);
-  }
-  100% {
-    transform: translateX(250%);
-  }
+  background: linear-gradient(90deg, var(--ol-accent-border), var(--ol-accent-bright)) !important;
+  box-shadow: 0 0 6px 0 rgba(255, 217, 92, 0.35) !important;
 }
 
 /* v0.5.3 color placement and motion fixes:
@@ -7163,15 +7151,6 @@ body,
 .app-shell.theme-compact .status-progress.is-determinate > span {
   margin-left: 0 !important;
   transition: width 0.16s ease-out !important;
-}
-
-.app-shell.theme-compact .status-progress.is-determinate::after {
-  content: attr(data-progress-label);
-  float: right;
-  margin-top: -14px;
-  color: var(--ol-muted);
-  font-size: var(--fs-micro);
-  line-height: 10px;
 }
 
 /* ============================================================
@@ -7266,13 +7245,21 @@ body,
 /* v0.6 fix #3: real determinate ComfyUI progress bar.
    Drive the fill width from --ol-progress so it overrides the legacy
    "width: 42% !important" indeterminate rule and shows true remaining
-   progress instead of a fixed-width animated sweep. */
+   progress instead of a fixed-width animated sweep.
+
+   This is the rule that actually wins during a real generation (highest
+   specificity here, latest in the file) -- the blue gradient two rules
+   above it, and the amber/green one at the top of the file, are both
+   dead paint that nothing ever shows. Matched to --ol-accent so the bar
+   reads as the same "working" colour as the amber status pill instead
+   of an unrelated blue. */
 .app-shell.theme-compact .status-progress.is-determinate > span {
   width: var(--ol-progress, 0%) !important;
   margin-left: 0 !important;
   transition: width 0.2s ease-out !important;
   animation: none !important;
-  background: linear-gradient(90deg, #2f8fe0, #56b0f0) !important;
+  background: linear-gradient(90deg, var(--ol-accent-border), var(--ol-accent-bright)) !important;
+  box-shadow: 0 0 6px 0 rgba(255, 217, 92, 0.35) !important;
 }
 
 /* v0.6 fix #2: sticky screen headers.
@@ -8110,4 +8097,80 @@ body.theme-artist,
   height: 6px;
   border-radius: 3px;
   background: var(--ol-panel);
+}
+
+/* ==========================================================================
+   Artist-Friendly Dark: the dice button on the seed fields.
+
+   The number input stays visible -- unlike the sliders, there is a second,
+   real reason to keep it: reproducing a seed you already know (from History,
+   from a note) is still typing a number in, and hiding that path entirely
+   would be a worse trade than the ergonomics gained on the roll-a-new-one
+   path. The dice button covers the common case without removing the other.
+
+   Same lifecycle and the same reason as the slider face: built only while
+   Artist-Friendly Dark is active, torn down on the way back. The input moves
+   into .seed-row (a grandchild of .field), which is what keeps it out of
+   reach of the compact sheet's `.field > input { width: 96px !important }`
+   family of rules -- see the slider block above for the fuller explanation.
+
+   `.field.has-seed-dice { display: block !important }` mirrors the exact
+   pattern proven for the sliders: a single added class, appended last, was
+   sufficient there against the same grid/flex-per-view tangle, so this does
+   not repeat the class defensively. If a view is ever found where it loses,
+   that is the first thing to check.
+   ========================================================================== */
+
+.seed-row {
+  display: none;
+}
+
+.app-shell.theme-artist .field.has-seed-dice {
+  display: block !important;
+}
+
+.app-shell.theme-artist .field.has-seed-dice > .seed-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  margin-top: 5px;
+}
+
+.app-shell.theme-artist .seed-row > input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 28px;
+  box-sizing: border-box;
+  padding: 4px 8px;
+  border: 1px solid var(--ol-border);
+  border-radius: var(--ol-radius);
+  background: var(--ol-input-bg);
+  color: var(--ol-text);
+  font-size: var(--fs-sm);
+}
+
+.app-shell.theme-artist .seed-dice-button {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-left: 6px;
+  padding: 0;
+  border: 1px solid var(--ol-border);
+  border-radius: var(--ol-radius);
+  background: var(--ol-surface-alt);
+  color: var(--ol-accent-bright);
+  cursor: pointer;
+}
+
+.app-shell.theme-artist .seed-dice-button:hover {
+  background: var(--ol-hover);
+  border-color: var(--ol-accent-border);
+}
+
+.app-shell.theme-artist .seed-dice-button svg {
+  display: block;
 }

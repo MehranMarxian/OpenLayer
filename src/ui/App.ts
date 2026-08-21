@@ -168,6 +168,7 @@ import {
   summarizeSpike
 } from "./spikeModelDownload";
 import { setArtistControlsEnabled, syncArtistControls } from "./artistControls";
+import { setSeedDiceEnabled } from "./seedDice";
 import {
   createUpscaleResizePlan,
   formatUpscaleScale,
@@ -5773,6 +5774,7 @@ function applyTheme(elements: AppElements, theme: OpenLayerTheme) {
   // rules that would paint a hidden slider anyway, so hiding is not enough.
   setArtistControlsEnabled(elements.appShell, nextTheme === "artist");
   syncArtistControls(elements.appShell);
+  setSeedDiceEnabled(elements.appShell, nextTheme === "artist");
 }
 
 function getThemeLabel(theme: OpenLayerTheme) {
