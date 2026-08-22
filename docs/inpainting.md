@@ -121,3 +121,89 @@ Suggested Flux Fill test:
 3. Use a simple prompt.
 4. If output looks wrong, run the same source PNG and mask PNG directly in ComfyUI, or create a single alpha-masked source image like the bundled Flux Fill bridge does.
 5. Compare the result with different denoise, guidance, mask blur, and context size values.
+
+## FLUX.2 Klein inpainting
+
+`inpaint-flux2-klein` is the first inpaint preset in the registry that is not Flux Fill. It
+reuses the FLUX.2 Klein 4B stack already installed for Text to Image and Image to Image, so it
+costs no extra model download; its only extra requirement is lquesada's
+`comfyui-inpaint-cropandstitch`, shared with `inpaint-flux-fill-cropstitch`.
+
+The graph:
+
+`LoadImage` (one PNG with the Photoshop mask in its alpha) -> `InpaintCropImproved` ->
+`VAEEncode` -> `SetLatentNoiseMask` -> `KSampler` (4 steps, CFG 1, `er_sde`, `simple`,
+`ModelSamplingAuraFlow` shift 3), with `ReferenceLatent` carrying the encoded crop into **both**
+the positive and the negative conditioning -> `VAEDecode` -> `InpaintStitchImproved` ->
+`SaveImage`.
+
+Everything except the crop and stitch pair is core ComfyUI. There is no
+`InpaintModelConditioning`, no Fill checkpoint, and no `FluxGuidance`.
+
+**Crop and stitch is not optional here, it is what makes the preset work.** Measured on the
+shared ComfyUI instance, three seeds per cell, one 130x190 mask on a 752x1328 image, prompt "a
+small black swallow bird tattoo on her bare shoulder skin":
+
+| graph | Klein 4B | Krea2-Turbo |
+|---|---|---|
+| `SetLatentNoiseMask` + `KSampler`, sampling the whole context | 0/3 | 1/3 |
+| the same, cropped to the mask + 50% and sampled at 1024 | **3/3** | 3/3, wrong subject scale |
+
+Sampling the whole captured context, the model reproduces the surroundings and ignores the
+prompt: the artist asks for something to be *added* and gets a clean, plausible, empty shoulder.
+Cropping raises the masked area's share of the frame, and the prompt lands. The same reasoning
+already written up for `inpaint-flux-fill-cropstitch` applies, but for Flux Fill the crop is a
+quality refinement; here it is the difference between working and not.
+
+`context_from_mask_extend_factor` is therefore load-bearing, not cosmetic. At the shipped 1.5,
+Klein produced a tattoo in 3 of 3 runs; at 3.0 -- a looser crop -- 0 of 3. Widening the context
+puts the graph back in the regime that fails.
+
+Denoise stays at 1. `SetLatentNoiseMask` protects the pixels outside the mask, so the usual
+image-to-image trade does not apply inside the masked region, and outside-mask pixels came back
+within a mean absolute difference of 0.03/255 of the source -- `InpaintStitchImproved`
+composites the original back around a 32px blended seam.
+
+### Why LanPaint was evaluated and not adopted
+
+[`scraed/LanPaint`](https://github.com/scraed/LanPaint) (GPL-3.0) was installed on the shared
+instance and compared head to head, because research had flagged it as the technique that gives
+Klein and Krea2-Turbo a real masked-inpaint path. It does work: `LanPaint_ImageEncode` +
+`LanPaint_KSampler` + `LanPaint_ImageDecode` produced a prompt-following result in 3 of 3 runs
+where the plain sampler produced 0 of 3 *without* crop and stitch. But crop and stitch fixes the
+same failure using a node pack the project already ships and declares, and adding LanPaint on
+top of it made Klein slightly worse -- `LanPaint_ImageDecode` and `InpaintStitchImproved` each
+composite and blend the patch, and the doubled blend showed at the seam. So: no new dependency.
+
+Three things worth recording from that comparison, because they contradict what the research
+notes assumed:
+
+- LanPaint's own Klein example workflow is **9B base** (`flux-2-klein-base-9b-fp8`, the
+  `qwen_3_8b` encoder, `CFGGuider` at cfg 5, 20 steps), not the 4B distilled stack OpenLayer
+  ships, and it uses `LanPaint_SamplerCustomAdvanced` rather than `LanPaint_KSampler`. The
+  "9B versus 4B" contradiction was never a contradiction about conditioning shape.
+- The claim that the 4B tier needs plain `InpaintModelConditioning` is wrong. It runs, but it
+  is no better than `SetLatentNoiseMask` and does not fix the small-mask failure either
+  (1 of 2 runs followed the prompt, and that one produced a literal bird rather than a tattoo).
+- `FluxGuidance` is inert on this stack. Inserting it at 1.5 produced a byte-identical image to
+  omitting it, so LanPaint's "keep guidance between 1.0 and 2.0 on distilled models" advice
+  has nothing to act on here.
+
+### Krea2-Turbo inpainting: tested, not shipped
+
+The same graph on the Krea2-Turbo stack follows prompts but does not match its surroundings. On
+a small mask it repaints the whole masked region as a flat patch whose skin tone and detail do
+not meet the pixels around it -- visible with a hard-edged mask and still visible with a
+feathered elliptical one, so it is not an artefact of the test mask. It also renders the subject
+at crop scale rather than scene scale: at `context_from_mask_extend_factor` 1.5 a "small tattoo"
+came out filling the shoulder. Two settings improve it and each breaks the other case:
+extend factor 2.0 fixes the scale, and denoise 0.7 fixes the tone but then refuses a large-mask
+replacement (asked for a red sweater, it kept the white one and reddened the trim). Klein needs
+no such compromise, so `inpaint-krea2-turbo` is not in the registry. Reviving it means picking
+per-mask-size defaults, which is a UI decision, not a graph one.
+
+### Out of scope
+
+Qwen-Image-Edit-2509's inpaint ControlNet is a real technique, but it is not in the registry at
+all, so adding it is a new-model decision rather than an inpaint-preset decision. Still a
+"watch" item.

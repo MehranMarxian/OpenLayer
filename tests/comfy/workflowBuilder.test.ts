@@ -351,6 +351,59 @@ describe("workflowBuilder", () => {
     expect(result.workflow["9"].inputs.images).toEqual(["51", 0]);
   });
 
+  it("builds the Klein inpaint graph with panel sampler values and no separate mask upload", async () => {
+    const result = await buildInpaintWorkflow({
+      presetId: "inpaint-flux2-klein",
+      prompt: "a small black swallow tattoo on her shoulder",
+      negativePrompt: "blurry",
+      checkpointName: "flux-2-klein-4b-fp8.safetensors",
+      sourceImageName: "openlayer-flux-fill-source-mask.png",
+      maskImageName: "openlayer-separate-mask-should-not-be-injected.png",
+      steps: 4,
+      cfg: 1,
+      denoise: 1,
+      seed: 4242,
+      width: 4096,
+      height: 3072
+    });
+
+    expect(result.preset.id).toBe("inpaint-flux2-klein");
+    expect(result.workflow["20"].inputs.unet_name).toBe("flux-2-klein-4b-fp8.safetensors");
+    expect(result.workflow["21"].inputs.type).toBe("flux2");
+    expect(result.workflow["10"].inputs.image).toBe("openlayer-flux-fill-source-mask.png");
+
+    // The mask rides in the source PNG's alpha channel, so the separate mask
+    // filename must not appear anywhere in the built graph.
+    expect(JSON.stringify(result.workflow)).not.toContain("openlayer-separate-mask-should-not-be-injected.png");
+
+    // Unlike every Flux Fill preset, this one takes the panel's sampler values
+    // rather than the locked reference defaults. Routing it through
+    // applyFluxFillReferenceDefaults would write 20 steps at guidance 30 into
+    // node "3", which exists in both graphs, so nothing would throw.
+    expect(result.workflow["3"].inputs.steps).toBe(4);
+    expect(result.workflow["3"].inputs.cfg).toBe(1);
+    expect(result.workflow["3"].inputs.denoise).toBe(1);
+    expect(result.workflow["3"].inputs.seed).toBe(4242);
+    expect(result.workflow["3"].inputs.sampler_name).toBe("er_sde");
+
+    // Crop feeds the encode, the noise mask marks the region, and both
+    // ReferenceLatent branches see the whole crop -- that conditioning is what
+    // holds the frame while the masked area changes.
+    expect(result.workflow["50"].inputs.image).toEqual(["10", 0]);
+    expect(result.workflow["50"].inputs.mask).toEqual(["10", 1]);
+    expect(result.workflow["11"].inputs.pixels).toEqual(["50", 1]);
+    expect(result.workflow["30"].inputs.samples).toEqual(["11", 0]);
+    expect(result.workflow["30"].inputs.mask).toEqual(["50", 2]);
+    expect(result.workflow["14"].inputs.latent).toEqual(["11", 0]);
+    expect(result.workflow["15"].inputs.latent).toEqual(["11", 0]);
+    expect(result.workflow["3"].inputs.latent_image).toEqual(["30", 0]);
+
+    // Same trap as the Flux Fill crop & stitch preset: SaveImage reading the
+    // decode would return a 1024px patch and break the aligned import.
+    expect(result.workflow["51"].inputs.inpainted_image).toEqual(["8", 0]);
+    expect(result.workflow["9"].inputs.images).toEqual(["51", 0]);
+  });
+
   it("can inject the accepted Flux Fill T5 fallback when fp16 is unavailable", async () => {
     const preset = getWorkflowPreset("inpaint-flux-fill-basic");
     const t5Requirement = preset.requiredModels?.find((model) => model.modelName === "t5xxl_fp16.safetensors");

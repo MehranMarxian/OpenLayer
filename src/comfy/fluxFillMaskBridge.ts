@@ -1,7 +1,26 @@
 import { decodeRgbaPng, encodeRgbaPng, DecodedRgbaPng } from "../utils/png";
 import { createOpenLayerError } from "../utils/errors";
+import { FLUX_FILL_PRESET_IDS } from "./fluxFillDefaults";
 
 export const FLUX_FILL_EMBEDDED_MASK_FILENAME = "openlayer-flux-fill-source-mask.png";
+
+/**
+ * Presets whose graph reads the mask out of the source PNG's alpha channel
+ * rather than from a second upload. Named separately from isFluxFillPreset
+ * because the two properties came apart: inpaint-flux2-klein shares the
+ * one-LoadImage upload but not the Flux Fill sampler defaults, and treating it
+ * as a Flux Fill preset would overwrite its 4-step distilled operating point
+ * with Flux Fill's 20 steps at guidance 30 -- against node ids that happen to
+ * exist in both graphs, so nothing would throw.
+ */
+const EMBEDDED_MASK_ALPHA_PRESET_IDS: readonly string[] = [
+  ...FLUX_FILL_PRESET_IDS,
+  "inpaint-flux2-klein"
+];
+
+export function presetUsesEmbeddedMaskAlpha(presetId: string) {
+  return EMBEDDED_MASK_ALPHA_PRESET_IDS.includes(presetId);
+}
 
 export type FluxFillEmbeddedMaskSource = {
   blob: Blob;

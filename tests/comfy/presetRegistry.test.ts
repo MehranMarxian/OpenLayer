@@ -53,12 +53,14 @@ describe("presetRegistry", () => {
     expect(allInpaintIds).toEqual([
       "inpaint-basic",
       "inpaint-flux-fill-basic",
-      "inpaint-flux-fill-cropstitch"
+      "inpaint-flux-fill-cropstitch",
+      "inpaint-flux2-klein"
     ]);
     expect(runnableInpaintIds).toEqual([
       "inpaint-basic",
       "inpaint-flux-fill-basic",
-      "inpaint-flux-fill-cropstitch"
+      "inpaint-flux-fill-cropstitch",
+      "inpaint-flux2-klein"
     ]);
     expect(allOutpaintIds).toEqual(["outpaint-flux-fill-basic"]);
     expect(runnableOutpaintIds).toEqual(["outpaint-flux-fill-basic"]);
@@ -152,6 +154,34 @@ describe("presetRegistry", () => {
     // without the pack installed falls back to.
     expect(basic.requiredNodes.some((node) => node.classType.startsWith("Inpaint" + "Crop"))).toBe(false);
     expect(basic.requiredNodes.some((node) => node.classType.startsWith("Inpaint" + "Stitch"))).toBe(false);
+  });
+
+  it("registers the Klein inpaint preset on the stack the Klein image presets already need", () => {
+    const klein = getWorkflowPreset("inpaint-flux2-klein");
+    const kleinTxt2Img = getWorkflowPreset("txt2img-flux2-klein");
+
+    expect(klein.mode).toBe("inpaint");
+    expect(klein.status).toBe("experimental");
+    expect(klein.modelSource.kind).toBe("diffusion-model-stack");
+    expect(klein.supportedModelFamilies).toEqual(["flux2"]);
+    // Identical stack, so a user who already runs Klein text-to-image downloads
+    // nothing to gain an inpaint path.
+    expect(klein.requiredModels).toEqual(kleinTxt2Img.requiredModels);
+
+    // The spike that produced this preset found the crop-and-stitch pair is
+    // what makes it work at all, not a refinement on top: without it a small
+    // mask reproduced its surroundings and ignored the prompt.
+    expect(klein.requiredNodes.some((node) => node.classType === "InpaintCropImproved")).toBe(true);
+    expect(klein.requiredNodes.some((node) => node.classType === "InpaintStitchImproved")).toBe(true);
+    expect(klein.requiredNodes.some((node) => node.classType === "SetLatentNoiseMask")).toBe(true);
+    expect(klein.requiredNodes.filter((node) => node.classType === "ReferenceLatent")).toHaveLength(2);
+
+    // No Fill-specific conditioning, and no mask injection target: the mask
+    // arrives inside the source PNG.
+    expect(klein.requiredNodes.some((node) => node.classType === "InpaintModelConditioning")).toBe(false);
+    expect(klein.injections.maskImage).toBeUndefined();
+    expect(klein.injections.sourceImage).toEqual({ nodeId: "10", inputName: "image" });
+    expect(klein.injections.denoise).toEqual({ nodeId: "3", inputName: "denoise" });
   });
 
   it("registers Flux Fill inpaint as a diffusion model stack preset", () => {

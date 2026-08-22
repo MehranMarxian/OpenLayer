@@ -6,7 +6,10 @@ import {
   HardwareRecommendationReport
 } from "../comfy/hardwareAdvisor";
 import { createFluxFillInpaintDebugSummary } from "../comfy/inpaintValidation";
-import { createFluxFillEmbeddedMaskSource } from "../comfy/fluxFillMaskBridge";
+import {
+  createFluxFillEmbeddedMaskSource,
+  presetUsesEmbeddedMaskAlpha
+} from "../comfy/fluxFillMaskBridge";
 import {
   formatFluxFillLockedControlsNote,
   formatFluxFillReferenceDefaults,
@@ -3936,9 +3939,9 @@ export function renderApp(rootElement: HTMLElement) {
       let maskUploadFilename = submittedMask.filename;
       let fluxEmbeddedMaskMessage = "";
 
-      if (isFluxFillPreset(preset.id)) {
-        setInpaintStatus(elements, "Preparing Flux Fill masked source...", "idle");
-        setInpaintProgressPreview(elements, "Embedding mask into Flux Fill source...");
+      if (presetUsesEmbeddedMaskAlpha(preset.id)) {
+        setInpaintStatus(elements, "Preparing masked source...", "idle");
+        setInpaintProgressPreview(elements, "Embedding mask into the source image...");
         const embeddedSource = await createFluxFillEmbeddedMaskSource(submittedSource.blob, submittedMask.blob);
         sourceUploadBlob = embeddedSource.blob;
         sourceUploadFilename = embeddedSource.filename;
@@ -3949,7 +3952,7 @@ export function renderApp(rootElement: HTMLElement) {
 
       const sourceImageName = await client.uploadImage(sourceUploadBlob, sourceUploadFilename);
       const maskImageName =
-        isFluxFillPreset(preset.id)
+        presetUsesEmbeddedMaskAlpha(preset.id)
           ? sourceImageName
           : await client.uploadImage(maskUploadBlob, maskUploadFilename);
       const buildResult = await buildInpaintWorkflow({

@@ -19,6 +19,7 @@ export type WorkflowPreset =
   | "inpaint-basic"
   | "inpaint-flux-fill-basic"
   | "inpaint-flux-fill-cropstitch"
+  | "inpaint-flux2-klein"
   | "outpaint-flux-fill-basic"
   | "upscale-basic";
 export type WorkflowMode =
