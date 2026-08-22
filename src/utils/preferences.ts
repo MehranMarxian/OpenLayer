@@ -1,4 +1,20 @@
-export type OpenLayerTheme = "compact" | "classic";
+/**
+ * Panel themes, in the order they are offered in Settings.
+ *
+ * "artist" is not a standalone stylesheet: it renders as the compact theme
+ * with a set of token overrides on top, so it inherits every compact layout
+ * rule. See applyTheme in App.ts for the class stacking that makes that work.
+ */
+export const OPEN_LAYER_THEMES = ["compact", "artist", "classic"] as const;
+
+export type OpenLayerTheme = (typeof OPEN_LAYER_THEMES)[number];
+
+/** Coerces untrusted input (stored prefs, a select value) to a known theme. */
+export function normalizeTheme(value: unknown): OpenLayerTheme {
+  return OPEN_LAYER_THEMES.includes(value as OpenLayerTheme)
+    ? (value as OpenLayerTheme)
+    : "compact";
+}
 
 export type OpenLayerPreferences = {
   serverUrl: string;
@@ -189,6 +205,55 @@ function readPort(value: unknown): number {
   return Number.isInteger(port) && port >= 1 && port <= 65535 ? port : DEFAULT_AGENT_BRIDGE_PORT;
 }
 
+/**
+ * Which "Advanced settings" disclosures the user last left open, stored apart
+ * from `OpenLayerPreferences` for the same reason as the preview panel pin:
+ * this is not a form field, and Reset Settings should not silently re-collapse
+ * a screen the user chose to leave expanded.
+ *
+ * Keyed by each settings grid's own `aria-label` (e.g. "Generation settings"),
+ * which is already unique per screen and needs no new DOM attribute. The
+ * value is a plain array rather than a Set because JSON has no Set type;
+ * bindAdvancedToggles is the only reader and turns it into a Set on load.
+ */
+const ADVANCED_SECTIONS_KEY = "openlayer.advancedSections.v1";
+
+export function loadOpenAdvancedSections(): string[] {
+  const storage = getStorage();
+
+  if (!storage) {
+    return [];
+  }
+
+  try {
+    const rawValue = storage.getItem(ADVANCED_SECTIONS_KEY);
+
+    if (!rawValue) {
+      return [];
+    }
+
+    const parsed = JSON.parse(rawValue);
+    return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveOpenAdvancedSections(keys: readonly string[]) {
+  const storage = getStorage();
+
+  if (!storage) {
+    return false;
+  }
+
+  try {
+    storage.setItem(ADVANCED_SECTIONS_KEY, JSON.stringify(Array.from(new Set(keys))));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function getStorage(): Storage | null {
   try {
     return typeof localStorage === "undefined" ? null : localStorage;
@@ -222,5 +287,5 @@ function readString(value: unknown) {
 }
 
 function readTheme(value: unknown): OpenLayerTheme {
-  return value === "classic" ? "classic" : "compact";
+  return normalizeTheme(value);
 }

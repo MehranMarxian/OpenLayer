@@ -480,7 +480,6 @@ export function createAppMarkup() {
           </div>
           <textarea class="textarea compact-textarea diagnostics-report" id="settings-diagnostics-report" readonly hidden></textarea>
         </section>
-
         <section class="panel-section settings-panel diagnostic-section diagnostic-scroll-safe" aria-label="Status report">
           <div class="section-heading">
             <span class="label">Status report</span>
@@ -538,6 +537,7 @@ export function createAppMarkup() {
               <span class="label">Panel theme</span>
               <select class="select" id="settings-theme-select">
                 <option value="compact">Compact Adobe Dark</option>
+                <option value="artist">Artist-Friendly Dark</option>
                 <option value="classic">Classic v0.4</option>
               </select>
             </label>
@@ -621,7 +621,7 @@ export function createAppMarkup() {
             </label>
             <label class="field settings-seed">
               <span class="label">Seed</span>
-              <input class="input input-compact" id="seed" type="number" min="0" placeholder="Random" />
+              <input class="input input-compact" id="seed" type="text" inputmode="numeric" placeholder="Random" />
             </label>
           </div>
           <button class="button button-primary button-generate button-wide action-control" id="generate" data-openlayer-action="generate" type="button">Generate</button>
@@ -741,7 +741,7 @@ export function createAppMarkup() {
             </div>
             <div class="field settings-seed ol-setting-row">
               <span class="label">Seed</span>
-              <input class="input input-compact" id="img-seed" type="number" min="0" placeholder="Random" />
+              <input class="input input-compact" id="img-seed" type="text" inputmode="numeric" placeholder="Random" />
             </div>
           </div>
           <button class="button button-primary button-generate button-wide action-control" id="generate-img2img" data-openlayer-action="generateImg2Img" type="button">Generate Image to Image</button>
@@ -864,7 +864,7 @@ export function createAppMarkup() {
             </div>
             <div class="field settings-seed">
               <span class="label">Seed</span>
-              <input class="input input-compact" id="sketch-seed" type="number" min="0" placeholder="Random" />
+              <input class="input input-compact" id="sketch-seed" type="text" inputmode="numeric" placeholder="Random" />
             </div>
           </div>
           <button class="button button-primary button-generate button-wide action-control" id="generate-sketch" data-openlayer-action="generateSketch" type="button">Generate Sketch to Image</button>
@@ -978,7 +978,7 @@ export function createAppMarkup() {
             </div>
             <div class="field settings-seed">
               <span class="label">Seed</span>
-              <input class="input input-compact" id="inpaint-seed" type="number" min="0" placeholder="Random" />
+              <input class="input input-compact" id="inpaint-seed" type="text" inputmode="numeric" placeholder="Random" />
             </div>
           </div>
           <span class="compatibility-note" id="inpaint-locked-settings-note" hidden></span>
@@ -1080,7 +1080,7 @@ export function createAppMarkup() {
             </div>
             <div class="field settings-seed">
               <span class="label">Seed</span>
-              <input class="input input-compact" id="outpaint-seed" type="number" min="0" placeholder="Random" />
+              <input class="input input-compact" id="outpaint-seed" type="text" inputmode="numeric" placeholder="Random" />
             </div>
           </div>
           <div class="settings-grid img2img-settings-grid" aria-label="Outpaint expansion settings">

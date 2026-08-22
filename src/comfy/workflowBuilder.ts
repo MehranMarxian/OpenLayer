@@ -18,6 +18,7 @@ import img2imgFlux2KleinWorkflow from "../workflows/api/img2img-flux2-klein.json
 import editFlux2KleinWorkflow from "../workflows/api/edit-flux2-klein.json";
 import inpaintFluxFillBasicWorkflow from "../workflows/api/inpaint-flux-fill-basic.json";
 import inpaintFluxFillCropStitchWorkflow from "../workflows/api/inpaint-flux-fill-cropstitch.json";
+import inpaintFlux2KleinWorkflow from "../workflows/api/inpaint-flux2-klein.json";
 import outpaintFluxFillBasicWorkflow from "../workflows/api/outpaint-flux-fill-basic.json";
 import upscaleBasicWorkflow from "../workflows/api/upscale-basic.json";
 import {
@@ -38,6 +39,7 @@ import {
 import { getPresetInputTarget, getWorkflowPreset, validateWorkflowForPreset } from "./presetRegistry";
 import { createRequiredModelSelectionKey } from "./workflowModelRequirements";
 import { applyFluxFillReferenceDefaults, isFluxFillPreset } from "./fluxFillDefaults";
+import { presetUsesEmbeddedMaskAlpha } from "./fluxFillMaskBridge";
 import { createOpenLayerError } from "../utils/errors";
 
 const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
@@ -61,6 +63,7 @@ const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
   "edit-flux2-klein": editFlux2KleinWorkflow as ComfyWorkflow,
   "inpaint-flux-fill-basic": inpaintFluxFillBasicWorkflow as ComfyWorkflow,
   "inpaint-flux-fill-cropstitch": inpaintFluxFillCropStitchWorkflow as ComfyWorkflow,
+  "inpaint-flux2-klein": inpaintFlux2KleinWorkflow as ComfyWorkflow,
   "outpaint-flux-fill-basic": outpaintFluxFillBasicWorkflow as ComfyWorkflow,
   "upscale-basic": upscaleBasicWorkflow as ComfyWorkflow
 };
@@ -206,9 +209,10 @@ export async function buildInpaintWorkflow(
   }
 
   setPresetInput(workflow, preset, "sourceImage", options.sourceImageName, true);
-  // Every Flux Fill preset carries the mask in the source PNG's alpha channel
-  // and so has no separate mask target to inject into.
-  setPresetInput(workflow, preset, "maskImage", options.maskImageName, !isFluxFillPreset(preset.id));
+  // Presets that read the mask from the source PNG's alpha channel have no
+  // separate mask target to inject into. Every Flux Fill preset does this, and
+  // so does inpaint-flux2-klein.
+  setPresetInput(workflow, preset, "maskImage", options.maskImageName, !presetUsesEmbeddedMaskAlpha(preset.id));
   setPresetInput(workflow, preset, "positivePrompt", options.prompt, true);
   setPresetInput(workflow, preset, "negativePrompt", options.negativePrompt ?? "");
   setPresetInput(workflow, preset, "seed", seed, true);

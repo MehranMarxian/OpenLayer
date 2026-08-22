@@ -10,9 +10,18 @@ OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop t
 
 ## Alpha Release
 
-`v0.15.0-alpha` is the current public alpha checkpoint. It is intended for testing the core local workflows in Photoshop UXP, not for production work yet.
+`v0.16.0-alpha` is the current public alpha checkpoint. It is intended for testing the core local workflows in Photoshop UXP, not for production work yet.
 
-New in `v0.15.0-alpha`:
+New in `v0.16.0-alpha`:
+
+- **Artist-Friendly Dark, a third theme.** A deeper, softer dark meant to sit behind artwork rather than match the Photoshop toolbar, offered in Settings alongside Compact Adobe Dark and Classic v0.4. It is the theme that turns the numeric parameters into sliders. Compact Adobe Dark is untouched — switching themes changes nothing about the panel you already know.
+- **Sliders for the numeric parameters, in Artist-Friendly Dark.** Detail (steps), Guidance (CFG), Strength (denoise) and the others become sliders; Compact Adobe Dark keeps its number boxes. One control, two faces — the number input is still the source of truth and the slider writes through to it, so nothing about how a value is read or validated changed.
+- **A dice button on the seed field**, on every tool that has one — roll a fresh random seed instead of typing one.
+- **The Advanced settings disclosure remembers whether you left it open**, per screen, stored separately from the generation defaults so Reset Settings does not re-collapse a screen you chose to keep open.
+- **FLUX.2 Klein inpainting: `inpaint-flux2-klein`.** The first inpaint preset that is not a Flux Fill model. It reuses the Klein 4B stack you already have for Text to Image — no extra model download — and repaints a selection at four steps, using the same `comfyui-inpaint-cropandstitch` node pack as the crop-and-stitch Flux Fill preset. Experimental; strongest at adding to a small selection or replacing a large region.
+- **The seed field no longer mangles wide seeds to `214748.36`.** A UXP number input cannot hold a value that large, so any seed wider than six digits — including every seed loaded from History — came back mangled and then failed the run with "Seed must be a whole number". The seed fields are plain numeric text fields now and hold the full range.
+
+Also new in `v0.15.0-alpha`:
 
 - **An AI assistant can drive OpenLayer's tools.** Ask Claude — or Codex, or anything else that speaks the Model Context Protocol — to generate an image, upscale a layer or caption a selection, and it works the panel's own buttons in your open document. All seven tools are reachable. It runs entirely on your machine and is **off until you turn it on**, in Setup → Agent Bridge.
 
@@ -134,13 +143,21 @@ The earlier card-based dashboard established OpenLayer's honest available/experi
 
 </details>
 
-v0.15.0-alpha tester focus:
+v0.16.0-alpha tester focus:
+
+- **Confirm the panel footer reads `v0.16.0`.** It read the wrong version for the whole of v0.14.0-alpha, so this is worth a glance before anything else.
+- **Switch to Artist-Friendly Dark** in Settings. The panel should restyle into the softer dark theme. Switch back to Compact Adobe Dark and confirm it looks exactly as it did before — nothing about it should have changed.
+- **In Artist-Friendly Dark, confirm the numeric parameters are sliders.** Drag Detail (steps) or Strength (denoise), confirm the number updates, and generate — the value the slider shows must be the value used. In Compact Adobe Dark the same parameters must still be number boxes.
+- **Press the dice button on a seed field.** Each press should roll a different seed, and the field must never show `214748.36`. Then **load an entry from session History and generate from it** — its seed must load and run, not fail with "Seed must be a whole number". That failure hit every History load before this release.
+- **Expand Advanced settings on one tool, collapse it on another, and reopen the panel.** Each screen must remember what you left it as. Then Reset Settings — it must not re-collapse a screen you chose to keep open.
+- **Open Inpaint, make a selection, switch to `inpaint-flux2-klein`, and generate.** Confirm the repaint blends into the surrounding image. It is strongest at *adding* something to a small selection — try that, and try replacing a larger region. It needs the `comfyui-inpaint-cropandstitch` node pack; if it is missing, Workflow Health should name it.
+
+Also worth rechecking from `v0.15.0-alpha`:
 
 - **Generate with `txt2img-flux2-klein`.** It should complete in under 15 seconds on a 4070 Ti at 1024x1024. Confirm the result is coherent and the prompt was followed.
 - **Open Image to Image, switch to `img2img-flux2-klein`, capture a layer, and generate.** The result should follow your layer. Then switch to `edit-flux2-klein`, enter a change instruction ("make the sky orange"), and generate again — the edit should apply the instruction while keeping the rest of the scene.
 - **Open Inpaint, make a selection, and switch to `inpaint-flux-fill-cropstitch`.** Generate and confirm the inpainted area blends into the surrounding image. Compare with `inpaint-flux-fill-basic` at the same selection — crop-and-stitch should produce sharper detail on small selections in large documents.
 - **Generate an Image to Image result from a layer that is not at the canvas origin**, then import it. The imported layer must land where the source layer was, not centred on the canvas.
-- **Confirm the panel footer reads `v0.15.0`.** It read the wrong version for the whole of v0.14.0-alpha, so this is worth a glance before anything else.
 - **Confirm ordinary use is unaffected if you never turn the Agent Bridge on.** Text to Image gains one new button, "Ask the Agent for a Prompt" — clicking it with the bridge off should show a clear "not connected" status, not an error or a broken panel. Everything else should behave exactly as it did in v0.14. This is the most important check in the list: everything below is opt-in.
 - Open **Setup** and find the **Agent Bridge** section at the bottom. With nothing running, press **Turn Agent Bridge On** — it must report that no bridge is listening and tell you how to start one, not hang or claim to be connected.
 - Start the hub (`cd bridge && npm install && npm run hub`), then turn the toggle on. It should connect **without any AI client running at all** — the hub is independent of them.
@@ -196,7 +213,7 @@ Also worth rechecking from v0.9.0-alpha:
 - Run `npm run setup-pack` and confirm it reports no source/API mismatches at all.
 - Recheck the existing local generation, cancel, preview, import, History, and Workflow Health paths for regressions.
 
-Known v0.15.0-alpha boundaries:
+Known v0.16.0-alpha boundaries:
 
 - **The Agent Bridge is not in the `.ccx`/`.zip` download.** A Photoshop plugin package cannot install or start a Node program, so it lives in the repository — see `bridge/README.md`. It is off by default in the panel either way. "Ask the Agent for a Prompt" additionally depends on your AI client supporting MCP *sampling*, which is optional in the protocol; a client that does not offer it gets a clear, instant refusal rather than the button working.
 - **The Setup screen downloads missing models, but not custom nodes.** A missing model's row offers **Download** beside Copy Link, and OpenLayer fetches the file from the URL the registry pins — in resumable 8 MiB chunks, one model at a time, and never before a confirmation naming the size, the destination folder and the download host. What it will not do is unchanged and deliberate: licence-gated weights are never fetched anonymously, because an unauthenticated request saves an HTML sign-in page under the model's filename; a model already on disk in the wrong folder asks you to move it rather than downloading a second copy; and an entry published as a repository folder rather than a single file points you at the model page. Custom node packages keep Copy Link and go through ComfyUI-Manager. Full reasoning in the CHANGELOG.
@@ -371,10 +388,10 @@ npm run package
 This creates a zip package from `dist` in the `packages` folder. For the current alpha, the expected package name is:
 
 ```text
-packages/openlayer-v0.15.0-alpha.zip
+packages/openlayer-v0.16.0-alpha.zip
 ```
 
-`npm run package` also writes `packages/openlayer-v0.15.0-alpha.ccx` beside it, from the same files.
+`npm run package` also writes `packages/openlayer-v0.16.0-alpha.ccx` beside it, from the same files.
 
 ## One-click install (verified 2026-08-03)
 
@@ -539,7 +556,7 @@ Inpaint output quality, mask interpretation, and Photoshop alignment are still b
 
 ## Pre-release Tester Checklist
 
-Use this quick pass before reporting a v0.15.0-alpha test result:
+Use this quick pass before reporting a v0.16.0-alpha test result:
 
 1. Start ComfyUI on `http://127.0.0.1:8190`.
 2. Build OpenLayer and load `dist/manifest.json` in Adobe UXP Developer Tool.

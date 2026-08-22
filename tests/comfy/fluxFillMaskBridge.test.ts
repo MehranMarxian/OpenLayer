@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   createFluxFillEmbeddedMaskRgba,
   createFluxFillEmbeddedMaskSource,
-  FLUX_FILL_EMBEDDED_MASK_FILENAME
+  FLUX_FILL_EMBEDDED_MASK_FILENAME,
+  presetUsesEmbeddedMaskAlpha
 } from "../../src/comfy/fluxFillMaskBridge";
 import { decodeRgbaPng, encodeRgbaPng } from "../../src/utils/png";
 
@@ -56,6 +57,19 @@ describe("fluxFillMaskBridge", () => {
     expect(result.width).toBe(1);
     expect(result.height).toBe(1);
     expect([...decoded.rgba]).toEqual([100, 110, 120, 0]);
+  });
+
+  it("names every preset whose graph reads the mask out of the source alpha", () => {
+    // The list is not "the Flux Fill presets" any more. inpaint-flux2-klein
+    // shares the single-PNG upload but must not share the Flux Fill sampler
+    // defaults, which is why this predicate exists separately from
+    // isFluxFillPreset -- a caller that used the wrong one would either upload
+    // a mask the graph has nowhere to put, or overwrite Klein's 4-step
+    // operating point with Flux Fill's 20 steps.
+    expect(presetUsesEmbeddedMaskAlpha("inpaint-flux-fill-basic")).toBe(true);
+    expect(presetUsesEmbeddedMaskAlpha("inpaint-flux-fill-cropstitch")).toBe(true);
+    expect(presetUsesEmbeddedMaskAlpha("inpaint-flux2-klein")).toBe(true);
+    expect(presetUsesEmbeddedMaskAlpha("inpaint-basic")).toBe(false);
   });
 
   it("rejects mismatched source and mask dimensions", () => {

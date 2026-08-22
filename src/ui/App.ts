@@ -6,7 +6,10 @@ import {
   HardwareRecommendationReport
 } from "../comfy/hardwareAdvisor";
 import { createFluxFillInpaintDebugSummary } from "../comfy/inpaintValidation";
-import { createFluxFillEmbeddedMaskSource } from "../comfy/fluxFillMaskBridge";
+import {
+  createFluxFillEmbeddedMaskSource,
+  presetUsesEmbeddedMaskAlpha
+} from "../comfy/fluxFillMaskBridge";
 import {
   formatFluxFillLockedControlsNote,
   formatFluxFillReferenceDefaults,
@@ -167,6 +170,8 @@ import {
   runModelDownloadSpike,
   summarizeSpike
 } from "./spikeModelDownload";
+import { setArtistControlsEnabled, syncArtistControls } from "./artistControls";
+import { setSeedDiceEnabled } from "./seedDice";
 import {
   createUpscaleResizePlan,
   formatUpscaleScale,
@@ -218,6 +223,7 @@ import {
   loadAgentBridgeSettings,
   loadOpenLayerPreferences,
   OpenLayerTheme,
+  normalizeTheme,
   OpenLayerPreferences,
   saveAgentBridgeSettings,
   saveOpenLayerPreferences
@@ -3933,9 +3939,9 @@ export function renderApp(rootElement: HTMLElement) {
       let maskUploadFilename = submittedMask.filename;
       let fluxEmbeddedMaskMessage = "";
 
-      if (isFluxFillPreset(preset.id)) {
-        setInpaintStatus(elements, "Preparing Flux Fill masked source...", "idle");
-        setInpaintProgressPreview(elements, "Embedding mask into Flux Fill source...");
+      if (presetUsesEmbeddedMaskAlpha(preset.id)) {
+        setInpaintStatus(elements, "Preparing masked source...", "idle");
+        setInpaintProgressPreview(elements, "Embedding mask into the source image...");
         const embeddedSource = await createFluxFillEmbeddedMaskSource(submittedSource.blob, submittedMask.blob);
         sourceUploadBlob = embeddedSource.blob;
         sourceUploadFilename = embeddedSource.filename;
@@ -3946,7 +3952,7 @@ export function renderApp(rootElement: HTMLElement) {
 
       const sourceImageName = await client.uploadImage(sourceUploadBlob, sourceUploadFilename);
       const maskImageName =
-        isFluxFillPreset(preset.id)
+        presetUsesEmbeddedMaskAlpha(preset.id)
           ? sourceImageName
           : await client.uploadImage(maskUploadBlob, maskUploadFilename);
       const buildResult = await buildInpaintWorkflow({
@@ -5735,19 +5741,47 @@ function savePreferencesFromElements(
 }
 
 function readThemeSelection(elements: AppElements): OpenLayerTheme {
-  return elements.settingsThemeSelect.value === "classic" ? "classic" : "compact";
+  return normalizeTheme(elements.settingsThemeSelect.value);
 }
 
+const THEME_LABELS: Record<OpenLayerTheme, string> = {
+  compact: "Compact Adobe Dark",
+  artist: "Artist-Friendly Dark",
+  classic: "Classic v0.4"
+};
+
 function applyTheme(elements: AppElements, theme: OpenLayerTheme) {
-  const nextTheme = theme === "classic" ? "classic" : "compact";
+  const nextTheme = normalizeTheme(theme);
 
   elements.settingsThemeSelect.value = nextTheme;
-  elements.appShell.classList.toggle("theme-compact", nextTheme === "compact");
+
+  // Artist-Friendly Dark KEEPS the compact class and stacks theme-artist on
+  // top of it. The compact rules are the stylesheet -- 1,158 of them against
+  // 9 unprefixed base rules -- so a theme that drops the compact class
+  // inherits almost nothing and has to re-state the whole panel. That is how
+  // Classic v0.4 ended up a veneer, and the token pass exists precisely so a
+  // theme can be an override instead.
+  const usesCompactLayout = nextTheme === "compact" || nextTheme === "artist";
+  elements.appShell.classList.toggle("theme-compact", usesCompactLayout);
   elements.appShell.classList.toggle("theme-classic", nextTheme === "classic");
+  elements.appShell.classList.toggle("theme-artist", nextTheme === "artist");
+
+  // html/body/#root paint the shell behind the panel from --ol-section-bg, and
+  // they are ancestors of the app shell rather than descendants, so a token
+  // override scoped to the shell cannot reach them. Mirror the class onto body.
+  elements.appShell.ownerDocument?.body?.classList.toggle("theme-artist", nextTheme === "artist");
+
+  // Build the slider face only for Artist-Friendly Dark, and tear it out
+  // again otherwise, so Compact Adobe Dark keeps the DOM it always had. The
+  // compact stylesheet has `.field > input { display: block !important }`
+  // rules that would paint a hidden slider anyway, so hiding is not enough.
+  setArtistControlsEnabled(elements.appShell, nextTheme === "artist");
+  syncArtistControls(elements.appShell);
+  setSeedDiceEnabled(elements.appShell, nextTheme === "artist");
 }
 
 function getThemeLabel(theme: OpenLayerTheme) {
-  return theme === "classic" ? "Classic v0.4" : "Compact Adobe Dark";
+  return THEME_LABELS[normalizeTheme(theme)];
 }
 
 function updateSettingsReport(elements: AppElements) {

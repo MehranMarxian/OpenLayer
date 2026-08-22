@@ -56,7 +56,6 @@ export function setStatusProgress(progressElement: HTMLElement, status: string, 
       fill.style.width = "";
     }
     progressElement.removeAttribute("data-progress-offset");
-    progressElement.removeAttribute("data-progress-label");
     return;
   }
 
@@ -71,8 +70,6 @@ export function setStatusProgress(progressElement: HTMLElement, status: string, 
   }
 
   progressElement.style.removeProperty("--ol-progress");
-
-  progressElement.removeAttribute("data-progress-label");
 
   if (statusProgressTimers.get(progressElement)) {
     return;
@@ -114,7 +111,6 @@ function renderDeterminateProgress(progressElement: HTMLElement, percent: number
   }
 
   progressElement.removeAttribute("data-progress-offset");
-  progressElement.setAttribute("data-progress-label", `${percent}%`);
 }
 
 // Dedicated numeric progress entry point driven by the ComfyUI WebSocket

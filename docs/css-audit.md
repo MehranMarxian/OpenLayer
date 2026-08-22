@@ -8,27 +8,27 @@ the numbers come from parsing the stylesheet and cross-referencing every class n
 
 | | |
 |---|---:|
-| Lines | 7451 |
-| Rule blocks | 929 |
-| Distinct selectors | 678 |
+| Lines | 8006 |
+| Rule blocks | 985 |
+| Distinct selectors | 744 |
 | Selectors declared more than once | 261 |
-| `!important` declarations | 1049 |
-| …of those, inside a `theme-compact` rule | 1046 |
+| `!important` declarations | 1080 |
+| …of those, inside a `theme-compact` rule | 1077 |
 
 ## The two themes
 
 `theme-compact` and `theme-classic` are both selectable in Settings ("Compact Adobe Dark" and
 "Classic v0.4"). Compact is the default and the shipped look. Classic is not a dead code path —
-it is what the 309 unscoped rules render.
+it is what the 355 unscoped rules render.
 
 | | rules | lines |
 |---|---:|---:|
-| Scoped to `.theme-compact` | 611 | 5798 |
+| Scoped to `.theme-compact` | 621 | 5926 |
 | Scoped to `.theme-classic` | 9 | 76 |
-| Unscoped (base — what Classic renders) | 309 | 2443 |
+| Unscoped (base — what Classic renders) | 355 | 2926 |
 
-65.8% of all rules are compact overrides and they carry
-99.7% of the `!important` in the file. **137** base selectors have a
+63.0% of all rules are compact overrides and they carry
+99.7% of the `!important` in the file. **150** base selectors have a
 `theme-compact` counterpart.
 
 That last number is the override tax, and it is the mechanism behind the trap recorded in
@@ -64,7 +64,7 @@ concluding a base rule is what renders.
 ## Unreferenced classes
 
 28 class names appear in the stylesheet and nowhere in `src/` or `scripts/`. Rules that match
-only those names span **630 lines across 83 rule blocks** — roughly 8.5% of the file.
+only those names span **630 lines across 83 rule blocks** — roughly 7.9% of the file.
 
 ### `ol-*` (the pre-v0.5 naming)
 
@@ -81,7 +81,7 @@ only those names span **630 lines across 83 rule blocks** — roughly 8.5% of th
 `is-${card.state}` (the diagnostics summary cards). A text search calls them unused. They are
 not. Do not delete these:
 
-`.is-available`, `.is-coming-soon`, `.is-experimental`, `.is-future`, `.is-missing-model`, `.is-missing-node`, `.is-missing-workflow`, `.is-ready`, `.is-setup`, `.is-setup-required`
+`.is-available`, `.is-coming-soon`, `.is-experimental`, `.is-future`, `.is-missing-model`, `.is-missing-node`, `.is-missing-workflow`, `.is-ready`, `.is-setup-error`, `.is-setup-required`
 
 ## What the numbers say
 
@@ -89,7 +89,7 @@ not. Do not delete these:
    touched. It still needs a real Photoshop pass, because the check is "no literal mention in
    the source", and only the host can prove nothing regressed.
 2. **Consolidation is a bigger job than it looks, and it is not deletion.** Both themes ship,
-   so the 137 shadowed selectors cannot simply collapse into one rule; that work is merging
+   so the 150 shadowed selectors cannot simply collapse into one rule; that work is merging
    two designs, and it belongs behind a decision about whether Classic still earns its place.
 3. **The `!important` count is a symptom, not the disease.** 99.7% of it sits in compact
    overrides fighting base rules. It shrinks when the theme layering is fixed, not by editing

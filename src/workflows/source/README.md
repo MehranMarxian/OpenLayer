@@ -81,6 +81,18 @@ The runnable API version is in `src/workflows/api/prompt-from-layer-florence2.js
 
 The runnable API version is in `src/workflows/api/inpaint-flux-fill-basic.json`. If this source workflow is edited in ComfyUI, export a matching API workflow and update `src/comfy/presetRegistry.ts` node mappings before relying on it.
 
+## FLUX.2 Klein Inpaint Notes
+
+`inpaint-flux2-klein.workflow.json` is the GUI-editable graph for the Klein inpaint preset, and
+it is a real export: it was built and run against the live ComfyUI instance before the preset was
+written, and its node ids match `src/workflows/api/inpaint-flux2-klein.json` one for one.
+
+Two things in it are load-bearing and easy to undo by accident. `InpaintCropImproved`'s
+`context_from_mask_extend_factor` must stay tight -- at 1.5 the model follows the prompt inside a
+small mask, at 3.0 it stops -- and `SaveImage` must read `InpaintStitchImproved`, not the
+`VAEDecode`, or the result comes back 1024px instead of context-sized and the aligned Photoshop
+import misplaces it.
+
 ## Flux Fill Outpaint Notes
 
 `outpaint-flux-fill-basic.workflow.json` is the GUI-editable reference workflow for the experimental Outpaint tool.

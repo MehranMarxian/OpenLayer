@@ -467,6 +467,29 @@ const INPAINT_FLUX_FILL_CROPSTITCH_NODES = {
   saveImage: "9"
 } as const;
 
+// The Klein inpaint graph. Same 4B stack the Klein text-to-image and edit
+// presets load, wrapped in the crop-and-stitch pair rather than a Fill-specific
+// conditioning node -- FLUX.2 Klein has no Fill variant, and it does not need
+// one: SetLatentNoiseMask on the encoded crop is enough.
+const INPAINT_FLUX2_KLEIN_NODES = {
+  diffusionModelLoader: "20",
+  clipLoader: "21",
+  vaeLoader: "22",
+  modelSampling: "23",
+  loadImage: "10",
+  inpaintCrop: "50",
+  vaeEncode: "11",
+  setLatentNoiseMask: "30",
+  positivePrompt: "6",
+  negativePrompt: "7",
+  referenceIntoPositive: "14",
+  referenceIntoNegative: "15",
+  sampler: "3",
+  decode: "8",
+  inpaintStitch: "51",
+  saveImage: "9"
+} as const;
+
 const OUTPAINT_FLUX_FILL_BASIC_NODES = {
   diffusionModelLoader: "31",
   differentialDiffusion: "39",
@@ -908,6 +931,21 @@ const INPAINT_FLUX_FILL_CROPSTITCH_INJECTIONS = {
   // rather than something the artist picks per generation.
 } as const;
 
+const INPAINT_FLUX2_KLEIN_INJECTIONS = {
+  checkpoint: target(INPAINT_FLUX2_KLEIN_NODES.diffusionModelLoader, "unet_name"),
+  sourceImage: target(INPAINT_FLUX2_KLEIN_NODES.loadImage, "image"),
+  positivePrompt: target(INPAINT_FLUX2_KLEIN_NODES.positivePrompt, "text"),
+  negativePrompt: target(INPAINT_FLUX2_KLEIN_NODES.negativePrompt, "text"),
+  seed: target(INPAINT_FLUX2_KLEIN_NODES.sampler, "seed"),
+  steps: target(INPAINT_FLUX2_KLEIN_NODES.sampler, "steps"),
+  cfg: target(INPAINT_FLUX2_KLEIN_NODES.sampler, "cfg"),
+  denoise: target(INPAINT_FLUX2_KLEIN_NODES.sampler, "denoise")
+  // No maskImage target on purpose: the mask arrives in the source PNG's alpha
+  // channel, the same single upload Flux Fill uses. No width/height either --
+  // the sampling size is InpaintCropImproved's 1024 target, a property of the
+  // technique rather than something the artist picks per generation.
+} as const;
+
 const OUTPAINT_FLUX_FILL_BASIC_INJECTIONS = {
   checkpoint: target(OUTPAINT_FLUX_FILL_BASIC_NODES.diffusionModelLoader, "unet_name"),
   sourceImage: target(OUTPAINT_FLUX_FILL_BASIC_NODES.loadImage, "image"),
@@ -1328,6 +1366,27 @@ const INPAINT_FLUX_FILL_CROPSTITCH_CAPABILITY: WorkflowCapability = {
     primaryActionLabel: "Generate Inpaint",
     experimentalNote:
       "Needs the comfyui-inpaint-cropandstitch node pack. It crops to your mask plus 50% context, samples that at 1024px, and stitches the patch back with a 32px blended seam -- so a small mask on a big document is sampled at the resolution Flux Fill was trained for instead of at whatever size the selection happened to be. Prefer the plain Flux Fill preset when the masked area already fills most of the captured context."
+  }
+};
+
+const INPAINT_FLUX2_KLEIN_CAPABILITY: WorkflowCapability = {
+  toolType: "inpaint",
+  loaderType: "diffusion-model-stack",
+  artistLabel: "Inpaint",
+  technicalLabel: "inpaint-flux2-klein",
+  requiredPhotoshopInputs: ["selection", "selection-mask"],
+  controls: ["prompt", "negativePrompt", "steps", "cfg", "denoise", "seed", "contextPadding", "maskBlur"],
+  output: {
+    kind: "selection-patch",
+    size: "selection-context",
+    importBehavior: "aligned-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Klein model",
+    primaryActionLabel: "Generate Inpaint",
+    experimentalNote:
+      "Needs the comfyui-inpaint-cropandstitch node pack, the same one the Flux Fill crop & stitch preset uses. Reuses the FLUX.2 Klein 4B stack already installed for Text to Image, so it costs no extra download. Four steps, and the mask travels in the source PNG's alpha channel."
   }
 };
 
@@ -2540,6 +2599,130 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     ],
     compatibilityNote:
       "inpaint-flux-fill-cropstitch is inpaint-flux-fill-basic with InpaintCropImproved and InpaintStitchImproved from lquesada's comfyui-inpaint-cropandstitch wrapped around the sampler chain. The crop node takes the LoadImage image and mask, so OpenLayer still uploads one PNG carrying the Photoshop mask in its alpha channel, and the stitch node returns an image the same size as that upload -- which is what keeps the aligned Photoshop import valid."
+  },
+  {
+    // The first inpaint preset in the registry that is not Flux Fill. FLUX.2
+    // Klein has no Fill checkpoint and needs none: encode the crop, mark the
+    // masked latent with SetLatentNoiseMask, and hand the whole crop back to
+    // the model as ReferenceLatent conditioning on both branches -- the same
+    // conditioning shape edit-flux2-klein uses, which is why the frame holds.
+    //
+    // The crop-and-stitch wrapper is not an optional refinement here, it is
+    // what makes the preset work. Measured on the shared ComfyUI instance:
+    // sampling the whole captured context, a small mask asked to *add*
+    // something produced the surrounding context again and ignored the prompt
+    // in five of six runs across both Klein and Krea2-Turbo. Cropping to the
+    // mask plus 50% and sampling that at 1024 fixed it in three of three. A
+    // plain non-crop variant was built and deliberately not shipped.
+    id: "inpaint-flux2-klein",
+    label: "inpaint-flux2-klein",
+    displayName: "FLUX.2 Klein (crop & stitch)",
+    mode: "inpaint",
+    description:
+      "FLUX.2 Klein inpainting that crops to the mask plus context, samples at 1024px in four steps, and stitches the patch back with a blended seam.",
+    workflowFile: "workflows/api/inpaint-flux2-klein.json",
+    sourceWorkflowFile: "workflows/source/inpaint-flux2-klein.workflow.json",
+    status: "experimental",
+    recommendedSettings: { steps: 4, cfg: 1 },
+    supportedModelFamilies: ["flux2"],
+    experimentalModelFamilies: ["unknown"],
+    modelSource: DIFFUSION_MODEL_SOURCE,
+    capability: INPAINT_FLUX2_KLEIN_CAPABILITY,
+    modelStack: [...FLUX2_KLEIN_4B_STACK],
+    requiredModels: [...FLUX2_KLEIN_4B_STACK],
+    injections: INPAINT_FLUX2_KLEIN_INJECTIONS,
+    requiredNodes: [
+      {
+        id: INPAINT_FLUX2_KLEIN_NODES.diffusionModelLoader,
+        classType: "UNETLoader",
+        requiredInputs: ["unet_name", "weight_dtype"]
+      },
+      {
+        id: INPAINT_FLUX2_KLEIN_NODES.clipLoader,
+        classType: "CLIPLoader",
+        requiredInputs: ["clip_name", "type"]
+      },
+      {
+        id: INPAINT_FLUX2_KLEIN_NODES.vaeLoader,
+        classType: "VAELoader",
+        requiredInputs: ["vae_name"]
+      },
+      {
+        id: INPAINT_FLUX2_KLEIN_NODES.modelSampling,
+        classType: "ModelSamplingAuraFlow",
+        requiredInputs: ["model", "shift"]
+      },
+      {
+        id: INPAINT_FLUX2_KLEIN_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: INPAINT_FLUX2_KLEIN_NODES.inpaintCrop,
+        classType: "InpaintCropImproved",
+        requiredInputs: [
+          "image",
+          "mask",
+          "context_from_mask_extend_factor",
+          "output_resize_to_target_size",
+          "output_target_width",
+          "output_target_height",
+          "mask_blend_pixels"
+        ]
+      },
+      {
+        id: INPAINT_FLUX2_KLEIN_NODES.vaeEncode,
+        classType: "VAEEncode",
+        requiredInputs: ["pixels", "vae"]
+      },
+      {
+        id: INPAINT_FLUX2_KLEIN_NODES.setLatentNoiseMask,
+        classType: "SetLatentNoiseMask",
+        requiredInputs: ["samples", "mask"]
+      },
+      {
+        id: INPAINT_FLUX2_KLEIN_NODES.positivePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: INPAINT_FLUX2_KLEIN_NODES.negativePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: INPAINT_FLUX2_KLEIN_NODES.referenceIntoPositive,
+        classType: "ReferenceLatent",
+        requiredInputs: ["conditioning"]
+      },
+      {
+        id: INPAINT_FLUX2_KLEIN_NODES.referenceIntoNegative,
+        classType: "ReferenceLatent",
+        requiredInputs: ["conditioning"]
+      },
+      {
+        id: INPAINT_FLUX2_KLEIN_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["model", "seed", "steps", "cfg", "sampler_name", "scheduler", "positive", "negative", "latent_image", "denoise"]
+      },
+      {
+        id: INPAINT_FLUX2_KLEIN_NODES.decode,
+        classType: "VAEDecode",
+        requiredInputs: ["samples", "vae"]
+      },
+      {
+        id: INPAINT_FLUX2_KLEIN_NODES.inpaintStitch,
+        classType: "InpaintStitchImproved",
+        requiredInputs: ["stitcher", "inpainted_image"]
+      },
+      {
+        id: INPAINT_FLUX2_KLEIN_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images", "filename_prefix"]
+      }
+    ],
+    compatibilityNote:
+      "inpaint-flux2-klein reuses the FLUX.2 Klein 4B stack already installed for Text to Image and Image to Image, so it costs no extra download; its only extra requirement is lquesada's comfyui-inpaint-cropandstitch, shared with inpaint-flux-fill-cropstitch. OpenLayer uploads one PNG with the Photoshop mask in its alpha channel, exactly as the Flux Fill presets do, and InpaintCropImproved takes both the image and the mask from that single LoadImage. The stitched output is the size of the uploaded context, which is what keeps the aligned Photoshop import valid -- a 1024px result means SaveImage is reading the VAEDecode rather than the stitcher. ReferenceLatent declares latent as an optional input, so a setup check reading only ComfyUI's required bucket reports this graph as missing setup on a machine where it runs. Sampler settings are Klein's distilled operating point: 4 steps, CFG 1, er_sde, simple, ModelSamplingAuraFlow shift 3."
   },
   {
     id: "outpaint-flux-fill-basic",
