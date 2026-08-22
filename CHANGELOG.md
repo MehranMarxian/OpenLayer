@@ -1,5 +1,35 @@
 # Changelog
 
+## v0.16.0-alpha - 2026-08-22
+
+This release is mostly about the panel you look at while you work. There is a new dark theme built for artists rather than for matching Photoshop's chrome, the numeric parameters can be sliders now, the seed field has a dice button — and, underneath that button, a fix for a bug that has quietly been failing generations since long before the button existed. The one new generation capability is an inpaint preset for FLUX.2 Klein, so the fast Klein stack you may already have downloaded can now repaint a selection.
+
+### Added
+
+- **Artist-Friendly Dark, a third theme.** Offered in Settings alongside Compact Adobe Dark and Classic v0.4. It is a deeper, softer dark meant to sit behind artwork rather than blend into the Photoshop toolbar, and it is the theme that turns the numeric parameters into sliders. Compact Adobe Dark is deliberately untouched — every existing rule is byte-identical — so switching themes changes nothing about the panel you already know.
+
+  The groundwork under it: the stylesheet's colours were extracted into tokens first, so a theme is now a small set of token overrides rather than a fork of the whole panel. Artist-Friendly Dark is forty overrides and nothing else.
+- **Sliders for the numeric parameters, in Artist-Friendly Dark.** Detail (steps), Guidance (CFG), Strength (denoise), sketch influence and Live Painting strength become sliders; Compact Adobe Dark keeps the number boxes it always had. It is one control with two faces — the number input is still the single source of truth, and the slider writes through to it — so nothing about how a value is read or validated changed, and the labels keep the technical word searchable next to the artist one.
+- **A dice button on the seed field**, on all five tools that have one. Press it to roll a fresh random seed instead of typing one. The die is drawn from the panel's own primitives rather than an icon font, for the same reason the rest of the panel is: Photoshop's UXP renders almost no embedded icon markup.
+- **The Advanced settings disclosure remembers whether you left it open.** Each tool's parameter grid sits behind an "Advanced settings" toggle, and the panel used to re-collapse every one of them on reopen. Your choice is now remembered per screen — Text to Image expanded and Outpaint collapsed, if that is how you work — and stored separately from the generation defaults, so Reset Settings does not silently re-collapse a screen you chose to keep open.
+- **FLUX.2 Klein inpainting: `inpaint-flux2-klein`.** The first inpaint preset that is not built on a Flux Fill model. It reuses the FLUX.2 Klein 4B stack you already have for Text to Image and Image to Image — no extra model download — and repaints a selection at four steps. Its only new requirement is the same `comfyui-inpaint-cropandstitch` node pack the crop-and-stitch Flux Fill preset uses, and it works the same way: it crops to your mask plus context, samples that at 1024, and stitches the patch back with a blended seam.
+
+  It is marked experimental. It is strong at *adding* something to a small selection — the case where a naive masked sampler tends to repaint the surroundings and ignore you — and at replacing a large region. As with every inpaint preset, verify the result before relying on it.
+
+### Fixed
+
+- **The seed field mangled any wide seed to `214748.36`, and this failed generations.** A Photoshop UXP `<input type="number">` cannot hold a value above roughly 214748.36, so any seed wider than six digits — including every seed you loaded from session History, which are full-width server-side rolls — came back out as that one mangled string. Because a seed has to be a whole number, the run was then rejected outright with "Seed must be a whole number". This predates the dice button; `214748.36` is visible in the seed field in screenshots from before it existed. All five seed fields are now plain text fields that accept a numeric keypad, and hold the full range.
+- **The progress bar glitched and rendered with a jagged edge.** Both are fixed, and a related round of interface tidying went with them — the prompt buttons no longer touch each other.
+
+### Changed
+
+- **The panel's colours now live in one set of tokens.** No visible change on its own; it is what made a real second theme possible without re-implementing the whole panel, and what any future theme will build on.
+
+### Known limitations
+
+- **`inpaint-flux2-klein` is experimental**, like the other inpaint presets. Its Krea2-Turbo sibling was evaluated and deliberately not shipped because it would not match the tone of the surrounding pixels reliably; Klein does. A Klein *outpaint* preset is still not shipped — the technique works in isolated tests but is not yet trusted through the panel.
+- The slider faces and Artist-Friendly Dark are new; if a parameter reads differently between the slider and the number box, the number box is the truth. Please report it.
+
 ## v0.15.0-alpha - 2026-08-19
 
 OpenLayer's tools can be driven by an AI assistant now, not only by clicking the panel. Ask Claude — or Codex, or anything else that speaks the Model Context Protocol — to generate an image, upscale a layer or caption a selection, and it drives the panel's own buttons in your open Photoshop document. It runs entirely on your machine, and it is off until you turn it on.
