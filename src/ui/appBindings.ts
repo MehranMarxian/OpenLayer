@@ -1,6 +1,13 @@
-import { AppView } from "./appConstants";
+import { AppView, DEFAULT_SERVER_URL } from "./appConstants";
 import { AppElements } from "./appMarkup";
-import { loadOpenAdvancedSections, saveOpenAdvancedSections } from "../utils/preferences";
+import {
+  loadHasSeenWelcome,
+  loadOpenAdvancedSections,
+  saveHasSeenWelcome,
+  saveOpenAdvancedSections,
+  saveServerUrlPreference
+} from "../utils/preferences";
+import { findActiveComfyUrl } from "../comfy/comfyPortDiscovery";
 import { setGlobalDiagnostics } from "./statusBars";
 
 /**
@@ -49,6 +56,7 @@ export type ActionName =
   | "captureInpaintActiveLayer"
   | "generateInpaint"
   | "importInpaint"
+  | "toggleInpaintAutoImport"
   | "captureOutpaintSource"
   | "captureOutpaintCanvasSource"
   | "generateOutpaint"
@@ -74,7 +82,6 @@ export type ActionName =
   | "startLivePainting"
   | "stopLivePainting"
   | "refineLivePainting"
-  | "toggleLiveZoom"
   | "importLiveResult"
   | "importLiveRefined"
   | "toggleLiveAutoImport"
@@ -429,7 +436,12 @@ export function bindToolWarnings(rootElement: HTMLElement) {
     const info = document.createElement("button");
     info.type = "button";
     info.className = "tool-info-button";
-    info.textContent = "i";
+    // "!" rather than "i": the round warning badge elsewhere in the panel
+    // (compatibility-note.info-panel.is-warning) already uses "!" as its
+    // glyph, and it is upright where an italic "i" is not -- an italic
+    // single character leans visibly off the geometric center of an 18px
+    // circle even when the box itself centers it correctly with flex.
+    info.textContent = "!";
     info.setAttribute("aria-label", "Show experimental notes");
     info.setAttribute("aria-expanded", "false");
     titleBlock.appendChild(info);
@@ -458,11 +470,108 @@ export function bindStickyProgress(rootElement: HTMLElement) {
   const navs = Array.from(rootElement.querySelectorAll<HTMLElement>(".screen-nav"));
 
   for (const nav of navs) {
+    const view = nav.parentElement;
+
+    if (!view) {
+      continue;
+    }
+
     const head = document.createElement("div");
     head.className = "screen-head";
     nav.before(head);
     head.appendChild(nav);
+
+    // Everything below the header becomes one scrolling body, so the header
+    // can pin as a flex child instead of as a sticky element.
+    //
+    // `position: sticky` was the obvious way to keep the header visible and it
+    // is the wrong one here: UXP does not reflow content around a sticky
+    // element, so the header painted straight over the section beneath it. The
+    // shell already pins .app-header and .app-footer correctly, and it does it
+    // with flex -- a flex item cannot overlap its siblings, whatever the host
+    // thinks about sticky. This gives each screen the same two-part shape the
+    // shell has: a fixed head, a scrolling body.
+    const body = document.createElement("div");
+    body.className = "screen-body";
+
+    while (head.nextSibling) {
+      body.appendChild(head.nextSibling);
+    }
+
+    view.appendChild(body);
+    // Marks the views that actually got this treatment. Home has no back/title
+    // nav, so it never gets a head or a body and must keep scrolling itself --
+    // without this class the CSS would hand its scrolling to a body element
+    // that does not exist and the whole screen would be unreachable.
+    view.classList.add("has-screen-head");
   }
+}
+
+/**
+ * The first-run welcome overlay: shows once, ever, tries to detect ComfyUI on
+ * its own, and lets the artist skip straight into the panel at any point.
+ *
+ * Deliberately connect-only (no GPU detection, no model recommendations) —
+ * that already lives in the Setup screen, which this hands off to rather
+ * than duplicating. Reuses the exact scan `handleFindComfyPort` (App.ts) runs
+ * from Settings, so there is one answer to "is ComfyUI running", not two.
+ *
+ * Persists the detected URL through `saveServerUrlPreference` rather than a
+ * full-preferences write: this binder runs before the rest of the panel has
+ * necessarily loaded saved generation defaults into their fields, and a
+ * full-object save at that point would write those fields' static markup
+ * defaults over whatever the user had actually saved.
+ */
+export function bindWelcomeOverlay(elements: AppElements) {
+  const overlay = elements.welcomeOverlay;
+
+  if (loadHasSeenWelcome()) {
+    overlay.hidden = true;
+    return;
+  }
+
+  overlay.hidden = false;
+
+  const dismiss = () => {
+    saveHasSeenWelcome();
+    overlay.hidden = true;
+  };
+
+  const runDetection = async () => {
+    elements.welcomeStatusText.textContent = "Looking for ComfyUI...";
+    elements.welcomeManualRow.hidden = true;
+    elements.welcomeRetryButton.hidden = true;
+    elements.welcomeContinueButton.hidden = true;
+
+    const startUrl =
+      elements.welcomeServerUrlInput.value.trim() || elements.serverUrl.value.trim() || DEFAULT_SERVER_URL;
+
+    const foundUrl = await findActiveComfyUrl(startUrl, (message) => {
+      elements.welcomeStatusText.textContent = message;
+    });
+
+    if (!foundUrl) {
+      elements.welcomeStatusText.textContent =
+        "No active ComfyUI port found. Start ComfyUI, or enter its address below.";
+      elements.welcomeManualRow.hidden = false;
+      elements.welcomeRetryButton.hidden = false;
+      return;
+    }
+
+    elements.serverUrl.value = foundUrl;
+    elements.welcomeServerUrlInput.value = foundUrl;
+    saveServerUrlPreference(foundUrl);
+    elements.welcomeStatusText.textContent = `Connected to ${foundUrl}.`;
+    elements.welcomeContinueButton.hidden = false;
+  };
+
+  elements.welcomeRetryButton.addEventListener("click", () => {
+    void runDetection();
+  });
+  elements.welcomeContinueButton.addEventListener("click", dismiss);
+  elements.welcomeSkipButton.addEventListener("click", dismiss);
+
+  void runDetection();
 }
 
 export function bindAdvancedToggles(rootElement: HTMLElement) {

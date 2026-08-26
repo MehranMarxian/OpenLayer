@@ -1837,14 +1837,6 @@ a:hover {
   object-fit: contain;
 }
 
-.preview-panel.preview-zoomed {
-  max-height: 520px;
-}
-
-.preview-panel.preview-zoomed img {
-  max-height: 520px;
-}
-
 .source-preview-panel {
   align-items: stretch;
   min-height: 112px;
@@ -7278,12 +7270,14 @@ body,
   padding-top: 0 !important;
 }
 
+/* Static for the same reason as .screen-head below, and kept in step with it
+   deliberately: this rule is the one that applies when the JS wrapper has not
+   run, so if it stayed sticky a failure in bindStickyProgress would silently
+   bring the overlap back. */
 .app-shell.theme-compact .screen-nav {
-  position: sticky;
-  top: 0;
-  z-index: 8;
-  margin: 0 -10px 8px -8px;
-  padding: 8px 10px 8px 8px;
+  position: static;
+  margin: 0 0 8px;
+  padding: 8px 0;
   background: var(--ol-bg);
 }
 
@@ -7416,12 +7410,22 @@ body,
 /* v0.6 #3: sticky screen header wraps the nav and the progress bar so live
    progress stays visible while scrolling the form. The wrapper handles the
    stickiness now instead of the nav itself. */
+/* Deliberately NOT sticky. UXP does not reflow content around a sticky
+   element the way a browser does, so this header painted over the top of
+   whatever section followed it -- the Prompt label on Text to Image, the
+   capture buttons on Upscale -- instead of the page scrolling underneath it.
+   That is the same host behaviour that made the progress bar paint over the
+   first section back in v0.8, and the fix that finally worked then was the
+   same one as here: take the element out of the sticky mechanism rather than
+   try to out-style it. Three browser-correct attempts failed before that.
+
+   The negative margins went with it. They bled the header 8px left and 10px
+   right of the content column to fake a full-bleed bar, which is what showed
+   up as an empty strip down the left of the header. */
 .app-shell.theme-compact .screen-head {
-  position: sticky;
-  top: 0;
-  z-index: 8;
-  margin: 0 -10px 8px -8px;
-  padding: 8px 10px 0 8px;
+  position: static;
+  margin: 0 0 8px;
+  padding: 8px 0 0;
   background: var(--ol-section-bg);
 }
 
@@ -7470,35 +7474,41 @@ body,
 }
 
 /* #5: small orange (i) button that reveals the experimental note. */
+/* Centered with flex rather than the line-height/text-align math a plain
+   <button> normally relies on: this button carries no `.button` base class,
+   so it never inherits that class's text-align: center, and there is nothing
+   else here setting one -- the browser's own button default was doing the
+   centering, silently, until UXP was the host reading this rule. */
+/* Two rounds of trying to center the glyph inside a circle both shipped
+   still visibly off in Photoshop -- the box was genuinely centered both
+   times (verified against .info-toggle's identical technique working fine
+   elsewhere), so whatever is left is either sub-pixel or specific to this
+   host's text rendering, not something worth a third guess. Removing the
+   circle removes the perfect-symmetry frame the eye was judging it against,
+   which is the actual fix: plain colored text has no shape for a
+   fraction-of-a-pixel offset to read as "wrong" against. */
 .app-shell.theme-compact .tool-info-button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   flex: 0 0 auto;
+  box-sizing: border-box;
   width: 18px;
   height: 18px;
   margin-left: 4px;
   padding: 0;
-  border: 1px solid rgba(240, 177, 83, 0.6);
-  border-radius: 50%;
-  background: rgba(240, 177, 83, 0.14);
+  border: none;
+  border-radius: 0;
+  background: none;
   color: #f0b153;
-  font-size: var(--fs-sm);
-  font-weight: 700;
-  font-style: italic;
-  line-height: 16px;
+  font-size: var(--fs-md);
+  font-weight: 900;
+  line-height: 1;
   cursor: pointer;
 }
 
 .app-shell.theme-compact .tool-info-button.is-active {
-  background: #f0b153;
-  color: #1b1200;
-}
-
-/* #6: live-painting zoom actually enlarges the preview. */
-.app-shell.theme-compact .preview-panel.preview-zoomed {
-  max-height: 560px !important;
-}
-
-.app-shell.theme-compact .preview-panel.preview-zoomed img {
-  max-height: 552px !important;
+  color: #ffcf87;
 }
 
 /* Live Painting state badge: intentionally after the compact status-pill
@@ -8218,4 +8228,331 @@ body.theme-artist,
 
 .app-shell.theme-artist #suggest-prompt {
   margin-bottom: 8px !important;
+}
+
+/* ==========================================================================
+   First-run welcome overlay
+   Fixed rather than absolute: .app-shell scrolls its own content
+   (overflow-y: auto), so an absolutely positioned overlay would scroll away
+   with it instead of staying pinned over the whole panel.
+   ========================================================================== */
+
+.welcome-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.6);
+  overflow-y: auto;
+}
+
+.welcome-card {
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px;
+  background: var(--ol-panel-raised);
+  border: 1px solid var(--ol-border);
+  border-radius: var(--ol-radius);
+}
+
+.welcome-title {
+  margin: 0;
+  font-size: var(--fs-lg, 15px);
+  color: var(--ol-text);
+}
+
+.welcome-copy,
+.welcome-footnote {
+  margin: 0;
+  color: var(--ol-muted);
+  font-size: var(--fs-sm, 12px);
+  line-height: 1.5;
+}
+
+.welcome-copy a {
+  color: var(--ol-link);
+}
+
+.welcome-status-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ol-text-soft);
+  font-size: var(--fs-sm, 12px);
+}
+
+.welcome-manual-row {
+  margin: 0;
+}
+
+.welcome-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.welcome-footnote {
+  padding-top: 4px;
+  border-top: 1px solid var(--ol-border-soft);
+}
+
+/* ==========================================================================
+   Pinned screen header (v0.17)
+
+   The header stays put while the form scrolls under it, which is what it was
+   always meant to do -- but as a flex item, not a sticky one.
+
+   `position: sticky` was tried twice and is wrong in this host both times:
+   UXP does not reflow content around a sticky element, so the header simply
+   painted over the section below it, worst at small panel sizes where there
+   was least room to hide it. The shell already pins .app-header and
+   .app-footer perfectly using flex, and a flex item cannot overlap its
+   siblings no matter what the renderer believes about sticky. So each screen
+   now has the same two-part shape the shell has: a fixed head and a scrolling
+   body (both built in bindStickyProgress).
+
+   Scoped to .has-screen-head, which that binder adds only to views that got a
+   head and a body. Home has no back/title nav, so it never gets either, and
+   must keep scrolling itself -- unscoped, these rules would hand its
+   scrolling to an element that does not exist and strand the whole screen.
+   ========================================================================== */
+
+.app-shell.theme-compact .has-screen-head {
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.app-shell.theme-compact .has-screen-head > .screen-head {
+  flex: 0 0 auto !important;
+}
+
+.app-shell.theme-compact .has-screen-head > .screen-body {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  padding-bottom: 14px !important;
+}
+
+/* Smaller than it was: it is permanently on screen now, so every pixel it
+   takes is a pixel of form the artist cannot see. */
+.app-shell.theme-compact .screen-head {
+  margin: 0 0 6px !important;
+  padding: 4px 0 0 !important;
+  border-bottom: 1px solid var(--ol-border-soft) !important;
+}
+
+.app-shell.theme-compact .screen-head .screen-nav {
+  min-height: 30px !important;
+  padding: 0 0 6px !important;
+}
+
+.app-shell.theme-compact .screen-head .screen-icon {
+  flex: 0 0 22px !important;
+  width: 22px !important;
+  height: 22px !important;
+  margin: 0 7px 0 0 !important;
+}
+
+.app-shell.theme-compact .screen-head .screen-icon .icon-image {
+  width: 20px !important;
+  height: 20px !important;
+}
+
+.app-shell.theme-compact .screen-head .back-button {
+  min-height: 26px !important;
+  padding-top: 3px !important;
+  padding-bottom: 3px !important;
+  margin: 0 10px 0 0 !important;
+}
+
+/* ==========================================================================
+   Warning box, prompt buttons (v0.17)
+   ========================================================================== */
+
+/* The setup-warning box was letting its last line fall outside its own border.
+   It is laid out as a flex row so the round "!" badge can sit beside the text,
+   and UXP does not derive the row's height from a wrapped text item the way a
+   browser does -- so the box kept the height of one line while the text ran on
+   past it. Block layout has no such disagreement: the box is as tall as the
+   text inside it, which is the whole requirement here. The badge becomes an
+   inline-block that the first line flows around, so it still reads as a badge
+   without a flex row to misdescribe. */
+.app-shell.theme-compact .compatibility-note.info-panel.is-warning,
+.app-shell.theme-compact .tool-warning {
+  display: block !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+}
+
+/* Centering here is text-align + line-height, NOT flex, and that is
+   deliberate. This badge is floated so the note's first line wraps around it
+   (that float is what fixed the box's height, see above), and floating makes
+   the element block-level -- so align-items/justify-content stop applying and
+   an earlier inline-flex rule further up the file goes dead. Leaving that rule
+   as the only centering is what pushed the "!" to the left edge of its circle.
+   line-height must stay equal to the 16px box height for the vertical half. */
+.app-shell.theme-compact .compatibility-note.info-panel.is-warning::before,
+.app-shell.theme-compact .tool-warning::before {
+  display: block !important;
+  float: left !important;
+  box-sizing: border-box !important;
+  width: 16px !important;
+  height: 16px !important;
+  margin: 1px 7px 2px 0 !important;
+  padding: 0 !important;
+  text-align: center !important;
+  line-height: 16px !important;
+}
+
+/* "Ask the Agent for a Prompt" and "Show Negative Prompt" sat flush against
+   each other. The compact rules zero the margin on every direct child of
+   .generator-panel and the panel resolves to display: block, so the panel's
+   `gap` never applies -- spacing between these has to be an explicit margin.
+   Ask the Agent is also the least-used control in the group, so it gives up
+   some height to the prompt above it. */
+.app-shell.theme-compact #suggest-prompt {
+  min-height: 26px !important;
+  margin: 6px 0 8px !important;
+  padding: 3px 8px !important;
+  font-size: var(--fs-xs) !important;
+  font-weight: 600 !important;
+}
+
+.app-shell.theme-compact #negative-prompt-toggle {
+  margin: 0 0 6px !important;
+}
+
+/* ==========================================================================
+   Prompt Wallet (v0.17)
+   ========================================================================== */
+
+/* Inline in the "Prompt" label itself, half the size of the first pass.
+   vertical-align keeps it sitting on the label's text line instead of
+   dropping to its own baseline the way an inline-block image would.
+
+   Centred with text-align + line-height, NOT flex. A glyph in a circle has
+   already cost this project three rounds: flex centring measured correctly
+   in a browser and still rendered visibly off in the host, while this
+   pairing is what finally worked. line-height must stay equal to the box
+   height. */
+.app-shell.theme-compact button.prompt-wallet-dot {
+  display: inline-block !important;
+  box-sizing: border-box !important;
+  width: 11px !important;
+  height: 11px !important;
+  min-height: 11px !important;
+  padding: 0 !important;
+  margin: 0 0 0 6px !important;
+  border-radius: 50% !important;
+  vertical-align: middle !important;
+  text-align: center !important;
+  line-height: 10px !important;
+  font-size: 8px !important;
+  font-weight: 900 !important;
+  cursor: pointer !important;
+}
+
+.app-shell.theme-compact button.prompt-wallet-save {
+  border: 1px solid #3f8f5a !important;
+  background: #2f7a49 !important;
+  color: #eafff1 !important;
+}
+
+.app-shell.theme-compact button.prompt-wallet-save:hover:not(.is-disabled) {
+  background: #379055 !important;
+}
+
+.app-shell.theme-compact button.prompt-wallet-load {
+  border: 1px solid #7c5fb8 !important;
+  background: #6a4fa0 !important;
+  color: #f2ecff !important;
+}
+
+.app-shell.theme-compact button.prompt-wallet-load:hover:not(.is-disabled) {
+  background: #7959b3 !important;
+}
+
+.app-shell.theme-compact button.prompt-wallet-dot.is-disabled {
+  opacity: 0.4 !important;
+  cursor: default !important;
+}
+
+/* The "Choose a prompt for X" banner, shown only while a tool's purple Load
+   circle sent the artist here to pick one. Block layout for the same reason
+   as the cards below it: this is wrapped text, and a flex row would not size
+   itself to it correctly in this host. */
+.app-shell.theme-compact .prompt-wallet-banner {
+  display: block !important;
+  margin: 0 0 8px !important;
+  padding: 6px 9px !important;
+  border: 1px solid #7c5fb8 !important;
+  border-radius: 6px !important;
+  background: rgba(124, 95, 184, 0.14) !important;
+  color: #d9c9ff !important;
+  font-size: var(--fs-xs) !important;
+  font-weight: 700 !important;
+}
+
+/* Use leads the row while picking, ahead of Copy/Pin/Delete -- it is the
+   action the artist actually came here to take. */
+.app-shell.theme-compact button.prompt-wallet-use {
+  border-color: #7c5fb8 !important;
+  background: #6a4fa0 !important;
+  color: #f2ecff !important;
+}
+
+.app-shell.theme-compact button.prompt-wallet-use:hover {
+  background: #7959b3 !important;
+}
+
+.app-shell.theme-compact .prompt-wallet-search {
+  margin-bottom: 8px !important;
+}
+
+/* Block, not flex: these cards hold wrapped prompt text, and UXP does not
+   derive a flex row's height from a wrapped text item -- the same mismatch
+   that let the warning box spill past its own border. */
+.app-shell.theme-compact .prompt-wallet-card {
+  display: block !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+.app-shell.theme-compact .prompt-wallet-card .history-body {
+  margin-left: 0 !important;
+}
+
+.app-shell.theme-compact .prompt-wallet-name {
+  width: 100% !important;
+  margin-bottom: 6px !important;
+  font-weight: 700 !important;
+}
+
+.app-shell.theme-compact .prompt-wallet-text {
+  overflow: visible !important;
+  margin-bottom: 4px !important;
+  color: #bfbfbf !important;
+  font-size: var(--fs-xs) !important;
+  line-height: 15px !important;
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+}
+
+.app-shell.theme-compact .prompt-wallet-text.is-negative {
+  color: #9d9d9d !important;
 }

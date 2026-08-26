@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Privacy Policy — OpenLayer</title>
+    <meta
+      name="description"
+      content="OpenLayer's privacy policy. OpenLayer is local-first: no telemetry, no analytics, no accounts, no data collected by the plugin's author. Network access is limited to your own ComfyUI server and the model downloads you choose."
+    >
+    <link rel="canonical" href="https://mehran-ahmadi.com/OpenLayer/privacy.html">
+    <meta name="theme-color" content="#000000">
+    <meta name="robots" content="noindex">
+    <link rel="icon" href="assets/openlayer-icon-152.png">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+      .legal-main {
+        max-width: 42rem;
+        margin: 0 auto;
+        padding: 6rem 1.5rem 5rem;
+      }
+      .legal-main h1 {
+        color: var(--text);
+        font-size: 2rem;
+        margin-bottom: 0.25rem;
+      }
+      .legal-updated {
+        color: var(--quiet);
+        font-size: 0.9rem;
+        margin-top: 0;
+        margin-bottom: 2.5rem;
+      }
+      .legal-main h2 {
+        color: var(--text);
+        font-size: 1.25rem;
+        margin-top: 2.5rem;
+        margin-bottom: 0.75rem;
+      }
+      .legal-main p,
+      .legal-main li {
+        color: var(--muted);
+      }
+      .legal-main ul {
+        padding-left: 1.25rem;
+      }
+      .legal-main li {
+        margin-bottom: 0.4rem;
+      }
+      .legal-main a {
+        color: var(--gold);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bg-glow" aria-hidden="true"></div>
+
+    <header class="site-header" aria-label="Primary navigation">
+      <a class="brand" href="./" aria-label="OpenLayer home">
+        <img src="assets/openlayer-icon-152.png" alt="" width="34" height="34">
+        <span>OpenLayer</span>
+      </a>
+      <nav>
+        <a href="./">Overview</a>
+        <a href="./terms.html">Terms of Service</a>
+        <a class="nav-cta" href="https://github.com/MehranMarxian/OpenLayer">GitHub</a>
+      </nav>
+    </header>
+
+    <main class="legal-main">
+      <h1>Privacy Policy</h1>
+      <p class="legal-updated">Last updated: 2026-08-23 &middot; applies to OpenLayer v0.16.0-alpha and later</p>
+
+      <p>
+        OpenLayer is a local-first Photoshop plugin. This policy covers two separate things: the
+        <strong>plugin itself</strong>, which runs inside Photoshop on your machine, and
+        <strong>this website</strong>, which is a static page with no server-side component. The short
+        version: the plugin's author does not collect anything, from either.
+      </p>
+
+      <h2>What the plugin does not do</h2>
+      <p>OpenLayer has no telemetry, no analytics, no crash reporting, and no user accounts. It does not
+      phone home, and there is no server operated by the author that the plugin talks to. Nothing you
+      type, generate, or import is sent anywhere by OpenLayer itself.</p>
+
+      <h2>What the plugin does send over the network, and to whom</h2>
+      <p>The plugin's manifest requests broad network access because it has no fixed set of destinations
+      — it is a client for services you point it at, not a service with its own backend. In practice,
+      network requests only happen in two situations, both of which you initiate:</p>
+      <ul>
+        <li><strong>Your ComfyUI server.</strong> The host and port are whatever you configure in
+        Settings — normally <code>127.0.0.1</code>, sometimes another machine on your own network. Every
+        prompt, image, and generation parameter you send to ComfyUI goes only to that address. OpenLayer's
+        author never sees it, because it never passes through anything the author operates.</li>
+        <li><strong>Model downloads you start.</strong> The Setup screen can download model files and
+        custom node packages on your behalf, from hosts such as Hugging Face, Civitai, or GitHub. Every
+        download shows the file size, destination folder, and source host before it starts, and nothing
+        downloads without that confirmation. Those hosts have their own privacy policies, which this
+        document does not cover.</li>
+      </ul>
+
+      <h2>What the plugin reads and writes on your local disk</h2>
+      <p>OpenLayer requests full local filesystem access because it needs to locate and read your ComfyUI
+      installation's <code>models</code> folder — which can be anywhere on disk — without prompting a
+      file picker every time it checks install status. It also writes temporary files used to hand images
+      to Photoshop's import command, which are deleted automatically once Photoshop has read them. None of
+      this data leaves your machine; it is filesystem access, not data collection.</p>
+
+      <h2>Clipboard access</h2>
+      <p>The <strong>Copy Diagnostics</strong> and <strong>Copy Link</strong> actions, and copying a
+      generated prompt, write text to your system clipboard so you can paste it somewhere of your
+      choosing — a GitHub issue, a chat message, wherever you decide. OpenLayer does not read your
+      clipboard's existing contents at any point.</p>
+
+      <h2>This website</h2>
+      <p>This page and the rest of <a href="./">the OpenLayer landing page</a> are static HTML with no
+      analytics script, no tracking pixel, and no cookies set by this site. It is hosted as a static site;
+      the hosting provider may log requests (such as IP addresses) as part of normal web server operation,
+      outside the author's control or visibility.</p>
+
+      <h2>Third-party software</h2>
+      <p>OpenLayer connects to ComfyUI and to whichever models, custom nodes, or LoRAs you choose to
+      install. These are independent open-source projects with their own licenses and their own data
+      practices, if any. This policy covers OpenLayer only.</p>
+
+      <h2>Children's privacy</h2>
+      <p>OpenLayer is a professional creative tool distributed through Adobe Photoshop and is not directed
+      at children. It does not knowingly collect information from anyone, of any age, because it does not
+      collect information at all.</p>
+
+      <h2>Changes to this policy</h2>
+      <p>If this policy changes, the "Last updated" date above will change with it, and material changes
+      will be noted in <a href="https://github.com/MehranMarxian/OpenLayer/blob/main/CHANGELOG.md">the
+      project changelog</a>.</p>
+
+      <h2>Contact</h2>
+      <p>Questions about this policy, or a security report, can go through
+      <a href="https://github.com/MehranMarxian/OpenLayer/security/policy">the project's security
+      policy</a> or as a <a href="https://github.com/MehranMarxian/OpenLayer/issues">GitHub issue</a>.</p>
+    </main>
+
+    <footer class="site-footer">
+      <p>OpenLayer v0.16.0-alpha. Developed by Mehran Ahmadi, 2026.</p>
+      <p>
+        <a href="./">Overview</a> &middot;
+        <a href="./terms.html">Terms of Service</a> &middot;
+        <a href="https://github.com/MehranMarxian/OpenLayer">GitHub</a>
+      </p>
+    </footer>
+  </body>
+</html>

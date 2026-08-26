@@ -1,7 +1,7 @@
 import { OpenLayerTheme } from "../utils/preferences";
 
 export const DEFAULT_SERVER_URL = "http://127.0.0.1:8190";
-export const APP_VERSION = "0.16.0";
+export const APP_VERSION = "0.17.4";
 export const DEVELOPER_GITHUB = "https://github.com/MehranMarxian";
 export const HISTORY_LIMIT = 5;
 export const COMFY_PORT_CANDIDATES = [8190, 8188, 8189, 8191, 8192, 8193, 7860];
@@ -66,7 +66,8 @@ export type AppView =
   | "settings"
   | "setup"
   | "history"
-  | "layer-tools";
+  | "layer-tools"
+  | "prompt-wallet";
 export type ToolCardStatus = "available" | "experimental" | "coming-soon";
 
 export type ToolCard = {
@@ -196,6 +197,14 @@ export const TOOL_CARDS: ToolCard[] = [
     view: "history"
   },
   {
+    id: "prompt-wallet",
+    title: "Prompt Wallet",
+    subtitle: "Save and reuse favorite prompts",
+    icon: "promptFromLayer",
+    status: "available",
+    view: "prompt-wallet"
+  },
+  {
     id: "setup",
     title: "Setup",
     subtitle: "Models and nodes you still need",
@@ -224,7 +233,7 @@ export const HOME_TOOL_SECTIONS = [
   },
   {
     title: "Tools & History",
-    toolIds: ["layer-tools", "history"]
+    toolIds: ["layer-tools", "history", "prompt-wallet"]
   },
   {
     title: "Preferences",

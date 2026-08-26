@@ -1,6 +1,6 @@
 {
   "name": "openlayer-mcp-bridge",
-  "version": "0.16.0",
+  "version": "0.17.4",
   "private": true,
   "description": "Lets an MCP client drive the OpenLayer Photoshop panel's existing tools",
   "license": "MIT",

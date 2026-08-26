@@ -73,6 +73,6 @@ describe("narrowManifestHostForCcx", () => {
     // which is the failure that would be hardest to diagnose remotely.
     expect(Array.isArray(manifest.entrypoints)).toBe(true);
     expect(manifest.entrypoints.length).toBeGreaterThan(0);
-    expect(manifest.id).toBe("com.openlayer.photoshop");
+    expect(manifest.id).toBe("1e827d3d");
   });
 });

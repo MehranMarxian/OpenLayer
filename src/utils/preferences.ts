@@ -65,6 +65,35 @@ export function saveOpenLayerPreferences(preferences: OpenLayerPreferences) {
   }
 }
 
+/**
+ * Persists only `serverUrl`, merged into whatever is already stored, rather
+ * than the full-object overwrite `saveOpenLayerPreferences` does.
+ *
+ * The welcome screen calls this before the rest of the panel has necessarily
+ * loaded saved generation defaults into their form fields. A full-object save
+ * built from `AppElements` at that point would write the DOM's static markup
+ * defaults for width/height/steps/etc. over whatever the user actually had
+ * saved — this exists so detecting ComfyUI on first run can't silently erase
+ * unrelated settings.
+ */
+export function saveServerUrlPreference(serverUrl: string): boolean {
+  const storage = getStorage();
+
+  if (!storage) {
+    return false;
+  }
+
+  try {
+    const rawValue = storage.getItem(STORAGE_KEY);
+    const existing = rawValue ? sanitizePreferences(JSON.parse(rawValue)) : {};
+
+    storage.setItem(STORAGE_KEY, JSON.stringify({ ...existing, serverUrl }));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function clearOpenLayerPreferences() {
   const storage = getStorage();
 
@@ -252,6 +281,151 @@ export function saveOpenAdvancedSections(keys: readonly string[]) {
   } catch {
     return false;
   }
+}
+
+/**
+ * Whether the first-run welcome screen has already been shown, stored apart
+ * from `OpenLayerPreferences` for the same reason as the preview panel pin
+ * and the advanced-sections set: it is not a form field, and Reset Settings
+ * should not bring the welcome screen back for someone who has already
+ * connected once.
+ *
+ * A missing or corrupt value means "not seen" — the failure direction
+ * matters here (same as `AgentBridgeSettings.enabled`): a storage read that
+ * fails should show the welcome screen again, not skip it silently for
+ * someone who never actually saw it.
+ */
+const WELCOME_SEEN_KEY = "openlayer.welcomeSeen.v1";
+
+export function loadHasSeenWelcome(): boolean {
+  const storage = getStorage();
+
+  if (!storage) {
+    return false;
+  }
+
+  try {
+    return storage.getItem(WELCOME_SEEN_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function saveHasSeenWelcome() {
+  const storage = getStorage();
+
+  if (!storage) {
+    return false;
+  }
+
+  try {
+    storage.setItem(WELCOME_SEEN_KEY, "true");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * A prompt the artist chose to keep, in the Prompt Wallet.
+ *
+ * Positive and negative are stored together because they are one thought --
+ * a negative prompt is tuned against the positive it accompanies, and
+ * recalling one without the other loses half the work. This is the main thing
+ * the panel can do that a clipboard-based prompt manager cannot.
+ *
+ * `pinned` floats an entry to the top of the list regardless of age.
+ */
+export type PromptWalletEntry = {
+  id: string;
+  name: string;
+  positivePrompt: string;
+  negativePrompt: string;
+  pinned: boolean;
+  createdAt: string;
+};
+
+const PROMPT_WALLET_KEY = "openlayer.promptWallet.v1";
+
+/**
+ * Not crypto.randomUUID(): this project has hit enough missing web APIs in
+ * UXP (no TextEncoder, FormData dropping filenames) to not assume a newer
+ * crypto method exists in the host. An id only has to be unique inside one
+ * artist's local storage.
+ */
+export function createPromptWalletId(): string {
+  return `wallet-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export function loadPromptWallet(): PromptWalletEntry[] {
+  const storage = getStorage();
+
+  if (!storage) {
+    return [];
+  }
+
+  try {
+    const rawValue = storage.getItem(PROMPT_WALLET_KEY);
+
+    if (!rawValue) {
+      return [];
+    }
+
+    const parsed: unknown = JSON.parse(rawValue);
+
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .map(sanitizePromptWalletEntry)
+      .filter((entry): entry is PromptWalletEntry => entry !== null);
+  } catch {
+    return [];
+  }
+}
+
+export function savePromptWallet(entries: readonly PromptWalletEntry[]): boolean {
+  const storage = getStorage();
+
+  if (!storage) {
+    return false;
+  }
+
+  try {
+    storage.setItem(PROMPT_WALLET_KEY, JSON.stringify(entries));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Drops anything that is not a usable entry rather than trusting stored JSON.
+ * An entry with no positive prompt is not worth recalling, so it counts as
+ * corrupt too -- that is the one field the whole feature exists to carry.
+ */
+function sanitizePromptWalletEntry(value: unknown): PromptWalletEntry | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const entry = value as Record<string, unknown>;
+  const id = typeof entry.id === "string" ? entry.id : "";
+  const positivePrompt = typeof entry.positivePrompt === "string" ? entry.positivePrompt : "";
+
+  if (!id || !positivePrompt) {
+    return null;
+  }
+
+  return {
+    id,
+    name: typeof entry.name === "string" && entry.name ? entry.name : positivePrompt.slice(0, 40),
+    positivePrompt,
+    negativePrompt: typeof entry.negativePrompt === "string" ? entry.negativePrompt : "",
+    pinned: entry.pinned === true,
+    createdAt: typeof entry.createdAt === "string" ? entry.createdAt : new Date().toISOString()
+  };
 }
 
 function getStorage(): Storage | null {

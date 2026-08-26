@@ -1,4 +1,5 @@
 import { ComfyClient } from "../comfy/comfyClient";
+import { findActiveComfyUrl } from "../comfy/comfyPortDiscovery";
 import {
   createHardwareRecommendationReport,
   getPrimaryDeviceVramTotalBytes,
@@ -172,6 +173,10 @@ import {
 } from "./spikeModelDownload";
 import { setArtistControlsEnabled, syncArtistControls } from "./artistControls";
 import { setSeedDiceEnabled } from "./seedDice";
+import { bindPromptMemory } from "./promptMemory";
+import { bindPromptWallet, PromptWalletTool } from "./promptWallet";
+// SPIKE: delete with src/ui/promptInputDiagnostic.ts.
+import { attachPromptInputDiagnostic } from "./promptInputDiagnostic";
 import {
   createUpscaleResizePlan,
   formatUpscaleScale,
@@ -260,6 +265,7 @@ import {
   bindStickyProgress,
   bindToolCards,
   bindToolWarnings,
+  bindWelcomeOverlay,
   createActionRunner,
   HistoryActionName,
   setActionDisabled
@@ -267,7 +273,6 @@ import {
 import {
   APP_VERSION,
   AppView,
-  COMFY_PORT_CANDIDATES,
   DEFAULT_CFG,
   DEFAULT_HEIGHT,
   DEFAULT_IMAGE_WORKFLOW,
@@ -500,6 +505,7 @@ export function renderApp(rootElement: HTMLElement) {
   let importAutomatically = false;
   let imageImportAutomatically = false;
   let upscaleImportAutomatically = false;
+  let inpaintImportAutomatically = false;
   let isNegativePromptOpen = false;
   let allowExperimentalCheckpoints = false;
   let livePaintingSession: LivePaintingSessionV2 | null = null;
@@ -510,7 +516,6 @@ export function renderApp(rootElement: HTMLElement) {
   let liveImportAutomatically = false;
   let liveAutoRefine = false;
   let isLiveNegativePromptOpen = false;
-  let livePreviewZoomed = false;
   let hardwareReport: HardwareRecommendationReport | null = null;
   let workflowHealthReport: WorkflowHealthReport | null = null;
   // The Setup screen keeps its own report because it asks the server a
@@ -1340,12 +1345,12 @@ export function renderApp(rootElement: HTMLElement) {
     generateUpscale: createActionRunner(elements, "generateUpscale", handleGenerateUpscale),
     importUpscale: createActionRunner(elements, "importUpscale", handleImportUpscale),
     toggleUpscaleAutoImport: createActionRunner(elements, "toggleUpscaleAutoImport", handleToggleUpscaleAutoImport),
+    toggleInpaintAutoImport: createActionRunner(elements, "toggleInpaintAutoImport", handleToggleInpaintAutoImport),
     clearHistory: createActionRunner(elements, "clearHistory", handleClearHistory),
     toggleLiveNegativePrompt: createActionRunner(elements, "toggleLiveNegativePrompt", handleToggleLiveNegativePrompt),
     startLivePainting: createActionRunner(elements, "startLivePainting", handleStartLivePainting),
     stopLivePainting: createActionRunner(elements, "stopLivePainting", handleStopLivePainting),
     refineLivePainting: createActionRunner(elements, "refineLivePainting", handleRefineLivePainting),
-    toggleLiveZoom: createActionRunner(elements, "toggleLiveZoom", handleToggleLiveZoom),
     importLiveResult: createActionRunner(elements, "importLiveResult", handleImportLiveResult),
     importLiveRefined: createActionRunner(elements, "importLiveRefined", handleImportLiveRefined),
     toggleLiveAutoImport: createActionRunner(elements, "toggleLiveAutoImport", handleToggleLiveAutoImport),
@@ -1402,12 +1407,12 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.generateUpscaleButton, actionHandlers.generateUpscale);
   bindActionControl(elements.importUpscaleButton, actionHandlers.importUpscale);
   bindActionControl(elements.upscaleAutoImportToggle, actionHandlers.toggleUpscaleAutoImport);
+  bindActionControl(elements.inpaintAutoImportToggle, actionHandlers.toggleInpaintAutoImport);
   bindActionControl(elements.clearHistoryButton, actionHandlers.clearHistory);
   bindActionControl(elements.liveNegativePromptToggle, actionHandlers.toggleLiveNegativePrompt);
   bindActionControl(elements.liveStartButton, actionHandlers.startLivePainting);
   bindActionControl(elements.liveStopButton, actionHandlers.stopLivePainting);
   bindActionControl(elements.liveRefineButton, actionHandlers.refineLivePainting);
-  bindActionControl(elements.liveZoomToggle, actionHandlers.toggleLiveZoom);
   bindActionControl(elements.importLiveButton, actionHandlers.importLiveResult);
   bindActionControl(elements.importLiveRefinedButton, actionHandlers.importLiveRefined);
   bindActionControl(elements.liveAutoImportToggle, actionHandlers.toggleLiveAutoImport);
@@ -1426,6 +1431,74 @@ export function renderApp(rootElement: HTMLElement) {
   bindHistoryActions(rootElement, handleHistoryAction);
   bindExternalLinks(rootElement);
   bindAdvancedToggles(rootElement);
+  bindPromptMemory(elements);
+  // One shared library across every tool: the same prompt is reachable from
+  // Inpaint and Text to Image alike. Each tool reports into its own status
+  // line, which is a surface with proof of life in the host -- unlike a
+  // floating toast, which would mean new injected DOM and position: fixed,
+  // both of which have already failed here.
+  const promptWalletTools: readonly PromptWalletTool[] = [
+    {
+      positive: "prompt",
+      negative: "negativePrompt",
+      saveButton: "promptWalletSave",
+      loadButton: "promptWalletLoad",
+      view: "text-to-image",
+      label: "Text to Image",
+      report: setTextToImageDiagnostics
+    },
+    {
+      positive: "imgPrompt",
+      negative: "imgNegativePrompt",
+      saveButton: "imgPromptWalletSave",
+      loadButton: "imgPromptWalletLoad",
+      view: "image-to-image",
+      label: "Image to Image",
+      report: setImageDiagnostics
+    },
+    {
+      positive: "sketchPrompt",
+      negative: "sketchNegativePrompt",
+      saveButton: "sketchPromptWalletSave",
+      loadButton: "sketchPromptWalletLoad",
+      view: "sketch-to-image",
+      label: "Sketch to Image",
+      report: setSketchDiagnostics
+    },
+    {
+      positive: "inpaintPrompt",
+      negative: "inpaintNegativePrompt",
+      saveButton: "inpaintPromptWalletSave",
+      loadButton: "inpaintPromptWalletLoad",
+      view: "inpaint",
+      label: "Inpaint",
+      report: setInpaintDiagnostics
+    },
+    // Outpaint has no negative prompt field at all, so it saves and loads the
+    // positive alone rather than being excluded from the Wallet.
+    {
+      positive: "outpaintPrompt",
+      saveButton: "outpaintPromptWalletSave",
+      loadButton: "outpaintPromptWalletLoad",
+      view: "outpaint",
+      label: "Outpaint",
+      report: setOutpaintDiagnostics
+    },
+    {
+      positive: "livePrompt",
+      negative: "liveNegativePrompt",
+      saveButton: "livePromptWalletSave",
+      loadButton: "livePromptWalletLoad",
+      view: "live-painting",
+      label: "Live Painting",
+      report: (_elements, message) => setLiveStatus(message)
+    }
+  ];
+  const promptWallet = bindPromptWallet(elements, promptWalletTools, setView);
+  bindWelcomeOverlay(elements);
+  // SPIKE: delete with src/ui/promptInputDiagnostic.ts.
+  attachPromptInputDiagnostic(elements.prompt, elements.diagnosticsText, "txt2img");
+  attachPromptInputDiagnostic(elements.imgPrompt, elements.imgDiagnosticsText, "img2img");
   bindToolWarnings(rootElement);
   bindStickyProgress(rootElement);
   elements.settingsThemeSelect.addEventListener("change", () => {
@@ -1444,6 +1517,7 @@ export function renderApp(rootElement: HTMLElement) {
   updateAutoImportToggle(elements, importAutomatically);
   updateImg2ImgAutoImportToggle(elements, imageImportAutomatically);
   updateUpscaleAutoImportToggle(elements, upscaleImportAutomatically);
+  updateInpaintAutoImportToggle(elements, inpaintImportAutomatically);
   updateExperimentalCheckpointToggle(elements, allowExperimentalCheckpoints);
   updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
   setImageSource(null);
@@ -2085,6 +2159,13 @@ export function renderApp(rootElement: HTMLElement) {
     imageImportAutomatically = !imageImportAutomatically;
     updateImg2ImgAutoImportToggle(elements, imageImportAutomatically);
     setImageDiagnostics(elements, imageImportAutomatically ? "Image to Image auto import is on." : "Image to Image auto import is off.");
+    syncImportBridge();
+  }
+
+  function handleToggleInpaintAutoImport() {
+    inpaintImportAutomatically = !inpaintImportAutomatically;
+    updateInpaintAutoImportToggle(elements, inpaintImportAutomatically);
+    setInpaintDiagnostics(elements, inpaintImportAutomatically ? "Inpaint auto import is on." : "Inpaint auto import is off.");
     syncImportBridge();
   }
 
@@ -4084,6 +4165,11 @@ export function renderApp(rootElement: HTMLElement) {
           debugExportMessage
         ].filter(Boolean).join(" ")
       );
+
+      if (inpaintImportAutomatically) {
+        setInpaintStatus(elements, "Inpaint complete. Auto-importing...", "idle");
+        await handleImportInpaint();
+      }
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
         showGenerationCancelled("inpaint");
@@ -4503,13 +4589,6 @@ export function renderApp(rootElement: HTMLElement) {
     }
   }
 
-  function handleToggleLiveZoom() {
-    livePreviewZoomed = !livePreviewZoomed;
-    elements.liveResultPreviewPanel.classList.toggle("preview-zoomed", livePreviewZoomed);
-    elements.liveZoomToggle.textContent = livePreviewZoomed ? "Zoom 1x" : "Zoom 2x";
-    elements.liveZoomToggle.setAttribute("aria-pressed", String(livePreviewZoomed));
-  }
-
   async function handleImportLiveResult() {
     if (!liveLastResult) {
       setLiveStatus("Generate a live result before importing.");
@@ -4813,6 +4892,12 @@ export function renderApp(rootElement: HTMLElement) {
     // progress bar mid-generation, and it is redundant there: since the v0.8
     // status split every tool carries its own status bar with the same message.
     elements.homeStatusRow.hidden = view !== "home";
+    // Same reasoning, and the same fix, as the status row above. The brand
+    // lockup sits above each tool screen's sticky header, so as soon as a
+    // screen is tall enough to scroll it slides UNDER that header and renders
+    // as a half-clipped logo with the title cut off. It is also redundant on
+    // a tool screen: the sticky header already names the tool you are in.
+    elements.appHeader.hidden = view !== "home";
     elements.homeView.hidden = currentView !== "home";
     elements.generatorView.hidden = currentView !== "text-to-image";
     elements.imageToImageView.hidden = currentView !== "image-to-image";
@@ -4825,6 +4910,7 @@ export function renderApp(rootElement: HTMLElement) {
     elements.settingsView.hidden = currentView !== "settings";
     elements.setupView.hidden = currentView !== "setup";
     elements.historyView.hidden = currentView !== "history";
+    elements.promptWalletView.hidden = currentView !== "prompt-wallet";
     elements.layerToolsView.hidden = currentView !== "layer-tools";
 
     if (currentView === "settings") {
@@ -4847,6 +4933,18 @@ export function renderApp(rootElement: HTMLElement) {
 
     if (currentView === "history") {
       renderHistory(elements, historyEntries);
+    }
+
+    // Redrawn on entry rather than kept live: a prompt saved from a tool while
+    // this screen was hidden would otherwise not appear until something else
+    // happened to re-render it.
+    if (currentView === "prompt-wallet") {
+      promptWallet?.render();
+    } else {
+      // Leaving mid-pick -- Back to Tools, or any other screen -- must not
+      // leave a stale "Choose a prompt for X" banner waiting the next time
+      // the Wallet is opened normally rather than via a tool's Load button.
+      promptWallet?.exitPickMode();
     }
   }
 }
@@ -4929,6 +5027,12 @@ function updateImg2ImgAutoImportToggle(elements: AppElements, isEnabled: boolean
   elements.imgAutoImportToggle.textContent = isEnabled ? "Auto Import On" : "Import Automatically";
   elements.imgAutoImportToggle.setAttribute("aria-pressed", String(isEnabled));
   elements.imgAutoImportToggle.classList.toggle("is-active", isEnabled);
+}
+
+function updateInpaintAutoImportToggle(elements: AppElements, isEnabled: boolean) {
+  elements.inpaintAutoImportToggle.textContent = isEnabled ? "Auto Import On" : "Import Automatically";
+  elements.inpaintAutoImportToggle.setAttribute("aria-pressed", String(isEnabled));
+  elements.inpaintAutoImportToggle.classList.toggle("is-active", isEnabled);
 }
 
 function updateUpscaleAutoImportToggle(elements: AppElements, isEnabled: boolean) {
@@ -6781,64 +6885,6 @@ function clearHistoryEntries(historyEntries: HistoryEntry[], objectUrls: ObjectU
   }
 
   historyEntries.splice(0, historyEntries.length);
-}
-
-async function findActiveComfyUrl(currentUrl: string, onProgress: (message: string) => void) {
-  const candidates = buildComfyCandidateUrls(currentUrl);
-
-  for (const candidate of candidates) {
-    onProgress(`Checking ${candidate}...`);
-
-    if (await isComfyServerOnline(candidate)) {
-      return candidate;
-    }
-  }
-
-  return "";
-}
-
-function buildComfyCandidateUrls(currentUrl: string) {
-  const candidates = [
-    normalizeCandidateUrl(currentUrl),
-    ...COMFY_PORT_CANDIDATES.map((port) => `http://127.0.0.1:${port}`)
-  ].filter(Boolean);
-
-  return Array.from(new Set(candidates));
-}
-
-function normalizeCandidateUrl(url: string) {
-  const trimmed = url.trim();
-
-  if (!trimmed) {
-    return "";
-  }
-
-  try {
-    const parsed = new URL(trimmed);
-    parsed.pathname = parsed.pathname.replace(/\/+$/, "");
-    parsed.search = "";
-    parsed.hash = "";
-    return parsed.toString().replace(/\/+$/, "");
-  } catch {
-    return "";
-  }
-}
-
-async function isComfyServerOnline(serverUrl: string) {
-  const controller = typeof AbortController === "function" ? new AbortController() : null;
-  const timeoutId = window.setTimeout(() => {
-    controller?.abort();
-  }, 1200);
-
-  try {
-    const requestOptions: RequestInit = controller ? { signal: controller.signal } : {};
-    const response = await fetch(`${serverUrl}/system_stats`, requestOptions);
-    return response.ok;
-  } catch {
-    return false;
-  } finally {
-    window.clearTimeout(timeoutId);
-  }
 }
 
 function createHistoryId() {

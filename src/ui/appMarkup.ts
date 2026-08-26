@@ -37,6 +37,13 @@ import { DEFAULT_AGENT_BRIDGE_PORT } from "../utils/preferences";
 
 export type AppElements = {
   appShell: HTMLElement;
+  welcomeOverlay: HTMLElement;
+  welcomeStatusText: HTMLElement;
+  welcomeManualRow: HTMLElement;
+  welcomeServerUrlInput: HTMLInputElement;
+  welcomeRetryButton: HTMLButtonElement;
+  welcomeContinueButton: HTMLButtonElement;
+  welcomeSkipButton: HTMLButtonElement;
   homeView: HTMLElement;
   generatorView: HTMLElement;
   imageToImageView: HTMLElement;
@@ -64,6 +71,11 @@ export type AppElements = {
   agentBridgeStatusText: HTMLElement;
   agentBridgeStatusPill: HTMLElement;
   historyView: HTMLElement;
+  promptWalletView: HTMLElement;
+  promptWalletList: HTMLElement;
+  promptWalletSearch: HTMLInputElement;
+  promptWalletCount: HTMLElement;
+  promptWalletBanner: HTMLElement;
   layerToolsView: HTMLElement;
   exportLayerFileButton: HTMLElement;
   exportLayerComfyButton: HTMLElement;
@@ -73,11 +85,14 @@ export type AppElements = {
   exportMaskComfyButton: HTMLElement;
   layerToolsStatusText: HTMLElement;
   layerToolsStatusPill: HTMLElement;
+  appHeader: HTMLElement;
   homeStatusRow: HTMLElement;
   homeStatusText: HTMLElement;
   homeStatusDot: HTMLElement;
   serverUrl: HTMLInputElement;
   prompt: HTMLTextAreaElement;
+  promptWalletSave: HTMLElement;
+  promptWalletLoad: HTMLElement;
   negativePrompt: HTMLTextAreaElement;
   workflow: HTMLSelectElement;
   checkpoint: HTMLSelectElement;
@@ -115,6 +130,8 @@ export type AppElements = {
   importButton: HTMLElement;
   autoImportToggle: HTMLElement;
   imgPrompt: HTMLTextAreaElement;
+  imgPromptWalletSave: HTMLElement;
+  imgPromptWalletLoad: HTMLElement;
   imgNegativePrompt: HTMLTextAreaElement;
   imgWorkflow: HTMLSelectElement;
   imgCheckpoint: HTMLSelectElement;
@@ -127,6 +144,8 @@ export type AppElements = {
   generateImg2ImgButton: HTMLElement;
   importImg2ImgButton: HTMLElement;
   sketchPrompt: HTMLTextAreaElement;
+  sketchPromptWalletSave: HTMLElement;
+  sketchPromptWalletLoad: HTMLElement;
   sketchNegativePrompt: HTMLTextAreaElement;
   sketchWorkflow: HTMLSelectElement;
   sketchCheckpoint: HTMLSelectElement;
@@ -140,6 +159,8 @@ export type AppElements = {
   generateSketchButton: HTMLElement;
   importSketchButton: HTMLElement;
   inpaintPrompt: HTMLTextAreaElement;
+  inpaintPromptWalletSave: HTMLElement;
+  inpaintPromptWalletLoad: HTMLElement;
   inpaintNegativePrompt: HTMLTextAreaElement;
   inpaintWorkflow: HTMLSelectElement;
   inpaintCheckpoint: HTMLSelectElement;
@@ -152,7 +173,10 @@ export type AppElements = {
   captureInpaintActiveLayerButton: HTMLElement;
   generateInpaintButton: HTMLElement;
   importInpaintButton: HTMLElement;
+  inpaintAutoImportToggle: HTMLElement;
   outpaintPrompt: HTMLTextAreaElement;
+  outpaintPromptWalletSave: HTMLElement;
+  outpaintPromptWalletLoad: HTMLElement;
   outpaintWorkflow: HTMLSelectElement;
   outpaintCheckpoint: HTMLSelectElement;
   outpaintSteps: HTMLInputElement;
@@ -278,6 +302,8 @@ export type AppElements = {
   settingsDiagnosticsReport: HTMLTextAreaElement;
   livePaintingView: HTMLElement;
   livePrompt: HTMLTextAreaElement;
+  livePromptWalletSave: HTMLElement;
+  livePromptWalletLoad: HTMLElement;
   liveNegativePrompt: HTMLTextAreaElement;
   liveNegativePromptToggle: HTMLElement;
   liveNegativePromptField: HTMLElement;
@@ -290,7 +316,6 @@ export type AppElements = {
   liveStateBadge: HTMLElement;
   liveTimingsText: HTMLElement;
   liveResultPreviewPanel: HTMLElement;
-  liveZoomToggle: HTMLElement;
   importLiveButton: HTMLElement;
   importLiveRefinedButton: HTMLElement;
   liveAutoImportToggle: HTMLElement;
@@ -299,6 +324,33 @@ export type AppElements = {
 export function createAppMarkup() {
   return `
     <main class="app-shell theme-compact" id="app-shell">
+      <div class="welcome-overlay" id="welcome-overlay" role="dialog" aria-modal="true" aria-labelledby="welcome-title" hidden>
+        <div class="welcome-card">
+          <h2 class="welcome-title" id="welcome-title">OpenLayer needs ComfyUI</h2>
+          <p class="welcome-copy">
+            OpenLayer connects Photoshop to a <a href="https://github.com/comfyanonymous/ComfyUI" data-openlayer-external="https://github.com/comfyanonymous/ComfyUI">ComfyUI</a>
+            server running on your own machine — it isn't bundled with the plugin. If it isn't running yet, start it
+            now; OpenLayer will find it automatically.
+          </p>
+          <div class="welcome-status-row">
+            <span class="home-status-dot idle" id="welcome-status-dot" aria-hidden="true"></span>
+            <span id="welcome-status-text">Looking for ComfyUI...</span>
+          </div>
+          <div class="welcome-manual-row field" id="welcome-manual-row" hidden>
+            <span class="label">ComfyUI address</span>
+            <input class="input" id="welcome-server-url" type="text" placeholder="http://127.0.0.1:8188" />
+          </div>
+          <div class="welcome-actions">
+            <button class="button button-primary action-control" id="welcome-retry" type="button" hidden>Try again</button>
+            <button class="button button-primary action-control" id="welcome-continue" type="button" hidden>Continue</button>
+            <button class="button action-control" id="welcome-skip" type="button">Skip for now</button>
+          </div>
+          <p class="welcome-footnote">
+            Not sure where to start? The <strong>Setup</strong> screen (under Preferences) lists everything the
+            presets need, once you're in the panel.
+          </p>
+        </div>
+      </div>
       ${createBrandHeaderMarkup()}
       <div class="home-status-row" id="home-status-row">
         <span>Status:</span>
@@ -356,7 +408,7 @@ export function createAppMarkup() {
               <input class="input input-compact" id="prompt-layer-num-beams" type="number" min="1" max="32" step="1" value="${DEFAULT_PROMPT_LAYER_NUM_BEAMS}" />
             </label>
           </div>
-          <textarea class="textarea compact-textarea" id="prompt-layer-generated-text" placeholder="Generated prompt text will appear here..."></textarea>
+          <textarea maxlength="10000" class="textarea compact-textarea" id="prompt-layer-generated-text" placeholder="Generated prompt text will appear here..."></textarea>
           <button class="button button-primary button-generate button-wide action-control" id="generate-prompt-from-layer" data-openlayer-action="generatePromptFromLayer" type="button">Generate Text from Layer</button>
           <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
           <div class="import-actions">
@@ -398,14 +450,14 @@ export function createAppMarkup() {
             follows your strokes.
           </div>
           <label class="field">
-            <span class="label">Prompt</span>
-            <textarea class="textarea" id="live-prompt" placeholder="Describe what your painting should become..."></textarea>
+            <span class="label">Prompt${createPromptWalletControlsMarkup("live-prompt")}</span>
+            <textarea maxlength="10000" class="textarea" id="live-prompt" placeholder="Describe what your painting should become..."></textarea>
           </label>
           <section class="negative-prompt-section" aria-label="Live Painting negative prompt">
             <button class="button disclosure-button action-control" id="live-negative-prompt-toggle" data-openlayer-action="toggleLiveNegativePrompt" type="button">Show Negative Prompt</button>
             <label class="field negative-prompt-field" id="live-negative-prompt-field" hidden>
               <span class="label">Negative prompt</span>
-              <textarea class="textarea" id="live-negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
+              <textarea maxlength="10000" class="textarea" id="live-negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
             </label>
           </section>
           <label class="field">
@@ -425,7 +477,6 @@ export function createAppMarkup() {
         <section class="panel-section generator-panel" aria-label="Live Painting preview">
           <div class="section-heading">
             <span class="label">Live preview</span>
-            <button class="button action-control" id="live-zoom-toggle" data-openlayer-action="toggleLiveZoom" type="button" aria-pressed="false">Zoom 2x</button>
           </div>
           <div class="preview-panel" id="live-result-preview-panel">
             <span class="preview-empty">Start a session, then paint a stroke</span>
@@ -478,7 +529,7 @@ export function createAppMarkup() {
             <button class="button action-control" id="save-settings" data-openlayer-action="saveSettings" type="button">Save Settings</button>
             <button class="button action-control" id="reset-settings" data-openlayer-action="resetSettings" type="button">Reset Defaults</button>
           </div>
-          <textarea class="textarea compact-textarea diagnostics-report" id="settings-diagnostics-report" readonly hidden></textarea>
+          <textarea maxlength="10000" class="textarea compact-textarea diagnostics-report" id="settings-diagnostics-report" readonly hidden></textarea>
         </section>
         <section class="panel-section settings-panel diagnostic-section diagnostic-scroll-safe" aria-label="Status report">
           <div class="section-heading">
@@ -566,15 +617,15 @@ export function createAppMarkup() {
             <span class="muted-label">Prompt and settings</span>
           </div>
           <label class="field">
-            <span class="label">Prompt</span>
-            <textarea class="textarea" id="prompt" placeholder="Describe the image you want to generate..."></textarea>
+            <span class="label">Prompt${createPromptWalletControlsMarkup("prompt")}</span>
+            <textarea maxlength="10000" class="textarea" id="prompt" placeholder="Describe the image you want to generate..."></textarea>
           </label>
           <button class="button action-control" id="suggest-prompt" data-openlayer-action="suggestPrompt" type="button">Ask the Agent for a Prompt</button>
           <section class="negative-prompt-section" aria-label="Negative prompt">
             <button class="button disclosure-button action-control" id="negative-prompt-toggle" data-openlayer-action="toggleNegativePrompt" type="button">Show Negative Prompt</button>
             <label class="field negative-prompt-field" id="negative-prompt-field" hidden>
               <span class="label">Negative prompt</span>
-              <textarea class="textarea" id="negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
+              <textarea maxlength="10000" class="textarea" id="negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
             </label>
           </section>
           <label class="field">
@@ -689,12 +740,12 @@ export function createAppMarkup() {
             <span class="muted-label">Prompt and workflow</span>
           </div>
           <div class="field img2img-field">
-            <span class="label">Prompt</span>
-            <textarea class="textarea compact-textarea" id="img-prompt" placeholder="Describe how to reinterpret the active layer..."></textarea>
+            <span class="label">Prompt${createPromptWalletControlsMarkup("img-prompt")}</span>
+            <textarea maxlength="10000" class="textarea compact-textarea" id="img-prompt" placeholder="Describe how to reinterpret the active layer..."></textarea>
           </div>
           <div class="field img2img-field">
             <span class="label">Negative prompt</span>
-            <textarea class="textarea compact-textarea" id="img-negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
+            <textarea maxlength="10000" class="textarea compact-textarea" id="img-negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
           </div>
           <div class="field img2img-field">
             <span class="label">Workflow</span>
@@ -809,12 +860,12 @@ export function createAppMarkup() {
             <span class="muted-label">Prompt and LINECN settings</span>
           </div>
           <div class="field img2img-field">
-            <span class="label">Prompt</span>
-            <textarea class="textarea compact-textarea" id="sketch-prompt" placeholder="Describe the final image guided by the lineart..."></textarea>
+            <span class="label">Prompt${createPromptWalletControlsMarkup("sketch-prompt")}</span>
+            <textarea maxlength="10000" class="textarea compact-textarea" id="sketch-prompt" placeholder="Describe the final image guided by the lineart..."></textarea>
           </div>
           <div class="field img2img-field">
             <span class="label">Negative prompt</span>
-            <textarea class="textarea compact-textarea" id="sketch-negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
+            <textarea maxlength="10000" class="textarea compact-textarea" id="sketch-negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
           </div>
           <div class="field img2img-field">
             <span class="label">Workflow</span>
@@ -940,12 +991,12 @@ export function createAppMarkup() {
             <span class="muted-label">Prompt and mask settings</span>
           </div>
           <div class="field img2img-field">
-            <span class="label">Prompt</span>
-            <textarea class="textarea compact-textarea" id="inpaint-prompt" placeholder="Describe what should replace the selected area..."></textarea>
+            <span class="label">Prompt${createPromptWalletControlsMarkup("inpaint-prompt")}</span>
+            <textarea maxlength="10000" class="textarea compact-textarea" id="inpaint-prompt" placeholder="Describe what should replace the selected area..."></textarea>
           </div>
           <div class="field img2img-field">
             <span class="label">Negative prompt</span>
-            <textarea class="textarea compact-textarea" id="inpaint-negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
+            <textarea maxlength="10000" class="textarea compact-textarea" id="inpaint-negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
           </div>
           <div class="field img2img-field">
             <span class="label">Workflow</span>
@@ -1006,6 +1057,7 @@ export function createAppMarkup() {
           </div>
           <div class="import-actions">
             <button class="button button-import button-import-blue action-control is-disabled" id="import-inpaint-result" data-openlayer-action="importInpaint" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
+            <button class="button auto-import-toggle action-control" id="inpaint-auto-import-toggle" data-openlayer-action="toggleInpaintAutoImport" type="button" aria-pressed="false">Import Automatically</button>
           </div>
         </section>
       </section>
@@ -1046,8 +1098,8 @@ export function createAppMarkup() {
             <span class="muted-label">Prompt and expansion</span>
           </div>
           <div class="field img2img-field">
-            <span class="label">Prompt</span>
-            <textarea class="textarea compact-textarea" id="outpaint-prompt" placeholder="Describe what should extend beyond the current image..."></textarea>
+            <span class="label">Prompt${createPromptWalletControlsMarkup("outpaint-prompt")}</span>
+            <textarea maxlength="10000" class="textarea compact-textarea" id="outpaint-prompt" placeholder="Describe what should extend beyond the current image..."></textarea>
           </div>
           <div class="field img2img-field">
             <span class="label">Workflow</span>
@@ -1354,8 +1406,34 @@ export function createAppMarkup() {
         </section>
       </section>
 
+      <section class="prompt-wallet-view history-view" id="prompt-wallet-view" aria-label="Prompt Wallet" hidden>
+        <div class="screen-nav">
+          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
+          <div class="screen-title-block">
+            ${createScreenIconMarkup("promptFromLayer", "Prompt Wallet")}
+            <span class="screen-title">Prompt Wallet</span>
+          </div>
+        </div>
+
+        <section class="panel-section" aria-label="Saved prompts">
+          <div class="prompt-wallet-banner" id="prompt-wallet-banner" hidden></div>
+          <div class="section-heading">
+            <span class="label">Saved prompts</span>
+            <span class="muted-label" id="prompt-wallet-count"></span>
+          </div>
+          <input
+            class="input prompt-wallet-search"
+            id="prompt-wallet-search"
+            type="text"
+            placeholder="Search saved prompts..."
+            aria-label="Search saved prompts"
+          />
+          <div class="history-list" id="prompt-wallet-list"></div>
+        </section>
+      </section>
+
       <footer class="app-footer">
-        <span>OpenLayer v${APP_VERSION} &middot; Developer: Mehran Ahmadi 2026</span>
+        <span>OpenLayer v${APP_VERSION} &copy; By Mehran Ahmadi 2026</span>
       </footer>
     </main>
   `;
@@ -1363,7 +1441,7 @@ export function createAppMarkup() {
 
 function createBrandHeaderMarkup() {
   return `
-    <header class="app-header">
+    <header class="app-header" id="app-header">
       <div class="brand-lockup">
         <img class="brand-icon" src="icons/openlayer-icon.png" alt="" width="48" height="48" />
         <div>
@@ -1460,6 +1538,37 @@ function createScreenIconMarkup(icon: ToolIconName, label: string) {
   return `<span class="screen-kicker screen-icon" aria-label="${label}" title="${label}">${createToolIconMarkup(icon)}</span>`;
 }
 
+/**
+ * The small circular Wallet save control, inline in the "Prompt" label itself
+ * rather than in its own row below the field -- a full row read as too heavy
+ * for what is a small, secondary action, and sitting inside the label keeps
+ * it out of the way of the field it belongs to.
+ *
+ * A circle rather than a labelled button so it stays small. Both a title and
+ * an aria-label carry the meaning, and pressing it reports what happened in
+ * the tool's own status line, so the colour never has to be self-explanatory.
+ *
+ * `fieldId` is the positive prompt's own element id, reused as the button id
+ * prefix so two tools' controls can never collide.
+ */
+function createPromptWalletControlsMarkup(fieldId: string) {
+  return `<button
+    class="prompt-wallet-dot prompt-wallet-save is-disabled"
+    id="${fieldId}-wallet-save"
+    type="button"
+    aria-disabled="true"
+    aria-label="Save this prompt to the Wallet"
+    title="Save this prompt to the Wallet"
+  >+</button><button
+    class="prompt-wallet-dot prompt-wallet-load is-disabled"
+    id="${fieldId}-wallet-load"
+    type="button"
+    aria-disabled="true"
+    aria-label="Load a prompt from the Wallet"
+    title="Load a prompt from the Wallet"
+  >↓</button>`;
+}
+
 function createInfoToggleMarkup(targetId: string) {
   return `
     <button
@@ -1481,6 +1590,13 @@ function createInfoPanelMarkup(targetId: string, text: string) {
 export function getAppElements(rootElement: HTMLElement): AppElements {
   return {
     appShell: getElement<HTMLElement>(rootElement, "app-shell"),
+    welcomeOverlay: getElement<HTMLElement>(rootElement, "welcome-overlay"),
+    welcomeStatusText: getElement<HTMLElement>(rootElement, "welcome-status-text"),
+    welcomeManualRow: getElement<HTMLElement>(rootElement, "welcome-manual-row"),
+    welcomeServerUrlInput: getElement<HTMLInputElement>(rootElement, "welcome-server-url"),
+    welcomeRetryButton: getElement<HTMLButtonElement>(rootElement, "welcome-retry"),
+    welcomeContinueButton: getElement<HTMLButtonElement>(rootElement, "welcome-continue"),
+    welcomeSkipButton: getElement<HTMLButtonElement>(rootElement, "welcome-skip"),
     homeView: getElement<HTMLElement>(rootElement, "home-view"),
     generatorView: getElement<HTMLElement>(rootElement, "generator-view"),
     imageToImageView: getElement<HTMLElement>(rootElement, "image-to-image-view"),
@@ -1508,6 +1624,11 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     agentBridgeStatusText: getElement<HTMLElement>(rootElement, "agent-bridge-status-text"),
     agentBridgeStatusPill: getElement<HTMLElement>(rootElement, "agent-bridge-status-pill"),
     historyView: getElement<HTMLElement>(rootElement, "history-view"),
+    promptWalletView: getElement<HTMLElement>(rootElement, "prompt-wallet-view"),
+    promptWalletList: getElement<HTMLElement>(rootElement, "prompt-wallet-list"),
+    promptWalletSearch: getElement<HTMLInputElement>(rootElement, "prompt-wallet-search"),
+    promptWalletCount: getElement<HTMLElement>(rootElement, "prompt-wallet-count"),
+    promptWalletBanner: getElement<HTMLElement>(rootElement, "prompt-wallet-banner"),
     layerToolsView: getElement<HTMLElement>(rootElement, "layer-tools-view"),
     exportLayerFileButton: getElement<HTMLElement>(rootElement, "export-layer-file"),
     exportLayerComfyButton: getElement<HTMLElement>(rootElement, "export-layer-comfy"),
@@ -1517,11 +1638,14 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     exportMaskComfyButton: getElement<HTMLElement>(rootElement, "export-mask-comfy"),
     layerToolsStatusText: getElement<HTMLElement>(rootElement, "layer-tools-status-text"),
     layerToolsStatusPill: getElement<HTMLElement>(rootElement, "layer-tools-status-pill"),
+    appHeader: getElement<HTMLElement>(rootElement, "app-header"),
     homeStatusRow: getElement<HTMLElement>(rootElement, "home-status-row"),
     homeStatusText: getElement<HTMLElement>(rootElement, "home-status-text"),
     homeStatusDot: getElement<HTMLElement>(rootElement, "home-status-dot"),
     serverUrl: getElement<HTMLInputElement>(rootElement, "server-url"),
     prompt: getElement<HTMLTextAreaElement>(rootElement, "prompt"),
+    promptWalletSave: getElement<HTMLElement>(rootElement, "prompt-wallet-save"),
+    promptWalletLoad: getElement<HTMLElement>(rootElement, "prompt-wallet-load"),
     negativePrompt: getElement<HTMLTextAreaElement>(rootElement, "negative-prompt"),
     workflow: getElement<HTMLSelectElement>(rootElement, "workflow"),
     checkpoint: getElement<HTMLSelectElement>(rootElement, "checkpoint"),
@@ -1559,6 +1683,8 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     importButton: getElement<HTMLElement>(rootElement, "import-result"),
     autoImportToggle: getElement<HTMLElement>(rootElement, "auto-import-toggle"),
     imgPrompt: getElement<HTMLTextAreaElement>(rootElement, "img-prompt"),
+    imgPromptWalletSave: getElement<HTMLElement>(rootElement, "img-prompt-wallet-save"),
+    imgPromptWalletLoad: getElement<HTMLElement>(rootElement, "img-prompt-wallet-load"),
     imgNegativePrompt: getElement<HTMLTextAreaElement>(rootElement, "img-negative-prompt"),
     imgWorkflow: getElement<HTMLSelectElement>(rootElement, "img-workflow"),
     imgCheckpoint: getElement<HTMLSelectElement>(rootElement, "img-checkpoint"),
@@ -1571,6 +1697,8 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     generateImg2ImgButton: getElement<HTMLElement>(rootElement, "generate-img2img"),
     importImg2ImgButton: getElement<HTMLElement>(rootElement, "import-img2img-result"),
     sketchPrompt: getElement<HTMLTextAreaElement>(rootElement, "sketch-prompt"),
+    sketchPromptWalletSave: getElement<HTMLElement>(rootElement, "sketch-prompt-wallet-save"),
+    sketchPromptWalletLoad: getElement<HTMLElement>(rootElement, "sketch-prompt-wallet-load"),
     sketchNegativePrompt: getElement<HTMLTextAreaElement>(rootElement, "sketch-negative-prompt"),
     sketchWorkflow: getElement<HTMLSelectElement>(rootElement, "sketch-workflow"),
     sketchCheckpoint: getElement<HTMLSelectElement>(rootElement, "sketch-checkpoint"),
@@ -1584,6 +1712,8 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     generateSketchButton: getElement<HTMLElement>(rootElement, "generate-sketch"),
     importSketchButton: getElement<HTMLElement>(rootElement, "import-sketch-result"),
     inpaintPrompt: getElement<HTMLTextAreaElement>(rootElement, "inpaint-prompt"),
+    inpaintPromptWalletSave: getElement<HTMLElement>(rootElement, "inpaint-prompt-wallet-save"),
+    inpaintPromptWalletLoad: getElement<HTMLElement>(rootElement, "inpaint-prompt-wallet-load"),
     inpaintNegativePrompt: getElement<HTMLTextAreaElement>(rootElement, "inpaint-negative-prompt"),
     inpaintWorkflow: getElement<HTMLSelectElement>(rootElement, "inpaint-workflow"),
     inpaintCheckpoint: getElement<HTMLSelectElement>(rootElement, "inpaint-checkpoint"),
@@ -1596,7 +1726,10 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     captureInpaintActiveLayerButton: getElement<HTMLElement>(rootElement, "capture-inpaint-active-layer"),
     generateInpaintButton: getElement<HTMLElement>(rootElement, "generate-inpaint"),
     importInpaintButton: getElement<HTMLElement>(rootElement, "import-inpaint-result"),
+    inpaintAutoImportToggle: getElement<HTMLElement>(rootElement, "inpaint-auto-import-toggle"),
     outpaintPrompt: getElement<HTMLTextAreaElement>(rootElement, "outpaint-prompt"),
+    outpaintPromptWalletSave: getElement<HTMLElement>(rootElement, "outpaint-prompt-wallet-save"),
+    outpaintPromptWalletLoad: getElement<HTMLElement>(rootElement, "outpaint-prompt-wallet-load"),
     outpaintWorkflow: getElement<HTMLSelectElement>(rootElement, "outpaint-workflow"),
     outpaintCheckpoint: getElement<HTMLSelectElement>(rootElement, "outpaint-checkpoint"),
     outpaintSteps: getElement<HTMLInputElement>(rootElement, "outpaint-steps"),
@@ -1722,6 +1855,8 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     settingsDiagnosticsReport: getElement<HTMLTextAreaElement>(rootElement, "settings-diagnostics-report"),
     livePaintingView: getElement<HTMLElement>(rootElement, "live-painting-view"),
     livePrompt: getElement<HTMLTextAreaElement>(rootElement, "live-prompt"),
+    livePromptWalletSave: getElement<HTMLElement>(rootElement, "live-prompt-wallet-save"),
+    livePromptWalletLoad: getElement<HTMLElement>(rootElement, "live-prompt-wallet-load"),
     liveNegativePrompt: getElement<HTMLTextAreaElement>(rootElement, "live-negative-prompt"),
     liveNegativePromptToggle: getElement<HTMLElement>(rootElement, "live-negative-prompt-toggle"),
     liveNegativePromptField: getElement<HTMLElement>(rootElement, "live-negative-prompt-field"),
@@ -1734,7 +1869,6 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     liveStateBadge: getElement<HTMLElement>(rootElement, "live-state-badge"),
     liveTimingsText: getElement<HTMLElement>(rootElement, "live-timings-text"),
     liveResultPreviewPanel: getElement<HTMLElement>(rootElement, "live-result-preview-panel"),
-    liveZoomToggle: getElement<HTMLElement>(rootElement, "live-zoom-toggle"),
     importLiveButton: getElement<HTMLElement>(rootElement, "import-live-result"),
     importLiveRefinedButton: getElement<HTMLElement>(rootElement, "import-live-refined"),
     liveAutoImportToggle: getElement<HTMLElement>(rootElement, "live-auto-import-toggle")
