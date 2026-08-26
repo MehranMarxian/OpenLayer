@@ -391,7 +391,7 @@ export function createAppMarkup() {
               <input class="input input-compact" id="prompt-layer-num-beams" type="number" min="1" max="32" step="1" value="${DEFAULT_PROMPT_LAYER_NUM_BEAMS}" />
             </label>
           </div>
-          <textarea class="textarea compact-textarea" id="prompt-layer-generated-text" placeholder="Generated prompt text will appear here..."></textarea>
+          <textarea maxlength="10000" class="textarea compact-textarea" id="prompt-layer-generated-text" placeholder="Generated prompt text will appear here..."></textarea>
           <button class="button button-primary button-generate button-wide action-control" id="generate-prompt-from-layer" data-openlayer-action="generatePromptFromLayer" type="button">Generate Text from Layer</button>
           <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
           <div class="import-actions">
@@ -434,13 +434,13 @@ export function createAppMarkup() {
           </div>
           <label class="field">
             <span class="label">Prompt</span>
-            <textarea class="textarea" id="live-prompt" placeholder="Describe what your painting should become..."></textarea>
+            <textarea maxlength="10000" class="textarea" id="live-prompt" placeholder="Describe what your painting should become..."></textarea>
           </label>
           <section class="negative-prompt-section" aria-label="Live Painting negative prompt">
             <button class="button disclosure-button action-control" id="live-negative-prompt-toggle" data-openlayer-action="toggleLiveNegativePrompt" type="button">Show Negative Prompt</button>
             <label class="field negative-prompt-field" id="live-negative-prompt-field" hidden>
               <span class="label">Negative prompt</span>
-              <textarea class="textarea" id="live-negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
+              <textarea maxlength="10000" class="textarea" id="live-negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
             </label>
           </section>
           <label class="field">
@@ -513,7 +513,7 @@ export function createAppMarkup() {
             <button class="button action-control" id="save-settings" data-openlayer-action="saveSettings" type="button">Save Settings</button>
             <button class="button action-control" id="reset-settings" data-openlayer-action="resetSettings" type="button">Reset Defaults</button>
           </div>
-          <textarea class="textarea compact-textarea diagnostics-report" id="settings-diagnostics-report" readonly hidden></textarea>
+          <textarea maxlength="10000" class="textarea compact-textarea diagnostics-report" id="settings-diagnostics-report" readonly hidden></textarea>
         </section>
         <section class="panel-section settings-panel diagnostic-section diagnostic-scroll-safe" aria-label="Status report">
           <div class="section-heading">
@@ -602,14 +602,14 @@ export function createAppMarkup() {
           </div>
           <label class="field">
             <span class="label">Prompt</span>
-            <textarea class="textarea" id="prompt" placeholder="Describe the image you want to generate..."></textarea>
+            <textarea maxlength="10000" class="textarea" id="prompt" placeholder="Describe the image you want to generate..."></textarea>
           </label>
           <button class="button action-control" id="suggest-prompt" data-openlayer-action="suggestPrompt" type="button">Ask the Agent for a Prompt</button>
           <section class="negative-prompt-section" aria-label="Negative prompt">
             <button class="button disclosure-button action-control" id="negative-prompt-toggle" data-openlayer-action="toggleNegativePrompt" type="button">Show Negative Prompt</button>
             <label class="field negative-prompt-field" id="negative-prompt-field" hidden>
               <span class="label">Negative prompt</span>
-              <textarea class="textarea" id="negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
+              <textarea maxlength="10000" class="textarea" id="negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
             </label>
           </section>
           <label class="field">
@@ -725,11 +725,11 @@ export function createAppMarkup() {
           </div>
           <div class="field img2img-field">
             <span class="label">Prompt</span>
-            <textarea class="textarea compact-textarea" id="img-prompt" placeholder="Describe how to reinterpret the active layer..."></textarea>
+            <textarea maxlength="10000" class="textarea compact-textarea" id="img-prompt" placeholder="Describe how to reinterpret the active layer..."></textarea>
           </div>
           <div class="field img2img-field">
             <span class="label">Negative prompt</span>
-            <textarea class="textarea compact-textarea" id="img-negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
+            <textarea maxlength="10000" class="textarea compact-textarea" id="img-negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
           </div>
           <div class="field img2img-field">
             <span class="label">Workflow</span>
@@ -845,11 +845,11 @@ export function createAppMarkup() {
           </div>
           <div class="field img2img-field">
             <span class="label">Prompt</span>
-            <textarea class="textarea compact-textarea" id="sketch-prompt" placeholder="Describe the final image guided by the lineart..."></textarea>
+            <textarea maxlength="10000" class="textarea compact-textarea" id="sketch-prompt" placeholder="Describe the final image guided by the lineart..."></textarea>
           </div>
           <div class="field img2img-field">
             <span class="label">Negative prompt</span>
-            <textarea class="textarea compact-textarea" id="sketch-negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
+            <textarea maxlength="10000" class="textarea compact-textarea" id="sketch-negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
           </div>
           <div class="field img2img-field">
             <span class="label">Workflow</span>
@@ -976,11 +976,11 @@ export function createAppMarkup() {
           </div>
           <div class="field img2img-field">
             <span class="label">Prompt</span>
-            <textarea class="textarea compact-textarea" id="inpaint-prompt" placeholder="Describe what should replace the selected area..."></textarea>
+            <textarea maxlength="10000" class="textarea compact-textarea" id="inpaint-prompt" placeholder="Describe what should replace the selected area..."></textarea>
           </div>
           <div class="field img2img-field">
             <span class="label">Negative prompt</span>
-            <textarea class="textarea compact-textarea" id="inpaint-negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
+            <textarea maxlength="10000" class="textarea compact-textarea" id="inpaint-negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
           </div>
           <div class="field img2img-field">
             <span class="label">Workflow</span>
@@ -1082,7 +1082,7 @@ export function createAppMarkup() {
           </div>
           <div class="field img2img-field">
             <span class="label">Prompt</span>
-            <textarea class="textarea compact-textarea" id="outpaint-prompt" placeholder="Describe what should extend beyond the current image..."></textarea>
+            <textarea maxlength="10000" class="textarea compact-textarea" id="outpaint-prompt" placeholder="Describe what should extend beyond the current image..."></textarea>
           </div>
           <div class="field img2img-field">
             <span class="label">Workflow</span>
