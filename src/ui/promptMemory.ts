@@ -1,24 +1,28 @@
 import { AppElements } from "./appMarkup";
-import { loadPromptDrafts, savePromptDraft } from "../utils/preferences";
 
 /**
- * Prompt text that survives, plus an undo stack per field.
+ * An undo stack for every prompt field.
  *
- * Two things the panel did not do before: prompt text was never persisted
- * anywhere (`OpenLayerPreferences` only ever covered the numeric generation
- * defaults), so closing the panel threw away whatever you had written; and
- * Ctrl+Z was whatever the host happened to provide, which is not something to
- * assume in UXP.
+ * Ctrl+Z in a prompt was previously whatever the host happened to provide,
+ * which is not something worth assuming in UXP. This gives each field its own
+ * history, independent of the host entirely.
  *
- * IMPORTANT, and the reason this module reads every value through
- * `readValue`: in Photoshop UXP an empty <textarea> reports `.value` as
- * `null`, where every browser and jsdom report `""`. So `field.value.length`
- * and `field.value.trim()` typecheck, pass the whole suite, and then throw
- * `Cannot read properties of null` the moment the panel loads in the host.
- * An earlier attempt at this feature did exactly that, and because the throw
- * landed partway through renderApp it took out every binding registered after
- * it -- theme switching, the sticky header wrapper -- so it surfaced as
- * "themes are broken" rather than as anything to do with prompts.
+ * Prompt text deliberately does NOT persist past the panel closing. It stays
+ * while you move between tools -- the screens are hidden rather than rebuilt,
+ * so the text is simply still there -- and a reopened panel starts empty. An
+ * earlier version of this saved drafts to localStorage and restored them on
+ * launch; that was more than was asked for, and a prompt reappearing in a
+ * fresh panel reads as a bug rather than a convenience.
+ *
+ * IMPORTANT, and the reason every read goes through `readValue`: in Photoshop
+ * UXP an empty <textarea> reports `.value` as `null`, where every browser and
+ * jsdom report `""`. So `field.value.length` and `field.value.trim()`
+ * typecheck, pass the whole suite, and then throw `Cannot read properties of
+ * null` the moment the panel loads in the host. An earlier attempt at this
+ * feature did exactly that, and because the throw landed partway through
+ * renderApp it took out every binding registered after it -- theme switching,
+ * the sticky header wrapper -- so it surfaced as "themes are broken" rather
+ * than as anything to do with prompts.
  */
 
 /** UXP returns null for an empty textarea; every browser returns "". */
@@ -27,46 +31,46 @@ function readValue(field: HTMLTextAreaElement): string {
 }
 
 /**
- * Every field the artist types prompt text into, keyed by its element id.
+ * Every field the artist types prompt text into.
  *
  * Deliberately excludes the two textareas the panel writes rather than the
  * artist: the Prompt from Layer caption box (regenerated on every run) and
  * the Settings diagnostics report (a readonly log).
  */
-const PROMPT_FIELDS: ReadonlyArray<{ element: keyof AppElements; storageId: string }> = [
-  { element: "prompt", storageId: "prompt" },
-  { element: "negativePrompt", storageId: "negative-prompt" },
-  { element: "imgPrompt", storageId: "img-prompt" },
-  { element: "imgNegativePrompt", storageId: "img-negative-prompt" },
-  { element: "sketchPrompt", storageId: "sketch-prompt" },
-  { element: "sketchNegativePrompt", storageId: "sketch-negative-prompt" },
-  { element: "inpaintPrompt", storageId: "inpaint-prompt" },
-  { element: "inpaintNegativePrompt", storageId: "inpaint-negative-prompt" },
-  { element: "outpaintPrompt", storageId: "outpaint-prompt" },
-  { element: "livePrompt", storageId: "live-prompt" },
-  { element: "liveNegativePrompt", storageId: "live-negative-prompt" }
+const PROMPT_FIELDS: ReadonlyArray<keyof AppElements> = [
+  "prompt",
+  "negativePrompt",
+  "imgPrompt",
+  "imgNegativePrompt",
+  "sketchPrompt",
+  "sketchNegativePrompt",
+  "inpaintPrompt",
+  "inpaintNegativePrompt",
+  "outpaintPrompt",
+  "livePrompt",
+  "liveNegativePrompt"
 ];
 
 /**
- * How long typing must pause before it becomes one undo step. Without this,
- * Ctrl+Z would step back one character at a time, which is not what anyone
- * means by undo.
+ * How long typing must pause before it becomes its own undo step. This is the
+ * backstop for text with no word breaks in it; ordinary prose gets a step per
+ * word from the boundary check below, which is what makes repeated Ctrl+Z
+ * walk back through a prompt instead of emptying it in one go.
  */
 const COMMIT_DELAY_MS = 500;
 
 /** Bounded so a long session cannot grow the stack without limit. */
-const HISTORY_LIMIT = 100;
+const HISTORY_LIMIT = 200;
 
-function attachField(field: HTMLTextAreaElement, storageId: string, draft: string | undefined) {
-  // Only restore into a field the panel has not already filled. A value that
-  // is already there came from somewhere with a better claim than storage --
-  // a History entry being reused, or a prompt sent over from another tool.
-  if (draft && !readValue(field)) {
-    field.value = draft;
-  }
+/** True when this keystroke finished a word, i.e. added trailing whitespace. */
+function completedAWord(current: string, previous: string): boolean {
+  return current.length > previous.length && /\s$/.test(current);
+}
 
+function attachField(field: HTMLTextAreaElement) {
   const history: string[] = [readValue(field)];
   let redo: string[] = [];
+  let lastValue = readValue(field);
   let commitTimer: ReturnType<typeof setTimeout> | undefined;
 
   const commit = () => {
@@ -93,7 +97,7 @@ function attachField(field: HTMLTextAreaElement, storageId: string, draft: strin
 
   const applyValue = (value: string) => {
     field.value = value;
-    savePromptDraft(storageId, value);
+    lastValue = value;
 
     // Undo that leaves the caret at the start is disorienting. Not supported
     // everywhere, and not worth failing over if it is not.
@@ -106,7 +110,14 @@ function attachField(field: HTMLTextAreaElement, storageId: string, draft: strin
   };
 
   field.addEventListener("input", () => {
-    savePromptDraft(storageId, readValue(field));
+    const current = readValue(field);
+    const finishedWord = completedAWord(current, lastValue);
+    lastValue = current;
+
+    if (finishedWord) {
+      commit();
+      return;
+    }
 
     if (commitTimer !== undefined) {
       clearTimeout(commitTimer);
@@ -153,22 +164,14 @@ function attachField(field: HTMLTextAreaElement, storageId: string, draft: strin
 /**
  * Never allowed to break the panel: a throw here would land partway through
  * renderApp and silently disable every binding after it. Each field is
- * isolated too, so one bad element cannot cost the other ten their memory.
+ * isolated too, so one bad element cannot cost the other ten their undo.
  */
 export function bindPromptMemory(elements: AppElements) {
-  let drafts: Record<string, string> = {};
-
-  try {
-    drafts = loadPromptDrafts();
-  } catch (error) {
-    console.log("[OpenLayer] could not read saved prompts:", error);
-  }
-
-  for (const { element, storageId } of PROMPT_FIELDS) {
+  for (const name of PROMPT_FIELDS) {
     try {
-      attachField(elements[element] as HTMLTextAreaElement, storageId, drafts[storageId]);
+      attachField(elements[name] as HTMLTextAreaElement);
     } catch (error) {
-      console.log(`[OpenLayer] prompt memory failed for ${storageId}:`, error);
+      console.log(`[OpenLayer] prompt undo failed for ${String(name)}:`, error);
     }
   }
 }

@@ -2,27 +2,9 @@
 //
 // Mounts the real panel markup and calls the real binder, the same way
 // welcomeOverlay.test.ts does.
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAppMarkup, getAppElements } from "../../src/ui/appMarkup";
 import { bindPromptMemory } from "../../src/ui/promptMemory";
-import { loadPromptDrafts, savePromptDraft } from "../../src/utils/preferences";
-
-type StorageStub = Storage | undefined;
-
-function setStorage(value: StorageStub) {
-  (globalThis as { localStorage?: StorageStub }).localStorage = value;
-}
-
-function createMemoryStorage(): Storage {
-  const entries = new Map<string, string>();
-  return {
-    getItem: (key: string) => entries.get(key) ?? null,
-    setItem: (key: string, value: string) => void entries.set(key, value),
-    removeItem: (key: string) => void entries.delete(key)
-  } as unknown as Storage;
-}
-
-const originalLocalStorage = (globalThis as { localStorage?: StorageStub }).localStorage;
 
 function mount() {
   const root = document.createElement("div");
@@ -42,56 +24,11 @@ function pressUndo(field: HTMLTextAreaElement, shiftKey = false) {
   );
 }
 
-describe("prompt memory", () => {
-  beforeEach(() => {
-    setStorage(createMemoryStorage());
-  });
+afterEach(() => {
+  vi.useRealTimers();
+});
 
-  afterEach(() => {
-    setStorage(originalLocalStorage);
-    vi.useRealTimers();
-  });
-
-  it("saves what is typed", () => {
-    const elements = mount();
-    bindPromptMemory(elements);
-
-    typeInto(elements.prompt, "a lighthouse at dusk");
-
-    expect(loadPromptDrafts()).toMatchObject({ prompt: "a lighthouse at dusk" });
-  });
-
-  it("restores a saved draft on the next launch", () => {
-    savePromptDraft("prompt", "a lighthouse at dusk");
-
-    const elements = mount();
-    bindPromptMemory(elements);
-
-    expect(elements.prompt.value).toBe("a lighthouse at dusk");
-  });
-
-  it("does not overwrite a field the panel already filled", () => {
-    savePromptDraft("prompt", "an old draft");
-
-    const elements = mount();
-    // Stands in for a History entry being reused, or a prompt sent from
-    // another tool -- both have a better claim than storage.
-    elements.prompt.value = "reused from history";
-    bindPromptMemory(elements);
-
-    expect(elements.prompt.value).toBe("reused from history");
-  });
-
-  it("forgets a field cleared back to empty", () => {
-    const elements = mount();
-    bindPromptMemory(elements);
-
-    typeInto(elements.prompt, "a lighthouse at dusk");
-    typeInto(elements.prompt, "");
-
-    expect(loadPromptDrafts()).toEqual({});
-  });
-
+describe("prompt undo", () => {
   it("undoes and redoes without relying on the host's own undo", () => {
     vi.useFakeTimers();
     const elements = mount();
@@ -108,32 +45,70 @@ describe("prompt memory", () => {
     expect(elements.prompt.value).toBe("a lighthouse at dusk");
   });
 
-  it("groups a burst of typing into one undo step", () => {
+  /**
+   * The behaviour actually asked for: repeated Ctrl+Z should walk back through
+   * a prompt a word at a time, not empty the whole field in one step. Typing
+   * here is one unbroken burst with no pause, so the pause-based commit never
+   * fires -- every step below comes from finishing a word.
+   */
+  it("steps back one word at a time through an unbroken burst of typing", () => {
     vi.useFakeTimers();
     const elements = mount();
     bindPromptMemory(elements);
 
-    // No pause between these, so they are one edit, not four.
-    typeInto(elements.prompt, "a");
-    typeInto(elements.prompt, "a l");
-    typeInto(elements.prompt, "a lig");
-    typeInto(elements.prompt, "a light");
+    typeInto(elements.prompt, "a ");
+    typeInto(elements.prompt, "a lighthouse ");
+    typeInto(elements.prompt, "a lighthouse at ");
+    typeInto(elements.prompt, "a lighthouse at dusk");
+
+    pressUndo(elements.prompt);
+    expect(elements.prompt.value).toBe("a lighthouse at ");
+
+    pressUndo(elements.prompt);
+    expect(elements.prompt.value).toBe("a lighthouse ");
+
+    pressUndo(elements.prompt);
+    expect(elements.prompt.value).toBe("a ");
 
     pressUndo(elements.prompt);
     expect(elements.prompt.value).toBe("");
   });
 
-  it("persists the undone value, so undo survives a reload too", () => {
+  it("groups a burst with no word breaks into one step, then stops", () => {
     vi.useFakeTimers();
     const elements = mount();
     bindPromptMemory(elements);
 
-    typeInto(elements.prompt, "first");
-    vi.advanceTimersByTime(600);
-    typeInto(elements.prompt, "second");
-    pressUndo(elements.prompt);
+    typeInto(elements.prompt, "a");
+    typeInto(elements.prompt, "aa");
+    typeInto(elements.prompt, "aaa");
 
-    expect(loadPromptDrafts()).toMatchObject({ prompt: "first" });
+    pressUndo(elements.prompt);
+    expect(elements.prompt.value).toBe("");
+
+    // Nothing left to undo; it must not throw or wrap around.
+    pressUndo(elements.prompt);
+    expect(elements.prompt.value).toBe("");
+  });
+
+  it("discards the redo stack once new text is typed", () => {
+    vi.useFakeTimers();
+    const elements = mount();
+    bindPromptMemory(elements);
+
+    typeInto(elements.prompt, "first ");
+    typeInto(elements.prompt, "first second");
+    vi.advanceTimersByTime(600);
+
+    pressUndo(elements.prompt);
+    expect(elements.prompt.value).toBe("first ");
+
+    typeInto(elements.prompt, "first third");
+    vi.advanceTimersByTime(600);
+
+    // Redo must not resurrect "second" now that the branch has changed.
+    pressUndo(elements.prompt, true);
+    expect(elements.prompt.value).toBe("first third");
   });
 
   it("keeps each field's history to itself", () => {
@@ -172,6 +147,7 @@ describe("prompt memory", () => {
    * silently disables every binding registered after it.
    */
   it("survives a UXP-style null value without throwing", () => {
+    vi.useFakeTimers();
     const elements = mount();
     Object.defineProperty(elements.prompt, "value", {
       configurable: true,
@@ -180,8 +156,11 @@ describe("prompt memory", () => {
     });
 
     expect(() => bindPromptMemory(elements)).not.toThrow();
-    // The other ten fields must still get their memory.
-    typeInto(elements.negativePrompt, "still working");
-    expect(loadPromptDrafts()).toMatchObject({ "negative-prompt": "still working" });
+
+    // The other ten fields must still get their undo.
+    typeInto(elements.negativePrompt, "one ");
+    typeInto(elements.negativePrompt, "one two");
+    pressUndo(elements.negativePrompt);
+    expect(elements.negativePrompt.value).toBe("one ");
   });
 });
