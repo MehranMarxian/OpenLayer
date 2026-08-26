@@ -22,6 +22,7 @@ import inpaintFlux2KleinWorkflow from "../workflows/api/inpaint-flux2-klein.json
 import outpaintFluxFillBasicWorkflow from "../workflows/api/outpaint-flux-fill-basic.json";
 import upscaleBasicWorkflow from "../workflows/api/upscale-basic.json";
 import styleReferenceSd15Workflow from "../workflows/api/style-reference-sd15.json";
+import styleReferenceKrea2Workflow from "../workflows/api/style-reference-krea2.json";
 import {
   BuildInpaintWorkflowOptions,
   BuildImageToImageWorkflowOptions,
@@ -68,7 +69,8 @@ const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
   "inpaint-flux2-klein": inpaintFlux2KleinWorkflow as ComfyWorkflow,
   "outpaint-flux-fill-basic": outpaintFluxFillBasicWorkflow as ComfyWorkflow,
   "upscale-basic": upscaleBasicWorkflow as ComfyWorkflow,
-  "style-reference-sd15": styleReferenceSd15Workflow as ComfyWorkflow
+  "style-reference-sd15": styleReferenceSd15Workflow as ComfyWorkflow,
+  "style-reference-krea2": styleReferenceKrea2Workflow as ComfyWorkflow
 };
 
 export async function buildTxt2ImgWorkflow(options: BuildWorkflowOptions): Promise<BuildWorkflowResult> {

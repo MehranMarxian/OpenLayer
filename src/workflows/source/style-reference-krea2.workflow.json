@@ -1,0 +1,282 @@
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "revision": 0,
+  "last_node_id": 22,
+  "last_link_id": 30,
+  "nodes": [
+    {
+      "id": 20,
+      "type": "UNETLoader",
+      "pos": [100, 130],
+      "size": [300, 82],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [{ "name": "MODEL", "type": "MODEL", "links": [20] }],
+      "title": "Load Krea-2 Turbo Diffusion Model",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.30.0",
+        "Node name for S&R": "UNETLoader"
+      },
+      "widgets_values": ["krea2_turbo_fp8_scaled.safetensors", "default"]
+    },
+    {
+      "id": 21,
+      "type": "CLIPLoader",
+      "pos": [100, 250],
+      "size": [300, 106],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [{ "name": "CLIP", "type": "CLIP", "links": [21, 22] }],
+      "title": "Load Krea-2 Text Encoder",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.30.0",
+        "Node name for S&R": "CLIPLoader"
+      },
+      "widgets_values": ["qwen3vl_4b_fp8_scaled.safetensors", "krea2", "default"]
+    },
+    {
+      "id": 22,
+      "type": "VAELoader",
+      "pos": [100, 400],
+      "size": [300, 58],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [{ "name": "VAE", "type": "VAE", "links": [23, 24] }],
+      "title": "Load Qwen Image VAE",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.30.0",
+        "Node name for S&R": "VAELoader"
+      },
+      "widgets_values": ["qwen_image_vae.safetensors"]
+    },
+    {
+      "id": 10,
+      "type": "LoadImage",
+      "pos": [100, 500],
+      "size": [300, 320],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        { "name": "IMAGE", "type": "IMAGE", "links": [25] },
+        { "name": "MASK", "type": "MASK", "links": null }
+      ],
+      "title": "Load Style Reference",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.30.0",
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": ["openlayer-style-reference.png", "image"]
+    },
+    {
+      "id": 5,
+      "type": "EmptyLatentImage",
+      "pos": [440, 400],
+      "size": [270, 106],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [{ "name": "LATENT", "type": "LATENT", "links": [26, 27] }],
+      "title": "Empty Latent",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.30.0",
+        "Node name for S&R": "EmptyLatentImage"
+      },
+      "widgets_values": [1024, 1024, 1]
+    },
+    {
+      "id": 12,
+      "type": "Krea2StyleReference",
+      "pos": [440, 560],
+      "size": [300, 130],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        { "name": "vae", "type": "VAE", "link": 23 },
+        { "name": "target_latent", "type": "LATENT", "link": 26 },
+        { "name": "reference_image", "type": "IMAGE", "link": 25 }
+      ],
+      "outputs": [
+        { "name": "LATENT", "type": "LATENT", "links": [28] },
+        { "name": "IMAGE", "type": "IMAGE", "links": null },
+        { "name": "STRING", "type": "STRING", "links": null }
+      ],
+      "title": "Prepare Style Reference",
+      "properties": { "Node name for S&R": "Krea2StyleReference" },
+      "widgets_values": ["crop", "lanczos"]
+    },
+    {
+      "id": 6,
+      "type": "CLIPTextEncode",
+      "pos": [440, 130],
+      "size": [400, 120],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [{ "name": "clip", "type": "CLIP", "link": 21 }],
+      "outputs": [{ "name": "CONDITIONING", "type": "CONDITIONING", "links": [29, 30] }],
+      "title": "Positive Prompt",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.30.0",
+        "Node name for S&R": "CLIPTextEncode"
+      },
+      "widgets_values": ["a subject that matches the prompt"]
+    },
+    {
+      "id": 7,
+      "type": "CLIPTextEncode",
+      "pos": [440, 270],
+      "size": [400, 100],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [{ "name": "clip", "type": "CLIP", "link": 22 }],
+      "outputs": [{ "name": "CONDITIONING", "type": "CONDITIONING", "links": [12] }],
+      "title": "Negative Prompt (unused at CFG 1)",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.30.0",
+        "Node name for S&R": "CLIPTextEncode"
+      },
+      "widgets_values": [""]
+    },
+    {
+      "id": 13,
+      "type": "Krea2StyleTransfer",
+      "pos": [880, 130],
+      "size": [320, 400],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        { "name": "model", "type": "MODEL", "link": 20 },
+        { "name": "reference_latent", "type": "LATENT", "link": 28 },
+        { "name": "ref_conditioning", "type": "CONDITIONING", "link": 29 }
+      ],
+      "outputs": [
+        { "name": "MODEL", "type": "MODEL", "links": [13] },
+        { "name": "LATENT", "type": "LATENT", "links": null },
+        { "name": "STRING", "type": "STRING", "links": null }
+      ],
+      "title": "Apply Style Reference",
+      "properties": { "Node name for S&R": "Krea2StyleTransfer" },
+      "widgets_values": [
+        "custom",
+        1,
+        0.65,
+        1,
+        1.06,
+        "flowturbo_pc",
+        0.5,
+        2.5,
+        1.04,
+        0,
+        1,
+        1.1,
+        0.85,
+        "7-27"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "KSampler",
+      "pos": [1240, 130],
+      "size": [270, 474],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        { "name": "model", "type": "MODEL", "link": 13 },
+        { "name": "positive", "type": "CONDITIONING", "link": 30 },
+        { "name": "negative", "type": "CONDITIONING", "link": 12 },
+        { "name": "latent_image", "type": "LATENT", "link": 27 }
+      ],
+      "outputs": [{ "name": "LATENT", "type": "LATENT", "links": [16] }],
+      "title": "Sampler",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.30.0",
+        "Node name for S&R": "KSampler"
+      },
+      "widgets_values": [1, "fixed", 8, 1, "euler_ancestral", "simple", 1]
+    },
+    {
+      "id": 8,
+      "type": "VAEDecode",
+      "pos": [1550, 130],
+      "size": [140, 46],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        { "name": "samples", "type": "LATENT", "link": 16 },
+        { "name": "vae", "type": "VAE", "link": 24 }
+      ],
+      "outputs": [{ "name": "IMAGE", "type": "IMAGE", "links": [18] }],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.30.0",
+        "Node name for S&R": "VAEDecode"
+      }
+    },
+    {
+      "id": 9,
+      "type": "SaveImage",
+      "pos": [1730, 130],
+      "size": [270, 270],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [{ "name": "images", "type": "IMAGE", "link": 18 }],
+      "outputs": [{ "name": "images", "type": "IMAGE", "links": null }],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.30.0",
+        "Node name for S&R": "SaveImage"
+      },
+      "widgets_values": ["OpenLayer_StyleReference"]
+    }
+  ],
+  "links": [
+    [20, 20, 0, 13, 0, "MODEL"],
+    [21, 21, 0, 6, 0, "CLIP"],
+    [22, 21, 0, 7, 0, "CLIP"],
+    [23, 22, 0, 12, 0, "VAE"],
+    [24, 22, 0, 8, 1, "VAE"],
+    [25, 10, 0, 12, 2, "IMAGE"],
+    [26, 5, 0, 12, 1, "LATENT"],
+    [27, 5, 0, 3, 3, "LATENT"],
+    [28, 12, 0, 13, 1, "LATENT"],
+    [29, 6, 0, 13, 2, "CONDITIONING"],
+    [30, 6, 0, 3, 1, "CONDITIONING"],
+    [12, 7, 0, 3, 2, "CONDITIONING"],
+    [13, 13, 0, 3, 0, "MODEL"],
+    [16, 3, 0, 8, 0, "LATENT"],
+    [18, 8, 0, 9, 0, "IMAGE"]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.75,
+      "offset": [0, 0]
+    },
+    "frontendVersion": "1.45.20"
+  },
+  "version": 0.4
+}

@@ -94,6 +94,17 @@ export const CUSTOM_NODE_PACKAGES: Record<string, { name: string; repoUrl: strin
   IPAdapterAdvanced: {
     name: "ComfyUI_IPAdapter_plus",
     repoUrl: "https://github.com/cubiq/ComfyUI_IPAdapter_plus"
+  },
+  // The Krea-2 route through Style Reference. Both classes come from one pack,
+  // which declares no Python dependencies at all -- so unlike ComfyUI-GGUF it
+  // cannot half-install and register nothing.
+  Krea2StyleReference: {
+    name: "ComfyUI-Krea2-StyleTransfer",
+    repoUrl: "https://github.com/nkxx188/ComfyUI-Krea2-StyleTransfer"
+  },
+  Krea2StyleTransfer: {
+    name: "ComfyUI-Krea2-StyleTransfer",
+    repoUrl: "https://github.com/nkxx188/ComfyUI-Krea2-StyleTransfer"
   }
 };
 

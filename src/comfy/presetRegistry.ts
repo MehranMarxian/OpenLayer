@@ -842,6 +842,29 @@ const STYLE_REFERENCE_SD15_NODES = {
   saveImage: "9"
 } as const;
 
+// The Krea-2 Turbo route through the same tool. Node ids match
+// src/workflows/api/style-reference-krea2.json, which was run end to end
+// against a live ComfyUI before it was written down.
+//
+// Two things about this graph are load-bearing and easy to get wrong:
+// the sampler's latent comes from the SAME EmptyLatentImage that feeds
+// Krea2StyleReference's target_latent (not from the style node's own LATENT
+// output), and Krea2StyleTransfer contributes its MODEL output, not a latent.
+const STYLE_REFERENCE_KREA2_NODES = {
+  diffusionModelLoader: "20",
+  clipLoader: "21",
+  vaeLoader: "22",
+  loadImage: "10",
+  latentImage: "5",
+  styleReference: "12",
+  positivePrompt: "6",
+  negativePrompt: "7",
+  styleTransfer: "13",
+  sampler: "3",
+  decode: "8",
+  saveImage: "9"
+} as const;
+
 const TXT2IMG_BASIC_INJECTIONS = {
   checkpoint: target(TXT2IMG_BASIC_NODES.checkpointLoader, "ckpt_name"),
   positivePrompt: target(TXT2IMG_BASIC_NODES.positivePrompt, "text"),
@@ -1127,6 +1150,24 @@ const STYLE_REFERENCE_SD15_INJECTIONS = {
   steps: target(STYLE_REFERENCE_SD15_NODES.sampler, "steps"),
   cfg: target(STYLE_REFERENCE_SD15_NODES.sampler, "cfg"),
   controlStrength: target(STYLE_REFERENCE_SD15_NODES.ipAdapterApply, "weight")
+} as const;
+
+const STYLE_REFERENCE_KREA2_INJECTIONS = {
+  checkpoint: target(STYLE_REFERENCE_KREA2_NODES.diffusionModelLoader, "unet_name"),
+  sourceImage: target(STYLE_REFERENCE_KREA2_NODES.loadImage, "image"),
+  positivePrompt: target(STYLE_REFERENCE_KREA2_NODES.positivePrompt, "text"),
+  negativePrompt: target(STYLE_REFERENCE_KREA2_NODES.negativePrompt, "text"),
+  width: target(STYLE_REFERENCE_KREA2_NODES.latentImage, "width"),
+  height: target(STYLE_REFERENCE_KREA2_NODES.latentImage, "height"),
+  seed: target(STYLE_REFERENCE_KREA2_NODES.sampler, "seed"),
+  steps: target(STYLE_REFERENCE_KREA2_NODES.sampler, "steps"),
+  cfg: target(STYLE_REFERENCE_KREA2_NODES.sampler, "cfg"),
+  // style_strength only does anything because the shipped workflow sets
+  // mode to "custom". In the node's "recommended" mode every custom value,
+  // this one included, is overwritten from its own preset table
+  // (ComfyUI-Krea2-StyleTransfer nodes.py) -- measured, not assumed: 0.65 and
+  // 1.0 produced an identical image until the mode was changed.
+  controlStrength: target(STYLE_REFERENCE_KREA2_NODES.styleTransfer, "style_strength")
 } as const;
 
 // IPAdapter Plus SD1.5 -- the style/mood adapter itself plus the CLIP vision
@@ -1689,6 +1730,27 @@ const STYLE_REFERENCE_SD15_CAPABILITY: WorkflowCapability = {
     primaryActionLabel: "Generate Style Reference",
     experimentalNote:
       "IPAdapter Plus reads the captured layer's mood, color, and composition weight -- not its content -- and applies it on top of the prompt. Output size is independent of the reference photo's own dimensions, the same as Text to Image."
+  }
+};
+
+const STYLE_REFERENCE_KREA2_CAPABILITY: WorkflowCapability = {
+  toolType: "style-reference",
+  loaderType: "diffusion-model-stack",
+  artistLabel: "Style Reference",
+  technicalLabel: "style-reference-krea2",
+  requiredPhotoshopInputs: [{ anyOf: ["active-layer", "canvas"], label: "a reference layer or captured canvas" }],
+  controls: ["prompt", "negativePrompt", "width", "height", "steps", "cfg", "seed", "controlStrength"],
+  output: {
+    kind: "full-image",
+    size: "preset",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Krea-2 model",
+    primaryActionLabel: "Generate Style Reference",
+    experimentalNote:
+      "Krea-2 Turbo is distilled: 8 steps at CFG 1, so raising either will not help and the negative prompt does nothing. Set width and height to 1024 -- this stack is built for it and the panel's 512 default is below its native size. Strength is top-weighted: 0 is no style at all, and most of the effect arrives above 0.7. If the subject comes out doubled, re-roll the seed."
   }
 };
 
@@ -3612,6 +3674,90 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
       },
       {
         id: STYLE_REFERENCE_SD15_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images", "filename_prefix"]
+      }
+    ]
+  },
+  {
+    id: "style-reference-krea2",
+    label: "style-reference-krea2",
+    displayName: "Krea-2 Turbo",
+    mode: "style-reference",
+    description: "Match a captured layer's mood and colour onto a new prompt, through the Krea-2 Turbo stack.",
+    workflowFile: "workflows/api/style-reference-krea2.json",
+    sourceWorkflowFile: "workflows/source/style-reference-krea2.workflow.json",
+    status: "experimental",
+    recommendedSettings: { steps: 8, cfg: 1, controlStrength: 1 },
+    supportedModelFamilies: ["unknown"],
+    experimentalModelFamilies: ["sd1", "sdxl", "sd3", "flux", "flux2", "zImage"],
+    modelSource: DIFFUSION_MODEL_SOURCE,
+    capability: STYLE_REFERENCE_KREA2_CAPABILITY,
+    // Same stack the Krea-2 Turbo text-to-image and image-to-image presets
+    // already install, so choosing this route costs no extra download.
+    modelStack: [...KREA2_TURBO_STACK],
+    requiredModels: [...KREA2_TURBO_STACK],
+    injections: STYLE_REFERENCE_KREA2_INJECTIONS,
+    compatibilityNote:
+      "style-reference-krea2 runs nkxx188/ComfyUI-Krea2-StyleTransfer over the Krea-2 Turbo stack. The shipped graph sets that node's mode to \"custom\" on purpose: in its \"recommended\" mode the node overwrites every parameter with its own table, which silently disables the Strength control. Verified against a live ComfyUI at 8 steps, CFG 1, euler_ancestral.",
+    requiredNodes: [
+      {
+        id: STYLE_REFERENCE_KREA2_NODES.diffusionModelLoader,
+        classType: "UNETLoader",
+        requiredInputs: ["unet_name", "weight_dtype"]
+      },
+      {
+        id: STYLE_REFERENCE_KREA2_NODES.clipLoader,
+        classType: "CLIPLoader",
+        requiredInputs: ["clip_name", "type"]
+      },
+      {
+        id: STYLE_REFERENCE_KREA2_NODES.vaeLoader,
+        classType: "VAELoader",
+        requiredInputs: ["vae_name"]
+      },
+      {
+        id: STYLE_REFERENCE_KREA2_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: STYLE_REFERENCE_KREA2_NODES.latentImage,
+        classType: "EmptyLatentImage",
+        requiredInputs: ["width", "height", "batch_size"]
+      },
+      {
+        id: STYLE_REFERENCE_KREA2_NODES.styleReference,
+        classType: "Krea2StyleReference",
+        requiredInputs: ["vae", "target_latent", "reference_image"]
+      },
+      {
+        id: STYLE_REFERENCE_KREA2_NODES.positivePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: STYLE_REFERENCE_KREA2_NODES.negativePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: STYLE_REFERENCE_KREA2_NODES.styleTransfer,
+        classType: "Krea2StyleTransfer",
+        requiredInputs: ["model", "reference_latent", "ref_conditioning", "mode", "style_strength"]
+      },
+      {
+        id: STYLE_REFERENCE_KREA2_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["model", "seed", "steps", "cfg", "positive", "negative", "latent_image", "denoise"]
+      },
+      {
+        id: STYLE_REFERENCE_KREA2_NODES.decode,
+        classType: "VAEDecode",
+        requiredInputs: ["samples", "vae"]
+      },
+      {
+        id: STYLE_REFERENCE_KREA2_NODES.saveImage,
         classType: "SaveImage",
         requiredInputs: ["images", "filename_prefix"]
       }

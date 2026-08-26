@@ -1,0 +1,148 @@
+{
+  "20": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "krea2_turbo_fp8_scaled.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "Load Krea-2 Turbo Diffusion Model"
+    }
+  },
+  "21": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen3vl_4b_fp8_scaled.safetensors",
+      "type": "krea2",
+      "device": "default"
+    },
+    "_meta": {
+      "title": "Load Krea-2 Text Encoder"
+    }
+  },
+  "22": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "qwen_image_vae.safetensors"
+    },
+    "_meta": {
+      "title": "Load Qwen Image VAE"
+    }
+  },
+  "10": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "openlayer-style-reference.png"
+    },
+    "_meta": {
+      "title": "Load Style Reference"
+    }
+  },
+  "5": {
+    "class_type": "EmptyLatentImage",
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 1
+    },
+    "_meta": {
+      "title": "Empty Latent"
+    }
+  },
+  "12": {
+    "class_type": "Krea2StyleReference",
+    "inputs": {
+      "vae": ["22", 0],
+      "target_latent": ["5", 0],
+      "reference_image": ["10", 0],
+      "fit": "crop",
+      "upscale_method": "lanczos"
+    },
+    "_meta": {
+      "title": "Prepare Style Reference"
+    }
+  },
+  "6": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "a subject that matches the prompt",
+      "clip": ["21", 0]
+    },
+    "_meta": {
+      "title": "Positive Prompt"
+    }
+  },
+  "7": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "",
+      "clip": ["21", 0]
+    },
+    "_meta": {
+      "title": "Negative Prompt (unused at CFG 1)"
+    }
+  },
+  "13": {
+    "class_type": "Krea2StyleTransfer",
+    "inputs": {
+      "model": ["20", 0],
+      "reference_latent": ["12", 0],
+      "ref_conditioning": ["6", 0],
+      "mode": "custom",
+      "style_strength": 1.0,
+      "value_adain_strength": 0.65,
+      "ref_value_mix": 1.0,
+      "ref_k_strength": 1.06,
+      "rf_mode": "flowturbo_pc",
+      "gamma": 0.5,
+      "beta": 2.5,
+      "high_scale_start": 1.04,
+      "high_scale_end": 0.0,
+      "low_scale_start": 1.0,
+      "low_scale_end": 1.1,
+      "adain_strength": 0.85,
+      "blocks": "7-27"
+    },
+    "_meta": {
+      "title": "Apply Style Reference"
+    }
+  },
+  "3": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 1,
+      "steps": 8,
+      "cfg": 1,
+      "sampler_name": "euler_ancestral",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": ["13", 0],
+      "positive": ["6", 0],
+      "negative": ["7", 0],
+      "latent_image": ["5", 0]
+    },
+    "_meta": {
+      "title": "Sampler"
+    }
+  },
+  "8": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["3", 0],
+      "vae": ["22", 0]
+    },
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "9": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "OpenLayer_StyleReference",
+      "images": ["8", 0]
+    },
+    "_meta": {
+      "title": "Save Image"
+    }
+  }
+}
