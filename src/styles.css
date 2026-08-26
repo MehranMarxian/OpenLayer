@@ -8397,11 +8397,24 @@ body.theme-artist,
   overflow-wrap: anywhere !important;
 }
 
+/* Centering here is text-align + line-height, NOT flex, and that is
+   deliberate. This badge is floated so the note's first line wraps around it
+   (that float is what fixed the box's height, see above), and floating makes
+   the element block-level -- so align-items/justify-content stop applying and
+   an earlier inline-flex rule further up the file goes dead. Leaving that rule
+   as the only centering is what pushed the "!" to the left edge of its circle.
+   line-height must stay equal to the 16px box height for the vertical half. */
 .app-shell.theme-compact .compatibility-note.info-panel.is-warning::before,
 .app-shell.theme-compact .tool-warning::before {
-  display: inline-block !important;
+  display: block !important;
   float: left !important;
+  box-sizing: border-box !important;
+  width: 16px !important;
+  height: 16px !important;
   margin: 1px 7px 2px 0 !important;
+  padding: 0 !important;
+  text-align: center !important;
+  line-height: 16px !important;
 }
 
 /* "Ask the Agent for a Prompt" and "Show Negative Prompt" sat flush against
