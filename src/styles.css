@@ -7479,6 +7479,14 @@ body,
    so it never inherits that class's text-align: center, and there is nothing
    else here setting one -- the browser's own button default was doing the
    centering, silently, until UXP was the host reading this rule. */
+/* Two rounds of trying to center the glyph inside a circle both shipped
+   still visibly off in Photoshop -- the box was genuinely centered both
+   times (verified against .info-toggle's identical technique working fine
+   elsewhere), so whatever is left is either sub-pixel or specific to this
+   host's text rendering, not something worth a third guess. Removing the
+   circle removes the perfect-symmetry frame the eye was judging it against,
+   which is the actual fix: plain colored text has no shape for a
+   fraction-of-a-pixel offset to read as "wrong" against. */
 .app-shell.theme-compact .tool-info-button {
   display: inline-flex !important;
   align-items: center !important;
@@ -7489,19 +7497,18 @@ body,
   height: 18px;
   margin-left: 4px;
   padding: 0;
-  border: 1px solid rgba(240, 177, 83, 0.6);
-  border-radius: 50%;
-  background: rgba(240, 177, 83, 0.14);
+  border: none;
+  border-radius: 0;
+  background: none;
   color: #f0b153;
-  font-size: var(--fs-sm);
-  font-weight: 700;
+  font-size: var(--fs-md);
+  font-weight: 900;
   line-height: 1;
   cursor: pointer;
 }
 
 .app-shell.theme-compact .tool-info-button.is-active {
-  background: #f0b153;
-  color: #1b1200;
+  color: #ffcf87;
 }
 
 /* Live Painting state badge: intentionally after the compact status-pill
