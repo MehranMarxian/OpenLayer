@@ -1431,8 +1431,8 @@ export function renderApp(rootElement: HTMLElement) {
   bindAdvancedToggles(rootElement);
   bindWelcomeOverlay(elements);
   // SPIKE: delete with src/ui/promptInputDiagnostic.ts.
-  attachPromptInputDiagnostic(elements.prompt, "txt2img");
-  attachPromptInputDiagnostic(elements.imgPrompt, "img2img");
+  attachPromptInputDiagnostic(elements.prompt, elements.diagnosticsText, "txt2img");
+  attachPromptInputDiagnostic(elements.imgPrompt, elements.imgDiagnosticsText, "img2img");
   bindToolWarnings(rootElement);
   bindStickyProgress(rootElement);
   elements.settingsThemeSelect.addEventListener("change", () => {
