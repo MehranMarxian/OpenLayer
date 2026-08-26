@@ -80,6 +80,7 @@ export type AppElements = {
   exportMaskComfyButton: HTMLElement;
   layerToolsStatusText: HTMLElement;
   layerToolsStatusPill: HTMLElement;
+  appHeader: HTMLElement;
   homeStatusRow: HTMLElement;
   homeStatusText: HTMLElement;
   homeStatusDot: HTMLElement;
@@ -1397,7 +1398,7 @@ export function createAppMarkup() {
 
 function createBrandHeaderMarkup() {
   return `
-    <header class="app-header">
+    <header class="app-header" id="app-header">
       <div class="brand-lockup">
         <img class="brand-icon" src="icons/openlayer-icon.png" alt="" width="48" height="48" />
         <div>
@@ -1558,6 +1559,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     exportMaskComfyButton: getElement<HTMLElement>(rootElement, "export-mask-comfy"),
     layerToolsStatusText: getElement<HTMLElement>(rootElement, "layer-tools-status-text"),
     layerToolsStatusPill: getElement<HTMLElement>(rootElement, "layer-tools-status-pill"),
+    appHeader: getElement<HTMLElement>(rootElement, "app-header"),
     homeStatusRow: getElement<HTMLElement>(rootElement, "home-status-row"),
     homeStatusText: getElement<HTMLElement>(rootElement, "home-status-text"),
     homeStatusDot: getElement<HTMLElement>(rootElement, "home-status-dot"),

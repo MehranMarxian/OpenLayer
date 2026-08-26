@@ -4820,6 +4820,12 @@ export function renderApp(rootElement: HTMLElement) {
     // progress bar mid-generation, and it is redundant there: since the v0.8
     // status split every tool carries its own status bar with the same message.
     elements.homeStatusRow.hidden = view !== "home";
+    // Same reasoning, and the same fix, as the status row above. The brand
+    // lockup sits above each tool screen's sticky header, so as soon as a
+    // screen is tall enough to scroll it slides UNDER that header and renders
+    // as a half-clipped logo with the title cut off. It is also redundant on
+    // a tool screen: the sticky header already names the tool you are in.
+    elements.appHeader.hidden = view !== "home";
     elements.homeView.hidden = currentView !== "home";
     elements.generatorView.hidden = currentView !== "text-to-image";
     elements.imageToImageView.hidden = currentView !== "image-to-image";
