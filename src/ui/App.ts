@@ -514,7 +514,6 @@ export function renderApp(rootElement: HTMLElement) {
   let liveImportAutomatically = false;
   let liveAutoRefine = false;
   let isLiveNegativePromptOpen = false;
-  let livePreviewZoomed = false;
   let hardwareReport: HardwareRecommendationReport | null = null;
   let workflowHealthReport: WorkflowHealthReport | null = null;
   // The Setup screen keeps its own report because it asks the server a
@@ -1350,7 +1349,6 @@ export function renderApp(rootElement: HTMLElement) {
     startLivePainting: createActionRunner(elements, "startLivePainting", handleStartLivePainting),
     stopLivePainting: createActionRunner(elements, "stopLivePainting", handleStopLivePainting),
     refineLivePainting: createActionRunner(elements, "refineLivePainting", handleRefineLivePainting),
-    toggleLiveZoom: createActionRunner(elements, "toggleLiveZoom", handleToggleLiveZoom),
     importLiveResult: createActionRunner(elements, "importLiveResult", handleImportLiveResult),
     importLiveRefined: createActionRunner(elements, "importLiveRefined", handleImportLiveRefined),
     toggleLiveAutoImport: createActionRunner(elements, "toggleLiveAutoImport", handleToggleLiveAutoImport),
@@ -1413,7 +1411,6 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.liveStartButton, actionHandlers.startLivePainting);
   bindActionControl(elements.liveStopButton, actionHandlers.stopLivePainting);
   bindActionControl(elements.liveRefineButton, actionHandlers.refineLivePainting);
-  bindActionControl(elements.liveZoomToggle, actionHandlers.toggleLiveZoom);
   bindActionControl(elements.importLiveButton, actionHandlers.importLiveResult);
   bindActionControl(elements.importLiveRefinedButton, actionHandlers.importLiveRefined);
   bindActionControl(elements.liveAutoImportToggle, actionHandlers.toggleLiveAutoImport);
@@ -4524,13 +4521,6 @@ export function renderApp(rootElement: HTMLElement) {
     if (liveImportAutomatically && liveLastResult) {
       void handleImportLiveResult();
     }
-  }
-
-  function handleToggleLiveZoom() {
-    livePreviewZoomed = !livePreviewZoomed;
-    elements.liveResultPreviewPanel.classList.toggle("preview-zoomed", livePreviewZoomed);
-    elements.liveZoomToggle.textContent = livePreviewZoomed ? "Zoom 1x" : "Zoom 2x";
-    elements.liveZoomToggle.setAttribute("aria-pressed", String(livePreviewZoomed));
   }
 
   async function handleImportLiveResult() {

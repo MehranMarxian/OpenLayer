@@ -299,7 +299,6 @@ export type AppElements = {
   liveStateBadge: HTMLElement;
   liveTimingsText: HTMLElement;
   liveResultPreviewPanel: HTMLElement;
-  liveZoomToggle: HTMLElement;
   importLiveButton: HTMLElement;
   importLiveRefinedButton: HTMLElement;
   liveAutoImportToggle: HTMLElement;
@@ -461,7 +460,6 @@ export function createAppMarkup() {
         <section class="panel-section generator-panel" aria-label="Live Painting preview">
           <div class="section-heading">
             <span class="label">Live preview</span>
-            <button class="button action-control" id="live-zoom-toggle" data-openlayer-action="toggleLiveZoom" type="button" aria-pressed="false">Zoom 2x</button>
           </div>
           <div class="preview-panel" id="live-result-preview-panel">
             <span class="preview-empty">Start a session, then paint a stroke</span>
@@ -1780,7 +1778,6 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     liveStateBadge: getElement<HTMLElement>(rootElement, "live-state-badge"),
     liveTimingsText: getElement<HTMLElement>(rootElement, "live-timings-text"),
     liveResultPreviewPanel: getElement<HTMLElement>(rootElement, "live-result-preview-panel"),
-    liveZoomToggle: getElement<HTMLElement>(rootElement, "live-zoom-toggle"),
     importLiveButton: getElement<HTMLElement>(rootElement, "import-live-result"),
     importLiveRefinedButton: getElement<HTMLElement>(rootElement, "import-live-refined"),
     liveAutoImportToggle: getElement<HTMLElement>(rootElement, "live-auto-import-toggle")

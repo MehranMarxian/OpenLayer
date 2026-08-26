@@ -82,7 +82,6 @@ export type ActionName =
   | "startLivePainting"
   | "stopLivePainting"
   | "refineLivePainting"
-  | "toggleLiveZoom"
   | "importLiveResult"
   | "importLiveRefined"
   | "toggleLiveAutoImport"
