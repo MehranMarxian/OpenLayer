@@ -460,7 +460,7 @@ export function createAppMarkup() {
         <div class="screen-nav">
           <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
           <div class="screen-title-block">
-            ${createScreenIconMarkup("style", "Live Painting")}
+            ${createScreenIconMarkup("livePainting", "Live Painting")}
             <span class="screen-title">Live Painting</span>
           </div>
         </div>
@@ -978,7 +978,7 @@ export function createAppMarkup() {
         <div class="screen-nav">
           <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
           <div class="screen-title-block">
-            ${createScreenIconMarkup("style", "Style Reference")}
+            ${createScreenIconMarkup("styleReference", "Style Reference")}
             <span class="screen-title">Style Reference</span>
           </div>
         </div>
@@ -1663,7 +1663,10 @@ function createToolIconMarkup(icon: ToolIconName) {
     lineart: "sketch-to-image.png",
     promptFromLayer: "prompt-from-layer.png",
     upscale: "upscale.png",
-    style: "style-reference.png",
+    // Live Painting and Style Reference shared one file until v0.18. They are
+    // separate names now so replacing either one's art cannot change the other.
+    livePainting: "live-painting.png",
+    styleReference: "style-reference.png",
     control: "workflow-presets.png",
     workflow: "workflow.png",
     layers: "layer-tools.png",

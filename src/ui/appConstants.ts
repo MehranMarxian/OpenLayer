@@ -91,7 +91,8 @@ export type ToolIconName =
   | "lineart"
   | "promptFromLayer"
   | "upscale"
-  | "style"
+  | "livePainting"
+  | "styleReference"
   | "control"
   | "workflow"
   | "layers"
@@ -159,7 +160,7 @@ export const TOOL_CARDS: ToolCard[] = [
     id: "live-painting",
     title: "Live Painting",
     subtitle: "Paint and watch AI respond live",
-    icon: "style",
+    icon: "livePainting",
     status: "available",
     view: "live-painting"
   },
@@ -167,7 +168,7 @@ export const TOOL_CARDS: ToolCard[] = [
     id: "style-reference",
     title: "Style Reference",
     subtitle: "Match mood, color, or visual language",
-    icon: "style",
+    icon: "styleReference",
     status: "available",
     view: "style-reference"
   },
