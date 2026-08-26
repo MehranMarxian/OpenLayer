@@ -8,7 +8,7 @@ import { AGENT_TOOLS } from "../../bridge/src/protocol.mjs";
 import { AGENT_TOOL_IDS } from "../../src/ui/agentProtocol";
 
 describe("MCP_TOOLS", () => {
-  it("names exactly the seven tools the protocol knows about, in the same order", () => {
+  it("names exactly the eight tools the protocol knows about, in the same order", () => {
     expect(MCP_TOOLS.map((tool: { name: string }) => tool.name)).toEqual([...AGENT_TOOLS]);
     expect([...AGENT_TOOLS]).toEqual([...AGENT_TOOL_IDS]);
   });

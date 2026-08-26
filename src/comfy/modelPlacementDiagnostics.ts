@@ -23,7 +23,9 @@ const MODEL_INVENTORY_BUCKET_ORDER = [
   "controlNetModels",
   "visionLanguageModels",
   "upscaleModels",
-  "modelPatches"
+  "modelPatches",
+  "clipVisionModels",
+  "ipAdapterModels"
 ] as const satisfies readonly ComfyModelInventoryBucket[];
 
 export type MisplacedModel = {

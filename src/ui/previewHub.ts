@@ -41,6 +41,7 @@ export const PREVIEW_TOOLS = [
   { id: "inpaint", label: "Inpaint" },
   { id: "outpaint", label: "Outpaint" },
   { id: "upscale", label: "Upscale" },
+  { id: "style-reference", label: "Style Reference" },
   { id: "live-painting", label: "Live Painting" }
 ] as const;
 

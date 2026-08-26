@@ -19,7 +19,8 @@ describe("busy-state tables", () => {
       "inpaint",
       "outpaint",
       "upscale",
-      "prompt-from-layer"
+      "prompt-from-layer",
+      "style-reference"
     ]);
     expect(fieldGroups.every((fields) => fields.length > 0)).toBe(true);
   });
@@ -77,7 +78,17 @@ describe("busy-state tables", () => {
       "upscaleModel",
       "promptLayerTask",
       "promptLayerNumBeams",
-      "promptLayerGeneratedText"
+      "promptLayerGeneratedText",
+      "styleReferencePrompt",
+      "styleReferenceNegativePrompt",
+      "styleReferenceWorkflow",
+      "styleReferenceCheckpoint",
+      "styleReferenceWidth",
+      "styleReferenceHeight",
+      "styleReferenceSteps",
+      "styleReferenceCfg",
+      "styleReferenceSeed",
+      "styleReferenceControlStrength"
     ];
 
     expect(new Set(allFields)).toEqual(new Set(expectedFields));
@@ -94,10 +105,11 @@ describe("busy-state tables", () => {
       ...BUSY_GATED_ACTIONS.map(({ button }) => button)
     ];
 
-    // 36 = the original 29, plus Layer Tools' six export buttons, plus the
-    // model-download spike button. Deleting the spike takes this back to 35.
-    expect(plainActions).toHaveLength(36);
-    expect(BUSY_GATED_ACTIONS).toHaveLength(11);
+    // 38 = the original 29, plus Layer Tools' six export buttons, plus the
+    // model-download spike button, plus Style Reference's two capture buttons.
+    // Deleting the spike takes this back to 37.
+    expect(plainActions).toHaveLength(38);
+    expect(BUSY_GATED_ACTIONS).toHaveLength(13);
     expect(new Set(allActions).size).toBe(allActions.length);
   });
 
@@ -121,7 +133,9 @@ describe("busy-state tables", () => {
       "capturePromptLayerButton",
       "capturePromptCanvasButton",
       "copyPromptLayerButton",
-      "sendPromptLayerButton"
+      "sendPromptLayerButton",
+      "captureStyleReferenceLayerButton",
+      "captureStyleReferenceCanvasButton"
     ]));
   });
 
@@ -139,12 +153,14 @@ describe("busy-state tables", () => {
       "generateOutpaintButton",
       "generateUpscaleButton",
       "generatePromptLayerButton",
+      "generateStyleReferenceButton",
       "importButton",
       "importImg2ImgButton",
       "importSketchButton",
       "importInpaintButton",
       "importOutpaintButton",
       "importUpscaleButton",
+      "importStyleReferenceButton",
       "checkButton",
       "findPortButton",
       "detectHardwareButton",

@@ -77,7 +77,7 @@ describe("setup manifest", () => {
     expect(sharedVae?.usedByPresets).toContain("txt2img-z-image-turbo");
   });
 
-  it("requires only the four custom node packages that are left", () => {
+  it("requires only the five custom node packages that are left", () => {
     const manifest = build();
 
     // ComfyUI-GGUF joined when the Flux.2 preset landed. It is worth naming
@@ -89,6 +89,7 @@ describe("setup manifest", () => {
     // works on the machine that has the pack and fails silently everywhere else.
     expect(manifest.customNodes.map((node) => node.name)).toEqual([
       "comfyui_controlnet_aux",
+      "ComfyUI_IPAdapter_plus",
       "ComfyUI-Florence2",
       "ComfyUI-GGUF",
       "comfyui-inpaint-cropandstitch"

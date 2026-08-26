@@ -6,7 +6,9 @@ import {
   OutpaintSettingsInput,
   OutpaintSettingsValidation,
   SketchToImageSettingsInput,
-  SketchToImageSettingsValidation
+  SketchToImageSettingsValidation,
+  StyleReferenceSettingsInput,
+  StyleReferenceSettingsValidation
 } from "./types";
 import { createOpenLayerError } from "../utils/errors";
 
@@ -53,6 +55,19 @@ export function validateImageToImageSettings(input: ImageToImageSettingsInput): 
 export function validateSketchToImageSettings(input: SketchToImageSettingsInput): SketchToImageSettingsValidation {
   const { settings, warnings } = validateImageToImageSettings(input);
   const controlStrength = readNumberInRange(input.controlStrength, "ControlNet strength", 0, 2, warnings);
+
+  return {
+    settings: {
+      ...settings,
+      controlStrength
+    },
+    warnings
+  };
+}
+
+export function validateStyleReferenceSettings(input: StyleReferenceSettingsInput): StyleReferenceSettingsValidation {
+  const { settings, warnings } = validateGenerationSettings(input);
+  const controlStrength = readNumberInRange(input.controlStrength, "Style strength", 0, 2, warnings);
 
   return {
     settings: {

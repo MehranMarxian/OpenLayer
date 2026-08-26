@@ -12,8 +12,10 @@ export const DEFAULT_INPAINT_WORKFLOW = "inpaint-basic";
 export const DEFAULT_OUTPAINT_WORKFLOW = "outpaint-flux-fill-basic";
 export const DEFAULT_THEME: OpenLayerTheme = "compact";
 export const DEFAULT_UPSCALE_WORKFLOW = "upscale-basic";
+export const DEFAULT_STYLE_REFERENCE_WORKFLOW = "style-reference-sd15";
 export const FALLBACK_UPSCALE_MODELS = ["4x-UltraSharp.pth", "RealESRGAN_x4plus.pth"];
 export const RECOMMENDED_SKETCH_CHECKPOINT = "epicrealism_naturalSinRC1VAE.safetensors";
+export const RECOMMENDED_STYLE_REFERENCE_CHECKPOINT = "epicrealism_naturalSinRC1VAE.safetensors";
 export const DEFAULT_WIDTH = "512";
 export const DEFAULT_HEIGHT = "512";
 export const DEFAULT_STEPS = "20";
@@ -23,6 +25,7 @@ export const DEFAULT_IMG2IMG_DENOISE = "0.55";
 export const DEFAULT_SKETCH_STEPS = "20";
 export const DEFAULT_SKETCH_DENOISE = "1";
 export const DEFAULT_SKETCH_CONTROL_STRENGTH = "0.8";
+export const DEFAULT_STYLE_REFERENCE_CONTROL_STRENGTH = "1";
 /** One control drives both strength_model and strength_clip; 0.8 is the usual starting point. */
 export const DEFAULT_LORA_STRENGTH = "0.8";
 export const DEFAULT_INPAINT_STEPS = "16";
@@ -63,6 +66,7 @@ export type AppView =
   | "prompt-from-layer"
   | "upscale"
   | "live-painting"
+  | "style-reference"
   | "settings"
   | "setup"
   | "history"
@@ -164,7 +168,8 @@ export const TOOL_CARDS: ToolCard[] = [
     title: "Style Reference",
     subtitle: "Match mood, color, or visual language",
     icon: "style",
-    status: "coming-soon"
+    status: "available",
+    view: "style-reference"
   },
   {
     id: "workflow-presets",
@@ -225,11 +230,11 @@ export const TOOL_CARDS: ToolCard[] = [
 export const HOME_TOOL_SECTIONS = [
   {
     title: "Generate",
-    toolIds: ["text-to-image", "image-to-image", "lineart", "inpaint", "outpaint", "upscale", "prompt-from-layer", "live-painting"]
+    toolIds: ["text-to-image", "image-to-image", "lineart", "inpaint", "outpaint", "upscale", "prompt-from-layer", "live-painting", "style-reference"]
   },
   {
     title: "Workflow",
-    toolIds: ["workflow-presets", "workflow", "style-reference"]
+    toolIds: ["workflow-presets", "workflow"]
   },
   {
     title: "Tools & History",

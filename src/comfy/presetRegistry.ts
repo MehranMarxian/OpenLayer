@@ -53,6 +53,9 @@ const COMFY_ORG_KREA2_REPO = "https://huggingface.co/Comfy-Org/Krea-2";
 const FLUX_TEXT_ENCODERS_REPO = "https://huggingface.co/comfyanonymous/flux_text_encoders";
 const ALIBABA_PAI_ZIMAGE_FUN_CONTROLNET_REPO =
   "https://huggingface.co/alibaba-pai/Z-Image-Turbo-Fun-Controlnet-Union-2.1";
+// Apache-2.0, ungated, no licenseGate needed -- both files verified by live HEAD
+// request against h94/IP-Adapter and installed byte-for-byte on the dev rig.
+const H94_IP_ADAPTER_REPO = "https://huggingface.co/h94/IP-Adapter";
 
 const CHECKPOINT_MODEL_SOURCE = {
   kind: "checkpoint",
@@ -820,6 +823,25 @@ const UPSCALE_BASIC_NODES = {
   saveImage: "9"
 } as const;
 
+// Node ids match src/workflows/api/style-reference-sd15.json exactly -- this
+// preset's graph was hand-built and verified against a live ComfyUI (a real
+// cat-on-a-chair generation absorbed a vaporwave reference's palette without
+// copying its content) rather than exported from the ComfyUI editor, so there
+// is no separate "source of truth" to drift from.
+const STYLE_REFERENCE_SD15_NODES = {
+  checkpointLoader: "4",
+  loadImage: "10",
+  clipVisionLoader: "12",
+  ipAdapterModelLoader: "13",
+  ipAdapterApply: "14",
+  positivePrompt: "6",
+  negativePrompt: "7",
+  latentImage: "5",
+  sampler: "3",
+  decode: "8",
+  saveImage: "9"
+} as const;
+
 const TXT2IMG_BASIC_INJECTIONS = {
   checkpoint: target(TXT2IMG_BASIC_NODES.checkpointLoader, "ckpt_name"),
   positivePrompt: target(TXT2IMG_BASIC_NODES.positivePrompt, "text"),
@@ -1093,6 +1115,48 @@ const UPSCALE_BASIC_INJECTIONS = {
   sourceImage: target(UPSCALE_BASIC_NODES.loadImage, "image"),
   checkpoint: target(UPSCALE_BASIC_NODES.upscaleModelLoader, "model_name")
 } as const;
+
+const STYLE_REFERENCE_SD15_INJECTIONS = {
+  checkpoint: target(STYLE_REFERENCE_SD15_NODES.checkpointLoader, "ckpt_name"),
+  sourceImage: target(STYLE_REFERENCE_SD15_NODES.loadImage, "image"),
+  positivePrompt: target(STYLE_REFERENCE_SD15_NODES.positivePrompt, "text"),
+  negativePrompt: target(STYLE_REFERENCE_SD15_NODES.negativePrompt, "text"),
+  width: target(STYLE_REFERENCE_SD15_NODES.latentImage, "width"),
+  height: target(STYLE_REFERENCE_SD15_NODES.latentImage, "height"),
+  seed: target(STYLE_REFERENCE_SD15_NODES.sampler, "seed"),
+  steps: target(STYLE_REFERENCE_SD15_NODES.sampler, "steps"),
+  cfg: target(STYLE_REFERENCE_SD15_NODES.sampler, "cfg"),
+  controlStrength: target(STYLE_REFERENCE_SD15_NODES.ipAdapterApply, "weight")
+} as const;
+
+// IPAdapter Plus SD1.5 -- the style/mood adapter itself plus the CLIP vision
+// encoder it reads the reference image through. Both Apache-2.0, ungated,
+// verified by live HEAD request and installed byte-for-byte on the dev rig
+// (98,183,288 bytes and 2,528,373,448 bytes respectively).
+const STYLE_REFERENCE_SD15_REQUIRED_MODELS = [
+  {
+    kind: "ip-adapter",
+    objectInfoNode: "IPAdapterModelLoader",
+    inputName: "ipadapter_file",
+    label: "IPAdapter model",
+    modelName: "ip-adapter-plus_sd15.safetensors",
+    setupHint: "Install ip-adapter-plus_sd15.safetensors in ComfyUI's models/ipadapter folder.",
+    downloadUrl: `${H94_IP_ADAPTER_REPO}/resolve/main/models/ip-adapter-plus_sd15.safetensors`,
+    sourcePageUrl: H94_IP_ADAPTER_REPO,
+    downloadSizeBytes: 98183288
+  },
+  {
+    kind: "clip-vision",
+    objectInfoNode: "CLIPVisionLoader",
+    inputName: "clip_name",
+    label: "CLIP vision encoder",
+    modelName: "CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors",
+    setupHint: "Install the CLIP-ViT-H image encoder in ComfyUI's models/clip_vision folder.",
+    downloadUrl: `${H94_IP_ADAPTER_REPO}/resolve/main/models/image_encoder/model.safetensors`,
+    sourcePageUrl: H94_IP_ADAPTER_REPO,
+    downloadSizeBytes: 2528373448
+  }
+] as const;
 
 const FLUX_FILL_STACK = [
   {
@@ -1604,6 +1668,27 @@ const PROMPT_FROM_LAYER_FLORENCE2_CAPABILITY: WorkflowCapability = {
     modelSelectorLabel: "Florence model",
     primaryActionLabel: "Generate Text from Layer",
     experimentalNote: "Prompt from Layer uses a Florence-2 PromptGen custom-node workflow and returns text, not an image."
+  }
+};
+
+const STYLE_REFERENCE_SD15_CAPABILITY: WorkflowCapability = {
+  toolType: "style-reference",
+  loaderType: "checkpoint",
+  artistLabel: "Style Reference",
+  technicalLabel: "style-reference-sd15",
+  requiredPhotoshopInputs: [{ anyOf: ["active-layer", "canvas"], label: "a reference layer or captured canvas" }],
+  controls: ["prompt", "negativePrompt", "width", "height", "steps", "cfg", "seed", "controlStrength"],
+  output: {
+    kind: "full-image",
+    size: "preset",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Checkpoint",
+    primaryActionLabel: "Generate Style Reference",
+    experimentalNote:
+      "IPAdapter Plus reads the captured layer's mood, color, and composition weight -- not its content -- and applies it on top of the prompt. Output size is independent of the reference photo's own dimensions, the same as Text to Image."
   }
 };
 
@@ -3455,6 +3540,82 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     ],
     compatibilityNote:
       "img2img-krea2-turbo uses the Krea-2 Turbo stack plus PNG source upload and VAE encoding. Denoise balances the captured source against the prompt."
+  },
+  {
+    id: "style-reference-sd15",
+    label: "style-reference-sd15",
+    displayName: "IPAdapter Plus (SD1.5)",
+    mode: "style-reference",
+    description: "Match a captured layer's mood, color, and visual language onto a new prompt-driven image.",
+    workflowFile: "workflows/api/style-reference-sd15.json",
+    sourceWorkflowFile: "workflows/source/style-reference-sd15.workflow.json",
+    status: "experimental",
+    recommendedSettings: { steps: 20, cfg: 7, controlStrength: 1 },
+    supportedModelFamilies: ["sd1"],
+    experimentalModelFamilies: ["sdxl", "sd3", "flux", "flux2", "zImage", "unknown"],
+    modelSource: CHECKPOINT_MODEL_SOURCE,
+    capability: STYLE_REFERENCE_SD15_CAPABILITY,
+    injections: STYLE_REFERENCE_SD15_INJECTIONS,
+    requiredModels: [...STYLE_REFERENCE_SD15_REQUIRED_MODELS],
+    compatibilityNote:
+      "style-reference-sd15 uses IPAdapter Plus's \"style transfer\" weight mode on an SD 1.5 checkpoint. Verified against a live ComfyUI: a vaporwave-sunset reference produced its magenta/cyan/orange palette on an unrelated cat-and-chair prompt without copying the reference's content.",
+    requiredNodes: [
+      {
+        id: STYLE_REFERENCE_SD15_NODES.checkpointLoader,
+        classType: "CheckpointLoaderSimple",
+        requiredInputs: ["ckpt_name"]
+      },
+      {
+        id: STYLE_REFERENCE_SD15_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: STYLE_REFERENCE_SD15_NODES.clipVisionLoader,
+        classType: "CLIPVisionLoader",
+        requiredInputs: ["clip_name"]
+      },
+      {
+        id: STYLE_REFERENCE_SD15_NODES.ipAdapterModelLoader,
+        classType: "IPAdapterModelLoader",
+        requiredInputs: ["ipadapter_file"]
+      },
+      {
+        id: STYLE_REFERENCE_SD15_NODES.ipAdapterApply,
+        classType: "IPAdapterAdvanced",
+        requiredInputs: ["model", "ipadapter", "image", "weight", "weight_type"]
+      },
+      {
+        id: STYLE_REFERENCE_SD15_NODES.positivePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: STYLE_REFERENCE_SD15_NODES.negativePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: STYLE_REFERENCE_SD15_NODES.latentImage,
+        classType: "EmptyLatentImage",
+        requiredInputs: ["width", "height", "batch_size"]
+      },
+      {
+        id: STYLE_REFERENCE_SD15_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["model", "seed", "steps", "cfg", "positive", "negative", "latent_image", "denoise"]
+      },
+      {
+        id: STYLE_REFERENCE_SD15_NODES.decode,
+        classType: "VAEDecode",
+        requiredInputs: ["samples", "vae"]
+      },
+      {
+        id: STYLE_REFERENCE_SD15_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images", "filename_prefix"]
+      }
+    ]
   }
 ];
 

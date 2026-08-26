@@ -24,6 +24,7 @@ import {
   DEFAULT_SKETCH_DENOISE,
   DEFAULT_SKETCH_STEPS,
   DEFAULT_STEPS,
+  DEFAULT_STYLE_REFERENCE_CONTROL_STRENGTH,
   DEFAULT_WIDTH,
   FALLBACK_CHECKPOINTS,
   FALLBACK_UPSCALE_MODELS,
@@ -319,6 +320,33 @@ export type AppElements = {
   importLiveButton: HTMLElement;
   importLiveRefinedButton: HTMLElement;
   liveAutoImportToggle: HTMLElement;
+  styleReferenceView: HTMLElement;
+  styleReferencePrompt: HTMLTextAreaElement;
+  styleReferencePromptWalletSave: HTMLElement;
+  styleReferencePromptWalletLoad: HTMLElement;
+  styleReferenceNegativePrompt: HTMLTextAreaElement;
+  styleReferenceWorkflow: HTMLSelectElement;
+  styleReferenceCheckpoint: HTMLSelectElement;
+  styleReferenceWidth: HTMLInputElement;
+  styleReferenceHeight: HTMLInputElement;
+  styleReferenceSteps: HTMLInputElement;
+  styleReferenceCfg: HTMLInputElement;
+  styleReferenceSeed: HTMLInputElement;
+  styleReferenceControlStrength: HTMLInputElement;
+  captureStyleReferenceLayerButton: HTMLElement;
+  captureStyleReferenceCanvasButton: HTMLElement;
+  generateStyleReferenceButton: HTMLElement;
+  importStyleReferenceButton: HTMLElement;
+  styleReferenceStatusText: HTMLElement;
+  styleReferenceStatusPill: HTMLElement;
+  styleReferenceStatusProgress: HTMLElement;
+  styleReferenceDiagnosticsText: HTMLElement;
+  styleReferenceCompatibilityNote: HTMLElement;
+  styleReferenceErrorMessage: HTMLElement;
+  styleReferenceSourcePreviewPanel: HTMLElement;
+  styleReferenceSourceTitle: HTMLElement;
+  styleReferenceSourceMeta: HTMLElement;
+  styleReferenceResultPreviewPanel: HTMLElement;
 };
 
 export function createAppMarkup() {
@@ -942,6 +970,118 @@ export function createAppMarkup() {
           </div>
           <div class="import-actions">
             <button class="button button-import button-import-blue action-control is-disabled" id="import-sketch-result" data-openlayer-action="importSketch" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
+          </div>
+        </section>
+      </section>
+
+      <section class="style-reference-view image-to-image-view" id="style-reference-view" aria-label="Style Reference" hidden>
+        <div class="screen-nav">
+          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
+          <div class="screen-title-block">
+            ${createScreenIconMarkup("style", "Style Reference")}
+            <span class="screen-title">Style Reference</span>
+          </div>
+        </div>
+
+        <section class="panel-section generator-panel source-panel" aria-label="Style reference source">
+          <div class="section-heading">
+            <span class="label">Reference layer</span>
+            <span class="muted-label">IPAdapter input</span>
+          </div>
+          <div class="source-action-row" aria-label="Style reference capture actions">
+            <button class="button source-action-button action-control" id="capture-style-reference-source" data-openlayer-action="captureStyleReferenceSource" type="button">Capture Active Layer</button>
+            <button class="button source-action-button action-control" id="capture-style-reference-canvas-source" data-openlayer-action="captureStyleReferenceCanvasSource" type="button">Capture Canvas</button>
+          </div>
+          <div class="source-card">
+            <div class="source-thumb-frame" id="style-reference-source-preview-panel">
+              <span class="source-empty">None</span>
+            </div>
+            <div class="source-card-body">
+              <span class="source-title" id="style-reference-source-title">No source captured</span>
+              <span class="source-card-meta" id="style-reference-source-meta">IPAdapter Plus reads this layer's mood, color, and composition weight -- not its content.</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel-section generator-panel img2img-form-panel" aria-label="Style Reference prompt">
+          <div class="section-heading">
+            <span class="label">Generate</span>
+            <span class="muted-label">Prompt and IPAdapter settings</span>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Prompt${createPromptWalletControlsMarkup("style-reference-prompt")}</span>
+            <textarea maxlength="10000" class="textarea compact-textarea" id="style-reference-prompt" placeholder="Describe the new image; the reference layer supplies mood and color..."></textarea>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Negative prompt</span>
+            <textarea maxlength="10000" class="textarea compact-textarea" id="style-reference-negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Workflow</span>
+            <select class="select" id="style-reference-workflow">
+              ${listRunnableWorkflowPresets("style-reference").map((preset) => `<option value="${preset.id}">${preset.label}</option>`).join("")}
+            </select>
+          </div>
+          <div class="field img2img-field">
+            <div class="field-label-row">
+              <span class="label">Checkpoint</span>
+              ${createInfoToggleMarkup("style-reference-compatibility-note")}
+            </div>
+            <select class="select" id="style-reference-checkpoint">
+              ${FALLBACK_CHECKPOINTS.map((checkpoint) => `<option value="${checkpoint}">${checkpoint}</option>`).join("")}
+            </select>
+            ${createInfoPanelMarkup("style-reference-compatibility-note", "Recommended: epicrealism_naturalSinRC1VAE.safetensors. IPAdapter Plus SD1.5 needs an SD 1.x checkpoint.")}
+          </div>
+          <div class="settings-grid img2img-settings-grid" aria-label="Style Reference settings">
+            <div class="field">
+              <span class="label">Width</span>
+              <input class="input input-compact" id="style-reference-width" type="number" min="64" max="2048" step="8" value="${DEFAULT_WIDTH}" />
+            </div>
+            <div class="field">
+              <span class="label">Height</span>
+              <input class="input input-compact" id="style-reference-height" type="number" min="64" max="2048" step="8" value="${DEFAULT_HEIGHT}" />
+            </div>
+            <div class="field">
+              <span class="label">Steps</span>
+              <input class="input input-compact" id="style-reference-steps" type="number" min="1" max="150" step="1" value="${DEFAULT_STEPS}" />
+            </div>
+            <div class="field">
+              <span class="label">CFG</span>
+              <input class="input input-compact" id="style-reference-cfg" type="number" min="1" max="30" step="0.5" value="${DEFAULT_CFG}" />
+            </div>
+            <div class="field">
+              <span class="label">Strength</span>
+              <input class="input input-compact" id="style-reference-control-strength" type="number" min="0" max="2" step="0.05" value="${DEFAULT_STYLE_REFERENCE_CONTROL_STRENGTH}" />
+            </div>
+            <div class="field settings-seed">
+              <span class="label">Seed</span>
+              <input class="input input-compact" id="style-reference-seed" type="text" inputmode="numeric" placeholder="Random" />
+            </div>
+          </div>
+          <button class="button button-primary button-generate button-wide action-control" id="generate-style-reference" data-openlayer-action="generateStyleReference" type="button">Generate Style Reference</button>
+          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
+        </section>
+
+        <section class="generation-status-panel img2img-status-panel" aria-label="Style Reference status">
+          <div class="status-bar" role="status">
+            <span class="status-text" id="style-reference-status-text">Ready.</span>
+            <span class="status-pill idle" id="style-reference-status-pill">Status</span>
+          </div>
+          <div class="status-progress" id="style-reference-status-progress" hidden><span></span></div>
+          <div class="diagnostics-line" id="style-reference-diagnostics-text">Capture a reference layer, then use the IPAdapter Plus workflow preset.</div>
+          <div class="error-message" id="style-reference-error-message" hidden></div>
+        </section>
+
+        <section class="panel-section result-panel img2img-result-panel" aria-label="Style Reference result">
+          <div class="section-heading">
+            <span class="label">Result preview</span>
+            <span class="muted-label">Generated result appears here</span>
+          </div>
+          <div class="preview-panel" id="style-reference-result-preview-panel">
+            <span class="preview-empty">No Style Reference result yet</span>
+          </div>
+          <div class="import-actions">
+            <button class="button button-import button-import-blue action-control is-disabled" id="import-style-reference-result" data-openlayer-action="importStyleReference" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
           </div>
         </section>
       </section>
@@ -1871,7 +2011,34 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     liveResultPreviewPanel: getElement<HTMLElement>(rootElement, "live-result-preview-panel"),
     importLiveButton: getElement<HTMLElement>(rootElement, "import-live-result"),
     importLiveRefinedButton: getElement<HTMLElement>(rootElement, "import-live-refined"),
-    liveAutoImportToggle: getElement<HTMLElement>(rootElement, "live-auto-import-toggle")
+    liveAutoImportToggle: getElement<HTMLElement>(rootElement, "live-auto-import-toggle"),
+    styleReferenceView: getElement<HTMLElement>(rootElement, "style-reference-view"),
+    styleReferencePrompt: getElement<HTMLTextAreaElement>(rootElement, "style-reference-prompt"),
+    styleReferencePromptWalletSave: getElement<HTMLElement>(rootElement, "style-reference-prompt-wallet-save"),
+    styleReferencePromptWalletLoad: getElement<HTMLElement>(rootElement, "style-reference-prompt-wallet-load"),
+    styleReferenceNegativePrompt: getElement<HTMLTextAreaElement>(rootElement, "style-reference-negative-prompt"),
+    styleReferenceWorkflow: getElement<HTMLSelectElement>(rootElement, "style-reference-workflow"),
+    styleReferenceCheckpoint: getElement<HTMLSelectElement>(rootElement, "style-reference-checkpoint"),
+    styleReferenceWidth: getElement<HTMLInputElement>(rootElement, "style-reference-width"),
+    styleReferenceHeight: getElement<HTMLInputElement>(rootElement, "style-reference-height"),
+    styleReferenceSteps: getElement<HTMLInputElement>(rootElement, "style-reference-steps"),
+    styleReferenceCfg: getElement<HTMLInputElement>(rootElement, "style-reference-cfg"),
+    styleReferenceSeed: getElement<HTMLInputElement>(rootElement, "style-reference-seed"),
+    styleReferenceControlStrength: getElement<HTMLInputElement>(rootElement, "style-reference-control-strength"),
+    captureStyleReferenceLayerButton: getElement<HTMLElement>(rootElement, "capture-style-reference-source"),
+    captureStyleReferenceCanvasButton: getElement<HTMLElement>(rootElement, "capture-style-reference-canvas-source"),
+    generateStyleReferenceButton: getElement<HTMLElement>(rootElement, "generate-style-reference"),
+    importStyleReferenceButton: getElement<HTMLElement>(rootElement, "import-style-reference-result"),
+    styleReferenceStatusText: getElement<HTMLElement>(rootElement, "style-reference-status-text"),
+    styleReferenceStatusPill: getElement<HTMLElement>(rootElement, "style-reference-status-pill"),
+    styleReferenceStatusProgress: getElement<HTMLElement>(rootElement, "style-reference-status-progress"),
+    styleReferenceDiagnosticsText: getElement<HTMLElement>(rootElement, "style-reference-diagnostics-text"),
+    styleReferenceCompatibilityNote: getElement<HTMLElement>(rootElement, "style-reference-compatibility-note"),
+    styleReferenceErrorMessage: getElement<HTMLElement>(rootElement, "style-reference-error-message"),
+    styleReferenceSourcePreviewPanel: getElement<HTMLElement>(rootElement, "style-reference-source-preview-panel"),
+    styleReferenceSourceTitle: getElement<HTMLElement>(rootElement, "style-reference-source-title"),
+    styleReferenceSourceMeta: getElement<HTMLElement>(rootElement, "style-reference-source-meta"),
+    styleReferenceResultPreviewPanel: getElement<HTMLElement>(rootElement, "style-reference-result-preview-panel")
   };
 }
 

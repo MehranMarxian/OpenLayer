@@ -340,6 +340,8 @@ function createEmptyInventory(): ComfyModelInventory {
     visionLanguageModels: [],
     upscaleModels: [],
     modelPatches: [],
+    clipVisionModels: [],
+    ipAdapterModels: [],
     missingSources: []
   };
 }
@@ -377,6 +379,10 @@ function getInventoryBucket(
       return inventory.upscaleModels;
     case "model-patch":
       return inventory.modelPatches;
+    case "clip-vision":
+      return inventory.clipVisionModels;
+    case "ip-adapter":
+      return inventory.ipAdapterModels;
   }
 }
 

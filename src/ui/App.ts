@@ -75,7 +75,8 @@ import {
   validateGenerationSettings,
   validateImageToImageSettings,
   validateOutpaintSettings,
-  validateSketchToImageSettings
+  validateSketchToImageSettings,
+  validateStyleReferenceSettings
 } from "../comfy/settings";
 import {
   buildImg2ImgWorkflow,
@@ -83,6 +84,7 @@ import {
   buildOutpaintWorkflow,
   buildPromptFromLayerWorkflow,
   buildSketchToImageWorkflow,
+  buildStyleReferenceWorkflow,
   buildTxt2ImgWorkflow,
   buildUpscaleWorkflow
 } from "../comfy/workflowBuilder";
@@ -212,11 +214,13 @@ import {
   getFriendlyInpaintErrorMessage,
   getFriendlyOutpaintErrorMessage,
   getFriendlySketchErrorMessage,
+  getFriendlyStyleReferenceErrorMessage,
   getFriendlyUpscaleErrorMessage,
   getImageToImageFailureHint,
   getInpaintFailureHint,
   getOutpaintFailureHint,
   getSketchFailureHint,
+  getStyleReferenceFailureHint,
   getUpscaleFailureHint
 } from "./toolErrorMessages";
 import { createLayerName, sweepStaleTemporaryFiles } from "../utils/fileUtils";
@@ -297,6 +301,8 @@ import {
   DEFAULT_SKETCH_STEPS,
   DEFAULT_SKETCH_WORKFLOW,
   DEFAULT_STEPS,
+  DEFAULT_STYLE_REFERENCE_CONTROL_STRENGTH,
+  DEFAULT_STYLE_REFERENCE_WORKFLOW,
   DEFAULT_THEME,
   DEFAULT_UPSCALE_WORKFLOW,
   DEFAULT_WIDTH,
@@ -305,7 +311,8 @@ import {
   FALLBACK_UPSCALE_MODELS,
   HISTORY_LIMIT,
   PROMPT_LAYER_TASKS,
-  RECOMMENDED_SKETCH_CHECKPOINT
+  RECOMMENDED_SKETCH_CHECKPOINT,
+  RECOMMENDED_STYLE_REFERENCE_CHECKPOINT
 } from "./appConstants";
 import { AppElements, createAppMarkup, getAppElements } from "./appMarkup";
 import {
@@ -332,6 +339,9 @@ import {
   setSketchError,
   setSketchStatus,
   setStatusProgress,
+  setStyleReferenceDiagnostics,
+  setStyleReferenceError,
+  setStyleReferenceStatus,
   setTextToImageDiagnostics,
   setTextToImageError,
   setTextToImageStatus,
@@ -495,6 +505,8 @@ export function renderApp(rootElement: HTMLElement) {
   let outpaintResult: AppGeneratedImageResult | null = null;
   let upscaleSource: ImageSourceState | null = null;
   let upscaleResult: AppGeneratedImageResult | null = null;
+  let styleReferenceSource: ImageSourceState | null = null;
+  let styleReferenceResult: AppGeneratedImageResult | null = null;
   // Only a canvas capture has a fixed relationship to the document, so only a
   // canvas capture may resize it. Layer captures keep the floating import.
   let upscaleCaptureKind: OutpaintCaptureKind | null = null;
@@ -559,7 +571,9 @@ export function renderApp(rootElement: HTMLElement) {
       outpaintResult,
       outpaintSource,
       upscaleResult,
-      upscaleSource
+      upscaleSource,
+      styleReferenceResult,
+      styleReferenceSource
     });
     updateInpaintReferenceControlLock(elements, isBusy && busyTool === "inpaint");
     syncImportBridge();
@@ -589,7 +603,8 @@ export function renderApp(rootElement: HTMLElement) {
       "inpaint",
       "outpaint",
       "upscale",
-      "prompt_from_layer"
+      "prompt_from_layer",
+      "style_reference"
     ] as const) {
       agentBridge.publishCapability(toolId, { canRun: !isBusy, reason });
     }
@@ -904,6 +919,37 @@ export function renderApp(rootElement: HTMLElement) {
       }
     });
 
+    agentBridge.register("style_reference", {
+      run: handleGenerateStyleReference,
+      fields: {
+        prompt: elements.styleReferencePrompt,
+        negativePrompt: elements.styleReferenceNegativePrompt,
+        workflow: elements.styleReferenceWorkflow,
+        checkpoint: elements.styleReferenceCheckpoint,
+        width: elements.styleReferenceWidth,
+        height: elements.styleReferenceHeight,
+        steps: elements.styleReferenceSteps,
+        cfg: elements.styleReferenceCfg,
+        seed: elements.styleReferenceSeed,
+        controlStrength: elements.styleReferenceControlStrength
+      },
+      leadingParams: ["workflow"],
+      settle: async () => {
+        applyRecommendedPresetSettings(
+          elements.styleReferenceWorkflow,
+          DEFAULT_STYLE_REFERENCE_WORKFLOW,
+          elements.styleReferenceSteps,
+          elements.styleReferenceCfg,
+          elements.styleReferenceControlStrength
+        );
+        await refreshStyleReferenceModelOptionsForSelectedPreset(elements);
+        updateStyleReferenceCheckpointCompatibility(elements, styleReferenceSource);
+      },
+      statusText: elements.styleReferenceStatusText,
+      statusPill: elements.styleReferenceStatusPill,
+      errorText: elements.styleReferenceErrorMessage
+    });
+
     // Published immediately so every tool is drivable before the first state
     // change. `agentBridge.execute` treats an absent capability as "no", which
     // is the right default but would otherwise mean nothing works until
@@ -1001,6 +1047,12 @@ export function renderApp(rootElement: HTMLElement) {
         statusPill: elements.upscaleStatusPill
       },
       {
+        toolId: "style-reference",
+        run: handleImportStyleReference,
+        statusText: elements.styleReferenceStatusText,
+        statusPill: elements.styleReferenceStatusPill
+      },
+      {
         toolId: "live-painting",
         run: handleImportLiveResult,
         statusText: elements.liveStatusText,
@@ -1084,6 +1136,10 @@ export function renderApp(rootElement: HTMLElement) {
       canImport: canImport(upscaleResult),
       auto: null
     });
+    importBridge.publishCapability("style-reference", {
+      canImport: canImport(styleReferenceResult),
+      auto: null
+    });
     // Live Painting's import button is gated on liveLastResult by hand rather
     // than through the busy tables, so its capability is derived the same way
     // here instead of being read off the button.
@@ -1150,6 +1206,15 @@ export function renderApp(rootElement: HTMLElement) {
     resultAlt: "Generated Upscale preview",
     liveAlt: "Live ComfyUI Upscale preview"
   });
+  const styleReferenceResultPanel = createResultPreviewPanel({
+    urls: objectUrls,
+    panel: elements.styleReferenceResultPreviewPanel,
+    hub: previewHub,
+    toolId: "style-reference",
+    emptyText: "No Style Reference result yet",
+    resultAlt: "Generated Style Reference preview",
+    liveAlt: "Live ComfyUI Style Reference preview"
+  });
   const imageSourcePanel = createSourcePreviewPanel({
     urls: objectUrls,
     panel: elements.imageSourcePreviewPanel,
@@ -1186,6 +1251,13 @@ export function renderApp(rootElement: HTMLElement) {
     titleElement: elements.upscaleSourceTitle,
     metaElement: elements.upscaleSourceMeta,
     imageAlt: "Captured Photoshop source for Upscale"
+  });
+  const styleReferenceSourcePanel = createSourcePreviewPanel({
+    urls: objectUrls,
+    panel: elements.styleReferenceSourcePreviewPanel,
+    titleElement: elements.styleReferenceSourceTitle,
+    metaElement: elements.styleReferenceSourceMeta,
+    imageAlt: "Captured Photoshop source for Style Reference"
   });
   const agentConnection = createAgentConnection({
     bridge: agentBridge,
@@ -1354,7 +1426,15 @@ export function renderApp(rootElement: HTMLElement) {
     toggleLiveAutoImport: createActionRunner(elements, "toggleLiveAutoImport", handleToggleLiveAutoImport),
     toggleLiveAutoRefine: createActionRunner(elements, "toggleLiveAutoRefine", handleToggleLiveAutoRefine),
     toggleAgentBridge: createActionRunner(elements, "toggleAgentBridge", handleToggleAgentBridge),
-    suggestPrompt: createActionRunner(elements, "suggestPrompt", handleSuggestPrompt)
+    suggestPrompt: createActionRunner(elements, "suggestPrompt", handleSuggestPrompt),
+    captureStyleReferenceSource: createActionRunner(elements, "captureStyleReferenceSource", handleCaptureStyleReferenceSource),
+    captureStyleReferenceCanvasSource: createActionRunner(
+      elements,
+      "captureStyleReferenceCanvasSource",
+      handleCaptureStyleReferenceCanvasSource
+    ),
+    generateStyleReference: createActionRunner(elements, "generateStyleReference", handleGenerateStyleReference),
+    importStyleReference: createActionRunner(elements, "importStyleReference", handleImportStyleReference)
   };
 
   bindActionControl(elements.checkButton, actionHandlers.check);
@@ -1417,6 +1497,10 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.liveAutoRefineToggle, actionHandlers.toggleLiveAutoRefine);
   bindActionControl(elements.agentBridgeToggle, actionHandlers.toggleAgentBridge);
   bindActionControl(elements.suggestPrompt, actionHandlers.suggestPrompt);
+  bindActionControl(elements.captureStyleReferenceLayerButton, actionHandlers.captureStyleReferenceSource);
+  bindActionControl(elements.captureStyleReferenceCanvasButton, actionHandlers.captureStyleReferenceCanvasSource);
+  bindActionControl(elements.generateStyleReferenceButton, actionHandlers.generateStyleReference);
+  bindActionControl(elements.importStyleReferenceButton, actionHandlers.importStyleReference);
   registerImportBridgeHandlers();
   registerAgentBridgeHandlers();
   restoreAgentBridgeSettings();
@@ -1490,6 +1574,15 @@ export function renderApp(rootElement: HTMLElement) {
       view: "live-painting",
       label: "Live Painting",
       report: (_elements, message) => setLiveStatus(message)
+    },
+    {
+      positive: "styleReferencePrompt",
+      negative: "styleReferenceNegativePrompt",
+      saveButton: "styleReferencePromptWalletSave",
+      loadButton: "styleReferencePromptWalletLoad",
+      view: "style-reference",
+      label: "Style Reference",
+      report: setStyleReferenceDiagnostics
     }
   ];
   const promptWallet = bindPromptWallet(elements, promptWalletTools, setView);
@@ -1530,6 +1623,9 @@ export function renderApp(rootElement: HTMLElement) {
   updateUpscaleCompatibility(elements, upscaleSource);
   setUpscaleSource(null);
   setUpscaleResult(null);
+  updateStyleReferenceCheckpointCompatibility(elements, styleReferenceSource);
+  setStyleReferenceSource(null);
+  setStyleReferenceResult(null);
   setPromptLayerSource(null);
   updateSettingsReport(elements);
   renderHardwareReport(elements, hardwareReport);
@@ -1625,6 +1721,23 @@ export function renderApp(rootElement: HTMLElement) {
     updateUpscaleCompatibility(elements, upscaleSource);
   });
 
+  elements.styleReferenceWorkflow.addEventListener("change", () => {
+    applyRecommendedPresetSettings(
+      elements.styleReferenceWorkflow,
+      DEFAULT_STYLE_REFERENCE_WORKFLOW,
+      elements.styleReferenceSteps,
+      elements.styleReferenceCfg,
+      elements.styleReferenceControlStrength
+    );
+    void refreshStyleReferenceModelOptionsForSelectedPreset(elements).then(() =>
+      updateStyleReferenceCheckpointCompatibility(elements, styleReferenceSource)
+    );
+  });
+
+  elements.styleReferenceCheckpoint.addEventListener("change", () => {
+    updateStyleReferenceCheckpointCompatibility(elements, styleReferenceSource);
+  });
+
   async function loadInitialCheckpoints() {
     setGlobalStatus(elements, "Loading ComfyUI models...", "idle");
 
@@ -1638,12 +1751,14 @@ export function renderApp(rootElement: HTMLElement) {
       await refreshInpaintModelOptionsForSelectedPreset(elements, client);
       await refreshOutpaintModelOptionsForSelectedPreset(elements, client);
       await refreshUpscaleModelOptionsForSelectedPreset(elements, client);
+      await refreshStyleReferenceModelOptionsForSelectedPreset(elements, client);
       await refreshAllLoraOptions(elements, client);
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
       updateSketchCheckpointCompatibility(elements, sketchSource);
       updateInpaintCheckpointCompatibility(elements, inpaintSource);
       updateOutpaintCheckpointCompatibility(elements, outpaintSource);
       updateUpscaleCompatibility(elements, upscaleSource);
+      updateStyleReferenceCheckpointCompatibility(elements, styleReferenceSource);
       setGlobalStatus(elements, "ComfyUI is online. Models loaded.", "ready");
       savePreferencesFromElements(elements);
       updateSettingsReport(elements);
@@ -1669,11 +1784,13 @@ export function renderApp(rootElement: HTMLElement) {
       await refreshInpaintModelOptionsForSelectedPreset(elements, client);
       await refreshOutpaintModelOptionsForSelectedPreset(elements, client);
       await refreshUpscaleModelOptionsForSelectedPreset(elements, client);
+      await refreshStyleReferenceModelOptionsForSelectedPreset(elements, client);
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
       updateSketchCheckpointCompatibility(elements, sketchSource);
       updateInpaintCheckpointCompatibility(elements, inpaintSource);
       updateOutpaintCheckpointCompatibility(elements, outpaintSource);
       updateUpscaleCompatibility(elements, upscaleSource);
+      updateStyleReferenceCheckpointCompatibility(elements, styleReferenceSource);
       setGlobalStatus(elements, "ComfyUI is online. Models loaded.", "ready");
       savePreferencesFromElements(elements);
       updateSettingsReport(elements);
@@ -1711,11 +1828,13 @@ export function renderApp(rootElement: HTMLElement) {
       await refreshInpaintModelOptionsForSelectedPreset(elements, client);
       await refreshOutpaintModelOptionsForSelectedPreset(elements, client);
       await refreshUpscaleModelOptionsForSelectedPreset(elements, client);
+      await refreshStyleReferenceModelOptionsForSelectedPreset(elements, client);
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
       updateSketchCheckpointCompatibility(elements, sketchSource);
       updateInpaintCheckpointCompatibility(elements, inpaintSource);
       updateOutpaintCheckpointCompatibility(elements, outpaintSource);
       updateUpscaleCompatibility(elements, upscaleSource);
+      updateStyleReferenceCheckpointCompatibility(elements, styleReferenceSource);
       savePreferencesFromElements(elements);
       setGlobalStatus(elements, `Found ComfyUI at ${foundUrl}.`, "ready");
       setGlobalDiagnostics(elements, `Active ComfyUI server selected: ${foundUrl}.`);
@@ -2190,6 +2309,7 @@ export function renderApp(rootElement: HTMLElement) {
       case "inpaint": inpaintResultPanel.releaseLivePreviewUrl(); return;
       case "outpaint": outpaintResultPanel.releaseLivePreviewUrl(); return;
       case "upscale": upscaleResultPanel.releaseLivePreviewUrl(); return;
+      case "style-reference": styleReferenceResultPanel.releaseLivePreviewUrl(); return;
       case "text-to-image": resultPanel.releaseLivePreviewUrl(); return;
       case "prompt-from-layer": return;
     }
@@ -2210,7 +2330,8 @@ export function renderApp(rootElement: HTMLElement) {
     inpaint: { status: setInpaintStatus, diagnostics: setInpaintDiagnostics, error: setInpaintError, progress: setInpaintProgressPreview },
     outpaint: { status: setOutpaintStatus, diagnostics: setOutpaintDiagnostics, error: setOutpaintError, progress: setOutpaintProgressPreview },
     upscale: { status: setUpscaleStatus, diagnostics: setUpscaleDiagnostics, error: setUpscaleError, progress: setUpscaleProgressPreview },
-    "prompt-from-layer": { status: setPromptLayerStatus, diagnostics: setPromptLayerDiagnostics, error: setPromptLayerError }
+    "prompt-from-layer": { status: setPromptLayerStatus, diagnostics: setPromptLayerDiagnostics, error: setPromptLayerError },
+    "style-reference": { status: setStyleReferenceStatus, diagnostics: setStyleReferenceDiagnostics, error: setStyleReferenceError, progress: setStyleReferenceProgressPreview }
   };
 
   function setGenerationToolStatus(toolType: HistoryToolType, status: string, tone: StatusTone) {
@@ -2457,6 +2578,7 @@ export function renderApp(rootElement: HTMLElement) {
     setInpaintError(elements, "");
     setOutpaintError(elements, "");
     setUpscaleError(elements, "");
+    setStyleReferenceError(elements, "");
 
     switch (entry.toolType) {
       case "image-to-image":
@@ -2482,6 +2604,10 @@ export function renderApp(rootElement: HTMLElement) {
         setUpscaleResult(entry.result);
         setView("upscale");
         return;
+      case "style-reference":
+        setStyleReferenceResult(entry.result);
+        setView("style-reference");
+        return;
       case "text-to-image":
       default:
         setResult(entry.result);
@@ -2505,6 +2631,9 @@ export function renderApp(rootElement: HTMLElement) {
         return;
       case "upscale":
         await handleImportUpscale(entry.upscaleImportContext);
+        return;
+      case "style-reference":
+        await handleImportStyleReference();
         return;
       case "text-to-image":
       default:
@@ -2547,6 +2676,13 @@ export function renderApp(rootElement: HTMLElement) {
         setSelectValueIfPresent(elements.upscaleWorkflow, entry.workflowPreset);
         setSelectValueIfPresent(elements.upscaleModel, entry.modelName);
         setView("upscale");
+        break;
+      case "style-reference":
+        elements.styleReferencePrompt.value = entry.prompt;
+        setSelectValueIfPresent(elements.styleReferenceWorkflow, entry.workflowPreset);
+        setSelectValueIfPresent(elements.styleReferenceCheckpoint, entry.modelName);
+        elements.styleReferenceSeed.value = String(entry.seed);
+        setView("style-reference");
         break;
       case "text-to-image":
       default:
@@ -3804,6 +3940,269 @@ export function renderApp(rootElement: HTMLElement) {
     }
   }
 
+  async function handleCaptureStyleReferenceSource() {
+    await captureStyleReferenceSourceImage({
+      progressMessage: "Capturing active Photoshop layer for Style Reference...",
+      statusMessage: "Capturing active layer...",
+      successMessage: "Style reference captured.",
+      capture: exportActiveLayerForImageToImage
+    });
+  }
+
+  async function handleCaptureStyleReferenceCanvasSource() {
+    await captureStyleReferenceSourceImage({
+      progressMessage: "Capturing Photoshop canvas for Style Reference...",
+      statusMessage: "Capturing canvas...",
+      successMessage: "Style reference canvas captured.",
+      capture: exportCanvasForImageToImage
+    });
+  }
+
+  async function captureStyleReferenceSourceImage(options: {
+    progressMessage: string;
+    statusMessage: string;
+    successMessage: string;
+    capture: () => Promise<ExportedSourceImage>;
+  }) {
+    setStyleReferenceDiagnostics(elements, options.progressMessage);
+    setStyleReferenceError(elements, "");
+    setStyleReferenceStatus(elements, options.statusMessage, "idle");
+    busyTool = "style-reference";
+    isBusy = true;
+    syncBusy();
+
+    try {
+      const exportedSource = await options.capture();
+      const sourcePreview = objectUrls.create(exportedSource.blob);
+      setStyleReferenceSource({
+        ...exportedSource,
+        previewUrl: sourcePreview
+      });
+      setStyleReferenceStatus(elements, options.successMessage, "ready");
+      setStyleReferenceDiagnostics(
+        elements,
+        createSourceCaptureMessage(exportedSource, " as the style reference")
+      );
+    } catch (caughtError) {
+      setStyleReferenceStatus(elements, "Style reference capture failed.", "error");
+      setStyleReferenceError(elements, getErrorMessage(caughtError));
+      setStyleReferenceDiagnostics(elements, getTechnicalErrorDetails(caughtError));
+    } finally {
+      isBusy = false;
+      busyTool = null;
+      syncBusy();
+    }
+  }
+
+  async function handleGenerateStyleReference() {
+    if (blockRegularGenerationDuringLivePainting((message) => setStyleReferenceStatus(elements, message, "error"))) {
+      return;
+    }
+
+    setStyleReferenceDiagnostics(elements, `Style Reference generate pressed at ${new Date().toLocaleTimeString()}.`);
+
+    if (!styleReferenceSource) {
+      setStyleReferenceError(elements, "Capture the active Photoshop layer or canvas as a style reference before generating.");
+      setStyleReferenceStatus(elements, "Reference required.", "error");
+      setStyleReferenceDiagnostics(
+        elements,
+        createWorkflowDiagnostics(
+          getWorkflowPreset(readSelectValue(elements.styleReferenceWorkflow, DEFAULT_STYLE_REFERENCE_WORKFLOW)),
+          readSelectValue(elements.styleReferenceCheckpoint),
+          createSourceInputAvailability(styleReferenceSource)
+        )
+      );
+      return;
+    }
+
+    if (!elements.styleReferencePrompt.value.trim()) {
+      setStyleReferenceError(
+        elements,
+        getErrorMessage(createOpenLayerError("PROMPT_REQUIRED", "Enter a prompt before generating Style Reference."))
+      );
+      setStyleReferenceStatus(elements, "Prompt required.", "error");
+      return;
+    }
+
+    setStyleReferenceError(elements, "");
+    setStyleReferenceResult(null);
+    busyTool = "style-reference";
+    isBusy = true;
+    syncBusy();
+    setStyleReferenceStatus(elements, "Preparing Style Reference workflow...", "idle");
+    setStyleReferenceProgressPreview(elements, "Preparing Style Reference workflow...");
+
+    try {
+      const workflowPreset = readSelectValue(elements.styleReferenceWorkflow, DEFAULT_STYLE_REFERENCE_WORKFLOW);
+      const preset = getWorkflowPreset(workflowPreset);
+      const checkpointName = readSelectValue(elements.styleReferenceCheckpoint);
+      const { settings, warnings } = validateStyleReferenceSettings({
+        width: elements.styleReferenceWidth.value,
+        height: elements.styleReferenceHeight.value,
+        steps: elements.styleReferenceSteps.value,
+        cfg: elements.styleReferenceCfg.value,
+        seed: elements.styleReferenceSeed.value,
+        controlStrength: elements.styleReferenceControlStrength.value
+      });
+      const client = new ComfyClient(elements.serverUrl.value);
+
+      applyValidatedStyleReferenceSettings(elements, settings);
+      setStyleReferenceDiagnostics(
+        elements,
+        warnings.length > 0
+          ? warnings.join(" ")
+          : createWorkflowDiagnostics(preset, checkpointName, createSourceInputAvailability(styleReferenceSource))
+      );
+      await client.checkOnline();
+
+      if (!checkpointName) {
+        throw createOpenLayerError("CHECKPOINT_REQUIRED", "Choose a ComfyUI checkpoint before generating.");
+      }
+
+      const compatibility = getCheckpointCompatibility(checkpointName, preset);
+
+      if (compatibility.isExperimental) {
+        throw createOpenLayerError(
+          "CHECKPOINT_UNSUPPORTED",
+          "Style Reference (IPAdapter Plus) is built for SD 1.5 checkpoints.",
+          `${checkpointName}: ${compatibility.warning}`
+        );
+      }
+
+      setStyleReferenceStatus(elements, "Checking selected checkpoint...", "idle");
+      setStyleReferenceProgressPreview(elements, "Checking selected checkpoint...");
+
+      if (!(await client.hasModelForPreset(checkpointName, preset))) {
+        throw createOpenLayerError(
+          "CHECKPOINT_REQUIRED",
+          `The ${preset.modelSource.label.toLowerCase()} "${checkpointName}" was not found in ComfyUI. Click Check ComfyUI and choose an available model.`
+        );
+      }
+
+      setStyleReferenceStatus(elements, "Checking IPAdapter Plus nodes and models...", "idle");
+      setStyleReferenceProgressPreview(elements, "Checking IPAdapter Plus setup...");
+      await client.validatePresetSetup(preset);
+
+      setStyleReferenceStatus(elements, "Uploading reference image to ComfyUI...", "idle");
+      setStyleReferenceProgressPreview(elements, "Uploading reference image...");
+      const sourceImageName = await client.uploadImage(styleReferenceSource.blob, styleReferenceSource.filename);
+      const buildResult = await buildStyleReferenceWorkflow({
+        presetId: preset.id,
+        prompt: elements.styleReferencePrompt.value,
+        negativePrompt: elements.styleReferenceNegativePrompt.value,
+        checkpointName,
+        sourceImageName,
+        width: settings.width,
+        height: settings.height,
+        steps: settings.steps,
+        cfg: settings.cfg,
+        seed: settings.seed,
+        controlStrength: settings.controlStrength
+      });
+
+      const generatedResult = await generation.runPipeline({
+        toolType: "style-reference",
+        client,
+        workflow: buildResult.workflow,
+        preferredNodeId: getSaveImageNodeId(buildResult.preset),
+        originatingDocument: styleReferenceSource.originatingDocument,
+        ui: createPipelineUi("style-reference", elements.styleReferenceStatusProgress),
+        messages: {
+          submitStatus: "Submitting Style Reference prompt...",
+          submitPreview: "Submitting prompt to ComfyUI...",
+          generateStatus: "Generating Style Reference result...",
+          generatePreview: "Generating image...",
+          retrieveStatus: "Retrieving Style Reference result...",
+          retrievePreview: "Retrieving final image...",
+          livePreview: "Live ComfyUI preview..."
+        },
+        commit: (generatedResult) => {
+        setStyleReferenceResult(generatedResult);
+        addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
+          prompt: elements.styleReferencePrompt.value,
+          negativePrompt: elements.styleReferenceNegativePrompt.value,
+          checkpointName,
+          modelName: checkpointName,
+          workflowPreset: buildResult.preset.id,
+          toolType: "style-reference",
+          seed: buildResult.seed,
+          sizeLabel: `${settings.width} x ${settings.height}`,
+          dimensions: `${settings.width} x ${settings.height}`,
+          sourceMode: styleReferenceSource?.sourceName ?? "Reference layer",
+          experimental: buildResult.preset.status === "experimental"
+        });
+        }
+      });
+
+      if (!generatedResult) {
+        return;
+      }
+      setStyleReferenceStatus(elements, "Style Reference generation complete.", "ready");
+      setStyleReferenceDiagnostics(
+        elements,
+        `Seed used: ${buildResult.seed}. Reference uploaded as ${sourceImageName}. Workflow: ${buildResult.preset.id}.`
+      );
+    } catch (caughtError) {
+      if (isGenerationCancelledError(caughtError)) {
+        showGenerationCancelled("style-reference");
+        return;
+      }
+
+      setStyleReferenceStatus(elements, "Style Reference generation failed.", "error");
+      setStyleReferenceError(elements, getFriendlyStyleReferenceErrorMessage(caughtError));
+      console.error("[OpenLayer] Style Reference generation failed", getTechnicalErrorDetails(caughtError));
+      setStyleReferenceDiagnostics(elements, getStyleReferenceFailureHint(caughtError));
+    } finally {
+      isBusy = false;
+      busyTool = null;
+      syncBusy();
+    }
+  }
+
+  async function handleImportStyleReference() {
+    setStyleReferenceDiagnostics(elements, "Style Reference import pressed.");
+
+    if (!styleReferenceResult) {
+      setStyleReferenceError(elements, "Generate a Style Reference result before importing.");
+      return;
+    }
+
+    setStyleReferenceError(elements, "");
+    busyTool = "style-reference";
+    isBusy = true;
+    syncBusy();
+    setStyleReferenceStatus(elements, "Importing Style Reference result into Photoshop...", "idle");
+
+    try {
+      const layerName = createLayerName("OpenLayer_StyleReference");
+
+      setStyleReferenceDiagnostics(elements, `Importing into ${styleReferenceResult.originatingDocument?.name || "the originating document"}...`);
+      const importedLayerName = await importGeneratedImageAsLayer({
+        blob: styleReferenceResult.blob,
+        originatingDocument: styleReferenceResult.originatingDocument,
+        layerName,
+        onProgress: (message) => {
+          setStyleReferenceStatus(elements, message, "idle");
+          setStyleReferenceDiagnostics(elements, message);
+        }
+      });
+      setStyleReferenceStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
+      flashImported(elements.styleReferenceStatusText);
+      markHistoryImported(elements, historyEntries, styleReferenceResult, importedLayerName);
+      const metadataMessage = await writeMetadataForImportedResult(historyEntries, styleReferenceResult, importedLayerName, (message) => {
+        setStyleReferenceDiagnostics(elements, message);
+      });
+      setStyleReferenceDiagnostics(elements, `Layer created: ${importedLayerName}. ${metadataMessage}`);
+    } catch (caughtError) {
+      setStyleReferenceStatus(elements, "Import failed.", "error");
+      setStyleReferenceError(elements, getErrorMessage(caughtError));
+    } finally {
+      isBusy = false;
+      busyTool = null;
+      syncBusy();
+    }
+  }
+
   async function handleCaptureInpaintSelection(sourceMode: InpaintSourceMode) {
     const sourceModeLabel = getInpaintSourceModeLabel(sourceMode);
     setInpaintDiagnostics(elements, `Capturing Photoshop selection from ${sourceModeLabel}...`);
@@ -4871,6 +5270,27 @@ export function renderApp(rootElement: HTMLElement) {
     upscaleResultPanel.showProgress(message, blob);
   }
 
+  function setStyleReferenceSource(nextSource: ImageSourceState | null) {
+    styleReferenceSource = nextSource;
+    styleReferenceSourcePanel.show(styleReferenceSource && {
+      previewUrl: styleReferenceSource.previewUrl,
+      title: styleReferenceSource.sourceName,
+      meta: createSourceMetaText(styleReferenceSource)
+    });
+    updateStyleReferenceCheckpointCompatibility(elements, styleReferenceSource);
+    syncBusy();
+  }
+
+  function setStyleReferenceResult(nextResult: AppGeneratedImageResult | null) {
+    styleReferenceResult = nextResult;
+    styleReferenceResultPanel.showResult(styleReferenceResult?.blob ?? null);
+    syncBusy();
+  }
+
+  function setStyleReferenceProgressPreview(elements: AppElements, message: string, blob?: Blob) {
+    styleReferenceResultPanel.showProgress(message, blob);
+  }
+
   function setPromptLayerSource(nextSource: ImageSourceState | null) {
     promptLayerSource = nextSource;
     promptLayerSourcePanel.show(promptLayerSource && {
@@ -4901,6 +5321,7 @@ export function renderApp(rootElement: HTMLElement) {
     elements.outpaintView.hidden = currentView !== "outpaint";
     elements.promptFromLayerView.hidden = currentView !== "prompt-from-layer";
     elements.upscaleView.hidden = currentView !== "upscale";
+    elements.styleReferenceView.hidden = currentView !== "style-reference";
     elements.livePaintingView.hidden = currentView !== "live-painting";
     elements.settingsView.hidden = currentView !== "settings";
     elements.setupView.hidden = currentView !== "setup";
@@ -5130,6 +5551,21 @@ function updateUpscaleCompatibility(elements: AppElements, source: ImageSourceSt
 
   elements.upscaleCompatibilityNote.textContent = `${formatWorkflowDiagnosticMessage(message)} Pixel/model upscale only; prompts are not used.`;
   elements.upscaleCompatibilityNote.classList.toggle("is-warning", message.isWarning || preset.status === "experimental");
+  updateSettingsReport(elements);
+}
+
+function updateStyleReferenceCheckpointCompatibility(elements: AppElements, source: ImageSourceState | null = null) {
+  const checkpointName = readSelectValue(elements.styleReferenceCheckpoint);
+  const preset = getWorkflowPreset(readSelectValue(elements.styleReferenceWorkflow, DEFAULT_STYLE_REFERENCE_WORKFLOW));
+  const message = createWorkflowDiagnosticMessage(preset, {
+    selectedModelName: checkpointName,
+    photoshopInputs: createSourceInputAvailability(source)
+  });
+
+  elements.styleReferenceCompatibilityNote.textContent = checkpointName === RECOMMENDED_STYLE_REFERENCE_CHECKPOINT
+    ? `${formatWorkflowDiagnosticMessage(message)} Recommended SD 1.5 checkpoint for IPAdapter Plus.`
+    : formatWorkflowDiagnosticMessage(message);
+  elements.styleReferenceCompatibilityNote.classList.toggle("is-warning", message.isWarning);
   updateSettingsReport(elements);
 }
 
@@ -5385,6 +5821,28 @@ async function refreshUpscaleModelOptionsForSelectedPreset(
   updateUpscaleCompatibility(elements);
 }
 
+async function refreshStyleReferenceModelOptionsForSelectedPreset(
+  elements: AppElements,
+  client = new ComfyClient(elements.serverUrl.value),
+  preferredValue = readSelectValue(elements.styleReferenceCheckpoint)
+) {
+  const preset = getWorkflowPreset(readSelectValue(elements.styleReferenceWorkflow, DEFAULT_STYLE_REFERENCE_WORKFLOW));
+
+  try {
+    const modelNames = await client.getModelNamesForPreset(preset);
+
+    if (modelNames.length > 0) {
+      const preferredModel = modelNames.includes(preferredValue)
+        ? preferredValue
+        : (modelNames.includes(RECOMMENDED_STYLE_REFERENCE_CHECKPOINT) ? RECOMMENDED_STYLE_REFERENCE_CHECKPOINT : undefined);
+
+      fillSingleCheckpointSelect(elements.styleReferenceCheckpoint, modelNames, preferredModel);
+    }
+  } catch {
+    // Keep the existing list if ComfyUI is offline or this model source is unavailable.
+  }
+}
+
 function fillCheckpointOptions(elements: AppElements, checkpoints: string[], preferredValue?: string) {
   fillSingleCheckpointSelect(elements.checkpoint, checkpoints, preferredValue);
   fillSingleCheckpointSelect(elements.imgCheckpoint, checkpoints, preferredValue);
@@ -5395,6 +5853,11 @@ function fillCheckpointOptions(elements: AppElements, checkpoints: string[], pre
   );
   fillSingleCheckpointSelect(elements.inpaintCheckpoint, checkpoints, preferredValue);
   fillSingleCheckpointSelect(elements.outpaintCheckpoint, checkpoints, preferredValue);
+  fillSingleCheckpointSelect(
+    elements.styleReferenceCheckpoint,
+    checkpoints,
+    checkpoints.includes(RECOMMENDED_STYLE_REFERENCE_CHECKPOINT) ? RECOMMENDED_STYLE_REFERENCE_CHECKPOINT : preferredValue
+  );
 }
 
 function fillSingleCheckpointSelect(select: HTMLSelectElement, checkpoints: string[], preferredValue?: string) {
@@ -5591,12 +6054,14 @@ function ensureCoreSelectDefaults(elements: AppElements) {
   ensureSelectOption(elements.inpaintWorkflow, DEFAULT_INPAINT_WORKFLOW);
   ensureSelectOption(elements.outpaintWorkflow, DEFAULT_OUTPAINT_WORKFLOW);
   ensureSelectOption(elements.upscaleWorkflow, DEFAULT_UPSCALE_WORKFLOW);
+  ensureSelectOption(elements.styleReferenceWorkflow, DEFAULT_STYLE_REFERENCE_WORKFLOW);
 
   ensureSelectOption(elements.imgCheckpoint, FALLBACK_CHECKPOINTS[0]);
   ensureSelectOption(elements.sketchCheckpoint, RECOMMENDED_SKETCH_CHECKPOINT);
   ensureSelectOption(elements.inpaintCheckpoint, FALLBACK_CHECKPOINTS[0]);
   ensureSelectOption(elements.outpaintCheckpoint, "flux1-fill-dev.safetensors");
   ensureSelectOption(elements.upscaleModel, FALLBACK_UPSCALE_MODELS[0]);
+  ensureSelectOption(elements.styleReferenceCheckpoint, RECOMMENDED_STYLE_REFERENCE_CHECKPOINT);
 }
 
 function ensureSelectOption(select: HTMLSelectElement, value: string, label = value) {
@@ -5705,6 +6170,22 @@ function applyValidatedSketchToImageSettings(elements: AppElements, settings: {
   elements.sketchControlStrength.value = String(settings.controlStrength);
 }
 
+function applyValidatedStyleReferenceSettings(elements: AppElements, settings: {
+  width: number;
+  height: number;
+  steps: number;
+  cfg: number;
+  seed: number;
+  controlStrength: number;
+}) {
+  elements.styleReferenceWidth.value = String(settings.width);
+  elements.styleReferenceHeight.value = String(settings.height);
+  elements.styleReferenceSteps.value = String(settings.steps);
+  elements.styleReferenceCfg.value = String(settings.cfg);
+  elements.styleReferenceSeed.value = String(settings.seed);
+  elements.styleReferenceControlStrength.value = String(settings.controlStrength);
+}
+
 function applyValidatedInpaintSettings(elements: AppElements, settings: {
   steps: number;
   cfg: number;
@@ -5755,6 +6236,7 @@ function applyPreferences(elements: AppElements, preferences: Partial<OpenLayerP
   elements.inpaintWorkflow.value = DEFAULT_INPAINT_WORKFLOW;
   elements.outpaintWorkflow.value = DEFAULT_OUTPAINT_WORKFLOW;
   elements.upscaleWorkflow.value = DEFAULT_UPSCALE_WORKFLOW;
+  elements.styleReferenceWorkflow.value = DEFAULT_STYLE_REFERENCE_WORKFLOW;
 
   if (preferences.width) {
     elements.width.value = preferences.width;
@@ -5773,6 +6255,7 @@ function applyPreferences(elements: AppElements, preferences: Partial<OpenLayerP
     elements.imgCfg.value = preferences.cfg;
     elements.sketchCfg.value = preferences.cfg;
     elements.inpaintCfg.value = preferences.cfg;
+    elements.styleReferenceCfg.value = preferences.cfg;
   }
 
   if (preferences.seed) {
@@ -5819,6 +6302,13 @@ function applyDefaultSettings(elements: AppElements) {
   if (elements.upscaleModel.options.length === 0) {
     fillSingleCheckpointSelect(elements.upscaleModel, FALLBACK_UPSCALE_MODELS, FALLBACK_UPSCALE_MODELS[0]);
   }
+  elements.styleReferenceWorkflow.value = DEFAULT_STYLE_REFERENCE_WORKFLOW;
+  elements.styleReferenceWidth.value = DEFAULT_WIDTH;
+  elements.styleReferenceHeight.value = DEFAULT_HEIGHT;
+  elements.styleReferenceSteps.value = DEFAULT_STEPS;
+  elements.styleReferenceCfg.value = DEFAULT_CFG;
+  elements.styleReferenceSeed.value = "";
+  elements.styleReferenceControlStrength.value = DEFAULT_STYLE_REFERENCE_CONTROL_STRENGTH;
 }
 
 function savePreferencesFromElements(
@@ -5911,6 +6401,9 @@ function createSettingsWorkflowReadiness(elements: AppElements) {
     }),
     createWorkflowDiagnosticMessage(getWorkflowPreset(readSelectValue(elements.upscaleWorkflow, DEFAULT_UPSCALE_WORKFLOW)), {
       selectedModelName: readSelectValue(elements.upscaleModel)
+    }),
+    createWorkflowDiagnosticMessage(getWorkflowPreset(readSelectValue(elements.styleReferenceWorkflow, DEFAULT_STYLE_REFERENCE_WORKFLOW)), {
+      selectedModelName: readSelectValue(elements.styleReferenceCheckpoint)
     })
   ];
   const warnings = messages.filter((message) => message.isWarning);
@@ -6552,6 +7045,7 @@ function createDiagnosticsReport(
     `Inpaint model: ${readSelectValue(elements.inpaintCheckpoint) || "None"}`,
     `Outpaint model: ${readSelectValue(elements.outpaintCheckpoint) || "None"}`,
     `Upscale model: ${readSelectValue(elements.upscaleModel) || "None"}`,
+    `Style Reference model: ${readSelectValue(elements.styleReferenceCheckpoint) || "None"}`,
     "",
     "Workflow health:",
     workflowHealthReport?.summary ?? "Workflow health has not been checked yet.",

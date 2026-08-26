@@ -21,7 +21,8 @@ export type WorkflowPreset =
   | "inpaint-flux-fill-cropstitch"
   | "inpaint-flux2-klein"
   | "outpaint-flux-fill-basic"
-  | "upscale-basic";
+  | "upscale-basic"
+  | "style-reference-sd15";
 export type WorkflowMode =
   | "txt2img"
   | "img2img"
@@ -29,7 +30,8 @@ export type WorkflowMode =
   | "inpaint"
   | "outpaint"
   | "prompt"
-  | "upscale";
+  | "upscale"
+  | "style-reference";
 export type ModelFamily = "sd1" | "sdxl" | "sd3" | "flux" | "flux2" | "zImage" | "unknown";
 export type WorkflowToolType = WorkflowMode | "realtime";
 export type WorkflowLoaderType = "checkpoint" | "diffusion-model-stack" | "vision-language" | "upscale";
@@ -126,6 +128,8 @@ export type ComfyModelInventory = {
   visionLanguageModels: string[];
   upscaleModels: string[];
   modelPatches: string[];
+  clipVisionModels: string[];
+  ipAdapterModels: string[];
   missingSources: string[];
 };
 
@@ -184,6 +188,26 @@ export type BuildInpaintWorkflowOptions = BuildImageToImageWorkflowOptions & {
   maskImageName: string;
   width?: number;
   height?: number;
+};
+
+/**
+ * Unlike every other captured-source preset, output size is independent of the
+ * reference photo's own dimensions -- the reference drives mood/style only, so
+ * width/height are the artist's own choice, the same as txt2img.
+ */
+export type BuildStyleReferenceWorkflowOptions = {
+  presetId?: string;
+  prompt: string;
+  negativePrompt?: string;
+  checkpointName?: string;
+  sourceImageName: string;
+  width: number;
+  height: number;
+  steps: number;
+  cfg: number;
+  seed: number;
+  controlStrength: number;
+  requiredModelSelections?: Record<string, string>;
 };
 
 export type BuildOutpaintWorkflowOptions = BuildImageToImageWorkflowOptions & {
@@ -307,7 +331,9 @@ export type WorkflowModelSourceKind =
   | "controlnet"
   | "vision-language"
   | "upscale"
-  | "model-patch";
+  | "model-patch"
+  | "clip-vision"
+  | "ip-adapter";
 
 export type WorkflowModelSource = {
   kind: WorkflowModelSourceKind;
@@ -330,7 +356,9 @@ export type WorkflowModelFolder =
   | "controlnet"
   | "upscale_models"
   | "LLM"
-  | "model_patches";
+  | "model_patches"
+  | "clip_vision"
+  | "ipadapter";
 
 /**
  * A model whose terms have to be accepted by a person before it is fetched.
@@ -496,6 +524,10 @@ export type OutpaintSettings = ImageToImageSettings & {
   feathering: number;
 };
 
+export type StyleReferenceSettings = GenerationSettings & {
+  controlStrength: number;
+};
+
 export type GenerationSettingsInput = {
   width: string;
   height: string;
@@ -523,6 +555,10 @@ export type OutpaintSettingsInput = ImageToImageSettingsInput & {
   feathering: string;
 };
 
+export type StyleReferenceSettingsInput = GenerationSettingsInput & {
+  controlStrength: string;
+};
+
 export type GenerationSettingsValidation = {
   settings: GenerationSettings;
   warnings: string[];
@@ -540,6 +576,11 @@ export type SketchToImageSettingsValidation = {
 
 export type OutpaintSettingsValidation = {
   settings: OutpaintSettings;
+  warnings: string[];
+};
+
+export type StyleReferenceSettingsValidation = {
+  settings: StyleReferenceSettings;
   warnings: string[];
 };
 

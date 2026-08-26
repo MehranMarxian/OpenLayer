@@ -87,7 +87,11 @@ export type ActionName =
   | "toggleLiveAutoImport"
   | "toggleLiveAutoRefine"
   | "toggleAgentBridge"
-  | "suggestPrompt";
+  | "suggestPrompt"
+  | "captureStyleReferenceSource"
+  | "captureStyleReferenceCanvasSource"
+  | "generateStyleReference"
+  | "importStyleReference";
 export type HistoryActionName = "preview" | "import" | "reuse";
 export type ActionRunner = (eventName: string) => void;
 export type ActionHandlers = Record<ActionName, ActionRunner>;

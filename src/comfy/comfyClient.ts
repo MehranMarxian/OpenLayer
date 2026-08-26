@@ -77,6 +77,12 @@ export const MODEL_INVENTORY_SOURCES = {
   ],
   modelPatches: [
     { objectInfoNode: "ModelPatchLoader", inputName: "name", label: "model patch loader" }
+  ],
+  clipVisionModels: [
+    { objectInfoNode: "CLIPVisionLoader", inputName: "clip_name", label: "CLIP vision loader" }
+  ],
+  ipAdapterModels: [
+    { objectInfoNode: "IPAdapterModelLoader", inputName: "ipadapter_file", label: "IPAdapter model loader" }
   ]
 } as const;
 
@@ -184,6 +190,8 @@ export class ComfyClient {
       visionLanguageModels: [],
       upscaleModels: [],
       modelPatches: [],
+      clipVisionModels: [],
+      ipAdapterModels: [],
       missingSources: []
     };
 
@@ -195,6 +203,8 @@ export class ComfyClient {
     await this.collectInventoryNames(inventory, "visionLanguageModels", MODEL_INVENTORY_SOURCES.visionLanguageModels);
     await this.collectInventoryNames(inventory, "upscaleModels", MODEL_INVENTORY_SOURCES.upscaleModels);
     await this.collectInventoryNames(inventory, "modelPatches", MODEL_INVENTORY_SOURCES.modelPatches);
+    await this.collectInventoryNames(inventory, "clipVisionModels", MODEL_INVENTORY_SOURCES.clipVisionModels);
+    await this.collectInventoryNames(inventory, "ipAdapterModels", MODEL_INVENTORY_SOURCES.ipAdapterModels);
 
     return inventory;
   }

@@ -270,6 +270,7 @@ export function setGlobalStatus(elements: AppElements, status: string, tone: Sta
   applyToolStatus(elements, elements.outpaintStatusText, elements.outpaintStatusPill, elements.outpaintStatusProgress, status, tone);
   applyToolStatus(elements, elements.upscaleStatusText, elements.upscaleStatusPill, elements.upscaleStatusProgress, status, tone);
   applyToolStatus(elements, elements.promptLayerStatusText, elements.promptLayerStatusPill, elements.promptLayerStatusProgress, status, tone);
+  applyToolStatus(elements, elements.styleReferenceStatusText, elements.styleReferenceStatusPill, elements.styleReferenceStatusProgress, status, tone);
   applyToolStatus(elements, elements.settingsStatusText, elements.settingsStatusPill, elements.settingsStatusProgress, status, tone);
 }
 
@@ -301,6 +302,10 @@ export function setUpscaleStatus(elements: AppElements, status: string, tone: St
 
 export function setPromptLayerStatus(elements: AppElements, status: string, tone: StatusTone) {
   applyToolStatus(elements, elements.promptLayerStatusText, elements.promptLayerStatusPill, elements.promptLayerStatusProgress, status, tone);
+}
+
+export function setStyleReferenceStatus(elements: AppElements, status: string, tone: StatusTone) {
+  applyToolStatus(elements, elements.styleReferenceStatusText, elements.styleReferenceStatusPill, elements.styleReferenceStatusProgress, status, tone);
 }
 
 // Layer Tools is not a generation: it has no progress bar and nothing to report
@@ -372,6 +377,10 @@ export function setPromptLayerError(elements: AppElements, message: string) {
   applyToolError(elements.promptLayerErrorMessage, message);
 }
 
+export function setStyleReferenceError(elements: AppElements, message: string) {
+  applyToolError(elements.styleReferenceErrorMessage, message);
+}
+
 /**
  * A diagnostic that belongs to the panel rather than to a tool: the ComfyUI
  * connection, the port scan, the hardware report, workflow health, the settings
@@ -431,5 +440,10 @@ export function setUpscaleDiagnostics(elements: AppElements, message: string) {
 
 export function setPromptLayerDiagnostics(elements: AppElements, message: string) {
   elements.promptLayerDiagnosticsText.textContent = message;
+  elements.settingsDiagnosticsText.textContent = message;
+}
+
+export function setStyleReferenceDiagnostics(elements: AppElements, message: string) {
+  elements.styleReferenceDiagnosticsText.textContent = message;
   elements.settingsDiagnosticsText.textContent = message;
 }

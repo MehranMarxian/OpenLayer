@@ -63,6 +63,10 @@ function getModelBucket(inventory: Partial<ComfyModelInventory>, kind: WorkflowR
       return inventory.upscaleModels ?? [];
     case "model-patch":
       return inventory.modelPatches ?? [];
+    case "clip-vision":
+      return inventory.clipVisionModels ?? [];
+    case "ip-adapter":
+      return inventory.ipAdapterModels ?? [];
     default:
       return [];
   }

@@ -21,12 +21,14 @@ import inpaintFluxFillCropStitchWorkflow from "../workflows/api/inpaint-flux-fil
 import inpaintFlux2KleinWorkflow from "../workflows/api/inpaint-flux2-klein.json";
 import outpaintFluxFillBasicWorkflow from "../workflows/api/outpaint-flux-fill-basic.json";
 import upscaleBasicWorkflow from "../workflows/api/upscale-basic.json";
+import styleReferenceSd15Workflow from "../workflows/api/style-reference-sd15.json";
 import {
   BuildInpaintWorkflowOptions,
   BuildImageToImageWorkflowOptions,
   BuildOutpaintWorkflowOptions,
   BuildPromptFromLayerWorkflowOptions,
   BuildSketchToImageWorkflowOptions,
+  BuildStyleReferenceWorkflowOptions,
   BuildUpscaleWorkflowOptions,
   BuildWorkflowOptions,
   BuildWorkflowResult,
@@ -65,7 +67,8 @@ const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
   "inpaint-flux-fill-cropstitch": inpaintFluxFillCropStitchWorkflow as ComfyWorkflow,
   "inpaint-flux2-klein": inpaintFlux2KleinWorkflow as ComfyWorkflow,
   "outpaint-flux-fill-basic": outpaintFluxFillBasicWorkflow as ComfyWorkflow,
-  "upscale-basic": upscaleBasicWorkflow as ComfyWorkflow
+  "upscale-basic": upscaleBasicWorkflow as ComfyWorkflow,
+  "style-reference-sd15": styleReferenceSd15Workflow as ComfyWorkflow
 };
 
 export async function buildTxt2ImgWorkflow(options: BuildWorkflowOptions): Promise<BuildWorkflowResult> {
@@ -182,6 +185,41 @@ export async function buildSketchToImageWorkflow(
   setPresetInput(workflow, preset, "outputHeight", options.outputHeight ?? options.height);
 
   applyLoraSelection(workflow, preset, options.lora);
+
+  validateWorkflowForPreset(workflow, preset);
+
+  return {
+    workflow,
+    seed,
+    preset
+  };
+}
+
+export async function buildStyleReferenceWorkflow(
+  options: BuildStyleReferenceWorkflowOptions
+): Promise<BuildWorkflowResult> {
+  const preset = getWorkflowPreset(options.presetId ?? "style-reference-sd15");
+  assertPresetMode(preset, "style-reference");
+  assertPresetRunnable(preset);
+  const workflow = await cloneWorkflowTemplate(preset);
+  const seed = options.seed;
+
+  validateWorkflowForPreset(workflow, preset);
+  applyRequiredModelSelections(workflow, preset, options.requiredModelSelections);
+
+  if (options.checkpointName) {
+    setPresetInput(workflow, preset, "checkpoint", options.checkpointName, true);
+  }
+
+  setPresetInput(workflow, preset, "sourceImage", options.sourceImageName, true);
+  setPresetInput(workflow, preset, "positivePrompt", options.prompt, true);
+  setPresetInput(workflow, preset, "negativePrompt", options.negativePrompt ?? "");
+  setPresetInput(workflow, preset, "width", options.width, true);
+  setPresetInput(workflow, preset, "height", options.height, true);
+  setPresetInput(workflow, preset, "seed", seed, true);
+  setPresetInput(workflow, preset, "steps", options.steps, true);
+  setPresetInput(workflow, preset, "cfg", options.cfg, true);
+  setPresetInput(workflow, preset, "controlStrength", options.controlStrength, true);
 
   validateWorkflowForPreset(workflow, preset);
 

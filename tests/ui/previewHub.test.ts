@@ -221,6 +221,7 @@ describe("PREVIEW_TOOLS inventory", () => {
       "inpaint",
       "outpaint",
       "upscale",
+      "style-reference",
       "live-painting"
     ]);
     expect(PREVIEW_TOOLS.map((tool) => tool.id)).not.toContain("prompt-from-layer");
