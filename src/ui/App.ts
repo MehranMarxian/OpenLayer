@@ -173,6 +173,8 @@ import {
 } from "./spikeModelDownload";
 import { setArtistControlsEnabled, syncArtistControls } from "./artistControls";
 import { setSeedDiceEnabled } from "./seedDice";
+// SPIKE: delete with src/ui/promptInputDiagnostic.ts.
+import { attachPromptInputDiagnostic } from "./promptInputDiagnostic";
 import {
   createUpscaleResizePlan,
   formatUpscaleScale,
@@ -1428,6 +1430,9 @@ export function renderApp(rootElement: HTMLElement) {
   bindExternalLinks(rootElement);
   bindAdvancedToggles(rootElement);
   bindWelcomeOverlay(elements);
+  // SPIKE: delete with src/ui/promptInputDiagnostic.ts.
+  attachPromptInputDiagnostic(elements.prompt, "txt2img");
+  attachPromptInputDiagnostic(elements.imgPrompt, "img2img");
   bindToolWarnings(rootElement);
   bindStickyProgress(rootElement);
   elements.settingsThemeSelect.addEventListener("change", () => {
