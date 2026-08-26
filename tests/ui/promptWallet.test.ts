@@ -31,6 +31,8 @@ function createMemoryStorage(): Storage {
 const originalLocalStorage = (globalThis as { localStorage?: StorageStub }).localStorage;
 
 const reported: string[] = [];
+const visitedViews: string[] = [];
+const setView = (view: string) => visitedViews.push(view);
 
 /** Mirrors the real table in App.ts, including Outpaint having no negative. */
 const TOOLS: readonly PromptWalletTool[] = [
@@ -38,11 +40,17 @@ const TOOLS: readonly PromptWalletTool[] = [
     positive: "prompt",
     negative: "negativePrompt",
     saveButton: "promptWalletSave",
+    loadButton: "promptWalletLoad",
+    view: "text-to-image",
+    label: "Text to Image",
     report: (_elements, message) => reported.push(message)
   },
   {
     positive: "outpaintPrompt",
     saveButton: "outpaintPromptWalletSave",
+    loadButton: "outpaintPromptWalletLoad",
+    view: "outpaint",
+    label: "Outpaint",
     report: (_elements, message) => reported.push(message)
   }
 ];
@@ -62,6 +70,7 @@ function typeInto(field: HTMLTextAreaElement | HTMLInputElement, value: string) 
 beforeEach(() => {
   setStorage(createMemoryStorage());
   reported.length = 0;
+  visitedViews.length = 0;
 });
 
 afterEach(() => {
@@ -117,10 +126,10 @@ describe("prompt wallet helpers", () => {
   });
 });
 
-describe("prompt wallet", () => {
+describe("prompt wallet: saving", () => {
   it("keeps save disabled until the prompt has text", () => {
     const elements = mount();
-    bindPromptWallet(elements, TOOLS);
+    bindPromptWallet(elements, TOOLS, setView);
 
     expect(elements.promptWalletSave.classList.contains("is-disabled")).toBe(true);
 
@@ -133,7 +142,7 @@ describe("prompt wallet", () => {
 
   it("saves the positive and negative prompt together, and says so", () => {
     const elements = mount();
-    bindPromptWallet(elements, TOOLS);
+    bindPromptWallet(elements, TOOLS, setView);
 
     typeInto(elements.prompt, "a lighthouse at dusk");
     elements.negativePrompt.value = "blurry";
@@ -152,7 +161,7 @@ describe("prompt wallet", () => {
 
   it("refuses to save the same prompt twice", () => {
     const elements = mount();
-    bindPromptWallet(elements, TOOLS);
+    bindPromptWallet(elements, TOOLS, setView);
 
     typeInto(elements.prompt, "a lighthouse at dusk");
     elements.promptWalletSave.click();
@@ -164,7 +173,7 @@ describe("prompt wallet", () => {
 
   it("saves from a tool with no negative prompt field", () => {
     const elements = mount();
-    bindPromptWallet(elements, TOOLS);
+    bindPromptWallet(elements, TOOLS, setView);
 
     typeInto(elements.outpaintPrompt, "extend the shoreline");
     elements.outpaintPromptWalletSave.click();
@@ -177,7 +186,7 @@ describe("prompt wallet", () => {
 
   it("shares one library across tools", () => {
     const elements = mount();
-    bindPromptWallet(elements, TOOLS);
+    bindPromptWallet(elements, TOOLS, setView);
 
     typeInto(elements.prompt, "from text to image");
     elements.promptWalletSave.click();
@@ -187,10 +196,120 @@ describe("prompt wallet", () => {
     expect(loadPromptWallet()).toHaveLength(2);
     expect(elements.promptWalletList.querySelectorAll(".prompt-wallet-card")).toHaveLength(2);
   });
+});
 
+describe("prompt wallet: loading", () => {
+  it("keeps load disabled while the wallet is empty", () => {
+    const elements = mount();
+    bindPromptWallet(elements, TOOLS, setView);
+
+    expect(elements.promptWalletLoad.classList.contains("is-disabled")).toBe(true);
+
+    typeInto(elements.prompt, "a lighthouse at dusk");
+    elements.promptWalletSave.click();
+
+    expect(elements.promptWalletLoad.classList.contains("is-disabled")).toBe(false);
+    // Every tool's load unlocks, not just the one that just saved -- one
+    // shared library.
+    expect(elements.outpaintPromptWalletLoad.classList.contains("is-disabled")).toBe(false);
+  });
+
+  it("does nothing when clicked while disabled, same as Save", () => {
+    const elements = mount();
+    bindPromptWallet(elements, TOOLS, setView);
+
+    expect(elements.promptWalletLoad.classList.contains("is-disabled")).toBe(true);
+    elements.promptWalletLoad.click();
+
+    expect(visitedViews).toEqual([]);
+    expect(reported).toEqual([]);
+  });
+
+  it("navigates to the Wallet and shows who is picking", () => {
+    const elements = mount();
+    bindPromptWallet(elements, TOOLS, setView);
+
+    typeInto(elements.prompt, "a lighthouse at dusk");
+    elements.promptWalletSave.click();
+
+    elements.outpaintPromptWalletLoad.click();
+
+    expect(visitedViews).toEqual(["prompt-wallet"]);
+    expect(elements.promptWalletBanner.hidden).toBe(false);
+    expect(elements.promptWalletBanner.textContent).toContain("Outpaint");
+  });
+
+  it("shows a Use button only while picking, and only until a pick is made", () => {
+    const elements = mount();
+    bindPromptWallet(elements, TOOLS, setView);
+
+    typeInto(elements.prompt, "a lighthouse at dusk");
+    elements.promptWalletSave.click();
+
+    expect(elements.promptWalletList.querySelector(".prompt-wallet-use")).toBeNull();
+
+    elements.promptWalletLoad.click();
+    expect(elements.promptWalletList.querySelector(".prompt-wallet-use")).not.toBeNull();
+
+    elements.promptWalletList.querySelector<HTMLButtonElement>(".prompt-wallet-use")!.click();
+    expect(elements.promptWalletList.querySelector(".prompt-wallet-use")).toBeNull();
+  });
+
+  it("writes both fields, returns to the requesting tool, and reports it", () => {
+    const elements = mount();
+    bindPromptWallet(elements, TOOLS, setView);
+
+    typeInto(elements.prompt, "a lighthouse at dusk");
+    elements.negativePrompt.value = "blurry";
+    elements.promptWalletSave.click();
+    reported.length = 0;
+
+    // Requested from Outpaint, which has no negative field of its own.
+    elements.outpaintPromptWalletLoad.click();
+    elements.promptWalletList.querySelector<HTMLButtonElement>(".prompt-wallet-use")!.click();
+
+    expect(elements.outpaintPrompt.value).toBe("a lighthouse at dusk");
+    expect(visitedViews).toEqual(["prompt-wallet", "outpaint"]);
+    expect(reported).toContain("Prompt loaded from Wallet.");
+  });
+
+  it("fires an input event on load, so the field's own undo stack sees it", () => {
+    const elements = mount();
+    bindPromptWallet(elements, TOOLS, setView);
+
+    typeInto(elements.prompt, "a lighthouse at dusk");
+    elements.promptWalletSave.click();
+
+    const inputSpy = vi.fn();
+    elements.prompt.addEventListener("input", inputSpy);
+    elements.promptWalletLoad.click();
+    elements.promptWalletList.querySelector<HTMLButtonElement>(".prompt-wallet-use")!.click();
+
+    expect(inputSpy).toHaveBeenCalled();
+  });
+
+  it("clears the pick banner when leaving the Wallet without choosing", () => {
+    const elements = mount();
+    const wallet = bindPromptWallet(elements, TOOLS, setView)!;
+
+    typeInto(elements.prompt, "a lighthouse at dusk");
+    elements.promptWalletSave.click();
+    elements.promptWalletLoad.click();
+    expect(elements.promptWalletBanner.hidden).toBe(false);
+
+    // Stands in for App.ts's view-switch hook firing on navigation away.
+    wallet.exitPickMode();
+    wallet.render();
+
+    expect(elements.promptWalletBanner.hidden).toBe(true);
+    expect(elements.promptWalletList.querySelector(".prompt-wallet-use")).toBeNull();
+  });
+});
+
+describe("prompt wallet: managing", () => {
   it("explains itself when nothing is saved", () => {
     const elements = mount();
-    bindPromptWallet(elements, TOOLS);
+    bindPromptWallet(elements, TOOLS, setView);
 
     const empty = elements.promptWalletList.querySelector(".history-empty");
     expect(empty?.textContent).toContain("No saved prompts yet");
@@ -198,7 +317,7 @@ describe("prompt wallet", () => {
 
   it("filters the list from the search box", () => {
     const elements = mount();
-    bindPromptWallet(elements, TOOLS);
+    bindPromptWallet(elements, TOOLS, setView);
 
     typeInto(elements.prompt, "a lighthouse at dusk");
     elements.promptWalletSave.click();
@@ -218,7 +337,7 @@ describe("prompt wallet", () => {
 
   it("renames, pins and deletes from the card", () => {
     const elements = mount();
-    bindPromptWallet(elements, TOOLS);
+    bindPromptWallet(elements, TOOLS, setView);
 
     typeInto(elements.prompt, "a lighthouse at dusk");
     elements.promptWalletSave.click();
@@ -244,7 +363,7 @@ describe("prompt wallet", () => {
 
   it("falls back to a generated name when renamed to blank", () => {
     const elements = mount();
-    bindPromptWallet(elements, TOOLS);
+    bindPromptWallet(elements, TOOLS, setView);
 
     typeInto(elements.prompt, "a lighthouse at dusk");
     elements.promptWalletSave.click();
@@ -261,7 +380,7 @@ describe("prompt wallet", () => {
     Object.assign(navigator, { clipboard: { writeText } });
 
     const elements = mount();
-    bindPromptWallet(elements, TOOLS);
+    bindPromptWallet(elements, TOOLS, setView);
 
     typeInto(elements.prompt, "a lighthouse at dusk");
     elements.negativePrompt.value = "blurry";
@@ -274,7 +393,9 @@ describe("prompt wallet", () => {
 
     expect(writeText).toHaveBeenCalledWith("a lighthouse at dusk\n\nNegative: blurry");
   });
+});
 
+describe("prompt wallet: UXP null-value regression", () => {
   /**
    * The regression that broke three consecutive builds: in UXP an empty field
    * reports .value as null, where jsdom reports "". Binding must survive it,
@@ -291,7 +412,7 @@ describe("prompt wallet", () => {
       });
     }
 
-    expect(() => bindPromptWallet(elements, TOOLS)).not.toThrow();
+    expect(() => bindPromptWallet(elements, TOOLS, setView)).not.toThrow();
     // The tool whose fields still behave must keep working.
     typeInto(elements.outpaintPrompt, "extend the shoreline");
     elements.outpaintPromptWalletSave.click();

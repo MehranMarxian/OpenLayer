@@ -8475,9 +8475,47 @@ body.theme-artist,
   background: #379055 !important;
 }
 
+.app-shell.theme-compact button.prompt-wallet-load {
+  border: 1px solid #7c5fb8 !important;
+  background: #6a4fa0 !important;
+  color: #f2ecff !important;
+}
+
+.app-shell.theme-compact button.prompt-wallet-load:hover:not(.is-disabled) {
+  background: #7959b3 !important;
+}
+
 .app-shell.theme-compact button.prompt-wallet-dot.is-disabled {
   opacity: 0.4 !important;
   cursor: default !important;
+}
+
+/* The "Choose a prompt for X" banner, shown only while a tool's purple Load
+   circle sent the artist here to pick one. Block layout for the same reason
+   as the cards below it: this is wrapped text, and a flex row would not size
+   itself to it correctly in this host. */
+.app-shell.theme-compact .prompt-wallet-banner {
+  display: block !important;
+  margin: 0 0 8px !important;
+  padding: 6px 9px !important;
+  border: 1px solid #7c5fb8 !important;
+  border-radius: 6px !important;
+  background: rgba(124, 95, 184, 0.14) !important;
+  color: #d9c9ff !important;
+  font-size: var(--fs-xs) !important;
+  font-weight: 700 !important;
+}
+
+/* Use leads the row while picking, ahead of Copy/Pin/Delete -- it is the
+   action the artist actually came here to take. */
+.app-shell.theme-compact button.prompt-wallet-use {
+  border-color: #7c5fb8 !important;
+  background: #6a4fa0 !important;
+  color: #f2ecff !important;
+}
+
+.app-shell.theme-compact button.prompt-wallet-use:hover {
+  background: #7959b3 !important;
 }
 
 .app-shell.theme-compact .prompt-wallet-search {

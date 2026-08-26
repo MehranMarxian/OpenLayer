@@ -1,4 +1,5 @@
 import { AppElements } from "./appMarkup";
+import { AppView } from "./appConstants";
 import {
   createPromptWalletId,
   loadPromptWallet,
@@ -7,8 +8,9 @@ import {
 } from "../utils/preferences";
 
 /**
- * The Prompt Wallet: prompts the artist saved, and the small green control
- * under each tool's Prompt field that puts them there.
+ * The Prompt Wallet: prompts the artist saved, the small green/purple controls
+ * under each tool's Prompt field that save and load them, and the dedicated
+ * screen that manages the library.
  *
  * One library shared by every tool, deliberately. A prompt worth keeping is
  * worth reaching from Inpaint as easily as from Text to Image, and per-tool
@@ -17,8 +19,15 @@ import {
  * Positive and negative are saved together because they are one thought: a
  * negative prompt is tuned against the positive it accompanies, so recalling
  * one without the other loses half the work. That pairing is the thing a
- * clipboard-based prompt manager cannot do, and it is why this eventually
- * writes into the fields rather than the clipboard.
+ * clipboard-based prompt manager cannot do, and it is why Load writes into the
+ * fields directly rather than the clipboard.
+ *
+ * Loading is a round trip, not a dropdown. Pressing the purple circle sends
+ * the artist to the Wallet screen already asking "Choose a prompt for
+ * <Tool>"; picking one writes both fields and returns to that tool. A native
+ * `<select>` was ruled out for this: it renders at a fixed intrinsic size in
+ * this host regardless of CSS width, which is exactly what made an earlier
+ * attempt at inline picking look broken.
  *
  * IMPORTANT: every field read goes through `readValue`. In UXP an empty
  * textarea or input reports `.value` as `null`, where every browser and jsdom
@@ -38,7 +47,12 @@ export type PromptWalletTool = {
   /** Absent on Outpaint, which has no negative prompt field at all. */
   negative?: keyof AppElements;
   saveButton: keyof AppElements;
-  /** Where this tool reports "Prompt saved to Wallet." */
+  loadButton: keyof AppElements;
+  /** The view Load returns to once a prompt is picked. */
+  view: AppView;
+  /** The tool's name, for "Choose a prompt for <label>". */
+  label: string;
+  /** Where this tool reports "Prompt saved to Wallet." and similar. */
   report: (elements: AppElements, message: string) => void;
 };
 
@@ -93,19 +107,26 @@ function formatSavedAt(createdAt: string): string {
   return Number.isNaN(parsed.getTime()) ? "" : parsed.toLocaleDateString();
 }
 
-export function createPromptWallet(elements: AppElements, tools: readonly PromptWalletTool[]) {
+export function createPromptWallet(
+  elements: AppElements,
+  tools: readonly PromptWalletTool[],
+  setView: (view: AppView) => void
+) {
   let entries = loadPromptWallet();
+  // Set only while the artist is mid Load: which tool asked, so a picked
+  // card knows where to write and where to send them back.
+  let pickingFor: PromptWalletTool | null = null;
 
   const setDisabled = (element: HTMLElement, isDisabled: boolean) => {
     element.classList.toggle("is-disabled", isDisabled);
     element.setAttribute("aria-disabled", String(isDisabled));
   };
 
-  const syncSaveButtons = () => {
+  const syncButtons = () => {
     for (const tool of tools) {
       const positive = elements[tool.positive] as HTMLTextAreaElement;
-      const button = elements[tool.saveButton] as HTMLElement;
-      setDisabled(button, !readValue(positive).trim());
+      setDisabled(elements[tool.saveButton] as HTMLElement, !readValue(positive).trim());
+      setDisabled(elements[tool.loadButton] as HTMLElement, entries.length === 0);
     }
   };
 
@@ -116,8 +137,34 @@ export function createPromptWallet(elements: AppElements, tools: readonly Prompt
   const persist = () => {
     savePromptWallet(entries);
     render();
-    syncSaveButtons();
+    syncButtons();
   };
+
+  function useEntry(entry: PromptWalletEntry, tool: PromptWalletTool) {
+    const positive = elements[tool.positive] as HTMLTextAreaElement;
+    positive.value = entry.positivePrompt;
+    // Dispatched rather than left implicit: bindPromptMemory's undo stack
+    // listens for "input", so a loaded prompt gets its own undo step instead
+    // of silently overwriting whatever was there with no way back.
+    positive.dispatchEvent(new Event("input", { bubbles: true }));
+
+    if (tool.negative) {
+      const negative = elements[tool.negative] as HTMLTextAreaElement;
+      negative.value = entry.negativePrompt;
+      negative.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
+    pickingFor = null;
+    // Rendered here rather than left to the navigation this triggers: the
+    // Wallet's own DOM must be correct immediately, not only once something
+    // else happens to redraw it. The screen is about to be hidden, but its
+    // state has to be right the next time it is shown regardless of how that
+    // happens -- History and Home both reach it too, not only a return trip
+    // from Load.
+    render();
+    setView(tool.view);
+    tool.report(elements, "Prompt loaded from Wallet.");
+  }
 
   function createCard(entry: PromptWalletEntry) {
     const card = document.createElement("div");
@@ -160,6 +207,16 @@ export function createPromptWallet(elements: AppElements, tools: readonly Prompt
     const actions = document.createElement("div");
     actions.className = "history-actions";
 
+    if (pickingFor) {
+      const useButton = document.createElement("button");
+      useButton.type = "button";
+      useButton.className = "button history-button prompt-wallet-use";
+      useButton.textContent = "Use";
+      const tool = pickingFor;
+      useButton.addEventListener("click", () => useEntry(entry, tool));
+      actions.append(useButton);
+    }
+
     const copyButton = document.createElement("button");
     copyButton.type = "button";
     copyButton.className = "button history-button";
@@ -199,7 +256,22 @@ export function createPromptWallet(elements: AppElements, tools: readonly Prompt
     return card;
   }
 
+  function renderBanner() {
+    const banner = elements.promptWalletBanner;
+
+    if (!pickingFor) {
+      banner.hidden = true;
+      banner.textContent = "";
+      return;
+    }
+
+    banner.hidden = false;
+    banner.textContent = "Choose a prompt for " + pickingFor.label + ".";
+  }
+
   function render() {
+    renderBanner();
+
     const container = elements.promptWalletList;
     container.innerHTML = "";
 
@@ -269,35 +341,69 @@ export function createPromptWallet(elements: AppElements, tools: readonly Prompt
     tool.report(elements, "Prompt saved to Wallet.");
   }
 
+  function loadFromTool(tool: PromptWalletTool) {
+    if (entries.length === 0) {
+      tool.report(elements, "Your Wallet is empty. Save a prompt first.");
+      return;
+    }
+
+    pickingFor = tool;
+    setView("prompt-wallet");
+    render();
+  }
+
   for (const tool of tools) {
     const positive = elements[tool.positive] as HTMLTextAreaElement;
-    const button = elements[tool.saveButton] as HTMLElement;
+    const saveButton = elements[tool.saveButton] as HTMLElement;
+    const loadButton = elements[tool.loadButton] as HTMLElement;
 
-    positive.addEventListener("input", syncSaveButtons);
-    button.addEventListener("click", () => {
-      if (button.classList.contains("is-disabled")) {
-        return;
+    positive.addEventListener("input", syncButtons);
+
+    saveButton.addEventListener("click", () => {
+      if (!saveButton.classList.contains("is-disabled")) {
+        saveFromTool(tool);
       }
+    });
 
-      saveFromTool(tool);
+    loadButton.addEventListener("click", () => {
+      if (!loadButton.classList.contains("is-disabled")) {
+        loadFromTool(tool);
+      }
     });
   }
 
   elements.promptWalletSearch.addEventListener("input", render);
 
-  syncSaveButtons();
+  syncButtons();
   render();
 
-  return { render };
+  return {
+    render,
+    /**
+     * Called whenever the panel navigates to any screen other than the
+     * Wallet. Leaving mid-pick (via Back to Tools, or any other screen) must
+     * not leave a stale "Choose a prompt for X" banner waiting the next time
+     * the Wallet is opened normally.
+     */
+    exitPickMode() {
+      if (pickingFor) {
+        pickingFor = null;
+      }
+    }
+  };
 }
 
 /**
  * Never allowed to break the panel: a throw here lands partway through
  * renderApp and silently disables every binding registered after it.
  */
-export function bindPromptWallet(elements: AppElements, tools: readonly PromptWalletTool[]) {
+export function bindPromptWallet(
+  elements: AppElements,
+  tools: readonly PromptWalletTool[],
+  setView: (view: AppView) => void
+) {
   try {
-    return createPromptWallet(elements, tools);
+    return createPromptWallet(elements, tools, setView);
   } catch (error) {
     console.log("[OpenLayer] prompt wallet failed to bind:", error);
     return null;

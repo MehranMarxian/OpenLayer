@@ -1442,41 +1442,59 @@ export function renderApp(rootElement: HTMLElement) {
       positive: "prompt",
       negative: "negativePrompt",
       saveButton: "promptWalletSave",
+      loadButton: "promptWalletLoad",
+      view: "text-to-image",
+      label: "Text to Image",
       report: setTextToImageDiagnostics
     },
     {
       positive: "imgPrompt",
       negative: "imgNegativePrompt",
       saveButton: "imgPromptWalletSave",
+      loadButton: "imgPromptWalletLoad",
+      view: "image-to-image",
+      label: "Image to Image",
       report: setImageDiagnostics
     },
     {
       positive: "sketchPrompt",
       negative: "sketchNegativePrompt",
       saveButton: "sketchPromptWalletSave",
+      loadButton: "sketchPromptWalletLoad",
+      view: "sketch-to-image",
+      label: "Sketch to Image",
       report: setSketchDiagnostics
     },
     {
       positive: "inpaintPrompt",
       negative: "inpaintNegativePrompt",
       saveButton: "inpaintPromptWalletSave",
+      loadButton: "inpaintPromptWalletLoad",
+      view: "inpaint",
+      label: "Inpaint",
       report: setInpaintDiagnostics
     },
-    // Outpaint has no negative prompt field at all, so it saves the positive
-    // alone rather than being excluded from the Wallet.
+    // Outpaint has no negative prompt field at all, so it saves and loads the
+    // positive alone rather than being excluded from the Wallet.
     {
       positive: "outpaintPrompt",
       saveButton: "outpaintPromptWalletSave",
+      loadButton: "outpaintPromptWalletLoad",
+      view: "outpaint",
+      label: "Outpaint",
       report: setOutpaintDiagnostics
     },
     {
       positive: "livePrompt",
       negative: "liveNegativePrompt",
       saveButton: "livePromptWalletSave",
+      loadButton: "livePromptWalletLoad",
+      view: "live-painting",
+      label: "Live Painting",
       report: (_elements, message) => setLiveStatus(message)
     }
   ];
-  const promptWallet = bindPromptWallet(elements, promptWalletTools);
+  const promptWallet = bindPromptWallet(elements, promptWalletTools, setView);
   bindWelcomeOverlay(elements);
   // SPIKE: delete with src/ui/promptInputDiagnostic.ts.
   attachPromptInputDiagnostic(elements.prompt, elements.diagnosticsText, "txt2img");
@@ -4922,6 +4940,11 @@ export function renderApp(rootElement: HTMLElement) {
     // happened to re-render it.
     if (currentView === "prompt-wallet") {
       promptWallet?.render();
+    } else {
+      // Leaving mid-pick -- Back to Tools, or any other screen -- must not
+      // leave a stale "Choose a prompt for X" banner waiting the next time
+      // the Wallet is opened normally rather than via a tool's Load button.
+      promptWallet?.exitPickMode();
     }
   }
 }
