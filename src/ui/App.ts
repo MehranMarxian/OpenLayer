@@ -174,6 +174,7 @@ import {
 import { setArtistControlsEnabled, syncArtistControls } from "./artistControls";
 import { setSeedDiceEnabled } from "./seedDice";
 import { bindPromptMemory } from "./promptMemory";
+import { bindPromptWallet, PromptWalletTool } from "./promptWallet";
 // SPIKE: delete with src/ui/promptInputDiagnostic.ts.
 import { attachPromptInputDiagnostic } from "./promptInputDiagnostic";
 import {
@@ -1431,6 +1432,51 @@ export function renderApp(rootElement: HTMLElement) {
   bindExternalLinks(rootElement);
   bindAdvancedToggles(rootElement);
   bindPromptMemory(elements);
+  // One shared library across every tool: the same prompt is reachable from
+  // Inpaint and Text to Image alike. Each tool reports into its own status
+  // line, which is a surface with proof of life in the host -- unlike a
+  // floating toast, which would mean new injected DOM and position: fixed,
+  // both of which have already failed here.
+  const promptWalletTools: readonly PromptWalletTool[] = [
+    {
+      positive: "prompt",
+      negative: "negativePrompt",
+      saveButton: "promptWalletSave",
+      report: setTextToImageDiagnostics
+    },
+    {
+      positive: "imgPrompt",
+      negative: "imgNegativePrompt",
+      saveButton: "imgPromptWalletSave",
+      report: setImageDiagnostics
+    },
+    {
+      positive: "sketchPrompt",
+      negative: "sketchNegativePrompt",
+      saveButton: "sketchPromptWalletSave",
+      report: setSketchDiagnostics
+    },
+    {
+      positive: "inpaintPrompt",
+      negative: "inpaintNegativePrompt",
+      saveButton: "inpaintPromptWalletSave",
+      report: setInpaintDiagnostics
+    },
+    // Outpaint has no negative prompt field at all, so it saves the positive
+    // alone rather than being excluded from the Wallet.
+    {
+      positive: "outpaintPrompt",
+      saveButton: "outpaintPromptWalletSave",
+      report: setOutpaintDiagnostics
+    },
+    {
+      positive: "livePrompt",
+      negative: "liveNegativePrompt",
+      saveButton: "livePromptWalletSave",
+      report: (_elements, message) => setLiveStatus(message)
+    }
+  ];
+  const promptWallet = bindPromptWallet(elements, promptWalletTools);
   bindWelcomeOverlay(elements);
   // SPIKE: delete with src/ui/promptInputDiagnostic.ts.
   attachPromptInputDiagnostic(elements.prompt, elements.diagnosticsText, "txt2img");
@@ -4846,6 +4892,7 @@ export function renderApp(rootElement: HTMLElement) {
     elements.settingsView.hidden = currentView !== "settings";
     elements.setupView.hidden = currentView !== "setup";
     elements.historyView.hidden = currentView !== "history";
+    elements.promptWalletView.hidden = currentView !== "prompt-wallet";
     elements.layerToolsView.hidden = currentView !== "layer-tools";
 
     if (currentView === "settings") {
@@ -4868,6 +4915,13 @@ export function renderApp(rootElement: HTMLElement) {
 
     if (currentView === "history") {
       renderHistory(elements, historyEntries);
+    }
+
+    // Redrawn on entry rather than kept live: a prompt saved from a tool while
+    // this screen was hidden would otherwise not appear until something else
+    // happened to re-render it.
+    if (currentView === "prompt-wallet") {
+      promptWallet?.render();
     }
   }
 }

@@ -8434,3 +8434,90 @@ body.theme-artist,
 .app-shell.theme-compact #negative-prompt-toggle {
   margin: 0 0 6px !important;
 }
+
+/* ==========================================================================
+   Prompt Wallet (v0.17)
+   ========================================================================== */
+
+/* The control row under a tool's Prompt field. No `gap`: the compact rules
+   zero the margins on .generator-panel children and resolve the panel to
+   display: block, so spacing here can only be an explicit margin. */
+.app-shell.theme-compact .prompt-wallet-row {
+  display: block !important;
+  margin: 6px 0 8px !important;
+  min-height: 22px !important;
+}
+
+/* Centred with text-align + line-height, NOT flex. A glyph in a circle has
+   already cost this project three rounds: flex centring measured correctly in
+   a browser and still rendered visibly off in the host, while this pairing is
+   what finally worked. line-height must stay equal to the box height. */
+.app-shell.theme-compact button.prompt-wallet-dot {
+  display: inline-block !important;
+  box-sizing: border-box !important;
+  width: 22px !important;
+  height: 22px !important;
+  min-height: 22px !important;
+  padding: 0 !important;
+  margin: 0 8px 0 0 !important;
+  border-radius: 50% !important;
+  text-align: center !important;
+  line-height: 20px !important;
+  font-size: var(--fs-md) !important;
+  font-weight: 900 !important;
+  cursor: pointer !important;
+}
+
+.app-shell.theme-compact button.prompt-wallet-save {
+  border: 1px solid #3f8f5a !important;
+  background: #2f7a49 !important;
+  color: #eafff1 !important;
+}
+
+.app-shell.theme-compact button.prompt-wallet-save:hover:not(.is-disabled) {
+  background: #379055 !important;
+}
+
+.app-shell.theme-compact button.prompt-wallet-dot.is-disabled {
+  opacity: 0.4 !important;
+  cursor: default !important;
+}
+
+.app-shell.theme-compact .prompt-wallet-search {
+  margin-bottom: 8px !important;
+}
+
+/* Block, not flex: these cards hold wrapped prompt text, and UXP does not
+   derive a flex row's height from a wrapped text item -- the same mismatch
+   that let the warning box spill past its own border. */
+.app-shell.theme-compact .prompt-wallet-card {
+  display: block !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+.app-shell.theme-compact .prompt-wallet-card .history-body {
+  margin-left: 0 !important;
+}
+
+.app-shell.theme-compact .prompt-wallet-name {
+  width: 100% !important;
+  margin-bottom: 6px !important;
+  font-weight: 700 !important;
+}
+
+.app-shell.theme-compact .prompt-wallet-text {
+  overflow: visible !important;
+  margin-bottom: 4px !important;
+  color: #bfbfbf !important;
+  font-size: var(--fs-xs) !important;
+  line-height: 15px !important;
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+}
+
+.app-shell.theme-compact .prompt-wallet-text.is-negative {
+  color: #9d9d9d !important;
+}

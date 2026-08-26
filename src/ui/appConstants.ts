@@ -66,7 +66,8 @@ export type AppView =
   | "settings"
   | "setup"
   | "history"
-  | "layer-tools";
+  | "layer-tools"
+  | "prompt-wallet";
 export type ToolCardStatus = "available" | "experimental" | "coming-soon";
 
 export type ToolCard = {
@@ -196,6 +197,14 @@ export const TOOL_CARDS: ToolCard[] = [
     view: "history"
   },
   {
+    id: "prompt-wallet",
+    title: "Prompt Wallet",
+    subtitle: "Save and reuse favorite prompts",
+    icon: "promptFromLayer",
+    status: "available",
+    view: "prompt-wallet"
+  },
+  {
     id: "setup",
     title: "Setup",
     subtitle: "Models and nodes you still need",
@@ -224,7 +233,7 @@ export const HOME_TOOL_SECTIONS = [
   },
   {
     title: "Tools & History",
-    toolIds: ["layer-tools", "history"]
+    toolIds: ["layer-tools", "history", "prompt-wallet"]
   },
   {
     title: "Preferences",

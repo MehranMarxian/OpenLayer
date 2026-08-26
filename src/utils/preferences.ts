@@ -326,6 +326,108 @@ export function saveHasSeenWelcome() {
   }
 }
 
+/**
+ * A prompt the artist chose to keep, in the Prompt Wallet.
+ *
+ * Positive and negative are stored together because they are one thought --
+ * a negative prompt is tuned against the positive it accompanies, and
+ * recalling one without the other loses half the work. This is the main thing
+ * the panel can do that a clipboard-based prompt manager cannot.
+ *
+ * `pinned` floats an entry to the top of the list regardless of age.
+ */
+export type PromptWalletEntry = {
+  id: string;
+  name: string;
+  positivePrompt: string;
+  negativePrompt: string;
+  pinned: boolean;
+  createdAt: string;
+};
+
+const PROMPT_WALLET_KEY = "openlayer.promptWallet.v1";
+
+/**
+ * Not crypto.randomUUID(): this project has hit enough missing web APIs in
+ * UXP (no TextEncoder, FormData dropping filenames) to not assume a newer
+ * crypto method exists in the host. An id only has to be unique inside one
+ * artist's local storage.
+ */
+export function createPromptWalletId(): string {
+  return `wallet-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export function loadPromptWallet(): PromptWalletEntry[] {
+  const storage = getStorage();
+
+  if (!storage) {
+    return [];
+  }
+
+  try {
+    const rawValue = storage.getItem(PROMPT_WALLET_KEY);
+
+    if (!rawValue) {
+      return [];
+    }
+
+    const parsed: unknown = JSON.parse(rawValue);
+
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .map(sanitizePromptWalletEntry)
+      .filter((entry): entry is PromptWalletEntry => entry !== null);
+  } catch {
+    return [];
+  }
+}
+
+export function savePromptWallet(entries: readonly PromptWalletEntry[]): boolean {
+  const storage = getStorage();
+
+  if (!storage) {
+    return false;
+  }
+
+  try {
+    storage.setItem(PROMPT_WALLET_KEY, JSON.stringify(entries));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Drops anything that is not a usable entry rather than trusting stored JSON.
+ * An entry with no positive prompt is not worth recalling, so it counts as
+ * corrupt too -- that is the one field the whole feature exists to carry.
+ */
+function sanitizePromptWalletEntry(value: unknown): PromptWalletEntry | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const entry = value as Record<string, unknown>;
+  const id = typeof entry.id === "string" ? entry.id : "";
+  const positivePrompt = typeof entry.positivePrompt === "string" ? entry.positivePrompt : "";
+
+  if (!id || !positivePrompt) {
+    return null;
+  }
+
+  return {
+    id,
+    name: typeof entry.name === "string" && entry.name ? entry.name : positivePrompt.slice(0, 40),
+    positivePrompt,
+    negativePrompt: typeof entry.negativePrompt === "string" ? entry.negativePrompt : "",
+    pinned: entry.pinned === true,
+    createdAt: typeof entry.createdAt === "string" ? entry.createdAt : new Date().toISOString()
+  };
+}
+
 function getStorage(): Storage | null {
   try {
     return typeof localStorage === "undefined" ? null : localStorage;
