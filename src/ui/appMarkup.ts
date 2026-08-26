@@ -1390,7 +1390,7 @@ export function createAppMarkup() {
       </section>
 
       <footer class="app-footer">
-        <span>OpenLayer v${APP_VERSION} &middot; Developer: Mehran Ahmadi 2026</span>
+        <span>OpenLayer v${APP_VERSION} &copy; By Mehran Ahmadi 2026</span>
       </footer>
     </main>
   `;
