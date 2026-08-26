@@ -175,8 +175,6 @@ import { setArtistControlsEnabled, syncArtistControls } from "./artistControls";
 import { setSeedDiceEnabled } from "./seedDice";
 import { bindPromptMemory } from "./promptMemory";
 import { bindPromptWallet, PromptWalletTool } from "./promptWallet";
-// SPIKE: delete with src/ui/promptInputDiagnostic.ts.
-import { attachPromptInputDiagnostic } from "./promptInputDiagnostic";
 import {
   createUpscaleResizePlan,
   formatUpscaleScale,
@@ -1496,9 +1494,6 @@ export function renderApp(rootElement: HTMLElement) {
   ];
   const promptWallet = bindPromptWallet(elements, promptWalletTools, setView);
   bindWelcomeOverlay(elements);
-  // SPIKE: delete with src/ui/promptInputDiagnostic.ts.
-  attachPromptInputDiagnostic(elements.prompt, elements.diagnosticsText, "txt2img");
-  attachPromptInputDiagnostic(elements.imgPrompt, elements.imgDiagnosticsText, "img2img");
   bindToolWarnings(rootElement);
   bindStickyProgress(rootElement);
   elements.settingsThemeSelect.addEventListener("change", () => {
