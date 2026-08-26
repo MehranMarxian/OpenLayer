@@ -436,7 +436,12 @@ export function bindToolWarnings(rootElement: HTMLElement) {
     const info = document.createElement("button");
     info.type = "button";
     info.className = "tool-info-button";
-    info.textContent = "i";
+    // "!" rather than "i": the round warning badge elsewhere in the panel
+    // (compatibility-note.info-panel.is-warning) already uses "!" as its
+    // glyph, and it is upright where an italic "i" is not -- an italic
+    // single character leans visibly off the geometric center of an 18px
+    // circle even when the box itself centers it correctly with flex.
+    info.textContent = "!";
     info.setAttribute("aria-label", "Show experimental notes");
     info.setAttribute("aria-expanded", "false");
     titleBlock.appendChild(info);
