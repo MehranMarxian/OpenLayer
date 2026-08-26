@@ -443,10 +443,9 @@ export function createAppMarkup() {
             follows your strokes.
           </div>
           <label class="field">
-            <span class="label">Prompt</span>
+            <span class="label">Prompt${createPromptWalletControlsMarkup("live-prompt")}</span>
             <textarea maxlength="10000" class="textarea" id="live-prompt" placeholder="Describe what your painting should become..."></textarea>
           </label>
-          ${createPromptWalletControlsMarkup("live-prompt")}
           <section class="negative-prompt-section" aria-label="Live Painting negative prompt">
             <button class="button disclosure-button action-control" id="live-negative-prompt-toggle" data-openlayer-action="toggleLiveNegativePrompt" type="button">Show Negative Prompt</button>
             <label class="field negative-prompt-field" id="live-negative-prompt-field" hidden>
@@ -611,10 +610,9 @@ export function createAppMarkup() {
             <span class="muted-label">Prompt and settings</span>
           </div>
           <label class="field">
-            <span class="label">Prompt</span>
+            <span class="label">Prompt${createPromptWalletControlsMarkup("prompt")}</span>
             <textarea maxlength="10000" class="textarea" id="prompt" placeholder="Describe the image you want to generate..."></textarea>
           </label>
-          ${createPromptWalletControlsMarkup("prompt")}
           <button class="button action-control" id="suggest-prompt" data-openlayer-action="suggestPrompt" type="button">Ask the Agent for a Prompt</button>
           <section class="negative-prompt-section" aria-label="Negative prompt">
             <button class="button disclosure-button action-control" id="negative-prompt-toggle" data-openlayer-action="toggleNegativePrompt" type="button">Show Negative Prompt</button>
@@ -735,10 +733,9 @@ export function createAppMarkup() {
             <span class="muted-label">Prompt and workflow</span>
           </div>
           <div class="field img2img-field">
-            <span class="label">Prompt</span>
+            <span class="label">Prompt${createPromptWalletControlsMarkup("img-prompt")}</span>
             <textarea maxlength="10000" class="textarea compact-textarea" id="img-prompt" placeholder="Describe how to reinterpret the active layer..."></textarea>
           </div>
-          ${createPromptWalletControlsMarkup("img-prompt")}
           <div class="field img2img-field">
             <span class="label">Negative prompt</span>
             <textarea maxlength="10000" class="textarea compact-textarea" id="img-negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
@@ -856,10 +853,9 @@ export function createAppMarkup() {
             <span class="muted-label">Prompt and LINECN settings</span>
           </div>
           <div class="field img2img-field">
-            <span class="label">Prompt</span>
+            <span class="label">Prompt${createPromptWalletControlsMarkup("sketch-prompt")}</span>
             <textarea maxlength="10000" class="textarea compact-textarea" id="sketch-prompt" placeholder="Describe the final image guided by the lineart..."></textarea>
           </div>
-          ${createPromptWalletControlsMarkup("sketch-prompt")}
           <div class="field img2img-field">
             <span class="label">Negative prompt</span>
             <textarea maxlength="10000" class="textarea compact-textarea" id="sketch-negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
@@ -988,10 +984,9 @@ export function createAppMarkup() {
             <span class="muted-label">Prompt and mask settings</span>
           </div>
           <div class="field img2img-field">
-            <span class="label">Prompt</span>
+            <span class="label">Prompt${createPromptWalletControlsMarkup("inpaint-prompt")}</span>
             <textarea maxlength="10000" class="textarea compact-textarea" id="inpaint-prompt" placeholder="Describe what should replace the selected area..."></textarea>
           </div>
-          ${createPromptWalletControlsMarkup("inpaint-prompt")}
           <div class="field img2img-field">
             <span class="label">Negative prompt</span>
             <textarea maxlength="10000" class="textarea compact-textarea" id="inpaint-negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
@@ -1096,10 +1091,9 @@ export function createAppMarkup() {
             <span class="muted-label">Prompt and expansion</span>
           </div>
           <div class="field img2img-field">
-            <span class="label">Prompt</span>
+            <span class="label">Prompt${createPromptWalletControlsMarkup("outpaint-prompt")}</span>
             <textarea maxlength="10000" class="textarea compact-textarea" id="outpaint-prompt" placeholder="Describe what should extend beyond the current image..."></textarea>
           </div>
-          ${createPromptWalletControlsMarkup("outpaint-prompt")}
           <div class="field img2img-field">
             <span class="label">Workflow</span>
             <select class="select" id="outpaint-workflow">
@@ -1537,29 +1531,27 @@ function createScreenIconMarkup(icon: ToolIconName, label: string) {
 }
 
 /**
- * The small circular Wallet controls that sit under a tool's Prompt field.
+ * The small circular Wallet save control, inline in the "Prompt" label itself
+ * rather than in its own row below the field -- a full row read as too heavy
+ * for what is a small, secondary action, and sitting inside the label keeps
+ * it out of the way of the field it belongs to.
  *
- * Circles rather than labelled buttons so the row stays out of the way -- the
- * prompt is the thing on this screen, not its accessories. Both a title and an
- * aria-label carry the meaning, and pressing one reports what happened in the
- * tool's own status line, so the colour never has to be self-explanatory.
+ * A circle rather than a labelled button so it stays small. Both a title and
+ * an aria-label carry the meaning, and pressing it reports what happened in
+ * the tool's own status line, so the colour never has to be self-explanatory.
  *
- * `fieldId` is the positive prompt's element id, reused as the id prefix so
- * two tools' rows can never collide.
+ * `fieldId` is the positive prompt's own element id, reused as the button id
+ * prefix so two tools' controls can never collide.
  */
 function createPromptWalletControlsMarkup(fieldId: string) {
-  return `
-    <div class="prompt-wallet-row">
-      <button
-        class="prompt-wallet-dot prompt-wallet-save is-disabled"
-        id="${fieldId}-wallet-save"
-        type="button"
-        aria-disabled="true"
-        aria-label="Save this prompt to the Wallet"
-        title="Save this prompt to the Wallet"
-      >+</button>
-    </div>
-  `;
+  return `<button
+    class="prompt-wallet-dot prompt-wallet-save is-disabled"
+    id="${fieldId}-wallet-save"
+    type="button"
+    aria-disabled="true"
+    aria-label="Save this prompt to the Wallet"
+    title="Save this prompt to the Wallet"
+  >+</button>`;
 }
 
 function createInfoToggleMarkup(targetId: string) {
