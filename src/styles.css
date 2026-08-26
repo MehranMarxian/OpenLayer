@@ -7278,12 +7278,14 @@ body,
   padding-top: 0 !important;
 }
 
+/* Static for the same reason as .screen-head below, and kept in step with it
+   deliberately: this rule is the one that applies when the JS wrapper has not
+   run, so if it stayed sticky a failure in bindStickyProgress would silently
+   bring the overlap back. */
 .app-shell.theme-compact .screen-nav {
-  position: sticky;
-  top: 0;
-  z-index: 8;
-  margin: 0 -10px 8px -8px;
-  padding: 8px 10px 8px 8px;
+  position: static;
+  margin: 0 0 8px;
+  padding: 8px 0;
   background: var(--ol-bg);
 }
 
@@ -7416,12 +7418,22 @@ body,
 /* v0.6 #3: sticky screen header wraps the nav and the progress bar so live
    progress stays visible while scrolling the form. The wrapper handles the
    stickiness now instead of the nav itself. */
+/* Deliberately NOT sticky. UXP does not reflow content around a sticky
+   element the way a browser does, so this header painted over the top of
+   whatever section followed it -- the Prompt label on Text to Image, the
+   capture buttons on Upscale -- instead of the page scrolling underneath it.
+   That is the same host behaviour that made the progress bar paint over the
+   first section back in v0.8, and the fix that finally worked then was the
+   same one as here: take the element out of the sticky mechanism rather than
+   try to out-style it. Three browser-correct attempts failed before that.
+
+   The negative margins went with it. They bled the header 8px left and 10px
+   right of the content column to fake a full-bleed bar, which is what showed
+   up as an empty strip down the left of the header. */
 .app-shell.theme-compact .screen-head {
-  position: sticky;
-  top: 0;
-  z-index: 8;
-  margin: 0 -10px 8px -8px;
-  padding: 8px 10px 0 8px;
+  position: static;
+  margin: 0 0 8px;
+  padding: 8px 0 0;
   background: var(--ol-section-bg);
 }
 
