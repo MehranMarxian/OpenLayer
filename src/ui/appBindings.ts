@@ -56,6 +56,7 @@ export type ActionName =
   | "captureInpaintActiveLayer"
   | "generateInpaint"
   | "importInpaint"
+  | "toggleInpaintAutoImport"
   | "captureOutpaintSource"
   | "captureOutpaintCanvasSource"
   | "generateOutpaint"

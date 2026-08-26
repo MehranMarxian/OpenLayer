@@ -503,6 +503,7 @@ export function renderApp(rootElement: HTMLElement) {
   let importAutomatically = false;
   let imageImportAutomatically = false;
   let upscaleImportAutomatically = false;
+  let inpaintImportAutomatically = false;
   let isNegativePromptOpen = false;
   let allowExperimentalCheckpoints = false;
   let livePaintingSession: LivePaintingSessionV2 | null = null;
@@ -1343,6 +1344,7 @@ export function renderApp(rootElement: HTMLElement) {
     generateUpscale: createActionRunner(elements, "generateUpscale", handleGenerateUpscale),
     importUpscale: createActionRunner(elements, "importUpscale", handleImportUpscale),
     toggleUpscaleAutoImport: createActionRunner(elements, "toggleUpscaleAutoImport", handleToggleUpscaleAutoImport),
+    toggleInpaintAutoImport: createActionRunner(elements, "toggleInpaintAutoImport", handleToggleInpaintAutoImport),
     clearHistory: createActionRunner(elements, "clearHistory", handleClearHistory),
     toggleLiveNegativePrompt: createActionRunner(elements, "toggleLiveNegativePrompt", handleToggleLiveNegativePrompt),
     startLivePainting: createActionRunner(elements, "startLivePainting", handleStartLivePainting),
@@ -1405,6 +1407,7 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.generateUpscaleButton, actionHandlers.generateUpscale);
   bindActionControl(elements.importUpscaleButton, actionHandlers.importUpscale);
   bindActionControl(elements.upscaleAutoImportToggle, actionHandlers.toggleUpscaleAutoImport);
+  bindActionControl(elements.inpaintAutoImportToggle, actionHandlers.toggleInpaintAutoImport);
   bindActionControl(elements.clearHistoryButton, actionHandlers.clearHistory);
   bindActionControl(elements.liveNegativePromptToggle, actionHandlers.toggleLiveNegativePrompt);
   bindActionControl(elements.liveStartButton, actionHandlers.startLivePainting);
@@ -1451,6 +1454,7 @@ export function renderApp(rootElement: HTMLElement) {
   updateAutoImportToggle(elements, importAutomatically);
   updateImg2ImgAutoImportToggle(elements, imageImportAutomatically);
   updateUpscaleAutoImportToggle(elements, upscaleImportAutomatically);
+  updateInpaintAutoImportToggle(elements, inpaintImportAutomatically);
   updateExperimentalCheckpointToggle(elements, allowExperimentalCheckpoints);
   updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
   setImageSource(null);
@@ -2092,6 +2096,13 @@ export function renderApp(rootElement: HTMLElement) {
     imageImportAutomatically = !imageImportAutomatically;
     updateImg2ImgAutoImportToggle(elements, imageImportAutomatically);
     setImageDiagnostics(elements, imageImportAutomatically ? "Image to Image auto import is on." : "Image to Image auto import is off.");
+    syncImportBridge();
+  }
+
+  function handleToggleInpaintAutoImport() {
+    inpaintImportAutomatically = !inpaintImportAutomatically;
+    updateInpaintAutoImportToggle(elements, inpaintImportAutomatically);
+    setInpaintDiagnostics(elements, inpaintImportAutomatically ? "Inpaint auto import is on." : "Inpaint auto import is off.");
     syncImportBridge();
   }
 
@@ -4091,6 +4102,11 @@ export function renderApp(rootElement: HTMLElement) {
           debugExportMessage
         ].filter(Boolean).join(" ")
       );
+
+      if (inpaintImportAutomatically) {
+        setInpaintStatus(elements, "Inpaint complete. Auto-importing...", "idle");
+        await handleImportInpaint();
+      }
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
         showGenerationCancelled("inpaint");
@@ -4942,6 +4958,12 @@ function updateImg2ImgAutoImportToggle(elements: AppElements, isEnabled: boolean
   elements.imgAutoImportToggle.textContent = isEnabled ? "Auto Import On" : "Import Automatically";
   elements.imgAutoImportToggle.setAttribute("aria-pressed", String(isEnabled));
   elements.imgAutoImportToggle.classList.toggle("is-active", isEnabled);
+}
+
+function updateInpaintAutoImportToggle(elements: AppElements, isEnabled: boolean) {
+  elements.inpaintAutoImportToggle.textContent = isEnabled ? "Auto Import On" : "Import Automatically";
+  elements.inpaintAutoImportToggle.setAttribute("aria-pressed", String(isEnabled));
+  elements.inpaintAutoImportToggle.classList.toggle("is-active", isEnabled);
 }
 
 function updateUpscaleAutoImportToggle(elements: AppElements, isEnabled: boolean) {

@@ -160,6 +160,7 @@ export type AppElements = {
   captureInpaintActiveLayerButton: HTMLElement;
   generateInpaintButton: HTMLElement;
   importInpaintButton: HTMLElement;
+  inpaintAutoImportToggle: HTMLElement;
   outpaintPrompt: HTMLTextAreaElement;
   outpaintWorkflow: HTMLSelectElement;
   outpaintCheckpoint: HTMLSelectElement;
@@ -1041,6 +1042,7 @@ export function createAppMarkup() {
           </div>
           <div class="import-actions">
             <button class="button button-import button-import-blue action-control is-disabled" id="import-inpaint-result" data-openlayer-action="importInpaint" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
+            <button class="button auto-import-toggle action-control" id="inpaint-auto-import-toggle" data-openlayer-action="toggleInpaintAutoImport" type="button" aria-pressed="false">Import Automatically</button>
           </div>
         </section>
       </section>
@@ -1639,6 +1641,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     captureInpaintActiveLayerButton: getElement<HTMLElement>(rootElement, "capture-inpaint-active-layer"),
     generateInpaintButton: getElement<HTMLElement>(rootElement, "generate-inpaint"),
     importInpaintButton: getElement<HTMLElement>(rootElement, "import-inpaint-result"),
+    inpaintAutoImportToggle: getElement<HTMLElement>(rootElement, "inpaint-auto-import-toggle"),
     outpaintPrompt: getElement<HTMLTextAreaElement>(rootElement, "outpaint-prompt"),
     outpaintWorkflow: getElement<HTMLSelectElement>(rootElement, "outpaint-workflow"),
     outpaintCheckpoint: getElement<HTMLSelectElement>(rootElement, "outpaint-checkpoint"),
