@@ -173,6 +173,7 @@ import {
 } from "./spikeModelDownload";
 import { setArtistControlsEnabled, syncArtistControls } from "./artistControls";
 import { setSeedDiceEnabled } from "./seedDice";
+import { bindPromptMemory } from "./promptMemory";
 // SPIKE: delete with src/ui/promptInputDiagnostic.ts.
 import { attachPromptInputDiagnostic } from "./promptInputDiagnostic";
 import {
@@ -1429,6 +1430,7 @@ export function renderApp(rootElement: HTMLElement) {
   bindHistoryActions(rootElement, handleHistoryAction);
   bindExternalLinks(rootElement);
   bindAdvancedToggles(rootElement);
+  bindPromptMemory(elements);
   bindWelcomeOverlay(elements);
   // SPIKE: delete with src/ui/promptInputDiagnostic.ts.
   attachPromptInputDiagnostic(elements.prompt, elements.diagnosticsText, "txt2img");

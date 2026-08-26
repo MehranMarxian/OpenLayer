@@ -326,6 +326,91 @@ export function saveHasSeenWelcome() {
   }
 }
 
+/**
+ * Prompt text the artist has typed, keyed by the field's element id.
+ *
+ * Kept apart from `OpenLayerPreferences` for the same reason as the
+ * welcome-seen flag: prompt text is not a generation default, and Reset
+ * Settings must not wipe what someone was in the middle of writing.
+ *
+ * Clearing a field to empty deletes its entry rather than storing "", so
+ * "delete it manually" genuinely forgets the text instead of leaving a blank
+ * entry behind that would restore over a later default.
+ */
+const PROMPT_DRAFTS_KEY = "openlayer.promptDrafts.v1";
+
+export function loadPromptDrafts(): Record<string, string> {
+  const storage = getStorage();
+
+  if (!storage) {
+    return {};
+  }
+
+  try {
+    const rawValue = storage.getItem(PROMPT_DRAFTS_KEY);
+
+    if (!rawValue) {
+      return {};
+    }
+
+    const parsed: unknown = JSON.parse(rawValue);
+
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
+
+    const drafts: Record<string, string> = {};
+
+    for (const [fieldId, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof value === "string" && value) {
+        drafts[fieldId] = value;
+      }
+    }
+
+    return drafts;
+  } catch {
+    return {};
+  }
+}
+
+export function savePromptDraft(fieldId: string, value: string): boolean {
+  const storage = getStorage();
+
+  if (!storage) {
+    return false;
+  }
+
+  try {
+    const drafts = loadPromptDrafts();
+
+    if (value) {
+      drafts[fieldId] = value;
+    } else {
+      delete drafts[fieldId];
+    }
+
+    storage.setItem(PROMPT_DRAFTS_KEY, JSON.stringify(drafts));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function clearPromptDrafts(): boolean {
+  const storage = getStorage();
+
+  if (!storage) {
+    return false;
+  }
+
+  try {
+    storage.removeItem(PROMPT_DRAFTS_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function getStorage(): Storage | null {
   try {
     return typeof localStorage === "undefined" ? null : localStorage;
