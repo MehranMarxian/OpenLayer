@@ -739,3 +739,5 @@ Open a Photoshop document before importing. OpenLayer imports into the active do
 MIT
 
 OpenLayer™ — the OpenLayer name and logo may not be used by derivative works without permission.
+
+See also: [Privacy Policy](https://mehran-ahmadi.com/OpenLayer/privacy.html) and [Terms of Service](https://mehran-ahmadi.com/OpenLayer/terms.html).
