@@ -37,6 +37,13 @@ import { DEFAULT_AGENT_BRIDGE_PORT } from "../utils/preferences";
 
 export type AppElements = {
   appShell: HTMLElement;
+  welcomeOverlay: HTMLElement;
+  welcomeStatusText: HTMLElement;
+  welcomeManualRow: HTMLElement;
+  welcomeServerUrlInput: HTMLInputElement;
+  welcomeRetryButton: HTMLButtonElement;
+  welcomeContinueButton: HTMLButtonElement;
+  welcomeSkipButton: HTMLButtonElement;
   homeView: HTMLElement;
   generatorView: HTMLElement;
   imageToImageView: HTMLElement;
@@ -299,6 +306,33 @@ export type AppElements = {
 export function createAppMarkup() {
   return `
     <main class="app-shell theme-compact" id="app-shell">
+      <div class="welcome-overlay" id="welcome-overlay" role="dialog" aria-modal="true" aria-labelledby="welcome-title" hidden>
+        <div class="welcome-card">
+          <h2 class="welcome-title" id="welcome-title">OpenLayer needs ComfyUI</h2>
+          <p class="welcome-copy">
+            OpenLayer connects Photoshop to a <a href="https://github.com/comfyanonymous/ComfyUI" data-openlayer-external="https://github.com/comfyanonymous/ComfyUI">ComfyUI</a>
+            server running on your own machine — it isn't bundled with the plugin. If it isn't running yet, start it
+            now; OpenLayer will find it automatically.
+          </p>
+          <div class="welcome-status-row">
+            <span class="home-status-dot idle" id="welcome-status-dot" aria-hidden="true"></span>
+            <span id="welcome-status-text">Looking for ComfyUI...</span>
+          </div>
+          <div class="welcome-manual-row field" id="welcome-manual-row" hidden>
+            <span class="label">ComfyUI address</span>
+            <input class="input" id="welcome-server-url" type="text" placeholder="http://127.0.0.1:8188" />
+          </div>
+          <div class="welcome-actions">
+            <button class="button button-primary action-control" id="welcome-retry" type="button" hidden>Try again</button>
+            <button class="button button-primary action-control" id="welcome-continue" type="button" hidden>Continue</button>
+            <button class="button action-control" id="welcome-skip" type="button">Skip for now</button>
+          </div>
+          <p class="welcome-footnote">
+            Not sure where to start? The <strong>Setup</strong> screen (under Preferences) lists everything the
+            presets need, once you're in the panel.
+          </p>
+        </div>
+      </div>
       ${createBrandHeaderMarkup()}
       <div class="home-status-row" id="home-status-row">
         <span>Status:</span>
@@ -1481,6 +1515,13 @@ function createInfoPanelMarkup(targetId: string, text: string) {
 export function getAppElements(rootElement: HTMLElement): AppElements {
   return {
     appShell: getElement<HTMLElement>(rootElement, "app-shell"),
+    welcomeOverlay: getElement<HTMLElement>(rootElement, "welcome-overlay"),
+    welcomeStatusText: getElement<HTMLElement>(rootElement, "welcome-status-text"),
+    welcomeManualRow: getElement<HTMLElement>(rootElement, "welcome-manual-row"),
+    welcomeServerUrlInput: getElement<HTMLInputElement>(rootElement, "welcome-server-url"),
+    welcomeRetryButton: getElement<HTMLButtonElement>(rootElement, "welcome-retry"),
+    welcomeContinueButton: getElement<HTMLButtonElement>(rootElement, "welcome-continue"),
+    welcomeSkipButton: getElement<HTMLButtonElement>(rootElement, "welcome-skip"),
     homeView: getElement<HTMLElement>(rootElement, "home-view"),
     generatorView: getElement<HTMLElement>(rootElement, "generator-view"),
     imageToImageView: getElement<HTMLElement>(rootElement, "image-to-image-view"),

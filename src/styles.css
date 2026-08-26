@@ -8219,3 +8219,75 @@ body.theme-artist,
 .app-shell.theme-artist #suggest-prompt {
   margin-bottom: 8px !important;
 }
+
+/* ==========================================================================
+   First-run welcome overlay
+   Fixed rather than absolute: .app-shell scrolls its own content
+   (overflow-y: auto), so an absolutely positioned overlay would scroll away
+   with it instead of staying pinned over the whole panel.
+   ========================================================================== */
+
+.welcome-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.6);
+  overflow-y: auto;
+}
+
+.welcome-card {
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px;
+  background: var(--ol-panel-raised);
+  border: 1px solid var(--ol-border);
+  border-radius: var(--ol-radius);
+}
+
+.welcome-title {
+  margin: 0;
+  font-size: var(--fs-lg, 15px);
+  color: var(--ol-text);
+}
+
+.welcome-copy,
+.welcome-footnote {
+  margin: 0;
+  color: var(--ol-muted);
+  font-size: var(--fs-sm, 12px);
+  line-height: 1.5;
+}
+
+.welcome-copy a {
+  color: var(--ol-link);
+}
+
+.welcome-status-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ol-text-soft);
+  font-size: var(--fs-sm, 12px);
+}
+
+.welcome-manual-row {
+  margin: 0;
+}
+
+.welcome-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.welcome-footnote {
+  padding-top: 4px;
+  border-top: 1px solid var(--ol-border-soft);
+}

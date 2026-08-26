@@ -65,6 +65,35 @@ export function saveOpenLayerPreferences(preferences: OpenLayerPreferences) {
   }
 }
 
+/**
+ * Persists only `serverUrl`, merged into whatever is already stored, rather
+ * than the full-object overwrite `saveOpenLayerPreferences` does.
+ *
+ * The welcome screen calls this before the rest of the panel has necessarily
+ * loaded saved generation defaults into their form fields. A full-object save
+ * built from `AppElements` at that point would write the DOM's static markup
+ * defaults for width/height/steps/etc. over whatever the user actually had
+ * saved — this exists so detecting ComfyUI on first run can't silently erase
+ * unrelated settings.
+ */
+export function saveServerUrlPreference(serverUrl: string): boolean {
+  const storage = getStorage();
+
+  if (!storage) {
+    return false;
+  }
+
+  try {
+    const rawValue = storage.getItem(STORAGE_KEY);
+    const existing = rawValue ? sanitizePreferences(JSON.parse(rawValue)) : {};
+
+    storage.setItem(STORAGE_KEY, JSON.stringify({ ...existing, serverUrl }));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function clearOpenLayerPreferences() {
   const storage = getStorage();
 
@@ -248,6 +277,49 @@ export function saveOpenAdvancedSections(keys: readonly string[]) {
 
   try {
     storage.setItem(ADVANCED_SECTIONS_KEY, JSON.stringify(Array.from(new Set(keys))));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether the first-run welcome screen has already been shown, stored apart
+ * from `OpenLayerPreferences` for the same reason as the preview panel pin
+ * and the advanced-sections set: it is not a form field, and Reset Settings
+ * should not bring the welcome screen back for someone who has already
+ * connected once.
+ *
+ * A missing or corrupt value means "not seen" — the failure direction
+ * matters here (same as `AgentBridgeSettings.enabled`): a storage read that
+ * fails should show the welcome screen again, not skip it silently for
+ * someone who never actually saw it.
+ */
+const WELCOME_SEEN_KEY = "openlayer.welcomeSeen.v1";
+
+export function loadHasSeenWelcome(): boolean {
+  const storage = getStorage();
+
+  if (!storage) {
+    return false;
+  }
+
+  try {
+    return storage.getItem(WELCOME_SEEN_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function saveHasSeenWelcome() {
+  const storage = getStorage();
+
+  if (!storage) {
+    return false;
+  }
+
+  try {
+    storage.setItem(WELCOME_SEEN_KEY, "true");
     return true;
   } catch {
     return false;

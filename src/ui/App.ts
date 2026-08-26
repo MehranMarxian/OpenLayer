@@ -1,4 +1,5 @@
 import { ComfyClient } from "../comfy/comfyClient";
+import { findActiveComfyUrl } from "../comfy/comfyPortDiscovery";
 import {
   createHardwareRecommendationReport,
   getPrimaryDeviceVramTotalBytes,
@@ -260,6 +261,7 @@ import {
   bindStickyProgress,
   bindToolCards,
   bindToolWarnings,
+  bindWelcomeOverlay,
   createActionRunner,
   HistoryActionName,
   setActionDisabled
@@ -267,7 +269,6 @@ import {
 import {
   APP_VERSION,
   AppView,
-  COMFY_PORT_CANDIDATES,
   DEFAULT_CFG,
   DEFAULT_HEIGHT,
   DEFAULT_IMAGE_WORKFLOW,
@@ -1426,6 +1427,7 @@ export function renderApp(rootElement: HTMLElement) {
   bindHistoryActions(rootElement, handleHistoryAction);
   bindExternalLinks(rootElement);
   bindAdvancedToggles(rootElement);
+  bindWelcomeOverlay(elements);
   bindToolWarnings(rootElement);
   bindStickyProgress(rootElement);
   elements.settingsThemeSelect.addEventListener("change", () => {
@@ -6781,64 +6783,6 @@ function clearHistoryEntries(historyEntries: HistoryEntry[], objectUrls: ObjectU
   }
 
   historyEntries.splice(0, historyEntries.length);
-}
-
-async function findActiveComfyUrl(currentUrl: string, onProgress: (message: string) => void) {
-  const candidates = buildComfyCandidateUrls(currentUrl);
-
-  for (const candidate of candidates) {
-    onProgress(`Checking ${candidate}...`);
-
-    if (await isComfyServerOnline(candidate)) {
-      return candidate;
-    }
-  }
-
-  return "";
-}
-
-function buildComfyCandidateUrls(currentUrl: string) {
-  const candidates = [
-    normalizeCandidateUrl(currentUrl),
-    ...COMFY_PORT_CANDIDATES.map((port) => `http://127.0.0.1:${port}`)
-  ].filter(Boolean);
-
-  return Array.from(new Set(candidates));
-}
-
-function normalizeCandidateUrl(url: string) {
-  const trimmed = url.trim();
-
-  if (!trimmed) {
-    return "";
-  }
-
-  try {
-    const parsed = new URL(trimmed);
-    parsed.pathname = parsed.pathname.replace(/\/+$/, "");
-    parsed.search = "";
-    parsed.hash = "";
-    return parsed.toString().replace(/\/+$/, "");
-  } catch {
-    return "";
-  }
-}
-
-async function isComfyServerOnline(serverUrl: string) {
-  const controller = typeof AbortController === "function" ? new AbortController() : null;
-  const timeoutId = window.setTimeout(() => {
-    controller?.abort();
-  }, 1200);
-
-  try {
-    const requestOptions: RequestInit = controller ? { signal: controller.signal } : {};
-    const response = await fetch(`${serverUrl}/system_stats`, requestOptions);
-    return response.ok;
-  } catch {
-    return false;
-  } finally {
-    window.clearTimeout(timeoutId);
-  }
 }
 
 function createHistoryId() {
