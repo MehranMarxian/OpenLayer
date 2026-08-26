@@ -8375,3 +8375,51 @@ body.theme-artist,
   padding-bottom: 3px !important;
   margin: 0 10px 0 0 !important;
 }
+
+/* ==========================================================================
+   Warning box, prompt buttons (v0.17)
+   ========================================================================== */
+
+/* The setup-warning box was letting its last line fall outside its own border.
+   It is laid out as a flex row so the round "!" badge can sit beside the text,
+   and UXP does not derive the row's height from a wrapped text item the way a
+   browser does -- so the box kept the height of one line while the text ran on
+   past it. Block layout has no such disagreement: the box is as tall as the
+   text inside it, which is the whole requirement here. The badge becomes an
+   inline-block that the first line flows around, so it still reads as a badge
+   without a flex row to misdescribe. */
+.app-shell.theme-compact .compatibility-note.info-panel.is-warning,
+.app-shell.theme-compact .tool-warning {
+  display: block !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+}
+
+.app-shell.theme-compact .compatibility-note.info-panel.is-warning::before,
+.app-shell.theme-compact .tool-warning::before {
+  display: inline-block !important;
+  float: left !important;
+  margin: 1px 7px 2px 0 !important;
+}
+
+/* "Ask the Agent for a Prompt" and "Show Negative Prompt" sat flush against
+   each other. The compact rules zero the margin on every direct child of
+   .generator-panel and the panel resolves to display: block, so the panel's
+   `gap` never applies -- spacing between these has to be an explicit margin.
+   Ask the Agent is also the least-used control in the group, so it gives up
+   some height to the prompt above it. */
+.app-shell.theme-compact #suggest-prompt {
+  min-height: 26px !important;
+  margin: 6px 0 8px !important;
+  padding: 3px 8px !important;
+  font-size: var(--fs-xs) !important;
+  font-weight: 600 !important;
+}
+
+.app-shell.theme-compact #negative-prompt-toggle {
+  margin: 0 0 6px !important;
+}
