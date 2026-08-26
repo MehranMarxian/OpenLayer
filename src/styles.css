@@ -1837,14 +1837,6 @@ a:hover {
   object-fit: contain;
 }
 
-.preview-panel.preview-zoomed {
-  max-height: 520px;
-}
-
-.preview-panel.preview-zoomed img {
-  max-height: 520px;
-}
-
 .source-preview-panel {
   align-items: stretch;
   min-height: 112px;
@@ -7482,8 +7474,17 @@ body,
 }
 
 /* #5: small orange (i) button that reveals the experimental note. */
+/* Centered with flex rather than the line-height/text-align math a plain
+   <button> normally relies on: this button carries no `.button` base class,
+   so it never inherits that class's text-align: center, and there is nothing
+   else here setting one -- the browser's own button default was doing the
+   centering, silently, until UXP was the host reading this rule. */
 .app-shell.theme-compact .tool-info-button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   flex: 0 0 auto;
+  box-sizing: border-box;
   width: 18px;
   height: 18px;
   margin-left: 4px;
@@ -7495,22 +7496,13 @@ body,
   font-size: var(--fs-sm);
   font-weight: 700;
   font-style: italic;
-  line-height: 16px;
+  line-height: 1;
   cursor: pointer;
 }
 
 .app-shell.theme-compact .tool-info-button.is-active {
   background: #f0b153;
   color: #1b1200;
-}
-
-/* #6: live-painting zoom actually enlarges the preview. */
-.app-shell.theme-compact .preview-panel.preview-zoomed {
-  max-height: 560px !important;
-}
-
-.app-shell.theme-compact .preview-panel.preview-zoomed img {
-  max-height: 552px !important;
 }
 
 /* Live Painting state badge: intentionally after the compact status-pill
