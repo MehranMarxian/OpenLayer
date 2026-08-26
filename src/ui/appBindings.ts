@@ -465,10 +465,40 @@ export function bindStickyProgress(rootElement: HTMLElement) {
   const navs = Array.from(rootElement.querySelectorAll<HTMLElement>(".screen-nav"));
 
   for (const nav of navs) {
+    const view = nav.parentElement;
+
+    if (!view) {
+      continue;
+    }
+
     const head = document.createElement("div");
     head.className = "screen-head";
     nav.before(head);
     head.appendChild(nav);
+
+    // Everything below the header becomes one scrolling body, so the header
+    // can pin as a flex child instead of as a sticky element.
+    //
+    // `position: sticky` was the obvious way to keep the header visible and it
+    // is the wrong one here: UXP does not reflow content around a sticky
+    // element, so the header painted straight over the section beneath it. The
+    // shell already pins .app-header and .app-footer correctly, and it does it
+    // with flex -- a flex item cannot overlap its siblings, whatever the host
+    // thinks about sticky. This gives each screen the same two-part shape the
+    // shell has: a fixed head, a scrolling body.
+    const body = document.createElement("div");
+    body.className = "screen-body";
+
+    while (head.nextSibling) {
+      body.appendChild(head.nextSibling);
+    }
+
+    view.appendChild(body);
+    // Marks the views that actually got this treatment. Home has no back/title
+    // nav, so it never gets a head or a body and must keep scrolling itself --
+    // without this class the CSS would hand its scrolling to a body element
+    // that does not exist and the whole screen would be unreachable.
+    view.classList.add("has-screen-head");
   }
 }
 

@@ -8303,3 +8303,75 @@ body.theme-artist,
   padding-top: 4px;
   border-top: 1px solid var(--ol-border-soft);
 }
+
+/* ==========================================================================
+   Pinned screen header (v0.17)
+
+   The header stays put while the form scrolls under it, which is what it was
+   always meant to do -- but as a flex item, not a sticky one.
+
+   `position: sticky` was tried twice and is wrong in this host both times:
+   UXP does not reflow content around a sticky element, so the header simply
+   painted over the section below it, worst at small panel sizes where there
+   was least room to hide it. The shell already pins .app-header and
+   .app-footer perfectly using flex, and a flex item cannot overlap its
+   siblings no matter what the renderer believes about sticky. So each screen
+   now has the same two-part shape the shell has: a fixed head and a scrolling
+   body (both built in bindStickyProgress).
+
+   Scoped to .has-screen-head, which that binder adds only to views that got a
+   head and a body. Home has no back/title nav, so it never gets either, and
+   must keep scrolling itself -- unscoped, these rules would hand its
+   scrolling to an element that does not exist and strand the whole screen.
+   ========================================================================== */
+
+.app-shell.theme-compact .has-screen-head {
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.app-shell.theme-compact .has-screen-head > .screen-head {
+  flex: 0 0 auto !important;
+}
+
+.app-shell.theme-compact .has-screen-head > .screen-body {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  padding-bottom: 14px !important;
+}
+
+/* Smaller than it was: it is permanently on screen now, so every pixel it
+   takes is a pixel of form the artist cannot see. */
+.app-shell.theme-compact .screen-head {
+  margin: 0 0 6px !important;
+  padding: 4px 0 0 !important;
+  border-bottom: 1px solid var(--ol-border-soft) !important;
+}
+
+.app-shell.theme-compact .screen-head .screen-nav {
+  min-height: 30px !important;
+  padding: 0 0 6px !important;
+}
+
+.app-shell.theme-compact .screen-head .screen-icon {
+  flex: 0 0 22px !important;
+  width: 22px !important;
+  height: 22px !important;
+  margin: 0 7px 0 0 !important;
+}
+
+.app-shell.theme-compact .screen-head .screen-icon .icon-image {
+  width: 20px !important;
+  height: 20px !important;
+}
+
+.app-shell.theme-compact .screen-head .back-button {
+  min-height: 26px !important;
+  padding-top: 3px !important;
+  padding-bottom: 3px !important;
+  margin: 0 10px 0 0 !important;
+}
