@@ -1,5 +1,36 @@
 # Changelog
 
+## v0.17.4-alpha - 2026-08-27
+
+This release started as three prompt-box fixes and turned up a real bug along the way: past roughly 256 characters, a Photoshop UXP text field silently stops accepting input unless told otherwise, which was quietly truncating every prompt, every caption from Prompt from Layer, and every diagnostics report copied out of the panel. That is fixed everywhere a prompt is typed. Every prompt field also gets its own undo, independent of whatever the host does or doesn't support, and a screen header that could paint over the section below it — worst at the panel's smallest size — is pinned properly instead. The one new feature is the Prompt Wallet: save a favorite prompt from any tool with a small green circle, recall it from any other tool with a purple one.
+
+### Added
+
+- **The Prompt Wallet.** A small green circle inline in every tool's "Prompt" label saves the current positive and negative prompt together — they are one thought, and recalling one without the other loses half the work. A purple circle next to it loads one back: press it and the panel takes you straight to a new Prompt Wallet screen (Home → Tools & History) asking "Choose a prompt for `<tool>`", pick a card, and both fields fill in and you're back in the tool you started from. One library shared by every tool, so a prompt saved from Inpaint is just as reachable from Text to Image. The Wallet screen itself supports search, renaming, pinning a favorite to the top, copying to the clipboard, and deleting — deliberately not tags, color labels, or version history, which is how a panel this size stays out of the way rather than growing another control surface to learn.
+- **Undo, on every prompt field, independent of the host.** Ctrl+Z / Ctrl+Shift+Z (Ctrl+Y works too) now walk back through a prompt a word at a time, whether or not Photoshop's own UXP textarea happens to support undo — it is not something this panel assumes anymore.
+- **Inpaint gets the "Import Automatically" button every other generating tool already had.** Nothing about inpainting made it the exception; it was simply never wired up.
+- **A first-run screen that looks for ComfyUI on its own.** A stranger opening the panel for the first time used to discover the ComfyUI connection requirement by trial and error. It now runs the same port scan Settings' "Find ComfyUI Active Port" button always has, reports found or not found, and hands off to Setup for everything else. Shows once, ever.
+- **A published privacy policy and terms of service**, linked from the README and both docs pages. Short version: nothing here was collecting anything to begin with — the policy is easy to write honestly because it's true.
+
+### Fixed
+
+- **A prompt longer than about 256 characters silently stopped accepting new text.** This was never a character limit anyone set; it is undocumented default behavior of a Photoshop UXP `<textarea>`, and two earlier theories about it (a rendering/scroll problem, a box that was too small) were both wrong, chased down and reverted before the actual cause was measured directly in the host. Every prompt field, the Prompt from Layer caption box, and the Settings diagnostics report all declare an explicit limit now, so none of them can hit it again.
+- **A screen's header could paint over the section directly below it**, worst at the panel's narrowest size. It was pinned in place with `position: sticky`, which this host does not reflow content around the way a browser does; it is pinned with the same plain flex layout the panel's own top-level header and footer already use correctly, which cannot overlap a sibling regardless of what the renderer thinks about sticky.
+- **The orange "needs setup" note could let its last line spill past its own border.** Same root cause as the header, in miniature: it was a flex row that didn't measure a wrapped line of text correctly in this host, so the box stayed shorter than the text it held.
+- **The round info button that reveals a tool's warning note had its glyph sitting visibly off-center.** Traced through two wrong theories (a flex-centering bug, then an italic-lean bug) before landing on the actual fix: the circle background it sat in is gone, leaving plain colored text with no perfect-symmetry frame for a sub-pixel offset to read as wrong against.
+- **"Ask the Agent for a Prompt" and "Show Negative Prompt" sat flush against each other** on Text to Image, with no margin between them.
+
+### Changed
+
+- **Removed Live Painting's "Zoom 2x" button.** It was reported not working, and redundant besides: the panel's own dockable Preview panel is a better answer to "I want to see this bigger," since it resizes freely instead of toggling between two fixed sizes.
+- **The dashboard's brand icon** is a cleaner, transparent 152px version instead of the old opaque one.
+- **The panel footer** now reads "OpenLayer v0.17.4 © By Mehran Ahmadi 2026".
+
+### Known limitations
+
+- **Prompt text does not persist across closing the panel.** An earlier draft of this release saved drafts to `localStorage` and restored them on the next launch; on testing, a prompt reappearing in a freshly opened panel read as a bug rather than a convenience, so it was removed. Text still survives switching between tools within one session, since those screens are hidden rather than rebuilt.
+- **The Prompt Wallet is deliberately minimal** — no tags, color labels, version history, or import/export yet. Search and pinning cover organization at the size this library is expected to reach; the rest is real scope for later if the library outgrows that.
+
 ## v0.16.0-alpha - 2026-08-22
 
 This release is mostly about the panel you look at while you work. There is a new dark theme built for artists rather than for matching Photoshop's chrome, the numeric parameters can be sliders now, the seed field has a dice button — and, underneath that button, a fix for a bug that has quietly been failing generations since long before the button existed. The one new generation capability is an inpaint preset for FLUX.2 Klein, so the fast Klein stack you may already have downloaded can now repaint a selection.

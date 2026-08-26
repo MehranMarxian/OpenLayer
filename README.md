@@ -14,6 +14,16 @@ OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop t
 
 New in `v0.17.4-alpha`:
 
+- **The Prompt Wallet.** A small green circle in every tool's "Prompt" label saves the current positive and negative prompt together; a purple circle next to it loads one back — press it and the panel sends you to a new Prompt Wallet screen asking which tool you're picking for, and choosing a card fills both fields and returns you there. One library shared by every tool. The Wallet screen supports search, renaming, pinning, copy, and delete.
+- **Undo, on every prompt field, independent of the host.** Ctrl+Z / Ctrl+Shift+Z (or Ctrl+Y) now walk back through a prompt a word at a time, whether or not Photoshop's own textarea happens to support undo.
+- **A prompt longer than about 256 characters no longer silently stops accepting input.** That was an undocumented default of a Photoshop UXP text field, not a limit anyone had set, and it was quietly truncating prompts, Prompt from Layer captions, and the Settings diagnostics report alike.
+- **A screen's header no longer paints over the section below it**, which used to happen at the panel's smallest size.
+- **Inpaint has the "Import Automatically" button every other generating tool already had.**
+- **A first-run screen looks for ComfyUI on its own** the first time you open the panel, instead of leaving you to discover the connection requirement by trial and error.
+- **A published privacy policy and terms of service.**
+
+Also new in `v0.16.0-alpha`:
+
 - **Artist-Friendly Dark, a third theme.** A deeper, softer dark meant to sit behind artwork rather than match the Photoshop toolbar, offered in Settings alongside Compact Adobe Dark and Classic v0.4. It is the theme that turns the numeric parameters into sliders. Compact Adobe Dark is untouched — switching themes changes nothing about the panel you already know.
 - **Sliders for the numeric parameters, in Artist-Friendly Dark.** Detail (steps), Guidance (CFG), Strength (denoise) and the others become sliders; Compact Adobe Dark keeps its number boxes. One control, two faces — the number input is still the source of truth and the slider writes through to it, so nothing about how a value is read or validated changed.
 - **A dice button on the seed field**, on every tool that has one — roll a fresh random seed instead of typing one.
