@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canAddReference,
+  createReferenceUploadName,
   describeReferenceCount,
   moveReference,
   removeReference
@@ -59,6 +60,29 @@ describe("multi-reference list", () => {
     removeReference(list, "a");
 
     expect(list).toEqual(original);
+  });
+
+  it("gives two layers captured in the same minute different upload names", () => {
+    // The bug this exists to prevent: createLayerName stamps captures to the
+    // minute, so two layers added one after another share a filename. Uploads
+    // pass overwrite=true, so the second replaced the first in ComfyUI and the
+    // whole chain read one picture -- the background became a copy of the last
+    // reference and its size became the canvas.
+    const shared = "OpenLayer_Source_20260828_0023.png";
+
+    expect(createReferenceUploadName(shared, "reference-1-aaa")).not.toBe(
+      createReferenceUploadName(shared, "reference-2-bbb")
+    );
+  });
+
+  it("keeps the extension and stays stable for one entry", () => {
+    expect(createReferenceUploadName("OpenLayer_Source_20260828_0023.png", "ref-a")).toBe(
+      "openlayer-ref-a.png"
+    );
+    expect(createReferenceUploadName("capture.jpeg", "ref-b")).toBe("openlayer-ref-b.jpeg");
+    // No extension in the capture name should still upload as a PNG, which is
+    // what the panel captures.
+    expect(createReferenceUploadName("capture", "ref-c")).toBe("openlayer-ref-c.png");
   });
 
   it("reports the count against the ceiling", () => {

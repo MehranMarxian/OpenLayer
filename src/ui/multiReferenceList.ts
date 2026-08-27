@@ -64,6 +64,28 @@ export function canAddReference(references: readonly ReferenceListItem[], maximu
 }
 
 /**
+ * The name one reference is uploaded to ComfyUI under.
+ *
+ * A capture's own filename is not usable here. `createLayerName` stamps them to
+ * the minute -- `OpenLayer_Source_20260828_0023.png` -- so two layers captured
+ * in the same minute, which is the normal case when building a list, arrive
+ * with identical names. Uploads pass `overwrite=true`, so the second one
+ * replaced the first in ComfyUI's input folder and every `LoadImage` in the
+ * chain then read the same picture: the background silently became a copy of
+ * the last reference, and `GetImageSize` reported its size as the canvas.
+ *
+ * Every other tool uploads exactly one image per run, which is why nothing hit
+ * this before. The entry id is unique per capture, so it is what makes the
+ * upload unique.
+ */
+export function createReferenceUploadName(filename: string, id: string) {
+  const dot = filename.lastIndexOf(".");
+  const extension = dot > 0 ? filename.slice(dot) : ".png";
+
+  return `openlayer-${id}${extension}`;
+}
+
+/**
  * The count shown beside the section heading. It names the ceiling as well as
  * the count so the limit is visible before it is hit rather than only in the
  * error that refuses the next capture.

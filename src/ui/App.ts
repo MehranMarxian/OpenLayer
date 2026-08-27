@@ -29,6 +29,7 @@ import { agentBridge } from "./agentBridge";
 import { AgentConnectionStatus, createAgentConnection, openWebSocket } from "./agentConnection";
 import {
   canAddReference,
+  createReferenceUploadName,
   describeReferenceCount,
   moveReference,
   removeReference
@@ -4641,7 +4642,12 @@ export function renderApp(rootElement: HTMLElement) {
       for (const [index, entry] of multiReferenceSources.entries()) {
         setMultiReferenceStatus(elements, `Uploading reference ${index + 1} of ${multiReferenceSources.length}...`, "idle");
         setMultiReferenceProgressPreview(elements, `Uploading reference ${index + 1}...`);
-        referenceImageNames.push(await client.uploadImage(entry.blob, entry.filename));
+        // Uploaded under a per-entry unique name, not the capture filename:
+        // captures stamp to the minute, so two layers added together collide
+        // and overwrite=true would leave every LoadImage reading the last one.
+        referenceImageNames.push(
+          await client.uploadImage(entry.blob, createReferenceUploadName(entry.filename, entry.id))
+        );
       }
 
       const buildResult = await buildMultiReferenceWorkflow({
