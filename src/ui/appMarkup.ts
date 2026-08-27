@@ -998,7 +998,7 @@ export function createAppMarkup() {
             </div>
             <div class="source-card-body">
               <span class="source-title" id="style-reference-source-title">No source captured</span>
-              <span class="source-card-meta" id="style-reference-source-meta">IPAdapter Plus reads this layer's mood, color, and composition weight -- not its content.</span>
+              <span class="source-card-meta" id="style-reference-source-meta">Palette and mood are borrowed from this layer. Photographic references work; flat illustrations mostly do not.</span>
             </div>
           </div>
         </section>

@@ -1688,7 +1688,7 @@ const STYLE_REFERENCE_SD15_CAPABILITY: WorkflowCapability = {
     modelSelectorLabel: "Checkpoint",
     primaryActionLabel: "Generate Style Reference",
     experimentalNote:
-      "IPAdapter Plus reads the captured layer's mood, color, and composition weight -- not its content -- and applies it on top of the prompt. Output size is independent of the reference photo's own dimensions, the same as Text to Image."
+      "IPAdapter Plus borrows the captured layer's palette and mood and applies it on top of the prompt. Measured scope: a photographic reference tints and lights the result convincingly, a flat illustration transfers almost nothing. This does not restyle the captured layer -- it generates a new image, and output size is your own choice, the same as Text to Image."
   }
 };
 

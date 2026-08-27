@@ -167,7 +167,11 @@ export const TOOL_CARDS: ToolCard[] = [
   {
     id: "style-reference",
     title: "Style Reference",
-    subtitle: "Match mood, color, or visual language",
+    // Deliberately narrower than it used to read. Measured against a flat
+    // cartoon reference, this borrows palette and mood and little else -- it
+    // is not a "make my picture look like that picture" tool, and promising
+    // visual language set an expectation the model does not meet.
+    subtitle: "Borrow a reference layer's mood and colour",
     icon: "styleReference",
     status: "available",
     view: "style-reference"

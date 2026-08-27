@@ -33,14 +33,14 @@ const EXPECTED_CUSTOM_NODE_CLASSES = [
   "AnyLineArtPreprocessor_aux",
   "Florence2ModelLoader",
   "Florence2Run",
+  // cubiq's IPAdapter Plus, used only by Style Reference.
+  "IPAdapterAdvanced",
+  "IPAdapterModelLoader",
   // lquesada's crop-and-stitch pair, used only by the crop & stitch inpaint
   // preset. It is the one custom-node dependency shipped as an *alternative*
   // to a working core-only preset: inpaint-flux-fill-basic still runs without
   // it, so a user who has not installed the pack loses a quality option rather
   // than the Inpaint tool.
-  // cubiq's IPAdapter Plus, used only by Style Reference.
-  "IPAdapterAdvanced",
-  "IPAdapterModelLoader",
   "InpaintCropImproved",
   "InpaintStitchImproved",
   "Scribble_PiDiNet_Preprocessor",
