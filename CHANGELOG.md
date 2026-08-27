@@ -1,5 +1,29 @@
 # Changelog
 
+## v0.18.0-alpha - 2026-08-27
+
+This release opens the Workflow section of the dashboard — three cards that were greyed out since v0.14 are live — and adds Style Reference to the Generate section as an experimental tool.
+
+### Added
+
+- **Style Reference** (experimental). Borrows a reference layer's mood and colour and applies it to a new generation. Pick any layer as the reference source, write your content prompt, adjust the strength dial, and generate — the result uses the reference image's palette and atmosphere without copying its shapes or composition. Built on IPAdapter Plus for SD 1.5 with CLIP-ViT-H-14 image encoding. Requires two one-time downloads that the Setup tab lists: IPAdapter (93.6 MB, Apache-2.0) and CLIP-ViT-H (2.35 GB, Apache-2.0). Marked experimental because the style transfer is real but the effect depends heavily on the reference image — photo-like references transfer clearly, flat cartoon or very abstract references may transfer little. Multi-reference composition, which works differently and is better suited to preserving identity across three source images, is planned for v0.19.
+
+- **Workflow Presets catalogue.** The Workflow Presets card on the dashboard now opens a full list of every preset the panel ships, grouped by tool. Each row shows the preset's name, the node packs it needs, and the models it downloads. Nothing to install: the list is built from the same registry the Setup tab reads, so it is always in sync with what the panel actually knows about.
+
+- **Custom Workflow checker.** The Workflow card opens a text area where you paste any ComfyUI graph — API format, exported via Save (API) from the ComfyUI editor — and the panel checks every node class in it against this server's installed node packs. The result names every class the server does not recognise and every required input that is not wired up, grouped per node, with a one-line summary. If you paste the wrong format (the editor's plain Save rather than Export (API)), it tells you which menu option to use instead. If the server is offline when you check, it says so.
+
+- **Separate icons for Live Painting and Style Reference.** The two tools shared the same icon before this release. Live Painting keeps a variant of the original art; Style Reference has a new icon.
+
+### Fixed
+
+- **The custom workflow checker incorrectly blamed the server when all node classes in a graph were from an uninstalled pack.** When every class in a pasted graph is unknown, querying `/object_info` returns nothing — the same empty response as a server that stopped answering. The guard that distinguished the two was wrong: it threw an offline error for a graph that simply needed node packs installed. It now asks the server whether it is reachable before blaming it, so a missing-nodes result is reported as missing nodes and a genuinely offline server is reported as offline.
+
+- **New model kinds (clip-vision, ip-adapter) always appeared installed.** The function that maps a model kind to its inventory bucket had a `default: return []` fallback that silently returned an empty list — which reads as "no models of this kind to find, therefore satisfied" — for any kind it did not recognise. The new kinds were not recognised. Added explicit cases so the bucket lookup returns the right list instead of an empty one.
+
+### Changed
+
+- **Style Reference wording narrowed after testing.** The subtitle previously implied visual language transfer. A flat cartoon reference was used as a real test, and the result was that the palette and mood transferred while the shapes did not — which is honest about what IPAdapter Plus actually does, but not what "match the style of" suggests. The subtitle now reads "Borrow a reference layer's mood and colour."
+
 ## v0.17.4-alpha - 2026-08-27
 
 This release started as three prompt-box fixes and turned up a real bug along the way: past roughly 256 characters, a Photoshop UXP text field silently stops accepting input unless told otherwise, which was quietly truncating every prompt, every caption from Prompt from Layer, and every diagnostics report copied out of the panel. That is fixed everywhere a prompt is typed. Every prompt field also gets its own undo, independent of whatever the host does or doesn't support, and a screen header that could paint over the section below it — worst at the panel's smallest size — is pinned properly instead. The one new feature is the Prompt Wallet: save a favorite prompt from any tool with a small green circle, recall it from any other tool with a purple one.

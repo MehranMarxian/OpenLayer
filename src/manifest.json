@@ -2,7 +2,7 @@
   "manifestVersion": 5,
   "id": "1e827d3d",
   "name": "OpenLayer",
-  "version": "0.17.4",
+  "version": "0.18.0",
   "main": "index.html",
   "host": [
     {
