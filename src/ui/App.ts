@@ -4468,7 +4468,7 @@ export function renderApp(rootElement: HTMLElement) {
     objectUrls.revoke(removed.previewUrl);
     multiReferenceSources = references;
     renderMultiReferenceList();
-    setMultiReferenceStatus(elements, "Reference removed.", "idle");
+    setMultiReferenceStatus(elements, "Reference removed.", "ready");
   }
 
   /**
@@ -4488,7 +4488,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     multiReferenceSources = references;
     renderMultiReferenceList();
-    setMultiReferenceStatus(elements, `Reference moved to position ${movedTo + 1}.`, "idle");
+    setMultiReferenceStatus(elements, `Reference moved to position ${movedTo + 1}.`, "ready");
   }
 
   function renderMultiReferenceList() {
