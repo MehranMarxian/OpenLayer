@@ -12,7 +12,9 @@ const MODE_LABELS: Record<WorkflowPresetDefinition["mode"], string> = {
   inpaint: "Inpaint",
   outpaint: "Outpaint",
   prompt: "Prompt from Layer",
-  upscale: "Upscale"
+  upscale: "Upscale",
+  "style-reference": "Style Reference",
+  "multi-reference": "Multi-Reference Composition"
 };
 
 const DEFAULT_CONTROLS: Record<WorkflowPresetDefinition["mode"], readonly WorkflowControlId[]> = {
@@ -33,7 +35,10 @@ const DEFAULT_CONTROLS: Record<WorkflowPresetDefinition["mode"], readonly Workfl
     "outpaintFeathering"
   ],
   prompt: ["task", "numBeams", "seed"],
-  upscale: []
+  upscale: [],
+  "style-reference": ["prompt", "negativePrompt", "width", "height", "steps", "cfg", "seed", "controlStrength"],
+  // No width/height: reference 1 sets the canvas. No denoise: it is fixed at 1.
+  "multi-reference": ["prompt", "negativePrompt", "steps", "cfg", "seed"]
 };
 
 export function getWorkflowCapability(preset: WorkflowPresetDefinition): WorkflowCapability {

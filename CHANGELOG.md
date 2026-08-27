@@ -1,5 +1,49 @@
 # Changelog
 
+## v0.19.0-alpha - 2026-08-28
+
+This release adds Multi-Reference Composition: give the panel a list of captured layers instead of one, and it builds a single picture out of all of them. Before any of the screen was built, four questions about how the technique actually behaves were answered with 48 live ComfyUI generations, each run as a control/variant pair — full results in `docs/multi-reference-gate-findings.md`. Two of the four answers shrank the feature that got built; the third is the honest limit stated everywhere the tool is described.
+
+### Added
+
+- **Multi-Reference Composition** (experimental). An ordered list of reference layers — Add Active Layer or Add Canvas to grow it, Up/Down/Remove on each row — composed into one image with `multi-reference-flux2-klein`, which chains a `ReferenceLatent` per reference onto both conditioning branches of FLUX.2 Klein. Every node is core ComfyUI, and it shares the Klein 4B stack already needed for the other Klein presets, so it downloads nothing new.
+
+  Reference order is a real control, not a convenience: the first reference sets the output canvas, and gate testing found a wide, thin object that has to sit behind the other subjects can render duplicated or distorted unless it comes earlier in the chain — moving one item fixed a duplication that reproduced on every seed tried. Testing found no reference count, up to six, at which composition quality fell off, so the eight-reference cap is a sanity bound rather than a measured limit. Positional prompt wording ("the second image") turned out not to matter at all — the model matches a reference to the prompt by what it depicts, not by its position in the list — and masking or cutting a reference out from its own background made no measurable difference, because Klein already isolates the subject on its own. Neither slot numbering nor a masking control made it into the screen as a result.
+
+  What did not survive testing is likeness. Clothing, props, setting and lighting carry across from a reference; a specific person's face does not. Four real photographs — two modern, two archival — all came back as a plausible stranger rather than the person photographed, including a clean, frontal, evenly lit studio portrait, which rules out framing or resolution as the cause. Generated sources fare much better, because the model reproduces its own output far more faithfully than it reproduces a photograph — which is exactly the trap the test was designed to catch. The tool's subtitle, its in-panel info note, and its MCP tool description all say this plainly: it composes a scene, it does not place a recognisable person into one.
+
+- **`multi_reference` joins the MCP Agent Bridge**, alongside the seven tools already reachable there. Same boundary as every other bridged tool — an agent can set the prompt and sampler values and press Compose, but cannot capture layers, add to the list, or reorder it — and the likeness limit is stated directly in the tool description an agent reads before running it.
+
+### Fixed
+
+- **Reordering or removing a reference left the progress bar spinning with nothing running behind it.** `setStatusProgress` reads status tone `"idle"` as work in progress unless the message contains a word from a short completion whitelist (ready, complete, copied, saved, reset, cancel) — right for "Uploading reference 2 of 3...", wrong for "Reference moved to position 2.", a finished action whose wording happened to match none of them. Both list actions now report tone `"ready"`, like every other completed action in the panel already does. Found in a real Photoshop session.
+
+- **Composing from two layers captured together produced the wrong background at the wrong size.** Captures are named to the minute, so two layers added one after another — the ordinary way to build a reference list — arrived at ComfyUI with identical filenames, and the upload's `overwrite=true` meant the second silently replaced the first. Every `LoadImage` in the chain then read one picture: the background became a copy of the last reference, and the output canvas took that reference's size instead of the first one's. Multi-Reference is the first tool to upload more than one image per generation, which is why nothing had hit this before. Each reference now uploads under a name derived from its own list entry rather than its capture filename. Reproduced against live ComfyUI before the fix and confirmed against the original report's screenshot after it.
+
+## v0.18.0-alpha - 2026-08-27
+
+This release opens the Workflow section of the dashboard — three cards that were greyed out since v0.14 are live — and adds Style Reference to the Generate section as an experimental tool.
+
+### Added
+
+- **Style Reference** (experimental). Borrows a reference layer's mood and colour and applies it to a new generation. Pick any layer as the reference source, write your content prompt, adjust the strength dial, and generate — the result uses the reference image's palette and atmosphere without copying its shapes or composition. Built on IPAdapter Plus for SD 1.5 with CLIP-ViT-H-14 image encoding. Requires two one-time downloads that the Setup tab lists: IPAdapter (93.6 MB, Apache-2.0) and CLIP-ViT-H (2.35 GB, Apache-2.0). Marked experimental because the style transfer is real but the effect depends heavily on the reference image — photo-like references transfer clearly, flat cartoon or very abstract references may transfer little. Multi-reference composition, which works differently and is better suited to preserving identity across three source images, is planned for v0.19.
+
+- **Workflow Presets catalogue.** The Workflow Presets card on the dashboard now opens a full list of every preset the panel ships, grouped by tool. Each row shows the preset's name, the node packs it needs, and the models it downloads. Nothing to install: the list is built from the same registry the Setup tab reads, so it is always in sync with what the panel actually knows about.
+
+- **Custom Workflow checker.** The Workflow card opens a text area where you paste any ComfyUI graph — API format, exported via Save (API) from the ComfyUI editor — and the panel checks every node class in it against this server's installed node packs. The result names every class the server does not recognise and every required input that is not wired up, grouped per node, with a one-line summary. If you paste the wrong format (the editor's plain Save rather than Export (API)), it tells you which menu option to use instead. If the server is offline when you check, it says so.
+
+- **Separate icons for Live Painting and Style Reference.** The two tools shared the same icon before this release. Live Painting keeps a variant of the original art; Style Reference has a new icon.
+
+### Fixed
+
+- **The custom workflow checker incorrectly blamed the server when all node classes in a graph were from an uninstalled pack.** When every class in a pasted graph is unknown, querying `/object_info` returns nothing — the same empty response as a server that stopped answering. The guard that distinguished the two was wrong: it threw an offline error for a graph that simply needed node packs installed. It now asks the server whether it is reachable before blaming it, so a missing-nodes result is reported as missing nodes and a genuinely offline server is reported as offline.
+
+- **New model kinds (clip-vision, ip-adapter) always appeared installed.** The function that maps a model kind to its inventory bucket had a `default: return []` fallback that silently returned an empty list — which reads as "no models of this kind to find, therefore satisfied" — for any kind it did not recognise. The new kinds were not recognised. Added explicit cases so the bucket lookup returns the right list instead of an empty one.
+
+### Changed
+
+- **Style Reference wording narrowed after testing.** The subtitle previously implied visual language transfer. A flat cartoon reference was used as a real test, and the result was that the palette and mood transferred while the shapes did not — which is honest about what IPAdapter Plus actually does, but not what "match the style of" suggests. The subtitle now reads "Borrow a reference layer's mood and colour."
+
 ## v0.17.4-alpha - 2026-08-27
 
 This release started as three prompt-box fixes and turned up a real bug along the way: past roughly 256 characters, a Photoshop UXP text field silently stops accepting input unless told otherwise, which was quietly truncating every prompt, every caption from Prompt from Layer, and every diagnostics report copied out of the panel. That is fixed everywhere a prompt is typed. Every prompt field also gets its own undo, independent of whatever the host does or doesn't support, and a screen header that could paint over the section below it — worst at the panel's smallest size — is pinned properly instead. The one new feature is the Prompt Wallet: save a favorite prompt from any tool with a small green circle, recall it from any other tool with a purple one.

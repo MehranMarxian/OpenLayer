@@ -6,7 +6,11 @@ import {
   OutpaintSettingsInput,
   OutpaintSettingsValidation,
   SketchToImageSettingsInput,
-  SketchToImageSettingsValidation
+  SketchToImageSettingsValidation,
+  MultiReferenceSettingsInput,
+  MultiReferenceSettingsValidation,
+  StyleReferenceSettingsInput,
+  StyleReferenceSettingsValidation
 } from "./types";
 import { createOpenLayerError } from "../utils/errors";
 
@@ -58,6 +62,37 @@ export function validateSketchToImageSettings(input: SketchToImageSettingsInput)
     settings: {
       ...settings,
       controlStrength
+    },
+    warnings
+  };
+}
+
+export function validateStyleReferenceSettings(input: StyleReferenceSettingsInput): StyleReferenceSettingsValidation {
+  const { settings, warnings } = validateGenerationSettings(input);
+  const controlStrength = readNumberInRange(input.controlStrength, "Style strength", 0, 2, warnings);
+
+  return {
+    settings: {
+      ...settings,
+      controlStrength
+    },
+    warnings
+  };
+}
+
+export function validateMultiReferenceSettings(
+  input: MultiReferenceSettingsInput
+): MultiReferenceSettingsValidation {
+  const warnings: string[] = [];
+  const steps = readIntegerInRange(input.steps, "Steps", 1, 150, warnings);
+  const cfg = readNumberInRange(input.cfg, "CFG", 1, 30, warnings);
+  const seed = readSeed(input.seed, warnings);
+
+  return {
+    settings: {
+      steps,
+      cfg,
+      seed
     },
     warnings
   };

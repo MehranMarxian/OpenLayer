@@ -46,7 +46,13 @@ export const MODEL_FOLDER_BY_OBJECT_INFO_NODE = {
   // ComfyUI examples call a "model patch" (e.g. the Z-Image Fun ControlNet
   // union weights) and it is read from models/model_patches/, a folder none
   // of the other mapped loaders share.
-  ModelPatchLoader: "model_patches"
+  ModelPatchLoader: "model_patches",
+  // Style Reference (IPAdapter Plus): CLIPVisionLoader reads models/clip_vision/,
+  // IPAdapterModelLoader and IPAdapterUnifiedLoader (cubiq/ComfyUI_IPAdapter_plus)
+  // both read models/ipadapter/ -- verified against that pack's own loader source.
+  CLIPVisionLoader: "clip_vision",
+  IPAdapterModelLoader: "ipadapter",
+  IPAdapterUnifiedLoader: "ipadapter"
 } as const satisfies Record<string, WorkflowModelFolder>;
 
 export type ComfyModelInventoryBucket = Exclude<keyof ComfyModelInventory, "missingSources">;
@@ -60,7 +66,9 @@ export const MODEL_FOLDER_BY_INVENTORY_BUCKET = {
   controlNetModels: "controlnet",
   visionLanguageModels: "LLM",
   upscaleModels: "upscale_models",
-  modelPatches: "model_patches"
+  modelPatches: "model_patches",
+  clipVisionModels: "clip_vision",
+  ipAdapterModels: "ipadapter"
 } as const satisfies Record<ComfyModelInventoryBucket, WorkflowModelFolder>;
 
 export type MappedModelLoaderNode = keyof typeof MODEL_FOLDER_BY_OBJECT_INFO_NODE;

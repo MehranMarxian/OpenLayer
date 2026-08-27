@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildInpaintWorkflow,
   buildImg2ImgWorkflow,
+  buildMultiReferenceWorkflow,
   buildOutpaintWorkflow,
   buildPromptFromLayerWorkflow,
   buildSketchToImageWorkflow,
@@ -264,6 +265,94 @@ describe("workflowBuilder", () => {
     expect(result.workflow["17"].inputs.width).toEqual(["16", 0]);
     expect(result.workflow["16"].inputs.image).toEqual(["10", 0]);
     expect(result.workflow["9"].inputs.images).toEqual(["17", 0]);
+  });
+
+  it("chains one ReferenceLatent pair per reference and samples from the end of both chains", async () => {
+    const result = await buildMultiReferenceWorkflow({
+      prompt: "the man and the woman standing on the beach at sunset",
+      negativePrompt: "",
+      checkpointName: "flux-2-klein-4b-fp8.safetensors",
+      referenceImageNames: ["bg.png", "man.png", "woman.png"],
+      steps: 4,
+      cfg: 1,
+      seed: 777
+    });
+
+    const workflow = result.workflow;
+
+    // Reference 1 is the shipped slot and keeps its original node ids.
+    expect(workflow["30"].inputs.image).toBe("bg.png");
+    expect(workflow["40"].inputs.image).toEqual(["30", 0]);
+    expect(workflow["50"].inputs.pixels).toEqual(["40", 0]);
+
+    // References 2 and 3 are cloned, and each clone keeps slot 1's megapixel
+    // normalisation and VAE edge rather than restating them.
+    expect(workflow["ref2load"].inputs.image).toBe("man.png");
+    expect(workflow["ref3load"].inputs.image).toBe("woman.png");
+    expect(workflow["ref2scale"].inputs.megapixels).toBe(workflow["40"].inputs.megapixels);
+    expect(workflow["ref2scale"].inputs.image).toEqual(["ref2load", 0]);
+    expect(workflow["ref2encode"].inputs.pixels).toEqual(["ref2scale", 0]);
+    expect(workflow["ref2encode"].inputs.vae).toEqual(workflow["50"].inputs.vae);
+
+    // Both branches are chained in list order, each link reading the one before.
+    expect(workflow["60"].inputs.conditioning).toEqual(["6", 0]);
+    expect(workflow["ref2pos"].inputs.conditioning).toEqual(["60", 0]);
+    expect(workflow["ref3pos"].inputs.conditioning).toEqual(["ref2pos", 0]);
+    expect(workflow["ref2neg"].inputs.conditioning).toEqual(["70", 0]);
+    expect(workflow["ref3neg"].inputs.conditioning).toEqual(["ref2neg", 0]);
+    expect(workflow["ref3pos"].inputs.latent).toEqual(["ref3encode", 0]);
+
+    // The sampler must read the TAIL of each chain. Reading the head would
+    // silently drop every reference past the first.
+    expect(workflow["3"].inputs.positive).toEqual(["ref3pos", 0]);
+    expect(workflow["3"].inputs.negative).toEqual(["ref3neg", 0]);
+
+    // Reference 1 alone sets the canvas, and denoise stays at 1.
+    expect(workflow["13"].inputs.image).toEqual(["40", 0]);
+    expect(workflow["5"].inputs.width).toEqual(["13", 0]);
+    expect(workflow["5"].inputs.height).toEqual(["13", 1]);
+    expect(workflow["3"].inputs.denoise).toBe(1);
+  });
+
+  it("leaves the shipped graph untouched for a single reference", async () => {
+    const result = await buildMultiReferenceWorkflow({
+      prompt: "a beach at sunset",
+      referenceImageNames: ["only.png"],
+      steps: 4,
+      cfg: 1,
+      seed: 5
+    });
+
+    const generated = Object.keys(result.workflow).filter((id) => id.startsWith("ref"));
+
+    expect(generated).toEqual([]);
+    expect(result.workflow["30"].inputs.image).toBe("only.png");
+    expect(result.workflow["3"].inputs.positive).toEqual(["60", 0]);
+    expect(result.workflow["3"].inputs.negative).toEqual(["70", 0]);
+  });
+
+  it("refuses an empty reference list and anything past the ceiling", async () => {
+    await expect(
+      buildMultiReferenceWorkflow({
+        prompt: "nothing to compose",
+        referenceImageNames: [],
+        steps: 4,
+        cfg: 1,
+        seed: 1
+      })
+    ).rejects.toThrow(/at least one reference/i);
+
+    const ceiling = getWorkflowPreset("multi-reference-flux2-klein").referenceChain?.maximumReferences ?? 0;
+
+    await expect(
+      buildMultiReferenceWorkflow({
+        prompt: "too many",
+        referenceImageNames: Array.from({ length: ceiling + 1 }, (_unused, index) => `ref${index}.png`),
+        steps: 4,
+        cfg: 1,
+        seed: 1
+      })
+    ).rejects.toThrow(/at most/i);
   });
 
   it("injects Flux Fill inpaint embedded source, prompt, model, and seed while preserving reference defaults", async () => {

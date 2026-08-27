@@ -1,4 +1,4 @@
-import { listRunnableWorkflowPresets, listWorkflowPresets } from "../comfy/presetRegistry";
+import { getWorkflowPreset, listRunnableWorkflowPresets, listWorkflowPresets } from "../comfy/presetRegistry";
 import { NO_LORA_VALUE } from "../comfy/loraCompatibility";
 import {
   APP_VERSION,
@@ -23,7 +23,10 @@ import {
   DEFAULT_SKETCH_CONTROL_STRENGTH,
   DEFAULT_SKETCH_DENOISE,
   DEFAULT_SKETCH_STEPS,
+  DEFAULT_MULTI_REFERENCE_CFG,
+  DEFAULT_MULTI_REFERENCE_STEPS,
   DEFAULT_STEPS,
+  DEFAULT_STYLE_REFERENCE_CONTROL_STRENGTH,
   DEFAULT_WIDTH,
   FALLBACK_CHECKPOINTS,
   FALLBACK_UPSCALE_MODELS,
@@ -319,6 +322,67 @@ export type AppElements = {
   importLiveButton: HTMLElement;
   importLiveRefinedButton: HTMLElement;
   liveAutoImportToggle: HTMLElement;
+  styleReferenceView: HTMLElement;
+  styleReferencePrompt: HTMLTextAreaElement;
+  styleReferencePromptWalletSave: HTMLElement;
+  styleReferencePromptWalletLoad: HTMLElement;
+  styleReferenceNegativePrompt: HTMLTextAreaElement;
+  styleReferenceWorkflow: HTMLSelectElement;
+  styleReferenceCheckpoint: HTMLSelectElement;
+  styleReferenceWidth: HTMLInputElement;
+  styleReferenceHeight: HTMLInputElement;
+  styleReferenceSteps: HTMLInputElement;
+  styleReferenceCfg: HTMLInputElement;
+  styleReferenceSeed: HTMLInputElement;
+  styleReferenceControlStrength: HTMLInputElement;
+  captureStyleReferenceLayerButton: HTMLElement;
+  captureStyleReferenceCanvasButton: HTMLElement;
+  generateStyleReferenceButton: HTMLElement;
+  importStyleReferenceButton: HTMLElement;
+  styleReferenceStatusText: HTMLElement;
+  styleReferenceStatusPill: HTMLElement;
+  styleReferenceStatusProgress: HTMLElement;
+  styleReferenceDiagnosticsText: HTMLElement;
+  styleReferenceCompatibilityNote: HTMLElement;
+  styleReferenceErrorMessage: HTMLElement;
+  styleReferenceSourcePreviewPanel: HTMLElement;
+  styleReferenceSourceTitle: HTMLElement;
+  styleReferenceSourceMeta: HTMLElement;
+  styleReferenceResultPreviewPanel: HTMLElement;
+  multiReferenceView: HTMLElement;
+  multiReferencePrompt: HTMLTextAreaElement;
+  multiReferencePromptWalletSave: HTMLElement;
+  multiReferencePromptWalletLoad: HTMLElement;
+  multiReferenceNegativePrompt: HTMLTextAreaElement;
+  multiReferenceWorkflow: HTMLSelectElement;
+  multiReferenceCheckpoint: HTMLSelectElement;
+  multiReferenceSteps: HTMLInputElement;
+  multiReferenceCfg: HTMLInputElement;
+  multiReferenceSeed: HTMLInputElement;
+  addMultiReferenceLayerButton: HTMLElement;
+  addMultiReferenceCanvasButton: HTMLElement;
+  generateMultiReferenceButton: HTMLElement;
+  importMultiReferenceButton: HTMLElement;
+  multiReferenceList: HTMLElement;
+  multiReferenceCount: HTMLElement;
+  multiReferenceStatusText: HTMLElement;
+  multiReferenceStatusPill: HTMLElement;
+  multiReferenceStatusProgress: HTMLElement;
+  multiReferenceDiagnosticsText: HTMLElement;
+  multiReferenceCompatibilityNote: HTMLElement;
+  multiReferenceErrorMessage: HTMLElement;
+  multiReferenceResultPreviewPanel: HTMLElement;
+  workflowPresetsView: HTMLElement;
+  workflowPresetsSummary: HTMLElement;
+  workflowPresetsList: HTMLElement;
+  customWorkflowView: HTMLElement;
+  customWorkflowInput: HTMLTextAreaElement;
+  checkCustomWorkflowButton: HTMLElement;
+  customWorkflowStatusText: HTMLElement;
+  customWorkflowStatusPill: HTMLElement;
+  customWorkflowSummary: HTMLElement;
+  customWorkflowError: HTMLElement;
+  customWorkflowResults: HTMLElement;
 };
 
 export function createAppMarkup() {
@@ -432,7 +496,7 @@ export function createAppMarkup() {
         <div class="screen-nav">
           <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
           <div class="screen-title-block">
-            ${createScreenIconMarkup("style", "Live Painting")}
+            ${createScreenIconMarkup("livePainting", "Live Painting")}
             <span class="screen-title">Live Painting</span>
           </div>
         </div>
@@ -946,6 +1010,213 @@ export function createAppMarkup() {
         </section>
       </section>
 
+      <section class="style-reference-view image-to-image-view" id="style-reference-view" aria-label="Style Reference" hidden>
+        <div class="screen-nav">
+          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
+          <div class="screen-title-block">
+            ${createScreenIconMarkup("styleReference", "Style Reference")}
+            <span class="screen-title">Style Reference</span>
+          </div>
+        </div>
+
+        <section class="panel-section generator-panel source-panel" aria-label="Style reference source">
+          <div class="section-heading">
+            <span class="label">Reference layer</span>
+            <span class="muted-label">IPAdapter input</span>
+          </div>
+          <div class="source-action-row" aria-label="Style reference capture actions">
+            <button class="button source-action-button action-control" id="capture-style-reference-source" data-openlayer-action="captureStyleReferenceSource" type="button">Capture Active Layer</button>
+            <button class="button source-action-button action-control" id="capture-style-reference-canvas-source" data-openlayer-action="captureStyleReferenceCanvasSource" type="button">Capture Canvas</button>
+          </div>
+          <div class="source-card">
+            <div class="source-thumb-frame" id="style-reference-source-preview-panel">
+              <span class="source-empty">None</span>
+            </div>
+            <div class="source-card-body">
+              <span class="source-title" id="style-reference-source-title">No source captured</span>
+              <span class="source-card-meta" id="style-reference-source-meta">Palette and mood are borrowed from this layer. Photographic references work; flat illustrations mostly do not.</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel-section generator-panel img2img-form-panel" aria-label="Style Reference prompt">
+          <div class="section-heading">
+            <span class="label">Generate</span>
+            <span class="muted-label">Prompt and IPAdapter settings</span>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Prompt${createPromptWalletControlsMarkup("style-reference-prompt")}</span>
+            <textarea maxlength="10000" class="textarea compact-textarea" id="style-reference-prompt" placeholder="Describe the new image; the reference layer supplies mood and color..."></textarea>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Negative prompt</span>
+            <textarea maxlength="10000" class="textarea compact-textarea" id="style-reference-negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Workflow</span>
+            <select class="select" id="style-reference-workflow">
+              ${listRunnableWorkflowPresets("style-reference").map((preset) => `<option value="${preset.id}">${preset.label}</option>`).join("")}
+            </select>
+          </div>
+          <div class="field img2img-field">
+            <div class="field-label-row">
+              <span class="label">Checkpoint</span>
+              ${createInfoToggleMarkup("style-reference-compatibility-note")}
+            </div>
+            <select class="select" id="style-reference-checkpoint">
+              ${FALLBACK_CHECKPOINTS.map((checkpoint) => `<option value="${checkpoint}">${checkpoint}</option>`).join("")}
+            </select>
+            ${createInfoPanelMarkup("style-reference-compatibility-note", "Recommended: epicrealism_naturalSinRC1VAE.safetensors. IPAdapter Plus SD1.5 needs an SD 1.x checkpoint.")}
+          </div>
+          <div class="settings-grid img2img-settings-grid" aria-label="Style Reference settings">
+            <div class="field">
+              <span class="label">Width</span>
+              <input class="input input-compact" id="style-reference-width" type="number" min="64" max="2048" step="8" value="${DEFAULT_WIDTH}" />
+            </div>
+            <div class="field">
+              <span class="label">Height</span>
+              <input class="input input-compact" id="style-reference-height" type="number" min="64" max="2048" step="8" value="${DEFAULT_HEIGHT}" />
+            </div>
+            <div class="field">
+              <span class="label">Steps</span>
+              <input class="input input-compact" id="style-reference-steps" type="number" min="1" max="150" step="1" value="${DEFAULT_STEPS}" />
+            </div>
+            <div class="field">
+              <span class="label">CFG</span>
+              <input class="input input-compact" id="style-reference-cfg" type="number" min="1" max="30" step="0.5" value="${DEFAULT_CFG}" />
+            </div>
+            <div class="field">
+              <span class="label">Strength</span>
+              <input class="input input-compact" id="style-reference-control-strength" type="number" min="0" max="2" step="0.05" value="${DEFAULT_STYLE_REFERENCE_CONTROL_STRENGTH}" />
+            </div>
+            <div class="field settings-seed">
+              <span class="label">Seed</span>
+              <input class="input input-compact" id="style-reference-seed" type="text" inputmode="numeric" placeholder="Random" />
+            </div>
+          </div>
+          <button class="button button-primary button-generate button-wide action-control" id="generate-style-reference" data-openlayer-action="generateStyleReference" type="button">Generate Style Reference</button>
+          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
+        </section>
+
+        <section class="generation-status-panel img2img-status-panel" aria-label="Style Reference status">
+          <div class="status-bar" role="status">
+            <span class="status-text" id="style-reference-status-text">Ready.</span>
+            <span class="status-pill idle" id="style-reference-status-pill">Status</span>
+          </div>
+          <div class="status-progress" id="style-reference-status-progress" hidden><span></span></div>
+          <div class="diagnostics-line" id="style-reference-diagnostics-text">Capture a reference layer, then use the IPAdapter Plus workflow preset.</div>
+          <div class="error-message" id="style-reference-error-message" hidden></div>
+        </section>
+
+        <section class="panel-section result-panel img2img-result-panel" aria-label="Style Reference result">
+          <div class="section-heading">
+            <span class="label">Result preview</span>
+            <span class="muted-label">Generated result appears here</span>
+          </div>
+          <div class="preview-panel" id="style-reference-result-preview-panel">
+            <span class="preview-empty">No Style Reference result yet</span>
+          </div>
+          <div class="import-actions">
+            <button class="button button-import button-import-blue action-control is-disabled" id="import-style-reference-result" data-openlayer-action="importStyleReference" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
+          </div>
+        </section>
+      </section>
+
+      <section class="multi-reference-view image-to-image-view" id="multi-reference-view" aria-label="Multi-Reference Composition" hidden>
+        <div class="screen-nav">
+          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
+          <div class="screen-title-block">
+            ${createScreenIconMarkup("multiReference", "Multi-Reference Composition")}
+            <span class="screen-title">Multi-Reference</span>
+          </div>
+        </div>
+
+        <section class="panel-section generator-panel source-panel" aria-label="Reference layers">
+          <div class="section-heading">
+            <span class="label">Reference layers</span>
+            <span class="muted-label" id="multi-reference-count">None captured</span>
+          </div>
+          <div class="source-action-row" aria-label="Reference capture actions">
+            <button class="button source-action-button action-control" id="add-multi-reference-layer" data-openlayer-action="addMultiReferenceLayer" type="button">Add Active Layer</button>
+            <button class="button source-action-button action-control" id="add-multi-reference-canvas" data-openlayer-action="addMultiReferenceCanvas" type="button">Add Canvas</button>
+          </div>
+          <div class="reference-list" id="multi-reference-list">
+            <span class="source-empty">No reference layers yet</span>
+          </div>
+          <div class="diagnostics-line" id="multi-reference-list-hint">Reference 1 sets the output size. Order is worth trying: an object that has to sit behind your subjects is steadier earlier in the list.</div>
+        </section>
+
+        <section class="panel-section generator-panel img2img-form-panel" aria-label="Composition prompt">
+          <div class="section-heading">
+            <span class="label">Compose</span>
+            <span class="muted-label">Prompt and sampler settings</span>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Prompt${createPromptWalletControlsMarkup("multi-reference-prompt")}</span>
+            <textarea maxlength="10000" class="textarea compact-textarea" id="multi-reference-prompt" placeholder="Describe the picture you want built from these layers..."></textarea>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Negative prompt</span>
+            <textarea maxlength="10000" class="textarea compact-textarea" id="multi-reference-negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Workflow</span>
+            <select class="select" id="multi-reference-workflow">
+              ${listRunnableWorkflowPresets("multi-reference").map((preset) => `<option value="${preset.id}">${preset.label}</option>`).join("")}
+            </select>
+          </div>
+          <div class="field img2img-field">
+            <div class="field-label-row">
+              <span class="label">Klein model</span>
+              ${createInfoToggleMarkup("multi-reference-compatibility-note")}
+            </div>
+            <select class="select" id="multi-reference-checkpoint">
+              ${createMultiReferenceModelOptionsMarkup()}
+            </select>
+            ${createInfoPanelMarkup("multi-reference-compatibility-note", "Clothing, props, setting and lighting carry across from your layers. Faces do not: a person in a reference comes back as a plausible stranger, so this cannot place a specific person in a picture.")}
+          </div>
+          <div class="settings-grid img2img-settings-grid" aria-label="Multi-Reference settings">
+            <div class="field">
+              <span class="label">Steps</span>
+              <input class="input input-compact" id="multi-reference-steps" type="number" min="1" max="150" step="1" value="${DEFAULT_MULTI_REFERENCE_STEPS}" />
+            </div>
+            <div class="field">
+              <span class="label">CFG</span>
+              <input class="input input-compact" id="multi-reference-cfg" type="number" min="1" max="30" step="0.5" value="${DEFAULT_MULTI_REFERENCE_CFG}" />
+            </div>
+            <div class="field settings-seed">
+              <span class="label">Seed</span>
+              <input class="input input-compact" id="multi-reference-seed" type="text" inputmode="numeric" placeholder="Random" />
+            </div>
+          </div>
+          <button class="button button-primary button-generate button-wide action-control" id="generate-multi-reference" data-openlayer-action="generateMultiReference" type="button">Compose</button>
+          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
+        </section>
+
+        <section class="generation-status-panel img2img-status-panel" aria-label="Multi-Reference status">
+          <div class="status-bar" role="status">
+            <span class="status-text" id="multi-reference-status-text">Ready.</span>
+            <span class="status-pill idle" id="multi-reference-status-pill">Status</span>
+          </div>
+          <div class="status-progress" id="multi-reference-status-progress" hidden><span></span></div>
+          <div class="diagnostics-line" id="multi-reference-diagnostics-text">Add two or more layers, then describe the picture they should become.</div>
+          <div class="error-message" id="multi-reference-error-message" hidden></div>
+        </section>
+
+        <section class="panel-section result-panel img2img-result-panel" aria-label="Multi-Reference result">
+          <div class="section-heading">
+            <span class="label">Result preview</span>
+            <span class="muted-label">Generated result appears here</span>
+          </div>
+          <div class="preview-panel" id="multi-reference-result-preview-panel">
+            <span class="preview-empty">No composition yet</span>
+          </div>
+          <div class="import-actions">
+            <button class="button button-import button-import-blue action-control is-disabled" id="import-multi-reference-result" data-openlayer-action="importMultiReference" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
+          </div>
+        </section>
+      </section>
+
       <section class="inpaint-view image-to-image-view" id="inpaint-view" aria-label="Inpaint" hidden>
         <div class="screen-nav">
           <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
@@ -1324,6 +1595,64 @@ export function createAppMarkup() {
         </section>
       </section>
 
+      <section class="custom-workflow-view setup-view" id="custom-workflow-view" aria-label="Workflow" hidden>
+        <div class="screen-nav">
+          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
+          <div class="screen-title-block">
+            ${createScreenIconMarkup("workflow", "Workflow")}
+            <span class="screen-title">Workflow</span>
+          </div>
+        </div>
+
+        <section class="panel-section settings-panel diagnostic-section diagnostic-scroll-safe" aria-label="Check a custom workflow">
+          <div class="section-heading">
+            <span class="label">Check a custom workflow</span>
+            <span class="muted-label">Validate only</span>
+          </div>
+          <div class="diagnostics-line setup-paragraph">
+            Paste a ComfyUI workflow to find out whether this ComfyUI could run it. In ComfyUI use
+            Workflow &gt; Export (API), not Save. Nothing is generated here and OpenLayer does not take
+            the graph over -- this reports what is installed and what is missing.
+          </div>
+          <div class="field">
+            <span class="label">Workflow JSON</span>
+            <textarea maxlength="2000000" class="textarea compact-textarea" id="custom-workflow-input" placeholder="Paste the exported API workflow JSON here..."></textarea>
+          </div>
+          <button class="button button-primary button-wide action-control" id="check-custom-workflow" data-openlayer-action="checkCustomWorkflow" type="button">Check This Workflow</button>
+          <div class="status-bar" role="status">
+            <span class="status-text" id="custom-workflow-status-text">Ready.</span>
+            <span class="status-pill idle" id="custom-workflow-status-pill">Status</span>
+          </div>
+          <div class="diagnostics-line setup-paragraph" id="custom-workflow-summary"></div>
+          <div class="error-message" id="custom-workflow-error" hidden></div>
+        </section>
+
+        <div id="custom-workflow-results"></div>
+      </section>
+
+      <section class="workflow-presets-view setup-view" id="workflow-presets-view" aria-label="Workflow Presets" hidden>
+        <div class="screen-nav">
+          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
+          <div class="screen-title-block">
+            ${createScreenIconMarkup("control", "Workflow Presets")}
+            <span class="screen-title">Workflow Presets</span>
+          </div>
+        </div>
+
+        <section class="panel-section settings-panel diagnostic-section diagnostic-scroll-safe" aria-label="Workflow preset catalogue">
+          <div class="section-heading">
+            <span class="label">Every preset OpenLayer ships</span>
+            <span class="muted-label" id="workflow-presets-summary"></span>
+          </div>
+          <div class="diagnostics-line setup-paragraph">
+            These are the routes behind each tool's Workflow dropdown. Read from the plugin itself, so this list is
+            true whether or not ComfyUI is running. For what still needs downloading, open Setup.
+          </div>
+        </section>
+
+        <div id="workflow-presets-list"></div>
+      </section>
+
       <section class="setup-view" id="setup-view" aria-label="Setup" hidden>
         <div class="screen-nav">
           <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
@@ -1514,6 +1843,21 @@ function createHomeToolSectionMarkup(section: { title: string; toolIds: string[]
   `;
 }
 
+/**
+ * The starting contents of the Klein model dropdown.
+ *
+ * Taken from the preset's own stack rather than from FALLBACK_CHECKPOINTS,
+ * which lists SD 1.x checkpoints -- the wrong kind of file for a diffusion
+ * model stack, and misleading in the seconds before ComfyUI answers with what
+ * is actually installed.
+ */
+function createMultiReferenceModelOptionsMarkup() {
+  const preset = getWorkflowPreset("multi-reference-flux2-klein");
+  const modelName = preset.modelStack?.find((model) => model.kind === preset.modelSource.kind)?.modelName;
+
+  return modelName ? `<option value="${modelName}">${modelName}</option>` : "";
+}
+
 function createToolIconMarkup(icon: ToolIconName) {
   const icons: Record<ToolIconName, string> = {
     image: "image-to-image.png",
@@ -1523,7 +1867,11 @@ function createToolIconMarkup(icon: ToolIconName) {
     lineart: "sketch-to-image.png",
     promptFromLayer: "prompt-from-layer.png",
     upscale: "upscale.png",
-    style: "style-reference.png",
+    // Live Painting and Style Reference shared one file until v0.18. They are
+    // separate names now so replacing either one's art cannot change the other.
+    livePainting: "live-painting.png",
+    styleReference: "style-reference.png",
+    multiReference: "multi-reference.png",
     control: "workflow-presets.png",
     workflow: "workflow.png",
     layers: "layer-tools.png",
@@ -1871,7 +2219,68 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     liveResultPreviewPanel: getElement<HTMLElement>(rootElement, "live-result-preview-panel"),
     importLiveButton: getElement<HTMLElement>(rootElement, "import-live-result"),
     importLiveRefinedButton: getElement<HTMLElement>(rootElement, "import-live-refined"),
-    liveAutoImportToggle: getElement<HTMLElement>(rootElement, "live-auto-import-toggle")
+    liveAutoImportToggle: getElement<HTMLElement>(rootElement, "live-auto-import-toggle"),
+    styleReferenceView: getElement<HTMLElement>(rootElement, "style-reference-view"),
+    styleReferencePrompt: getElement<HTMLTextAreaElement>(rootElement, "style-reference-prompt"),
+    styleReferencePromptWalletSave: getElement<HTMLElement>(rootElement, "style-reference-prompt-wallet-save"),
+    styleReferencePromptWalletLoad: getElement<HTMLElement>(rootElement, "style-reference-prompt-wallet-load"),
+    styleReferenceNegativePrompt: getElement<HTMLTextAreaElement>(rootElement, "style-reference-negative-prompt"),
+    styleReferenceWorkflow: getElement<HTMLSelectElement>(rootElement, "style-reference-workflow"),
+    styleReferenceCheckpoint: getElement<HTMLSelectElement>(rootElement, "style-reference-checkpoint"),
+    styleReferenceWidth: getElement<HTMLInputElement>(rootElement, "style-reference-width"),
+    styleReferenceHeight: getElement<HTMLInputElement>(rootElement, "style-reference-height"),
+    styleReferenceSteps: getElement<HTMLInputElement>(rootElement, "style-reference-steps"),
+    styleReferenceCfg: getElement<HTMLInputElement>(rootElement, "style-reference-cfg"),
+    styleReferenceSeed: getElement<HTMLInputElement>(rootElement, "style-reference-seed"),
+    styleReferenceControlStrength: getElement<HTMLInputElement>(rootElement, "style-reference-control-strength"),
+    captureStyleReferenceLayerButton: getElement<HTMLElement>(rootElement, "capture-style-reference-source"),
+    captureStyleReferenceCanvasButton: getElement<HTMLElement>(rootElement, "capture-style-reference-canvas-source"),
+    generateStyleReferenceButton: getElement<HTMLElement>(rootElement, "generate-style-reference"),
+    importStyleReferenceButton: getElement<HTMLElement>(rootElement, "import-style-reference-result"),
+    styleReferenceStatusText: getElement<HTMLElement>(rootElement, "style-reference-status-text"),
+    styleReferenceStatusPill: getElement<HTMLElement>(rootElement, "style-reference-status-pill"),
+    styleReferenceStatusProgress: getElement<HTMLElement>(rootElement, "style-reference-status-progress"),
+    styleReferenceDiagnosticsText: getElement<HTMLElement>(rootElement, "style-reference-diagnostics-text"),
+    styleReferenceCompatibilityNote: getElement<HTMLElement>(rootElement, "style-reference-compatibility-note"),
+    styleReferenceErrorMessage: getElement<HTMLElement>(rootElement, "style-reference-error-message"),
+    styleReferenceSourcePreviewPanel: getElement<HTMLElement>(rootElement, "style-reference-source-preview-panel"),
+    styleReferenceSourceTitle: getElement<HTMLElement>(rootElement, "style-reference-source-title"),
+    styleReferenceSourceMeta: getElement<HTMLElement>(rootElement, "style-reference-source-meta"),
+    styleReferenceResultPreviewPanel: getElement<HTMLElement>(rootElement, "style-reference-result-preview-panel"),
+    multiReferenceView: getElement<HTMLElement>(rootElement, "multi-reference-view"),
+    multiReferencePrompt: getElement<HTMLTextAreaElement>(rootElement, "multi-reference-prompt"),
+    multiReferencePromptWalletSave: getElement<HTMLElement>(rootElement, "multi-reference-prompt-wallet-save"),
+    multiReferencePromptWalletLoad: getElement<HTMLElement>(rootElement, "multi-reference-prompt-wallet-load"),
+    multiReferenceNegativePrompt: getElement<HTMLTextAreaElement>(rootElement, "multi-reference-negative-prompt"),
+    multiReferenceWorkflow: getElement<HTMLSelectElement>(rootElement, "multi-reference-workflow"),
+    multiReferenceCheckpoint: getElement<HTMLSelectElement>(rootElement, "multi-reference-checkpoint"),
+    multiReferenceSteps: getElement<HTMLInputElement>(rootElement, "multi-reference-steps"),
+    multiReferenceCfg: getElement<HTMLInputElement>(rootElement, "multi-reference-cfg"),
+    multiReferenceSeed: getElement<HTMLInputElement>(rootElement, "multi-reference-seed"),
+    addMultiReferenceLayerButton: getElement<HTMLElement>(rootElement, "add-multi-reference-layer"),
+    addMultiReferenceCanvasButton: getElement<HTMLElement>(rootElement, "add-multi-reference-canvas"),
+    generateMultiReferenceButton: getElement<HTMLElement>(rootElement, "generate-multi-reference"),
+    importMultiReferenceButton: getElement<HTMLElement>(rootElement, "import-multi-reference-result"),
+    multiReferenceList: getElement<HTMLElement>(rootElement, "multi-reference-list"),
+    multiReferenceCount: getElement<HTMLElement>(rootElement, "multi-reference-count"),
+    multiReferenceStatusText: getElement<HTMLElement>(rootElement, "multi-reference-status-text"),
+    multiReferenceStatusPill: getElement<HTMLElement>(rootElement, "multi-reference-status-pill"),
+    multiReferenceStatusProgress: getElement<HTMLElement>(rootElement, "multi-reference-status-progress"),
+    multiReferenceDiagnosticsText: getElement<HTMLElement>(rootElement, "multi-reference-diagnostics-text"),
+    multiReferenceCompatibilityNote: getElement<HTMLElement>(rootElement, "multi-reference-compatibility-note"),
+    multiReferenceErrorMessage: getElement<HTMLElement>(rootElement, "multi-reference-error-message"),
+    multiReferenceResultPreviewPanel: getElement<HTMLElement>(rootElement, "multi-reference-result-preview-panel"),
+    workflowPresetsView: getElement<HTMLElement>(rootElement, "workflow-presets-view"),
+    workflowPresetsSummary: getElement<HTMLElement>(rootElement, "workflow-presets-summary"),
+    workflowPresetsList: getElement<HTMLElement>(rootElement, "workflow-presets-list"),
+    customWorkflowView: getElement<HTMLElement>(rootElement, "custom-workflow-view"),
+    customWorkflowInput: getElement<HTMLTextAreaElement>(rootElement, "custom-workflow-input"),
+    checkCustomWorkflowButton: getElement<HTMLElement>(rootElement, "check-custom-workflow"),
+    customWorkflowStatusText: getElement<HTMLElement>(rootElement, "custom-workflow-status-text"),
+    customWorkflowStatusPill: getElement<HTMLElement>(rootElement, "custom-workflow-status-pill"),
+    customWorkflowSummary: getElement<HTMLElement>(rootElement, "custom-workflow-summary"),
+    customWorkflowError: getElement<HTMLElement>(rootElement, "custom-workflow-error"),
+    customWorkflowResults: getElement<HTMLElement>(rootElement, "custom-workflow-results")
   };
 }
 

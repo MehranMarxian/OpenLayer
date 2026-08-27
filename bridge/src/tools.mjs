@@ -140,6 +140,39 @@ export const PROMPT_FROM_LAYER_SCHEMA = {
   numBeams: z.number().int().min(1).max(32).optional()
 };
 
+export const STYLE_REFERENCE_SCHEMA = {
+  prompt,
+  negativePrompt,
+  workflow,
+  checkpoint,
+  width: dimension.optional(),
+  height: dimension.optional(),
+  steps,
+  cfg,
+  seed,
+  controlStrength: z
+    .number()
+    .min(0)
+    .max(2)
+    .optional()
+    .describe("How strongly the reference layer's mood, color, and composition come through.")
+};
+
+/**
+ * No width, height or denoise: the first reference sets the output canvas and
+ * denoise is fixed at 1, so offering either would let an agent set a value the
+ * workflow then ignores.
+ */
+export const MULTI_REFERENCE_SCHEMA = {
+  prompt,
+  negativePrompt,
+  workflow,
+  checkpoint,
+  steps,
+  cfg,
+  seed
+};
+
 /**
  * The tools this bridge exposes over MCP, in `docs/mcp-bridge.md` §3.1 order.
  *
@@ -217,5 +250,29 @@ export const MCP_TOOLS = [
       "status message with the generated caption text included.",
     schema: PROMPT_FROM_LAYER_SCHEMA,
     timeoutMs: CAPTION_TIMEOUT_MS
+  },
+  {
+    name: "style_reference",
+    title: "Style Reference",
+    description:
+      "Generate an image whose mood, color, and composition weight follow the reference layer " +
+      "already captured for Style Reference in the OpenLayer panel, guided by a text prompt. " +
+      "Requires a source captured in the panel first — this tool cannot capture one. Only the " +
+      "parameters you pass are changed. Returns the panel's own status message.",
+    schema: STYLE_REFERENCE_SCHEMA,
+    timeoutMs: GENERATION_TIMEOUT_MS
+  },
+  {
+    name: "multi_reference",
+    title: "Multi-Reference Composition",
+    description:
+      "Compose one image from the ordered list of reference layers already captured in the " +
+      "OpenLayer panel, guided by a text prompt. Requires those layers captured in the panel " +
+      "first — this tool cannot capture them, add to the list, or reorder it. Clothing, props, " +
+      "setting and lighting carry across from the references; faces do not, so this cannot place " +
+      "a specific person in a picture. The first reference sets the output size. Only the " +
+      "parameters you pass are changed. Returns the panel's own status message.",
+    schema: MULTI_REFERENCE_SCHEMA,
+    timeoutMs: GENERATION_TIMEOUT_MS
   }
 ];

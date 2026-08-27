@@ -31,7 +31,9 @@ export const AGENT_TOOL_IDS = [
   "inpaint",
   "outpaint",
   "upscale",
-  "prompt_from_layer"
+  "prompt_from_layer",
+  "style_reference",
+  "multi_reference"
 ] as const;
 
 export type AgentToolId = (typeof AGENT_TOOL_IDS)[number];

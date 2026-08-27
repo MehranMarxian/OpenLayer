@@ -1,7 +1,7 @@
 import { OpenLayerTheme } from "../utils/preferences";
 
 export const DEFAULT_SERVER_URL = "http://127.0.0.1:8190";
-export const APP_VERSION = "0.17.4";
+export const APP_VERSION = "0.19.0";
 export const DEVELOPER_GITHUB = "https://github.com/MehranMarxian";
 export const HISTORY_LIMIT = 5;
 export const COMFY_PORT_CANDIDATES = [8190, 8188, 8189, 8191, 8192, 8193, 7860];
@@ -12,8 +12,14 @@ export const DEFAULT_INPAINT_WORKFLOW = "inpaint-basic";
 export const DEFAULT_OUTPAINT_WORKFLOW = "outpaint-flux-fill-basic";
 export const DEFAULT_THEME: OpenLayerTheme = "compact";
 export const DEFAULT_UPSCALE_WORKFLOW = "upscale-basic";
+export const DEFAULT_STYLE_REFERENCE_WORKFLOW = "style-reference-sd15";
+export const DEFAULT_MULTI_REFERENCE_WORKFLOW = "multi-reference-flux2-klein";
+/** Klein's distilled operating point, the same one the edit preset runs at. */
+export const DEFAULT_MULTI_REFERENCE_STEPS = "4";
+export const DEFAULT_MULTI_REFERENCE_CFG = "1";
 export const FALLBACK_UPSCALE_MODELS = ["4x-UltraSharp.pth", "RealESRGAN_x4plus.pth"];
 export const RECOMMENDED_SKETCH_CHECKPOINT = "epicrealism_naturalSinRC1VAE.safetensors";
+export const RECOMMENDED_STYLE_REFERENCE_CHECKPOINT = "epicrealism_naturalSinRC1VAE.safetensors";
 export const DEFAULT_WIDTH = "512";
 export const DEFAULT_HEIGHT = "512";
 export const DEFAULT_STEPS = "20";
@@ -23,6 +29,7 @@ export const DEFAULT_IMG2IMG_DENOISE = "0.55";
 export const DEFAULT_SKETCH_STEPS = "20";
 export const DEFAULT_SKETCH_DENOISE = "1";
 export const DEFAULT_SKETCH_CONTROL_STRENGTH = "0.8";
+export const DEFAULT_STYLE_REFERENCE_CONTROL_STRENGTH = "1";
 /** One control drives both strength_model and strength_clip; 0.8 is the usual starting point. */
 export const DEFAULT_LORA_STRENGTH = "0.8";
 export const DEFAULT_INPAINT_STEPS = "16";
@@ -63,6 +70,10 @@ export type AppView =
   | "prompt-from-layer"
   | "upscale"
   | "live-painting"
+  | "style-reference"
+  | "multi-reference"
+  | "workflow-presets"
+  | "custom-workflow"
   | "settings"
   | "setup"
   | "history"
@@ -87,7 +98,9 @@ export type ToolIconName =
   | "lineart"
   | "promptFromLayer"
   | "upscale"
-  | "style"
+  | "livePainting"
+  | "styleReference"
+  | "multiReference"
   | "control"
   | "workflow"
   | "layers"
@@ -155,30 +168,48 @@ export const TOOL_CARDS: ToolCard[] = [
     id: "live-painting",
     title: "Live Painting",
     subtitle: "Paint and watch AI respond live",
-    icon: "style",
+    icon: "livePainting",
     status: "available",
     view: "live-painting"
   },
   {
     id: "style-reference",
     title: "Style Reference",
-    subtitle: "Match mood, color, or visual language",
-    icon: "style",
-    status: "coming-soon"
+    // Deliberately narrower than it used to read. Measured against a flat
+    // cartoon reference, this borrows palette and mood and little else -- it
+    // is not a "make my picture look like that picture" tool, and promising
+    // visual language set an expectation the model does not meet.
+    subtitle: "Borrow a reference layer's mood and colour",
+    icon: "styleReference",
+    status: "available",
+    view: "style-reference"
+  },
+  {
+    id: "multi-reference",
+    title: "Multi-Reference",
+    // Says what it carries and, by omission, what it does not. Gate testing
+    // found faces are re-imagined rather than reproduced, so this subtitle must
+    // never grow into a claim about putting a specific person in a picture.
+    subtitle: "Compose one image from several layers",
+    icon: "multiReference",
+    status: "experimental",
+    view: "multi-reference"
   },
   {
     id: "workflow-presets",
     title: "Workflow Presets",
-    subtitle: "Manage reusable ComfyUI workflows",
+    subtitle: "Browse every preset and what it needs",
     icon: "control",
-    status: "coming-soon"
+    status: "available",
+    view: "workflow-presets"
   },
   {
     id: "workflow",
     title: "Workflow",
-    subtitle: "Build and test custom ComfyUI graphs",
+    subtitle: "Check a custom ComfyUI graph against this server",
     icon: "workflow",
-    status: "coming-soon"
+    status: "available",
+    view: "custom-workflow"
   },
   {
     id: "layer-tools",
@@ -225,11 +256,11 @@ export const TOOL_CARDS: ToolCard[] = [
 export const HOME_TOOL_SECTIONS = [
   {
     title: "Generate",
-    toolIds: ["text-to-image", "image-to-image", "lineart", "inpaint", "outpaint", "upscale", "prompt-from-layer", "live-painting"]
+    toolIds: ["text-to-image", "image-to-image", "lineart", "inpaint", "outpaint", "upscale", "prompt-from-layer", "live-painting", "style-reference", "multi-reference"]
   },
   {
     title: "Workflow",
-    toolIds: ["workflow-presets", "workflow", "style-reference"]
+    toolIds: ["workflow-presets", "workflow"]
   },
   {
     title: "Tools & History",

@@ -21,7 +21,9 @@ export type WorkflowPreset =
   | "inpaint-flux-fill-cropstitch"
   | "inpaint-flux2-klein"
   | "outpaint-flux-fill-basic"
-  | "upscale-basic";
+  | "upscale-basic"
+  | "style-reference-sd15"
+  | "multi-reference-flux2-klein";
 export type WorkflowMode =
   | "txt2img"
   | "img2img"
@@ -29,7 +31,9 @@ export type WorkflowMode =
   | "inpaint"
   | "outpaint"
   | "prompt"
-  | "upscale";
+  | "upscale"
+  | "style-reference"
+  | "multi-reference";
 export type ModelFamily = "sd1" | "sdxl" | "sd3" | "flux" | "flux2" | "zImage" | "unknown";
 export type WorkflowToolType = WorkflowMode | "realtime";
 export type WorkflowLoaderType = "checkpoint" | "diffusion-model-stack" | "vision-language" | "upscale";
@@ -68,7 +72,14 @@ export type WorkflowOutputKind =
   | "layer-mask-candidate"
   | "prompt-text"
   | "upscaled-image";
-export type WorkflowOutputSize = "preset" | "source" | "selection-context" | "none" | "upscaled";
+export type WorkflowOutputSize =
+  | "preset"
+  | "source"
+  | "selection-context"
+  | "none"
+  | "upscaled"
+  /** Derived from the first reference after it is normalised to 1 MP. */
+  | "first-reference";
 export type WorkflowImportBehavior = "new-layer" | "aligned-layer" | "future-layer-mask" | "none";
 
 export type WorkflowCapabilityUiHints = {
@@ -126,6 +137,8 @@ export type ComfyModelInventory = {
   visionLanguageModels: string[];
   upscaleModels: string[];
   modelPatches: string[];
+  clipVisionModels: string[];
+  ipAdapterModels: string[];
   missingSources: string[];
 };
 
@@ -184,6 +197,64 @@ export type BuildInpaintWorkflowOptions = BuildImageToImageWorkflowOptions & {
   maskImageName: string;
   width?: number;
   height?: number;
+};
+
+/**
+ * Unlike every other captured-source preset, output size is independent of the
+ * reference photo's own dimensions -- the reference drives mood/style only, so
+ * width/height are the artist's own choice, the same as txt2img.
+ */
+export type BuildStyleReferenceWorkflowOptions = {
+  presetId?: string;
+  prompt: string;
+  negativePrompt?: string;
+  checkpointName?: string;
+  sourceImageName: string;
+  width: number;
+  height: number;
+  steps: number;
+  cfg: number;
+  seed: number;
+  controlStrength: number;
+  requiredModelSelections?: Record<string, string>;
+};
+
+/**
+ * Unlike every other image preset, this one takes a *list* of captured layers.
+ * Output size is not the artist's choice and not the canvas size: reference 1
+ * is normalised to 1 MP and drives the empty latent, so it sets the frame.
+ */
+export type BuildMultiReferenceWorkflowOptions = {
+  presetId?: string;
+  prompt: string;
+  negativePrompt?: string;
+  checkpointName?: string;
+  /** In chain order. The first entry sets the output canvas. */
+  referenceImageNames: readonly string[];
+  steps: number;
+  cfg: number;
+  seed: number;
+  requiredModelSelections?: Record<string, string>;
+  lora?: WorkflowLoraSelection;
+};
+
+/**
+ * No width/height: the first reference sets the canvas. No denoise: it is fixed
+ * at 1, which is the technique rather than a default.
+ */
+export type MultiReferenceSettingsInput = {
+  steps: string;
+  cfg: string;
+  seed: string;
+};
+
+export type MultiReferenceSettingsValidation = {
+  settings: {
+    steps: number;
+    cfg: number;
+    seed: number;
+  };
+  warnings: string[];
 };
 
 export type BuildOutpaintWorkflowOptions = BuildImageToImageWorkflowOptions & {
@@ -297,6 +368,54 @@ export type WorkflowLoraSelection = {
   strengthClip: number;
 };
 
+/**
+ * How to grow a preset's single shipped reference slot into a chain of them.
+ *
+ * This is the second place a workflow's topology changes at build time, and it
+ * changes for a different reason than `WorkflowLoraInsertion`. A LoRA is
+ * optional and absent by default; references are mandatory and *variable in
+ * number*. Every other preset takes exactly one captured image, so its graph
+ * can ship complete and the builder only sets values. Here the artist decides
+ * how many layers to compose, and each one needs its own
+ * `LoadImage -> ImageScaleToTotalPixels -> VAEEncode` triple plus a
+ * `ReferenceLatent` on each conditioning branch.
+ *
+ * The alternative -- shipping a fixed number of slots and pruning the unused
+ * ones -- was rejected because the pruned graph is what gets validated and sent,
+ * so a bug in the pruning shows up as a ComfyUI error about a node the artist
+ * never asked for.
+ *
+ * The shipped workflow therefore contains reference 1 fully wired, exactly as
+ * `edit-flux2-klein` does, and references 2..n are cloned from it. Reference 1
+ * stays special: `GetImageSize` reads its scaled image and drives the empty
+ * latent, so the first reference sets the output canvas. Chain order is also a
+ * real quality lever -- see `docs/multi-reference-gate-findings.md`, where
+ * moving a bicycle ahead of a dog fixed a reproducible duplication.
+ */
+export type WorkflowReferenceChain = {
+  /** Slot-1 nodes cloned once per additional reference. */
+  loadImage: string;
+  scale: string;
+  encode: string;
+  /** Slot-1 `ReferenceLatent` nodes; the head of each conditioning chain. */
+  referenceIntoPositive: string;
+  referenceIntoNegative: string;
+  /** Inputs that must end up reading the *tail* of each chain. */
+  positiveConsumer: WorkflowInputTarget;
+  negativeConsumer: WorkflowInputTarget;
+  /**
+   * Prepended to every generated node id. Must not prefix any shipped id, or a
+   * clone would overwrite a real node and still validate.
+   */
+  generatedNodeIdPrefix: string;
+  /**
+   * Upper bound on references, and a guard rather than a quality cliff -- gate
+   * testing found no count at which identity degrades. It exists so a runaway
+   * caller cannot build a thousand-node graph.
+   */
+  maximumReferences: number;
+};
+
 export type WorkflowInjectionTargets = Partial<Record<WorkflowInjectionName, WorkflowInjectionTargetList>>;
 
 export type WorkflowModelSourceKind =
@@ -307,7 +426,9 @@ export type WorkflowModelSourceKind =
   | "controlnet"
   | "vision-language"
   | "upscale"
-  | "model-patch";
+  | "model-patch"
+  | "clip-vision"
+  | "ip-adapter";
 
 export type WorkflowModelSource = {
   kind: WorkflowModelSourceKind;
@@ -330,7 +451,9 @@ export type WorkflowModelFolder =
   | "controlnet"
   | "upscale_models"
   | "LLM"
-  | "model_patches";
+  | "model_patches"
+  | "clip_vision"
+  | "ipadapter";
 
 /**
  * A model whose terms have to be accepted by a person before it is fetched.
@@ -419,6 +542,8 @@ export type WorkflowPresetDefinition = {
   capability?: WorkflowCapability;
   /** Present only on presets that can take an optional LoRA. */
   loraInsertion?: WorkflowLoraInsertion;
+  /** Present only on presets that compose a variable number of references. */
+  referenceChain?: WorkflowReferenceChain;
   compatibilityNote?: string;
   disabledReason?: string;
 };
@@ -496,6 +621,10 @@ export type OutpaintSettings = ImageToImageSettings & {
   feathering: number;
 };
 
+export type StyleReferenceSettings = GenerationSettings & {
+  controlStrength: number;
+};
+
 export type GenerationSettingsInput = {
   width: string;
   height: string;
@@ -523,6 +652,10 @@ export type OutpaintSettingsInput = ImageToImageSettingsInput & {
   feathering: string;
 };
 
+export type StyleReferenceSettingsInput = GenerationSettingsInput & {
+  controlStrength: string;
+};
+
 export type GenerationSettingsValidation = {
   settings: GenerationSettings;
   warnings: string[];
@@ -540,6 +673,11 @@ export type SketchToImageSettingsValidation = {
 
 export type OutpaintSettingsValidation = {
   settings: OutpaintSettings;
+  warnings: string[];
+};
+
+export type StyleReferenceSettingsValidation = {
+  settings: StyleReferenceSettings;
   warnings: string[];
 };
 

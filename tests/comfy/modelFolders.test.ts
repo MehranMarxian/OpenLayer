@@ -44,7 +44,12 @@ describe("model folder mapping", () => {
       UnetLoaderGGUF: "diffusion_models",
       CLIPLoaderGGUF: "text_encoders",
       DualCLIPLoaderGGUF: "text_encoders",
-      ModelPatchLoader: "model_patches"
+      ModelPatchLoader: "model_patches",
+      // Style Reference (IPAdapter Plus): both loaders read models/ipadapter/,
+      // verified against cubiq/ComfyUI_IPAdapter_plus's own loader source.
+      CLIPVisionLoader: "clip_vision",
+      IPAdapterModelLoader: "ipadapter",
+      IPAdapterUnifiedLoader: "ipadapter"
     });
   });
 
@@ -57,7 +62,9 @@ describe("model folder mapping", () => {
       controlNetModels: "controlnet",
       visionLanguageModels: "LLM",
       upscaleModels: "upscale_models",
-      modelPatches: "model_patches"
+      modelPatches: "model_patches",
+      clipVisionModels: "clip_vision",
+      ipAdapterModels: "ipadapter"
     });
 
     const loaderFolders = Object.values(MODEL_FOLDER_BY_OBJECT_INFO_NODE);
@@ -129,6 +136,8 @@ describe("required model inventory", () => {
         "diffusion_models/flux2-dev-Q4_K_M.gguf",
         "diffusion_models/krea2_turbo_fp8_scaled.safetensors",
         "diffusion_models/z_image_turbo_bf16.safetensors",
+        "clip_vision/CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors",
+        "ipadapter/ip-adapter-plus_sd15.safetensors",
         "model_patches/Z-Image-Turbo-Fun-Controlnet-Union-2.1-lite-2602-8steps.safetensors",
         "model_patches/Z-Image-Turbo-Fun-Controlnet-Union-2.1.safetensors",
         "text_encoders/clip_l.safetensors",

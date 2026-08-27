@@ -10,9 +10,17 @@ OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop t
 
 ## Alpha Release
 
-`v0.17.4-alpha` is the current public alpha checkpoint. It is intended for testing the core local workflows in Photoshop UXP, not for production work yet.
+`v0.19.0-alpha` is the current public alpha checkpoint. It is intended for testing the core local workflows in Photoshop UXP, not for production work yet.
 
-New in `v0.17.4-alpha`:
+New in `v0.19.0-alpha`:
+
+- **Multi-Reference Composition** (experimental). Give the panel a list of captured Photoshop layers instead of one, and it builds a single image out of all of them — a background, a person, an object, however many you add. Add Active Layer or Add Canvas repeatedly to grow the list; each entry gets Up, Down, and Remove. Order is not cosmetic: the first reference sets the output canvas size, and moving an object earlier in the list is the fix if it comes back duplicated or distorted. Built on FLUX.2 Klein's own `ReferenceLatent` conditioning, chained once per reference onto both the positive and negative branches — every node is core ComfyUI, so it shares the Klein 4B stack the other Klein presets already need and downloads nothing extra.
+
+  Answered with 48 live generations before any of the screen was built, recorded in `docs/multi-reference-gate-findings.md`: identity held with no measured ceiling on reference count; prompt phrasing barely matters, because the model matches references to the prompt by what they are rather than by position; masking or cutting out a reference's background makes no difference, because Klein already isolates the subject on its own. The one finding that shapes what this tool can honestly claim: **clothing, props, setting, and lighting carry across from a reference; a specific person's face does not.** A face from a real photograph comes back as a plausible stranger, not the person photographed — even from a clean, frontal studio portrait. So this composes a scene; it does not place someone recognisable into one, and nothing in the panel or this README claims otherwise.
+
+- **The AI assistant can compose too.** `multi_reference` joins the seven tools already reachable over MCP, with the same "requires layers captured in the panel first, only the parameters you pass are changed" boundary every other bridged tool has, and the likeness limit stated directly in the tool description an agent reads before running it.
+
+Also new in `v0.18.0-alpha`:
 
 - **The Prompt Wallet.** A small green circle in every tool's "Prompt" label saves the current positive and negative prompt together; a purple circle next to it loads one back — press it and the panel sends you to a new Prompt Wallet screen asking which tool you're picking for, and choosing a card fills both fields and returns you there. One library shared by every tool. The Wallet screen supports search, renaming, pinning, copy, and delete.
 - **Undo, on every prompt field, independent of the host.** Ctrl+Z / Ctrl+Shift+Z (or Ctrl+Y) now walk back through a prompt a word at a time, whether or not Photoshop's own textarea happens to support undo.
@@ -153,9 +161,18 @@ The earlier card-based dashboard established OpenLayer's honest available/experi
 
 </details>
 
-v0.17.4-alpha tester focus:
+v0.19.0-alpha tester focus:
 
-- **Confirm the panel footer reads `v0.17.4`.** It read the wrong version for the whole of v0.14.0-alpha, so this is worth a glance before anything else.
+- **Confirm the panel footer reads `v0.19.0`.** It read the wrong version for the whole of v0.14.0-alpha, so this is worth a glance before anything else.
+- **Open Multi-Reference and add three or four layers**, one at a time, with Add Active Layer or Add Canvas. Confirm each row gets its own correct thumbnail — not a repeat of the previous one — and that the count reads "N of 8".
+- **Press Up or Down twice, fast.** A reference should move exactly one place per press, not two. Same for Remove: one press, one row gone.
+- **Compose from two references at a fixed seed, then reorder them and compose again at the same seed.** The result must change, and the output canvas size must follow whichever reference is now first — that is the one thing reference order is guaranteed to affect. If it comes back identical, the reorder is not reaching ComfyUI.
+- **Compose from more than two references captured together.** Two different images uploaded under the same filename overwrite each other in ComfyUI, and it happened once in testing before this release — the symptom is a background that resembles neither reference and an output sized to the wrong one.
+- **Try a real photograph as one of the references** — of yourself, or anyone you can judge the likeness of. Confirm what the panel's own info note says: clothing and setting carry across, the face does not. This is expected, not a bug; report back only if a face *does* come through recognisably, since that would contradict what 48 test generations found.
+- **Add a ninth reference.** It should be refused with a message naming the limit, not silently dropped or ignored.
+
+Also worth rechecking from `v0.18.0-alpha`:
+
 - **Switch to Artist-Friendly Dark** in Settings. The panel should restyle into the softer dark theme. Switch back to Compact Adobe Dark and confirm it looks exactly as it did before — nothing about it should have changed.
 - **In Artist-Friendly Dark, confirm the numeric parameters are sliders.** Drag Detail (steps) or Strength (denoise), confirm the number updates, and generate — the value the slider shows must be the value used. In Compact Adobe Dark the same parameters must still be number boxes.
 - **Press the dice button on a seed field.** Each press should roll a different seed, and the field must never show `214748.36`. Then **load an entry from session History and generate from it** — its seed must load and run, not fail with "Seed must be a whole number". That failure hit every History load before this release.
@@ -223,8 +240,10 @@ Also worth rechecking from v0.9.0-alpha:
 - Run `npm run setup-pack` and confirm it reports no source/API mismatches at all.
 - Recheck the existing local generation, cancel, preview, import, History, and Workflow Health paths for regressions.
 
-Known v0.17.4-alpha boundaries:
+Known v0.19.0-alpha boundaries:
 
+- **Multi-Reference Composition does not preserve a specific person's likeness.** It carries clothing, props, setting and lighting from a reference; a person's face comes back as a plausible stranger rather than the person photographed, confirmed against four real photographs and dozens of Klein-generated sources. Treat it as scene composition, not as a way to put someone recognisable into a picture.
+- **The reference list is capped at 8**, a sanity bound rather than a measured quality limit — testing found no reference count at which composition degraded, up to 6. Reference order matters more than count: an object that has to sit behind the other subjects is more likely to render cleanly if it comes earlier in the list.
 - **The Agent Bridge is not in the `.ccx`/`.zip` download.** A Photoshop plugin package cannot install or start a Node program, so it lives in the repository — see `bridge/README.md`. It is off by default in the panel either way. "Ask the Agent for a Prompt" additionally depends on your AI client supporting MCP *sampling*, which is optional in the protocol; a client that does not offer it gets a clear, instant refusal rather than the button working.
 - **The Setup screen downloads missing models, but not custom nodes.** A missing model's row offers **Download** beside Copy Link, and OpenLayer fetches the file from the URL the registry pins — in resumable 8 MiB chunks, one model at a time, and never before a confirmation naming the size, the destination folder and the download host. What it will not do is unchanged and deliberate: licence-gated weights are never fetched anonymously, because an unauthenticated request saves an HTML sign-in page under the model's filename; a model already on disk in the wrong folder asks you to move it rather than downloading a second copy; and an entry published as a repository folder rather than a single file points you at the model page. Custom node packages keep Copy Link and go through ComfyUI-Manager. Full reasoning in the CHANGELOG.
 - The **Flux.2 GGUF preset is slow on a 12 GB card**: minutes per image, not seconds, and its text encoder is licence-gated, so accept the licence in a browser and download it by hand.
@@ -398,10 +417,10 @@ npm run package
 This creates a zip package from `dist` in the `packages` folder. For the current alpha, the expected package name is:
 
 ```text
-packages/openlayer-v0.17.4-alpha.zip
+packages/openlayer-v0.19.0-alpha.zip
 ```
 
-`npm run package` also writes `packages/openlayer-v0.17.4-alpha.ccx` beside it, from the same files.
+`npm run package` also writes `packages/openlayer-v0.19.0-alpha.ccx` beside it, from the same files.
 
 ## One-click install (verified 2026-08-03)
 
@@ -566,7 +585,7 @@ Inpaint output quality, mask interpretation, and Photoshop alignment are still b
 
 ## Pre-release Tester Checklist
 
-Use this quick pass before reporting a v0.17.4-alpha test result:
+Use this quick pass before reporting a v0.19.0-alpha test result:
 
 1. Start ComfyUI on `http://127.0.0.1:8190`.
 2. Build OpenLayer and load `dist/manifest.json` in Adobe UXP Developer Tool.

@@ -33,7 +33,7 @@ These are practical starter guidelines, not strict rules.
 | Flux1-dev fp8 Text to Image | Flux | Experimental `txt2img-flux1-dev-fp8` using `flux1-dev-fp8.safetensors` through `CheckpointLoaderSimple`. |
 | Image to Image | SD 1.x or SDXL | Uses `img2img-basic`. |
 | Sketch to Image | SD 1.x | Uses `sketch2img-linecn-basic` with LineArt ControlNet. |
-| Text to Image / Image to Image / Inpaint / FLUX.2 Klein | FLUX.2 Klein 4B (distilled, fp8) | `txt2img-flux2-klein`, `img2img-flux2-klein`, `edit-flux2-klein`, `inpaint-flux2-klein`. 4.07 GB, Apache-2.0, ungated. 4 steps at CFG 1. Shares `qwen_3_4b.safetensors` with the Z_image_Turbo stack. The inpaint preset adds no model, only the `comfyui-inpaint-cropandstitch` node pack. |
+| Text to Image / Image to Image / Inpaint / FLUX.2 Klein | FLUX.2 Klein 4B (distilled, fp8) | `txt2img-flux2-klein`, `img2img-flux2-klein`, `edit-flux2-klein`, `inpaint-flux2-klein`, `multi-reference-flux2-klein`. 4.07 GB, Apache-2.0, ungated. 4 steps at CFG 1. Shares `qwen_3_4b.safetensors` with the Z_image_Turbo stack. The inpaint preset adds no model, only the `comfyui-inpaint-cropandstitch` node pack. The multi-reference preset adds nothing at all -- every node it uses is core ComfyUI. |
 | Inpaint / Flux Fill | Flux Fill Dev | Experimental `inpaint-flux-fill-basic`; not production-ready. `inpaint-flux-fill-cropstitch` uses the same files and adds the `comfyui-inpaint-cropandstitch` node pack. |
 | Outpaint / Canvas Expansion | Flux Fill Dev | Experimental `outpaint-flux-fill-basic` using `ImagePadForOutpaint`. |
 | Z_image_Turbo Text/Image | Z_image_Turbo | Experimental dedicated presets in v0.4.3-alpha. |

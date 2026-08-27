@@ -588,6 +588,56 @@ h3 {
   height: 520px;
 }
 
+/* ---------- video demos ---------- */
+
+.video-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 1.5rem;
+}
+
+.video-grid figure {
+  margin: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.7rem;
+}
+
+/* Locks a YouTube iframe to 16:9 without JS: the padding-top percentage is
+   relative to the element's own width, so a fixed-ratio box falls out of a
+   single width/height pair regardless of viewport size. */
+.video-frame {
+  position: relative;
+  width: 100%;
+  padding-top: 56.25%;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: #000;
+}
+
+.video-frame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.video-grid figcaption {
+  display: grid;
+  gap: 0.22rem;
+  padding: 0.75rem 0.25rem 0.15rem;
+  font-size: 0.82rem;
+  color: var(--quiet);
+}
+
+.video-grid figcaption strong {
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
 /* ---------- UI evolution ---------- */
 
 .evolution-section {
@@ -820,11 +870,10 @@ h3 {
 }
 
 .site-footer {
-  border-top: 1px solid var(--border);
   padding: 1.4rem clamp(1rem, 4vw, 2.4rem) 2rem;
   text-align: center;
   color: var(--quiet);
-  font-size: 0.85rem;
+  font-size: 0.95rem;
 }
 
 .site-footer p {

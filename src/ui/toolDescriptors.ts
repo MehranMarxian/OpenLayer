@@ -84,6 +84,27 @@ export const BUSY_DISABLED_FIELD_GROUPS: Readonly<
     "promptLayerTask",
     "promptLayerNumBeams",
     "promptLayerGeneratedText"
+  ],
+  "style-reference": [
+    "styleReferencePrompt",
+    "styleReferenceNegativePrompt",
+    "styleReferenceWorkflow",
+    "styleReferenceCheckpoint",
+    "styleReferenceWidth",
+    "styleReferenceHeight",
+    "styleReferenceSteps",
+    "styleReferenceCfg",
+    "styleReferenceSeed",
+    "styleReferenceControlStrength"
+  ],
+  "multi-reference": [
+    "multiReferencePrompt",
+    "multiReferenceNegativePrompt",
+    "multiReferenceWorkflow",
+    "multiReferenceCheckpoint",
+    "multiReferenceSteps",
+    "multiReferenceCfg",
+    "multiReferenceSeed"
   ]
 };
 
@@ -135,7 +156,11 @@ export const BUSY_ALLOWED_ACTIONS: readonly ActionElementKey[] = [
   "capturePromptLayerButton",
   "capturePromptCanvasButton",
   "copyPromptLayerButton",
-  "sendPromptLayerButton"
+  "sendPromptLayerButton",
+  "captureStyleReferenceLayerButton",
+  "captureStyleReferenceCanvasButton",
+  "addMultiReferenceLayerButton",
+  "addMultiReferenceCanvasButton"
 ];
 
 // Tool state a gated button also needs before it can be enabled: generate
@@ -151,7 +176,11 @@ export type BusyGateName =
   | "outpaintSource"
   | "outpaintResult"
   | "upscaleSource"
-  | "upscaleResult";
+  | "upscaleResult"
+  | "styleReferenceSource"
+  | "styleReferenceResult"
+  | "multiReferenceSources"
+  | "multiReferenceResult";
 
 export type BusyGatedAction = Readonly<{
   button: ActionElementKey;
@@ -169,5 +198,11 @@ export const BUSY_GATED_ACTIONS: readonly BusyGatedAction[] = [
   { button: "generateOutpaintButton", gate: "outpaintSource" },
   { button: "importOutpaintButton", gate: "outpaintResult" },
   { button: "generateUpscaleButton", gate: "upscaleSource" },
-  { button: "importUpscaleButton", gate: "upscaleResult" }
+  { button: "importUpscaleButton", gate: "upscaleResult" },
+  { button: "generateStyleReferenceButton", gate: "styleReferenceSource" },
+  { button: "importStyleReferenceButton", gate: "styleReferenceResult" },
+  // Gated on the list being non-empty rather than on a single captured source,
+  // which is the one place this tool's readiness differs from every other one.
+  { button: "generateMultiReferenceButton", gate: "multiReferenceSources" },
+  { button: "importMultiReferenceButton", gate: "multiReferenceResult" }
 ];

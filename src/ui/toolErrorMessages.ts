@@ -133,6 +133,65 @@ export function getFriendlySketchErrorMessage(error: unknown) {
   return getErrorMessage(error);
 }
 
+export function getStyleReferenceFailureHint(error: unknown) {
+  const details = getTechnicalErrorDetails(error).toLowerCase();
+
+  if (details.includes("style-reference-sd15.json")) {
+    return "The bundled Style Reference workflow file was not found in this build. Rebuild OpenLayer and reload the plugin.";
+  }
+
+  if (
+    details.includes("ipadapter") ||
+    details.includes("clip_vision") ||
+    details.includes("clip vision") ||
+    details.includes("missing node")
+  ) {
+    return "Install cubiq's ComfyUI_IPAdapter_plus custom node pack, plus ip-adapter-plus_sd15.safetensors in models/ipadapter and the CLIP-ViT-H image encoder in models/clip_vision, then click Check ComfyUI again.";
+  }
+
+  if (
+    details.includes("clip input is invalid") ||
+    details.includes("does not contain a valid clip") ||
+    details.includes("text encoder")
+  ) {
+    return "This looks like a checkpoint/workflow mismatch. Style Reference (IPAdapter Plus) is built for SD 1.5 checkpoints such as epicrealism_naturalSinRC1VAE.safetensors.";
+  }
+
+  if (details.includes("vae") || details.includes("loader") || details.includes("invalid prompt")) {
+    return "ComfyUI rejected part of the Style Reference workflow. Check that the preset node IDs match the exported API workflow.";
+  }
+
+  const message = getTechnicalErrorDetails(error);
+  return message.length > 160 ? `${message.slice(0, 160)}...` : message;
+}
+
+export function getFriendlyStyleReferenceErrorMessage(error: unknown) {
+  const details = getTechnicalErrorDetails(error).toLowerCase();
+
+  if (details.includes("style-reference-sd15.json")) {
+    return "Style Reference workflow file missing from this build.";
+  }
+
+  if (
+    details.includes("ipadapter") ||
+    details.includes("clip_vision") ||
+    details.includes("clip vision") ||
+    details.includes("missing node")
+  ) {
+    return "Required IPAdapter Plus setup is missing in ComfyUI.";
+  }
+
+  if (
+    details.includes("clip input is invalid") ||
+    details.includes("does not contain a valid clip") ||
+    details.includes("text encoder")
+  ) {
+    return "The selected checkpoint needs a matching SD 1.5 Style Reference workflow.";
+  }
+
+  return getErrorMessage(error);
+}
+
 export function getInpaintFailureHint(error: unknown) {
   const details = getTechnicalErrorDetails(error).toLowerCase();
 

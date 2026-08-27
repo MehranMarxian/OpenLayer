@@ -84,6 +84,16 @@ export const CUSTOM_NODE_PACKAGES: Record<string, { name: string; repoUrl: strin
   InpaintStitchImproved: {
     name: "comfyui-inpaint-cropandstitch",
     repoUrl: "https://github.com/lquesada/ComfyUI-Inpaint-CropAndStitch"
+  },
+  // Style Reference. CLIPVisionLoader is core ComfyUI and needs no entry here;
+  // these two classes are cubiq's IPAdapter Plus reference implementation.
+  IPAdapterModelLoader: {
+    name: "ComfyUI_IPAdapter_plus",
+    repoUrl: "https://github.com/cubiq/ComfyUI_IPAdapter_plus"
+  },
+  IPAdapterAdvanced: {
+    name: "ComfyUI_IPAdapter_plus",
+    repoUrl: "https://github.com/cubiq/ComfyUI_IPAdapter_plus"
   }
 };
 

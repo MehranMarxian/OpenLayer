@@ -53,6 +53,9 @@ const COMFY_ORG_KREA2_REPO = "https://huggingface.co/Comfy-Org/Krea-2";
 const FLUX_TEXT_ENCODERS_REPO = "https://huggingface.co/comfyanonymous/flux_text_encoders";
 const ALIBABA_PAI_ZIMAGE_FUN_CONTROLNET_REPO =
   "https://huggingface.co/alibaba-pai/Z-Image-Turbo-Fun-Controlnet-Union-2.1";
+// Apache-2.0, ungated, no licenseGate needed -- both files verified by live HEAD
+// request against h94/IP-Adapter and installed byte-for-byte on the dev rig.
+const H94_IP_ADAPTER_REPO = "https://huggingface.co/h94/IP-Adapter";
 
 const CHECKPOINT_MODEL_SOURCE = {
   kind: "checkpoint",
@@ -589,6 +592,25 @@ const FLUX2_KLEIN_IMG2IMG_NODES = {
 // source is supplied as *conditioning* through ReferenceLatent on both
 // branches, so the model is free to follow the instruction while still being
 // told what the scene is.
+const FLUX2_KLEIN_MULTI_REFERENCE_NODES = {
+  diffusionModelLoader: "20",
+  clipLoader: "21",
+  vaeLoader: "22",
+  modelSampling: "23",
+  loadImage: "30",
+  referenceScale: "40",
+  vaeEncode: "50",
+  positivePrompt: "6",
+  negativePrompt: "7",
+  referenceIntoPositive: "60",
+  referenceIntoNegative: "70",
+  canvasSize: "13",
+  latentImage: "5",
+  sampler: "3",
+  decode: "8",
+  saveImage: "9"
+} as const;
+
 const FLUX2_KLEIN_EDIT_NODES = {
   diffusionModelLoader: "20",
   clipLoader: "21",
@@ -820,6 +842,25 @@ const UPSCALE_BASIC_NODES = {
   saveImage: "9"
 } as const;
 
+// Node ids match src/workflows/api/style-reference-sd15.json exactly -- this
+// preset's graph was hand-built and verified against a live ComfyUI (a real
+// cat-on-a-chair generation absorbed a vaporwave reference's palette without
+// copying its content) rather than exported from the ComfyUI editor, so there
+// is no separate "source of truth" to drift from.
+const STYLE_REFERENCE_SD15_NODES = {
+  checkpointLoader: "4",
+  loadImage: "10",
+  clipVisionLoader: "12",
+  ipAdapterModelLoader: "13",
+  ipAdapterApply: "14",
+  positivePrompt: "6",
+  negativePrompt: "7",
+  latentImage: "5",
+  sampler: "3",
+  decode: "8",
+  saveImage: "9"
+} as const;
+
 const TXT2IMG_BASIC_INJECTIONS = {
   checkpoint: target(TXT2IMG_BASIC_NODES.checkpointLoader, "ckpt_name"),
   positivePrompt: target(TXT2IMG_BASIC_NODES.positivePrompt, "text"),
@@ -1006,6 +1047,21 @@ const FLUX2_KLEIN_IMG2IMG_INJECTIONS = {
   denoise: target(FLUX2_KLEIN_IMG2IMG_NODES.sampler, "denoise")
 } as const;
 
+const FLUX2_KLEIN_MULTI_REFERENCE_INJECTIONS = {
+  checkpoint: target(FLUX2_KLEIN_MULTI_REFERENCE_NODES.diffusionModelLoader, "unet_name"),
+  // Reference 1 only. References 2..n do not exist in the shipped graph -- the
+  // builder clones this node for each of them, so they are wired rather than
+  // injected. See applyReferenceChain in workflowBuilder.ts.
+  sourceImage: target(FLUX2_KLEIN_MULTI_REFERENCE_NODES.loadImage, "image"),
+  positivePrompt: target(FLUX2_KLEIN_MULTI_REFERENCE_NODES.positivePrompt, "text"),
+  negativePrompt: target(FLUX2_KLEIN_MULTI_REFERENCE_NODES.negativePrompt, "text"),
+  seed: target(FLUX2_KLEIN_MULTI_REFERENCE_NODES.sampler, "seed"),
+  steps: target(FLUX2_KLEIN_MULTI_REFERENCE_NODES.sampler, "steps"),
+  cfg: target(FLUX2_KLEIN_MULTI_REFERENCE_NODES.sampler, "cfg")
+  // No denoise and no width/height, for the same reason as edit-flux2-klein:
+  // denoise 1 is the technique, and the canvas comes from reference 1.
+} as const;
+
 const FLUX2_KLEIN_EDIT_INJECTIONS = {
   checkpoint: target(FLUX2_KLEIN_EDIT_NODES.diffusionModelLoader, "unet_name"),
   sourceImage: target(FLUX2_KLEIN_EDIT_NODES.loadImage, "image"),
@@ -1093,6 +1149,48 @@ const UPSCALE_BASIC_INJECTIONS = {
   sourceImage: target(UPSCALE_BASIC_NODES.loadImage, "image"),
   checkpoint: target(UPSCALE_BASIC_NODES.upscaleModelLoader, "model_name")
 } as const;
+
+const STYLE_REFERENCE_SD15_INJECTIONS = {
+  checkpoint: target(STYLE_REFERENCE_SD15_NODES.checkpointLoader, "ckpt_name"),
+  sourceImage: target(STYLE_REFERENCE_SD15_NODES.loadImage, "image"),
+  positivePrompt: target(STYLE_REFERENCE_SD15_NODES.positivePrompt, "text"),
+  negativePrompt: target(STYLE_REFERENCE_SD15_NODES.negativePrompt, "text"),
+  width: target(STYLE_REFERENCE_SD15_NODES.latentImage, "width"),
+  height: target(STYLE_REFERENCE_SD15_NODES.latentImage, "height"),
+  seed: target(STYLE_REFERENCE_SD15_NODES.sampler, "seed"),
+  steps: target(STYLE_REFERENCE_SD15_NODES.sampler, "steps"),
+  cfg: target(STYLE_REFERENCE_SD15_NODES.sampler, "cfg"),
+  controlStrength: target(STYLE_REFERENCE_SD15_NODES.ipAdapterApply, "weight")
+} as const;
+
+// IPAdapter Plus SD1.5 -- the style/mood adapter itself plus the CLIP vision
+// encoder it reads the reference image through. Both Apache-2.0, ungated,
+// verified by live HEAD request and installed byte-for-byte on the dev rig
+// (98,183,288 bytes and 2,528,373,448 bytes respectively).
+const STYLE_REFERENCE_SD15_REQUIRED_MODELS = [
+  {
+    kind: "ip-adapter",
+    objectInfoNode: "IPAdapterModelLoader",
+    inputName: "ipadapter_file",
+    label: "IPAdapter model",
+    modelName: "ip-adapter-plus_sd15.safetensors",
+    setupHint: "Install ip-adapter-plus_sd15.safetensors in ComfyUI's models/ipadapter folder.",
+    downloadUrl: `${H94_IP_ADAPTER_REPO}/resolve/main/models/ip-adapter-plus_sd15.safetensors`,
+    sourcePageUrl: H94_IP_ADAPTER_REPO,
+    downloadSizeBytes: 98183288
+  },
+  {
+    kind: "clip-vision",
+    objectInfoNode: "CLIPVisionLoader",
+    inputName: "clip_name",
+    label: "CLIP vision encoder",
+    modelName: "CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors",
+    setupHint: "Install the CLIP-ViT-H image encoder in ComfyUI's models/clip_vision folder.",
+    downloadUrl: `${H94_IP_ADAPTER_REPO}/resolve/main/models/image_encoder/model.safetensors`,
+    sourcePageUrl: H94_IP_ADAPTER_REPO,
+    downloadSizeBytes: 2528373448
+  }
+] as const;
 
 const FLUX_FILL_STACK = [
   {
@@ -1507,6 +1605,31 @@ const FLUX2_KLEIN_EDIT_CAPABILITY: WorkflowCapability = {
   }
 };
 
+const FLUX2_KLEIN_MULTI_REFERENCE_CAPABILITY: WorkflowCapability = {
+  toolType: "multi-reference",
+  loaderType: "diffusion-model-stack",
+  artistLabel: "Multi-Reference Composition",
+  technicalLabel: "multi-reference-flux2-klein",
+  // Deliberately empty. Every other captured-source preset names one Photoshop
+  // input it needs; this one needs a list the artist builds by hand, so the
+  // readiness check lives in the panel rather than in a single-input rule.
+  requiredPhotoshopInputs: [],
+  controls: ["prompt", "negativePrompt", "steps", "cfg", "seed"],
+  output: {
+    kind: "full-image",
+    size: "first-reference",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Klein model",
+    primaryActionLabel: "Compose",
+    hiddenControls: ["denoise", "width", "height"],
+    experimentalNote:
+      "Composes one picture out of several layers. Clothing, props, setting and lighting all carry across; faces do not -- a person in a reference comes back as a plausible stranger rather than themselves, so this cannot place a specific person. Reference 1 sets the output size. Order matters: if an object behind the subjects comes out duplicated or stretched, move it earlier in the list."
+  }
+};
+
 const Z_IMAGE_TURBO_TXT2IMG_CAPABILITY: WorkflowCapability = {
   toolType: "txt2img",
   loaderType: "diffusion-model-stack",
@@ -1604,6 +1727,27 @@ const PROMPT_FROM_LAYER_FLORENCE2_CAPABILITY: WorkflowCapability = {
     modelSelectorLabel: "Florence model",
     primaryActionLabel: "Generate Text from Layer",
     experimentalNote: "Prompt from Layer uses a Florence-2 PromptGen custom-node workflow and returns text, not an image."
+  }
+};
+
+const STYLE_REFERENCE_SD15_CAPABILITY: WorkflowCapability = {
+  toolType: "style-reference",
+  loaderType: "checkpoint",
+  artistLabel: "Style Reference",
+  technicalLabel: "style-reference-sd15",
+  requiredPhotoshopInputs: [{ anyOf: ["active-layer", "canvas"], label: "a reference layer or captured canvas" }],
+  controls: ["prompt", "negativePrompt", "width", "height", "steps", "cfg", "seed", "controlStrength"],
+  output: {
+    kind: "full-image",
+    size: "preset",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Checkpoint",
+    primaryActionLabel: "Generate Style Reference",
+    experimentalNote:
+      "IPAdapter Plus borrows the captured layer's palette and mood and applies it on top of the prompt. Measured scope: a photographic reference tints and lights the result convincingly, a flat illustration transfers almost nothing. This does not restyle the captured layer -- it generates a new image, and output size is your own choice, the same as Text to Image."
   }
 };
 
@@ -2959,6 +3103,121 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
       "FLUX.2 Klein 4B is a diffusion model stack, not a checkpoint: UNETLoader, CLIPLoader with type flux2, and VAELoader. It shares qwen_3_4b.safetensors with the Z_image_Turbo stack, so a user who already has that preset downloads only the 4 GB model and the 336 MB Flux.2 VAE. The latent is EmptyFlux2LatentImage rather than EmptySD3LatentImage -- Flux.2's latent geometry differs, and the SD3 node produces a tensor the sampler silently mis-shapes. Sampler settings are the distilled operating point: 4 steps, CFG 1, er_sde, simple, with ModelSamplingAuraFlow shift 3. Klein is Apache-2.0 and ungated, unlike FLUX.1-dev and FLUX.2-dev. This preset re-encodes the captured layer with VAEEncode and samples at a denoise below 1, which is the ordinary image-to-image trade: low denoise preserves the source but barely listens to the prompt, high denoise obeys the prompt but discards the source."
   },
   {
+    id: "multi-reference-flux2-klein",
+    label: "multi-reference-flux2-klein",
+    displayName: "FLUX.2 Klein (composition)",
+    mode: "multi-reference",
+    description:
+      "Composes several captured layers into one picture by chaining a ReferenceLatent per layer onto both conditioning branches. Carries wardrobe, props and setting; does not carry faces.",
+    workflowFile: "workflows/api/multi-reference-flux2-klein.json",
+    status: "experimental",
+    recommendedSettings: { steps: 4, cfg: 1 },
+    supportedModelFamilies: ["flux2"],
+    experimentalModelFamilies: ["unknown"],
+    modelSource: DIFFUSION_MODEL_SOURCE,
+    capability: FLUX2_KLEIN_MULTI_REFERENCE_CAPABILITY,
+    modelStack: [...FLUX2_KLEIN_4B_STACK],
+    requiredModels: [...FLUX2_KLEIN_4B_STACK],
+    injections: FLUX2_KLEIN_MULTI_REFERENCE_INJECTIONS,
+    referenceChain: {
+      loadImage: FLUX2_KLEIN_MULTI_REFERENCE_NODES.loadImage,
+      scale: FLUX2_KLEIN_MULTI_REFERENCE_NODES.referenceScale,
+      encode: FLUX2_KLEIN_MULTI_REFERENCE_NODES.vaeEncode,
+      referenceIntoPositive: FLUX2_KLEIN_MULTI_REFERENCE_NODES.referenceIntoPositive,
+      referenceIntoNegative: FLUX2_KLEIN_MULTI_REFERENCE_NODES.referenceIntoNegative,
+      positiveConsumer: target(FLUX2_KLEIN_MULTI_REFERENCE_NODES.sampler, "positive"),
+      negativeConsumer: target(FLUX2_KLEIN_MULTI_REFERENCE_NODES.sampler, "negative"),
+      // Every shipped id in this graph is numeric, so a "ref" prefix cannot
+      // collide with one however many references are added.
+      generatedNodeIdPrefix: "ref",
+      maximumReferences: 8
+    },
+    requiredNodes: [
+      {
+        id: FLUX2_KLEIN_MULTI_REFERENCE_NODES.diffusionModelLoader,
+        classType: "UNETLoader",
+        requiredInputs: ["unet_name", "weight_dtype"]
+      },
+      {
+        id: FLUX2_KLEIN_MULTI_REFERENCE_NODES.clipLoader,
+        classType: "CLIPLoader",
+        requiredInputs: ["clip_name", "type"]
+      },
+      {
+        id: FLUX2_KLEIN_MULTI_REFERENCE_NODES.vaeLoader,
+        classType: "VAELoader",
+        requiredInputs: ["vae_name"]
+      },
+      {
+        id: FLUX2_KLEIN_MULTI_REFERENCE_NODES.modelSampling,
+        classType: "ModelSamplingAuraFlow",
+        requiredInputs: ["model", "shift"]
+      },
+      {
+        id: FLUX2_KLEIN_MULTI_REFERENCE_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: FLUX2_KLEIN_MULTI_REFERENCE_NODES.referenceScale,
+        classType: "ImageScaleToTotalPixels",
+        requiredInputs: ["image", "upscale_method", "megapixels"]
+      },
+      {
+        id: FLUX2_KLEIN_MULTI_REFERENCE_NODES.vaeEncode,
+        classType: "VAEEncode",
+        requiredInputs: ["pixels", "vae"]
+      },
+      {
+        id: FLUX2_KLEIN_MULTI_REFERENCE_NODES.canvasSize,
+        classType: "GetImageSize",
+        requiredInputs: ["image"]
+      },
+      {
+        id: FLUX2_KLEIN_MULTI_REFERENCE_NODES.positivePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: FLUX2_KLEIN_MULTI_REFERENCE_NODES.negativePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: FLUX2_KLEIN_MULTI_REFERENCE_NODES.referenceIntoPositive,
+        classType: "ReferenceLatent",
+        requiredInputs: ["conditioning"]
+      },
+      {
+        id: FLUX2_KLEIN_MULTI_REFERENCE_NODES.referenceIntoNegative,
+        classType: "ReferenceLatent",
+        requiredInputs: ["conditioning"]
+      },
+      {
+        id: FLUX2_KLEIN_MULTI_REFERENCE_NODES.latentImage,
+        classType: "EmptyFlux2LatentImage",
+        requiredInputs: ["width", "height", "batch_size"]
+      },
+      {
+        id: FLUX2_KLEIN_MULTI_REFERENCE_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["seed", "steps", "cfg", "sampler_name", "scheduler", "denoise"]
+      },
+      {
+        id: FLUX2_KLEIN_MULTI_REFERENCE_NODES.decode,
+        classType: "VAEDecode",
+        requiredInputs: ["samples", "vae"]
+      },
+      {
+        id: FLUX2_KLEIN_MULTI_REFERENCE_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images"]
+      }
+    ],
+    compatibilityNote:
+      "Same Klein 4B stack as the other Flux.2 Klein presets, so it downloads nothing extra for anyone who already has them, and every node is core ComfyUI -- ReferenceLatent, ImageScaleToTotalPixels and GetImageSize all ship with ComfyUI itself. The graph is the one validated in docs/multi-reference-gate-findings.md: each reference is normalised to 1 MP, VAE-encoded, and chained onto BOTH conditioning branches, sampled at denoise 1 from an empty latent sized by reference 1. Gate testing across 48 live runs found no reference count at which identity degrades, so the maximumReferences of 8 is a sanity bound and not a quality cliff. It also found the limits worth stating plainly: faces are not carried, and a wide thin object that must sit behind the subjects can duplicate unless it is moved earlier in the chain.",
+  },
+  {
     // Deliberately not named img2img-*: it sits in the Image to Image tool and
     // shares its inputs, but it is a different technique with a different
     // contract, and calling it img2img-flux2-klein-edit would read as a variant
@@ -3074,7 +3333,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
       }
     ],
     compatibilityNote:
-      "edit-flux2-klein is FLUX.2 Klein driven as an instruction editor. The captured layer is normalised to roughly 1 megapixel, encoded once, and fed to ReferenceLatent on BOTH the positive and the negative conditioning; the sampler starts from an EmptyFlux2LatentImage of that size at denoise 1. Wiring the reference into the positive branch only loses most of the preservation, which is why two ReferenceLatent nodes appear rather than one. The decoded result is scaled back to the captured layer's exact pixel size so the preset's source-sized output contract holds whatever the 1 MP normalisation chose. Every node is core ComfyUI. Note that ReferenceLatent declares `latent` as an optional input, so a setup check that reads only ComfyUI's `required` bucket reports this graph as missing setup on a machine where it runs perfectly."
+      "edit-flux2-klein is FLUX.2 Klein driven as an instruction editor. The captured layer is normalised to roughly 1 megapixel, encoded once, and fed to ReferenceLatent on BOTH the positive and the negative conditioning; the sampler starts from an EmptyFlux2LatentImage of that size at denoise 1. Wiring the reference into the positive branch only loses most of the preservation, which is why two ReferenceLatent nodes appear rather than one. The decoded result is scaled back to the captured layer's exact pixel size so the preset's source-sized output contract holds whatever the 1 MP normalisation chose. Every node is core ComfyUI. Note that ReferenceLatent declares its latent as an optional input, so a setup check that reads only ComfyUI's required bucket reports this graph as missing setup on a machine where it runs perfectly."
   },
   {
     id: "txt2img-z-image-turbo",
@@ -3455,6 +3714,82 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     ],
     compatibilityNote:
       "img2img-krea2-turbo uses the Krea-2 Turbo stack plus PNG source upload and VAE encoding. Denoise balances the captured source against the prompt."
+  },
+  {
+    id: "style-reference-sd15",
+    label: "style-reference-sd15",
+    displayName: "IPAdapter Plus (SD1.5)",
+    mode: "style-reference",
+    description: "Match a captured layer's mood, color, and visual language onto a new prompt-driven image.",
+    workflowFile: "workflows/api/style-reference-sd15.json",
+    sourceWorkflowFile: "workflows/source/style-reference-sd15.workflow.json",
+    status: "experimental",
+    recommendedSettings: { steps: 20, cfg: 7, controlStrength: 1 },
+    supportedModelFamilies: ["sd1"],
+    experimentalModelFamilies: ["sdxl", "sd3", "flux", "flux2", "zImage", "unknown"],
+    modelSource: CHECKPOINT_MODEL_SOURCE,
+    capability: STYLE_REFERENCE_SD15_CAPABILITY,
+    injections: STYLE_REFERENCE_SD15_INJECTIONS,
+    requiredModels: [...STYLE_REFERENCE_SD15_REQUIRED_MODELS],
+    compatibilityNote:
+      "style-reference-sd15 uses IPAdapter Plus's \"style transfer\" weight mode on an SD 1.5 checkpoint. Verified against a live ComfyUI: a vaporwave-sunset reference produced its magenta/cyan/orange palette on an unrelated cat-and-chair prompt without copying the reference's content.",
+    requiredNodes: [
+      {
+        id: STYLE_REFERENCE_SD15_NODES.checkpointLoader,
+        classType: "CheckpointLoaderSimple",
+        requiredInputs: ["ckpt_name"]
+      },
+      {
+        id: STYLE_REFERENCE_SD15_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: STYLE_REFERENCE_SD15_NODES.clipVisionLoader,
+        classType: "CLIPVisionLoader",
+        requiredInputs: ["clip_name"]
+      },
+      {
+        id: STYLE_REFERENCE_SD15_NODES.ipAdapterModelLoader,
+        classType: "IPAdapterModelLoader",
+        requiredInputs: ["ipadapter_file"]
+      },
+      {
+        id: STYLE_REFERENCE_SD15_NODES.ipAdapterApply,
+        classType: "IPAdapterAdvanced",
+        requiredInputs: ["model", "ipadapter", "image", "weight", "weight_type"]
+      },
+      {
+        id: STYLE_REFERENCE_SD15_NODES.positivePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: STYLE_REFERENCE_SD15_NODES.negativePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: STYLE_REFERENCE_SD15_NODES.latentImage,
+        classType: "EmptyLatentImage",
+        requiredInputs: ["width", "height", "batch_size"]
+      },
+      {
+        id: STYLE_REFERENCE_SD15_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["model", "seed", "steps", "cfg", "positive", "negative", "latent_image", "denoise"]
+      },
+      {
+        id: STYLE_REFERENCE_SD15_NODES.decode,
+        classType: "VAEDecode",
+        requiredInputs: ["samples", "vae"]
+      },
+      {
+        id: STYLE_REFERENCE_SD15_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images", "filename_prefix"]
+      }
+    ]
   }
 ];
 
