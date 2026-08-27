@@ -350,6 +350,14 @@ export type AppElements = {
   workflowPresetsView: HTMLElement;
   workflowPresetsSummary: HTMLElement;
   workflowPresetsList: HTMLElement;
+  customWorkflowView: HTMLElement;
+  customWorkflowInput: HTMLTextAreaElement;
+  checkCustomWorkflowButton: HTMLElement;
+  customWorkflowStatusText: HTMLElement;
+  customWorkflowStatusPill: HTMLElement;
+  customWorkflowSummary: HTMLElement;
+  customWorkflowError: HTMLElement;
+  customWorkflowResults: HTMLElement;
 };
 
 export function createAppMarkup() {
@@ -1467,6 +1475,41 @@ export function createAppMarkup() {
         </section>
       </section>
 
+      <section class="custom-workflow-view setup-view" id="custom-workflow-view" aria-label="Workflow" hidden>
+        <div class="screen-nav">
+          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
+          <div class="screen-title-block">
+            ${createScreenIconMarkup("workflow", "Workflow")}
+            <span class="screen-title">Workflow</span>
+          </div>
+        </div>
+
+        <section class="panel-section settings-panel diagnostic-section diagnostic-scroll-safe" aria-label="Check a custom workflow">
+          <div class="section-heading">
+            <span class="label">Check a custom workflow</span>
+            <span class="muted-label">Validate only</span>
+          </div>
+          <div class="diagnostics-line setup-paragraph">
+            Paste a ComfyUI workflow to find out whether this ComfyUI could run it. In ComfyUI use
+            Workflow &gt; Export (API), not Save. Nothing is generated here and OpenLayer does not take
+            the graph over -- this reports what is installed and what is missing.
+          </div>
+          <div class="field">
+            <span class="label">Workflow JSON</span>
+            <textarea maxlength="2000000" class="textarea compact-textarea" id="custom-workflow-input" placeholder="Paste the exported API workflow JSON here..."></textarea>
+          </div>
+          <button class="button button-primary button-wide action-control" id="check-custom-workflow" data-openlayer-action="checkCustomWorkflow" type="button">Check This Workflow</button>
+          <div class="status-bar" role="status">
+            <span class="status-text" id="custom-workflow-status-text">Ready.</span>
+            <span class="status-pill idle" id="custom-workflow-status-pill">Status</span>
+          </div>
+          <div class="diagnostics-line setup-paragraph" id="custom-workflow-summary"></div>
+          <div class="error-message" id="custom-workflow-error" hidden></div>
+        </section>
+
+        <div id="custom-workflow-results"></div>
+      </section>
+
       <section class="workflow-presets-view setup-view" id="workflow-presets-view" aria-label="Workflow Presets" hidden>
         <div class="screen-nav">
           <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
@@ -2070,7 +2113,15 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     styleReferenceResultPreviewPanel: getElement<HTMLElement>(rootElement, "style-reference-result-preview-panel"),
     workflowPresetsView: getElement<HTMLElement>(rootElement, "workflow-presets-view"),
     workflowPresetsSummary: getElement<HTMLElement>(rootElement, "workflow-presets-summary"),
-    workflowPresetsList: getElement<HTMLElement>(rootElement, "workflow-presets-list")
+    workflowPresetsList: getElement<HTMLElement>(rootElement, "workflow-presets-list"),
+    customWorkflowView: getElement<HTMLElement>(rootElement, "custom-workflow-view"),
+    customWorkflowInput: getElement<HTMLTextAreaElement>(rootElement, "custom-workflow-input"),
+    checkCustomWorkflowButton: getElement<HTMLElement>(rootElement, "check-custom-workflow"),
+    customWorkflowStatusText: getElement<HTMLElement>(rootElement, "custom-workflow-status-text"),
+    customWorkflowStatusPill: getElement<HTMLElement>(rootElement, "custom-workflow-status-pill"),
+    customWorkflowSummary: getElement<HTMLElement>(rootElement, "custom-workflow-summary"),
+    customWorkflowError: getElement<HTMLElement>(rootElement, "custom-workflow-error"),
+    customWorkflowResults: getElement<HTMLElement>(rootElement, "custom-workflow-results")
   };
 }
 

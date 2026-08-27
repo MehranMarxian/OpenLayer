@@ -74,6 +74,12 @@ import {
 } from "../comfy/presetRegistry";
 import { createWorkflowPresetsView } from "./workflowPresetsModel";
 import {
+  CustomWorkflowReport,
+  evaluateCustomWorkflow,
+  listCustomWorkflowClassTypes,
+  parseCustomWorkflowText
+} from "../comfy/customWorkflowValidation";
+import {
   validateGenerationSettings,
   validateImageToImageSettings,
   validateOutpaintSettings,
@@ -1436,7 +1442,8 @@ export function renderApp(rootElement: HTMLElement) {
       handleCaptureStyleReferenceCanvasSource
     ),
     generateStyleReference: createActionRunner(elements, "generateStyleReference", handleGenerateStyleReference),
-    importStyleReference: createActionRunner(elements, "importStyleReference", handleImportStyleReference)
+    importStyleReference: createActionRunner(elements, "importStyleReference", handleImportStyleReference),
+    checkCustomWorkflow: createActionRunner(elements, "checkCustomWorkflow", handleCheckCustomWorkflow)
   };
 
   bindActionControl(elements.checkButton, actionHandlers.check);
@@ -1503,6 +1510,7 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.captureStyleReferenceCanvasButton, actionHandlers.captureStyleReferenceCanvasSource);
   bindActionControl(elements.generateStyleReferenceButton, actionHandlers.generateStyleReference);
   bindActionControl(elements.importStyleReferenceButton, actionHandlers.importStyleReference);
+  bindActionControl(elements.checkCustomWorkflowButton, actionHandlers.checkCustomWorkflow);
   registerImportBridgeHandlers();
   registerAgentBridgeHandlers();
   restoreAgentBridgeSettings();
@@ -4208,6 +4216,75 @@ export function renderApp(rootElement: HTMLElement) {
     }
   }
 
+  /**
+   * Checks a workflow OpenLayer did not author against this ComfyUI.
+   *
+   * Deliberately read-only. It never submits the graph and never tries to work
+   * out where the panel's prompt or seed would go, because a wrong guess there
+   * yields a run that quietly ignores what the artist typed -- worse than
+   * saying nothing. What it can answer honestly is whether this server has the
+   * nodes, and that is the question that actually blocks people.
+   */
+  async function handleCheckCustomWorkflow() {
+    setCustomWorkflowStatus("Checking workflow...", "idle");
+    elements.customWorkflowError.hidden = true;
+    elements.customWorkflowError.textContent = "";
+    elements.customWorkflowSummary.textContent = "";
+    elements.customWorkflowResults.innerHTML = "";
+
+    const parsed = parseCustomWorkflowText(elements.customWorkflowInput.value);
+
+    if (!parsed.ok) {
+      setCustomWorkflowStatus(parsed.reason, "error");
+      elements.customWorkflowError.textContent = parsed.hint ? `${parsed.reason} ${parsed.hint}` : parsed.reason;
+      elements.customWorkflowError.hidden = false;
+      return;
+    }
+
+    try {
+      const client = new ComfyClient(elements.serverUrl.value);
+      await client.checkOnline();
+
+      const classTypes = listCustomWorkflowClassTypes(parsed.workflow);
+      const availability = await client.getNodeAvailability(classTypes);
+
+      // A server that stops answering mid-check looks identical to a server
+      // that has none of these nodes, because the lookup swallows failures per
+      // class. Observed for real: with ComfyUI down this reported KSampler and
+      // LoadImage as "not installed". Nothing resolving at all is never a
+      // truthful answer about a real graph, so say the honest thing instead.
+      if (classTypes.length > 0 && Object.keys(availability).length === 0) {
+        throw createOpenLayerError(
+          "COMFY_OFFLINE",
+          "ComfyUI stopped answering while the workflow was being checked.",
+          "No node class could be looked up, which means the server went away rather than that the graph is unsupported."
+        );
+      }
+
+      const report = evaluateCustomWorkflow(parsed.workflow, availability);
+
+      renderCustomWorkflowReport(elements, report);
+      elements.customWorkflowSummary.textContent = report.summaryLine;
+      setCustomWorkflowStatus(
+        report.canRun ? "This ComfyUI can run that workflow." : "That workflow needs something first.",
+        report.canRun ? "ready" : "error"
+      );
+    } catch (caughtError) {
+      setCustomWorkflowStatus("Could not reach ComfyUI.", "error");
+      elements.customWorkflowError.textContent = getErrorMessage(caughtError);
+      elements.customWorkflowError.hidden = false;
+    }
+  }
+
+  // Not a generation, so it writes its own bar rather than going through the
+  // generation status table -- the same reasoning Layer Tools and Setup use.
+  function setCustomWorkflowStatus(status: string, tone: StatusTone) {
+    elements.customWorkflowStatusText.textContent = status;
+    elements.customWorkflowStatusPill.textContent =
+      tone === "error" ? "Error" : tone === "ready" ? "Ready" : "Working";
+    elements.customWorkflowStatusPill.className = `status-pill ${tone === "idle" ? "working" : tone}`;
+  }
+
   async function handleCaptureInpaintSelection(sourceMode: InpaintSourceMode) {
     const sourceModeLabel = getInpaintSourceModeLabel(sourceMode);
     setInpaintDiagnostics(elements, `Capturing Photoshop selection from ${sourceModeLabel}...`);
@@ -5328,6 +5405,7 @@ export function renderApp(rootElement: HTMLElement) {
     elements.upscaleView.hidden = currentView !== "upscale";
     elements.styleReferenceView.hidden = currentView !== "style-reference";
     elements.workflowPresetsView.hidden = currentView !== "workflow-presets";
+    elements.customWorkflowView.hidden = currentView !== "custom-workflow";
     elements.livePaintingView.hidden = currentView !== "live-painting";
     elements.settingsView.hidden = currentView !== "settings";
     elements.setupView.hidden = currentView !== "setup";
@@ -6773,6 +6851,86 @@ function renderWorkflowPresets(elements: AppElements) {
 
     container.append(section);
   }
+}
+
+/**
+ * Draws the per-node result of a custom workflow check.
+ *
+ * textContent throughout: these strings carry node ids and class names out of
+ * somebody else's file, which is exactly the input that must never be handled
+ * as markup.
+ */
+function renderCustomWorkflowReport(elements: AppElements, report: CustomWorkflowReport) {
+  const container = elements.customWorkflowResults;
+  container.innerHTML = "";
+
+  if (report.nodeCount === 0) {
+    return;
+  }
+
+  if (report.missingNodeClasses.length > 0) {
+    const missingSection = document.createElement("section");
+    missingSection.className = "panel-section settings-panel diagnostic-section diagnostic-scroll-safe";
+    missingSection.setAttribute("aria-label", "Missing node classes");
+
+    const missingHeading = document.createElement("div");
+    missingHeading.className = "section-heading";
+
+    const missingTitle = document.createElement("span");
+    missingTitle.className = "label";
+    missingTitle.textContent = "Not installed here";
+    missingHeading.append(missingTitle);
+    missingSection.append(missingHeading);
+
+    const list = document.createElement("div");
+    list.className = "diagnostics-line setup-paragraph";
+    list.textContent = report.missingNodeClasses.join(", ");
+    missingSection.append(list);
+
+    const hint = document.createElement("div");
+    hint.className = "diagnostics-line setup-paragraph";
+    hint.textContent =
+      "Install the node packs that provide these classes, then check again. ComfyUI Manager can search by node name.";
+    missingSection.append(hint);
+
+    container.append(missingSection);
+  }
+
+  const section = document.createElement("section");
+  section.className = "panel-section settings-panel diagnostic-section diagnostic-scroll-safe";
+  section.setAttribute("aria-label", "Workflow nodes");
+
+  const heading = document.createElement("div");
+  heading.className = "section-heading";
+
+  const title = document.createElement("span");
+  title.className = "label";
+  title.textContent = "Nodes";
+  heading.append(title);
+
+  const count = document.createElement("span");
+  count.className = "muted-label";
+  count.textContent = report.nodeCount === 1 ? "1 node" : `${report.nodeCount} nodes`;
+  heading.append(count);
+  section.append(heading);
+
+  for (const node of report.nodes) {
+    const line = document.createElement("div");
+    line.className = "diagnostics-line setup-paragraph";
+
+    const label = node.title ? `${node.classType} (${node.title})` : node.classType;
+    const verdict =
+      node.status === "ok"
+        ? "available"
+        : node.status === "missing-node"
+          ? "NOT INSTALLED"
+          : `missing required input: ${node.missingInputs.join(", ")}`;
+
+    line.textContent = `#${node.nodeId} ${label} - ${verdict}`;
+    section.append(line);
+  }
+
+  container.append(section);
 }
 
 function renderSetupSections(

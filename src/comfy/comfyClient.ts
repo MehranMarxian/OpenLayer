@@ -212,7 +212,6 @@ export class ComfyClient {
   async getWorkflowNodeAvailability(
     presets: readonly WorkflowPresetDefinition[]
   ): Promise<WorkflowNodeAvailability> {
-    const availability: WorkflowNodeAvailability = {};
     const nodeClasses = new Set<string>();
 
     for (const preset of presets) {
@@ -221,17 +220,35 @@ export class ComfyClient {
       }
     }
 
-    for (const classType of nodeClasses) {
+    return this.getNodeAvailability([...nodeClasses]);
+  }
+
+  /**
+   * The same question for an arbitrary list of class types, so a workflow
+   * OpenLayer did not author can be checked against this server.
+   *
+   * Records only the inputs ComfyUI marks *required*. A caller that treats the
+   * absence of an optional input as a fault repeats the mistake documented on
+   * the Klein edit preset, where it reported a working graph as broken.
+   *
+   * A class that does not exist is left out rather than recorded as empty.
+   * That matters more than it looks: `GET /object_info/<ClassName>` answers 200
+   * with an empty body for an unknown class, so presence of a *response* proves
+   * nothing and only the presence of the schema does.
+   */
+  async getNodeAvailability(classTypes: readonly string[]): Promise<WorkflowNodeAvailability> {
+    const availability: WorkflowNodeAvailability = {};
+
+    for (const classType of classTypes) {
       try {
         const objectInfo = await this.getObjectInfo(classType);
         const schema = objectInfo[classType];
-        const requiredInputs = schema?.input?.required ?? {};
 
         if (schema) {
-          availability[classType] = Object.keys(requiredInputs);
+          availability[classType] = Object.keys(schema.input?.required ?? {});
         }
       } catch {
-        // Missing node classes are reported by the workflow health evaluator.
+        // Missing node classes are reported by the caller, not here.
       }
     }
 

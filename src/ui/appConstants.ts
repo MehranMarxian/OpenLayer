@@ -68,6 +68,7 @@ export type AppView =
   | "live-painting"
   | "style-reference"
   | "workflow-presets"
+  | "custom-workflow"
   | "settings"
   | "setup"
   | "history"
@@ -188,9 +189,10 @@ export const TOOL_CARDS: ToolCard[] = [
   {
     id: "workflow",
     title: "Workflow",
-    subtitle: "Build and test custom ComfyUI graphs",
+    subtitle: "Check a custom ComfyUI graph against this server",
     icon: "workflow",
-    status: "coming-soon"
+    status: "available",
+    view: "custom-workflow"
   },
   {
     id: "layer-tools",
