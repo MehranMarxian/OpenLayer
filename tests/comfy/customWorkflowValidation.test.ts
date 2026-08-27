@@ -99,6 +99,27 @@ describe("evaluateCustomWorkflow", () => {
     expect(report.summaryLine).toContain("1 node class is not installed");
   });
 
+  /**
+   * A graph built entirely on an uninstalled node pack resolves nothing, which
+   * looks exactly like a server that stopped answering. This is a legitimate
+   * report about a real graph, not an error: the caller distinguishes the two
+   * by asking the server whether it is still there. An earlier guard in App.ts
+   * skipped that step and blamed the server for this case.
+   */
+  it("still reports normally when it recognises none of the classes", () => {
+    const report = evaluateCustomWorkflow(
+      {
+        "1": { class_type: "TotallyMadeUpNode", inputs: {} },
+        "2": { class_type: "AlsoNotRealNode", inputs: {} }
+      },
+      AVAILABILITY
+    );
+
+    expect(report.canRun).toBe(false);
+    expect(report.missingNodeClasses).toEqual(["AlsoNotRealNode", "TotallyMadeUpNode"]);
+    expect(report.summaryLine).toContain("2 node classes are not installed");
+  });
+
   it("flags a required input the graph never supplies", () => {
     const report = evaluateCustomWorkflow(
       { "6": { class_type: "CLIPTextEncode", inputs: { text: "a cat" } } },

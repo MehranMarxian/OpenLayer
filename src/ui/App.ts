@@ -4248,17 +4248,17 @@ export function renderApp(rootElement: HTMLElement) {
       const classTypes = listCustomWorkflowClassTypes(parsed.workflow);
       const availability = await client.getNodeAvailability(classTypes);
 
-      // A server that stops answering mid-check looks identical to a server
-      // that has none of these nodes, because the lookup swallows failures per
-      // class. Observed for real: with ComfyUI down this reported KSampler and
-      // LoadImage as "not installed". Nothing resolving at all is never a
-      // truthful answer about a real graph, so say the honest thing instead.
+      // A server that stopped answering mid-check looks identical to a server
+      // that genuinely has none of these nodes, because the lookup swallows
+      // failures one class at a time. Observed for real: with ComfyUI down this
+      // reported KSampler and LoadImage as "not installed".
+      //
+      // The two are told apart by asking the server whether it is still there.
+      // A graph built entirely on an uninstalled node pack also resolves
+      // nothing, and that one deserves the ordinary report naming the packs --
+      // an earlier version of this guard blamed the server for it.
       if (classTypes.length > 0 && Object.keys(availability).length === 0) {
-        throw createOpenLayerError(
-          "COMFY_OFFLINE",
-          "ComfyUI stopped answering while the workflow was being checked.",
-          "No node class could be looked up, which means the server went away rather than that the graph is unsupported."
-        );
+        await client.checkOnline();
       }
 
       const report = evaluateCustomWorkflow(parsed.workflow, availability);
