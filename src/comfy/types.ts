@@ -22,8 +22,7 @@ export type WorkflowPreset =
   | "inpaint-flux2-klein"
   | "outpaint-flux-fill-basic"
   | "upscale-basic"
-  | "style-reference-sd15"
-  | "style-reference-krea2";
+  | "style-reference-sd15";
 export type WorkflowMode =
   | "txt2img"
   | "img2img"

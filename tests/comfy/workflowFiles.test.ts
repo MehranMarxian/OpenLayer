@@ -43,10 +43,6 @@ const EXPECTED_CUSTOM_NODE_CLASSES = [
   "IPAdapterModelLoader",
   "InpaintCropImproved",
   "InpaintStitchImproved",
-  // nkxx188's Krea-2 style transfer, used only by the Krea-2 Style Reference
-  // route. Style Reference still has a working SD 1.5 preset without it.
-  "Krea2StyleReference",
-  "Krea2StyleTransfer",
   "Scribble_PiDiNet_Preprocessor",
   // Flux.2's quantised model. Note only the UNET loader appears: its text
   // encoder is a safetensors file read by core CLIPLoader, so CLIPLoaderGGUF is
