@@ -347,6 +347,9 @@ export type AppElements = {
   styleReferenceSourceTitle: HTMLElement;
   styleReferenceSourceMeta: HTMLElement;
   styleReferenceResultPreviewPanel: HTMLElement;
+  workflowPresetsView: HTMLElement;
+  workflowPresetsSummary: HTMLElement;
+  workflowPresetsList: HTMLElement;
 };
 
 export function createAppMarkup() {
@@ -1464,6 +1467,29 @@ export function createAppMarkup() {
         </section>
       </section>
 
+      <section class="workflow-presets-view setup-view" id="workflow-presets-view" aria-label="Workflow Presets" hidden>
+        <div class="screen-nav">
+          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
+          <div class="screen-title-block">
+            ${createScreenIconMarkup("control", "Workflow Presets")}
+            <span class="screen-title">Workflow Presets</span>
+          </div>
+        </div>
+
+        <section class="panel-section settings-panel diagnostic-section diagnostic-scroll-safe" aria-label="Workflow preset catalogue">
+          <div class="section-heading">
+            <span class="label">Every preset OpenLayer ships</span>
+            <span class="muted-label" id="workflow-presets-summary"></span>
+          </div>
+          <div class="diagnostics-line setup-paragraph">
+            These are the routes behind each tool's Workflow dropdown. Read from the plugin itself, so this list is
+            true whether or not ComfyUI is running. For what still needs downloading, open Setup.
+          </div>
+        </section>
+
+        <div id="workflow-presets-list"></div>
+      </section>
+
       <section class="setup-view" id="setup-view" aria-label="Setup" hidden>
         <div class="screen-nav">
           <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
@@ -2041,7 +2067,10 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     styleReferenceSourcePreviewPanel: getElement<HTMLElement>(rootElement, "style-reference-source-preview-panel"),
     styleReferenceSourceTitle: getElement<HTMLElement>(rootElement, "style-reference-source-title"),
     styleReferenceSourceMeta: getElement<HTMLElement>(rootElement, "style-reference-source-meta"),
-    styleReferenceResultPreviewPanel: getElement<HTMLElement>(rootElement, "style-reference-result-preview-panel")
+    styleReferenceResultPreviewPanel: getElement<HTMLElement>(rootElement, "style-reference-result-preview-panel"),
+    workflowPresetsView: getElement<HTMLElement>(rootElement, "workflow-presets-view"),
+    workflowPresetsSummary: getElement<HTMLElement>(rootElement, "workflow-presets-summary"),
+    workflowPresetsList: getElement<HTMLElement>(rootElement, "workflow-presets-list")
   };
 }
 

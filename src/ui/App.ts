@@ -69,8 +69,10 @@ import {
   getPresetTextOutputNodeId,
   getRecommendedPresetSettings,
   getWorkflowPreset,
+  listRunnableWorkflowPresets,
   listWorkflowPresets
 } from "../comfy/presetRegistry";
+import { createWorkflowPresetsView } from "./workflowPresetsModel";
 import {
   validateGenerationSettings,
   validateImageToImageSettings,
@@ -1628,6 +1630,9 @@ export function renderApp(rootElement: HTMLElement) {
   setStyleReferenceResult(null);
   setPromptLayerSource(null);
   updateSettingsReport(elements);
+  // Drawn once at startup rather than on every visit: it is built from the
+  // registry, which cannot change while the panel is open.
+  renderWorkflowPresets(elements);
   renderHardwareReport(elements, hardwareReport);
   renderWorkflowHealthReport(elements, workflowHealthReport);
   renderHistory(elements, historyEntries);
@@ -5322,6 +5327,7 @@ export function renderApp(rootElement: HTMLElement) {
     elements.promptFromLayerView.hidden = currentView !== "prompt-from-layer";
     elements.upscaleView.hidden = currentView !== "upscale";
     elements.styleReferenceView.hidden = currentView !== "style-reference";
+    elements.workflowPresetsView.hidden = currentView !== "workflow-presets";
     elements.livePaintingView.hidden = currentView !== "live-painting";
     elements.settingsView.hidden = currentView !== "settings";
     elements.setupView.hidden = currentView !== "setup";
@@ -6683,6 +6689,91 @@ type SetupInstallContext = {
   onStop: () => void;
   onConfirm: (item: AssistedInstallItem) => void;
 };
+
+/**
+ * Draws the Workflow Presets catalogue.
+ *
+ * Every string goes in through `textContent`, never `innerHTML`. These strings
+ * are registry prose -- descriptions and compatibility notes written for humans,
+ * containing quotes, slashes and the occasional angle bracket -- and the panel
+ * has no markdown renderer, so anything else would either escape wrongly or
+ * inject. `tests/ui/workflowPresetsModel.test.ts` holds the other end of that
+ * contract by refusing markup characters in the view model.
+ */
+function renderWorkflowPresets(elements: AppElements) {
+  const view = createWorkflowPresetsView(listRunnableWorkflowPresets());
+
+  elements.workflowPresetsSummary.textContent = view.summaryLine;
+
+  const container = elements.workflowPresetsList;
+  container.innerHTML = "";
+
+  for (const group of view.groups) {
+    const section = document.createElement("section");
+    section.className = "panel-section settings-panel diagnostic-section diagnostic-scroll-safe";
+    section.setAttribute("aria-label", `${group.toolLabel} presets`);
+
+    const heading = document.createElement("div");
+    heading.className = "section-heading";
+
+    const title = document.createElement("span");
+    title.className = "label";
+    title.textContent = group.toolLabel;
+    heading.append(title);
+
+    const count = document.createElement("span");
+    count.className = "muted-label";
+    count.textContent = group.rows.length === 1 ? "1 preset" : `${group.rows.length} presets`;
+    heading.append(count);
+
+    section.append(heading);
+
+    for (const row of group.rows) {
+      const nameLine = document.createElement("div");
+      nameLine.className = "section-heading";
+
+      const name = document.createElement("span");
+      name.className = "label";
+      name.textContent = row.displayName;
+      nameLine.append(name);
+
+      const status = document.createElement("span");
+      status.className = `status-pill ${row.statusTone === "stable" ? "ready" : "idle"}`;
+      status.textContent = row.statusLabel;
+      nameLine.append(status);
+
+      section.append(nameLine);
+
+      const description = document.createElement("div");
+      description.className = "diagnostics-line setup-paragraph";
+      description.textContent = row.description;
+      section.append(description);
+
+      const needs = document.createElement("div");
+      needs.className = "diagnostics-line setup-paragraph";
+      // The preset id is repeated here on purpose: it is what the tool screen's
+      // Workflow dropdown shows, so it is the only handle an artist has for
+      // matching a row to the thing they are about to pick.
+      needs.textContent = [
+        row.technicalId,
+        row.modelSummary,
+        row.customNodePackages.length > 0
+          ? `Custom nodes: ${row.customNodePackages.join(", ")}`
+          : "Core ComfyUI nodes only"
+      ].join(" | ");
+      section.append(needs);
+
+      if (row.note) {
+        const note = document.createElement("div");
+        note.className = "diagnostics-line setup-paragraph";
+        note.textContent = row.note;
+        section.append(note);
+      }
+    }
+
+    container.append(section);
+  }
+}
 
 function renderSetupSections(
   container: HTMLElement,

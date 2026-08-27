@@ -67,6 +67,7 @@ export type AppView =
   | "upscale"
   | "live-painting"
   | "style-reference"
+  | "workflow-presets"
   | "settings"
   | "setup"
   | "history"
@@ -179,9 +180,10 @@ export const TOOL_CARDS: ToolCard[] = [
   {
     id: "workflow-presets",
     title: "Workflow Presets",
-    subtitle: "Manage reusable ComfyUI workflows",
+    subtitle: "Browse every preset and what it needs",
     icon: "control",
-    status: "coming-soon"
+    status: "available",
+    view: "workflow-presets"
   },
   {
     id: "workflow",
