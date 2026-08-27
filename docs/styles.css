@@ -820,11 +820,10 @@ h3 {
 }
 
 .site-footer {
-  border-top: 1px solid var(--border);
   padding: 1.4rem clamp(1rem, 4vw, 2.4rem) 2rem;
   text-align: center;
   color: var(--quiet);
-  font-size: 0.85rem;
+  font-size: 0.95rem;
 }
 
 .site-footer p {

@@ -33,10 +33,10 @@
       "operatingSystem": "Windows, macOS",
       "applicationCategory": "DesignApplication",
       "applicationSubCategory": "Adobe Photoshop plugin",
-      "softwareVersion": "0.18.0-alpha",
+      "softwareVersion": "0.19.0-alpha",
       "description": "Open-source Photoshop UXP plugin that connects to a local ComfyUI server for AI image generation: text to image, image to image, sketch to image, inpaint, outpaint, and upscale with Stable Diffusion, SDXL, and Flux models.",
       "url": "https://mehran-ahmadi.com/OpenLayer/",
-      "downloadUrl": "https://github.com/MehranMarxian/OpenLayer/releases/tag/v0.18.0-alpha",
+      "downloadUrl": "https://github.com/MehranMarxian/OpenLayer/releases/tag/v0.19.0-alpha",
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
       "author": { "@type": "Person", "name": "Mehran Ahmadi", "url": "https://github.com/MehranMarxian" }
     }
@@ -65,7 +65,7 @@
     <main id="top">
       <section class="hero" aria-labelledby="hero-title">
         <div class="hero-copy">
-          <p class="hero-badge"><span class="pulse-dot" aria-hidden="true"></span> Alpha v0.18.0 · free &amp; open source</p>
+          <p class="hero-badge"><span class="pulse-dot" aria-hidden="true"></span> Alpha v0.19.0 · free &amp; open source</p>
           <h1 id="hero-title">Local AI layers,<br><span class="grad">inside Photoshop.</span></h1>
           <p class="hero-lede">
             OpenLayer connects Photoshop to <strong>your own ComfyUI server</strong>.
@@ -74,7 +74,7 @@
             <strong>No cloud. No credits. No subscription.</strong>
           </p>
           <div class="hero-actions">
-            <a class="button button-primary" href="https://github.com/MehranMarxian/OpenLayer/releases/tag/v0.18.0-alpha">Download alpha</a>
+            <a class="button button-primary" href="https://github.com/MehranMarxian/OpenLayer/releases/tag/v0.19.0-alpha">Download alpha</a>
             <a class="button button-secondary" href="https://github.com/MehranMarxian/OpenLayer">Star on GitHub</a>
           </div>
           <ul class="signal-list" aria-label="Project signals">
@@ -152,6 +152,11 @@
               <span class="tool-icon"><img src="assets/tools/live-painting.png" alt=""></span>
               <div><h3>Live Painting</h3><span class="chip chip-exp">Experimental</span></div>
               <p>Keep painting and OpenLayer keeps repainting — a fast local preview tier that follows your strokes, plus a slower Krea-2 Turbo refine pass on demand.</p>
+            </article>
+            <article class="tool-card">
+              <span class="tool-icon"><img src="assets/tools/multi-reference.png" alt=""></span>
+              <div><h3>Multi-Reference</h3><span class="chip chip-exp">Experimental</span></div>
+              <p>Capture several layers into an ordered list and compose them into one picture with FLUX.2 Klein — clothing, props, setting, and lighting carry across from each reference. A specific person's face does not; treat it as scene composition, not as a way to place someone recognisable into a picture.</p>
             </article>
             <article class="tool-card">
               <span class="tool-icon"><img src="assets/tools/layer-tools.png" alt=""></span>
@@ -285,7 +290,7 @@
             <article class="setup-step">
               <span>1</span>
               <h3>Download and double-click</h3>
-              <p>Grab <code>openlayer-v0.18.0-alpha.ccx</code> from the <a href="https://github.com/MehranMarxian/OpenLayer/releases/tag/v0.18.0-alpha">latest release</a> and double-click it. Creative Cloud installs the panel — no developer tools, nothing to build.</p>
+              <p>Grab <code>openlayer-v0.19.0-alpha.ccx</code> from the <a href="https://github.com/MehranMarxian/OpenLayer/releases/tag/v0.19.0-alpha">latest release</a> and double-click it. Creative Cloud installs the panel — no developer tools, nothing to build.</p>
             </article>
             <article class="setup-step">
               <span>2</span>
@@ -329,11 +334,15 @@
             </article>
             <article class="status-card">
               <h3>Testing alpha</h3>
-              <p>OpenLayer v0.18.0-alpha is for local testing and feedback. It is not production-ready yet.</p>
+              <p>OpenLayer v0.19.0-alpha is for local testing and feedback. It is not production-ready yet.</p>
+            </article>
+            <article class="status-card">
+              <h3>Multi-Reference composes; it does not preserve likeness</h3>
+              <p>48 test generations found clothing, props, setting, and lighting carry across from a reference layer — a specific person's face does not, even from a clean studio portrait. It is honest as a composition tool and should not be used expecting a recognisable result.</p>
             </article>
             <article class="status-card">
               <h3>Inpaint is experimental</h3>
-              <p>v0.18.0 retains the upload and alignment fixes while output quality across checkpoints continues to be validated by testers.</p>
+              <p>v0.19.0 retains the upload and alignment fixes while output quality across checkpoints continues to be validated by testers.</p>
             </article>
             <article class="status-card">
               <h3>Flux Fill is experimental</h3>
@@ -356,7 +365,7 @@
               <li>Inpaint and Outpaint should be tested on duplicate layers first.</li>
               <li>Prompt from Layer requires the local Florence-2 PromptGen model and the comfyui-florence2 nodes. The custom-scripts pack is no longer needed.</li>
               <li>Upscale uses pixel/model upscale only. Generative upscale, tiled diffusion, and creative enhancement are future work.</li>
-              <li>Custom workflow import, batch variants, and true persistent Photoshop AI layer metadata are future work. v0.18.0 keeps the shared metadata foundation and session-history wiring.</li>
+              <li>Custom workflow import, batch variants, and true persistent Photoshop AI layer metadata are future work. v0.19.0 keeps the shared metadata foundation and session-history wiring.</li>
               <li>The LoRA list cannot be filtered by which model a LoRA suits: ComfyUI reports only a name and size. Entries are labelled from their filenames and likely matches sorted first, but a mismatched LoRA loads without error and quietly does nothing.</li>
               <li>CI does not run Photoshop, UXP, or ComfyUI integration tests.</li>
               <li>Live sampler previews require ComfyUI to be started with <code>--preview-method auto</code>.</li>
@@ -364,6 +373,7 @@
               <li>The ComfyUI setup pack ships the requirements list and a downloader, not the model weights. An internet connection is required.</li>
               <li>The Setup screen downloads models but not custom node packages, which keep Copy Link and go through ComfyUI-Manager. It also refuses to fetch licence-gated weights, because an unauthenticated download saves a sign-in page under the model's filename rather than a model.</li>
               <li>The Agent Bridge is not part of the <code>.ccx</code>/<code>.zip</code> download &mdash; a Photoshop plugin package cannot start a Node program, so it lives in the repository. The panel asking the assistant for a prompt additionally depends on the AI client supporting MCP sampling, which is optional in the protocol.</li>
+              <li>Multi-Reference's list is capped at 8 references, a sanity bound rather than a measured limit &mdash; testing found no reference count, up to 6, at which composition quality fell off. Reference order matters more than count: an object that has to sit behind the other subjects renders more reliably earlier in the list.</li>
             </ul>
           </details>
         </div>
@@ -417,6 +427,10 @@
               <p>An optional LoRA on eleven presets, two new Sketch to Image ControlNet presets, and a Setup screen that downloads missing models itself from the project's own pinned URLs instead of only telling you where to find them.</p>
             </article>
             <article>
+              <h3>v0.19 · Multi-reference composition</h3>
+              <p>Compose one image from an ordered list of captured layers with FLUX.2 Klein, gated on 48 live test generations before any screen was built: reference order affects output more than reference count, and a specific person's likeness does not carry the way clothing and setting do.</p>
+            </article>
+            <article>
               <h3>Next · Reliability and artist control</h3>
               <p>Finish Inpaint and Outpaint alignment, strengthen workflow validation, and turn the metadata foundation into repeatable layer-level iteration.</p>
             </article>
@@ -445,7 +459,7 @@
     </main>
 
     <footer class="site-footer">
-      <p>OpenLayer v0.18.0-alpha. Developed by Mehran Ahmadi, 2026.</p>
+      <p>OpenLayer v0.19.0-alpha. Developed by Mehran Ahmadi, 2026.</p>
       <p>
         <a href="https://github.com/MehranMarxian">GitHub</a> &middot;
         <a href="./privacy.html">Privacy Policy</a> &middot;
