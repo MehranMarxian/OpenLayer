@@ -7033,16 +7033,23 @@ body,
 .app-shell.theme-compact .app-footer,
 .app-shell.theme-compact .ol-footer {
   flex: 0 0 auto !important;
-  min-height: 12px !important;
-  height: 14px !important;
-  max-height: 14px !important;
+  min-height: 16px !important;
+  height: 18px !important;
+  max-height: 18px !important;
   margin: 0 !important;
   padding: 1px 2px 2px !important;
   overflow: hidden !important;
-  border-top: 1px solid var(--ol-border-soft) !important;
+  /*
+   * `none` rather than simply omitting the property: an earlier `!important`
+   * rule at the same specificity (`.app-shell.theme-compact .app-footer,
+   * .app-shell.theme-compact .ol-footer`) already declares a border-top, and
+   * omitting the property here just falls through to that one rather than
+   * clearing it -- confirmed live in the browser before landing on this.
+   */
+  border-top: none !important;
   background: var(--ol-bg) !important;
-  font-size: var(--fs-micro) !important;
-  line-height: 10px !important;
+  font-size: var(--fs-sm) !important;
+  line-height: 14px !important;
 }
 
 .app-shell.theme-compact .app-footer span {
