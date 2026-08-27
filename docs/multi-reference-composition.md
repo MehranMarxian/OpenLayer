@@ -8,6 +8,13 @@ compose them with a prompt:
 
 This document is the plan. Nothing in it is built yet.
 
+> **Read the gate findings first.**
+> [`multi-reference-gate-findings.md`](multi-reference-gate-findings.md) answered all
+> four open questions on 2026-08-27 and moved two of them. The important one: on
+> **real photographs**, wardrobe, props and setting transfer but the specific face
+> does not. The example above still works as a composition; it does not put a
+> particular man and woman in the frame. Nothing user-facing may promise likeness.
+
 ## Why this is its own tool, not a preset
 
 Every capture path in OpenLayer today produces **one** source image. Image to
@@ -93,11 +100,13 @@ Answered 2026-08-27 -- full results, seeds and controls in
    objects, and it tracks the kind of object, not the count: a bicycle that has to
    sit behind the couple broke at four references on 3/3 seeds, while a dog and a
    hat were clean at five. Reordering the chain fixed it.
-2. **Does identity hold on real photographs of specific people?** STILL OPEN --
-   every source tested was model-generated. A deliberately messy candid source
-   (cluttered kitchen, tungsten light) carried perfectly, which covers the hard
-   part of real-photo conditions, but real photographs have not been tested. This
-   remains the gate on whether the feature is useful rather than fun.
+2. **Does identity hold on real photographs of specific people?** ANSWERED -- **no.**
+   Four real CC-licensed photographs, control/variant, two seeds: wardrobe, props,
+   hair, build and photographic era all transferred, and the specific face did not,
+   every time. Even a clean square frontal studio portrait came back re-imagined.
+   The model reproduces its own generated output far more faithfully than a
+   photograph. The feature still works as *composition* -- it cannot be sold as
+   likeness.
 3. **How sensitive is it to prompt phrasing?** ANSWERED -- barely. Positional
    wording is decorative: deliberately swapping "second"/"third" changed nothing,
    claiming the background from the wrong slot changed nothing, and dropping

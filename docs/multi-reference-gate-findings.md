@@ -49,27 +49,54 @@ the reason the plan gave (see Q3).
 
 ## Q2 -- Does identity hold on real photographs?
 
-**Answer: not established. This is the one gate question still open.**
+**Answer: no -- not the way it holds on generated sources. Everything about a person
+transfers except their face.** This is the one result that should change how v0.19 is
+described.
 
-Every source used here was model-generated, so the result carries the same caveat the
-plan raised: the model may simply find its own output easy to reproduce.
+Tested against four real photographs from Wikimedia Commons (licences and attribution
+in `real_manifest.json`): a modern CC0 studio portrait of a young man, a modern CC0
+outdoor candid of a deeply weathered elderly man, and two archival Wellcome
+Collection photographic portraits (CC BY 4.0, both sepia).
 
-The closest available proxy did pass. A deliberately "candid" source -- a bearded man
-in a mustard sweater in a cluttered kitchen, tungsten-lit, non-studio framing --
-carried face, beard and knitwear texture intact onto the beach at two seeds. That is
-evidence that identity survives messy, uncontrolled source conditions, which is the
-hard part of real-photo transfer. It is **not** evidence that it survives a real
-camera's noise, optics and a real person's face.
+The control makes the reference's contribution unambiguous. Control is the background
+reference **alone** with "a person is standing on the beach"; the variant adds the
+person reference and changes nothing else. The control produced a generic woman in a
+white t-shirt, so everything below is the reference doing the work.
 
-Answering this properly needs actual photographs. Two ways to get them, both needing
-your call:
+| Source | What transferred | What did not |
+| --- | --- | --- |
+| Modern studio portrait, young man | cream crewneck sweater exactly, dark cropped hair, stubble, build, age | **the face** -- narrower, longer nose, different smile; a similar-looking man, not the same one |
+| Modern candid, weathered elderly man | red striped garment with its white piping, wispy grey hair, warm skin | **the weathering** -- deep-set wrinkles smoothed away, reads 15-20 years younger |
+| Archival sepia, walrus moustache | tweed three-piece, collar and tie, the moustache, swept-back greying hair | **the face** -- different eyes and nose; an actor in the costume |
+| Archival sepia, hooded man with prayer wheel | pointed hood, wrapped robes, chevron shawl, prayer wheel, beads, goatee | **the face** -- drifted from East Asian toward European features |
 
-- Photographs you own or have rights to (the most representative test -- real people
-  you can judge the likeness of).
-- Public-domain / CC portraits from Wikimedia Commons, which means downloading files;
-  worth doing only if you would rather not use personal photos.
+Consistent at both seeds tested, and consistent across all four subjects. A two-person
+run composed correctly -- both men side by side, correct wardrobe each, coherent
+sunset light -- with the same caveat: right people-shaped placeholders, wrong faces.
 
-Until this is answered the feature's value is unproven, exactly as the plan said.
+The cleanest source is the most damning. The modern studio portrait is square,
+frontal, evenly lit and sharp -- as close to an ideal input as an artist could supply
+-- and its face still came back re-imagined. So this is not a framing, crop or
+resolution problem that better inputs would fix.
+
+Worth noting for anything user-facing: **the model silently colourises monochrome
+sources.** Both sepia portraits came back in full colour, matched to the scene.
+
+### What this means
+
+Compare against the generated sources in Q1, where the blond man's face and the
+curly-haired woman's face came back crisply the same across dozens of runs. That gap
+is exactly the one the plan worried about, and it is real: the model reproduces its
+own output far more faithfully than it reproduces a photograph.
+
+So the honest framing for v0.19 is **composition and wardrobe transfer, not "put these
+people in a scene."** Hand it three layers and it will build a coherent picture with
+the right clothes, props, setting and lighting -- and faces that are plausible rather
+than particular. Anyone expecting to place a specific person, a client, a family
+member, themselves, will be disappointed, and the UI copy has to say so before they
+find out the hard way.
+
+This does not kill the feature. It does mean the subtitle cannot promise likeness.
 
 ## Q3 -- How sensitive is it to prompt phrasing?
 
@@ -134,8 +161,13 @@ hand over whole layers. That removes an entire subsystem from the plan.
 - **Keep** reorder, but justify it by canvas size and object coherence (Q1), not by
   prompt binding.
 - **Do not** cap the reference list at a fixed small number (Q1).
-- **Still open:** real-photograph identity (Q2) -- the plan's own gate on whether this
-  is a fun tool or a useful one.
+- **Rename and re-describe the feature** (Q2). "Multi-reference composition" is
+  accurate; anything implying likeness is not. The tool composes a scene from several
+  layers and carries wardrobe, props and setting -- it does not place a specific
+  person. That belongs in the subtitle, not in a support thread six months from now.
+- **Decide whether that is still the v0.19 headline.** The plan gated the UI work on
+  this question, and the answer came back weaker than hoped. The feature is real and
+  worth shipping, but it is a smaller claim than "the man from the second image."
 
 ## Side note for the setup docs
 
