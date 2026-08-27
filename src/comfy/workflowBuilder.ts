@@ -22,9 +22,11 @@ import inpaintFlux2KleinWorkflow from "../workflows/api/inpaint-flux2-klein.json
 import outpaintFluxFillBasicWorkflow from "../workflows/api/outpaint-flux-fill-basic.json";
 import upscaleBasicWorkflow from "../workflows/api/upscale-basic.json";
 import styleReferenceSd15Workflow from "../workflows/api/style-reference-sd15.json";
+import multiReferenceFlux2KleinWorkflow from "../workflows/api/multi-reference-flux2-klein.json";
 import {
   BuildInpaintWorkflowOptions,
   BuildImageToImageWorkflowOptions,
+  BuildMultiReferenceWorkflowOptions,
   BuildOutpaintWorkflowOptions,
   BuildPromptFromLayerWorkflowOptions,
   BuildSketchToImageWorkflowOptions,
@@ -33,6 +35,7 @@ import {
   BuildWorkflowOptions,
   BuildWorkflowResult,
   ComfyWorkflow,
+  ComfyWorkflowNode,
   WorkflowLoraSelection,
   WorkflowPreset,
   WorkflowPresetDefinition,
@@ -68,7 +71,8 @@ const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
   "inpaint-flux2-klein": inpaintFlux2KleinWorkflow as ComfyWorkflow,
   "outpaint-flux-fill-basic": outpaintFluxFillBasicWorkflow as ComfyWorkflow,
   "upscale-basic": upscaleBasicWorkflow as ComfyWorkflow,
-  "style-reference-sd15": styleReferenceSd15Workflow as ComfyWorkflow
+  "style-reference-sd15": styleReferenceSd15Workflow as ComfyWorkflow,
+  "multi-reference-flux2-klein": multiReferenceFlux2KleinWorkflow as ComfyWorkflow
 };
 
 export async function buildTxt2ImgWorkflow(options: BuildWorkflowOptions): Promise<BuildWorkflowResult> {
@@ -220,6 +224,46 @@ export async function buildStyleReferenceWorkflow(
   setPresetInput(workflow, preset, "steps", options.steps, true);
   setPresetInput(workflow, preset, "cfg", options.cfg, true);
   setPresetInput(workflow, preset, "controlStrength", options.controlStrength, true);
+
+  validateWorkflowForPreset(workflow, preset);
+
+  return {
+    workflow,
+    seed,
+    preset
+  };
+}
+
+export async function buildMultiReferenceWorkflow(
+  options: BuildMultiReferenceWorkflowOptions
+): Promise<BuildWorkflowResult> {
+  const preset = getWorkflowPreset(options.presetId ?? "multi-reference-flux2-klein");
+  assertPresetMode(preset, "multi-reference");
+  assertPresetRunnable(preset);
+  const workflow = await cloneWorkflowTemplate(preset);
+  const seed = options.seed;
+
+  validateWorkflowForPreset(workflow, preset);
+  applyRequiredModelSelections(workflow, preset, options.requiredModelSelections);
+
+  if (options.checkpointName) {
+    setPresetInput(workflow, preset, "checkpoint", options.checkpointName, true);
+  }
+
+  // Reference 1 goes in through the ordinary single-source injection; the rest
+  // are wired by applyReferenceChain, which reads the same list.
+  setPresetInput(workflow, preset, "sourceImage", options.referenceImageNames[0] ?? "", true);
+  setPresetInput(workflow, preset, "positivePrompt", options.prompt, true);
+  setPresetInput(workflow, preset, "negativePrompt", options.negativePrompt ?? "");
+  setPresetInput(workflow, preset, "seed", seed, true);
+  setPresetInput(workflow, preset, "steps", options.steps, true);
+  setPresetInput(workflow, preset, "cfg", options.cfg, true);
+
+  // After the value injections, for the same ordering reason as the LoRA: this
+  // rewires the sampler's conditioning inputs, and a later injection into them
+  // would silently drop every reference past the first.
+  applyReferenceChain(workflow, preset, options.referenceImageNames);
+  applyLoraSelection(workflow, preset, options.lora);
 
   validateWorkflowForPreset(workflow, preset);
 
@@ -458,6 +502,140 @@ function applyLoraSelection(
   for (const consumer of insertion.clipConsumers) {
     setInput(workflow, consumer.nodeId, consumer.inputName, [insertion.nodeId, 1]);
   }
+}
+
+/**
+ * Grows the shipped single reference slot into a chain, one link per captured
+ * layer, and points the sampler at the end of it.
+ *
+ * The shipped graph already contains reference 1 wired end to end, and its
+ * filename arrives through the ordinary `sourceImage` injection, so this only
+ * has work to do from reference 2 onwards. Each additional reference clones
+ * slot 1's `LoadImage -> ImageScaleToTotalPixels -> VAEEncode` triple -- cloning
+ * rather than building from scratch keeps the megapixel normalisation and the
+ * VAE edge identical to the validated graph without restating them here -- and
+ * adds a `ReferenceLatent` to each conditioning branch.
+ *
+ * Reference 1 stays the size source: `GetImageSize` reads its scaled image, so
+ * nothing here touches the latent dimensions.
+ */
+function applyReferenceChain(
+  workflow: ComfyWorkflow,
+  preset: WorkflowPresetDefinition,
+  referenceImageNames: readonly string[]
+) {
+  const chain = preset.referenceChain;
+
+  if (!chain) {
+    throw createOpenLayerError(
+      "WORKFLOW_INVALID",
+      `The ${preset.id} preset does not support multiple references.`,
+      `Add a referenceChain entry for ${preset.id} in src/comfy/presetRegistry.ts.`
+    );
+  }
+
+  if (referenceImageNames.length === 0) {
+    throw createOpenLayerError(
+      "WORKFLOW_INVALID",
+      "Multi-reference composition needs at least one reference layer.",
+      "Capture a layer into the reference list before composing."
+    );
+  }
+
+  if (referenceImageNames.length > chain.maximumReferences) {
+    throw createOpenLayerError(
+      "WORKFLOW_INVALID",
+      `Multi-reference composition accepts at most ${chain.maximumReferences} references, but ${referenceImageNames.length} were supplied.`,
+      "Remove a reference from the list, or raise maximumReferences in src/comfy/presetRegistry.ts."
+    );
+  }
+
+  const templates = {
+    load: requireNode(workflow, chain.loadImage, preset),
+    scale: requireNode(workflow, chain.scale, preset),
+    encode: requireNode(workflow, chain.encode, preset)
+  };
+
+  let positiveTail = chain.referenceIntoPositive;
+  let negativeTail = chain.referenceIntoNegative;
+
+  for (let index = 1; index < referenceImageNames.length; index += 1) {
+    const slot = index + 1;
+    const ids = {
+      load: `${chain.generatedNodeIdPrefix}${slot}load`,
+      scale: `${chain.generatedNodeIdPrefix}${slot}scale`,
+      encode: `${chain.generatedNodeIdPrefix}${slot}encode`,
+      positive: `${chain.generatedNodeIdPrefix}${slot}pos`,
+      negative: `${chain.generatedNodeIdPrefix}${slot}neg`
+    };
+
+    for (const id of Object.values(ids)) {
+      // A collision would overwrite a real node and still pass validation,
+      // which only checks that the required nodes are present.
+      if (workflow[id]) {
+        throw createOpenLayerError(
+          "WORKFLOW_INVALID",
+          `The ${preset.id} workflow already uses node ${id}.`,
+          `Give ${preset.id}'s referenceChain an unused generatedNodeIdPrefix in src/comfy/presetRegistry.ts.`
+        );
+      }
+    }
+
+    workflow[ids.load] = cloneNode(templates.load, `Load Reference ${slot}`);
+    workflow[ids.load].inputs.image = referenceImageNames[index];
+
+    workflow[ids.scale] = cloneNode(templates.scale, `Normalise Reference ${slot} To 1 MP`);
+    workflow[ids.scale].inputs.image = [ids.load, 0];
+
+    workflow[ids.encode] = cloneNode(templates.encode, `Encode Reference ${slot}`);
+    workflow[ids.encode].inputs.pixels = [ids.scale, 0];
+
+    workflow[ids.positive] = {
+      class_type: "ReferenceLatent",
+      inputs: {
+        conditioning: [positiveTail, 0],
+        latent: [ids.encode, 0]
+      },
+      _meta: { title: `Reference ${slot} Into Positive` }
+    };
+
+    workflow[ids.negative] = {
+      class_type: "ReferenceLatent",
+      inputs: {
+        conditioning: [negativeTail, 0],
+        latent: [ids.encode, 0]
+      },
+      _meta: { title: `Reference ${slot} Into Negative` }
+    };
+
+    positiveTail = ids.positive;
+    negativeTail = ids.negative;
+  }
+
+  setInput(workflow, chain.positiveConsumer.nodeId, chain.positiveConsumer.inputName, [positiveTail, 0]);
+  setInput(workflow, chain.negativeConsumer.nodeId, chain.negativeConsumer.inputName, [negativeTail, 0]);
+}
+
+function requireNode(workflow: ComfyWorkflow, nodeId: string, preset: WorkflowPresetDefinition) {
+  const node = workflow[nodeId];
+
+  if (!node) {
+    throw createOpenLayerError(
+      "WORKFLOW_INVALID",
+      `Workflow node ${nodeId} was not found.`,
+      `Update ${preset.id}'s referenceChain in presetRegistry.ts to match the exported ComfyUI workflow.`
+    );
+  }
+
+  return node;
+}
+
+function cloneNode(node: ComfyWorkflowNode, title: string): ComfyWorkflowNode {
+  return {
+    class_type: node.class_type,
+    inputs: JSON.parse(JSON.stringify(node.inputs)) as Record<string, unknown>,
+    _meta: { title }
+  };
 }
 
 function applyRequiredModelSelections(

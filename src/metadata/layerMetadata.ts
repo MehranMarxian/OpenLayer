@@ -6,7 +6,8 @@ export type OpenLayerMetadataToolType =
   | "outpaint"
   | "prompt-from-layer"
   | "upscale"
-  | "style-reference";
+  | "style-reference"
+  | "multi-reference";
 
 export type OpenLayerLayerBounds = {
   left: number;
@@ -269,6 +270,8 @@ function formatToolType(toolType: OpenLayerMetadataToolType) {
       return "Upscale";
     case "style-reference":
       return "Style Reference";
+    case "multi-reference":
+      return "Multi-Reference Composition";
     default:
       return "OpenLayer";
   }

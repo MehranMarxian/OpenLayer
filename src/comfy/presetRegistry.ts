@@ -592,6 +592,25 @@ const FLUX2_KLEIN_IMG2IMG_NODES = {
 // source is supplied as *conditioning* through ReferenceLatent on both
 // branches, so the model is free to follow the instruction while still being
 // told what the scene is.
+const FLUX2_KLEIN_MULTI_REFERENCE_NODES = {
+  diffusionModelLoader: "20",
+  clipLoader: "21",
+  vaeLoader: "22",
+  modelSampling: "23",
+  loadImage: "30",
+  referenceScale: "40",
+  vaeEncode: "50",
+  positivePrompt: "6",
+  negativePrompt: "7",
+  referenceIntoPositive: "60",
+  referenceIntoNegative: "70",
+  canvasSize: "13",
+  latentImage: "5",
+  sampler: "3",
+  decode: "8",
+  saveImage: "9"
+} as const;
+
 const FLUX2_KLEIN_EDIT_NODES = {
   diffusionModelLoader: "20",
   clipLoader: "21",
@@ -1026,6 +1045,21 @@ const FLUX2_KLEIN_IMG2IMG_INJECTIONS = {
   steps: target(FLUX2_KLEIN_IMG2IMG_NODES.sampler, "steps"),
   cfg: target(FLUX2_KLEIN_IMG2IMG_NODES.sampler, "cfg"),
   denoise: target(FLUX2_KLEIN_IMG2IMG_NODES.sampler, "denoise")
+} as const;
+
+const FLUX2_KLEIN_MULTI_REFERENCE_INJECTIONS = {
+  checkpoint: target(FLUX2_KLEIN_MULTI_REFERENCE_NODES.diffusionModelLoader, "unet_name"),
+  // Reference 1 only. References 2..n do not exist in the shipped graph -- the
+  // builder clones this node for each of them, so they are wired rather than
+  // injected. See applyReferenceChain in workflowBuilder.ts.
+  sourceImage: target(FLUX2_KLEIN_MULTI_REFERENCE_NODES.loadImage, "image"),
+  positivePrompt: target(FLUX2_KLEIN_MULTI_REFERENCE_NODES.positivePrompt, "text"),
+  negativePrompt: target(FLUX2_KLEIN_MULTI_REFERENCE_NODES.negativePrompt, "text"),
+  seed: target(FLUX2_KLEIN_MULTI_REFERENCE_NODES.sampler, "seed"),
+  steps: target(FLUX2_KLEIN_MULTI_REFERENCE_NODES.sampler, "steps"),
+  cfg: target(FLUX2_KLEIN_MULTI_REFERENCE_NODES.sampler, "cfg")
+  // No denoise and no width/height, for the same reason as edit-flux2-klein:
+  // denoise 1 is the technique, and the canvas comes from reference 1.
 } as const;
 
 const FLUX2_KLEIN_EDIT_INJECTIONS = {
@@ -1568,6 +1602,31 @@ const FLUX2_KLEIN_EDIT_CAPABILITY: WorkflowCapability = {
     hiddenControls: ["denoise"],
     experimentalNote:
       "Instruction editing, not image-to-image. Write what you want CHANGED -- \"make the jacket red\", \"remove the parked car\", \"turn the sky to dusk\" -- rather than describing the whole picture. The rest of the frame is held by reference conditioning rather than by a low denoise, so it stays put far better than the image-to-image preset while still obeying the instruction. Denoise is hidden because it is fixed at 1; that is the technique, not a default."
+  }
+};
+
+const FLUX2_KLEIN_MULTI_REFERENCE_CAPABILITY: WorkflowCapability = {
+  toolType: "multi-reference",
+  loaderType: "diffusion-model-stack",
+  artistLabel: "Multi-Reference Composition",
+  technicalLabel: "multi-reference-flux2-klein",
+  // Deliberately empty. Every other captured-source preset names one Photoshop
+  // input it needs; this one needs a list the artist builds by hand, so the
+  // readiness check lives in the panel rather than in a single-input rule.
+  requiredPhotoshopInputs: [],
+  controls: ["prompt", "negativePrompt", "steps", "cfg", "seed"],
+  output: {
+    kind: "full-image",
+    size: "first-reference",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Klein model",
+    primaryActionLabel: "Compose",
+    hiddenControls: ["denoise", "width", "height"],
+    experimentalNote:
+      "Composes one picture out of several layers. Clothing, props, setting and lighting all carry across; faces do not -- a person in a reference comes back as a plausible stranger rather than themselves, so this cannot place a specific person. Reference 1 sets the output size. Order matters: if an object behind the subjects comes out duplicated or stretched, move it earlier in the list."
   }
 };
 
@@ -3042,6 +3101,121 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     ],
     compatibilityNote:
       "FLUX.2 Klein 4B is a diffusion model stack, not a checkpoint: UNETLoader, CLIPLoader with type flux2, and VAELoader. It shares qwen_3_4b.safetensors with the Z_image_Turbo stack, so a user who already has that preset downloads only the 4 GB model and the 336 MB Flux.2 VAE. The latent is EmptyFlux2LatentImage rather than EmptySD3LatentImage -- Flux.2's latent geometry differs, and the SD3 node produces a tensor the sampler silently mis-shapes. Sampler settings are the distilled operating point: 4 steps, CFG 1, er_sde, simple, with ModelSamplingAuraFlow shift 3. Klein is Apache-2.0 and ungated, unlike FLUX.1-dev and FLUX.2-dev. This preset re-encodes the captured layer with VAEEncode and samples at a denoise below 1, which is the ordinary image-to-image trade: low denoise preserves the source but barely listens to the prompt, high denoise obeys the prompt but discards the source."
+  },
+  {
+    id: "multi-reference-flux2-klein",
+    label: "multi-reference-flux2-klein",
+    displayName: "FLUX.2 Klein (composition)",
+    mode: "multi-reference",
+    description:
+      "Composes several captured layers into one picture by chaining a ReferenceLatent per layer onto both conditioning branches. Carries wardrobe, props and setting; does not carry faces.",
+    workflowFile: "workflows/api/multi-reference-flux2-klein.json",
+    status: "experimental",
+    recommendedSettings: { steps: 4, cfg: 1 },
+    supportedModelFamilies: ["flux2"],
+    experimentalModelFamilies: ["unknown"],
+    modelSource: DIFFUSION_MODEL_SOURCE,
+    capability: FLUX2_KLEIN_MULTI_REFERENCE_CAPABILITY,
+    modelStack: [...FLUX2_KLEIN_4B_STACK],
+    requiredModels: [...FLUX2_KLEIN_4B_STACK],
+    injections: FLUX2_KLEIN_MULTI_REFERENCE_INJECTIONS,
+    referenceChain: {
+      loadImage: FLUX2_KLEIN_MULTI_REFERENCE_NODES.loadImage,
+      scale: FLUX2_KLEIN_MULTI_REFERENCE_NODES.referenceScale,
+      encode: FLUX2_KLEIN_MULTI_REFERENCE_NODES.vaeEncode,
+      referenceIntoPositive: FLUX2_KLEIN_MULTI_REFERENCE_NODES.referenceIntoPositive,
+      referenceIntoNegative: FLUX2_KLEIN_MULTI_REFERENCE_NODES.referenceIntoNegative,
+      positiveConsumer: target(FLUX2_KLEIN_MULTI_REFERENCE_NODES.sampler, "positive"),
+      negativeConsumer: target(FLUX2_KLEIN_MULTI_REFERENCE_NODES.sampler, "negative"),
+      // Every shipped id in this graph is numeric, so a "ref" prefix cannot
+      // collide with one however many references are added.
+      generatedNodeIdPrefix: "ref",
+      maximumReferences: 8
+    },
+    requiredNodes: [
+      {
+        id: FLUX2_KLEIN_MULTI_REFERENCE_NODES.diffusionModelLoader,
+        classType: "UNETLoader",
+        requiredInputs: ["unet_name", "weight_dtype"]
+      },
+      {
+        id: FLUX2_KLEIN_MULTI_REFERENCE_NODES.clipLoader,
+        classType: "CLIPLoader",
+        requiredInputs: ["clip_name", "type"]
+      },
+      {
+        id: FLUX2_KLEIN_MULTI_REFERENCE_NODES.vaeLoader,
+        classType: "VAELoader",
+        requiredInputs: ["vae_name"]
+      },
+      {
+        id: FLUX2_KLEIN_MULTI_REFERENCE_NODES.modelSampling,
+        classType: "ModelSamplingAuraFlow",
+        requiredInputs: ["model", "shift"]
+      },
+      {
+        id: FLUX2_KLEIN_MULTI_REFERENCE_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: FLUX2_KLEIN_MULTI_REFERENCE_NODES.referenceScale,
+        classType: "ImageScaleToTotalPixels",
+        requiredInputs: ["image", "upscale_method", "megapixels"]
+      },
+      {
+        id: FLUX2_KLEIN_MULTI_REFERENCE_NODES.vaeEncode,
+        classType: "VAEEncode",
+        requiredInputs: ["pixels", "vae"]
+      },
+      {
+        id: FLUX2_KLEIN_MULTI_REFERENCE_NODES.canvasSize,
+        classType: "GetImageSize",
+        requiredInputs: ["image"]
+      },
+      {
+        id: FLUX2_KLEIN_MULTI_REFERENCE_NODES.positivePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: FLUX2_KLEIN_MULTI_REFERENCE_NODES.negativePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: FLUX2_KLEIN_MULTI_REFERENCE_NODES.referenceIntoPositive,
+        classType: "ReferenceLatent",
+        requiredInputs: ["conditioning"]
+      },
+      {
+        id: FLUX2_KLEIN_MULTI_REFERENCE_NODES.referenceIntoNegative,
+        classType: "ReferenceLatent",
+        requiredInputs: ["conditioning"]
+      },
+      {
+        id: FLUX2_KLEIN_MULTI_REFERENCE_NODES.latentImage,
+        classType: "EmptyFlux2LatentImage",
+        requiredInputs: ["width", "height", "batch_size"]
+      },
+      {
+        id: FLUX2_KLEIN_MULTI_REFERENCE_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["seed", "steps", "cfg", "sampler_name", "scheduler", "denoise"]
+      },
+      {
+        id: FLUX2_KLEIN_MULTI_REFERENCE_NODES.decode,
+        classType: "VAEDecode",
+        requiredInputs: ["samples", "vae"]
+      },
+      {
+        id: FLUX2_KLEIN_MULTI_REFERENCE_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images"]
+      }
+    ],
+    compatibilityNote:
+      "Same Klein 4B stack as the other Flux.2 Klein presets, so it downloads nothing extra for anyone who already has them, and every node is core ComfyUI -- ReferenceLatent, ImageScaleToTotalPixels and GetImageSize all ship with ComfyUI itself. The graph is the one validated in docs/multi-reference-gate-findings.md: each reference is normalised to 1 MP, VAE-encoded, and chained onto BOTH conditioning branches, sampled at denoise 1 from an empty latent sized by reference 1. Gate testing across 48 live runs found no reference count at which identity degrades, so the maximumReferences of 8 is a sanity bound and not a quality cliff. It also found the limits worth stating plainly: faces are not carried, and a wide thin object that must sit behind the subjects can duplicate unless it is moved earlier in the chain.",
   },
   {
     // Deliberately not named img2img-*: it sits in the Image to Image tool and

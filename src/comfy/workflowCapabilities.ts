@@ -13,7 +13,8 @@ const MODE_LABELS: Record<WorkflowPresetDefinition["mode"], string> = {
   outpaint: "Outpaint",
   prompt: "Prompt from Layer",
   upscale: "Upscale",
-  "style-reference": "Style Reference"
+  "style-reference": "Style Reference",
+  "multi-reference": "Multi-Reference Composition"
 };
 
 const DEFAULT_CONTROLS: Record<WorkflowPresetDefinition["mode"], readonly WorkflowControlId[]> = {
@@ -35,7 +36,9 @@ const DEFAULT_CONTROLS: Record<WorkflowPresetDefinition["mode"], readonly Workfl
   ],
   prompt: ["task", "numBeams", "seed"],
   upscale: [],
-  "style-reference": ["prompt", "negativePrompt", "width", "height", "steps", "cfg", "seed", "controlStrength"]
+  "style-reference": ["prompt", "negativePrompt", "width", "height", "steps", "cfg", "seed", "controlStrength"],
+  // No width/height: reference 1 sets the canvas. No denoise: it is fixed at 1.
+  "multi-reference": ["prompt", "negativePrompt", "steps", "cfg", "seed"]
 };
 
 export function getWorkflowCapability(preset: WorkflowPresetDefinition): WorkflowCapability {
