@@ -13,6 +13,10 @@ export const DEFAULT_OUTPAINT_WORKFLOW = "outpaint-flux-fill-basic";
 export const DEFAULT_THEME: OpenLayerTheme = "compact";
 export const DEFAULT_UPSCALE_WORKFLOW = "upscale-basic";
 export const DEFAULT_STYLE_REFERENCE_WORKFLOW = "style-reference-sd15";
+export const DEFAULT_MULTI_REFERENCE_WORKFLOW = "multi-reference-flux2-klein";
+/** Klein's distilled operating point, the same one the edit preset runs at. */
+export const DEFAULT_MULTI_REFERENCE_STEPS = "4";
+export const DEFAULT_MULTI_REFERENCE_CFG = "1";
 export const FALLBACK_UPSCALE_MODELS = ["4x-UltraSharp.pth", "RealESRGAN_x4plus.pth"];
 export const RECOMMENDED_SKETCH_CHECKPOINT = "epicrealism_naturalSinRC1VAE.safetensors";
 export const RECOMMENDED_STYLE_REFERENCE_CHECKPOINT = "epicrealism_naturalSinRC1VAE.safetensors";
@@ -67,6 +71,7 @@ export type AppView =
   | "upscale"
   | "live-painting"
   | "style-reference"
+  | "multi-reference"
   | "workflow-presets"
   | "custom-workflow"
   | "settings"
@@ -95,6 +100,7 @@ export type ToolIconName =
   | "upscale"
   | "livePainting"
   | "styleReference"
+  | "multiReference"
   | "control"
   | "workflow"
   | "layers"
@@ -179,6 +185,17 @@ export const TOOL_CARDS: ToolCard[] = [
     view: "style-reference"
   },
   {
+    id: "multi-reference",
+    title: "Multi-Reference",
+    // Says what it carries and, by omission, what it does not. Gate testing
+    // found faces are re-imagined rather than reproduced, so this subtitle must
+    // never grow into a claim about putting a specific person in a picture.
+    subtitle: "Compose one image from several layers",
+    icon: "multiReference",
+    status: "experimental",
+    view: "multi-reference"
+  },
+  {
     id: "workflow-presets",
     title: "Workflow Presets",
     subtitle: "Browse every preset and what it needs",
@@ -239,7 +256,7 @@ export const TOOL_CARDS: ToolCard[] = [
 export const HOME_TOOL_SECTIONS = [
   {
     title: "Generate",
-    toolIds: ["text-to-image", "image-to-image", "lineart", "inpaint", "outpaint", "upscale", "prompt-from-layer", "live-painting", "style-reference"]
+    toolIds: ["text-to-image", "image-to-image", "lineart", "inpaint", "outpaint", "upscale", "prompt-from-layer", "live-painting", "style-reference", "multi-reference"]
   },
   {
     title: "Workflow",

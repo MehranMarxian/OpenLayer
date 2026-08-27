@@ -7,6 +7,8 @@ import {
   OutpaintSettingsValidation,
   SketchToImageSettingsInput,
   SketchToImageSettingsValidation,
+  MultiReferenceSettingsInput,
+  MultiReferenceSettingsValidation,
   StyleReferenceSettingsInput,
   StyleReferenceSettingsValidation
 } from "./types";
@@ -73,6 +75,24 @@ export function validateStyleReferenceSettings(input: StyleReferenceSettingsInpu
     settings: {
       ...settings,
       controlStrength
+    },
+    warnings
+  };
+}
+
+export function validateMultiReferenceSettings(
+  input: MultiReferenceSettingsInput
+): MultiReferenceSettingsValidation {
+  const warnings: string[] = [];
+  const steps = readIntegerInRange(input.steps, "Steps", 1, 150, warnings);
+  const cfg = readNumberInRange(input.cfg, "CFG", 1, 30, warnings);
+  const seed = readSeed(input.seed, warnings);
+
+  return {
+    settings: {
+      steps,
+      cfg,
+      seed
     },
     warnings
   };

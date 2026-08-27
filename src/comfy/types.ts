@@ -238,6 +238,25 @@ export type BuildMultiReferenceWorkflowOptions = {
   lora?: WorkflowLoraSelection;
 };
 
+/**
+ * No width/height: the first reference sets the canvas. No denoise: it is fixed
+ * at 1, which is the technique rather than a default.
+ */
+export type MultiReferenceSettingsInput = {
+  steps: string;
+  cfg: string;
+  seed: string;
+};
+
+export type MultiReferenceSettingsValidation = {
+  settings: {
+    steps: number;
+    cfg: number;
+    seed: number;
+  };
+  warnings: string[];
+};
+
 export type BuildOutpaintWorkflowOptions = BuildImageToImageWorkflowOptions & {
   left: number;
   top: number;

@@ -1196,6 +1196,123 @@ a:hover {
   white-space: nowrap;
 }
 
+/*
+ * The Multi-Reference list.
+ *
+ * Rows are margin-spaced rather than gap-spaced: `gap` is inert inside the
+ * compact panel layouts in the real UXP renderer, so a gap here would collapse
+ * to nothing in Photoshop while looking correct in a browser.
+ */
+.reference-list {
+  display: block;
+  min-width: 0;
+}
+
+.reference-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid #4f4f4f;
+  border-radius: 10px;
+  margin-bottom: 6px;
+  padding: 6px;
+  background: var(--ol-panel-soft);
+}
+
+.reference-row:last-child {
+  margin-bottom: 0;
+}
+
+/* The position number is the one piece of state that is not visible from the
+   thumbnail, and position 1 carries a real consequence: it sets the canvas. */
+.reference-index {
+  display: flex;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  margin-right: 8px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--ol-section-bg);
+  color: var(--ol-text-soft);
+  font-size: var(--fs-micro);
+  font-weight: 800;
+}
+
+.reference-row:first-child .reference-index {
+  background: var(--ol-accent-border);
+  color: #1d1d1d;
+}
+
+.reference-thumb {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  margin-right: 8px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid var(--ol-section-bg);
+  border-radius: 6px;
+  background: var(--ol-bg);
+}
+
+.reference-thumb img {
+  display: block;
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+}
+
+.reference-body {
+  display: block;
+  min-width: 0;
+  flex: 1 1 auto;
+  margin-right: 8px;
+}
+
+.reference-title {
+  display: block;
+  overflow: hidden;
+  color: var(--ol-text-soft);
+  font-size: var(--fs-xs);
+  font-weight: 760;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reference-meta {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  color: #a8a8a8;
+  font-size: var(--fs-nano);
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reference-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+}
+
+.reference-button {
+  margin-left: 4px;
+  padding: 3px 7px;
+  font-size: var(--fs-nano);
+  font-weight: 700;
+}
+
+.reference-button:disabled {
+  opacity: 0.4;
+}
+
 .compatibility-note {
   display: block;
   margin-top: 5px;

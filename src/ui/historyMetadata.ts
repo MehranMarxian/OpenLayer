@@ -6,7 +6,8 @@ export type HistoryToolType =
   | "outpaint"
   | "prompt-from-layer"
   | "upscale"
-  | "style-reference";
+  | "style-reference"
+  | "multi-reference";
 
 export type HistoryImportStatus = "not-imported" | "imported";
 
@@ -18,7 +19,8 @@ const TOOL_LABELS: Record<HistoryToolType, string> = {
   outpaint: "Outpaint",
   "prompt-from-layer": "Prompt from Layer",
   upscale: "Upscale",
-  "style-reference": "Style Reference"
+  "style-reference": "Style Reference",
+  "multi-reference": "Multi-Reference Composition"
 };
 
 export function formatHistoryToolLabel(toolType: HistoryToolType) {

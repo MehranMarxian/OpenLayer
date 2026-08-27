@@ -1,4 +1,4 @@
-import { listRunnableWorkflowPresets, listWorkflowPresets } from "../comfy/presetRegistry";
+import { getWorkflowPreset, listRunnableWorkflowPresets, listWorkflowPresets } from "../comfy/presetRegistry";
 import { NO_LORA_VALUE } from "../comfy/loraCompatibility";
 import {
   APP_VERSION,
@@ -23,6 +23,8 @@ import {
   DEFAULT_SKETCH_CONTROL_STRENGTH,
   DEFAULT_SKETCH_DENOISE,
   DEFAULT_SKETCH_STEPS,
+  DEFAULT_MULTI_REFERENCE_CFG,
+  DEFAULT_MULTI_REFERENCE_STEPS,
   DEFAULT_STEPS,
   DEFAULT_STYLE_REFERENCE_CONTROL_STRENGTH,
   DEFAULT_WIDTH,
@@ -347,6 +349,29 @@ export type AppElements = {
   styleReferenceSourceTitle: HTMLElement;
   styleReferenceSourceMeta: HTMLElement;
   styleReferenceResultPreviewPanel: HTMLElement;
+  multiReferenceView: HTMLElement;
+  multiReferencePrompt: HTMLTextAreaElement;
+  multiReferencePromptWalletSave: HTMLElement;
+  multiReferencePromptWalletLoad: HTMLElement;
+  multiReferenceNegativePrompt: HTMLTextAreaElement;
+  multiReferenceWorkflow: HTMLSelectElement;
+  multiReferenceCheckpoint: HTMLSelectElement;
+  multiReferenceSteps: HTMLInputElement;
+  multiReferenceCfg: HTMLInputElement;
+  multiReferenceSeed: HTMLInputElement;
+  addMultiReferenceLayerButton: HTMLElement;
+  addMultiReferenceCanvasButton: HTMLElement;
+  generateMultiReferenceButton: HTMLElement;
+  importMultiReferenceButton: HTMLElement;
+  multiReferenceList: HTMLElement;
+  multiReferenceCount: HTMLElement;
+  multiReferenceStatusText: HTMLElement;
+  multiReferenceStatusPill: HTMLElement;
+  multiReferenceStatusProgress: HTMLElement;
+  multiReferenceDiagnosticsText: HTMLElement;
+  multiReferenceCompatibilityNote: HTMLElement;
+  multiReferenceErrorMessage: HTMLElement;
+  multiReferenceResultPreviewPanel: HTMLElement;
   workflowPresetsView: HTMLElement;
   workflowPresetsSummary: HTMLElement;
   workflowPresetsList: HTMLElement;
@@ -1097,6 +1122,101 @@ export function createAppMarkup() {
         </section>
       </section>
 
+      <section class="multi-reference-view image-to-image-view" id="multi-reference-view" aria-label="Multi-Reference Composition" hidden>
+        <div class="screen-nav">
+          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
+          <div class="screen-title-block">
+            ${createScreenIconMarkup("multiReference", "Multi-Reference Composition")}
+            <span class="screen-title">Multi-Reference</span>
+          </div>
+        </div>
+
+        <section class="panel-section generator-panel source-panel" aria-label="Reference layers">
+          <div class="section-heading">
+            <span class="label">Reference layers</span>
+            <span class="muted-label" id="multi-reference-count">None captured</span>
+          </div>
+          <div class="source-action-row" aria-label="Reference capture actions">
+            <button class="button source-action-button action-control" id="add-multi-reference-layer" data-openlayer-action="addMultiReferenceLayer" type="button">Add Active Layer</button>
+            <button class="button source-action-button action-control" id="add-multi-reference-canvas" data-openlayer-action="addMultiReferenceCanvas" type="button">Add Canvas</button>
+          </div>
+          <div class="reference-list" id="multi-reference-list">
+            <span class="source-empty">No reference layers yet</span>
+          </div>
+          <div class="diagnostics-line" id="multi-reference-list-hint">Reference 1 sets the output size. Order is worth trying: an object that has to sit behind your subjects is steadier earlier in the list.</div>
+        </section>
+
+        <section class="panel-section generator-panel img2img-form-panel" aria-label="Composition prompt">
+          <div class="section-heading">
+            <span class="label">Compose</span>
+            <span class="muted-label">Prompt and sampler settings</span>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Prompt${createPromptWalletControlsMarkup("multi-reference-prompt")}</span>
+            <textarea maxlength="10000" class="textarea compact-textarea" id="multi-reference-prompt" placeholder="Describe the picture you want built from these layers..."></textarea>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Negative prompt</span>
+            <textarea maxlength="10000" class="textarea compact-textarea" id="multi-reference-negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Workflow</span>
+            <select class="select" id="multi-reference-workflow">
+              ${listRunnableWorkflowPresets("multi-reference").map((preset) => `<option value="${preset.id}">${preset.label}</option>`).join("")}
+            </select>
+          </div>
+          <div class="field img2img-field">
+            <div class="field-label-row">
+              <span class="label">Klein model</span>
+              ${createInfoToggleMarkup("multi-reference-compatibility-note")}
+            </div>
+            <select class="select" id="multi-reference-checkpoint">
+              ${createMultiReferenceModelOptionsMarkup()}
+            </select>
+            ${createInfoPanelMarkup("multi-reference-compatibility-note", "Clothing, props, setting and lighting carry across from your layers. Faces do not: a person in a reference comes back as a plausible stranger, so this cannot place a specific person in a picture.")}
+          </div>
+          <div class="settings-grid img2img-settings-grid" aria-label="Multi-Reference settings">
+            <div class="field">
+              <span class="label">Steps</span>
+              <input class="input input-compact" id="multi-reference-steps" type="number" min="1" max="150" step="1" value="${DEFAULT_MULTI_REFERENCE_STEPS}" />
+            </div>
+            <div class="field">
+              <span class="label">CFG</span>
+              <input class="input input-compact" id="multi-reference-cfg" type="number" min="1" max="30" step="0.5" value="${DEFAULT_MULTI_REFERENCE_CFG}" />
+            </div>
+            <div class="field settings-seed">
+              <span class="label">Seed</span>
+              <input class="input input-compact" id="multi-reference-seed" type="text" inputmode="numeric" placeholder="Random" />
+            </div>
+          </div>
+          <button class="button button-primary button-generate button-wide action-control" id="generate-multi-reference" data-openlayer-action="generateMultiReference" type="button">Compose</button>
+          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
+        </section>
+
+        <section class="generation-status-panel img2img-status-panel" aria-label="Multi-Reference status">
+          <div class="status-bar" role="status">
+            <span class="status-text" id="multi-reference-status-text">Ready.</span>
+            <span class="status-pill idle" id="multi-reference-status-pill">Status</span>
+          </div>
+          <div class="status-progress" id="multi-reference-status-progress" hidden><span></span></div>
+          <div class="diagnostics-line" id="multi-reference-diagnostics-text">Add two or more layers, then describe the picture they should become.</div>
+          <div class="error-message" id="multi-reference-error-message" hidden></div>
+        </section>
+
+        <section class="panel-section result-panel img2img-result-panel" aria-label="Multi-Reference result">
+          <div class="section-heading">
+            <span class="label">Result preview</span>
+            <span class="muted-label">Generated result appears here</span>
+          </div>
+          <div class="preview-panel" id="multi-reference-result-preview-panel">
+            <span class="preview-empty">No composition yet</span>
+          </div>
+          <div class="import-actions">
+            <button class="button button-import button-import-blue action-control is-disabled" id="import-multi-reference-result" data-openlayer-action="importMultiReference" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
+          </div>
+        </section>
+      </section>
+
       <section class="inpaint-view image-to-image-view" id="inpaint-view" aria-label="Inpaint" hidden>
         <div class="screen-nav">
           <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
@@ -1723,6 +1843,21 @@ function createHomeToolSectionMarkup(section: { title: string; toolIds: string[]
   `;
 }
 
+/**
+ * The starting contents of the Klein model dropdown.
+ *
+ * Taken from the preset's own stack rather than from FALLBACK_CHECKPOINTS,
+ * which lists SD 1.x checkpoints -- the wrong kind of file for a diffusion
+ * model stack, and misleading in the seconds before ComfyUI answers with what
+ * is actually installed.
+ */
+function createMultiReferenceModelOptionsMarkup() {
+  const preset = getWorkflowPreset("multi-reference-flux2-klein");
+  const modelName = preset.modelStack?.find((model) => model.kind === preset.modelSource.kind)?.modelName;
+
+  return modelName ? `<option value="${modelName}">${modelName}</option>` : "";
+}
+
 function createToolIconMarkup(icon: ToolIconName) {
   const icons: Record<ToolIconName, string> = {
     image: "image-to-image.png",
@@ -1736,6 +1871,7 @@ function createToolIconMarkup(icon: ToolIconName) {
     // separate names now so replacing either one's art cannot change the other.
     livePainting: "live-painting.png",
     styleReference: "style-reference.png",
+    multiReference: "multi-reference.png",
     control: "workflow-presets.png",
     workflow: "workflow.png",
     layers: "layer-tools.png",
@@ -2111,6 +2247,29 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     styleReferenceSourceTitle: getElement<HTMLElement>(rootElement, "style-reference-source-title"),
     styleReferenceSourceMeta: getElement<HTMLElement>(rootElement, "style-reference-source-meta"),
     styleReferenceResultPreviewPanel: getElement<HTMLElement>(rootElement, "style-reference-result-preview-panel"),
+    multiReferenceView: getElement<HTMLElement>(rootElement, "multi-reference-view"),
+    multiReferencePrompt: getElement<HTMLTextAreaElement>(rootElement, "multi-reference-prompt"),
+    multiReferencePromptWalletSave: getElement<HTMLElement>(rootElement, "multi-reference-prompt-wallet-save"),
+    multiReferencePromptWalletLoad: getElement<HTMLElement>(rootElement, "multi-reference-prompt-wallet-load"),
+    multiReferenceNegativePrompt: getElement<HTMLTextAreaElement>(rootElement, "multi-reference-negative-prompt"),
+    multiReferenceWorkflow: getElement<HTMLSelectElement>(rootElement, "multi-reference-workflow"),
+    multiReferenceCheckpoint: getElement<HTMLSelectElement>(rootElement, "multi-reference-checkpoint"),
+    multiReferenceSteps: getElement<HTMLInputElement>(rootElement, "multi-reference-steps"),
+    multiReferenceCfg: getElement<HTMLInputElement>(rootElement, "multi-reference-cfg"),
+    multiReferenceSeed: getElement<HTMLInputElement>(rootElement, "multi-reference-seed"),
+    addMultiReferenceLayerButton: getElement<HTMLElement>(rootElement, "add-multi-reference-layer"),
+    addMultiReferenceCanvasButton: getElement<HTMLElement>(rootElement, "add-multi-reference-canvas"),
+    generateMultiReferenceButton: getElement<HTMLElement>(rootElement, "generate-multi-reference"),
+    importMultiReferenceButton: getElement<HTMLElement>(rootElement, "import-multi-reference-result"),
+    multiReferenceList: getElement<HTMLElement>(rootElement, "multi-reference-list"),
+    multiReferenceCount: getElement<HTMLElement>(rootElement, "multi-reference-count"),
+    multiReferenceStatusText: getElement<HTMLElement>(rootElement, "multi-reference-status-text"),
+    multiReferenceStatusPill: getElement<HTMLElement>(rootElement, "multi-reference-status-pill"),
+    multiReferenceStatusProgress: getElement<HTMLElement>(rootElement, "multi-reference-status-progress"),
+    multiReferenceDiagnosticsText: getElement<HTMLElement>(rootElement, "multi-reference-diagnostics-text"),
+    multiReferenceCompatibilityNote: getElement<HTMLElement>(rootElement, "multi-reference-compatibility-note"),
+    multiReferenceErrorMessage: getElement<HTMLElement>(rootElement, "multi-reference-error-message"),
+    multiReferenceResultPreviewPanel: getElement<HTMLElement>(rootElement, "multi-reference-result-preview-panel"),
     workflowPresetsView: getElement<HTMLElement>(rootElement, "workflow-presets-view"),
     workflowPresetsSummary: getElement<HTMLElement>(rootElement, "workflow-presets-summary"),
     workflowPresetsList: getElement<HTMLElement>(rootElement, "workflow-presets-list"),

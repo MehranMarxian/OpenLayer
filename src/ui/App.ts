@@ -28,6 +28,12 @@ import { importBridge } from "./importBridge";
 import { agentBridge } from "./agentBridge";
 import { AgentConnectionStatus, createAgentConnection, openWebSocket } from "./agentConnection";
 import {
+  canAddReference,
+  describeReferenceCount,
+  moveReference,
+  removeReference
+} from "./multiReferenceList";
+import {
   createGenerationController,
   GenerationPipelineUi,
   GenerationRunHandle
@@ -84,6 +90,7 @@ import {
   validateImageToImageSettings,
   validateOutpaintSettings,
   validateSketchToImageSettings,
+  validateMultiReferenceSettings,
   validateStyleReferenceSettings
 } from "../comfy/settings";
 import {
@@ -92,6 +99,7 @@ import {
   buildOutpaintWorkflow,
   buildPromptFromLayerWorkflow,
   buildSketchToImageWorkflow,
+  buildMultiReferenceWorkflow,
   buildStyleReferenceWorkflow,
   buildTxt2ImgWorkflow,
   buildUpscaleWorkflow
@@ -309,6 +317,7 @@ import {
   DEFAULT_SKETCH_STEPS,
   DEFAULT_SKETCH_WORKFLOW,
   DEFAULT_STEPS,
+  DEFAULT_MULTI_REFERENCE_WORKFLOW,
   DEFAULT_STYLE_REFERENCE_CONTROL_STRENGTH,
   DEFAULT_STYLE_REFERENCE_WORKFLOW,
   DEFAULT_THEME,
@@ -349,6 +358,9 @@ import {
   setStatusProgress,
   setStyleReferenceDiagnostics,
   setStyleReferenceError,
+  setMultiReferenceDiagnostics,
+  setMultiReferenceError,
+  setMultiReferenceStatus,
   setStyleReferenceStatus,
   setTextToImageDiagnostics,
   setTextToImageError,
@@ -386,6 +398,17 @@ type HistoryEntry = {
 
 type ImageSourceState = ExportedSourceImage & {
   previewUrl: string;
+};
+
+/**
+ * One captured layer in the Multi-Reference list.
+ *
+ * Carries its own id because the list is reordered and removed from by index,
+ * and an index alone cannot survive a re-render that happens between the click
+ * and the handler running.
+ */
+type MultiReferenceEntry = ImageSourceState & {
+  id: string;
 };
 
 type InpaintSourceState = SelectedRegionSourceImage & {
@@ -515,6 +538,11 @@ export function renderApp(rootElement: HTMLElement) {
   let upscaleResult: AppGeneratedImageResult | null = null;
   let styleReferenceSource: ImageSourceState | null = null;
   let styleReferenceResult: AppGeneratedImageResult | null = null;
+  // An ordered list rather than a single source, which is the whole difference
+  // between this tool and every other captured-source one. Index 0 is special:
+  // it sets the output canvas (see the preset's referenceChain).
+  let multiReferenceSources: MultiReferenceEntry[] = [];
+  let multiReferenceResult: AppGeneratedImageResult | null = null;
   // Only a canvas capture has a fixed relationship to the document, so only a
   // canvas capture may resize it. Layer captures keep the floating import.
   let upscaleCaptureKind: OutpaintCaptureKind | null = null;
@@ -581,7 +609,11 @@ export function renderApp(rootElement: HTMLElement) {
       upscaleResult,
       upscaleSource,
       styleReferenceResult,
-      styleReferenceSource
+      styleReferenceSource,
+      // A count, not an object: the Compose button is gated on having at least
+      // one reference rather than on one captured source existing.
+      multiReferenceSources: multiReferenceSources.length,
+      multiReferenceResult
     });
     updateInpaintReferenceControlLock(elements, isBusy && busyTool === "inpaint");
     syncImportBridge();
@@ -1148,6 +1180,10 @@ export function renderApp(rootElement: HTMLElement) {
       canImport: canImport(styleReferenceResult),
       auto: null
     });
+    importBridge.publishCapability("multi-reference", {
+      canImport: canImport(multiReferenceResult),
+      auto: null
+    });
     // Live Painting's import button is gated on liveLastResult by hand rather
     // than through the busy tables, so its capability is derived the same way
     // here instead of being read off the button.
@@ -1222,6 +1258,15 @@ export function renderApp(rootElement: HTMLElement) {
     emptyText: "No Style Reference result yet",
     resultAlt: "Generated Style Reference preview",
     liveAlt: "Live ComfyUI Style Reference preview"
+  });
+  const multiReferenceResultPanel = createResultPreviewPanel({
+    urls: objectUrls,
+    panel: elements.multiReferenceResultPreviewPanel,
+    hub: previewHub,
+    toolId: "multi-reference",
+    emptyText: "No composition yet",
+    resultAlt: "Generated multi-reference composition",
+    liveAlt: "Live ComfyUI composition preview"
   });
   const imageSourcePanel = createSourcePreviewPanel({
     urls: objectUrls,
@@ -1435,6 +1480,10 @@ export function renderApp(rootElement: HTMLElement) {
     toggleLiveAutoRefine: createActionRunner(elements, "toggleLiveAutoRefine", handleToggleLiveAutoRefine),
     toggleAgentBridge: createActionRunner(elements, "toggleAgentBridge", handleToggleAgentBridge),
     suggestPrompt: createActionRunner(elements, "suggestPrompt", handleSuggestPrompt),
+    addMultiReferenceLayer: createActionRunner(elements, "addMultiReferenceLayer", handleAddMultiReferenceLayer),
+    addMultiReferenceCanvas: createActionRunner(elements, "addMultiReferenceCanvas", handleAddMultiReferenceCanvas),
+    generateMultiReference: createActionRunner(elements, "generateMultiReference", handleGenerateMultiReference),
+    importMultiReference: createActionRunner(elements, "importMultiReference", handleImportMultiReference),
     captureStyleReferenceSource: createActionRunner(elements, "captureStyleReferenceSource", handleCaptureStyleReferenceSource),
     captureStyleReferenceCanvasSource: createActionRunner(
       elements,
@@ -1510,6 +1559,12 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.captureStyleReferenceCanvasButton, actionHandlers.captureStyleReferenceCanvasSource);
   bindActionControl(elements.generateStyleReferenceButton, actionHandlers.generateStyleReference);
   bindActionControl(elements.importStyleReferenceButton, actionHandlers.importStyleReference);
+  bindActionControl(elements.addMultiReferenceLayerButton, actionHandlers.addMultiReferenceLayer);
+  bindActionControl(elements.addMultiReferenceCanvasButton, actionHandlers.addMultiReferenceCanvas);
+  bindActionControl(elements.generateMultiReferenceButton, actionHandlers.generateMultiReference);
+  bindActionControl(elements.importMultiReferenceButton, actionHandlers.importMultiReference);
+  bindMultiReferenceRowActions();
+  renderMultiReferenceList();
   bindActionControl(elements.checkCustomWorkflowButton, actionHandlers.checkCustomWorkflow);
   registerImportBridgeHandlers();
   registerAgentBridgeHandlers();
@@ -1593,6 +1648,15 @@ export function renderApp(rootElement: HTMLElement) {
       view: "style-reference",
       label: "Style Reference",
       report: setStyleReferenceDiagnostics
+    },
+    {
+      positive: "multiReferencePrompt",
+      negative: "multiReferenceNegativePrompt",
+      saveButton: "multiReferencePromptWalletSave",
+      loadButton: "multiReferencePromptWalletLoad",
+      view: "multi-reference",
+      label: "Multi-Reference",
+      report: setMultiReferenceDiagnostics
     }
   ];
   const promptWallet = bindPromptWallet(elements, promptWalletTools, setView);
@@ -1751,6 +1815,13 @@ export function renderApp(rootElement: HTMLElement) {
     updateStyleReferenceCheckpointCompatibility(elements, styleReferenceSource);
   });
 
+  // Only one preset exists for this mode today, but the list is read from the
+  // registry, so a second one must not silently keep the first one's models.
+  elements.multiReferenceWorkflow.addEventListener("change", () => {
+    void refreshMultiReferenceModelOptionsForSelectedPreset(elements);
+    renderMultiReferenceList();
+  });
+
   async function loadInitialCheckpoints() {
     setGlobalStatus(elements, "Loading ComfyUI models...", "idle");
 
@@ -1765,6 +1836,7 @@ export function renderApp(rootElement: HTMLElement) {
       await refreshOutpaintModelOptionsForSelectedPreset(elements, client);
       await refreshUpscaleModelOptionsForSelectedPreset(elements, client);
       await refreshStyleReferenceModelOptionsForSelectedPreset(elements, client);
+      await refreshMultiReferenceModelOptionsForSelectedPreset(elements, client);
       await refreshAllLoraOptions(elements, client);
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
       updateSketchCheckpointCompatibility(elements, sketchSource);
@@ -1798,6 +1870,7 @@ export function renderApp(rootElement: HTMLElement) {
       await refreshOutpaintModelOptionsForSelectedPreset(elements, client);
       await refreshUpscaleModelOptionsForSelectedPreset(elements, client);
       await refreshStyleReferenceModelOptionsForSelectedPreset(elements, client);
+      await refreshMultiReferenceModelOptionsForSelectedPreset(elements, client);
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
       updateSketchCheckpointCompatibility(elements, sketchSource);
       updateInpaintCheckpointCompatibility(elements, inpaintSource);
@@ -1842,6 +1915,7 @@ export function renderApp(rootElement: HTMLElement) {
       await refreshOutpaintModelOptionsForSelectedPreset(elements, client);
       await refreshUpscaleModelOptionsForSelectedPreset(elements, client);
       await refreshStyleReferenceModelOptionsForSelectedPreset(elements, client);
+      await refreshMultiReferenceModelOptionsForSelectedPreset(elements, client);
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
       updateSketchCheckpointCompatibility(elements, sketchSource);
       updateInpaintCheckpointCompatibility(elements, inpaintSource);
@@ -2323,6 +2397,7 @@ export function renderApp(rootElement: HTMLElement) {
       case "outpaint": outpaintResultPanel.releaseLivePreviewUrl(); return;
       case "upscale": upscaleResultPanel.releaseLivePreviewUrl(); return;
       case "style-reference": styleReferenceResultPanel.releaseLivePreviewUrl(); return;
+      case "multi-reference": multiReferenceResultPanel.releaseLivePreviewUrl(); return;
       case "text-to-image": resultPanel.releaseLivePreviewUrl(); return;
       case "prompt-from-layer": return;
     }
@@ -2344,7 +2419,8 @@ export function renderApp(rootElement: HTMLElement) {
     outpaint: { status: setOutpaintStatus, diagnostics: setOutpaintDiagnostics, error: setOutpaintError, progress: setOutpaintProgressPreview },
     upscale: { status: setUpscaleStatus, diagnostics: setUpscaleDiagnostics, error: setUpscaleError, progress: setUpscaleProgressPreview },
     "prompt-from-layer": { status: setPromptLayerStatus, diagnostics: setPromptLayerDiagnostics, error: setPromptLayerError },
-    "style-reference": { status: setStyleReferenceStatus, diagnostics: setStyleReferenceDiagnostics, error: setStyleReferenceError, progress: setStyleReferenceProgressPreview }
+    "style-reference": { status: setStyleReferenceStatus, diagnostics: setStyleReferenceDiagnostics, error: setStyleReferenceError, progress: setStyleReferenceProgressPreview },
+    "multi-reference": { status: setMultiReferenceStatus, diagnostics: setMultiReferenceDiagnostics, error: setMultiReferenceError, progress: setMultiReferenceProgressPreview }
   };
 
   function setGenerationToolStatus(toolType: HistoryToolType, status: string, tone: StatusTone) {
@@ -2621,6 +2697,10 @@ export function renderApp(rootElement: HTMLElement) {
         setStyleReferenceResult(entry.result);
         setView("style-reference");
         return;
+      case "multi-reference":
+        setMultiReferenceResult(entry.result);
+        setView("multi-reference");
+        return;
       case "text-to-image":
       default:
         setResult(entry.result);
@@ -2647,6 +2727,9 @@ export function renderApp(rootElement: HTMLElement) {
         return;
       case "style-reference":
         await handleImportStyleReference();
+        return;
+      case "multi-reference":
+        await handleImportMultiReference();
         return;
       case "text-to-image":
       default:
@@ -2696,6 +2779,16 @@ export function renderApp(rootElement: HTMLElement) {
         setSelectValueIfPresent(elements.styleReferenceCheckpoint, entry.modelName);
         elements.styleReferenceSeed.value = String(entry.seed);
         setView("style-reference");
+        break;
+      case "multi-reference":
+        // The reference layers themselves are not restored: they are captured
+        // pixels, not settings, and silently reusing a stale capture list would
+        // compose from layers the artist may since have changed.
+        elements.multiReferencePrompt.value = entry.prompt;
+        setSelectValueIfPresent(elements.multiReferenceWorkflow, entry.workflowPreset);
+        setSelectValueIfPresent(elements.multiReferenceCheckpoint, entry.modelName);
+        elements.multiReferenceSeed.value = String(entry.seed);
+        setView("multi-reference");
         break;
       case "text-to-image":
       default:
@@ -4217,6 +4310,425 @@ export function renderApp(rootElement: HTMLElement) {
   }
 
   /**
+   * One delegated listener for every reference row's Up / Down / Remove.
+   *
+   * Delegated rather than per-button because the rows are rebuilt on every
+   * change, and listeners attached to discarded buttons would pile up on the
+   * object URLs they close over. The 350 ms guard is the same one every other
+   * delegated binder here carries: UXP fires duplicate pointer/click events,
+   * and a doubled Up press moves a reference two places.
+   */
+  function bindMultiReferenceRowActions() {
+    let lastRunAt = 0;
+
+    elements.multiReferenceList.addEventListener("click", (event) => {
+      const target = event.target as HTMLElement | null;
+      const button = target?.closest?.("[data-openlayer-reference-action]") as HTMLElement | null;
+
+      if (!button || (button as HTMLButtonElement).disabled) {
+        return;
+      }
+
+      const action = button.getAttribute("data-openlayer-reference-action");
+      const referenceId = button.getAttribute("data-openlayer-reference-id");
+
+      if (!action || !referenceId) {
+        return;
+      }
+
+      const now = Date.now();
+
+      if (now - lastRunAt < 350) {
+        return;
+      }
+
+      lastRunAt = now;
+      event.preventDefault();
+
+      if (action === "remove") {
+        removeMultiReference(referenceId);
+        return;
+      }
+
+      moveMultiReference(referenceId, action === "moveUp" ? -1 : 1);
+    }, true);
+  }
+
+  async function handleAddMultiReferenceLayer() {
+    await addMultiReferenceSource({
+      progressMessage: "Capturing active Photoshop layer as a reference...",
+      statusMessage: "Capturing active layer...",
+      capture: exportActiveLayerForImageToImage
+    });
+  }
+
+  async function handleAddMultiReferenceCanvas() {
+    await addMultiReferenceSource({
+      progressMessage: "Capturing Photoshop canvas as a reference...",
+      statusMessage: "Capturing canvas...",
+      capture: exportCanvasForImageToImage
+    });
+  }
+
+  async function addMultiReferenceSource(options: {
+    progressMessage: string;
+    statusMessage: string;
+    capture: () => Promise<ExportedSourceImage>;
+  }) {
+    const ceiling = getMultiReferenceCeiling();
+
+    if (!canAddReference(multiReferenceSources, ceiling)) {
+      setMultiReferenceError(elements, `This preset composes at most ${ceiling} references. Remove one before adding another.`);
+      setMultiReferenceStatus(elements, "Reference list full.", "error");
+      return;
+    }
+
+    setMultiReferenceDiagnostics(elements, options.progressMessage);
+    setMultiReferenceError(elements, "");
+    setMultiReferenceStatus(elements, options.statusMessage, "idle");
+    busyTool = "multi-reference";
+    isBusy = true;
+    syncBusy();
+
+    try {
+      const exportedSource = await options.capture();
+      multiReferenceSources = [
+        ...multiReferenceSources,
+        {
+          ...exportedSource,
+          previewUrl: objectUrls.create(exportedSource.blob),
+          id: `reference-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+        }
+      ];
+      renderMultiReferenceList();
+      setMultiReferenceStatus(elements, `Reference ${multiReferenceSources.length} added.`, "ready");
+      setMultiReferenceDiagnostics(
+        elements,
+        createSourceCaptureMessage(exportedSource, ` as reference ${multiReferenceSources.length}`)
+      );
+    } catch (caughtError) {
+      setMultiReferenceStatus(elements, "Reference capture failed.", "error");
+      setMultiReferenceError(elements, getErrorMessage(caughtError));
+      setMultiReferenceDiagnostics(elements, getTechnicalErrorDetails(caughtError));
+    } finally {
+      isBusy = false;
+      busyTool = null;
+      syncBusy();
+    }
+  }
+
+  function getMultiReferenceCeiling() {
+    const preset = getWorkflowPreset(
+      readSelectValue(elements.multiReferenceWorkflow, DEFAULT_MULTI_REFERENCE_WORKFLOW)
+    );
+
+    return preset.referenceChain?.maximumReferences ?? 1;
+  }
+
+  function removeMultiReference(id: string) {
+    const { references, removed } = removeReference(multiReferenceSources, id);
+
+    if (!removed) {
+      return;
+    }
+
+    // Revoked here rather than in the list module, which stays free of the
+    // object-URL registry so it can be tested as plain data.
+    objectUrls.revoke(removed.previewUrl);
+    multiReferenceSources = references;
+    renderMultiReferenceList();
+    setMultiReferenceStatus(elements, "Reference removed.", "idle");
+  }
+
+  /**
+   * Moves one reference up or down the list.
+   *
+   * Order is not cosmetic. Reference 1 sets the output canvas, and gate testing
+   * found chain position decides whether a secondary object stays coherent --
+   * moving a bicycle ahead of a dog fixed a reproducible duplication on every
+   * seed tried. See docs/multi-reference-gate-findings.md.
+   */
+  function moveMultiReference(id: string, offset: number) {
+    const { references, movedTo } = moveReference(multiReferenceSources, id, offset);
+
+    if (movedTo === null) {
+      return;
+    }
+
+    multiReferenceSources = references;
+    renderMultiReferenceList();
+    setMultiReferenceStatus(elements, `Reference moved to position ${movedTo + 1}.`, "idle");
+  }
+
+  function renderMultiReferenceList() {
+    const list = elements.multiReferenceList;
+    list.innerHTML = "";
+
+    if (multiReferenceSources.length === 0) {
+      const empty = document.createElement("span");
+      empty.className = "source-empty";
+      empty.textContent = "No reference layers yet";
+      list.appendChild(empty);
+      elements.multiReferenceCount.textContent = describeReferenceCount([], getMultiReferenceCeiling());
+      syncBusy();
+      return;
+    }
+
+    multiReferenceSources.forEach((entry, index) => {
+      const row = document.createElement("div");
+      row.className = "reference-row";
+
+      const badge = document.createElement("span");
+      badge.className = "reference-index";
+      badge.textContent = String(index + 1);
+      row.appendChild(badge);
+
+      const thumb = document.createElement("div");
+      thumb.className = "reference-thumb";
+      const image = document.createElement("img");
+      image.src = entry.previewUrl;
+      image.alt = `Reference ${index + 1}: ${entry.sourceName}`;
+      thumb.appendChild(image);
+      row.appendChild(thumb);
+
+      const body = document.createElement("div");
+      body.className = "reference-body";
+      const title = document.createElement("span");
+      title.className = "reference-title";
+      title.textContent = entry.sourceName;
+      const meta = document.createElement("span");
+      meta.className = "reference-meta";
+      // Only the first row earns an explanation, because only the first row
+      // does anything the artist cannot see.
+      meta.textContent = index === 0 ? `${createSourceMetaText(entry)} - sets the output size` : createSourceMetaText(entry);
+      body.appendChild(title);
+      body.appendChild(meta);
+      row.appendChild(body);
+
+      const actions = document.createElement("div");
+      actions.className = "reference-actions";
+      actions.appendChild(
+        createReferenceButton("Up", "moveUp", entry.id, index === 0)
+      );
+      actions.appendChild(
+        createReferenceButton("Down", "moveDown", entry.id, index === multiReferenceSources.length - 1)
+      );
+      actions.appendChild(createReferenceButton("Remove", "remove", entry.id, false));
+      row.appendChild(actions);
+
+      list.appendChild(row);
+    });
+
+    elements.multiReferenceCount.textContent = describeReferenceCount(
+      multiReferenceSources,
+      getMultiReferenceCeiling()
+    );
+    syncBusy();
+  }
+
+  function setMultiReferenceResult(nextResult: AppGeneratedImageResult | null) {
+    multiReferenceResult = nextResult;
+    multiReferenceResultPanel.showResult(multiReferenceResult?.blob ?? null);
+    syncBusy();
+  }
+
+  function setMultiReferenceProgressPreview(elements: AppElements, message: string, blob?: Blob) {
+    multiReferenceResultPanel.showProgress(message, blob);
+  }
+
+  async function handleGenerateMultiReference() {
+    if (blockRegularGenerationDuringLivePainting((message) => setMultiReferenceStatus(elements, message, "error"))) {
+      return;
+    }
+
+    if (multiReferenceSources.length === 0) {
+      setMultiReferenceError(elements, "Add at least one reference layer before composing.");
+      setMultiReferenceStatus(elements, "References required.", "error");
+      return;
+    }
+
+    if (!elements.multiReferencePrompt.value.trim()) {
+      setMultiReferenceError(
+        elements,
+        getErrorMessage(createOpenLayerError("PROMPT_REQUIRED", "Describe the picture these layers should become."))
+      );
+      setMultiReferenceStatus(elements, "Prompt required.", "error");
+      return;
+    }
+
+    setMultiReferenceError(elements, "");
+    setMultiReferenceResult(null);
+    busyTool = "multi-reference";
+    isBusy = true;
+    syncBusy();
+    setMultiReferenceStatus(elements, "Preparing composition workflow...", "idle");
+    setMultiReferenceProgressPreview(elements, "Preparing composition workflow...");
+
+    try {
+      const preset = getWorkflowPreset(
+        readSelectValue(elements.multiReferenceWorkflow, DEFAULT_MULTI_REFERENCE_WORKFLOW)
+      );
+      const checkpointName = readSelectValue(elements.multiReferenceCheckpoint);
+      const { settings, warnings } = validateMultiReferenceSettings({
+        steps: elements.multiReferenceSteps.value,
+        cfg: elements.multiReferenceCfg.value,
+        seed: elements.multiReferenceSeed.value
+      });
+      const client = new ComfyClient(elements.serverUrl.value);
+
+      applyValidatedMultiReferenceSettings(elements, settings);
+      setMultiReferenceDiagnostics(
+        elements,
+        warnings.length > 0
+          ? warnings.join(" ")
+          : createWorkflowDiagnostics(preset, checkpointName, createSourceInputAvailability(multiReferenceSources[0]))
+      );
+      await client.checkOnline();
+
+      if (!checkpointName) {
+        throw createOpenLayerError("CHECKPOINT_REQUIRED", "Choose a ComfyUI model before composing.");
+      }
+
+      setMultiReferenceStatus(elements, "Checking selected model...", "idle");
+      setMultiReferenceProgressPreview(elements, "Checking selected model...");
+
+      if (!(await client.hasModelForPreset(checkpointName, preset))) {
+        throw createOpenLayerError(
+          "CHECKPOINT_REQUIRED",
+          `The ${preset.modelSource.label.toLowerCase()} "${checkpointName}" was not found in ComfyUI. Click Check ComfyUI and choose an available model.`
+        );
+      }
+
+      setMultiReferenceStatus(elements, "Checking Klein nodes and models...", "idle");
+      setMultiReferenceProgressPreview(elements, "Checking composition setup...");
+      await client.validatePresetSetup(preset);
+
+      // Uploaded in list order, and the order is preserved into the chain --
+      // reference 1 must stay reference 1 or the output canvas changes.
+      const referenceImageNames: string[] = [];
+
+      for (const [index, entry] of multiReferenceSources.entries()) {
+        setMultiReferenceStatus(elements, `Uploading reference ${index + 1} of ${multiReferenceSources.length}...`, "idle");
+        setMultiReferenceProgressPreview(elements, `Uploading reference ${index + 1}...`);
+        referenceImageNames.push(await client.uploadImage(entry.blob, entry.filename));
+      }
+
+      const buildResult = await buildMultiReferenceWorkflow({
+        presetId: preset.id,
+        prompt: elements.multiReferencePrompt.value,
+        negativePrompt: elements.multiReferenceNegativePrompt.value,
+        checkpointName,
+        referenceImageNames,
+        steps: settings.steps,
+        cfg: settings.cfg,
+        seed: settings.seed
+      });
+
+      const generatedResult = await generation.runPipeline({
+        toolType: "multi-reference",
+        client,
+        workflow: buildResult.workflow,
+        preferredNodeId: getSaveImageNodeId(buildResult.preset),
+        originatingDocument: multiReferenceSources[0].originatingDocument,
+        ui: createPipelineUi("multi-reference", elements.multiReferenceStatusProgress),
+        messages: {
+          submitStatus: "Submitting composition prompt...",
+          submitPreview: "Submitting prompt to ComfyUI...",
+          generateStatus: "Composing image...",
+          generatePreview: "Composing image...",
+          retrieveStatus: "Retrieving composition...",
+          retrievePreview: "Retrieving final image...",
+          livePreview: "Live ComfyUI preview..."
+        },
+        commit: (generatedResult) => {
+          setMultiReferenceResult(generatedResult);
+          addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
+            prompt: elements.multiReferencePrompt.value,
+            negativePrompt: elements.multiReferenceNegativePrompt.value,
+            checkpointName,
+            modelName: checkpointName,
+            workflowPreset: buildResult.preset.id,
+            toolType: "multi-reference",
+            seed: buildResult.seed,
+            sizeLabel: "From reference 1",
+            dimensions: "From reference 1",
+            sourceMode: `${multiReferenceSources.length} reference layers`,
+            experimental: buildResult.preset.status === "experimental"
+          });
+        }
+      });
+
+      if (!generatedResult) {
+        return;
+      }
+
+      setMultiReferenceStatus(elements, "Composition complete.", "ready");
+      setMultiReferenceDiagnostics(
+        elements,
+        `Seed used: ${buildResult.seed}. ${referenceImageNames.length} references uploaded. Workflow: ${buildResult.preset.id}. Faces are re-imagined rather than reproduced.`
+      );
+    } catch (caughtError) {
+      if (isGenerationCancelledError(caughtError)) {
+        showGenerationCancelled("multi-reference");
+        return;
+      }
+
+      setMultiReferenceStatus(elements, "Composition failed.", "error");
+      setMultiReferenceError(elements, getErrorMessage(caughtError));
+      console.error("[OpenLayer] Multi-Reference composition failed", getTechnicalErrorDetails(caughtError));
+      setMultiReferenceDiagnostics(elements, getTechnicalErrorDetails(caughtError));
+    } finally {
+      isBusy = false;
+      busyTool = null;
+      syncBusy();
+    }
+  }
+
+  async function handleImportMultiReference() {
+    setMultiReferenceDiagnostics(elements, "Multi-Reference import pressed.");
+
+    if (!multiReferenceResult) {
+      setMultiReferenceError(elements, "Compose an image before importing.");
+      return;
+    }
+
+    setMultiReferenceError(elements, "");
+    busyTool = "multi-reference";
+    isBusy = true;
+    syncBusy();
+    setMultiReferenceStatus(elements, "Importing composition into Photoshop...", "idle");
+
+    try {
+      const layerName = createLayerName("OpenLayer_MultiReference");
+
+      setMultiReferenceDiagnostics(elements, `Importing into ${multiReferenceResult.originatingDocument?.name || "the originating document"}...`);
+      const importedLayerName = await importGeneratedImageAsLayer({
+        blob: multiReferenceResult.blob,
+        originatingDocument: multiReferenceResult.originatingDocument,
+        layerName,
+        onProgress: (message) => {
+          setMultiReferenceStatus(elements, message, "idle");
+          setMultiReferenceDiagnostics(elements, message);
+        }
+      });
+      setMultiReferenceStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
+      flashImported(elements.multiReferenceStatusText);
+      markHistoryImported(elements, historyEntries, multiReferenceResult, importedLayerName);
+      const metadataMessage = await writeMetadataForImportedResult(historyEntries, multiReferenceResult, importedLayerName, (message) => {
+        setMultiReferenceDiagnostics(elements, message);
+      });
+      setMultiReferenceDiagnostics(elements, `Layer created: ${importedLayerName}. ${metadataMessage}`);
+    } catch (caughtError) {
+      setMultiReferenceStatus(elements, "Import failed.", "error");
+      setMultiReferenceError(elements, getErrorMessage(caughtError));
+    } finally {
+      isBusy = false;
+      busyTool = null;
+      syncBusy();
+    }
+  }
+
+  /**
    * Checks a workflow OpenLayer did not author against this ComfyUI.
    *
    * Deliberately read-only. It never submits the graph and never tries to work
@@ -5404,6 +5916,7 @@ export function renderApp(rootElement: HTMLElement) {
     elements.promptFromLayerView.hidden = currentView !== "prompt-from-layer";
     elements.upscaleView.hidden = currentView !== "upscale";
     elements.styleReferenceView.hidden = currentView !== "style-reference";
+    elements.multiReferenceView.hidden = currentView !== "multi-reference";
     elements.workflowPresetsView.hidden = currentView !== "workflow-presets";
     elements.customWorkflowView.hidden = currentView !== "custom-workflow";
     elements.livePaintingView.hidden = currentView !== "live-painting";
@@ -5905,6 +6418,20 @@ async function refreshUpscaleModelOptionsForSelectedPreset(
   updateUpscaleCompatibility(elements);
 }
 
+async function refreshMultiReferenceModelOptionsForSelectedPreset(
+  elements: AppElements,
+  client = new ComfyClient(elements.serverUrl.value),
+  preferredValue = readSelectValue(elements.multiReferenceCheckpoint)
+) {
+  await refreshModelOptionsForSelectedPreset(
+    elements.multiReferenceWorkflow,
+    elements.multiReferenceCheckpoint,
+    DEFAULT_MULTI_REFERENCE_WORKFLOW,
+    client,
+    preferredValue
+  );
+}
+
 async function refreshStyleReferenceModelOptionsForSelectedPreset(
   elements: AppElements,
   client = new ComfyClient(elements.serverUrl.value),
@@ -6252,6 +6779,40 @@ function applyValidatedSketchToImageSettings(elements: AppElements, settings: {
   elements.sketchSeed.value = String(settings.seed);
   elements.sketchDenoise.value = String(settings.denoise);
   elements.sketchControlStrength.value = String(settings.controlStrength);
+}
+
+function applyValidatedMultiReferenceSettings(elements: AppElements, settings: {
+  steps: number;
+  cfg: number;
+  seed: number;
+}) {
+  elements.multiReferenceSteps.value = String(settings.steps);
+  elements.multiReferenceCfg.value = String(settings.cfg);
+  elements.multiReferenceSeed.value = String(settings.seed);
+}
+
+/**
+ * One control on a reference row.
+ *
+ * Rows are rebuilt on every list change, so the id travels on the button rather
+ * than the row's index: an index captured at render time would act on the wrong
+ * reference after a reorder, and the reorder buttons are the ones most likely
+ * to be pressed twice in a row.
+ */
+function createReferenceButton(
+  label: string,
+  action: "moveUp" | "moveDown" | "remove",
+  referenceId: string,
+  isDisabled: boolean
+) {
+  const button = document.createElement("button");
+  button.className = "button reference-button";
+  button.type = "button";
+  button.textContent = label;
+  button.setAttribute("data-openlayer-reference-action", action);
+  button.setAttribute("data-openlayer-reference-id", referenceId);
+  button.disabled = isDisabled;
+  return button;
 }
 
 function applyValidatedStyleReferenceSettings(elements: AppElements, settings: {

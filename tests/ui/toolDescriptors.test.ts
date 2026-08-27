@@ -20,7 +20,8 @@ describe("busy-state tables", () => {
       "outpaint",
       "upscale",
       "prompt-from-layer",
-      "style-reference"
+      "style-reference",
+      "multi-reference"
     ]);
     expect(fieldGroups.every((fields) => fields.length > 0)).toBe(true);
   });
@@ -88,7 +89,14 @@ describe("busy-state tables", () => {
       "styleReferenceSteps",
       "styleReferenceCfg",
       "styleReferenceSeed",
-      "styleReferenceControlStrength"
+      "styleReferenceControlStrength",
+      "multiReferencePrompt",
+      "multiReferenceNegativePrompt",
+      "multiReferenceWorkflow",
+      "multiReferenceCheckpoint",
+      "multiReferenceSteps",
+      "multiReferenceCfg",
+      "multiReferenceSeed"
     ];
 
     expect(new Set(allFields)).toEqual(new Set(expectedFields));
@@ -105,11 +113,11 @@ describe("busy-state tables", () => {
       ...BUSY_GATED_ACTIONS.map(({ button }) => button)
     ];
 
-    // 38 = the original 29, plus Layer Tools' six export buttons, plus the
-    // model-download spike button, plus Style Reference's two capture buttons.
-    // Deleting the spike takes this back to 37.
-    expect(plainActions).toHaveLength(38);
-    expect(BUSY_GATED_ACTIONS).toHaveLength(13);
+    // 40 = the original 29, plus Layer Tools' six export buttons, plus the
+    // model-download spike button, plus Style Reference's two capture buttons,
+    // plus Multi-Reference's two. Deleting the spike takes this back to 39.
+    expect(plainActions).toHaveLength(40);
+    expect(BUSY_GATED_ACTIONS).toHaveLength(15);
     expect(new Set(allActions).size).toBe(allActions.length);
   });
 
@@ -135,7 +143,9 @@ describe("busy-state tables", () => {
       "copyPromptLayerButton",
       "sendPromptLayerButton",
       "captureStyleReferenceLayerButton",
-      "captureStyleReferenceCanvasButton"
+      "captureStyleReferenceCanvasButton",
+      "addMultiReferenceLayerButton",
+      "addMultiReferenceCanvasButton"
     ]));
   });
 
@@ -154,6 +164,7 @@ describe("busy-state tables", () => {
       "generateUpscaleButton",
       "generatePromptLayerButton",
       "generateStyleReferenceButton",
+      "generateMultiReferenceButton",
       "importButton",
       "importImg2ImgButton",
       "importSketchButton",
@@ -161,6 +172,7 @@ describe("busy-state tables", () => {
       "importOutpaintButton",
       "importUpscaleButton",
       "importStyleReferenceButton",
+      "importMultiReferenceButton",
       "checkButton",
       "findPortButton",
       "detectHardwareButton",
