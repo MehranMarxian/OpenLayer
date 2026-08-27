@@ -6,7 +6,10 @@ compose them with a prompt:
 > "Use the first image as the background. The man from the second image is
 > hugging the woman from the third image."
 
-This document is the plan. Nothing in it is built yet.
+This document was the plan. It is built as of v0.19 development: preset
+`multi-reference-flux2-klein`, a Multi-Reference screen, and an MCP
+`multi_reference` tool. What follows is kept as the reasoning behind the shape
+it took, with the gate results folded in.
 
 > **Read the gate findings first.**
 > [`multi-reference-gate-findings.md`](multi-reference-gate-findings.md) answered all
@@ -120,19 +123,27 @@ Answered 2026-08-27 -- full results, seeds and controls in
 
 ## Sketch of the work
 
-1. ~~Answer the four questions above with live runs. No code.~~ Done for 1, 3 and
-   4; question 2 (real photographs) still needs source images to test with.
-2. `WorkflowMode` gains `multi-reference`; `WorkflowPreset` gains the Klein
-   preset; injections need a **list** shape rather than today's single
-   `sourceImage` target, which is the one genuinely new registry concept.
-3. A new `AppView` and screen: an ordered reference list with add/remove/reorder,
-   per-slot thumbnails, prompt, and the standard settings block. No masking or
-   cut-out controls (Q4), and no cap on the list length (Q1).
-4. `App.ts` state moves from `styleReferenceSource`-style singletons to an array,
-   with the busy-state and history tables extended to match.
-5. Real Photoshop smoke test before anything else is built on top.
+1. ~~Answer the four questions above with live runs. No code.~~ Done -- all four,
+   48 runs.
+2. ~~`WorkflowMode` gains `multi-reference`; `WorkflowPreset` gains the Klein
+   preset.~~ Done. The list shape did **not** land as a new injection kind: an
+   injection sets a value on a node the shipped graph already has, and here the
+   number of nodes is what varies. It is a `referenceChain` declaration plus a
+   build-time clone instead, alongside `loraInsertion` as the second place a
+   workflow's topology changes.
+3. ~~A new `AppView` and screen.~~ Done: an ordered reference list with
+   add/remove/reorder and per-slot thumbnails. No masking or cut-out controls
+   (Q4), no cap below the measured range (Q1), and no width, height or denoise
+   -- reference 1 sets the canvas and denoise is fixed at 1.
+4. ~~`App.ts` state moves to an array~~, with the busy tables gating Compose on
+   the list being non-empty rather than on a single source. The list operations
+   live in `src/ui/multiReferenceList.ts` rather than the `App.ts` closure,
+   because an off-by-one there silently changes which layer sets the canvas.
+5. **Real Photoshop smoke test** -- still outstanding, and the only thing between
+   this and being shippable. Everything above is verified against live ComfyUI
+   and in a browser-rendered panel, neither of which is the UXP host.
 
-Step 1 is the gate. Questions 1, 3 and 4 came back favourably and shrank the
-screen rather than growing it. Question 2 is the one that can still change the
-feature's shape: if identity does not hold on real photographs, the UI work should
-not start.
+The gate did its job: questions 1, 3 and 4 came back favourably and shrank the
+screen rather than growing it, and question 2 shrank the claim instead. The
+feature composes; it does not place a specific person, and nothing user-facing
+says otherwise.

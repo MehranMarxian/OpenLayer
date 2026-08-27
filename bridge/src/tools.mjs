@@ -159,6 +159,21 @@ export const STYLE_REFERENCE_SCHEMA = {
 };
 
 /**
+ * No width, height or denoise: the first reference sets the output canvas and
+ * denoise is fixed at 1, so offering either would let an agent set a value the
+ * workflow then ignores.
+ */
+export const MULTI_REFERENCE_SCHEMA = {
+  prompt,
+  negativePrompt,
+  workflow,
+  checkpoint,
+  steps,
+  cfg,
+  seed
+};
+
+/**
  * The tools this bridge exposes over MCP, in `docs/mcp-bridge.md` §3.1 order.
  *
  * `get_panel_state` is not in this table because it never reaches the panel —
@@ -245,6 +260,19 @@ export const MCP_TOOLS = [
       "Requires a source captured in the panel first — this tool cannot capture one. Only the " +
       "parameters you pass are changed. Returns the panel's own status message.",
     schema: STYLE_REFERENCE_SCHEMA,
+    timeoutMs: GENERATION_TIMEOUT_MS
+  },
+  {
+    name: "multi_reference",
+    title: "Multi-Reference Composition",
+    description:
+      "Compose one image from the ordered list of reference layers already captured in the " +
+      "OpenLayer panel, guided by a text prompt. Requires those layers captured in the panel " +
+      "first — this tool cannot capture them, add to the list, or reorder it. Clothing, props, " +
+      "setting and lighting carry across from the references; faces do not, so this cannot place " +
+      "a specific person in a picture. The first reference sets the output size. Only the " +
+      "parameters you pass are changed. Returns the panel's own status message.",
+    schema: MULTI_REFERENCE_SCHEMA,
     timeoutMs: GENERATION_TIMEOUT_MS
   }
 ];

@@ -644,7 +644,8 @@ export function renderApp(rootElement: HTMLElement) {
       "outpaint",
       "upscale",
       "prompt_from_layer",
-      "style_reference"
+      "style_reference",
+      "multi_reference"
     ] as const) {
       agentBridge.publishCapability(toolId, { canRun: !isBusy, reason });
     }
@@ -957,6 +958,36 @@ export function renderApp(rootElement: HTMLElement) {
 
         return caption ? `Generated text: "${caption}"` : "";
       }
+    });
+
+    agentBridge.register("multi_reference", {
+      run: handleGenerateMultiReference,
+      fields: {
+        prompt: elements.multiReferencePrompt,
+        negativePrompt: elements.multiReferenceNegativePrompt,
+        workflow: elements.multiReferenceWorkflow,
+        checkpoint: elements.multiReferenceCheckpoint,
+        steps: elements.multiReferenceSteps,
+        cfg: elements.multiReferenceCfg,
+        seed: elements.multiReferenceSeed
+      },
+      leadingParams: ["workflow"],
+      settle: async () => {
+        applyRecommendedPresetSettings(
+          elements.multiReferenceWorkflow,
+          DEFAULT_MULTI_REFERENCE_WORKFLOW,
+          elements.multiReferenceSteps,
+          elements.multiReferenceCfg
+        );
+        await refreshMultiReferenceModelOptionsForSelectedPreset(elements);
+      },
+      statusText: elements.multiReferenceStatusText,
+      statusPill: elements.multiReferenceStatusPill,
+      errorText: elements.multiReferenceErrorMessage,
+      describeResult: () =>
+        multiReferenceSources.length > 0
+          ? `Composed from ${multiReferenceSources.length} reference layers.`
+          : ""
     });
 
     agentBridge.register("style_reference", {
