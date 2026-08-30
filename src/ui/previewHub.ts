@@ -43,6 +43,7 @@ export const PREVIEW_TOOLS = [
   { id: "upscale", label: "Upscale" },
   { id: "style-reference", label: "Style Reference" },
   { id: "multi-reference", label: "Multi-Reference" },
+  { id: "unflatten", label: "Unflatten" },
   { id: "live-painting", label: "Live Painting" }
 ] as const;
 

@@ -275,6 +275,21 @@ export type BuildUnflattenWorkflowOptions = {
  * No width/height: the first reference sets the canvas. No denoise: it is fixed
  * at 1, which is the technique rather than a default.
  */
+export type UnflattenSettingsInput = {
+  layerCount: string;
+  steps: string;
+  seed: string;
+};
+
+export type UnflattenSettingsValidation = {
+  settings: {
+    layerCount: number;
+    steps: number;
+    seed: number;
+  };
+  warnings: string[];
+};
+
 export type MultiReferenceSettingsInput = {
   steps: string;
   cfg: string;

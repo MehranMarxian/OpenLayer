@@ -92,6 +92,7 @@ import {
   validateOutpaintSettings,
   validateSketchToImageSettings,
   validateMultiReferenceSettings,
+  validateUnflattenSettings,
   validateStyleReferenceSettings
 } from "../comfy/settings";
 import {
@@ -101,6 +102,7 @@ import {
   buildPromptFromLayerWorkflow,
   buildSketchToImageWorkflow,
   buildMultiReferenceWorkflow,
+  buildUnflattenWorkflow,
   buildStyleReferenceWorkflow,
   buildTxt2ImgWorkflow,
   buildUpscaleWorkflow
@@ -146,7 +148,7 @@ import {
   InstallStep
 } from "./setupInstallModel";
 import type { WorkflowPhotoshopInputAvailability } from "../comfy/workflowCompatibility";
-import { GeneratedImageResult, WorkflowLoraSelection, WorkflowPresetDefinition } from "../comfy/types";
+import { GeneratedImageResult, GeneratedImageSet, WorkflowLoraSelection, WorkflowPresetDefinition } from "../comfy/types";
 import {
   NO_LORA_VALUE,
   formatLoraHintSuffix,
@@ -166,6 +168,7 @@ import {
   getActiveDocumentIdentity,
   getActiveDocumentInfo,
   importGeneratedImageAsLayer,
+  importUnflattenLayerStack,
   importImageAlignedToSelectionWithLayerMask,
   importOutpaintResultExpandingCanvas,
   importUpscaleResultResizingDocument
@@ -319,6 +322,7 @@ import {
   DEFAULT_SKETCH_WORKFLOW,
   DEFAULT_STEPS,
   DEFAULT_MULTI_REFERENCE_WORKFLOW,
+  DEFAULT_UNFLATTEN_WORKFLOW,
   DEFAULT_STYLE_REFERENCE_CONTROL_STRENGTH,
   DEFAULT_STYLE_REFERENCE_WORKFLOW,
   DEFAULT_THEME,
@@ -360,8 +364,11 @@ import {
   setStyleReferenceDiagnostics,
   setStyleReferenceError,
   setMultiReferenceDiagnostics,
+  setUnflattenDiagnostics,
   setMultiReferenceError,
+  setUnflattenError,
   setMultiReferenceStatus,
+  setUnflattenStatus,
   setStyleReferenceStatus,
   setTextToImageDiagnostics,
   setTextToImageError,
@@ -544,6 +551,15 @@ export function renderApp(rootElement: HTMLElement) {
   // it sets the output canvas (see the preset's referenceChain).
   let multiReferenceSources: MultiReferenceEntry[] = [];
   let multiReferenceResult: AppGeneratedImageResult | null = null;
+  let unflattenSource: ImageSourceState | null = null;
+  // A whole stack rather than one picture, and the only tool result in the
+  // panel that is not a single image. Index 0 is the reassembled composite,
+  // which is what the preview shows; the layers run back-to-front after it.
+  let unflattenResult: DocumentContextBound<GeneratedImageSet> | null = null;
+  // History records one image per entry, so the stack is represented there by
+  // its composite -- the reassembled picture is what says what the run did.
+  // Kept separately so the import can mark that entry imported.
+  let unflattenHistoryResult: AppGeneratedImageResult | null = null;
   // Only a canvas capture has a fixed relationship to the document, so only a
   // canvas capture may resize it. Layer captures keep the floating import.
   let upscaleCaptureKind: OutpaintCaptureKind | null = null;
@@ -614,7 +630,9 @@ export function renderApp(rootElement: HTMLElement) {
       // A count, not an object: the Compose button is gated on having at least
       // one reference rather than on one captured source existing.
       multiReferenceSources: multiReferenceSources.length,
-      multiReferenceResult
+      multiReferenceResult,
+      unflattenSource,
+      unflattenResult
     });
     updateInpaintReferenceControlLock(elements, isBusy && busyTool === "inpaint");
     syncImportBridge();
@@ -1300,6 +1318,15 @@ export function renderApp(rootElement: HTMLElement) {
     resultAlt: "Generated multi-reference composition",
     liveAlt: "Live ComfyUI composition preview"
   });
+  const unflattenResultPanel = createResultPreviewPanel({
+    urls: objectUrls,
+    panel: elements.unflattenResultPreviewPanel,
+    hub: previewHub,
+    toolId: "unflatten",
+    emptyText: "No layers yet",
+    resultAlt: "Reassembled picture from the decomposed layers",
+    liveAlt: "Live ComfyUI decomposition preview"
+  });
   const imageSourcePanel = createSourcePreviewPanel({
     urls: objectUrls,
     panel: elements.imageSourcePreviewPanel,
@@ -1343,6 +1370,13 @@ export function renderApp(rootElement: HTMLElement) {
     titleElement: elements.styleReferenceSourceTitle,
     metaElement: elements.styleReferenceSourceMeta,
     imageAlt: "Captured Photoshop source for Style Reference"
+  });
+  const unflattenSourcePanel = createSourcePreviewPanel({
+    urls: objectUrls,
+    panel: elements.unflattenSourcePreviewPanel,
+    titleElement: elements.unflattenSourceTitle,
+    metaElement: elements.unflattenSourceMeta,
+    imageAlt: "Captured Photoshop source for Unflatten"
   });
   const agentConnection = createAgentConnection({
     bridge: agentBridge,
@@ -1516,6 +1550,10 @@ export function renderApp(rootElement: HTMLElement) {
     addMultiReferenceCanvas: createActionRunner(elements, "addMultiReferenceCanvas", handleAddMultiReferenceCanvas),
     generateMultiReference: createActionRunner(elements, "generateMultiReference", handleGenerateMultiReference),
     importMultiReference: createActionRunner(elements, "importMultiReference", handleImportMultiReference),
+    captureUnflattenLayer: createActionRunner(elements, "captureUnflattenLayer", handleCaptureUnflattenLayer),
+    captureUnflattenCanvas: createActionRunner(elements, "captureUnflattenCanvas", handleCaptureUnflattenCanvas),
+    generateUnflatten: createActionRunner(elements, "generateUnflatten", handleGenerateUnflatten),
+    importUnflatten: createActionRunner(elements, "importUnflatten", handleImportUnflatten),
     captureStyleReferenceSource: createActionRunner(elements, "captureStyleReferenceSource", handleCaptureStyleReferenceSource),
     captureStyleReferenceCanvasSource: createActionRunner(
       elements,
@@ -1595,6 +1633,10 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.addMultiReferenceCanvasButton, actionHandlers.addMultiReferenceCanvas);
   bindActionControl(elements.generateMultiReferenceButton, actionHandlers.generateMultiReference);
   bindActionControl(elements.importMultiReferenceButton, actionHandlers.importMultiReference);
+  bindActionControl(elements.captureUnflattenLayerButton, actionHandlers.captureUnflattenLayer);
+  bindActionControl(elements.captureUnflattenCanvasButton, actionHandlers.captureUnflattenCanvas);
+  bindActionControl(elements.generateUnflattenButton, actionHandlers.generateUnflatten);
+  bindActionControl(elements.importUnflattenButton, actionHandlers.importUnflatten);
   bindMultiReferenceRowActions();
   renderMultiReferenceList();
   bindActionControl(elements.checkCustomWorkflowButton, actionHandlers.checkCustomWorkflow);
@@ -2452,7 +2494,8 @@ export function renderApp(rootElement: HTMLElement) {
     upscale: { status: setUpscaleStatus, diagnostics: setUpscaleDiagnostics, error: setUpscaleError, progress: setUpscaleProgressPreview },
     "prompt-from-layer": { status: setPromptLayerStatus, diagnostics: setPromptLayerDiagnostics, error: setPromptLayerError },
     "style-reference": { status: setStyleReferenceStatus, diagnostics: setStyleReferenceDiagnostics, error: setStyleReferenceError, progress: setStyleReferenceProgressPreview },
-    "multi-reference": { status: setMultiReferenceStatus, diagnostics: setMultiReferenceDiagnostics, error: setMultiReferenceError, progress: setMultiReferenceProgressPreview }
+    "multi-reference": { status: setMultiReferenceStatus, diagnostics: setMultiReferenceDiagnostics, error: setMultiReferenceError, progress: setMultiReferenceProgressPreview },
+    unflatten: { status: setUnflattenStatus, diagnostics: setUnflattenDiagnostics, error: setUnflattenError, progress: setUnflattenProgressPreview }
   };
 
   function setGenerationToolStatus(toolType: HistoryToolType, status: string, tone: StatusTone) {
@@ -4721,6 +4764,246 @@ export function renderApp(rootElement: HTMLElement) {
     }
   }
 
+  async function handleCaptureUnflattenLayer() {
+    await captureUnflattenSourceImage({
+      progressMessage: "Capturing active Photoshop layer for Unflatten...",
+      statusMessage: "Capturing layer...",
+      successMessage: "Layer captured.",
+      capture: exportActiveLayerForImageToImage
+    });
+  }
+
+  async function handleCaptureUnflattenCanvas() {
+    await captureUnflattenSourceImage({
+      progressMessage: "Capturing Photoshop canvas for Unflatten...",
+      statusMessage: "Capturing canvas...",
+      successMessage: "Canvas captured.",
+      capture: exportCanvasForImageToImage
+    });
+  }
+
+  async function captureUnflattenSourceImage(options: {
+    progressMessage: string;
+    statusMessage: string;
+    successMessage: string;
+    capture: () => Promise<ExportedSourceImage>;
+  }) {
+    setUnflattenDiagnostics(elements, options.progressMessage);
+    setUnflattenError(elements, "");
+    setUnflattenStatus(elements, options.statusMessage, "idle");
+    busyTool = "unflatten";
+    isBusy = true;
+    syncBusy();
+
+    try {
+      const exportedSource = await options.capture();
+      setUnflattenSource({
+        ...exportedSource,
+        previewUrl: objectUrls.create(exportedSource.blob)
+      });
+      setUnflattenStatus(elements, options.successMessage, "ready");
+      setUnflattenDiagnostics(
+        elements,
+        `${exportedSource.sourceName} captured at ${exportedSource.width} x ${exportedSource.height}.`
+      );
+    } catch (caughtError) {
+      setUnflattenStatus(elements, "Capture failed.", "error");
+      setUnflattenError(elements, getErrorMessage(caughtError));
+    } finally {
+      isBusy = false;
+      busyTool = null;
+      syncBusy();
+    }
+  }
+
+  async function handleGenerateUnflatten() {
+    if (!unflattenSource) {
+      setUnflattenError(elements, "Capture a layer or the canvas before unflattening.");
+      return;
+    }
+
+    setUnflattenError(elements, "");
+    setUnflattenResult(null);
+    busyTool = "unflatten";
+    isBusy = true;
+    syncBusy();
+    setUnflattenStatus(elements, "Preparing decomposition workflow...", "idle");
+    setUnflattenProgressPreview(elements, "Preparing decomposition workflow...");
+
+    try {
+      const preset = getWorkflowPreset(readSelectValue(elements.unflattenWorkflow, DEFAULT_UNFLATTEN_WORKFLOW));
+      const checkpointName = readSelectValue(elements.unflattenCheckpoint);
+      const { settings, warnings } = validateUnflattenSettings({
+        layerCount: elements.unflattenLayerCount.value,
+        steps: elements.unflattenSteps.value,
+        seed: elements.unflattenSeed.value
+      });
+      const client = new ComfyClient(elements.serverUrl.value);
+
+      elements.unflattenLayerCount.value = String(settings.layerCount);
+      elements.unflattenSteps.value = String(settings.steps);
+      setUnflattenDiagnostics(
+        elements,
+        warnings.length > 0
+          ? warnings.join(" ")
+          : createWorkflowDiagnostics(preset, checkpointName, createSourceInputAvailability(unflattenSource))
+      );
+      await client.checkOnline();
+
+      if (!checkpointName) {
+        throw createOpenLayerError("CHECKPOINT_REQUIRED", "Choose a ComfyUI model before unflattening.");
+      }
+
+      setUnflattenStatus(elements, "Checking selected model...", "idle");
+
+      if (!(await client.hasModelForPreset(checkpointName, preset))) {
+        throw createOpenLayerError(
+          "CHECKPOINT_REQUIRED",
+          `The ${preset.modelSource.label.toLowerCase()} "${checkpointName}" was not found in ComfyUI. Click Check ComfyUI and choose an available model.`
+        );
+      }
+
+      setUnflattenStatus(elements, "Checking layered nodes and models...", "idle");
+      setUnflattenProgressPreview(elements, "Checking decomposition setup...");
+      await client.validatePresetSetup(preset);
+
+      setUnflattenStatus(elements, "Uploading source...", "idle");
+      const uploadedName = await client.uploadImage(unflattenSource.blob, unflattenSource.filename);
+
+      const buildResult = await buildUnflattenWorkflow({
+        presetId: preset.id,
+        prompt: elements.unflattenPrompt.value,
+        checkpointName,
+        sourceImageName: uploadedName,
+        layerCount: settings.layerCount,
+        steps: settings.steps,
+        cfg: preset.recommendedSettings?.cfg ?? 2.5,
+        seed: settings.seed
+      });
+
+      const capturedSource = unflattenSource;
+      const generatedResult = await generation.runPipeline({
+        toolType: "unflatten",
+        client,
+        workflow: buildResult.workflow,
+        preferredNodeId: getSaveImageNodeId(buildResult.preset),
+        originatingDocument: capturedSource.originatingDocument,
+        ui: createPipelineUi("unflatten", elements.unflattenStatusProgress),
+        messages: {
+          submitStatus: "Submitting decomposition prompt...",
+          submitPreview: "Submitting prompt to ComfyUI...",
+          generateStatus: "Separating layers...",
+          generatePreview: "Separating layers...",
+          retrieveStatus: "Retrieving layers...",
+          retrievePreview: "Retrieving layers...",
+          livePreview: "Live ComfyUI preview..."
+        },
+        // The one place this differs from every other tool's pipeline call.
+        // A decomposition returns layerCount + 1 images and the import maps
+        // them to Photoshop layers positionally, so all of them are fetched
+        // and the order is the contract.
+        retrieve: async (promptId, history, retrieveOptions) => ({
+          images: await client.retrieveOutputImages(promptId, history, retrieveOptions)
+        }),
+        commit: (stackResult) => {
+          setUnflattenResult(stackResult);
+          unflattenHistoryResult = bindDocumentContext(
+            stackResult.images[0],
+            stackResult.originatingDocument
+          );
+          addHistoryEntry(elements, historyEntries, objectUrls, unflattenHistoryResult, {
+            prompt: elements.unflattenPrompt.value,
+            checkpointName,
+            modelName: checkpointName,
+            workflowPreset: buildResult.preset.id,
+            toolType: "unflatten",
+            seed: buildResult.seed,
+            sizeLabel: "From source",
+            dimensions: `${capturedSource.width} x ${capturedSource.height}`,
+            sourceMode: `${Math.max(stackResult.images.length - 1, 0)} layers from ${capturedSource.sourceName}`,
+            experimental: buildResult.preset.status === "experimental"
+          });
+        }
+      });
+
+      if (!generatedResult) {
+        return;
+      }
+
+      // Deliberately a count and not a verdict. Whether the picture actually
+      // separated cannot be decided from anything reachable here: it needs the
+      // alpha channel, nothing in this codebase can decode a PNG, and both
+      // cheap proxies were measured and rejected -- see the gate findings. So
+      // the panel reports what came back and the info note says what an
+      // unseparated result looks like, rather than guessing and being wrong.
+      const layerCount = Math.max(generatedResult.images.length - 1, 0);
+
+      setUnflattenStatus(elements, `Returned ${layerCount} layers.`, "ready");
+      setUnflattenDiagnostics(
+        elements,
+        `${layerCount} layers plus the reassembled picture. If the layers look empty, the source was too close-up to separate. Seed used: ${buildResult.seed}. Workflow: ${buildResult.preset.id}.`
+      );
+    } catch (caughtError) {
+      if (isGenerationCancelledError(caughtError)) {
+        showGenerationCancelled("unflatten");
+        return;
+      }
+
+      setUnflattenStatus(elements, "Unflatten failed.", "error");
+      setUnflattenError(elements, getErrorMessage(caughtError));
+      console.error("[OpenLayer] Unflatten failed", getTechnicalErrorDetails(caughtError));
+      setUnflattenDiagnostics(elements, getTechnicalErrorDetails(caughtError));
+    } finally {
+      isBusy = false;
+      busyTool = null;
+      syncBusy();
+    }
+  }
+
+  async function handleImportUnflatten() {
+    if (!unflattenResult) {
+      setUnflattenError(elements, "Unflatten a layer before importing.");
+      return;
+    }
+
+    setUnflattenError(elements, "");
+    busyTool = "unflatten";
+    isBusy = true;
+    syncBusy();
+    setUnflattenStatus(elements, "Importing layers into Photoshop...", "idle");
+
+    try {
+      const imported = await importUnflattenLayerStack({
+        images: unflattenResult.images,
+        originatingDocument: unflattenResult.originatingDocument,
+        targetBounds: unflattenSource?.captureBounds,
+        sourceName: unflattenSource?.sourceName,
+        onProgress: (message) => {
+          setUnflattenStatus(elements, message, "idle");
+          setUnflattenDiagnostics(elements, message);
+        }
+      });
+
+      setUnflattenStatus(elements, `Imported ${imported.layerNames.length} layers into ${imported.groupName}.`, "ready");
+      flashImported(elements.unflattenStatusText);
+
+      if (unflattenHistoryResult) {
+        markHistoryImported(elements, historyEntries, unflattenHistoryResult, imported.groupName);
+      }
+      setUnflattenDiagnostics(
+        elements,
+        `Group created: ${imported.groupName}. Layers, back to front: ${imported.layerNames.join(", ")}.`
+      );
+    } catch (caughtError) {
+      setUnflattenStatus(elements, "Import failed.", "error");
+      setUnflattenError(elements, getErrorMessage(caughtError));
+    } finally {
+      isBusy = false;
+      busyTool = null;
+      syncBusy();
+    }
+  }
+
   async function handleImportMultiReference() {
     setMultiReferenceDiagnostics(elements, "Multi-Reference import pressed.");
 
@@ -5922,6 +6205,28 @@ export function renderApp(rootElement: HTMLElement) {
     styleReferenceResultPanel.showProgress(message, blob);
   }
 
+  function setUnflattenSource(nextSource: ImageSourceState | null) {
+    unflattenSource = nextSource;
+    unflattenSourcePanel.show(unflattenSource && {
+      previewUrl: unflattenSource.previewUrl,
+      title: unflattenSource.sourceName,
+      meta: createSourceMetaText(unflattenSource)
+    });
+    syncBusy();
+  }
+
+  function setUnflattenResult(nextResult: DocumentContextBound<GeneratedImageSet> | null) {
+    unflattenResult = nextResult;
+    // The composite, not a layer. A single preview cannot show a stack, and the
+    // reassembled picture is the one image that says what came back.
+    unflattenResultPanel.showResult(nextResult?.images[0]?.blob ?? null);
+    syncBusy();
+  }
+
+  function setUnflattenProgressPreview(_elements: AppElements, message: string, blob?: Blob) {
+    unflattenResultPanel.showProgress(message, blob);
+  }
+
   function setPromptLayerSource(nextSource: ImageSourceState | null) {
     promptLayerSource = nextSource;
     promptLayerSourcePanel.show(promptLayerSource && {
@@ -5954,6 +6259,7 @@ export function renderApp(rootElement: HTMLElement) {
     elements.upscaleView.hidden = currentView !== "upscale";
     elements.styleReferenceView.hidden = currentView !== "style-reference";
     elements.multiReferenceView.hidden = currentView !== "multi-reference";
+    elements.unflattenView.hidden = currentView !== "unflatten";
     elements.workflowPresetsView.hidden = currentView !== "workflow-presets";
     elements.customWorkflowView.hidden = currentView !== "custom-workflow";
     elements.livePaintingView.hidden = currentView !== "live-painting";

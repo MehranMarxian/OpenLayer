@@ -419,8 +419,14 @@ problem the spike blamed on the model.
 - **Task 3 must skip the composite at index 0** (Q8). Skipping blank layers is deferred with
   a measured reason -- file size cannot identify them and nothing here can decode a PNG (Q7).
 - **Task 3 needs the scale-to-target-bounds step** (Q5), enlarging direction only.
-- **Task 4 should detect and report the close-up failure** (Q1) rather than importing an
-  empty layer. Comparing the background layer against the source is enough to catch it.
+- **Task 4 states the close-up limit in copy rather than detecting it** (Q1). Detecting it
+  was listed here first, on the reasoning that the background layer comes back equal to the
+  input. It does, but the panel cannot see that. **Both cheap proxies were measured and both
+  failed**: file size cannot identify a blank plate (see Q7 above), and the size ratio
+  between the background and the composite does not separate the two outcomes either --
+  across these runs an unseparated result sat at 0.972 while genuinely separated ones sat at
+  0.983 and 0.984, giving false alarms and misses in the same threshold. Deciding it properly
+  needs the alpha channel, and nothing in this codebase can decode a PNG.
 - **The subtitle cannot promise "any layer".** It separates pictures with a subject in front
   of a background. That belongs in the three places the house pattern requires.
 - **Q6 moves to before task 5**, not before task 1.

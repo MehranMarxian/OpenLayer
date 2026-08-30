@@ -1716,7 +1716,7 @@ const UNFLATTEN_QWEN_LAYERED_CAPABILITY: WorkflowCapability = {
   artistLabel: "Unflatten",
   technicalLabel: "unflatten-qwen-layered",
   requiredPhotoshopInputs: [{ anyOf: ["active-layer", "canvas"], label: "an active layer or captured canvas" }],
-  controls: ["prompt", "layerCount", "steps", "cfg", "seed"],
+  controls: ["prompt", "layerCount", "steps", "seed"],
   output: {
     kind: "source-sized-image",
     size: "source",
@@ -1726,7 +1726,7 @@ const UNFLATTEN_QWEN_LAYERED_CAPABILITY: WorkflowCapability = {
     showModelSelector: true,
     modelSelectorLabel: "Layered model",
     primaryActionLabel: "Unflatten",
-    hiddenControls: ["denoise", "width", "height", "negativePrompt"],
+    hiddenControls: ["denoise", "width", "height", "negativePrompt", "cfg"],
     experimentalNote:
       "Splits a flat layer into separate layers with transparency. It needs a picture with something standing in front of something else -- a subject on visible ground. A close-up that fills the frame has no front and back to find, and comes back unseparated. Four layers is the measured best setting: two fuses distinct objects into one plate, and more than four returns blank layers. Resolution is fixed at 640 because 1024 separates worse and takes three times as long."
   }

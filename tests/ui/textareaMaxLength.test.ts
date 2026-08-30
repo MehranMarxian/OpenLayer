@@ -24,7 +24,7 @@ describe("textarea maxlength", () => {
   const textareas = markup.match(/<textarea[^>]*>/g) ?? [];
 
   it("finds every textarea in the panel", () => {
-    expect(textareas.length).toBe(18);
+    expect(textareas.length).toBe(19);
   });
 
   it("gives each one a maxlength well above the UXP 256-character cap", () => {

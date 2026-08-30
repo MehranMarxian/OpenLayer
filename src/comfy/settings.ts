@@ -9,6 +9,8 @@ import {
   SketchToImageSettingsValidation,
   MultiReferenceSettingsInput,
   MultiReferenceSettingsValidation,
+  UnflattenSettingsInput,
+  UnflattenSettingsValidation,
   StyleReferenceSettingsInput,
   StyleReferenceSettingsValidation
 } from "./types";
@@ -92,6 +94,32 @@ export function validateMultiReferenceSettings(
     settings: {
       steps,
       cfg,
+      seed
+    },
+    warnings
+  };
+}
+
+/**
+ * Layer count is clamped to 2-4 rather than left open, and the ceiling is
+ * measured rather than cautious: six layers came back with three of five plates
+ * blank, and two fuses distinct objects into a single plate. Four is the
+ * optimum. docs/unflatten-gate-findings.md, Q2.
+ *
+ * There is no CFG here. The graph decomposes an existing picture at a fixed
+ * 2.5, the way the edit presets fix denoise at 1 -- it is the technique rather
+ * than a default, so there is nowhere for a slider to go.
+ */
+export function validateUnflattenSettings(input: UnflattenSettingsInput): UnflattenSettingsValidation {
+  const warnings: string[] = [];
+  const layerCount = readIntegerInRange(input.layerCount, "Layers", 2, 4, warnings);
+  const steps = readIntegerInRange(input.steps, "Steps", 1, 150, warnings);
+  const seed = readSeed(input.seed, warnings);
+
+  return {
+    settings: {
+      layerCount,
+      steps,
       seed
     },
     warnings

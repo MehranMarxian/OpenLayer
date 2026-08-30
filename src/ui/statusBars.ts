@@ -312,6 +312,10 @@ export function setMultiReferenceStatus(elements: AppElements, status: string, t
   applyToolStatus(elements, elements.multiReferenceStatusText, elements.multiReferenceStatusPill, elements.multiReferenceStatusProgress, status, tone);
 }
 
+export function setUnflattenStatus(elements: AppElements, status: string, tone: StatusTone) {
+  applyToolStatus(elements, elements.unflattenStatusText, elements.unflattenStatusPill, elements.unflattenStatusProgress, status, tone);
+}
+
 // Layer Tools is not a generation: it has no progress bar and nothing to report
 // on the Home status row. It therefore writes its own bar only, rather than
 // going through applyToolStatus -- the fan-out that put one tool's progress in
@@ -389,6 +393,10 @@ export function setMultiReferenceError(elements: AppElements, message: string) {
   applyToolError(elements.multiReferenceErrorMessage, message);
 }
 
+export function setUnflattenError(elements: AppElements, message: string) {
+  applyToolError(elements.unflattenErrorMessage, message);
+}
+
 /**
  * A diagnostic that belongs to the panel rather than to a tool: the ComfyUI
  * connection, the port scan, the hardware report, workflow health, the settings
@@ -458,5 +466,10 @@ export function setStyleReferenceDiagnostics(elements: AppElements, message: str
 
 export function setMultiReferenceDiagnostics(elements: AppElements, message: string) {
   elements.multiReferenceDiagnosticsText.textContent = message;
+  elements.settingsDiagnosticsText.textContent = message;
+}
+
+export function setUnflattenDiagnostics(elements: AppElements, message: string) {
+  elements.unflattenDiagnosticsText.textContent = message;
   elements.settingsDiagnosticsText.textContent = message;
 }

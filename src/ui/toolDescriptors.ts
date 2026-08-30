@@ -105,6 +105,14 @@ export const BUSY_DISABLED_FIELD_GROUPS: Readonly<
     "multiReferenceSteps",
     "multiReferenceCfg",
     "multiReferenceSeed"
+  ],
+  unflatten: [
+    "unflattenPrompt",
+    "unflattenWorkflow",
+    "unflattenCheckpoint",
+    "unflattenLayerCount",
+    "unflattenSteps",
+    "unflattenSeed"
   ]
 };
 
@@ -160,7 +168,9 @@ export const BUSY_ALLOWED_ACTIONS: readonly ActionElementKey[] = [
   "captureStyleReferenceLayerButton",
   "captureStyleReferenceCanvasButton",
   "addMultiReferenceLayerButton",
-  "addMultiReferenceCanvasButton"
+  "addMultiReferenceCanvasButton",
+  "captureUnflattenLayerButton",
+  "captureUnflattenCanvasButton"
 ];
 
 // Tool state a gated button also needs before it can be enabled: generate
@@ -180,7 +190,9 @@ export type BusyGateName =
   | "styleReferenceSource"
   | "styleReferenceResult"
   | "multiReferenceSources"
-  | "multiReferenceResult";
+  | "multiReferenceResult"
+  | "unflattenSource"
+  | "unflattenResult";
 
 export type BusyGatedAction = Readonly<{
   button: ActionElementKey;
@@ -204,5 +216,7 @@ export const BUSY_GATED_ACTIONS: readonly BusyGatedAction[] = [
   // Gated on the list being non-empty rather than on a single captured source,
   // which is the one place this tool's readiness differs from every other one.
   { button: "generateMultiReferenceButton", gate: "multiReferenceSources" },
-  { button: "importMultiReferenceButton", gate: "multiReferenceResult" }
+  { button: "importMultiReferenceButton", gate: "multiReferenceResult" },
+  { button: "generateUnflattenButton", gate: "unflattenSource" },
+  { button: "importUnflattenButton", gate: "unflattenResult" }
 ];

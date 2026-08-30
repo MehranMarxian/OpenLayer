@@ -96,6 +96,10 @@ export type ActionName =
   | "addMultiReferenceCanvas"
   | "generateMultiReference"
   | "importMultiReference"
+  | "captureUnflattenLayer"
+  | "captureUnflattenCanvas"
+  | "generateUnflatten"
+  | "importUnflatten"
   | "checkCustomWorkflow";
 export type HistoryActionName = "preview" | "import" | "reuse";
 export type ActionRunner = (eventName: string) => void;

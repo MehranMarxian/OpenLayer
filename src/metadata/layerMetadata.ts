@@ -7,7 +7,8 @@ export type OpenLayerMetadataToolType =
   | "prompt-from-layer"
   | "upscale"
   | "style-reference"
-  | "multi-reference";
+  | "multi-reference"
+  | "unflatten";
 
 export type OpenLayerLayerBounds = {
   left: number;

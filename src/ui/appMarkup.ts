@@ -25,6 +25,10 @@ import {
   DEFAULT_SKETCH_STEPS,
   DEFAULT_MULTI_REFERENCE_CFG,
   DEFAULT_MULTI_REFERENCE_STEPS,
+  DEFAULT_UNFLATTEN_LAYER_COUNT,
+  DEFAULT_UNFLATTEN_STEPS,
+  MAX_UNFLATTEN_LAYER_COUNT,
+  MIN_UNFLATTEN_LAYER_COUNT,
   DEFAULT_STEPS,
   DEFAULT_STYLE_REFERENCE_CONTROL_STRENGTH,
   DEFAULT_WIDTH,
@@ -363,6 +367,10 @@ export type AppElements = {
   addMultiReferenceCanvasButton: HTMLElement;
   generateMultiReferenceButton: HTMLElement;
   importMultiReferenceButton: HTMLElement;
+  captureUnflattenLayerButton: HTMLElement;
+  captureUnflattenCanvasButton: HTMLElement;
+  generateUnflattenButton: HTMLElement;
+  importUnflattenButton: HTMLElement;
   multiReferenceList: HTMLElement;
   multiReferenceCount: HTMLElement;
   multiReferenceStatusText: HTMLElement;
@@ -372,6 +380,25 @@ export type AppElements = {
   multiReferenceCompatibilityNote: HTMLElement;
   multiReferenceErrorMessage: HTMLElement;
   multiReferenceResultPreviewPanel: HTMLElement;
+  unflattenView: HTMLElement;
+  unflattenPrompt: HTMLTextAreaElement;
+  unflattenPromptWalletSave: HTMLElement;
+  unflattenPromptWalletLoad: HTMLElement;
+  unflattenWorkflow: HTMLSelectElement;
+  unflattenCheckpoint: HTMLSelectElement;
+  unflattenLayerCount: HTMLInputElement;
+  unflattenSteps: HTMLInputElement;
+  unflattenSeed: HTMLInputElement;
+  unflattenSourceTitle: HTMLElement;
+  unflattenSourceMeta: HTMLElement;
+  unflattenSourcePreviewPanel: HTMLElement;
+  unflattenStatusText: HTMLElement;
+  unflattenStatusPill: HTMLElement;
+  unflattenStatusProgress: HTMLElement;
+  unflattenDiagnosticsText: HTMLElement;
+  unflattenErrorMessage: HTMLElement;
+  unflattenResultLabel: HTMLElement;
+  unflattenResultPreviewPanel: HTMLElement;
   workflowPresetsView: HTMLElement;
   workflowPresetsSummary: HTMLElement;
   workflowPresetsList: HTMLElement;
@@ -1217,6 +1244,99 @@ export function createAppMarkup() {
         </section>
       </section>
 
+      <section class="unflatten-view image-to-image-view" id="unflatten-view" aria-label="Unflatten" hidden>
+        <div class="screen-nav">
+          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
+          <div class="screen-title-block">
+            ${createScreenIconMarkup("unflatten", "Unflatten")}
+            <span class="screen-title">Unflatten</span>
+          </div>
+        </div>
+
+        <section class="panel-section generator-panel source-panel" aria-label="Unflatten source">
+          <div class="section-heading">
+            <span class="label">Source</span>
+            <span class="muted-label">Layer or canvas</span>
+          </div>
+          <div class="source-action-row" aria-label="Source capture actions">
+            <button class="button source-action-button action-control" id="capture-unflatten-layer" data-openlayer-action="captureUnflattenLayer" type="button">Use Active Layer</button>
+            <button class="button source-action-button action-control" id="capture-unflatten-canvas" data-openlayer-action="captureUnflattenCanvas" type="button">Use Canvas</button>
+          </div>
+          <div class="source-card">
+            <div class="source-thumb-frame" id="unflatten-source-preview-panel">
+              <span class="source-empty">None</span>
+            </div>
+            <div class="source-card-body">
+              <span class="source-title" id="unflatten-source-title">No source captured</span>
+              <span class="source-card-meta" id="unflatten-source-meta">A subject in front of a background.</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel-section generator-panel img2img-form-panel" aria-label="Unflatten settings">
+          <div class="section-heading">
+            <span class="label">Unflatten</span>
+            <span class="muted-label">Description and layer count</span>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Description${createPromptWalletControlsMarkup("unflatten-prompt")}</span>
+            <textarea maxlength="10000" class="textarea compact-textarea" id="unflatten-prompt" placeholder="Describe what is already in the picture..."></textarea>
+            <div class="diagnostics-line unflatten-hint" id="unflatten-prompt-hint">Describe what is already there, not what you want changed. Needs a picture with something standing in front of something else -- a close-up that fills the frame comes back unseparated.</div>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Workflow</span>
+            <select class="select" id="unflatten-workflow">
+              ${listRunnableWorkflowPresets("unflatten").map((preset) => `<option value="${preset.id}">${preset.displayName}</option>`).join("")}
+            </select>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Layered model</span>
+            <select class="select" id="unflatten-checkpoint">
+              ${createUnflattenModelOptionsMarkup()}
+            </select>
+          </div>
+          <div class="settings-grid img2img-settings-grid" aria-label="Unflatten settings">
+            <div class="field">
+              <span class="label">Layers</span>
+              <input class="input input-compact" id="unflatten-layer-count" type="number" min="${MIN_UNFLATTEN_LAYER_COUNT}" max="${MAX_UNFLATTEN_LAYER_COUNT}" step="1" value="${DEFAULT_UNFLATTEN_LAYER_COUNT}" />
+            </div>
+            <div class="field">
+              <span class="label">Steps</span>
+              <input class="input input-compact" id="unflatten-steps" type="number" min="1" max="150" step="1" value="${DEFAULT_UNFLATTEN_STEPS}" />
+            </div>
+            <div class="field settings-seed">
+              <span class="label">Seed</span>
+              <input class="input input-compact" id="unflatten-seed" type="text" inputmode="numeric" placeholder="Random" />
+            </div>
+          </div>
+          <button class="button button-primary button-generate button-wide action-control" id="generate-unflatten" data-openlayer-action="generateUnflatten" type="button">Unflatten</button>
+          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
+        </section>
+
+        <section class="generation-status-panel img2img-status-panel" aria-label="Unflatten status">
+          <div class="status-bar" role="status">
+            <span class="status-text" id="unflatten-status-text">Ready.</span>
+            <span class="status-pill idle" id="unflatten-status-pill">Status</span>
+          </div>
+          <div class="status-progress" id="unflatten-status-progress" hidden><span></span></div>
+          <div class="diagnostics-line" id="unflatten-diagnostics-text">Capture a layer, describe it, then Unflatten.</div>
+          <div class="error-message" id="unflatten-error-message" hidden></div>
+        </section>
+
+        <section class="panel-section result-panel img2img-result-panel" aria-label="Unflatten result">
+          <div class="section-heading">
+            <span class="label">Result preview</span>
+            <span class="muted-label" id="unflatten-result-label">Reassembled picture appears here</span>
+          </div>
+          <div class="preview-panel" id="unflatten-result-preview-panel">
+            <span class="preview-empty">No layers yet</span>
+          </div>
+          <div class="import-actions">
+            <button class="button button-import button-import-blue action-control is-disabled" id="import-unflatten-result" data-openlayer-action="importUnflatten" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
+          </div>
+        </section>
+      </section>
+
       <section class="inpaint-view image-to-image-view" id="inpaint-view" aria-label="Inpaint" hidden>
         <div class="screen-nav">
           <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
@@ -1851,6 +1971,13 @@ function createHomeToolSectionMarkup(section: { title: string; toolIds: string[]
  * model stack, and misleading in the seconds before ComfyUI answers with what
  * is actually installed.
  */
+function createUnflattenModelOptionsMarkup() {
+  const preset = getWorkflowPreset("unflatten-qwen-layered");
+  const modelName = preset.modelStack?.find((model) => model.kind === preset.modelSource.kind)?.modelName;
+
+  return modelName ? `<option value="${modelName}">${modelName}</option>` : "";
+}
+
 function createMultiReferenceModelOptionsMarkup() {
   const preset = getWorkflowPreset("multi-reference-flux2-klein");
   const modelName = preset.modelStack?.find((model) => model.kind === preset.modelSource.kind)?.modelName;
@@ -1872,6 +1999,7 @@ function createToolIconMarkup(icon: ToolIconName) {
     livePainting: "live-painting.png",
     styleReference: "style-reference.png",
     multiReference: "multi-reference.png",
+    unflatten: "unflatten.png",
     control: "workflow-presets.png",
     workflow: "workflow.png",
     layers: "layer-tools.png",
@@ -2261,6 +2389,10 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     addMultiReferenceCanvasButton: getElement<HTMLElement>(rootElement, "add-multi-reference-canvas"),
     generateMultiReferenceButton: getElement<HTMLElement>(rootElement, "generate-multi-reference"),
     importMultiReferenceButton: getElement<HTMLElement>(rootElement, "import-multi-reference-result"),
+    captureUnflattenLayerButton: getElement<HTMLElement>(rootElement, "capture-unflatten-layer"),
+    captureUnflattenCanvasButton: getElement<HTMLElement>(rootElement, "capture-unflatten-canvas"),
+    generateUnflattenButton: getElement<HTMLElement>(rootElement, "generate-unflatten"),
+    importUnflattenButton: getElement<HTMLElement>(rootElement, "import-unflatten-result"),
     multiReferenceList: getElement<HTMLElement>(rootElement, "multi-reference-list"),
     multiReferenceCount: getElement<HTMLElement>(rootElement, "multi-reference-count"),
     multiReferenceStatusText: getElement<HTMLElement>(rootElement, "multi-reference-status-text"),
@@ -2270,6 +2402,25 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     multiReferenceCompatibilityNote: getElement<HTMLElement>(rootElement, "multi-reference-compatibility-note"),
     multiReferenceErrorMessage: getElement<HTMLElement>(rootElement, "multi-reference-error-message"),
     multiReferenceResultPreviewPanel: getElement<HTMLElement>(rootElement, "multi-reference-result-preview-panel"),
+    unflattenView: getElement<HTMLElement>(rootElement, "unflatten-view"),
+    unflattenPrompt: getElement<HTMLTextAreaElement>(rootElement, "unflatten-prompt"),
+    unflattenPromptWalletSave: getElement<HTMLElement>(rootElement, "unflatten-prompt-wallet-save"),
+    unflattenPromptWalletLoad: getElement<HTMLElement>(rootElement, "unflatten-prompt-wallet-load"),
+    unflattenWorkflow: getElement<HTMLSelectElement>(rootElement, "unflatten-workflow"),
+    unflattenCheckpoint: getElement<HTMLSelectElement>(rootElement, "unflatten-checkpoint"),
+    unflattenLayerCount: getElement<HTMLInputElement>(rootElement, "unflatten-layer-count"),
+    unflattenSteps: getElement<HTMLInputElement>(rootElement, "unflatten-steps"),
+    unflattenSeed: getElement<HTMLInputElement>(rootElement, "unflatten-seed"),
+    unflattenSourceTitle: getElement<HTMLElement>(rootElement, "unflatten-source-title"),
+    unflattenSourceMeta: getElement<HTMLElement>(rootElement, "unflatten-source-meta"),
+    unflattenSourcePreviewPanel: getElement<HTMLElement>(rootElement, "unflatten-source-preview-panel"),
+    unflattenStatusText: getElement<HTMLElement>(rootElement, "unflatten-status-text"),
+    unflattenStatusPill: getElement<HTMLElement>(rootElement, "unflatten-status-pill"),
+    unflattenStatusProgress: getElement<HTMLElement>(rootElement, "unflatten-status-progress"),
+    unflattenDiagnosticsText: getElement<HTMLElement>(rootElement, "unflatten-diagnostics-text"),
+    unflattenErrorMessage: getElement<HTMLElement>(rootElement, "unflatten-error-message"),
+    unflattenResultLabel: getElement<HTMLElement>(rootElement, "unflatten-result-label"),
+    unflattenResultPreviewPanel: getElement<HTMLElement>(rootElement, "unflatten-result-preview-panel"),
     workflowPresetsView: getElement<HTMLElement>(rootElement, "workflow-presets-view"),
     workflowPresetsSummary: getElement<HTMLElement>(rootElement, "workflow-presets-summary"),
     workflowPresetsList: getElement<HTMLElement>(rootElement, "workflow-presets-list"),
