@@ -98,3 +98,26 @@ import misplaces it.
 `outpaint-flux-fill-basic.workflow.json` is the GUI-editable reference workflow for the experimental Outpaint tool.
 
 The runnable API version is in `src/workflows/api/outpaint-flux-fill-basic.json`. It uses ImagePadForOutpaint to expand the captured source before Flux Fill sampling. If this source workflow is edited in ComfyUI, export a matching API workflow and update `src/comfy/presetRegistry.ts` node mappings before relying on it.
+
+## Unflatten Notes
+
+`unflatten-qwen-layered.workflow.json` is the GUI-editable graph for the Unflatten tool, and
+its node ids match `src/workflows/api/unflatten-qwen-layered.json` one for one.
+
+Three things in it are load-bearing and measured rather than chosen. All three come from
+`docs/unflatten-gate-findings.md`.
+
+- **`ImageScaleToMaxDimension.largest_size` is fixed at 640, and should stay there.** At 1024
+  the decomposition separates roughly half as well, leaves more layers blank, and takes 3.5x
+  as long -- confirmed on two seeds. This is not the usual quality/time trade-off, so the
+  larger setting is not offered rather than being offered with a warning.
+- **`EmptyQwenImageLayeredLatentImage.layers` defaults to 4.** Two fuses distinct objects
+  into one plate, three separates less than four, and six returns blank layers. Four is the
+  measured optimum.
+- **`VAELoader` must load `qwen_image_layered_vae.safetensors`**, not `qwen_image_vae.safetensors`,
+  which is Krea-2's and sits in the same folder. The names differ by one word and the wrong
+  one loads far enough to fail confusingly rather than obviously.
+
+The graph returns **`layers` + 1 images**. Index 0 is the flattened composite, not a layer;
+the layers run back-to-front from index 1. Anything consuming this workflow has to skip
+index 0, and has to tolerate blank layers, because the populated count varies with seed.

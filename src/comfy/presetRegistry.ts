@@ -50,6 +50,8 @@ const COMFY_ORG_Z_IMAGE_TURBO_REPO = "https://huggingface.co/Comfy-Org/z_image_t
 // point straight at the file with no click-through.
 const BFL_FLUX2_KLEIN_4B_FP8_REPO = "https://huggingface.co/black-forest-labs/FLUX.2-klein-4b-fp8";
 const COMFY_ORG_KREA2_REPO = "https://huggingface.co/Comfy-Org/Krea-2";
+const COMFY_ORG_QWEN_IMAGE_LAYERED_REPO = "https://huggingface.co/Comfy-Org/Qwen-Image-Layered_ComfyUI";
+const COMFY_ORG_QWEN_IMAGE_REPO = "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI";
 const FLUX_TEXT_ENCODERS_REPO = "https://huggingface.co/comfyanonymous/flux_text_encoders";
 const ALIBABA_PAI_ZIMAGE_FUN_CONTROLNET_REPO =
   "https://huggingface.co/alibaba-pai/Z-Image-Turbo-Fun-Controlnet-Union-2.1";
@@ -133,6 +135,48 @@ const FLUX2_KLEIN_4B_STACK = [
     downloadUrl: `${COMFY_ORG_FLUX2_DEV_REPO}/resolve/main/split_files/vae/flux2-vae.safetensors`,
     sourcePageUrl: COMFY_ORG_FLUX2_DEV_REPO,
     downloadSizeBytes: 336211292
+  }
+] as const;
+
+const QWEN_IMAGE_LAYERED_STACK = [
+  {
+    kind: "diffusion-model-stack",
+    objectInfoNode: "UNETLoader",
+    inputName: "unet_name",
+    label: "Qwen-Image-Layered diffusion model",
+    modelName: "qwen_image_layered_fp8mixed.safetensors",
+    setupHint: "Install qwen_image_layered_fp8mixed.safetensors where ComfyUI's UNETLoader can find it.",
+    downloadUrl: `${COMFY_ORG_QWEN_IMAGE_LAYERED_REPO}/resolve/main/split_files/diffusion_models/qwen_image_layered_fp8mixed.safetensors`,
+    sourcePageUrl: COMFY_ORG_QWEN_IMAGE_LAYERED_REPO,
+    downloadSizeBytes: 20533591821
+  },
+  {
+    // NOT in the layered repository. That repo has no text_encoders folder at
+    // all, which is what sends people to the wrong file; the encoder lives with
+    // the base Qwen-Image release instead.
+    kind: "clip",
+    objectInfoNode: "CLIPLoader",
+    inputName: "clip_name",
+    label: "Qwen2.5-VL 7B text encoder",
+    modelName: "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+    setupHint: "Install qwen_2.5_vl_7b_fp8_scaled.safetensors where ComfyUI's CLIPLoader can find it.",
+    downloadUrl: `${COMFY_ORG_QWEN_IMAGE_REPO}/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors`,
+    sourcePageUrl: COMFY_ORG_QWEN_IMAGE_REPO,
+    downloadSizeBytes: 9384670680
+  },
+  {
+    // Not qwen_image_vae.safetensors, which is Krea-2's and sits in the same
+    // folder. The names differ by one word and the wrong one loads far enough
+    // to fail confusingly rather than obviously.
+    kind: "vae",
+    objectInfoNode: "VAELoader",
+    inputName: "vae_name",
+    label: "Qwen-Image-Layered VAE",
+    modelName: "qwen_image_layered_vae.safetensors",
+    setupHint: "Install qwen_image_layered_vae.safetensors in ComfyUI models/vae. This is the layered VAE, not qwen_image_vae.safetensors.",
+    downloadUrl: `${COMFY_ORG_QWEN_IMAGE_LAYERED_REPO}/resolve/main/split_files/vae/qwen_image_layered_vae.safetensors`,
+    sourcePageUrl: COMFY_ORG_QWEN_IMAGE_LAYERED_REPO,
+    downloadSizeBytes: 253816616
   }
 ] as const;
 
@@ -611,6 +655,26 @@ const FLUX2_KLEIN_MULTI_REFERENCE_NODES = {
   saveImage: "9"
 } as const;
 
+const UNFLATTEN_QWEN_LAYERED_NODES = {
+  loadImage: "1",
+  sourceScale: "2",
+  canvasSize: "3",
+  diffusionModelLoader: "4",
+  clipLoader: "5",
+  vaeLoader: "6",
+  modelSampling: "7",
+  positivePrompt: "8",
+  negativePrompt: "9",
+  vaeEncode: "10",
+  referenceIntoPositive: "11",
+  referenceIntoNegative: "12",
+  layeredLatent: "13",
+  sampler: "14",
+  cutToBatch: "15",
+  decode: "16",
+  saveImage: "17"
+} as const;
+
 const FLUX2_KLEIN_EDIT_NODES = {
   diffusionModelLoader: "20",
   clipLoader: "21",
@@ -1060,6 +1124,22 @@ const FLUX2_KLEIN_MULTI_REFERENCE_INJECTIONS = {
   cfg: target(FLUX2_KLEIN_MULTI_REFERENCE_NODES.sampler, "cfg")
   // No denoise and no width/height, for the same reason as edit-flux2-klein:
   // denoise 1 is the technique, and the canvas comes from reference 1.
+} as const;
+
+const UNFLATTEN_QWEN_LAYERED_INJECTIONS = {
+  checkpoint: target(UNFLATTEN_QWEN_LAYERED_NODES.diffusionModelLoader, "unet_name"),
+  sourceImage: target(UNFLATTEN_QWEN_LAYERED_NODES.loadImage, "image"),
+  positivePrompt: target(UNFLATTEN_QWEN_LAYERED_NODES.positivePrompt, "text"),
+  negativePrompt: target(UNFLATTEN_QWEN_LAYERED_NODES.negativePrompt, "text"),
+  seed: target(UNFLATTEN_QWEN_LAYERED_NODES.sampler, "seed"),
+  steps: target(UNFLATTEN_QWEN_LAYERED_NODES.sampler, "steps"),
+  cfg: target(UNFLATTEN_QWEN_LAYERED_NODES.sampler, "cfg"),
+  // New to this project. Everything else here injects into a node class that
+  // already had a home; this one drives how many plates come back.
+  layerCount: target(UNFLATTEN_QWEN_LAYERED_NODES.layeredLatent, "layers")
+  // No width/height: the latent is sized from GetImageSize on the scaled
+  // source, so the output always matches what was captured. No denoise: the
+  // graph decomposes an existing picture rather than re-sampling it.
 } as const;
 
 const FLUX2_KLEIN_EDIT_INJECTIONS = {
@@ -1627,6 +1707,28 @@ const FLUX2_KLEIN_MULTI_REFERENCE_CAPABILITY: WorkflowCapability = {
     hiddenControls: ["denoise", "width", "height"],
     experimentalNote:
       "Composes one picture out of several layers. Clothing, props, setting and lighting all carry across; faces do not -- a person in a reference comes back as a plausible stranger rather than themselves, so this cannot place a specific person. Reference 1 sets the output size. Order matters: if an object behind the subjects comes out duplicated or stretched, move it earlier in the list."
+  }
+};
+
+const UNFLATTEN_QWEN_LAYERED_CAPABILITY: WorkflowCapability = {
+  toolType: "unflatten",
+  loaderType: "diffusion-model-stack",
+  artistLabel: "Unflatten",
+  technicalLabel: "unflatten-qwen-layered",
+  requiredPhotoshopInputs: [{ anyOf: ["active-layer", "canvas"], label: "an active layer or captured canvas" }],
+  controls: ["prompt", "layerCount", "steps", "cfg", "seed"],
+  output: {
+    kind: "source-sized-image",
+    size: "source",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Layered model",
+    primaryActionLabel: "Unflatten",
+    hiddenControls: ["denoise", "width", "height", "negativePrompt"],
+    experimentalNote:
+      "Splits a flat layer into separate layers with transparency. It needs a picture with something standing in front of something else -- a subject on visible ground. A close-up that fills the frame has no front and back to find, and comes back unseparated. Four layers is the measured best setting: two fuses distinct objects into one plate, and more than four returns blank layers. Resolution is fixed at 640 because 1024 separates worse and takes three times as long."
   }
 };
 
@@ -3786,6 +3888,114 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
       },
       {
         id: STYLE_REFERENCE_SD15_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images", "filename_prefix"]
+      }
+    ]
+  },
+  {
+    id: "unflatten-qwen-layered",
+    label: "unflatten-qwen-layered",
+    displayName: "Qwen-Image-Layered",
+    mode: "unflatten",
+    description:
+      "Splits a flat captured layer into separate layers with real transparency, in stacking order. Needs a subject standing on visible ground; a frame-filling close-up comes back unseparated.",
+    workflowFile: "workflows/api/unflatten-qwen-layered.json",
+    sourceWorkflowFile: "workflows/source/unflatten-qwen-layered.workflow.json",
+    status: "experimental",
+    recommendedSettings: { steps: 20, cfg: 2.5 },
+    supportedModelFamilies: ["unknown"],
+    experimentalModelFamilies: ["sd1", "sdxl", "sd3", "flux", "flux2", "zImage"],
+    modelSource: DIFFUSION_MODEL_SOURCE,
+    capability: UNFLATTEN_QWEN_LAYERED_CAPABILITY,
+    modelStack: [...QWEN_IMAGE_LAYERED_STACK],
+    requiredModels: [...QWEN_IMAGE_LAYERED_STACK],
+    injections: UNFLATTEN_QWEN_LAYERED_INJECTIONS,
+    compatibilityNote:
+      "unflatten-qwen-layered returns layers + 1 images: index 0 is the flattened composite, and the layers run back-to-front from index 1. Measured on a live ComfyUI over 20 runs -- see docs/unflatten-gate-findings.md. 640px with 4 layers is the measured optimum; 1024 separates roughly half as well and costs 3.5x the time, which is why the graph fixes largest_size at 640.",
+    requiredNodes: [
+      {
+        id: UNFLATTEN_QWEN_LAYERED_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: UNFLATTEN_QWEN_LAYERED_NODES.sourceScale,
+        classType: "ImageScaleToMaxDimension",
+        requiredInputs: ["image", "upscale_method", "largest_size"]
+      },
+      {
+        id: UNFLATTEN_QWEN_LAYERED_NODES.canvasSize,
+        classType: "GetImageSize",
+        requiredInputs: ["image"]
+      },
+      {
+        id: UNFLATTEN_QWEN_LAYERED_NODES.diffusionModelLoader,
+        classType: "UNETLoader",
+        requiredInputs: ["unet_name", "weight_dtype"]
+      },
+      {
+        id: UNFLATTEN_QWEN_LAYERED_NODES.clipLoader,
+        classType: "CLIPLoader",
+        requiredInputs: ["clip_name", "type"]
+      },
+      {
+        id: UNFLATTEN_QWEN_LAYERED_NODES.vaeLoader,
+        classType: "VAELoader",
+        requiredInputs: ["vae_name"]
+      },
+      {
+        id: UNFLATTEN_QWEN_LAYERED_NODES.modelSampling,
+        classType: "ModelSamplingAuraFlow",
+        requiredInputs: ["model", "shift"]
+      },
+      {
+        id: UNFLATTEN_QWEN_LAYERED_NODES.positivePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: UNFLATTEN_QWEN_LAYERED_NODES.negativePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: UNFLATTEN_QWEN_LAYERED_NODES.vaeEncode,
+        classType: "VAEEncode",
+        requiredInputs: ["pixels", "vae"]
+      },
+      {
+        id: UNFLATTEN_QWEN_LAYERED_NODES.referenceIntoPositive,
+        classType: "ReferenceLatent",
+        requiredInputs: ["conditioning", "latent"]
+      },
+      {
+        id: UNFLATTEN_QWEN_LAYERED_NODES.referenceIntoNegative,
+        classType: "ReferenceLatent",
+        requiredInputs: ["conditioning", "latent"]
+      },
+      {
+        id: UNFLATTEN_QWEN_LAYERED_NODES.layeredLatent,
+        classType: "EmptyQwenImageLayeredLatentImage",
+        requiredInputs: ["width", "height", "layers", "batch_size"]
+      },
+      {
+        id: UNFLATTEN_QWEN_LAYERED_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["model", "seed", "steps", "cfg", "positive", "negative", "latent_image", "denoise"]
+      },
+      {
+        id: UNFLATTEN_QWEN_LAYERED_NODES.cutToBatch,
+        classType: "LatentCutToBatch",
+        requiredInputs: ["samples", "dim", "slice_size"]
+      },
+      {
+        id: UNFLATTEN_QWEN_LAYERED_NODES.decode,
+        classType: "VAEDecode",
+        requiredInputs: ["samples", "vae"]
+      },
+      {
+        id: UNFLATTEN_QWEN_LAYERED_NODES.saveImage,
         classType: "SaveImage",
         requiredInputs: ["images", "filename_prefix"]
       }

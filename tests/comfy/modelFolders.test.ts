@@ -135,6 +135,7 @@ describe("required model inventory", () => {
         "diffusion_models/flux-2-klein-4b-fp8.safetensors",
         "diffusion_models/flux2-dev-Q4_K_M.gguf",
         "diffusion_models/krea2_turbo_fp8_scaled.safetensors",
+        "diffusion_models/qwen_image_layered_fp8mixed.safetensors",
         "diffusion_models/z_image_turbo_bf16.safetensors",
         "clip_vision/CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors",
         "ipadapter/ip-adapter-plus_sd15.safetensors",
@@ -143,12 +144,14 @@ describe("required model inventory", () => {
         "text_encoders/clip_l.safetensors",
         "text_encoders/mistral_3_small_flux2_fp8.safetensors",
         "text_encoders/qwen3vl_4b_fp8_scaled.safetensors",
+        "text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors",
         "text_encoders/qwen_3_4b.safetensors",
         "text_encoders/t5xxl_fp16.safetensors",
         "upscale_models/4x-UltraSharp.pth",
         "vae/ae.safetensors",
         "vae/flux2-vae.safetensors",
         "vae/full_encoder_small_decoder.safetensors",
+        "vae/qwen_image_layered_vae.safetensors",
         "vae/qwen_image_vae.safetensors"
       ].sort()
     );
