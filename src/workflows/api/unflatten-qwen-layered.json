@@ -1,0 +1,131 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "openlayer-unflatten-source.png"
+    }
+  },
+  "2": {
+    "class_type": "ImageScaleToMaxDimension",
+    "inputs": {
+      "upscale_method": "lanczos",
+      "largest_size": 640,
+      "image": ["1", 0]
+    }
+  },
+  "3": {
+    "class_type": "GetImageSize",
+    "inputs": {
+      "image": ["2", 0]
+    }
+  },
+  "4": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "qwen_image_layered_fp8mixed.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "5": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "type": "qwen_image",
+      "device": "default"
+    }
+  },
+  "6": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "qwen_image_layered_vae.safetensors"
+    }
+  },
+  "7": {
+    "class_type": "ModelSamplingAuraFlow",
+    "inputs": {
+      "shift": 1.0,
+      "model": ["4", 0]
+    }
+  },
+  "8": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "a photograph",
+      "clip": ["5", 0]
+    }
+  },
+  "9": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "",
+      "clip": ["5", 0]
+    }
+  },
+  "10": {
+    "class_type": "VAEEncode",
+    "inputs": {
+      "pixels": ["2", 0],
+      "vae": ["6", 0]
+    }
+  },
+  "11": {
+    "class_type": "ReferenceLatent",
+    "inputs": {
+      "conditioning": ["8", 0],
+      "latent": ["10", 0]
+    }
+  },
+  "12": {
+    "class_type": "ReferenceLatent",
+    "inputs": {
+      "conditioning": ["9", 0],
+      "latent": ["10", 0]
+    }
+  },
+  "13": {
+    "class_type": "EmptyQwenImageLayeredLatentImage",
+    "inputs": {
+      "width": ["3", 0],
+      "height": ["3", 1],
+      "layers": 4,
+      "batch_size": 1
+    }
+  },
+  "14": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 0,
+      "steps": 20,
+      "cfg": 2.5,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1.0,
+      "model": ["7", 0],
+      "positive": ["11", 0],
+      "negative": ["12", 0],
+      "latent_image": ["13", 0]
+    }
+  },
+  "15": {
+    "class_type": "LatentCutToBatch",
+    "inputs": {
+      "dim": "t",
+      "slice_size": 1,
+      "samples": ["14", 0]
+    }
+  },
+  "16": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["15", 0],
+      "vae": ["6", 0]
+    }
+  },
+  "17": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "OpenLayer_Unflatten",
+      "images": ["16", 0]
+    }
+  }
+}

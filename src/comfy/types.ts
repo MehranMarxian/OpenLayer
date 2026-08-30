@@ -23,7 +23,8 @@ export type WorkflowPreset =
   | "outpaint-flux-fill-basic"
   | "upscale-basic"
   | "style-reference-sd15"
-  | "multi-reference-flux2-klein";
+  | "multi-reference-flux2-klein"
+  | "unflatten-qwen-layered";
 export type WorkflowMode =
   | "txt2img"
   | "img2img"
@@ -33,7 +34,8 @@ export type WorkflowMode =
   | "prompt"
   | "upscale"
   | "style-reference"
-  | "multi-reference";
+  | "multi-reference"
+  | "unflatten";
 export type ModelFamily = "sd1" | "sdxl" | "sd3" | "flux" | "flux2" | "zImage" | "unknown";
 export type WorkflowToolType = WorkflowMode | "realtime";
 export type WorkflowLoaderType = "checkpoint" | "diffusion-model-stack" | "vision-language" | "upscale";
@@ -51,6 +53,7 @@ export type WorkflowControlId =
   | "numBeams"
   | "controlStrength"
   | "maskBlur"
+  | "layerCount"
   | "contextPadding"
   | "outpaintLeft"
   | "outpaintTop"
@@ -239,6 +242,36 @@ export type BuildMultiReferenceWorkflowOptions = {
 };
 
 /**
+ * No width/height: the layered latent is sized from the captured source, so the
+ * decomposition always comes back at the size that went in. No denoise: this
+ * takes an existing picture apart rather than re-sampling it.
+ */
+export type BuildUnflattenWorkflowOptions = {
+  presetId?: string;
+  /**
+   * A plain description of the picture. The graph conditions the decomposition
+   * on it, so it describes what is already there rather than asking for
+   * something new.
+   */
+  prompt: string;
+  negativePrompt?: string;
+  checkpointName?: string;
+  sourceImageName: string;
+  /**
+   * How many plates to ask for. The run returns this many PLUS ONE image: index
+   * 0 is the flattened composite. Layers past what the picture actually
+   * contains come back blank rather than invented, so this is a ceiling and not
+   * a promise -- see docs/unflatten-gate-findings.md, Q7.
+   */
+  layerCount: number;
+  steps: number;
+  cfg: number;
+  seed: number;
+  requiredModelSelections?: Record<string, string>;
+  lora?: WorkflowLoraSelection;
+};
+
+/**
  * No width/height: the first reference sets the canvas. No denoise: it is fixed
  * at 1, which is the technique rather than a default.
  */
@@ -317,7 +350,13 @@ export type WorkflowInjectionName =
   | "outpaintTop"
   | "outpaintRight"
   | "outpaintBottom"
-  | "outpaintFeathering";
+  | "outpaintFeathering"
+  /**
+   * How many plates the layered decomposition returns. The graph gives back
+   * layerCount + 1 images: index 0 is the flattened composite, and the layers
+   * run back-to-front from index 1.
+   */
+  | "layerCount";
 
 export type WorkflowInjectionTargetList = WorkflowInputTarget | readonly WorkflowInputTarget[];
 

@@ -14,7 +14,8 @@ const MODE_LABELS: Record<WorkflowPresetDefinition["mode"], string> = {
   prompt: "Prompt from Layer",
   upscale: "Upscale",
   "style-reference": "Style Reference",
-  "multi-reference": "Multi-Reference Composition"
+  "multi-reference": "Multi-Reference Composition",
+  unflatten: "Unflatten"
 };
 
 const DEFAULT_CONTROLS: Record<WorkflowPresetDefinition["mode"], readonly WorkflowControlId[]> = {
@@ -38,7 +39,10 @@ const DEFAULT_CONTROLS: Record<WorkflowPresetDefinition["mode"], readonly Workfl
   upscale: [],
   "style-reference": ["prompt", "negativePrompt", "width", "height", "steps", "cfg", "seed", "controlStrength"],
   // No width/height: reference 1 sets the canvas. No denoise: it is fixed at 1.
-  "multi-reference": ["prompt", "negativePrompt", "steps", "cfg", "seed"]
+  "multi-reference": ["prompt", "negativePrompt", "steps", "cfg", "seed"],
+  // No width/height: the latent is sized from the captured source. No denoise:
+  // this decomposes an existing picture rather than re-sampling it.
+  unflatten: ["prompt", "layerCount", "steps", "cfg", "seed"]
 };
 
 export function getWorkflowCapability(preset: WorkflowPresetDefinition): WorkflowCapability {

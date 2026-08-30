@@ -31,6 +31,7 @@ import {
   BuildPromptFromLayerWorkflowOptions,
   BuildSketchToImageWorkflowOptions,
   BuildStyleReferenceWorkflowOptions,
+  BuildUnflattenWorkflowOptions,
   BuildUpscaleWorkflowOptions,
   BuildWorkflowOptions,
   BuildWorkflowResult,
@@ -263,6 +264,44 @@ export async function buildMultiReferenceWorkflow(
   // rewires the sampler's conditioning inputs, and a later injection into them
   // would silently drop every reference past the first.
   applyReferenceChain(workflow, preset, options.referenceImageNames);
+  applyLoraSelection(workflow, preset, options.lora);
+
+  validateWorkflowForPreset(workflow, preset);
+
+  return {
+    workflow,
+    seed,
+    preset
+  };
+}
+
+export async function buildUnflattenWorkflow(
+  options: BuildUnflattenWorkflowOptions
+): Promise<BuildWorkflowResult> {
+  const preset = getWorkflowPreset(options.presetId ?? "unflatten-qwen-layered");
+  assertPresetMode(preset, "unflatten");
+  assertPresetRunnable(preset);
+  const workflow = await cloneWorkflowTemplate(preset);
+  const seed = options.seed;
+
+  validateWorkflowForPreset(workflow, preset);
+  applyRequiredModelSelections(workflow, preset, options.requiredModelSelections);
+
+  if (options.checkpointName) {
+    setPresetInput(workflow, preset, "checkpoint", options.checkpointName, true);
+  }
+
+  setPresetInput(workflow, preset, "sourceImage", options.sourceImageName, true);
+  setPresetInput(workflow, preset, "positivePrompt", options.prompt, true);
+  setPresetInput(workflow, preset, "negativePrompt", options.negativePrompt ?? "");
+  setPresetInput(workflow, preset, "seed", seed, true);
+  setPresetInput(workflow, preset, "steps", options.steps, true);
+  setPresetInput(workflow, preset, "cfg", options.cfg, true);
+  // Required, unlike most injections: a graph that silently kept the template's
+  // layer count would return a different number of plates than the panel asked
+  // for, and the import maps results to layers positionally.
+  setPresetInput(workflow, preset, "layerCount", options.layerCount, true);
+
   applyLoraSelection(workflow, preset, options.lora);
 
   validateWorkflowForPreset(workflow, preset);
