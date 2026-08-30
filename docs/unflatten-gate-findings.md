@@ -343,9 +343,36 @@ and seed 778 filled two, leaving layer 2 blank (0.0%, 21.4%, 23.6%). Both are go
 decompositions and both put the same kinds of thing on the same kinds of layer, back to
 front. But you cannot promise an artist four layers of content from `layers: 4`.
 
-**Consequence for task 3: blank layers must be skipped on import**, alongside the composite
-at index 0. Otherwise a run lands empty layers in the artist's document with no explanation,
-and it will read as a bug in the import rather than a property of the model.
+**Consequence for task 3: the composite at index 0 must be skipped.** Skipping *blank* layers
+was also stated here as a task 3 requirement, and that has since been qualified -- see below.
+
+### Skipping blank layers: wanted, deferred, and not by the obvious route
+
+Detecting a blank plate needs its alpha channel, and nothing in this codebase can decode a
+PNG. Captures run the other way, from Photoshop's pixels outward, and UXP has no canvas.
+
+The obvious cheap proxy is file size, on the reasoning that a blank plate compresses to
+nothing. **Measured across the 63 layers these runs produced, it does not:**
+
+| | Count | PNG size |
+| --- | --- | --- |
+| Blank (coverage under 1%) | 8 | 201 KB - 845 KB |
+| Populated | 55 | 243 KB - 2.3 MB |
+
+The ranges overlap almost completely, and the largest blank plate is bigger than most real
+ones. A blank layer is not uniform transparency: it carries ordinary RGB noise underneath a
+near-zero alpha, and that noise does not compress away. Any threshold that caught the blanks
+would also discard real layers.
+
+So task 3 imports every plate except the composite, and the failure it protects against is
+the asymmetric one: an unwanted empty layer is visible in the Layers panel and takes one
+click to delete, while a wrongly discarded faint layer is silent data loss. The layers are
+named by stacking position so an empty one is obvious rather than mysterious.
+
+Doing it properly needs a downsampled alpha read of each placed layer through the imaging
+API. That is a real option and not a large one, but it puts a pixel read inside the
+transaction that mutates the artist's document, and it is not worth that risk to save a
+click. Worth revisiting once the tool has been used on real work.
 
 ## Q8 -- addendum
 
@@ -389,7 +416,8 @@ problem the spike blamed on the model.
 - **Defaults: 640px, 4 layers.** Both are measured optima rather than round numbers.
 - **Do not offer 1024** (Q3). Worse separation, more blank layers, 3.5x the time.
 - **Cap layer count at 4** (Q2). Six pads with blanks.
-- **Task 3 must skip blank layers** as well as index 0 (Q7, Q8).
+- **Task 3 must skip the composite at index 0** (Q8). Skipping blank layers is deferred with
+  a measured reason -- file size cannot identify them and nothing here can decode a PNG (Q7).
 - **Task 3 needs the scale-to-target-bounds step** (Q5), enlarging direction only.
 - **Task 4 should detect and report the close-up failure** (Q1) rather than importing an
   empty layer. Comparing the background layer against the source is enough to catch it.

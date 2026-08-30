@@ -4,6 +4,7 @@ import { encodeRgbaPng } from "../utils/png";
 import { calculatePlacementOffset, createOpaqueGrayscaleMaskPng, PixelDimensions } from "./exactInpaintMask";
 import { OutpaintExpansionPlan } from "./outpaintExpansion";
 import { UpscaleResizePlan } from "./upscaleResize";
+import { planLayerScale, planUnflattenLayerStack, LayerScalePlan } from "./unflattenLayerStack";
 import {
   calculateCenteredOrigin,
   createPaddedSelectionBounds,
@@ -1313,6 +1314,306 @@ async function resizeCanvas(
       vertical: { _enum: "verticalLocation", _value: verticalAnchor },
       _options: { dialogOptions: "dontDisplay" }
     }],
+    {}
+  );
+}
+
+export type UnflattenLayerStackImportOptions = {
+  /**
+   * Every image the run returned, in ComfyUI's order. Index 0 is the flattened
+   * composite and is not imported; see planUnflattenLayerStack.
+   */
+  images: readonly { blob: Blob }[];
+  originatingDocument: PhotoshopDocumentIdentity | null;
+  /**
+   * Where the source layer sat. Every plate is scaled and aligned to this, so
+   * the stack lands back over the region it was decomposed from. Absent means
+   * the capture could not report bounds, and the stack centres instead.
+   */
+  targetBounds?: NormalizedSelectionBounds;
+  /** The captured layer's name; the group is named after it. */
+  sourceName?: string;
+  onProgress?: ImportProgress;
+};
+
+export type UnflattenLayerStackImportResult = {
+  groupName: string;
+  layerNames: string[];
+};
+
+/**
+ * Imports a decomposed layer stack into the artist's document: N plates, back
+ * to front, each scaled and aligned to the region the source was captured
+ * from, all inside one layer group named after that source.
+ *
+ * Three things here are not shared with any other import in this file.
+ *
+ * **It is the only import that places more than once.** Every placement mutates
+ * the document, so the failure this has to survive is a partial one -- three
+ * plates down of five when something goes wrong. The whole sequence runs inside
+ * a single suspended history state, so `resumeHistory(id, false)` undoes every
+ * placement, rename, transform and the group in one step (A3). The deletions
+ * before it are belt and braces for a host that cannot suspend history at all.
+ *
+ * **It is the only import that scales.** `placeEvent` shrinks an oversized
+ * image to fit the canvas and never enlarges a small one, and
+ * `alignActiveLayerToBounds` beside it only translates -- so a 640px plate
+ * would otherwise sit at a fraction of its size in the corner of the region it
+ * came from. Measured rather than assumed: docs/unflatten-gate-findings.md, Q5.
+ *
+ * **It is the only import that carries alpha.** Nothing here had moved an alpha
+ * channel before; captures run `applyAlpha: false` and every import to date was
+ * opaque RGB. The bytes are never decoded on the way through -- ComfyUI's PNG
+ * reaches `placeEvent` untouched -- and Place preserves transparency, both
+ * verified before this was written.
+ */
+export async function importUnflattenLayerStack(
+  options: UnflattenLayerStackImportOptions
+): Promise<UnflattenLayerStackImportResult> {
+  const photoshop = getPhotoshop();
+  const files: UxpFile[] = [];
+
+  try {
+    assertActiveDocumentMatchesOrigin(photoshop, options.originatingDocument);
+
+    const plan = planUnflattenLayerStack({
+      imageCount: options.images.length,
+      sourceName: options.sourceName
+    });
+
+    for (const placement of plan.placements) {
+      const image = options.images[placement.imageIndex];
+
+      if (!image?.blob || image.blob.size === 0) {
+        throw new Error(`The decomposed image for ${placement.layerName} is empty.`);
+      }
+    }
+
+    // Every temporary file and token is created before the modal scope opens,
+    // matching the single-image imports: a failure while writing files must not
+    // happen with the artist's document already half-mutated.
+    const uxp = getUxp();
+    const tokens: string[] = [];
+    const stamp = Date.now();
+
+    for (const placement of plan.placements) {
+      options.onProgress?.(`Saving ${placement.layerName} to a temporary PNG...`);
+      const file = await saveBlobToTemporaryFile(
+        options.images[placement.imageIndex].blob,
+        `OpenLayer_Unflatten_${stamp}_${placement.depth}.png`
+      );
+      files.push(file);
+      tokens.push(await uxp.storage.localFileSystem.createSessionToken(file));
+    }
+
+    const layerNames: string[] = [];
+
+    await photoshop.core.executeAsModal(
+      async (executionContext) => {
+        assertActiveDocumentMatchesOrigin(photoshop, options.originatingDocument);
+        const transactionDocument = getActiveDocument();
+        const previousLayerId = transactionDocument.activeLayers?.[0]?.id;
+
+        const hostControl = executionContext?.hostControl;
+        const canSuspendHistory = typeof transactionDocument.id === "number" &&
+          typeof hostControl?.suspendHistory === "function" &&
+          typeof hostControl?.resumeHistory === "function";
+        const suspensionId = canSuspendHistory
+          ? await hostControl!.suspendHistory!({
+            documentID: transactionDocument.id!,
+            name: "OpenLayer Unflatten Import"
+          })
+          : null;
+
+        const placedLayerIds: number[] = [];
+        let operationError: unknown;
+
+        try {
+          for (const placement of plan.placements) {
+            // Re-checked every iteration rather than once at the end. This loop
+            // mutates the document repeatedly, and a document switched
+            // underneath it halfway would otherwise scatter plates across two
+            // documents before anything noticed (A1).
+            assertActiveDocumentMatchesOrigin(photoshop, options.originatingDocument);
+
+            options.onProgress?.(`Placing ${placement.layerName}...`);
+            await placeFileAsLayer(photoshop, tokens[placement.depth - 1]);
+
+            const placedLayerId = getActiveDocument().activeLayers?.[0]?.id;
+            if (placedLayerId === undefined) {
+              throw new Error(`Photoshop did not expose a layer ID for ${placement.layerName}.`);
+            }
+            placedLayerIds.push(placedLayerId);
+
+            await renameActiveLayer(photoshop, placement.layerName);
+            await fitActiveLayerToBounds(photoshop, options.targetBounds);
+            layerNames.push(placement.layerName);
+          }
+
+          assertActiveDocumentMatchesOrigin(photoshop, options.originatingDocument);
+          options.onProgress?.(`Grouping ${plan.placements.length} layers into ${plan.groupName}...`);
+          await selectLayersByIds(photoshop, placedLayerIds);
+          await groupSelectedLayers(photoshop, plan.groupName);
+        } catch (caughtError) {
+          operationError = caughtError;
+        }
+
+        if (operationError) {
+          // Reverse order so each delete targets a layer nothing else sits on.
+          for (const layerId of [...placedLayerIds].reverse()) {
+            await deleteLayerById(photoshop, layerId, true);
+          }
+
+          if (previousLayerId !== undefined) {
+            await selectLayerById(photoshop, previousLayerId, true);
+          }
+        }
+
+        if (suspensionId !== null) {
+          await hostControl!.resumeHistory!(suspensionId, !operationError);
+        }
+
+        if (operationError) {
+          const revertNote = suspensionId !== null
+            ? " The document was returned to its state before the import."
+            : " Undo (Ctrl+Z) removes any layers that were already placed.";
+          throw new Error(`${getErrorMessage(operationError)}${revertNote}`);
+        }
+      },
+      { commandName: "Import OpenLayer Unflatten Layers" }
+    );
+
+    options.onProgress?.(`Imported ${layerNames.length} layers into ${plan.groupName}.`);
+    return { groupName: plan.groupName, layerNames };
+  } catch (caughtError) {
+    throw createOpenLayerError(
+      "PHOTOSHOP_IMPORT_FAILED",
+      `Could not import the decomposed layers. ${getErrorMessage(caughtError)}`
+    );
+  } finally {
+    for (const file of files) {
+      await deleteTemporaryFileBestEffort(file);
+    }
+  }
+}
+
+/**
+ * Scales the active layer to the captured region and then moves it there.
+ *
+ * Scale before align, always: the transform is anchored on the layer's own
+ * centre, so it moves the layer as a side effect, and aligning first would be
+ * undone by it.
+ */
+async function fitActiveLayerToBounds(
+  photoshop: PhotoshopModule,
+  targetBounds?: NormalizedSelectionBounds
+) {
+  if (!targetBounds) {
+    await centerActiveLayerOnCanvas(photoshop);
+    return;
+  }
+
+  const placedBounds = await readActiveLayerBounds(photoshop);
+  const scale = planLayerScale(placedBounds, targetBounds);
+
+  if (scale) {
+    await scaleActiveLayer(photoshop, scale);
+  }
+
+  await alignActiveLayerToBounds(photoshop, targetBounds);
+}
+
+async function scaleActiveLayer(photoshop: PhotoshopModule, scale: LayerScalePlan) {
+  await photoshop.action.batchPlay(
+    [
+      {
+        _obj: "transform",
+        _target: [
+          {
+            _ref: "layer",
+            _enum: "ordinal",
+            _value: "targetEnum"
+          }
+        ],
+        freeTransformCenterState: {
+          _enum: "quadCenterState",
+          _value: "QCSAverage"
+        },
+        offset: {
+          _obj: "offset",
+          horizontal: { _unit: "pixelsUnit", _value: 0 },
+          vertical: { _unit: "pixelsUnit", _value: 0 }
+        },
+        width: { _unit: "percentUnit", _value: scale.horizontalPercent },
+        height: { _unit: "percentUnit", _value: scale.verticalPercent },
+        interfaceIconFrameDimmed: {
+          _enum: "interpolationType",
+          _value: "bicubic"
+        },
+        _options: {
+          dialogOptions: "dontDisplay"
+        }
+      }
+    ],
+    {}
+  );
+}
+
+async function selectLayersByIds(photoshop: PhotoshopModule, layerIds: readonly number[]) {
+  if (layerIds.length === 0) throw new Error("No placed layers to group.");
+
+  await selectLayerById(photoshop, layerIds[0], false);
+
+  for (const layerId of layerIds.slice(1)) {
+    await photoshop.action.batchPlay(
+      [
+        {
+          _obj: "select",
+          _target: [
+            {
+              _ref: "layer",
+              _id: layerId
+            }
+          ],
+          selectionModifier: {
+            _enum: "selectionModifierType",
+            _value: "addToSelection"
+          },
+          makeVisible: false,
+          _options: {
+            dialogOptions: "dontDisplay"
+          }
+        }
+      ],
+      {}
+    );
+  }
+}
+
+async function groupSelectedLayers(photoshop: PhotoshopModule, groupName: string) {
+  await photoshop.action.batchPlay(
+    [
+      {
+        _obj: "make",
+        _target: [
+          {
+            _ref: "layerSection"
+          }
+        ],
+        from: {
+          _ref: "layer",
+          _enum: "ordinal",
+          _value: "targetEnum"
+        },
+        using: {
+          _obj: "layerSection",
+          name: groupName
+        },
+        _options: {
+          dialogOptions: "dontDisplay"
+        }
+      }
+    ],
     {}
   );
 }
