@@ -27,19 +27,24 @@ and nothing else.
 
 ### Why these four
 
-- **P1** is the easy case on purpose. A single subject, a uniform out-of-focus background,
-  sharp and well lit. If a photograph falls apart here, the honest answer to Q1 is a flat
-  no and the rest of the block does not need running. It carries whiskers, which are the
-  thinnest matte element in the set, but the *separation* is trivial.
+- **P1** was chosen as the easy case -- a single subject, a uniform out-of-focus
+  background, sharp and well lit -- on the reasoning that if a photograph fell apart here,
+  Q1 was a flat no. **That reasoning was wrong, and usefully so.** P1 is a frame-filling
+  close-up, and close-ups are the one composition this model cannot separate at all,
+  photographed or generated. It ended up being the case that identified the real variable
+  rather than the easy case it was picked to be.
 - **P2** is a person seated on a bench, occluding the bench, with a hard cast shadow, a
   puddle, and a bin as a second mid-ground object. The bench slats visible past the
   subject's legs are the hard part. It is also the Q4 crop source.
-- **P3** is loose wavy hair with flyaway strands against a soft grey background. This is the
-  case the spike's "alpha edge on hair held" claim rides on, and the spike made that claim
-  on a *generated* head.
+- **P3** is loose wavy hair with flyaway strands against a soft grey background, chosen to
+  re-test the spike's "alpha edge on hair held" claim. It is also a frame-filling close-up,
+  so it failed the same way P1 did and the hair matte was never exercised. The claim still
+  stands from the spike's own run, which was on a photograph -- correcting the plan, which
+  records that source as a generation.
 - **P4** is monochrome and heavily occluded -- a man seated on the ground surrounded by
   tools. It tests two things at once: whether the model silently colourises a monochrome
-  source, which v0.19 found this family does, and whether heavy occlusion survives.
+  source, which v0.19 found the Klein family does, and whether heavy occlusion survives.
+  The answers were no and yes respectively.
 
 ### Q4 crop series
 
@@ -62,15 +67,16 @@ that differs within a pair** -- the plan's original "three photographs against t
 generated images of comparable content" would have varied provenance and compositional
 separability together, and reported clutter as provenance.
 
-Prompts, to be run at the panel's Krea-2 Turbo defaults:
+Generated 2026-08-30 at the shipped Krea-2 Turbo defaults (8 steps, CFG 1, euler/simple),
+1024 x 680, seed 777. Prompts:
 
-- **G1** (matched to P1): *close-up portrait of a grey domestic shorthair cat lying in green
+- **G1-cat-closeup** (matched to P1): *close-up portrait of a grey domestic shorthair cat lying in green
   grass, head turned toward the camera, green eyes, long pale whiskers catching the light,
   shallow depth of field, warm low evening sunlight, photographic*
-- **G2** (matched to P2): *high angle view of a person in a hooded jacket sitting sideways on
+- **G2-bench-contained** (matched to P2): *high angle view of a person in a hooded jacket sitting sideways on
   a wooden park bench at night, looking down at a glowing phone, wet paving stones, a long
   shadow cast across the ground, sodium street lighting, photographic*
-- **G3** (matched to P3): *close-up portrait of a young woman with long wavy light brown
+- **G3** (matched to P3, not generated -- Q1 was answered before it was needed): *close-up portrait of a young woman with long wavy light brown
   hair, loose flyaway strands lit from behind, soft out-of-focus grey background, shallow
   depth of field, natural window light, photographic*
 
