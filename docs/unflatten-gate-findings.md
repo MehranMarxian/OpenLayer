@@ -186,25 +186,27 @@ unless the row says otherwise, and the same seed within a group.
 
 | ID | Q | Source | px | Layers | Role |
 | --- | --- | --- | --- | --- | --- |
-| R1 | all | SP (spike source) | 640 | 2 | **Control** -- reproduce the spike, or stop and fix the environment |
-| R2 | Q3 | SP | 1024 | 4 | **Corner probe.** Completes or OOMs; changes everything downstream |
-| R3 | Q3 | SP | 1024 | 2 | Resolution axis |
-| R4 | Q3/Q2 | SP | 640 | 4 | Layer-count axis; completes the 2x2 with R1-R3 |
-| R5 | Q2 | SP | 640 | 3 | |
-| R6 | Q2 | SP | 640 | 6 | Do extra layers find structure or invent it? |
-| R7 | Q1 | P1 photo, clean separation | 640 | D | |
-| R8 | Q1 | G1 generated, matched to P1 | 640 | D | Control for R7 |
-| R9 | Q1/Q4 | P2 photo, contact and occlusion, subject ~40% of frame | 640 | D | Also Q4's 40% point |
-| R10 | Q1 | G2 generated, matched to P2 | 640 | D | Control for R9 |
-| R11 | Q1 | P3 photo, fine matte (hair / fur / foliage) | 640 | D | |
-| R12 | Q1 | G3 generated, matched to P3 | 640 | D | Control for R11 |
-| R13 | Q1 | P4 monochrome or heavily graded photo | 640 | D | v0.19 found this family silently colourises monochrome |
-| R14-15 | Q1 | Worst pair from R7-R12, second seed | 640 | D | Nothing is "reproducible" on one seed |
-| R16 | Q4 | P2 cropped, subject ~15% | 640 | D | |
-| R17 | Q4 | P2 cropped, subject ~70% | 640 | D | Same picture, three crops -- isolates occlusion fraction |
-| R18 | Q4 | Worst of R9/R16/R17 | 1024 | D | Is the smear the model's limit or a 640 artifact? |
-| R19-21 | Q7 | G2 | 640 | 3 | Three further seeds; four total with R5 |
-| R22-24 | Q6 | **Conditional -- only on a go** | | | Q4_K_M against R1, against the hardest passing source, and at the corner |
+| R1 | all / Q1 | P1 cat in grass | 640 | 2 | **Baseline.** Verified settings on a publishable source; timing near 59 s confirms the environment. Doubles as Q1's clean-separation photo arm |
+| R2 | Q3 | P1 | 1024 | 4 | **Corner probe.** Completes or OOMs; changes everything downstream |
+| R3 | Q3 | P1 | 1024 | 2 | Resolution axis |
+| R4 | Q3/Q2 | P1 | 640 | 4 | Layer-count axis; completes the 2x2 with R1-R3 |
+| R5 | Q2 | P1 | 640 | 3 | |
+| R6 | Q2 | P1 | 640 | 6 | Do extra layers find structure or invent it? |
+| R7 | Q1 | G1 generated, matched to P1 | 640 | D | Control for R1 |
+| R8 | Q1 | P2-crop-medium | 640 | D | Photo, contact and occlusion; also Q4's 40% point |
+| R9 | Q1 | G2 generated, matched to P2 | 640 | D | Control for R8 |
+| R10 | Q1 | P3 soft curls | 640 | D | Photo, fine matte -- the spike's hair claim, on a photograph |
+| R11 | Q1 | G3 generated, matched to P3 | 640 | D | Control for R10 |
+| R12 | Q1 | P4 craftsman, monochrome | 640 | D | Unpaired. Does it silently colourise? |
+| R13-14 | Q1 | Worst pair from R1/R7, R8/R9, R10/R11, second seed | 640 | D | Nothing is "reproducible" on one seed |
+| R15 | Q4 | P2-crop-small (subject 9.2%) | 640 | D | |
+| R16 | Q4 | P2-crop-large (subject 68.1%) | 640 | D | Same picture, three fractions -- isolates occlusion |
+| R17 | Q4 | Worst of R8/R15/R16 | 1024 | D | Is the smear the model's limit or a 640 artifact? |
+| R18-20 | Q7 | G2 | 640 | 3 | Three further seeds; four total with R5 |
+| R21-23 | Q6 | **Conditional -- only on a go** | | | Q4_K_M against R1, against the hardest passing source, and at the corner |
+
+Sources, licences and the generated-counterpart prompts are in
+[`unflatten-gate-sources.md`](unflatten-gate-sources.md).
 
 **Recorded per run:** source, provenance, resolution, layers, seed, quant; wall time and
 whether cold or warm; peak VRAM; verbatim error text on failure; what each output contains
@@ -213,7 +215,7 @@ in frame (hold / soft halo / hard cut / failed); background layer state (clean /
 hole) and the move test below; colour shift against the source; and anything invented that
 was not in the source.
 
-**Stop and review after R1, after R2, and after R7-R13.** That third one is the gate's
+**Stop and review after R1, after R2, and after R7-R12.** That third one is the gate's
 actual verdict and it gets read before anything else runs, however the earlier runs looked.
 
 ### Q1 -- Does the matte hold on a real photograph?
