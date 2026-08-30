@@ -4,12 +4,13 @@ Live results for the questions [`unflatten-v0.20.0.md`](unflatten-v0.20.0.md) pu
 of the UI work. Run from 2026-08-30 against ComfyUI 0.30.0 on 127.0.0.1:8190, RTX 4070 Ti
 12 GB, PyTorch 2.13.0+cu130, Python 3.10.11.
 
-**This document is incomplete and says so.** Two questions are answered, six are open. The
-answered pair is recorded now rather than at the end because both already change the build
-plan, and one of them -- Q8 -- was not in the original gate at all.
+**Seven of the eight questions are answered. Q6 alone is open, and it is conditional.**
+Two of the answers -- Q7 and Q8 -- were not in the original gate; both were added because
+the build plan already depended on assumptions nobody had checked.
 
-**A failed gate remains an acceptable outcome.** Nothing below commits the release to
-shipping a tool.
+**The gate passes**, and it passes differently from the way the plan expected: the axis Q1
+names turns out not to be the axis that moves, and the setting the plan assumed a real
+document would use turns out to be the one setting that should not ship.
 
 ---
 
@@ -177,117 +178,249 @@ equality check against 255 would fail, so nothing downstream should write one.
 
 ---
 
-## Open questions
+## Q1 -- Does the matte hold on a real photograph?
 
-Six remain. The run list below is the agreed plan for them; nothing in it has been run yet.
+**Answer: yes, when the picture has a discrete subject sitting on visible ground.
+Provenance is not the variable at all. Composition is.**
 
-`D` = whatever layer-count default Q2 lands on; 3 until it has one. All runs 640px / fp8
-unless the row says otherwise, and the same seed within a group.
+The plan expected the v0.19 result to repeat: that this model family reproduces its own
+output more faithfully than it reproduces a photograph. It does not repeat, and the
+question as posed has no answer, because the axis it names is not the axis that moves.
 
-| ID | Q | Source | px | Layers | Role |
-| --- | --- | --- | --- | --- | --- |
-| R1 | all | SP (spike source) | 640 | 2 | **Control** -- reproduce the spike, or stop and fix the environment |
-| R2 | Q3 | SP | 1024 | 4 | **Corner probe.** Completes or OOMs; changes everything downstream |
-| R3 | Q3 | SP | 1024 | 2 | Resolution axis |
-| R4 | Q3/Q2 | SP | 640 | 4 | Layer-count axis; completes the 2x2 with R1-R3 |
-| R5 | Q2 | SP | 640 | 3 | |
-| R6 | Q2 | SP | 640 | 6 | Do extra layers find structure or invent it? |
-| R7 | Q1 | P1 photo, clean separation | 640 | D | |
-| R8 | Q1 | G1 generated, matched to P1 | 640 | D | Control for R7 |
-| R9 | Q1/Q4 | P2 photo, contact and occlusion, subject ~40% of frame | 640 | D | Also Q4's 40% point |
-| R10 | Q1 | G2 generated, matched to P2 | 640 | D | Control for R9 |
-| R11 | Q1 | P3 photo, fine matte (hair / fur / foliage) | 640 | D | |
-| R12 | Q1 | G3 generated, matched to P3 | 640 | D | Control for R11 |
-| R13 | Q1 | P4 monochrome or heavily graded photo | 640 | D | v0.19 found this family silently colourises monochrome |
-| R14-15 | Q1 | Worst pair from R7-R12, second seed | 640 | D | Nothing is "reproducible" on one seed |
-| R16 | Q4 | P2 cropped, subject ~15% | 640 | D | |
-| R17 | Q4 | P2 cropped, subject ~70% | 640 | D | Same picture, three crops -- isolates occlusion fraction |
-| R18 | Q4 | Worst of R9/R16/R17 | 1024 | D | Is the smear the model's limit or a 640 artifact? |
-| R19-21 | Q7 | G2 | 640 | 3 | Three further seeds; four total with R5 |
-| R22-24 | Q6 | **Conditional -- only on a go** | | | Q4_K_M against R1, against the hardest passing source, and at the corner |
+The premise needs correcting first. The plan records the spike's source as *"one of
+OpenLayer's own Krea-2 generations - the flattering case, not a photograph."* The run
+history shows it loaded a `.jpg` stock photograph. **The spike was already a photograph and
+it already worked.** What made it the flattering case was its composition -- a figure
+standing clear of its background -- not where it came from.
 
-**Recorded per run:** source, provenance, resolution, layers, seed, quant; wall time and
-whether cold or warm; peak VRAM; verbatim error text on failure; what each output contains
-in batch order; whether index 0 is still the composite; matte quality on the hardest edge
-in frame (hold / soft halo / hard cut / failed); background layer state (clean / smear /
-hole) and the move test below; colour shift against the source; and anything invented that
-was not in the source.
+So the axes were crossed instead. Four sources, two compositions, two provenances, same
+settings, same seed, `layers: 2`. The generated members were made locally with the shipped
+Krea-2 Turbo stack and matched to their photographs by composition.
 
-**Stop and review after R1, after R2, and after R7-R13.** That third one is the gate's
-actual verdict and it gets read before anything else runs, however the earlier runs looked.
+| Source | Composition | Provenance | Foreground coverage | Separation |
+| --- | --- | --- | --- | --- |
+| P1 cat | frame-filling close-up | photograph | **0.0%** (alpha max 8) | 2.50 |
+| G1 cat | frame-filling close-up | **generated** | **3.1%** | 3.62 |
+| P3 portrait | frame-filling close-up | photograph | **0.0%** (alpha max 20) | 2.48 |
+| P2 bench | contained subject | photograph | 26.2% | 13.25 |
+| G2 bench | contained subject | **generated** | 21.6% | 12.71 |
 
-### Q1 -- Does the matte hold on a real photograph?
+*Separation* is the mean absolute RGB difference between the background layer and the
+composite. Near zero means nothing was moved off the background -- the model handed the
+picture back unchanged.
 
-Open. Designed as **matched pairs** rather than the plan's "three photographs against three
-generated images of comparable content", because provenance and compositional separability
-would otherwise vary together: three busy photographs against three clean generations
-measures clutter and reports it as provenance. Each pair holds composition as near constant
-as the tools allow, across three archetypes -- clean separation, contact and occlusion, and
-fine matte -- plus one unpaired adversarial monochrome source.
+A generated close-up fails exactly as a photographed one does. A photographed contained
+subject succeeds exactly as a generated one does. Provenance moves nothing; composition
+moves everything.
 
-The v0.19 finding this inherits is that this model family reproduces its own output far
-more faithfully than it reproduces a photograph. The spike's success used an OpenLayer
-generation, so it is the flattering corner.
+### The failure mode is benign, and that matters
 
-### Q2 -- How does it behave as layer count rises?
+When it fails it does not produce mush, a halo, or a plausible-but-wrong matte. It returns
+**the input as the background layer and a blank plate as the foreground** -- P1's foreground
+layer has a maximum alpha of 8 across the entire image, P3's is 20. Both are invisible.
 
-Open. 2, 3, 4 and 6 on one source and seed (R1, R5, R4, R6). Also carries the Q8
-re-confirmation: index 0 must still be the composite at every layer count.
+That is a detectable failure. The panel can compare the background layer against the source
+and say "this picture could not be separated" rather than importing an empty layer and
+letting the artist work out why. Compare v0.19, where the failure was a plausible face that
+happened to be the wrong person's -- undetectable by any check, and so it had to be handled
+in copy. This one can be handled in code.
 
-### Q3 -- How does the 59 s scale?
+### What to tell an artist
 
-Open, and deliberately given almost no runs of its own -- every run produces a timing, so
-this is a column rather than a question with a budget. The two runs it does need are the
-corner (R2) and the resolution control (R3), and the corner goes early because a 20.5 GB
-fp8 weight on 12 GB is already offloading at 640; if it will not run at all, the settings
-space shrinks and half of Q2 becomes moot.
+Not "works on photographs" and not "works on our generations". **It separates pictures that
+have something standing in front of something else.** A close-up that fills the frame has no
+front and back to find, and the model says so by giving you nothing.
 
-Every timing is recorded as **warm** -- the second run of that configuration -- with the
-cold number noted separately. On this card the first run after a model change pays the
-load, and mixing the two would make the curve meaningless.
+## Q2 -- How does it behave as layer count rises?
 
-### Q4 -- Is the background layer usable, or merely present?
+**Answer: four is the number. Two fuses distinct objects together, three is worse than
+four, and six pads the result with blank layers.**
 
-Open, with the bar declared in advance so it cannot be moved after the results are in:
+One source, one seed, 640px:
 
-> The background layer is **usable** if the subject layer can be moved by roughly 10% of the
-> frame width and the revealed region does not read as damage at 100% zoom.
+| Layers | Time | Separation | Populated | Per-layer coverage |
+| --- | --- | --- | --- | --- |
+| 2 | 87.7 s | 13.25 | 1 / 1 | 26.2% |
+| 3 | 103.8 s | 9.32 | 2 / 2 | 16.0%, 10.2% |
+| **4** | **127.2 s** | **19.44** | **3 / 3** | 33.8%, 16.0%, 14.7% |
+| 6 | 180.0 s | 14.99 | 2 / 5 | 0.4%, 3.6%, 4.4%, 19.1%, 13.5% |
 
-That is the actual reason to want a layer stack. Anything short of it is "present, repaint
-before use" -- a legitimate answer that belongs in the subtitle rather than in a support
-thread.
+At four layers the split is genuinely semantic and correctly ordered back to front:
+**ground plane, then bench, then person**, each cleanly cut with real alpha. At two layers
+the person and the bench are fused into a single plate -- which is what the spike produced,
+and why the spike's background looked worse than it needed to.
 
-Tested as three crops of one photograph rather than three different photographs, so
-occlusion fraction is the only variable.
+At six, three of the five layers come back essentially blank. The model does not invent
+structure to fill the layers it was given; it leaves them empty. That is the better of the
+two possible failures, but it means layer count is a ceiling, not a request.
 
-### Q6 -- Is the shippable quant good enough?
+## Q3 -- How does the 59 s scale?
 
-Open and **conditional**: it runs only after Q1, Q2 and Q4 say go. It costs another 13.2 GB
-and it cannot change the go/no-go decision -- it changes the download size.
+**Answer: it never OOMs on 12 GB, but the corner the plan called "the setting a real
+document would use" takes seven and a half minutes -- and produces a worse result than 640.**
 
-Its own trap, which the plan does not name: quantisation shifts the sample, so fp8 and
-Q4_K_M at the same seed produce two *different pictures*, and "compare the alpha edge"
-degenerates into judging which is prettier. The comparison has to be made on the layer that
-stayed most nearly identical between the two, and the write-up has to say explicitly when
-they diverged too far for any comparison to be meaningful.
+| Resolution | Layers | Time |
+| --- | --- | --- |
+| 640 (640x424) | 2 | 58.1 s |
+| 640 (640x616) | 2 | 87.7 s |
+| 640 (640x616) | 3 | 103.8 s |
+| 640 (640x616) | 4 | 127.2 s |
+| 640 (640x616) | 6 | 180.0 s |
+| 1024 (1024x984) | 2 | 247.6 s |
+| **1024 (1024x984)** | **4** | **438.0 s** |
 
-### Q7 -- Is the decomposition stable across seeds?
+Resolution costs slightly worse than linear in pixel count; layer count costs sub-linear
+(2 to 4 layers is only 1.45x). Nothing failed to allocate.
 
-Open, and added to the gate. Not "is it good" but "is it the same": if one seed splits a
-picture into subject and background while another splits it into subject-plus-shadow and
-background, the layer *semantics* are unstable. The tool then cannot name its layers,
-cannot promise that a re-run improves anything, and the re-roll affordance every other tool
-has means something different here.
+The plan's conclusion -- *"It is an ordinary button. It does not need a warning, a walk-away
+treatment"* -- holds at 640 and fails at 1024.
 
-One generated source, `layers: 3`, four seeds.
+**A measurement caveat that nearly poisoned this table:** re-submitting an identical graph
+returns in 0.1 s, because ComfyUI caches on graph hash. Warm timings require a changed seed
+or they measure the cache. Every number above is a real execution.
+
+### 1024 is not merely slower, it is worse
+
+| Run | Separation | Populated |
+| --- | --- | --- |
+| 640 x 4, seed 777 | **19.44** | 3 / 3 |
+| 640 x 4, seed 778 | **17.63** | 2 / 3 |
+| 1024 x 4, seed 777 | 8.59 | 1 / 3 |
+| 1024 x 4, seed 778 | 9.11 | 2 / 3 |
+
+Confirmed on two seeds each. The expensive setting separates roughly half as much as the
+cheap one and leaves more layers blank, at 3.5x the wall time.
+
+**So the panel should not offer 1024.** Not as a warned option, not as an advanced setting:
+it is worse on every axis measured. This is the opposite of the usual quality/time
+trade-off, and it is the single most useful thing the timing work produced.
+
+## Q4 -- Is the background layer usable, or merely present?
+
+**Answer: at four layers, usable when the subject occludes flat or uniform ground.
+Not usable when it occludes complex structure, and never usable at two layers.**
+
+The bar was declared before the runs: the background is usable if the subject layer can be
+moved by roughly 10% of frame width and the revealed region does not read as damage at 100%
+zoom.
+
+**At two layers it fails, and the plan's "smear" was not the worst of it.** On the 9.2%
+crop the foreground correctly took the bin *and* the person and bench -- but the background
+still contained the person and bench. The subject was present on both layers. Moving the
+top layer reveals a copy of the subject underneath. On the 68% crop the background kept the
+bench and a leg plus a soft wash where the body had been. On the 39.6% crop a shoe was left
+behind on the background.
+
+**At four layers, on the same source, it passes.** The background comes back as a complete,
+coherent paving surface: no ghost of the subject, no leftover shoe, no hard-edged smear.
+Slightly soft in the reconstructed region, but it reads as out-of-focus paving rather than
+damage.
+
+**But it depends on what is behind the subject.** The monochrome source (P4), where the man
+occludes a wooden market stall rather than flat ground, reconstructed as a **flat grey
+block** the size of his body. That is the plan's feared smear, and it is worse than a smear.
+Flat ground the model can invent; structure it cannot.
+
+So the honest statement is that layer count controls background quality more than subject
+size does, and that the remaining variable is the complexity of what was hidden.
+
+## Q6 -- Is the shippable quant good enough?
+
+**Still open, and still conditional.** Not run. It cannot change the go/no-go and it costs
+another 13.2 GB; now that the gate has passed it is worth running before the setup work in
+task 5, not before task 1.
+
+The trap recorded earlier stands: quantisation shifts the sample, so fp8 and Q4_K_M at one
+seed give two different pictures. The comparison must be made on the layer that stayed most
+nearly identical, and the write-up must say when they diverged too far to compare.
+
+## Q7 -- Is the decomposition stable across seeds?
+
+**Answer: the split is stable in kind. The number of populated layers is not.**
+
+At 640 x 4 on one source, seed 777 filled all three layers (33.8%, 16.0%, 14.7% coverage)
+and seed 778 filled two, leaving layer 2 blank (0.0%, 21.4%, 23.6%). Both are good
+decompositions and both put the same kinds of thing on the same kinds of layer, back to
+front. But you cannot promise an artist four layers of content from `layers: 4`.
+
+**Consequence for task 3: blank layers must be skipped on import**, alongside the composite
+at index 0. Otherwise a run lands empty layers in the artist's document with no explanation,
+and it will read as a bug in the import rather than a property of the model.
+
+## Q8 -- addendum
+
+Confirmed at 2, 3, 4 and 6 layers: `layers: N` returns N+1 outputs, index 0 is the
+composite, and layers run back-to-front from index 1. The structural finding recorded above
+holds across the whole range now, not just at 2.
+
+## The monochrome question
+
+The v0.19 finding does **not** repeat. FLUX.2 Klein silently colourised sepia portraits;
+this model does not colourise a monochrome source.
+
+Measured over visible pixels only -- transparent pixels carry arbitrary RGB and including
+them produced a wrong answer on the first pass -- the pure-greyscale source (chroma 0.00)
+came back with per-layer chroma of 2.20 to 3.92 on a 0-255 scale. That is a faint cast from
+the VAE round-trip, not re-colouring. The extracted man is still a black-and-white
+photograph.
+
+The monochrome source also decomposed well despite heavy occlusion: separation 18.46 with
+three of three layers populated, comparable to the best run in the set. Its weakness was the
+background, recorded under Q4.
 
 ---
 
-## What has changed in the plan so far
+## The verdict
 
-- **Task 3 gains a scale-to-target-bounds step** (Q5). Only the enlarging direction.
-- **Task 3 must skip output index 0** and task 2's "N images" is N+1 (Q8).
-- **Q5 is answered and needs no further GPU time**, beyond one remaining seam: the same
-  four PNGs through `importGeneratedImageAsLayer` rather than through Photoshop's own Place.
-- **Artboard documents are an untested import case**, unrelated to this feature but found
-  by it.
+**The gate passes.** The feature is real, it works on photographs, and at 640 with four
+layers it produces a genuinely semantic, correctly ordered, cleanly matted layer stack in
+about two minutes.
+
+It passes smaller than the plan imagined in one respect and larger in another. Smaller:
+1024 must not be offered, and close-ups cannot be decomposed at all. Larger: the failure is
+detectable in code rather than only in copy, and four layers turns out to fix the background
+problem the spike blamed on the model.
+
+## What this changes in the plan
+
+- **Two corrections to the plan document itself.** The spike's source was a photograph, not
+  a Krea-2 generation, so the "flattering corner" framing was mistaken about which corner it
+  was. And "it is an ordinary button" is true at 640 only.
+- **Defaults: 640px, 4 layers.** Both are measured optima rather than round numbers.
+- **Do not offer 1024** (Q3). Worse separation, more blank layers, 3.5x the time.
+- **Cap layer count at 4** (Q2). Six pads with blanks.
+- **Task 3 must skip blank layers** as well as index 0 (Q7, Q8).
+- **Task 3 needs the scale-to-target-bounds step** (Q5), enlarging direction only.
+- **Task 4 should detect and report the close-up failure** (Q1) rather than importing an
+  empty layer. Comparing the background layer against the source is enough to catch it.
+- **The subtitle cannot promise "any layer".** It separates pictures with a subject in front
+  of a background. That belongs in the three places the house pattern requires.
+- **Q6 moves to before task 5**, not before task 1.
+
+---
+
+## Reproducing
+
+All runs went through a single harness against the shared ComfyUI on 127.0.0.1:8190,
+submitting only its own jobs -- it never interrupts, never clears the queue and never
+touches another job. It rebuilds the spike's graph with clean node ids from the settings
+recorded above, submits, waits on `/history`, and reports timing from the run's own
+`execution_start`/`execution_success` stamps rather than from wall clock.
+
+Outputs are in `output/gate-runs/` (gitignored), named `<run>_layer<N>.png` in batch order.
+Sources and their licences are in [`unflatten-gate-sources.md`](unflatten-gate-sources.md).
+
+Two metrics are used throughout and both are worth stating plainly, because a reader should
+be able to disagree with them:
+
+- **Separation** -- mean absolute RGB difference between the background layer and the
+  composite. It answers "was anything actually moved off the background", which visual
+  inspection answers badly when the change is a soft wash.
+- **Coverage** -- percentage of the frame where a layer's alpha exceeds 32. It answers "is
+  this layer populated or is it a blank plate", which the fully-transparent percentage
+  answers badly when a layer is a faint ghost rather than truly empty.
+
+One measurement error is recorded rather than quietly fixed, because it would have produced
+a wrong published finding: chroma was first computed across the whole frame, including
+fully transparent pixels whose RGB is arbitrary. That reported the monochrome source as
+heavily colourised. Measured over visible pixels only, it is not.
