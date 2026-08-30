@@ -197,6 +197,93 @@ describe("generation controller pipeline", () => {
     expect(hooks.onRunFinished).toHaveBeenCalledWith("sketch-to-image");
   });
 
+  // Unflatten commits a whole layer stack rather than one picture. The point of
+  // routing it through the same pipeline is that A4 keeps applying to it, so
+  // these two tests check the payload AND that the gates did not get a hole
+  // punched in them on the way.
+  it("commits every image in order when the tool supplies its own retrieval", async () => {
+    const { controller, hooks } = createController();
+    const { client } = createFakeClient();
+    const ui = createUi();
+    const commit = vi.fn();
+    const layers = [
+      { blob: new Blob(["composite"]), filename: "layer-0.png" },
+      { blob: new Blob(["background"]), filename: "layer-1.png" },
+      { blob: new Blob(["subject"]), filename: "layer-2.png" }
+    ];
+
+    const result = await controller.runPipeline({
+      toolType: "image-to-image",
+      client,
+      workflow: {},
+      preferredNodeId: "17",
+      originatingDocument: origin,
+      ui,
+      messages: MESSAGES,
+      retrieve: vi.fn(async () => ({ images: layers })),
+      commit
+    });
+
+    expect(result?.images.map((layer) => layer.filename)).toEqual([
+      "layer-0.png",
+      "layer-1.png",
+      "layer-2.png"
+    ]);
+    expect(result?.originatingDocument).toBe(origin);
+    expect(commit).toHaveBeenCalledWith(result);
+    // The single-image path must not also have run.
+    expect(client.retrieveFirstOutputImage).not.toHaveBeenCalled();
+    expect(hooks.onRunFinished).toHaveBeenCalledWith("image-to-image");
+  });
+
+  // Regression guard for a mistake this pipeline invites: a bare array payload
+  // typechecks (arrays are objects) but does not survive the document binding.
+  it("keeps a wrapped collection intact through the document binding", async () => {
+    const { controller } = createController();
+    const { client } = createFakeClient();
+
+    const result = await controller.runPipeline({
+      toolType: "image-to-image",
+      client,
+      workflow: {},
+      originatingDocument: origin,
+      ui: createUi(),
+      messages: MESSAGES,
+      retrieve: async () => ({ images: [{ filename: "a.png" }, { filename: "b.png" }] }),
+      commit: vi.fn()
+    });
+
+    expect(Array.isArray(result?.images)).toBe(true);
+    expect(result?.images).toHaveLength(2);
+    expect(result?.originatingDocument).toBe(origin);
+  });
+
+  it("still refuses to commit a multi-image run that was superseded", async () => {
+    const { controller } = createController();
+    const ui = createUi();
+    const commit = vi.fn();
+    const { client } = createFakeClient({
+      duringPoll: () => {
+        // A newer run takes ownership while this one is still polling.
+        controller.begin("upscale", { cancelPrompt: async () => "interrupted" as const }, "prompt-2");
+      }
+    });
+
+    const result = await controller.runPipeline({
+      toolType: "image-to-image",
+      client,
+      workflow: {},
+      originatingDocument: origin,
+      ui,
+      messages: MESSAGES,
+      retrieve: async () => ({ images: [{ blob: new Blob(["layer"]), filename: "layer-0.png" }] }),
+      commit
+    });
+
+    expect(result).toBeNull();
+    expect(commit).not.toHaveBeenCalled();
+  });
+
   it("gates live preview frames and diagnostics on run currency", async () => {
     const { controller } = createController();
     const ui = createUi();

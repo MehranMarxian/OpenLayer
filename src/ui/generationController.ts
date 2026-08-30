@@ -58,7 +58,18 @@ export type GenerationPipelineMessages = {
   livePreview: string;
 };
 
-export type GenerationPipelineOptions<THistory, TImage extends object> = {
+/**
+ * `TImage` is what the client's single-image path returns; `TResult` is what
+ * this run actually commits. They are the same for every tool that produces one
+ * picture, which is why `TResult` defaults to `TImage` and no existing caller
+ * mentions it.
+ *
+ * They come apart for Unflatten, which commits a whole layer stack. Rather than
+ * a second pipeline -- the copy-paste that Phase A existed to undo -- the tool
+ * supplies its own `retrieve`, and everything around it (the run gates, the
+ * cancellation unwind, the document binding) stays one implementation.
+ */
+export type GenerationPipelineOptions<THistory, TImage extends object, TResult extends object = TImage> = {
   toolType: HistoryToolType;
   client: GenerationClient<THistory, TImage> & CancellableGenerationClient;
   workflow: object;
@@ -66,9 +77,24 @@ export type GenerationPipelineOptions<THistory, TImage extends object> = {
   originatingDocument: PhotoshopDocumentIdentity | null;
   ui: GenerationPipelineUi;
   messages: GenerationPipelineMessages;
+  /**
+   * How this run's output is fetched once the poll reports it finished.
+   * Omitted by every single-image tool, which gets the client's own
+   * `retrieveFirstOutputImage`.
+   *
+   * Must resolve to a plain object, never a bare array: the result is bound to
+   * its document by spreading it, and spreading an array yields an object with
+   * index keys and no array methods. Wrap collections -- `GeneratedImageSet` is
+   * the shape multi-image tools use.
+   */
+  retrieve?(
+    promptId: string,
+    history: THistory,
+    options: { preferredNodeId?: string }
+  ): Promise<TResult>;
   // Publish the committed result to tool state and history. Runs only after the
   // commit gate passed; the run is finalized when it returns.
-  commit(result: DocumentContextBound<TImage>): void | Promise<void>;
+  commit(result: DocumentContextBound<TResult>): void | Promise<void>;
 };
 
 export type GenerationRunHandle = {
@@ -192,9 +218,9 @@ export function createGenerationController(hooks: GenerationControllerHooks) {
       activeGeneration.watcher = null;
     },
 
-    async runPipeline<THistory, TImage extends object>(
-      options: GenerationPipelineOptions<THistory, TImage>
-    ): Promise<DocumentContextBound<TImage> | null> {
+    async runPipeline<THistory, TImage extends object, TResult extends object = TImage>(
+      options: GenerationPipelineOptions<THistory, TImage, TResult>
+    ): Promise<DocumentContextBound<TResult> | null> {
       let watcher: GenerationProgressWatcher | null = null;
       let run: GenerationRunHandle | null = null;
 
@@ -246,12 +272,17 @@ export function createGenerationController(hooks: GenerationControllerHooks) {
 
         options.ui.status(options.messages.retrieveStatus, "idle");
         options.ui.progressPreview(options.messages.retrievePreview);
-        const generatedResult = bindDocumentContext(
-          await options.client.retrieveFirstOutputImage(promptId, history, {
-            preferredNodeId: options.preferredNodeId
-          }),
-          options.originatingDocument
-        );
+        const retrieved = options.retrieve
+          ? await options.retrieve(promptId, history, { preferredNodeId: options.preferredNodeId })
+          // The cast carries the `TResult = TImage` default into the body, which
+          // the compiler cannot prove on its own: inside a generic function
+          // TResult is opaque even when its default made it TImage at the call
+          // site. Reachable only when no `retrieve` was supplied, which is
+          // exactly the case where the two are the same type.
+          : ((await options.client.retrieveFirstOutputImage(promptId, history, {
+              preferredNodeId: options.preferredNodeId
+            })) as unknown as TResult);
+        const generatedResult = bindDocumentContext(retrieved, options.originatingDocument);
         run.assertCanCommit();
         await options.commit(generatedResult);
         run.finish();
