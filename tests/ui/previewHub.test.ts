@@ -223,6 +223,7 @@ describe("PREVIEW_TOOLS inventory", () => {
       "upscale",
       "style-reference",
       "multi-reference",
+      "unflatten",
       "live-painting"
     ]);
     expect(PREVIEW_TOOLS.map((tool) => tool.id)).not.toContain("prompt-from-layer");

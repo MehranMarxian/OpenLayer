@@ -57,6 +57,7 @@ export const IMPORT_TARGETS: Record<PreviewToolId, { label: string; hasAutoImpor
   upscale: { label: "Import to Layers", hasAutoImport: false },
   "style-reference": { label: "Import to Layers", hasAutoImport: false },
   "multi-reference": { label: "Import to Layers", hasAutoImport: false },
+  unflatten: { label: "Import to Layers", hasAutoImport: false },
   "live-painting": { label: "Import to Layers", hasAutoImport: true }
 };
 

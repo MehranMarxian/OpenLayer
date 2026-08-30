@@ -14,9 +14,17 @@ export const DEFAULT_THEME: OpenLayerTheme = "compact";
 export const DEFAULT_UPSCALE_WORKFLOW = "upscale-basic";
 export const DEFAULT_STYLE_REFERENCE_WORKFLOW = "style-reference-sd15";
 export const DEFAULT_MULTI_REFERENCE_WORKFLOW = "multi-reference-flux2-klein";
+export const DEFAULT_UNFLATTEN_WORKFLOW = "unflatten-qwen-layered";
 /** Klein's distilled operating point, the same one the edit preset runs at. */
 export const DEFAULT_MULTI_REFERENCE_STEPS = "4";
 export const DEFAULT_MULTI_REFERENCE_CFG = "1";
+export const DEFAULT_UNFLATTEN_STEPS = "20";
+export const DEFAULT_UNFLATTEN_CFG = "2.5";
+// Four is the measured optimum, not a round number: two fuses distinct objects
+// into one plate and six returns blank layers. docs/unflatten-gate-findings.md, Q2.
+export const DEFAULT_UNFLATTEN_LAYER_COUNT = "4";
+export const MIN_UNFLATTEN_LAYER_COUNT = 2;
+export const MAX_UNFLATTEN_LAYER_COUNT = 4;
 export const FALLBACK_UPSCALE_MODELS = ["4x-UltraSharp.pth", "RealESRGAN_x4plus.pth"];
 export const RECOMMENDED_SKETCH_CHECKPOINT = "epicrealism_naturalSinRC1VAE.safetensors";
 export const RECOMMENDED_STYLE_REFERENCE_CHECKPOINT = "epicrealism_naturalSinRC1VAE.safetensors";
@@ -72,6 +80,7 @@ export type AppView =
   | "live-painting"
   | "style-reference"
   | "multi-reference"
+  | "unflatten"
   | "workflow-presets"
   | "custom-workflow"
   | "settings"
@@ -101,6 +110,7 @@ export type ToolIconName =
   | "livePainting"
   | "styleReference"
   | "multiReference"
+  | "unflatten"
   | "control"
   | "workflow"
   | "layers"
@@ -196,6 +206,18 @@ export const TOOL_CARDS: ToolCard[] = [
     view: "multi-reference"
   },
   {
+    id: "unflatten",
+    title: "Unflatten",
+    // Says what it produces and, by omission, what it needs. Gate testing found
+    // the model cannot separate a frame-filling close-up at all -- it hands the
+    // picture back untouched -- so this subtitle must never grow into a claim
+    // that it takes any layer apart.
+    subtitle: "Split a flat layer into separate layers",
+    icon: "unflatten",
+    status: "experimental",
+    view: "unflatten"
+  },
+  {
     id: "workflow-presets",
     title: "Workflow Presets",
     subtitle: "Browse every preset and what it needs",
@@ -256,7 +278,7 @@ export const TOOL_CARDS: ToolCard[] = [
 export const HOME_TOOL_SECTIONS = [
   {
     title: "Generate",
-    toolIds: ["text-to-image", "image-to-image", "lineart", "inpaint", "outpaint", "upscale", "prompt-from-layer", "live-painting", "style-reference", "multi-reference"]
+    toolIds: ["text-to-image", "image-to-image", "lineart", "inpaint", "outpaint", "upscale", "prompt-from-layer", "unflatten", "live-painting", "style-reference", "multi-reference"]
   },
   {
     title: "Workflow",

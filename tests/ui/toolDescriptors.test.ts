@@ -21,7 +21,8 @@ describe("busy-state tables", () => {
       "upscale",
       "prompt-from-layer",
       "style-reference",
-      "multi-reference"
+      "multi-reference",
+      "unflatten"
     ]);
     expect(fieldGroups.every((fields) => fields.length > 0)).toBe(true);
   });
@@ -96,7 +97,13 @@ describe("busy-state tables", () => {
       "multiReferenceCheckpoint",
       "multiReferenceSteps",
       "multiReferenceCfg",
-      "multiReferenceSeed"
+      "multiReferenceSeed",
+      "unflattenPrompt",
+      "unflattenWorkflow",
+      "unflattenCheckpoint",
+      "unflattenLayerCount",
+      "unflattenSteps",
+      "unflattenSeed"
     ];
 
     expect(new Set(allFields)).toEqual(new Set(expectedFields));
@@ -116,8 +123,8 @@ describe("busy-state tables", () => {
     // 40 = the original 29, plus Layer Tools' six export buttons, plus the
     // model-download spike button, plus Style Reference's two capture buttons,
     // plus Multi-Reference's two. Deleting the spike takes this back to 39.
-    expect(plainActions).toHaveLength(40);
-    expect(BUSY_GATED_ACTIONS).toHaveLength(15);
+    expect(plainActions).toHaveLength(42);
+    expect(BUSY_GATED_ACTIONS).toHaveLength(17);
     expect(new Set(allActions).size).toBe(allActions.length);
   });
 
@@ -145,7 +152,9 @@ describe("busy-state tables", () => {
       "captureStyleReferenceLayerButton",
       "captureStyleReferenceCanvasButton",
       "addMultiReferenceLayerButton",
-      "addMultiReferenceCanvasButton"
+      "addMultiReferenceCanvasButton",
+      "captureUnflattenLayerButton",
+      "captureUnflattenCanvasButton"
     ]));
   });
 
@@ -173,6 +182,8 @@ describe("busy-state tables", () => {
       "importUpscaleButton",
       "importStyleReferenceButton",
       "importMultiReferenceButton",
+      "generateUnflattenButton",
+      "importUnflattenButton",
       "checkButton",
       "findPortButton",
       "detectHardwareButton",

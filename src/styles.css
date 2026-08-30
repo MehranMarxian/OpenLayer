@@ -7714,6 +7714,23 @@ body,
   text-overflow: clip !important;
 }
 
+/* Third instance of the same trap, and the reason this one matters more than
+   the other two. Whether an Unflatten result actually separated cannot be
+   detected -- it needs the alpha channel, nothing in the panel can decode a
+   PNG, and both cheap proxies were measured and rejected -- so this sentence is
+   the ONLY warning an artist gets that a close-up will come back untouched.
+   Clamped to one line it read "Describe what is already there, not what you
+   want chang..." and the warning was never on screen at all. It cannot live in
+   an info panel either: in this theme `.info-toggle` is `display: none` and the
+   panel it would open starts `[hidden]`. */
+.app-shell.theme-compact .unflatten-hint {
+  max-height: none !important;
+  overflow: visible !important;
+  margin-bottom: 8px !important;
+  white-space: normal !important;
+  text-overflow: clip !important;
+}
+
 /* Same story on the Setup screen, and the base-theme `.setup-paragraph` rule
    further up cannot do this job: one class loses to
    `.app-shell.theme-compact .diagnostics-line`, and that block is `!important`

@@ -42,7 +42,7 @@ const DEFAULT_CONTROLS: Record<WorkflowPresetDefinition["mode"], readonly Workfl
   "multi-reference": ["prompt", "negativePrompt", "steps", "cfg", "seed"],
   // No width/height: the latent is sized from the captured source. No denoise:
   // this decomposes an existing picture rather than re-sampling it.
-  unflatten: ["prompt", "layerCount", "steps", "cfg", "seed"]
+  unflatten: ["prompt", "layerCount", "steps", "seed"]
 };
 
 export function getWorkflowCapability(preset: WorkflowPresetDefinition): WorkflowCapability {
