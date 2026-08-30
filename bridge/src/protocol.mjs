@@ -49,7 +49,8 @@ export const AGENT_TOOLS = [
   "upscale",
   "prompt_from_layer",
   "style_reference",
-  "multi_reference"
+  "multi_reference",
+  "unflatten"
 ];
 
 const FRAME_TYPES = new Set(["hello", "welcome", "command", "result", "event", "state", "ask"]);

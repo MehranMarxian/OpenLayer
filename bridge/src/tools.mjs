@@ -163,6 +163,30 @@ export const STYLE_REFERENCE_SCHEMA = {
  * denoise is fixed at 1, so offering either would let an agent set a value the
  * workflow then ignores.
  */
+/**
+ * No cfg, width, height or denoise. The latent is sized from the captured
+ * source and the graph takes an existing picture apart rather than re-sampling
+ * it, so those parameters have nothing to set; cfg is fixed at 2.5 as part of
+ * the technique. layerCount is capped at the range the gate measured.
+ */
+export const UNFLATTEN_SCHEMA = {
+  prompt,
+  workflow,
+  checkpoint,
+  layerCount: z
+    .number()
+    .int()
+    .min(2)
+    .max(4)
+    .optional()
+    .describe(
+      "How many layers to separate into. Four is the measured best setting; two fuses distinct " +
+      "objects into one layer and more than four returns empty ones."
+    ),
+  steps,
+  seed
+};
+
 export const MULTI_REFERENCE_SCHEMA = {
   prompt,
   negativePrompt,
@@ -273,6 +297,23 @@ export const MCP_TOOLS = [
       "a specific person in a picture. The first reference sets the output size. Only the " +
       "parameters you pass are changed. Returns the panel's own status message.",
     schema: MULTI_REFERENCE_SCHEMA,
+    timeoutMs: GENERATION_TIMEOUT_MS
+  },
+  {
+    name: "unflatten",
+    title: "Unflatten",
+    description:
+      "Split the flat layer already captured in the OpenLayer panel into separate layers with " +
+      "real transparency, and import them into the open Photoshop document in stacking order. " +
+      "Requires that layer captured in the panel first \u2014 this tool cannot capture it. " +
+      "It needs a picture with something standing in front of something else: a close-up that " +
+      "fills the frame has no front and back to find and comes back unseparated, whether it is " +
+      "a photograph or a generated image. The number of layers requested is a ceiling rather " +
+      "than a promise, so some may come back empty. Results are re-rendered at 640px on the " +
+      "long side, so layers are softer than the original on a large document. Takes about two " +
+      "minutes. Only the parameters you pass are changed. Returns the panel's own status " +
+      "message.",
+    schema: UNFLATTEN_SCHEMA,
     timeoutMs: GENERATION_TIMEOUT_MS
   }
 ];

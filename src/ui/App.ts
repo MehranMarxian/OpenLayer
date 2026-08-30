@@ -664,7 +664,8 @@ export function renderApp(rootElement: HTMLElement) {
       "upscale",
       "prompt_from_layer",
       "style_reference",
-      "multi_reference"
+      "multi_reference",
+      "unflatten"
     ] as const) {
       agentBridge.publishCapability(toolId, { canRun: !isBusy, reason });
     }
@@ -1009,6 +1010,28 @@ export function renderApp(rootElement: HTMLElement) {
           : ""
     });
 
+    agentBridge.register("unflatten", {
+      run: handleGenerateUnflatten,
+      fields: {
+        prompt: elements.unflattenPrompt,
+        workflow: elements.unflattenWorkflow,
+        checkpoint: elements.unflattenCheckpoint,
+        layerCount: elements.unflattenLayerCount,
+        steps: elements.unflattenSteps,
+        seed: elements.unflattenSeed
+      },
+      leadingParams: ["workflow"],
+      statusText: elements.unflattenStatusText,
+      statusPill: elements.unflattenStatusPill,
+      errorText: elements.unflattenErrorMessage,
+      // The status line reports how many layers came back, which is the one
+      // number an agent needs and cannot see. Whether they are populated is not
+      // knowable here -- see docs/unflatten-gate-findings.md, Q7 -- so this
+      // does not claim it.
+      describeResult: () =>
+        unflattenResult ? `Returned ${Math.max(unflattenResult.images.length - 1, 0)} layers.` : ""
+    });
+
     agentBridge.register("style_reference", {
       run: handleGenerateStyleReference,
       fields: {
@@ -1232,6 +1255,10 @@ export function renderApp(rootElement: HTMLElement) {
     });
     importBridge.publishCapability("multi-reference", {
       canImport: canImport(multiReferenceResult),
+      auto: null
+    });
+    importBridge.publishCapability("unflatten", {
+      canImport: Boolean(unflattenResult),
       auto: null
     });
     // Live Painting's import button is gated on liveLastResult by hand rather

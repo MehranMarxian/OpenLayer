@@ -22,6 +22,7 @@
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
+import { MCP_TOOLS } from "./src/tools.mjs";
 
 // Deliberately not the default 8199: this must not fight a hub the developer
 // already has running for a real Photoshop session.
@@ -125,18 +126,13 @@ send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
 const list = await waitFor(2, "tools/list");
 const toolNames = (list.result?.tools ?? []).map((tool) => tool.name).sort();
 check(
-  "exposes get_panel_state and all seven generation tools",
+  // Sorted, and derived from MCP_TOOLS rather than retyped. The hand-written
+  // list this replaces went stale when style_reference landed in v0.18 and
+  // again when multi_reference landed in v0.19, so this check sat red for two
+  // releases while still reading as a meaningful assertion.
+  `exposes get_panel_state and all ${MCP_TOOLS.length} generation tools`,
   toolNames.join(",") ===
-    [
-      "get_panel_state",
-      "image_to_image",
-      "inpaint",
-      "outpaint",
-      "prompt_from_layer",
-      "sketch_to_image",
-      "text_to_image",
-      "upscale"
-    ].join(","),
+    ["get_panel_state", ...MCP_TOOLS.map((tool) => tool.name)].sort().join(","),
   toolNames.join(",")
 );
 
