@@ -556,6 +556,10 @@ export function renderApp(rootElement: HTMLElement) {
   // panel that is not a single image. Index 0 is the reassembled composite,
   // which is what the preview shows; the layers run back-to-front after it.
   let unflattenResult: DocumentContextBound<GeneratedImageSet> | null = null;
+  // History records one image per entry, so the stack is represented there by
+  // its composite -- the reassembled picture is what says what the run did.
+  // Kept separately so the import can mark that entry imported.
+  let unflattenHistoryResult: AppGeneratedImageResult | null = null;
   // Only a canvas capture has a fixed relationship to the document, so only a
   // canvas capture may resize it. Layer captures keep the floating import.
   let upscaleCaptureKind: OutpaintCaptureKind | null = null;
@@ -4903,6 +4907,22 @@ export function renderApp(rootElement: HTMLElement) {
         }),
         commit: (stackResult) => {
           setUnflattenResult(stackResult);
+          unflattenHistoryResult = bindDocumentContext(
+            stackResult.images[0],
+            stackResult.originatingDocument
+          );
+          addHistoryEntry(elements, historyEntries, objectUrls, unflattenHistoryResult, {
+            prompt: elements.unflattenPrompt.value,
+            checkpointName,
+            modelName: checkpointName,
+            workflowPreset: buildResult.preset.id,
+            toolType: "unflatten",
+            seed: buildResult.seed,
+            sizeLabel: "From source",
+            dimensions: `${capturedSource.width} x ${capturedSource.height}`,
+            sourceMode: `${Math.max(stackResult.images.length - 1, 0)} layers from ${capturedSource.sourceName}`,
+            experimental: buildResult.preset.status === "experimental"
+          });
         }
       });
 
@@ -4966,6 +4986,10 @@ export function renderApp(rootElement: HTMLElement) {
 
       setUnflattenStatus(elements, `Imported ${imported.layerNames.length} layers into ${imported.groupName}.`, "ready");
       flashImported(elements.unflattenStatusText);
+
+      if (unflattenHistoryResult) {
+        markHistoryImported(elements, historyEntries, unflattenHistoryResult, imported.groupName);
+      }
       setUnflattenDiagnostics(
         elements,
         `Group created: ${imported.groupName}. Layers, back to front: ${imported.layerNames.join(", ")}.`
