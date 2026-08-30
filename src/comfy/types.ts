@@ -627,6 +627,22 @@ export type GeneratedImageResult = {
   mimeType: string;
 };
 
+/**
+ * The result of a run that produced several images, as a wrapper rather than a
+ * bare array.
+ *
+ * The wrapper is load-bearing, not decoration. `bindDocumentContext` binds a
+ * result to its originating document with `{ ...value, originatingDocument }`,
+ * and spreading an array into an object turns it into `{0: ..., 1: ...}` --
+ * still an object, so it typechecks, but with no `length`, no `map`, and no
+ * order anyone can rely on. Anything committed through the pipeline has to
+ * survive that spread.
+ */
+export type GeneratedImageSet = {
+  /** ComfyUI's own output order. For a layered run this is the stacking order. */
+  images: readonly GeneratedImageResult[];
+};
+
 export type ComfyUploadImageResponse = {
   name?: string;
   subfolder?: string;

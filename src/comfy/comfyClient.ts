@@ -621,20 +621,67 @@ export class ComfyClient {
     throw createOpenLayerError("COMFY_TIMEOUT", "Timed out while waiting for ComfyUI to finish text generation.");
   }
 
+  /**
+   * The single-image path every tool but Unflatten uses. Fetches only the first
+   * image even when a run produced several, so nothing pays for downloads it
+   * will not use.
+   */
   async retrieveFirstOutputImage(
     promptId: string,
     historyItem?: ComfyHistoryItem,
     options: RetrieveOutputOptions = {}
   ): Promise<GeneratedImageResult> {
+    const images = await this.locateOutputImages(promptId, historyItem, options);
+
+    return this.downloadOutputImage(images[0]);
+  }
+
+  /**
+   * Every image a run produced, in the order ComfyUI listed them.
+   *
+   * Unflatten is the first tool that needs this: its graph returns `layers + 1`
+   * images from one SaveImage node, and the import maps them to Photoshop
+   * layers positionally, so order is part of the contract rather than a
+   * convenience.
+   */
+  async retrieveOutputImages(
+    promptId: string,
+    historyItem?: ComfyHistoryItem,
+    options: RetrieveOutputOptions = {}
+  ): Promise<GeneratedImageResult[]> {
+    const images = await this.locateOutputImages(promptId, historyItem, options);
+    const results: GeneratedImageResult[] = [];
+
+    // Sequential on purpose. These are large PNGs off a local server that is
+    // usually still holding a model in VRAM, and a parallel fetch of five
+    // full-size layers buys nothing while making the failure case harder to
+    // attribute to a particular layer.
+    for (const image of images) {
+      results.push(await this.downloadOutputImage(image));
+    }
+
+    return results;
+  }
+
+  /**
+   * Shared validation for both retrieval paths, so the "no history" and "no
+   * image" failures cannot drift apart between them. Always returns at least
+   * one image; it throws rather than returning empty.
+   */
+  private async locateOutputImages(
+    promptId: string,
+    historyItem: ComfyHistoryItem | undefined,
+    options: RetrieveOutputOptions
+  ): Promise<ComfyImageOutput[]> {
     const history = historyItem ?? (await this.getHistory(promptId))[promptId];
 
     if (!history) {
       throw createOpenLayerError("COMFY_NO_IMAGE", `No ComfyUI history was found for prompt ${promptId}.`);
     }
 
-    const image = findImageOutput(history, options.preferredNodeId);
+    const images = findImageOutputs(history, options.preferredNodeId);
 
-    if (!image) {
+    if (images.length === 0) {
       throw createOpenLayerError(
         "COMFY_NO_IMAGE",
         options.preferredNodeId
@@ -643,6 +690,10 @@ export class ComfyClient {
       );
     }
 
+    return images;
+  }
+
+  private async downloadOutputImage(image: ComfyImageOutput): Promise<GeneratedImageResult> {
     const imageUrl = this.createViewUrl(image);
     const response = await fetch(imageUrl);
 
@@ -1012,6 +1063,39 @@ export function findImageOutput(
   }
 
   return null;
+}
+
+/**
+ * Every image from the node that produced images, in ComfyUI's own order.
+ *
+ * "The node that produced images" rather than "all nodes": a graph with two
+ * SaveImage nodes would otherwise interleave two unrelated sets, and for
+ * Unflatten the order across one node's batch *is* the layer stacking order.
+ * Without a preferred node this scans in output order and takes the first node
+ * that has any, which is the same node `findImageOutput` would have picked.
+ *
+ * Images without a filename cannot be fetched, so they are dropped rather than
+ * returned as holes the caller would have to check for.
+ */
+export function findImageOutputs(
+  history: ComfyHistoryItem,
+  preferredNodeId?: string
+): ComfyImageOutput[] {
+  const outputs = history.outputs ?? {};
+
+  if (preferredNodeId) {
+    return (outputs[preferredNodeId]?.images ?? []).filter((image) => Boolean(image?.filename));
+  }
+
+  for (const output of Object.values(outputs)) {
+    const images = (output.images ?? []).filter((image) => Boolean(image?.filename));
+
+    if (images.length > 0) {
+      return images;
+    }
+  }
+
+  return [];
 }
 
 export function findTextOutput(

@@ -3,6 +3,7 @@ import { getWorkflowPreset } from "../../src/comfy/presetRegistry";
 import {
   ComfyClient,
   findImageOutput,
+  findImageOutputs,
   findPromptIndex,
   readComfyModelNameList,
   readComfyProgress
@@ -55,6 +56,126 @@ describe("ComfyClient output selection", () => {
     );
 
     expect(image).toBeNull();
+  });
+});
+
+describe("ComfyClient multi-image output selection", () => {
+  // Unflatten's graph emits layers + 1 images from one SaveImage node, and the
+  // import maps them to Photoshop layers positionally. Order is the contract.
+  const layeredHistory = {
+    outputs: {
+      "17": {
+        images: [
+          { filename: "OpenLayer_Unflatten_00001_.png", type: "output" },
+          { filename: "OpenLayer_Unflatten_00002_.png", type: "output" },
+          { filename: "OpenLayer_Unflatten_00003_.png", type: "output" }
+        ]
+      }
+    }
+  };
+
+  it("returns every image from the preferred node, in order", () => {
+    expect(findImageOutputs(layeredHistory, "17").map((image) => image.filename)).toEqual([
+      "OpenLayer_Unflatten_00001_.png",
+      "OpenLayer_Unflatten_00002_.png",
+      "OpenLayer_Unflatten_00003_.png"
+    ]);
+  });
+
+  it("agrees with the single-image finder on which image comes first", () => {
+    expect(findImageOutputs(layeredHistory, "17")[0]).toEqual(findImageOutput(layeredHistory, "17"));
+    expect(findImageOutputs(layeredHistory)[0]).toEqual(findImageOutput(layeredHistory));
+  });
+
+  it("takes one node's whole batch rather than interleaving two nodes", () => {
+    const images = findImageOutputs({
+      outputs: {
+        "9": { images: [{ filename: "first-node-a.png" }, { filename: "first-node-b.png" }] },
+        "17": { images: [{ filename: "second-node.png" }] }
+      }
+    });
+
+    expect(images.map((image) => image.filename)).toEqual(["first-node-a.png", "first-node-b.png"]);
+  });
+
+  it("drops images with no filename rather than returning holes", () => {
+    const images = findImageOutputs({
+      outputs: { "17": { images: [{ filename: "" }, { filename: "real.png" }] } }
+    });
+
+    expect(images.map((image) => image.filename)).toEqual(["real.png"]);
+  });
+
+  it("returns an empty list when the preferred node produced nothing", () => {
+    expect(findImageOutputs({ outputs: { "12": { images: [{ filename: "other.png" }] } } }, "17")).toEqual([]);
+  });
+});
+
+describe("ComfyClient.retrieveOutputImages", () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  function stubFetch() {
+    const requested: string[] = [];
+    globalThis.fetch = vi.fn(async (url: unknown) => {
+      requested.push(String(url));
+      return {
+        ok: true,
+        headers: { get: () => "image/png" },
+        blob: async () => new Blob([String(url)], { type: "image/png" })
+      } as unknown as Response;
+    }) as unknown as typeof fetch;
+    return requested;
+  }
+
+  const history = {
+    outputs: {
+      "17": {
+        images: [
+          { filename: "layer-0.png", subfolder: "", type: "output" },
+          { filename: "layer-1.png", subfolder: "", type: "output" },
+          { filename: "layer-2.png", subfolder: "", type: "output" }
+        ]
+      }
+    }
+  };
+
+  it("returns one result per image, in the order ComfyUI listed them", async () => {
+    const requested = stubFetch();
+    const client = new ComfyClient("http://127.0.0.1:8190");
+
+    const results = await client.retrieveOutputImages("prompt-1", history, { preferredNodeId: "17" });
+
+    expect(results.map((result) => result.filename)).toEqual(["layer-0.png", "layer-1.png", "layer-2.png"]);
+    expect(requested).toHaveLength(3);
+    expect(requested[0]).toContain("layer-0.png");
+    expect(requested[2]).toContain("layer-2.png");
+  });
+
+  it("fetches only the first image on the single-image path, even when a run produced several", async () => {
+    const requested = stubFetch();
+    const client = new ComfyClient("http://127.0.0.1:8190");
+
+    const result = await client.retrieveFirstOutputImage("prompt-1", history, { preferredNodeId: "17" });
+
+    expect(result.filename).toBe("layer-0.png");
+    expect(requested).toHaveLength(1);
+  });
+
+  it("reports the same missing-image failure both paths always reported", async () => {
+    stubFetch();
+    const client = new ComfyClient("http://127.0.0.1:8190");
+    const empty = { outputs: {} };
+
+    await expect(client.retrieveOutputImages("prompt-1", empty, { preferredNodeId: "17" })).rejects.toThrow(
+      /No output image was found from the expected SaveImage node 17/
+    );
+    await expect(client.retrieveFirstOutputImage("prompt-1", empty, { preferredNodeId: "17" })).rejects.toThrow(
+      /No output image was found from the expected SaveImage node 17/
+    );
   });
 });
 
