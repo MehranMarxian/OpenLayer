@@ -1,5 +1,33 @@
 # Changelog
 
+## v0.20.0-alpha - 2026-08-30
+
+This release adds Unflatten: hand the panel a flat layer and get the picture back as separate layers with real transparency, imported into the open document in stacking order. Nothing else in this space puts a decomposed layer stack into a host application, and that is the whole point of building it here rather than anywhere else.
+
+Before any of the screen existed, eight questions about how the technique actually behaves were answered with live ComfyUI generations — full results in `docs/unflatten-gate-findings.md`. Two of the answers overturned assumptions the plan document was built on, one of them about the plan's own account of the original spike.
+
+### Added
+
+- **Unflatten** (experimental). A captured layer is decomposed by `unflatten-qwen-layered` into `layers + 1` images and imported as N Photoshop layers, back to front, each scaled and aligned to the region the source was captured from, all inside one group named after that source. Every node in the graph is core ComfyUI. Three new model files totalling 28.1 GB, which share nothing with any existing preset — the largest single addition the Setup manifest has taken. About two minutes for four layers on a 12 GB card.
+
+  **Composition decides whether it works, not provenance.** The gate expected v0.19's result to repeat, that the model favours its own output over photographs. It does not. Crossing the two axes on matched pairs — the generated members made locally with the shipped Krea-2 stack — a generated close-up failed exactly as a photographed one did, and a photographed contained subject succeeded exactly as a generated one did. What predicts success is whether the picture has something standing in front of something else. The plan's premise needed correcting on the way: it recorded the original spike's source as one of OpenLayer's own generations, and the run history showed a stock photograph, so the spike was already the case the question was invented to test.
+
+  **640px with four layers is a measured optimum.** Two layers fuses distinct objects into a single plate — which is what the spike used, and why its background looked worse than the model deserved. Six pads the result with blank layers. And 1024 is not a quality/time trade-off worth exposing: on two seeds it separated about half as well as 640, left more layers empty, and cost three and a half times the wall time, so the graph fixes the resolution and the panel does not offer it.
+
+- **`unflatten` joins the MCP Agent Bridge** as the tenth bridged tool, on the same boundary as the other nine: an agent can set parameters and press the button, and cannot capture the source. Everything the gate found that constrains the tool is in the description an agent reads before running it.
+
+### Known limits, stated rather than worked around
+
+- **A close-up that fills the frame cannot be separated**, whatever it was made by, and the panel cannot detect it. Deciding whether a picture separated needs its alpha channel; nothing in a UXP panel can decode a PNG. Two cheap proxies were measured and both failed: file size cannot identify a blank plate (across 63 gate layers, blanks ran 201 KB–845 KB and populated ones 243 KB–2.3 MB, overlapping almost completely, because a blank plate carries RGB noise under a near-zero alpha that does not compress away), and the size ratio between the background layer and the composite does not separate the two outcomes either — an unseparated run sat at 0.972 while genuinely separated ones sat at 0.983 and 0.984. So it is stated in copy in three places instead of being guessed at in code.
+
+- **Layers come back at 640px and are softer than the original on a large document.** The decomposition is done at 640 on purpose; the layers are then scaled up to cover the region they came from. The fix is known and not in this release: use the model's alpha as a layer mask over the artist's own full-resolution pixels, which keeps the subject pixel-for-pixel and leaves only the matte edge soft.
+
+- **The layer count is a ceiling, not a promise.** A four-layer run can return two populated layers and two empty ones, varying with the seed. Empty layers are imported rather than skipped, because an unwanted empty layer is visible and one click to delete while a wrongly discarded faint layer is silent data loss.
+
+### Fixed
+
+- **The bridge's own smoke test had been asserting a stale tool list since v0.18.** It froze the eight tools by hand, never gained `style_reference` in v0.18 or `multi_reference` in v0.19, and so reported a failure on every run for two releases while still reading as a meaningful check. It now derives the expected list from `MCP_TOOLS` and cannot go stale again.
+
 ## v0.19.0-alpha - 2026-08-28
 
 This release adds Multi-Reference Composition: give the panel a list of captured layers instead of one, and it builds a single picture out of all of them. Before any of the screen was built, four questions about how the technique actually behaves were answered with 48 live ComfyUI generations, each run as a control/variant pair — full results in `docs/multi-reference-gate-findings.md`. Two of the four answers shrank the feature that got built; the third is the honest limit stated everywhere the tool is described.

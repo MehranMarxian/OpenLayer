@@ -4968,7 +4968,7 @@ export function renderApp(rootElement: HTMLElement) {
       setUnflattenStatus(elements, `Returned ${layerCount} layers.`, "ready");
       setUnflattenDiagnostics(
         elements,
-        `${layerCount} layers plus the reassembled picture. If the layers look empty, the source was too close-up to separate. Seed used: ${buildResult.seed}. Workflow: ${buildResult.preset.id}.`
+        `${layerCount} layers plus the reassembled picture. Some may be empty -- the count is a ceiling, and a close-up cannot be separated at all. Seed used: ${buildResult.seed}. Workflow: ${buildResult.preset.id}.`
       );
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
