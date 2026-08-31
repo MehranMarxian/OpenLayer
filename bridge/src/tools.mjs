@@ -312,7 +312,8 @@ export const MCP_TOOLS = [
       "than a promise: plates that come back empty are left out, so you may receive fewer layers " +
       "than you asked for. Layers in front of the background are built " +
       "from the captured layer's own pixels wearing the model's matte, so they stay at full " +
-      "resolution; the background is repainted by the model at 640px and is softer. Takes about two " +
+      "resolution; the background is repainted by the model at 640px and is softer. The cut edge comes " +
+      "from that same 640px matte, so it is a starting point rather than a production cut-out. Takes about two " +
       "minutes. Only the parameters you pass are changed. Returns the panel's own status " +
       "message.",
     schema: UNFLATTEN_SCHEMA,
