@@ -145,6 +145,15 @@ const INPAINT_CONTEXT_MULTIPLE = 8;
 // captures can exhaust UXP panel memory before the upload even starts.
 export const MAX_CAPTURE_PIXELS = 4096 * 4096;
 
+// Big enough that a small subject survives the downsample -- a person occupying
+// 5% of the frame still covers dozens of these pixels -- and small enough that
+// the read costs nothing next to the placement it guards.
+const MATTE_ALPHA_SAMPLE_SIZE = 128;
+// Measured: genuinely blank plates peaked at 5 and 8 across the gate runs,
+// while the faintest plate carrying real content reached 255. There is a wide
+// gap here, so this is a bright line rather than a tuned threshold.
+const MATTE_BLANK_ALPHA_CEILING = 24;
+
 // Inpaint was the only caller that could hit this, so its phrasing is the
 // default and must stay byte-identical -- a test pins the exact sentence.
 export const DEFAULT_SELECTION_REQUESTER = "using Inpaint";
@@ -1651,20 +1660,21 @@ async function placeSourceMaskedByModelAlpha(
     await fitActiveLayerToBounds(photoshop, options.targetBounds);
 
     // From here on nothing may place, because nothing may clear the selection.
-    await loadActiveLayerTransparencyAsSelection(photoshop);
-
-    // The alpha read this panel could not do for itself. A plate with no matte
-    // produces no selection, and a layer masked by nothing is a full-size copy
-    // of the source showing none of it -- worse than the empty plate it
-    // replaced. There is nothing to import, so nothing is imported.
-    if (!(await hasActiveSelection(photoshop))) {
+    // Measured before anything is loaded as a selection. "Does a selection
+    // exist" was the first test here and it is far too weak: a plate whose
+    // alpha peaks at 5 -- invisible, and blank by any useful definition --
+    // still yields selection bounds, so it passed the check and arrived as a
+    // full-size copy of the source under a black mask. Reading the alpha is
+    // the only test that separates those, and Photoshop will do it on request.
+    if (await isMatteEffectivelyBlank(photoshop, matteLayerId)) {
       await deleteLayerById(photoshop, matteLayerId, true);
       await deleteLayerById(photoshop, sourceLayerId, true);
-      await deselectActiveSelection(photoshop);
 
       return "blank";
     }
 
+    await selectLayerById(photoshop, matteLayerId, false);
+    await loadActiveLayerTransparencyAsSelection(photoshop);
     await deleteLayerById(photoshop, matteLayerId, false);
     matteLayerId = undefined;
 
@@ -1691,6 +1701,62 @@ async function placeSourceMaskedByModelAlpha(
     }
 
     return "unavailable";
+  }
+}
+
+/**
+ * How much of a plate is actually there, read from its alpha channel.
+ *
+ * Sampled small deliberately. The question is "is there anything here at all",
+ * which survives downsampling, and reading a full-resolution layer for it would
+ * cost more than the placement it is guarding. A read that fails answers
+ * `false`: importing a layer that turns out to be empty is a visible nuisance,
+ * while dropping one that turns out to be real is silent data loss, and that
+ * asymmetry decides every close call in this file.
+ */
+async function isMatteEffectivelyBlank(photoshop: PhotoshopModule, matteLayerId: number) {
+  const imaging = photoshop.imaging;
+  const documentId = getActiveDocument().id;
+
+  if (!imaging?.getPixels || typeof documentId !== "number") {
+    return false;
+  }
+
+  let imageData: PhotoshopImageData | undefined;
+
+  try {
+    const pixels = await imaging.getPixels({
+      documentID: documentId,
+      layerID: matteLayerId,
+      componentSize: 8,
+      colorSpace: "RGB",
+      // The alpha has to arrive as its own component rather than composited
+      // against something, which is the whole point of the read.
+      applyAlpha: false,
+      targetSize: { width: MATTE_ALPHA_SAMPLE_SIZE, height: MATTE_ALPHA_SAMPLE_SIZE }
+    });
+    imageData = pixels.imageData;
+
+    if (!imageData) return false;
+
+    const components = Number(imageData.components ?? 4);
+
+    // Three components means the plate carries no alpha at all, which for a
+    // decomposed layer means it is fully opaque, not empty.
+    if (components < 4) return false;
+
+    const raw = toUint8Array(await readImageDataBytes(imageData));
+    let peak = 0;
+
+    for (let index = components - 1; index < raw.length; index += components) {
+      if (raw[index] > peak) peak = raw[index];
+    }
+
+    return peak <= MATTE_BLANK_ALPHA_CEILING;
+  } catch {
+    return false;
+  } finally {
+    imageData?.dispose?.();
   }
 }
 
