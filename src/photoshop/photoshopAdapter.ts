@@ -5,7 +5,7 @@ import { calculatePlacementOffset, createOpaqueGrayscaleMaskPng, PixelDimensions
 import { OutpaintExpansionPlan } from "./outpaintExpansion";
 import { UpscaleResizePlan } from "./upscaleResize";
 import {
-  placementUsesSourcePixels,
+  classifyPlateSample,
   planLayerScale,
   planUnflattenLayerStack,
   stackLayerNames,
@@ -148,11 +148,10 @@ export const MAX_CAPTURE_PIXELS = 4096 * 4096;
 // Big enough that a small subject survives the downsample -- a person occupying
 // 5% of the frame still covers dozens of these pixels -- and small enough that
 // the read costs nothing next to the placement it guards.
-const MATTE_ALPHA_SAMPLE_SIZE = 128;
-// Measured: genuinely blank plates peaked at 5 and 8 across the gate runs,
-// while the faintest plate carrying real content reached 255. There is a wide
-// gap here, so this is a bright line rather than a tuned threshold.
-const MATTE_BLANK_ALPHA_CEILING = 24;
+const PLATE_SAMPLE_SIZE = 128;
+// Below this a pixel is not contributing anything anyone can see, so its RGB
+// is noise rather than picture and must not count toward the flatness measure.
+const PLATE_VISIBLE_ALPHA_FLOOR = 24;
 
 // Inpaint was the only caller that could hit this, so its phrasing is the
 // default and must stay byte-identical -- a test pins the exact sentence.
@@ -1481,19 +1480,15 @@ export async function importUnflattenLayerStack(
 
             options.onProgress?.(`Placing ${placement.layerName}...`);
 
-            const outcome =
-              sourceToken !== undefined && placementUsesSourcePixels(placement)
-                ? await placeSourceMaskedByModelAlpha(photoshop, {
-                  modelToken: tokens[placement.depth - 1],
-                  sourceToken,
-                  targetBounds: options.targetBounds
-                })
-                : "unavailable";
+            const outcome = await placeDecomposedPlate(photoshop, {
+              modelToken: tokens[placement.depth - 1],
+              sourceToken,
+              targetBounds: options.targetBounds
+            });
 
-            if (outcome === "blank") {
-              // Nothing to mask, so there is nothing to import. Skipping is
-              // only possible at all because the transparency-as-selection step
-              // makes Photoshop read the alpha this panel cannot decode itself.
+            if (outcome === "skipped") {
+              // A plate holding nothing, or holding a flat fill and no picture.
+              // Either way there is no layer in it.
               skippedBlankLayerCount += 1;
               continue;
             }
@@ -1501,7 +1496,7 @@ export async function importUnflattenLayerStack(
             if (outcome === "unavailable") {
               await placeFileAsLayer(photoshop, tokens[placement.depth - 1]);
               await fitActiveLayerToBounds(photoshop, options.targetBounds);
-            } else {
+            } else if (outcome === "masked") {
               sourcePixelLayerCount += 1;
             }
 
@@ -1607,39 +1602,61 @@ async function fitActiveLayerToBounds(
 }
 
 /**
- * Builds one layer out of the artist's own pixels wearing the model's matte.
+ * Places one decomposed plate, deciding from its own pixels what it is.
  *
- * The model's plate is placed first purely to be measured: it is scaled and
- * aligned so its alpha sits exactly where it belongs in the document, its
- * transparency is loaded as a selection, and then it is deleted. The captured
- * source goes down in its place at native resolution and takes that selection
- * as a layer mask. What survives is full-resolution pixels with a matte edge
- * that is soft because it came from a 640px decomposition -- which is the only
- * part of the result that has to be.
+ * The plate goes down first and is then read, because what it holds cannot be
+ * known before it is in the document and nothing else here can decode a PNG.
+ * Four outcomes:
  *
- * Returns false rather than throwing when the host will not do it. Loading a
- * layer's transparency as a selection is the one step here that no other import
- * in this file performs, so a host that refuses it degrades to the model's own
- * pixels -- exactly what this import did before -- instead of failing a
- * decomposition the artist has already waited two minutes for.
+ * - **blank or flat fill** -- deleted. Nothing in it is worth a layer.
+ * - **full frame** -- kept exactly as placed. This is a background: it holds
+ *   content the model invented behind the subject, which is not in the source,
+ *   so it must keep the model's own pixels even though they are softer.
+ * - **cut-out** -- rebuilt from the artist's pixels wearing this plate's matte.
+ * - **anything the host refuses** -- reported so the caller places it plainly.
+ *
+ * The ordering rule that governs the cut-out path is worth stating because it
+ * is invisible and was learned the hard way: `placeEvent` clears the active
+ * selection, so every placement happens before the transparency is loaded, and
+ * nothing between the selection and the mask may place anything.
  */
-async function placeSourceMaskedByModelAlpha(
+async function placeDecomposedPlate(
   photoshop: PhotoshopModule,
   options: {
     modelToken: string;
-    sourceToken: string;
+    sourceToken?: string;
     targetBounds?: NormalizedSelectionBounds;
   }
-): Promise<"masked" | "blank" | "unavailable"> {
+): Promise<"masked" | "model" | "skipped" | "unavailable"> {
+  let plateLayerId: number | undefined;
   let sourceLayerId: number | undefined;
-  let matteLayerId: number | undefined;
 
   try {
-    // Both placements happen BEFORE the selection is made, and the order is the
-    // whole reason this works. `placeEvent` clears the active selection, so
-    // loading the matte first and placing the source afterwards throws the
-    // selection away and leaves "Make" -- the layer-mask command -- unavailable,
-    // which is exactly how the first version of this failed in Photoshop.
+    await placeFileAsLayer(photoshop, options.modelToken);
+    plateLayerId = getActiveDocument().activeLayers?.[0]?.id;
+
+    if (plateLayerId === undefined) {
+      throw new Error("Photoshop did not expose the placed plate.");
+    }
+
+    await fitActiveLayerToBounds(photoshop, options.targetBounds);
+
+    const kind = await classifyPlacedPlate(photoshop, plateLayerId);
+
+    if (kind === "blank" || kind === "flat-fill") {
+      await deleteLayerById(photoshop, plateLayerId, true);
+
+      return "skipped";
+    }
+
+    // A background, or a run with no source to mask against. Either way the
+    // plate as placed already is the layer.
+    if (kind === "full-frame" || options.sourceToken === undefined) {
+      return "model";
+    }
+
+    // Placed above the plate, and placed now, because after the selection
+    // exists nothing may call placeEvent.
     await placeFileAsLayer(photoshop, options.sourceToken);
     sourceLayerId = getActiveDocument().activeLayers?.[0]?.id;
 
@@ -1649,34 +1666,10 @@ async function placeSourceMaskedByModelAlpha(
 
     await fitActiveLayerToBounds(photoshop, options.targetBounds);
 
-    // Lands directly above the source, which is where it has to be measured.
-    await placeFileAsLayer(photoshop, options.modelToken);
-    matteLayerId = getActiveDocument().activeLayers?.[0]?.id;
-
-    if (matteLayerId === undefined) {
-      throw new Error("Photoshop did not expose the matte layer.");
-    }
-
-    await fitActiveLayerToBounds(photoshop, options.targetBounds);
-
-    // From here on nothing may place, because nothing may clear the selection.
-    // Measured before anything is loaded as a selection. "Does a selection
-    // exist" was the first test here and it is far too weak: a plate whose
-    // alpha peaks at 5 -- invisible, and blank by any useful definition --
-    // still yields selection bounds, so it passed the check and arrived as a
-    // full-size copy of the source under a black mask. Reading the alpha is
-    // the only test that separates those, and Photoshop will do it on request.
-    if (await isMatteEffectivelyBlank(photoshop, matteLayerId)) {
-      await deleteLayerById(photoshop, matteLayerId, true);
-      await deleteLayerById(photoshop, sourceLayerId, true);
-
-      return "blank";
-    }
-
-    await selectLayerById(photoshop, matteLayerId, false);
+    await selectLayerById(photoshop, plateLayerId, false);
     await loadActiveLayerTransparencyAsSelection(photoshop);
-    await deleteLayerById(photoshop, matteLayerId, false);
-    matteLayerId = undefined;
+    await deleteLayerById(photoshop, plateLayerId, false);
+    plateLayerId = undefined;
 
     await selectLayerById(photoshop, sourceLayerId, false);
     await addLayerMaskFromSelection(photoshop);
@@ -1684,14 +1677,13 @@ async function placeSourceMaskedByModelAlpha(
 
     return "masked";
   } catch {
-    // Leave nothing behind for the fallback path to trip over: it is about to
-    // place the model's own plate in this layer's stead.
-    if (matteLayerId !== undefined) {
-      await deleteLayerById(photoshop, matteLayerId, true);
-    }
-
+    // Leave nothing behind: the caller is about to place this plate plainly.
     if (sourceLayerId !== undefined) {
       await deleteLayerById(photoshop, sourceLayerId, true);
+    }
+
+    if (plateLayerId !== undefined) {
+      await deleteLayerById(photoshop, plateLayerId, true);
     }
 
     try {
@@ -1705,21 +1697,20 @@ async function placeSourceMaskedByModelAlpha(
 }
 
 /**
- * How much of a plate is actually there, read from its alpha channel.
+ * Reads a placed plate small and reports what it holds.
  *
- * Sampled small deliberately. The question is "is there anything here at all",
- * which survives downsampling, and reading a full-resolution layer for it would
- * cost more than the placement it is guarding. A read that fails answers
- * `false`: importing a layer that turns out to be empty is a visible nuisance,
- * while dropping one that turns out to be real is silent data loss, and that
- * asymmetry decides every close call in this file.
+ * Sampled at 128 square: the questions are whether anything is there, whether
+ * it varies, and whether it covers the frame, and all three survive a
+ * downsample. A read that fails answers "cut-out", the outcome that imports the
+ * layer -- because importing something empty is a visible nuisance while
+ * dropping something real is silent data loss.
  */
-async function isMatteEffectivelyBlank(photoshop: PhotoshopModule, matteLayerId: number) {
+async function classifyPlacedPlate(photoshop: PhotoshopModule, plateLayerId: number) {
   const imaging = photoshop.imaging;
   const documentId = getActiveDocument().id;
 
   if (!imaging?.getPixels || typeof documentId !== "number") {
-    return false;
+    return "cutout" as const;
   }
 
   let imageData: PhotoshopImageData | undefined;
@@ -1727,37 +1718,78 @@ async function isMatteEffectivelyBlank(photoshop: PhotoshopModule, matteLayerId:
   try {
     const pixels = await imaging.getPixels({
       documentID: documentId,
-      layerID: matteLayerId,
+      layerID: plateLayerId,
       componentSize: 8,
       colorSpace: "RGB",
-      // The alpha has to arrive as its own component rather than composited
-      // against something, which is the whole point of the read.
+      // The alpha must arrive as its own component rather than composited
+      // against anything, which is the whole point of the read.
       applyAlpha: false,
-      targetSize: { width: MATTE_ALPHA_SAMPLE_SIZE, height: MATTE_ALPHA_SAMPLE_SIZE }
+      targetSize: { width: PLATE_SAMPLE_SIZE, height: PLATE_SAMPLE_SIZE }
     });
     imageData = pixels.imageData;
 
-    if (!imageData) return false;
+    if (!imageData) return "cutout" as const;
 
     const components = Number(imageData.components ?? 4);
-
-    // Three components means the plate carries no alpha at all, which for a
-    // decomposed layer means it is fully opaque, not empty.
-    if (components < 4) return false;
-
     const raw = toUint8Array(await readImageDataBytes(imageData));
-    let peak = 0;
 
-    for (let index = components - 1; index < raw.length; index += components) {
-      if (raw[index] > peak) peak = raw[index];
-    }
-
-    return peak <= MATTE_BLANK_ALPHA_CEILING;
+    return classifyPlateSample(measurePlateSample(raw, components));
   } catch {
-    return false;
+    return "cutout" as const;
   } finally {
     imageData?.dispose?.();
   }
+}
+
+/**
+ * Turns raw interleaved pixels into the three numbers the classifier needs.
+ *
+ * Exported for its own tests: this is arithmetic over a byte array, it decides
+ * whether a layer reaches the artist's document, and it is the one part of the
+ * read that can be checked without Photoshop.
+ */
+export function measurePlateSample(raw: Uint8Array, components: number) {
+  const hasAlpha = components >= 4;
+  const pixelCount = components > 0 ? Math.floor(raw.length / components) : 0;
+
+  if (pixelCount === 0) {
+    return { peakAlpha: 255, clearFraction: 0, rgbStandardDeviation: 255 };
+  }
+
+  let peakAlpha = 0;
+  let clearCount = 0;
+  let sum = 0;
+  let sumOfSquares = 0;
+  let channelCount = 0;
+
+  for (let pixel = 0; pixel < pixelCount; pixel += 1) {
+    const offset = pixel * components;
+    const alpha = hasAlpha ? raw[offset + components - 1] : 255;
+
+    if (alpha > peakAlpha) peakAlpha = alpha;
+    if (alpha === 0) clearCount += 1;
+
+    // Only where something is actually visible. Averaging in the arbitrary RGB
+    // that sits under fully transparent pixels would make every cut-out look
+    // like a flat fill or a busy one at random.
+    if (alpha > PLATE_VISIBLE_ALPHA_FLOOR) {
+      for (let channel = 0; channel < Math.min(3, components); channel += 1) {
+        const value = raw[offset + channel];
+        sum += value;
+        sumOfSquares += value * value;
+        channelCount += 1;
+      }
+    }
+  }
+
+  const mean = channelCount > 0 ? sum / channelCount : 0;
+  const variance = channelCount > 0 ? Math.max(sumOfSquares / channelCount - mean * mean, 0) : 0;
+
+  return {
+    peakAlpha,
+    clearFraction: clearCount / pixelCount,
+    rgbStandardDeviation: Math.sqrt(variance)
+  };
 }
 
 async function loadActiveLayerTransparencyAsSelection(photoshop: PhotoshopModule) {

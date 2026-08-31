@@ -96,25 +96,64 @@ function formatGroupName(sourceName?: string) {
 }
 
 /**
- * Whether a placement should be built from the artist's own pixels rather than
- * the model's.
+ * What a decomposed plate turns out to hold, once its pixels have been read.
  *
- * The graph decomposes at 640px on the long side, so the model's RGB for a
- * layer is a small, re-rendered version of content that already exists at full
- * resolution in the document. For anything in front, that content is simply
- * *there*: the sharp version of the subject is the artist's own layer, and all
- * the model contributes that the document does not already have is the matte.
- * So a foreground plate is built by masking the source with the model's alpha,
- * which keeps the pixels at native resolution and leaves only the matte edge
- * soft.
- *
- * Depth 1 is the exception and cannot work that way. It is the background, and
- * it holds content the model *invented* to fill the hole the subject left --
- * content that by definition is not in the source. Masking the source with it
- * would reveal the subject again instead of what was painted behind it.
+ * This replaced a rule based on the plate's position in the batch, which the
+ * gate's own runs supported and a real photograph disproved. Q8 found index 1
+ * carrying the background every time it was measured, so the import treated
+ * depth 1 as the background and everything after it as foreground. On a source
+ * outside that sample the model emitted a **pure white fill** at index 1 --
+ * RGB standard deviation 1.08, mean (254, 255, 254) -- and put the actual
+ * background at index 2. Position is a coincidence of the runs that were
+ * measured; content is the thing itself.
  */
-export function placementUsesSourcePixels(placement: UnflattenLayerPlacement) {
-  return placement.depth > 1;
+export type PlateKind =
+  /** No visible alpha anywhere. Nothing to import. */
+  | "blank"
+  /** Visible, but a single flat colour: a base fill, carrying no picture. */
+  | "flat-fill"
+  /** Covers the whole frame with real content. This is a background. */
+  | "full-frame"
+  /** Real content with real transparency. This is something in front. */
+  | "cutout";
+
+export type PlateSample = Readonly<{
+  /** Highest alpha found anywhere in the sample, 0-255. */
+  peakAlpha: number;
+  /** Fraction of the sample that is fully transparent, 0-1. */
+  clearFraction: number;
+  /** Standard deviation of the RGB channels across the sample. */
+  rgbStandardDeviation: number;
+}>;
+
+/**
+ * Every threshold below is a bright line between two measured populations
+ * rather than a tuned value, which is why they are stated as constants and
+ * tested rather than adjusted when a result disappoints.
+ */
+/** Blank plates peaked at 5-20 across every run; anything real reached 255. */
+export const PLATE_BLANK_ALPHA_CEILING = 24;
+/** A flat fill measured 1.08; every plate carrying a picture measured over 40. */
+export const PLATE_FLAT_FILL_DEVIATION_CEILING = 6;
+/** A background covered the frame exactly; a cut-out left 41% of it clear. */
+export const PLATE_FULL_FRAME_CLEAR_CEILING = 0.05;
+
+export function classifyPlateSample(sample: PlateSample): PlateKind {
+  if (!(sample.peakAlpha > PLATE_BLANK_ALPHA_CEILING)) {
+    return "blank";
+  }
+
+  // Checked before coverage, because a flat fill covers the frame completely
+  // and would otherwise be mistaken for a background and imported as one.
+  if (sample.rgbStandardDeviation < PLATE_FLAT_FILL_DEVIATION_CEILING) {
+    return "flat-fill";
+  }
+
+  if (sample.clearFraction < PLATE_FULL_FRAME_CLEAR_CEILING) {
+    return "full-frame";
+  }
+
+  return "cutout";
 }
 
 export type LayerScalePlan = Readonly<{

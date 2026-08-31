@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  placementUsesSourcePixels,
+  classifyPlateSample,
   stackLayerNames,
   planLayerScale,
   planUnflattenLayerStack,
@@ -95,27 +95,43 @@ describe("planLayerScale", () => {
   });
 });
 
-describe("placementUsesSourcePixels", () => {
-  const placements = planUnflattenLayerStack({ imageCount: 5 }).placements;
-
-  it("builds every layer in front from the artist's own pixels", () => {
-    // The model's RGB for these is a 640px re-render of content the document
-    // already holds at full resolution. Only the matte is new.
-    expect(placements.filter(placementUsesSourcePixels).map((p) => p.depth)).toEqual([2, 3, 4]);
+describe("classifyPlateSample", () => {
+  // Every number here was measured off real plates, so these read as a record
+  // of what the model produces rather than as invented cases.
+  it("calls a plate with no visible alpha blank", () => {
+    // Two runs produced exactly these: invisible, but not zero.
+    expect(classifyPlateSample({ peakAlpha: 5, clearFraction: 0.68, rgbStandardDeviation: 9 })).toBe("blank");
+    expect(classifyPlateSample({ peakAlpha: 8, clearFraction: 0.41, rgbStandardDeviation: 9 })).toBe("blank");
+    expect(classifyPlateSample({ peakAlpha: 20, clearFraction: 0.9, rgbStandardDeviation: 30 })).toBe("blank");
   });
 
-  it("leaves the backmost layer on the model's pixels", () => {
-    // Depth 1 holds what the model invented behind the subject. Masking the
-    // source with it would reveal the subject again rather than the fill.
-    expect(placementUsesSourcePixels(placements[0])).toBe(false);
-    expect(placements[0].depth).toBe(1);
+  it("calls a flat white fill a fill, not a background", () => {
+    // The plate that broke the position-based rule: fully opaque, covering the
+    // whole frame, and carrying no picture at all. Imported as a background it
+    // put a white layer in the artist's document.
+    expect(classifyPlateSample({ peakAlpha: 255, clearFraction: 0, rgbStandardDeviation: 1.08 })).toBe("flat-fill");
   });
 
-  it("keeps a two-image run entirely on the model's pixels", () => {
-    // One layer means one background and nothing in front of it.
-    const single = planUnflattenLayerStack({ imageCount: 2 }).placements;
+  it("checks flatness before coverage, or a fill passes as a background", () => {
+    // A flat fill covers the frame exactly like a background does, so coverage
+    // alone cannot separate them and the order of the tests is load-bearing.
+    const fill = { peakAlpha: 255, clearFraction: 0, rgbStandardDeviation: 0 };
 
-    expect(single.some(placementUsesSourcePixels)).toBe(false);
+    expect(classifyPlateSample(fill)).not.toBe("full-frame");
+  });
+
+  it("calls a full-coverage plate with real content a background", () => {
+    expect(classifyPlateSample({ peakAlpha: 255, clearFraction: 0, rgbStandardDeviation: 42.4 })).toBe("full-frame");
+  });
+
+  it("calls a plate with real transparency a cut-out", () => {
+    expect(classifyPlateSample({ peakAlpha: 255, clearFraction: 0.41, rgbStandardDeviation: 42.7 })).toBe("cutout");
+  });
+
+  it("does not let a low-contrast subject be mistaken for a fill", () => {
+    // A cut-out of something plain still varies more than a fill does, and the
+    // gap between 1.08 and 40-plus is where the line sits.
+    expect(classifyPlateSample({ peakAlpha: 255, clearFraction: 0.5, rgbStandardDeviation: 12 })).toBe("cutout");
   });
 });
 
