@@ -78,6 +78,28 @@ function formatGroupName(sourceName?: string) {
   return trimmed ? `Unflatten ${trimmed}` : "Unflatten";
 }
 
+/**
+ * Whether a placement should be built from the artist's own pixels rather than
+ * the model's.
+ *
+ * The graph decomposes at 640px on the long side, so the model's RGB for a
+ * layer is a small, re-rendered version of content that already exists at full
+ * resolution in the document. For anything in front, that content is simply
+ * *there*: the sharp version of the subject is the artist's own layer, and all
+ * the model contributes that the document does not already have is the matte.
+ * So a foreground plate is built by masking the source with the model's alpha,
+ * which keeps the pixels at native resolution and leaves only the matte edge
+ * soft.
+ *
+ * Depth 1 is the exception and cannot work that way. It is the background, and
+ * it holds content the model *invented* to fill the hole the subject left --
+ * content that by definition is not in the source. Masking the source with it
+ * would reveal the subject again instead of what was painted behind it.
+ */
+export function placementUsesSourcePixels(placement: UnflattenLayerPlacement) {
+  return placement.depth > 1;
+}
+
 export type LayerScalePlan = Readonly<{
   horizontalPercent: number;
   verticalPercent: number;

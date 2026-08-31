@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  placementUsesSourcePixels,
   planLayerScale,
   planUnflattenLayerStack,
   UNFLATTEN_COMPOSITE_INDEX
@@ -90,5 +91,29 @@ describe("planLayerScale", () => {
     const plan = planLayerScale({ width: 2000, height: 2000 }, { width: 1000, height: 1000 });
 
     expect(plan?.horizontalPercent).toBeCloseTo(50, 5);
+  });
+});
+
+describe("placementUsesSourcePixels", () => {
+  const placements = planUnflattenLayerStack({ imageCount: 5 }).placements;
+
+  it("builds every layer in front from the artist's own pixels", () => {
+    // The model's RGB for these is a 640px re-render of content the document
+    // already holds at full resolution. Only the matte is new.
+    expect(placements.filter(placementUsesSourcePixels).map((p) => p.depth)).toEqual([2, 3, 4]);
+  });
+
+  it("leaves the backmost layer on the model's pixels", () => {
+    // Depth 1 holds what the model invented behind the subject. Masking the
+    // source with it would reveal the subject again rather than the fill.
+    expect(placementUsesSourcePixels(placements[0])).toBe(false);
+    expect(placements[0].depth).toBe(1);
+  });
+
+  it("keeps a two-image run entirely on the model's pixels", () => {
+    // One layer means one background and nothing in front of it.
+    const single = planUnflattenLayerStack({ imageCount: 2 }).placements;
+
+    expect(single.some(placementUsesSourcePixels)).toBe(false);
   });
 });

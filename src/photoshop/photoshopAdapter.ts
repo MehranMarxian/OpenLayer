@@ -4,7 +4,12 @@ import { encodeRgbaPng } from "../utils/png";
 import { calculatePlacementOffset, createOpaqueGrayscaleMaskPng, PixelDimensions } from "./exactInpaintMask";
 import { OutpaintExpansionPlan } from "./outpaintExpansion";
 import { UpscaleResizePlan } from "./upscaleResize";
-import { planLayerScale, planUnflattenLayerStack, LayerScalePlan } from "./unflattenLayerStack";
+import {
+  placementUsesSourcePixels,
+  planLayerScale,
+  planUnflattenLayerStack,
+  LayerScalePlan
+} from "./unflattenLayerStack";
 import {
   calculateCenteredOrigin,
   createPaddedSelectionBounds,
@@ -1333,12 +1338,24 @@ export type UnflattenLayerStackImportOptions = {
   targetBounds?: NormalizedSelectionBounds;
   /** The captured layer's name; the group is named after it. */
   sourceName?: string;
+  /**
+   * The capture that was decomposed, at the resolution it was captured at.
+   *
+   * Every layer in front of the background is built from these pixels, masked
+   * by the model's alpha, rather than from the model's own 640px re-render.
+   * Omitting it falls back to the model's pixels for everything, which is what
+   * the import did before and is still what happens if the host cannot load a
+   * layer's transparency as a selection.
+   */
+  sourceBlob?: Blob;
   onProgress?: ImportProgress;
 };
 
 export type UnflattenLayerStackImportResult = {
   groupName: string;
   layerNames: string[];
+  /** How many layers were built from the source rather than the model. */
+  sourcePixelLayerCount: number;
 };
 
 /**
@@ -1406,7 +1423,20 @@ export async function importUnflattenLayerStack(
       tokens.push(await uxp.storage.localFileSystem.createSessionToken(file));
     }
 
+    let sourceToken: string | undefined;
+
+    if (options.sourceBlob && options.sourceBlob.size > 0) {
+      options.onProgress?.("Saving the captured source for masking...");
+      const sourceFile = await saveBlobToTemporaryFile(
+        options.sourceBlob,
+        `OpenLayer_Unflatten_${stamp}_source.png`
+      );
+      files.push(sourceFile);
+      sourceToken = await uxp.storage.localFileSystem.createSessionToken(sourceFile);
+    }
+
     const layerNames: string[] = [];
+    let sourcePixelLayerCount = 0;
 
     await photoshop.core.executeAsModal(
       async (executionContext) => {
@@ -1437,7 +1467,22 @@ export async function importUnflattenLayerStack(
             assertActiveDocumentMatchesOrigin(photoshop, options.originatingDocument);
 
             options.onProgress?.(`Placing ${placement.layerName}...`);
-            await placeFileAsLayer(photoshop, tokens[placement.depth - 1]);
+
+            const builtFromSource =
+              sourceToken !== undefined &&
+              placementUsesSourcePixels(placement) &&
+              (await placeSourceMaskedByModelAlpha(photoshop, {
+                modelToken: tokens[placement.depth - 1],
+                sourceToken,
+                targetBounds: options.targetBounds
+              }));
+
+            if (!builtFromSource) {
+              await placeFileAsLayer(photoshop, tokens[placement.depth - 1]);
+              await fitActiveLayerToBounds(photoshop, options.targetBounds);
+            } else {
+              sourcePixelLayerCount += 1;
+            }
 
             const placedLayerId = getActiveDocument().activeLayers?.[0]?.id;
             if (placedLayerId === undefined) {
@@ -1446,7 +1491,6 @@ export async function importUnflattenLayerStack(
             placedLayerIds.push(placedLayerId);
 
             await renameActiveLayer(photoshop, placement.layerName);
-            await fitActiveLayerToBounds(photoshop, options.targetBounds);
             layerNames.push(placement.layerName);
           }
 
@@ -1484,7 +1528,7 @@ export async function importUnflattenLayerStack(
     );
 
     options.onProgress?.(`Imported ${layerNames.length} layers into ${plan.groupName}.`);
-    return { groupName: plan.groupName, layerNames };
+    return { groupName: plan.groupName, layerNames, sourcePixelLayerCount };
   } catch (caughtError) {
     throw createOpenLayerError(
       "PHOTOSHOP_IMPORT_FAILED",
@@ -1521,6 +1565,119 @@ async function fitActiveLayerToBounds(
   }
 
   await alignActiveLayerToBounds(photoshop, targetBounds);
+}
+
+/**
+ * Builds one layer out of the artist's own pixels wearing the model's matte.
+ *
+ * The model's plate is placed first purely to be measured: it is scaled and
+ * aligned so its alpha sits exactly where it belongs in the document, its
+ * transparency is loaded as a selection, and then it is deleted. The captured
+ * source goes down in its place at native resolution and takes that selection
+ * as a layer mask. What survives is full-resolution pixels with a matte edge
+ * that is soft because it came from a 640px decomposition -- which is the only
+ * part of the result that has to be.
+ *
+ * Returns false rather than throwing when the host will not do it. Loading a
+ * layer's transparency as a selection is the one step here that no other import
+ * in this file performs, so a host that refuses it degrades to the model's own
+ * pixels -- exactly what this import did before -- instead of failing a
+ * decomposition the artist has already waited two minutes for.
+ */
+async function placeSourceMaskedByModelAlpha(
+  photoshop: PhotoshopModule,
+  options: {
+    modelToken: string;
+    sourceToken: string;
+    targetBounds?: NormalizedSelectionBounds;
+  }
+): Promise<boolean> {
+  let measurementLayerId: number | undefined;
+
+  try {
+    await placeFileAsLayer(photoshop, options.modelToken);
+    measurementLayerId = getActiveDocument().activeLayers?.[0]?.id;
+
+    if (measurementLayerId === undefined) {
+      throw new Error("Photoshop did not expose the measurement layer.");
+    }
+
+    await fitActiveLayerToBounds(photoshop, options.targetBounds);
+    await loadActiveLayerTransparencyAsSelection(photoshop);
+    await deleteLayerById(photoshop, measurementLayerId, false);
+    measurementLayerId = undefined;
+
+    await placeFileAsLayer(photoshop, options.sourceToken);
+    await fitActiveLayerToBounds(photoshop, options.targetBounds);
+    await addLayerMaskFromSelection(photoshop);
+    await deselectActiveSelection(photoshop);
+
+    return true;
+  } catch {
+    // Leave nothing behind for the fallback path to trip over.
+    if (measurementLayerId !== undefined) {
+      await deleteLayerById(photoshop, measurementLayerId, true);
+    }
+
+    try {
+      await deselectActiveSelection(photoshop);
+    } catch {
+      // A selection that will not clear is not worth failing the import over.
+    }
+
+    return false;
+  }
+}
+
+async function loadActiveLayerTransparencyAsSelection(photoshop: PhotoshopModule) {
+  await photoshop.action.batchPlay(
+    [
+      {
+        _obj: "set",
+        _target: [
+          {
+            _ref: "channel",
+            _property: "selection"
+          }
+        ],
+        to: {
+          _ref: "channel",
+          _enum: "channel",
+          _value: "transparencyEnum"
+        },
+        _options: {
+          dialogOptions: "dontDisplay"
+        }
+      }
+    ],
+    {}
+  );
+}
+
+async function addLayerMaskFromSelection(photoshop: PhotoshopModule) {
+  await photoshop.action.batchPlay(
+    [
+      {
+        _obj: "make",
+        new: {
+          _class: "channel"
+        },
+        at: {
+          _ref: "channel",
+          _enum: "channel",
+          _value: "mask"
+        },
+        using: {
+          _enum: "userMaskEnabled",
+          _value: "revealSelection"
+        },
+        _options: {
+          dialogOptions: "dontDisplay"
+        }
+      }
+    ],
+    {}
+  );
 }
 
 async function scaleActiveLayer(photoshop: PhotoshopModule, scale: LayerScalePlan) {

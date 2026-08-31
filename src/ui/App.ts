@@ -5005,6 +5005,10 @@ export function renderApp(rootElement: HTMLElement) {
         originatingDocument: unflattenResult.originatingDocument,
         targetBounds: unflattenSource?.captureBounds,
         sourceName: unflattenSource?.sourceName,
+        // Every layer in front of the background is rebuilt from these pixels
+        // wearing the model's matte, so the subject stays at the resolution it
+        // was captured at rather than the 640px the graph decomposes at.
+        sourceBlob: unflattenSource?.blob,
         onProgress: (message) => {
           setUnflattenStatus(elements, message, "idle");
           setUnflattenDiagnostics(elements, message);
@@ -5019,7 +5023,10 @@ export function renderApp(rootElement: HTMLElement) {
       }
       setUnflattenDiagnostics(
         elements,
-        `Group created: ${imported.groupName}. Layers, back to front: ${imported.layerNames.join(", ")}.`
+        `Group created: ${imported.groupName}. Layers, back to front: ${imported.layerNames.join(", ")}.` +
+          (imported.sourcePixelLayerCount > 0
+            ? ` ${imported.sourcePixelLayerCount} built from your own pixels, masked.`
+            : " Built from the model's pixels.")
       );
     } catch (caughtError) {
       setUnflattenStatus(elements, "Import failed.", "error");

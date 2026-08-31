@@ -1281,7 +1281,7 @@ export function createAppMarkup() {
           <div class="field img2img-field">
             <span class="label">Description${createPromptWalletControlsMarkup("unflatten-prompt")}</span>
             <textarea maxlength="10000" class="textarea compact-textarea" id="unflatten-prompt" placeholder="Describe what is already in the picture..."></textarea>
-            <div class="diagnostics-line unflatten-hint" id="unflatten-prompt-hint">Describe what is already there, not what you want changed. Needs a picture with something standing in front of something else -- a close-up that fills the frame comes back unseparated. Layers come back at 640px, so they are softer than the original on a large document.</div>
+            <div class="diagnostics-line unflatten-hint" id="unflatten-prompt-hint">Describe what is already there, not what you want changed. Needs a picture with something standing in front of something else -- a close-up that fills the frame comes back unseparated. Layers in front keep your own pixels and stay sharp; the background is repainted by the model at 640px, so it is softer.</div>
           </div>
           <div class="field img2img-field">
             <span class="label">Workflow</span>
