@@ -118,8 +118,14 @@ export type PlateKind =
   | "cutout";
 
 export type PlateSample = Readonly<{
-  /** Highest alpha found anywhere in the sample, 0-255. */
-  peakAlpha: number;
+  /**
+   * Fraction of the sample that is at least half opaque, 0-1.
+   *
+   * Deliberately not the peak alpha, which was the first test here and is a
+   * single-pixel statistic: one stray value decides it. This asks how much of
+   * the plate could actually show, which is the question.
+   */
+  solidFraction: number;
   /** Fraction of the sample that is fully transparent, 0-1. */
   clearFraction: number;
   /** Standard deviation of the RGB channels across the sample. */
@@ -131,15 +137,24 @@ export type PlateSample = Readonly<{
  * rather than a tuned value, which is why they are stated as constants and
  * tested rather than adjusted when a result disappoints.
  */
-/** Blank plates peaked at 5-20 across every run; anything real reached 255. */
-export const PLATE_BLANK_ALPHA_CEILING = 24;
+/**
+ * A plate needs a real, if small, amount of substantially opaque pixels.
+ *
+ * Measured across every run: plates carrying nothing peaked at 5, 8, 12, 20 and
+ * 63 -- the last of those is a quarter opaque at its strongest point, so it can
+ * never show anything, yet it cleared a ceiling set at 24 and arrived as a
+ * layer masked to near-black. Every plate carrying real content reached 255.
+ * 0.1% of a 128-square sample is sixteen pixels, which the smallest real
+ * subject measured -- 5% of its frame -- clears by two orders of magnitude.
+ */
+export const PLATE_MIN_SOLID_FRACTION = 0.001;
 /** A flat fill measured 1.08; every plate carrying a picture measured over 40. */
 export const PLATE_FLAT_FILL_DEVIATION_CEILING = 6;
 /** A background covered the frame exactly; a cut-out left 41% of it clear. */
 export const PLATE_FULL_FRAME_CLEAR_CEILING = 0.05;
 
 export function classifyPlateSample(sample: PlateSample): PlateKind {
-  if (!(sample.peakAlpha > PLATE_BLANK_ALPHA_CEILING)) {
+  if (!(sample.solidFraction > PLATE_MIN_SOLID_FRACTION)) {
     return "blank";
   }
 

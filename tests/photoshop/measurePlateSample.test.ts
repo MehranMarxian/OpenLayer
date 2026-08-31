@@ -14,17 +14,24 @@ function rgba(pixels: readonly [number, number, number, number][]) {
 }
 
 describe("measurePlateSample", () => {
-  it("reports the peak alpha, not the average", () => {
-    // A small subject on a big empty plate has a low average alpha and is not
-    // remotely blank. Averaging here would discard real layers.
-    const raw = rgba([
+  it("counts how much is solid, so a small subject is not mistaken for a faint plate", () => {
+    const smallButSolid = rgba([
       [0, 0, 0, 0],
       [0, 0, 0, 0],
       [0, 0, 0, 0],
       [200, 30, 30, 255]
     ]);
+    // Everything present, none of it more than a quarter opaque: the shape of
+    // the plate that defeated the previous rule.
+    const largeButFaint = rgba([
+      [200, 30, 30, 63],
+      [200, 30, 30, 63],
+      [200, 30, 30, 63],
+      [200, 30, 30, 63]
+    ]);
 
-    expect(measurePlateSample(raw, 4).peakAlpha).toBe(255);
+    expect(measurePlateSample(smallButSolid, 4).solidFraction).toBeCloseTo(0.25, 5);
+    expect(measurePlateSample(largeButFaint, 4).solidFraction).toBe(0);
   });
 
   it("counts only fully transparent pixels as clear", () => {
@@ -59,7 +66,7 @@ describe("measurePlateSample", () => {
     const raw = new Uint8Array([10, 20, 30, 40, 50, 60]);
     const sample = measurePlateSample(raw, 3);
 
-    expect(sample.peakAlpha).toBe(255);
+    expect(sample.solidFraction).toBe(1);
     expect(sample.clearFraction).toBe(0);
   });
 

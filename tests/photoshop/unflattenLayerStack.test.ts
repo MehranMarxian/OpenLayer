@@ -96,42 +96,41 @@ describe("planLayerScale", () => {
 });
 
 describe("classifyPlateSample", () => {
-  // Every number here was measured off real plates, so these read as a record
+  // Every number here was measured off a real plate, so these read as a record
   // of what the model produces rather than as invented cases.
-  it("calls a plate with no visible alpha blank", () => {
-    // Two runs produced exactly these: invisible, but not zero.
-    expect(classifyPlateSample({ peakAlpha: 5, clearFraction: 0.68, rgbStandardDeviation: 9 })).toBe("blank");
-    expect(classifyPlateSample({ peakAlpha: 8, clearFraction: 0.41, rgbStandardDeviation: 9 })).toBe("blank");
-    expect(classifyPlateSample({ peakAlpha: 20, clearFraction: 0.9, rgbStandardDeviation: 30 })).toBe("blank");
+  it("calls a plate with nothing substantially opaque blank", () => {
+    // Peaks of 5, 8, 20 and 63 across four runs. The last is the one that
+    // matters: a quarter opaque at its strongest point, so it can never show
+    // anything, and it defeated a rule written around peak alpha.
+    expect(classifyPlateSample({ solidFraction: 0, clearFraction: 0.68, rgbStandardDeviation: 9 })).toBe("blank");
+    expect(classifyPlateSample({ solidFraction: 0, clearFraction: 0.658, rgbStandardDeviation: 7.41 })).toBe("blank");
+  });
+
+  it("keeps a small subject, which is not the same as a faint one", () => {
+    // 5% of its frame, every visible pixel fully opaque. The distinction the
+    // whole rule turns on: how much is solid, not how much is present.
+    expect(classifyPlateSample({ solidFraction: 0.05, clearFraction: 0.86, rgbStandardDeviation: 40 })).toBe("cutout");
   });
 
   it("calls a flat white fill a fill, not a background", () => {
-    // The plate that broke the position-based rule: fully opaque, covering the
-    // whole frame, and carrying no picture at all. Imported as a background it
-    // put a white layer in the artist's document.
-    expect(classifyPlateSample({ peakAlpha: 255, clearFraction: 0, rgbStandardDeviation: 1.08 })).toBe("flat-fill");
+    // Fully opaque, covering the frame, carrying no picture: RGB deviation 1.02
+    // against a mean of (254, 255, 254). Imported as a background it put a
+    // white layer in the artist's document.
+    expect(classifyPlateSample({ solidFraction: 1, clearFraction: 0, rgbStandardDeviation: 1.02 })).toBe("flat-fill");
   });
 
   it("checks flatness before coverage, or a fill passes as a background", () => {
     // A flat fill covers the frame exactly like a background does, so coverage
     // alone cannot separate them and the order of the tests is load-bearing.
-    const fill = { peakAlpha: 255, clearFraction: 0, rgbStandardDeviation: 0 };
-
-    expect(classifyPlateSample(fill)).not.toBe("full-frame");
+    expect(classifyPlateSample({ solidFraction: 1, clearFraction: 0, rgbStandardDeviation: 0 })).not.toBe("full-frame");
   });
 
   it("calls a full-coverage plate with real content a background", () => {
-    expect(classifyPlateSample({ peakAlpha: 255, clearFraction: 0, rgbStandardDeviation: 42.4 })).toBe("full-frame");
+    expect(classifyPlateSample({ solidFraction: 1, clearFraction: 0, rgbStandardDeviation: 42.4 })).toBe("full-frame");
   });
 
   it("calls a plate with real transparency a cut-out", () => {
-    expect(classifyPlateSample({ peakAlpha: 255, clearFraction: 0.41, rgbStandardDeviation: 42.7 })).toBe("cutout");
-  });
-
-  it("does not let a low-contrast subject be mistaken for a fill", () => {
-    // A cut-out of something plain still varies more than a fill does, and the
-    // gap between 1.08 and 40-plus is where the line sits.
-    expect(classifyPlateSample({ peakAlpha: 255, clearFraction: 0.5, rgbStandardDeviation: 12 })).toBe("cutout");
+    expect(classifyPlateSample({ solidFraction: 0.436, clearFraction: 0.479, rgbStandardDeviation: 60 })).toBe("cutout");
   });
 });
 

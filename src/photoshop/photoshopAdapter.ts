@@ -152,6 +152,9 @@ const PLATE_SAMPLE_SIZE = 128;
 // Below this a pixel is not contributing anything anyone can see, so its RGB
 // is noise rather than picture and must not count toward the flatness measure.
 const PLATE_VISIBLE_ALPHA_FLOOR = 24;
+// Half opaque. Below this a pixel cannot carry a layer on its own, however many
+// of them there are -- the plate that forced this rule peaked at 63.
+const PLATE_SOLID_ALPHA_FLOOR = 128;
 
 // Inpaint was the only caller that could hit this, so its phrasing is the
 // default and must stay byte-identical -- a test pins the exact sentence.
@@ -1753,10 +1756,10 @@ export function measurePlateSample(raw: Uint8Array, components: number) {
   const pixelCount = components > 0 ? Math.floor(raw.length / components) : 0;
 
   if (pixelCount === 0) {
-    return { peakAlpha: 255, clearFraction: 0, rgbStandardDeviation: 255 };
+    return { solidFraction: 1, clearFraction: 0, rgbStandardDeviation: 255 };
   }
 
-  let peakAlpha = 0;
+  let solidCount = 0;
   let clearCount = 0;
   let sum = 0;
   let sumOfSquares = 0;
@@ -1766,7 +1769,7 @@ export function measurePlateSample(raw: Uint8Array, components: number) {
     const offset = pixel * components;
     const alpha = hasAlpha ? raw[offset + components - 1] : 255;
 
-    if (alpha > peakAlpha) peakAlpha = alpha;
+    if (alpha >= PLATE_SOLID_ALPHA_FLOOR) solidCount += 1;
     if (alpha === 0) clearCount += 1;
 
     // Only where something is actually visible. Averaging in the arbitrary RGB
@@ -1786,7 +1789,7 @@ export function measurePlateSample(raw: Uint8Array, components: number) {
   const variance = channelCount > 0 ? Math.max(sumOfSquares / channelCount - mean * mean, 0) : 0;
 
   return {
-    peakAlpha,
+    solidFraction: solidCount / pixelCount,
     clearFraction: clearCount / pixelCount,
     rgbStandardDeviation: Math.sqrt(variance)
   };
