@@ -1592,31 +1592,53 @@ async function placeSourceMaskedByModelAlpha(
     targetBounds?: NormalizedSelectionBounds;
   }
 ): Promise<boolean> {
-  let measurementLayerId: number | undefined;
+  let sourceLayerId: number | undefined;
+  let matteLayerId: number | undefined;
 
   try {
-    await placeFileAsLayer(photoshop, options.modelToken);
-    measurementLayerId = getActiveDocument().activeLayers?.[0]?.id;
+    // Both placements happen BEFORE the selection is made, and the order is the
+    // whole reason this works. `placeEvent` clears the active selection, so
+    // loading the matte first and placing the source afterwards throws the
+    // selection away and leaves "Make" -- the layer-mask command -- unavailable,
+    // which is exactly how the first version of this failed in Photoshop.
+    await placeFileAsLayer(photoshop, options.sourceToken);
+    sourceLayerId = getActiveDocument().activeLayers?.[0]?.id;
 
-    if (measurementLayerId === undefined) {
-      throw new Error("Photoshop did not expose the measurement layer.");
+    if (sourceLayerId === undefined) {
+      throw new Error("Photoshop did not expose the placed source layer.");
     }
 
     await fitActiveLayerToBounds(photoshop, options.targetBounds);
-    await loadActiveLayerTransparencyAsSelection(photoshop);
-    await deleteLayerById(photoshop, measurementLayerId, false);
-    measurementLayerId = undefined;
 
-    await placeFileAsLayer(photoshop, options.sourceToken);
+    // Lands directly above the source, which is where it has to be measured.
+    await placeFileAsLayer(photoshop, options.modelToken);
+    matteLayerId = getActiveDocument().activeLayers?.[0]?.id;
+
+    if (matteLayerId === undefined) {
+      throw new Error("Photoshop did not expose the matte layer.");
+    }
+
     await fitActiveLayerToBounds(photoshop, options.targetBounds);
+
+    // From here on nothing may place, because nothing may clear the selection.
+    await loadActiveLayerTransparencyAsSelection(photoshop);
+    await deleteLayerById(photoshop, matteLayerId, false);
+    matteLayerId = undefined;
+
+    await selectLayerById(photoshop, sourceLayerId, false);
     await addLayerMaskFromSelection(photoshop);
     await deselectActiveSelection(photoshop);
 
     return true;
   } catch {
-    // Leave nothing behind for the fallback path to trip over.
-    if (measurementLayerId !== undefined) {
-      await deleteLayerById(photoshop, measurementLayerId, true);
+    // Leave nothing behind for the fallback path to trip over: it is about to
+    // place the model's own plate in this layer's stead.
+    if (matteLayerId !== undefined) {
+      await deleteLayerById(photoshop, matteLayerId, true);
+    }
+
+    if (sourceLayerId !== undefined) {
+      await deleteLayerById(photoshop, sourceLayerId, true);
     }
 
     try {
