@@ -16,6 +16,8 @@ Before any of the screen existed, eight questions about how the technique actual
 
 - **Layers in front of the background are built from the artist's own pixels.** The model's plate for such a layer is a 640px re-render of content the document already holds at full resolution, and the only thing it contributes that the document lacks is the matte. So the plate is placed purely to be measured — scaled and aligned, its transparency loaded as a selection, then deleted — and the captured source goes down in its place at native resolution wearing that selection as a layer mask. Non-destructive, full-resolution, and only the cut edge inherits the decomposition's resolution. Loading a layer's transparency as a selection is the one step no other import in the panel performs, so a host that refuses it falls back to the model's own pixels rather than failing a decomposition the artist has already waited two minutes for.
 
+- **A plate that came back empty is left out rather than imported.** The gate deferred this because deciding it needs the image's alpha channel and nothing in a UXP panel can decode a PNG; file size was measured as a proxy and failed outright. Building the layers from masked source pixels turned out to supply the answer for free: loading a plate's transparency as a selection *is* an alpha read, performed by Photoshop rather than by the panel, and a plate with no matte produces no selection. That check now decides it. It catches an empty plate reliably and a merely faint one unreliably, which is the honest limit of the method.
+
 - **`unflatten` joins the MCP Agent Bridge** as the tenth bridged tool, on the same boundary as the other nine: an agent can set parameters and press the button, and cannot capture the source. Everything the gate found that constrains the tool is in the description an agent reads before running it.
 
 ### Known limits, stated rather than worked around
@@ -24,7 +26,7 @@ Before any of the screen existed, eight questions about how the technique actual
 
 - **The background layer is softer than the original.** The decomposition runs at 640px because higher resolution measurably separates worse. Only the background carries that cost: every layer in front of it is rebuilt from the captured layer's own pixels wearing the model's matte, so the subject stays at the resolution it was captured at and only its cut edge is soft. The background cannot be built that way, because it holds content the model invented to fill the hole the subject left — content that by definition is not in the source — so masking the source with it would reveal the subject again instead of the fill.
 
-- **The layer count is a ceiling, not a promise.** A four-layer run can return two populated layers and two empty ones, varying with the seed. Empty layers are imported rather than skipped, because an unwanted empty layer is visible and one click to delete while a wrongly discarded faint layer is silent data loss.
+- **The layer count is a ceiling, not a promise.** A four-layer run can return only two plates carrying anything, varying with the seed. Those are the layers you get: an empty plate is left out and the survivors are renumbered, so asking for four and receiving two is the tool working rather than failing. A plate that is faint rather than truly empty can still slip through, because the test is whether the matte yields a selection at all.
 
 ### Fixed
 

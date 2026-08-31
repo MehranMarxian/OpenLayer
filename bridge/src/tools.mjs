@@ -309,7 +309,8 @@ export const MCP_TOOLS = [
       "It needs a picture with something standing in front of something else: a close-up that " +
       "fills the frame has no front and back to find and comes back unseparated, whether it is " +
       "a photograph or a generated image. The number of layers requested is a ceiling rather " +
-      "than a promise, so some may come back empty. Layers in front of the background are built " +
+      "than a promise: plates that come back empty are left out, so you may receive fewer layers " +
+      "than you asked for. Layers in front of the background are built " +
       "from the captured layer's own pixels wearing the model's matte, so they stay at full " +
       "resolution; the background is repainted by the model at 640px and is softer. Takes about two " +
       "minutes. Only the parameters you pass are changed. Returns the panel's own status " +

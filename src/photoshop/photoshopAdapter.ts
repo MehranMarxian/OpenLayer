@@ -8,6 +8,7 @@ import {
   placementUsesSourcePixels,
   planLayerScale,
   planUnflattenLayerStack,
+  stackLayerNames,
   LayerScalePlan
 } from "./unflattenLayerStack";
 import {
@@ -1356,6 +1357,8 @@ export type UnflattenLayerStackImportResult = {
   layerNames: string[];
   /** How many layers were built from the source rather than the model. */
   sourcePixelLayerCount: number;
+  /** Plates that carried no matte at all and were left out. */
+  skippedBlankLayerCount: number;
 };
 
 /**
@@ -1437,6 +1440,7 @@ export async function importUnflattenLayerStack(
 
     const layerNames: string[] = [];
     let sourcePixelLayerCount = 0;
+    let skippedBlankLayerCount = 0;
 
     await photoshop.core.executeAsModal(
       async (executionContext) => {
@@ -1468,16 +1472,24 @@ export async function importUnflattenLayerStack(
 
             options.onProgress?.(`Placing ${placement.layerName}...`);
 
-            const builtFromSource =
-              sourceToken !== undefined &&
-              placementUsesSourcePixels(placement) &&
-              (await placeSourceMaskedByModelAlpha(photoshop, {
-                modelToken: tokens[placement.depth - 1],
-                sourceToken,
-                targetBounds: options.targetBounds
-              }));
+            const outcome =
+              sourceToken !== undefined && placementUsesSourcePixels(placement)
+                ? await placeSourceMaskedByModelAlpha(photoshop, {
+                  modelToken: tokens[placement.depth - 1],
+                  sourceToken,
+                  targetBounds: options.targetBounds
+                })
+                : "unavailable";
 
-            if (!builtFromSource) {
+            if (outcome === "blank") {
+              // Nothing to mask, so there is nothing to import. Skipping is
+              // only possible at all because the transparency-as-selection step
+              // makes Photoshop read the alpha this panel cannot decode itself.
+              skippedBlankLayerCount += 1;
+              continue;
+            }
+
+            if (outcome === "unavailable") {
               await placeFileAsLayer(photoshop, tokens[placement.depth - 1]);
               await fitActiveLayerToBounds(photoshop, options.targetBounds);
             } else {
@@ -1494,8 +1506,26 @@ export async function importUnflattenLayerStack(
             layerNames.push(placement.layerName);
           }
 
+          if (placedLayerIds.length === 0) {
+            throw new Error("Every decomposed layer came back empty, so there was nothing to import.");
+          }
+
+          // Only when plates were dropped. Renumbering an untouched stack would
+          // be a batchPlay round trip per layer to write the names it already
+          // has, and every extra command in here is another way to fail.
+          if (skippedBlankLayerCount > 0) {
+            const survivingNames = stackLayerNames(placedLayerIds.length);
+            layerNames.length = 0;
+
+            for (const [index, layerId] of placedLayerIds.entries()) {
+              await selectLayerById(photoshop, layerId, false);
+              await renameActiveLayer(photoshop, survivingNames[index]);
+              layerNames.push(survivingNames[index]);
+            }
+          }
+
           assertActiveDocumentMatchesOrigin(photoshop, options.originatingDocument);
-          options.onProgress?.(`Grouping ${plan.placements.length} layers into ${plan.groupName}...`);
+          options.onProgress?.(`Grouping ${placedLayerIds.length} layers into ${plan.groupName}...`);
           await selectLayersByIds(photoshop, placedLayerIds);
           await groupSelectedLayers(photoshop, plan.groupName);
         } catch (caughtError) {
@@ -1528,7 +1558,7 @@ export async function importUnflattenLayerStack(
     );
 
     options.onProgress?.(`Imported ${layerNames.length} layers into ${plan.groupName}.`);
-    return { groupName: plan.groupName, layerNames, sourcePixelLayerCount };
+    return { groupName: plan.groupName, layerNames, sourcePixelLayerCount, skippedBlankLayerCount };
   } catch (caughtError) {
     throw createOpenLayerError(
       "PHOTOSHOP_IMPORT_FAILED",
@@ -1591,7 +1621,7 @@ async function placeSourceMaskedByModelAlpha(
     sourceToken: string;
     targetBounds?: NormalizedSelectionBounds;
   }
-): Promise<boolean> {
+): Promise<"masked" | "blank" | "unavailable"> {
   let sourceLayerId: number | undefined;
   let matteLayerId: number | undefined;
 
@@ -1622,6 +1652,19 @@ async function placeSourceMaskedByModelAlpha(
 
     // From here on nothing may place, because nothing may clear the selection.
     await loadActiveLayerTransparencyAsSelection(photoshop);
+
+    // The alpha read this panel could not do for itself. A plate with no matte
+    // produces no selection, and a layer masked by nothing is a full-size copy
+    // of the source showing none of it -- worse than the empty plate it
+    // replaced. There is nothing to import, so nothing is imported.
+    if (!(await hasActiveSelection(photoshop))) {
+      await deleteLayerById(photoshop, matteLayerId, true);
+      await deleteLayerById(photoshop, sourceLayerId, true);
+      await deselectActiveSelection(photoshop);
+
+      return "blank";
+    }
+
     await deleteLayerById(photoshop, matteLayerId, false);
     matteLayerId = undefined;
 
@@ -1629,7 +1672,7 @@ async function placeSourceMaskedByModelAlpha(
     await addLayerMaskFromSelection(photoshop);
     await deselectActiveSelection(photoshop);
 
-    return true;
+    return "masked";
   } catch {
     // Leave nothing behind for the fallback path to trip over: it is about to
     // place the model's own plate in this layer's stead.
@@ -1647,7 +1690,7 @@ async function placeSourceMaskedByModelAlpha(
       // A selection that will not clear is not worth failing the import over.
     }
 
-    return false;
+    return "unavailable";
   }
 }
 

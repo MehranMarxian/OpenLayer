@@ -65,6 +65,23 @@ export function planUnflattenLayerStack(input: UnflattenStackPlanInput): Unflatt
   };
 }
 
+/**
+ * The names a finished stack of `count` layers carries, back to front.
+ *
+ * Exported because the count is not always known when the layers are placed:
+ * a plate that turns out to be blank is skipped, and the survivors are renamed
+ * so an artist does not get "Layer 1" and "Layer 4" with nothing between them.
+ */
+export function stackLayerNames(count: number): string[] {
+  const names: string[] = [];
+
+  for (let depth = 1; depth <= count; depth += 1) {
+    names.push(formatLayerName(depth, count));
+  }
+
+  return names;
+}
+
 function formatLayerName(depth: number, layerCount: number) {
   if (layerCount === 1) return "Layer 1";
   if (depth === 1) return "Layer 1 (back)";

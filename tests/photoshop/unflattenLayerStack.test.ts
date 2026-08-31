@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   placementUsesSourcePixels,
+  stackLayerNames,
   planLayerScale,
   planUnflattenLayerStack,
   UNFLATTEN_COMPOSITE_INDEX
@@ -115,5 +116,23 @@ describe("placementUsesSourcePixels", () => {
     const single = planUnflattenLayerStack({ imageCount: 2 }).placements;
 
     expect(single.some(placementUsesSourcePixels)).toBe(false);
+  });
+});
+
+describe("stackLayerNames", () => {
+  it("names a stack that lost plates to blanks without leaving gaps", () => {
+    // Asked for four, two came back blank. The artist should see two layers
+    // numbered 1 and 2, not 1 and 4 with nothing in between.
+    expect(stackLayerNames(2)).toEqual(["Layer 1 (back)", "Layer 2 (front)"]);
+  });
+
+  it("agrees with the plan's own naming when nothing was skipped", () => {
+    const planned = planUnflattenLayerStack({ imageCount: 5 }).placements.map((p) => p.layerName);
+
+    expect(stackLayerNames(4)).toEqual(planned);
+  });
+
+  it("does not label a lone survivor as back or front", () => {
+    expect(stackLayerNames(1)).toEqual(["Layer 1"]);
   });
 });
