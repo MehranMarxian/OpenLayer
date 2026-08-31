@@ -218,5 +218,8 @@ export const BUSY_GATED_ACTIONS: readonly BusyGatedAction[] = [
   { button: "generateMultiReferenceButton", gate: "multiReferenceSources" },
   { button: "importMultiReferenceButton", gate: "multiReferenceResult" },
   { button: "generateUnflattenButton", gate: "unflattenSource" },
+  // Captions the source Unflatten already holds, so it waits on the same
+  // gate the Unflatten button does rather than on a second one.
+  { button: "describeUnflattenSourceButton", gate: "unflattenSource" },
   { button: "importUnflattenButton", gate: "unflattenResult" }
 ];

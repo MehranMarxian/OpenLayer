@@ -96,6 +96,7 @@ export type ActionName =
   | "addMultiReferenceCanvas"
   | "generateMultiReference"
   | "importMultiReference"
+  | "describeUnflattenSource"
   | "captureUnflattenLayer"
   | "captureUnflattenCanvas"
   | "generateUnflatten"

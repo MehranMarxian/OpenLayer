@@ -1579,6 +1579,7 @@ export function renderApp(rootElement: HTMLElement) {
     importMultiReference: createActionRunner(elements, "importMultiReference", handleImportMultiReference),
     captureUnflattenLayer: createActionRunner(elements, "captureUnflattenLayer", handleCaptureUnflattenLayer),
     captureUnflattenCanvas: createActionRunner(elements, "captureUnflattenCanvas", handleCaptureUnflattenCanvas),
+    describeUnflattenSource: createActionRunner(elements, "describeUnflattenSource", handleDescribeUnflattenSource),
     generateUnflatten: createActionRunner(elements, "generateUnflatten", handleGenerateUnflatten),
     importUnflatten: createActionRunner(elements, "importUnflatten", handleImportUnflatten),
     captureStyleReferenceSource: createActionRunner(elements, "captureStyleReferenceSource", handleCaptureStyleReferenceSource),
@@ -1662,6 +1663,7 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.importMultiReferenceButton, actionHandlers.importMultiReference);
   bindActionControl(elements.captureUnflattenLayerButton, actionHandlers.captureUnflattenLayer);
   bindActionControl(elements.captureUnflattenCanvasButton, actionHandlers.captureUnflattenCanvas);
+  bindActionControl(elements.describeUnflattenSourceButton, actionHandlers.describeUnflattenSource);
   bindActionControl(elements.generateUnflattenButton, actionHandlers.generateUnflatten);
   bindActionControl(elements.importUnflattenButton, actionHandlers.importUnflatten);
   bindMultiReferenceRowActions();
@@ -4837,6 +4839,95 @@ export function renderApp(rootElement: HTMLElement) {
       setUnflattenStatus(elements, "Capture failed.", "error");
       setUnflattenError(elements, getErrorMessage(caughtError));
     } finally {
+      isBusy = false;
+      busyTool = null;
+      syncBusy();
+    }
+  }
+
+  /**
+   * Fills the description from the captured source, with Florence-2.
+   *
+   * Unflatten is the one tool in the panel whose prompt is descriptive rather
+   * than aspirational -- it says what is already in the picture so the model
+   * knows what it is taking apart -- and that is exactly what Prompt from Layer
+   * produces. Doing it by hand meant leaving the screen, capturing the same
+   * layer a second time somewhere else, generating, copying, and coming back.
+   *
+   * It captions the source Unflatten already holds rather than capturing
+   * again, and it runs through the same busy gate as everything else, so it
+   * cannot start while a decomposition is running and it locks the same
+   * controls while it works.
+   */
+  async function handleDescribeUnflattenSource() {
+    if (blockRegularGenerationDuringLivePainting((message) => setUnflattenStatus(elements, message, "error"))) {
+      return;
+    }
+
+    if (!unflattenSource) {
+      setUnflattenStatus(elements, "Source required.", "error");
+      setUnflattenError(elements, "Capture a layer or the canvas before describing it.");
+      return;
+    }
+
+    const source = unflattenSource;
+    const seed = createRandomSeed();
+    const client = new ComfyClient(elements.serverUrl.value);
+    const preset = getWorkflowPreset("prompt-from-layer-florence2");
+
+    setUnflattenError(elements, "");
+    setUnflattenStatus(elements, "Describing the source...", "idle");
+    busyTool = "unflatten";
+    isBusy = true;
+    syncBusy();
+    let run: GenerationRunHandle | null = null;
+
+    try {
+      // Florence-2 is its own model and a separate download, so a panel that
+      // has never needed it says so here rather than failing obscurely.
+      await client.validatePresetSetup(preset);
+      const sourceImageName = await client.uploadImage(source.blob, source.filename);
+      const workflowResult = await buildPromptFromLayerWorkflow({
+        presetId: preset.id,
+        sourceImageName,
+        task: DEFAULT_PROMPT_LAYER_TASK,
+        numBeams: Number.parseInt(DEFAULT_PROMPT_LAYER_NUM_BEAMS, 10),
+        seed
+      });
+      const textOutputNodeId = getPresetTextOutputNodeId(workflowResult.preset);
+
+      const promptId = await client.submitPrompt(workflowResult.workflow);
+      run = generation.begin("unflatten", client, promptId);
+      const startedRun = run;
+      const historyItem = await client.pollUntilTextComplete(promptId, {
+        preferredNodeId: textOutputNodeId,
+        onTick: (message) => startedRun.publish(() => setUnflattenStatus(elements, message, "idle")),
+        isCancelled: () => startedRun.isRunCancelled()
+      });
+      const generatedText = await client.retrieveFirstOutputText(promptId, historyItem, {
+        preferredNodeId: textOutputNodeId
+      });
+      run.assertCanCommit();
+
+      elements.unflattenPrompt.value = generatedText;
+      run.finish();
+      run = null;
+      setUnflattenStatus(elements, "Description written.", "ready");
+      setUnflattenDiagnostics(
+        elements,
+        `Described ${source.sourceName}. Edit it if it missed something, then Unflatten.`
+      );
+    } catch (caughtError) {
+      if (isGenerationCancelledError(caughtError)) {
+        if (!run || run.isCurrent()) showGenerationCancelled("unflatten", run?.promptId);
+        return;
+      }
+
+      setUnflattenStatus(elements, "Could not describe the source.", "error");
+      setUnflattenError(elements, getErrorMessage(caughtError));
+      setUnflattenDiagnostics(elements, getTechnicalErrorDetails(caughtError));
+    } finally {
+      run?.finish();
       isBusy = false;
       busyTool = null;
       syncBusy();

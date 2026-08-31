@@ -124,7 +124,7 @@ describe("busy-state tables", () => {
     // model-download spike button, plus Style Reference's two capture buttons,
     // plus Multi-Reference's two. Deleting the spike takes this back to 39.
     expect(plainActions).toHaveLength(42);
-    expect(BUSY_GATED_ACTIONS).toHaveLength(17);
+    expect(BUSY_GATED_ACTIONS).toHaveLength(18);
     expect(new Set(allActions).size).toBe(allActions.length);
   });
 
@@ -182,6 +182,7 @@ describe("busy-state tables", () => {
       "importUpscaleButton",
       "importStyleReferenceButton",
       "importMultiReferenceButton",
+      "describeUnflattenSourceButton",
       "generateUnflattenButton",
       "importUnflattenButton",
       "checkButton",
