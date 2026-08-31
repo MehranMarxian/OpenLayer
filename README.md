@@ -10,9 +10,15 @@ OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop t
 
 ## Alpha Release
 
-`v0.19.0-alpha` is the current public alpha checkpoint. It is intended for testing the core local workflows in Photoshop UXP, not for production work yet.
+`v0.20.0-alpha` is the current public alpha checkpoint. It is intended for testing the core local workflows in Photoshop UXP, not for production work yet.
 
-New in `v0.19.0-alpha`:
+New in `v0.20.0-alpha`:
+
+- **Unflatten** (experimental). Hand the panel a flat layer and get the picture back as separate layers with real transparency, imported into your open document in stacking order, inside one group named after the source. A photograph of someone on a bench comes back as ground, bench and person, each cut out with its own alpha. Local, through ComfyUI, every node core. Nothing else in this space puts a decomposed layer stack into a host application, which is the point: a layered result is worth very little in a web UI and nearly nothing in a canvas app.
+
+  Runs on Qwen-Image-Layered. Three files, 28.1 GB, sharing nothing with any existing preset — the largest single addition the Setup screen has taken, and it lists all three with their folders. About two minutes for four layers on a 12 GB card.
+
+  Eight questions were answered with live generations before any of the screen was built, recorded in `docs/unflatten-gate-findings.md`, and two of the answers overturned assumptions the plan was built on. **The variable that decides whether this works is composition, not where the picture came from.** A generated close-up fails exactly as a photographed one does; a photographed subject standing clear of its background succeeds exactly as a generated one does. And **640px with four layers is a measured optimum rather than a round number** — 1024 separates roughly half as well, leaves more layers empty, and costs three and a half times the time, so it is not offered at all.
 
 - **Multi-Reference Composition** (experimental). Give the panel a list of captured Photoshop layers instead of one, and it builds a single image out of all of them — a background, a person, an object, however many you add. Add Active Layer or Add Canvas repeatedly to grow the list; each entry gets Up, Down, and Remove. Order is not cosmetic: the first reference sets the output canvas size, and moving an object earlier in the list is the fix if it comes back duplicated or distorted. Built on FLUX.2 Klein's own `ReferenceLatent` conditioning, chained once per reference onto both the positive and negative branches — every node is core ComfyUI, so it shares the Klein 4B stack the other Klein presets already need and downloads nothing extra.
 
@@ -161,9 +167,9 @@ The earlier card-based dashboard established OpenLayer's honest available/experi
 
 </details>
 
-v0.19.0-alpha tester focus:
+v0.20.0-alpha tester focus:
 
-- **Confirm the panel footer reads `v0.19.0`.** It read the wrong version for the whole of v0.14.0-alpha, so this is worth a glance before anything else.
+- **Confirm the panel footer reads `v0.20.0`.** It read the wrong version for the whole of v0.14.0-alpha, so this is worth a glance before anything else.
 - **Open Multi-Reference and add three or four layers**, one at a time, with Add Active Layer or Add Canvas. Confirm each row gets its own correct thumbnail — not a repeat of the previous one — and that the count reads "N of 8".
 - **Press Up or Down twice, fast.** A reference should move exactly one place per press, not two. Same for Remove: one press, one row gone.
 - **Compose from two references at a fixed seed, then reorder them and compose again at the same seed.** The result must change, and the output canvas size must follow whichever reference is now first — that is the one thing reference order is guaranteed to affect. If it comes back identical, the reorder is not reaching ComfyUI.
@@ -240,8 +246,11 @@ Also worth rechecking from v0.9.0-alpha:
 - Run `npm run setup-pack` and confirm it reports no source/API mismatches at all.
 - Recheck the existing local generation, cancel, preview, import, History, and Workflow Health paths for regressions.
 
-Known v0.19.0-alpha boundaries:
+Known v0.20.0-alpha boundaries:
 
+- **Unflatten needs a subject standing in front of a background.** A close-up that fills the frame has no front and back to find: it comes back with the picture unchanged on the background layer and empty layers above it. This is true of photographs and generated images alike — it is about the composition, not the source. The panel cannot detect this and say so, because deciding it needs the image's alpha channel and nothing in a UXP panel can decode a PNG; two cheap proxies were measured and both failed. So the limit is stated on the screen, in the tool description an agent reads, and here.
+- **Unflatten's layers come back at 640px on the long side**, so on a large document they are softer than the original. The decomposition itself is done at 640 because higher resolution measurably separates worse, but the layers are then scaled back up to cover the region they came from. A future version can avoid this by using the model's alpha as a layer mask over your own full-resolution pixels; it is not in this release.
+- **The number of layers you ask Unflatten for is a ceiling, not a promise.** A four-layer run may come back with two populated and two empty, and which is which varies with the seed. Empty layers are imported rather than skipped, deliberately: an unwanted empty layer is visible and one click to delete, while a wrongly discarded faint layer would be silent data loss.
 - **Multi-Reference Composition does not preserve a specific person's likeness.** It carries clothing, props, setting and lighting from a reference; a person's face comes back as a plausible stranger rather than the person photographed, confirmed against four real photographs and dozens of Klein-generated sources. Treat it as scene composition, not as a way to put someone recognisable into a picture.
 - **The reference list is capped at 8**, a sanity bound rather than a measured quality limit — testing found no reference count at which composition degraded, up to 6. Reference order matters more than count: an object that has to sit behind the other subjects is more likely to render cleanly if it comes earlier in the list.
 - **The Agent Bridge is not in the `.ccx`/`.zip` download.** A Photoshop plugin package cannot install or start a Node program, so it lives in the repository — see `bridge/README.md`. It is off by default in the panel either way. "Ask the Agent for a Prompt" additionally depends on your AI client supporting MCP *sampling*, which is optional in the protocol; a client that does not offer it gets a clear, instant refusal rather than the button working.
@@ -417,10 +426,10 @@ npm run package
 This creates a zip package from `dist` in the `packages` folder. For the current alpha, the expected package name is:
 
 ```text
-packages/openlayer-v0.19.0-alpha.zip
+packages/openlayer-v0.20.0-alpha.zip
 ```
 
-`npm run package` also writes `packages/openlayer-v0.19.0-alpha.ccx` beside it, from the same files.
+`npm run package` also writes `packages/openlayer-v0.20.0-alpha.ccx` beside it, from the same files.
 
 ## One-click install (verified 2026-08-03)
 
@@ -585,7 +594,7 @@ Inpaint output quality, mask interpretation, and Photoshop alignment are still b
 
 ## Pre-release Tester Checklist
 
-Use this quick pass before reporting a v0.19.0-alpha test result:
+Use this quick pass before reporting a v0.20.0-alpha test result:
 
 1. Start ComfyUI on `http://127.0.0.1:8190`.
 2. Build OpenLayer and load `dist/manifest.json` in Adobe UXP Developer Tool.
