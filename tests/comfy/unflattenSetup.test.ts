@@ -67,17 +67,21 @@ describe("Unflatten setup requirements", () => {
     expect(outlook?.unknownSizeCount).toBe(0);
   });
 
-  it("shares no file with any other preset, which is what makes it a 28.1 GB addition", () => {
+  it("shares no file with any other preset, which is what makes it a 30.2 GB addition", () => {
     const outlook = rankPresetsByVramOutlook({
       pluginVersion: PLUGIN_VERSION,
       vramTotalBytes: TWELVE_GB
     }).find((entry) => entry.presetId === "unflatten-qwen-layered");
 
-    // Not the largest preset TOTAL -- the Flux Fill stack is heavier at 38.4 GB
-    // -- but the largest addition, because every byte of that stack is already
-    // shared with other presets and none of these three are. Someone who has
-    // everything else installed still downloads all 28.1 GB for this one.
-    expect(outlook?.formattedTotal).toBe("28.1 GB");
+    // Not the largest preset TOTAL -- the Flux Fill stack is heavier -- but the
+    // largest addition, because every byte of that stack is already shared with
+    // other presets and none of these three are. Someone who has everything
+    // else installed still downloads all 30.2 GB for this one.
+    //
+    // Read 28.1 GB until formatBytes was corrected: it divided by 1024³ while
+    // labelling the result "GB", so this figure disagreed with the 30.17 GB
+    // Hugging Face prints for the same three files.
+    expect(outlook?.formattedTotal).toBe("30.2 GB");
 
     for (const model of unflattenModels()) {
       expect(model.usedByPresets).toEqual(["unflatten-qwen-layered"]);

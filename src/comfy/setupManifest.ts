@@ -42,6 +42,17 @@ export const CUSTOM_NODE_PACKAGES: Record<string, { name: string; repoUrl: strin
     name: "comfyui_controlnet_aux",
     repoUrl: "https://github.com/Fannovel16/comfyui_controlnet_aux"
   },
+  // Added late: `sketch2img-depth-basic` shipped in v0.13.0 with its
+  // preprocessor missing from this map, so Setup and the setup pack reported
+  // that the Depth preset needed *no* custom node at all -- the one sketch
+  // preset of five that looked installable out of the box was the one whose
+  // add-on requirement was invisible. Verified against a live server:
+  // `/object_info/DepthAnythingV2Preprocessor` reports its `python_module` as
+  // `custom_nodes.comfyui_controlnet_aux`, the same package as the two above.
+  DepthAnythingV2Preprocessor: {
+    name: "comfyui_controlnet_aux",
+    repoUrl: "https://github.com/Fannovel16/comfyui_controlnet_aux"
+  },
   Florence2ModelLoader: {
     name: "ComfyUI-Florence2",
     repoUrl: "https://github.com/kijai/ComfyUI-Florence2"
@@ -296,16 +307,38 @@ export function listAllPresetIds(): string[] {
   return WORKFLOW_PRESETS.map((preset) => preset.id);
 }
 
+/**
+ * A model file's size, for a human deciding whether to download it.
+ *
+ * **Decimal, because the number has to match the page it is compared against.**
+ * This divided by 1024³ while labelling the result "GB", so every size in Setup,
+ * Workflow Health, the footprint estimate and the setup pack read low against
+ * the source it was about to be downloaded from: Unflatten's stack showed as
+ * "28.1 GB" where Hugging Face says 30.17 GB, and `flux-2-klein-4b-fp8` as
+ * "3.8 GB" against a published 4.07 GB. Nobody reads that as two conventions;
+ * they read it as the panel disagreeing with the download page about which file
+ * this is.
+ *
+ * Two sibling formatters deliberately do *not* follow this:
+ *
+ * - `formatBytesForDownload` in `modelDownload.ts` stays binary and says `GiB`
+ *   outright. It measures a transfer in progress, not a published file size, and
+ *   it is labelled honestly.
+ * - `formatBytes` in `hardwareAdvisor.ts` stays binary under a "GB" label,
+ *   because it reports VRAM. A 12 GB card is 12 GiB, and every vendor, driver
+ *   and operating system calls that "12 GB" — rendering it as "12.9 GB" would be
+ *   arithmetically defensible and read as a bug.
+ */
 export function formatBytes(bytes: number): string {
   if (bytes <= 0) {
     return "unknown";
   }
 
-  const gigabytes = bytes / 1024 ** 3;
+  const gigabytes = bytes / 1_000_000_000;
 
   if (gigabytes >= 1) {
     return `${gigabytes.toFixed(1)} GB`;
   }
 
-  return `${Math.round(bytes / 1024 ** 2)} MB`;
+  return `${Math.round(bytes / 1_000_000)} MB`;
 }

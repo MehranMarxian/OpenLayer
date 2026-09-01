@@ -1,5 +1,41 @@
 # Changelog
 
+## Unreleased
+
+Two reporting bugs, both found while sourcing the README's per-tool "required files" section against
+the registry rather than against the README's own prose. Neither changes what a preset runs — both
+change what OpenLayer *tells you* it needs, which is what a person acts on before they can run
+anything at all.
+
+### Fixed
+
+- **The Depth ControlNet preset reported needing no custom node at all.**
+  `DepthAnythingV2Preprocessor` was missing from `CUSTOM_NODE_PACKAGES`, so Setup, the setup pack and
+  Workflow Health all listed `sketch2img-depth-basic` as dependency-free — the only one of the five
+  Sketch to Image presets that looked installable out of the box was the one whose requirement was
+  invisible. It has needed `comfyui_controlnet_aux` since it shipped in v0.13.0. Confirmed against a
+  live server: the class's `python_module` is `custom_nodes.comfyui_controlnet_aux`, the same package
+  the LineArt and Scribble preprocessors already declared.
+
+  The frozen-inventory test in `tests/comfy/workflowFiles.test.ts` could not have caught this: it
+  counts the classes that *are* mapped, so an unmapped one is absent from its tally and the list still
+  looks complete. A second assertion now requires every `*Preprocessor` class a preset depends on to
+  name a package — core ComfyUI ships none of them, so an unmapped one is always a bug — and it was
+  verified to fail, with an actionable message, by removing the new entry and re-running.
+
+- **Every model size read low, because `formatBytes` divided by 1024³ under a "GB" label.** Unflatten's
+  stack showed as 28.1 GB where Hugging Face says 30.17 GB; `flux-2-klein-4b-fp8` as 3.8 GB against a
+  published 4.07 GB; `4x-UltraSharp.pth` as 64 MB against 67 MB. Nobody reads that as two conventions
+  — they read it as the panel disagreeing with the download page about which file this is. Model
+  sizes are decimal now, matching the page they are compared against, and the deduplicated total the
+  setup pack prints moved from 164.8 GB to **176.9 GB**.
+
+  Two sibling formatters deliberately did not change: `formatBytesForDownload` measures a transfer in
+  progress and already says `GiB` outright, and the VRAM formatter in `hardwareAdvisor.ts` stays
+  binary under a "GB" label because a 12 GB card *is* 12 GiB and every vendor, driver and operating
+  system calls it that — rendering it as "12.9 GB" would be arithmetically defensible and read as a
+  bug.
+
 ## v0.20.0-alpha - 2026-08-30
 
 This release adds Unflatten: hand the panel a flat layer and get the picture back as separate layers with real transparency, imported into the open document in stacking order. Nothing else in this space puts a decomposed layer stack into a host application, and that is the whole point of building it here rather than anywhere else.

@@ -31,6 +31,12 @@ const EXPECTED_CUSTOM_NODE_CLASSES = [
   // Lineart/Scribble preprocessors, which return a blank control image for
   // light-on-dark art and so silently degrade the preset to text-to-image.
   "AnyLineArtPreprocessor_aux",
+  // Fannovel16's depth estimator, used only by sketch2img-depth-basic. Absent
+  // from CUSTOM_NODE_PACKAGES from v0.13.0 until it was noticed, which is why
+  // the assertion below exists: this list can only see classes that are already
+  // mapped, so a preprocessor missing from the map was invisible to it and the
+  // Depth preset reported needing no add-on at all.
+  "DepthAnythingV2Preprocessor",
   "Florence2ModelLoader",
   "Florence2Run",
   // cubiq's IPAdapter Plus, used only by Style Reference.
@@ -89,6 +95,33 @@ describe("shipped API workflow files", () => {
     }
 
     expect([...seen].sort()).toEqual(EXPECTED_CUSTOM_NODE_CLASSES);
+  });
+
+  it("maps every preprocessor a preset requires to a custom node package", () => {
+    // The frozen inventory above cannot catch a *missing* mapping: it counts
+    // only classes already in CUSTOM_NODE_PACKAGES, so a preprocessor absent
+    // from the map is absent from `seen` too and the list still looks complete.
+    // That is exactly how sketch2img-depth-basic shipped for seven releases
+    // telling users it needed no add-on -- the one sketch preset of five that
+    // looked installable out of the box was the one whose requirement was
+    // invisible to Setup, the setup pack, and Workflow Health alike.
+    //
+    // Core ComfyUI ships no `*Preprocessor` node; every one of them comes from
+    // a pack. So a required preprocessor that is not mapped is a bug, and this
+    // catches it without needing a live server to ask.
+    for (const preset of runnablePresets) {
+      for (const node of preset.requiredNodes) {
+        if (!node.classType.includes("Preprocessor")) {
+          continue;
+        }
+
+        expect(
+          CUSTOM_NODE_PACKAGES[node.classType],
+          `${preset.id} requires ${node.classType}, which no CUSTOM_NODE_PACKAGES entry names a package for — ` +
+            "Setup and Workflow Health will report this preset as needing no custom node at all"
+        ).toBeDefined();
+      }
+    }
   });
 });
 

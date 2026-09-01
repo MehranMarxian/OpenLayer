@@ -152,9 +152,20 @@ describe("setup manifest", () => {
 
 describe("formatBytes", () => {
   it("reads naturally at the sizes these models actually are", () => {
-    expect(formatBytes(66961958)).toBe("64 MB");
-    expect(formatBytes(335304388)).toBe("320 MB");
-    expect(formatBytes(12309866400)).toBe("11.5 GB");
+    expect(formatBytes(66961958)).toBe("67 MB");
+    expect(formatBytes(335304388)).toBe("335 MB");
+    expect(formatBytes(12309866400)).toBe("12.3 GB");
     expect(formatBytes(0)).toBe("unknown");
+  });
+
+  it("agrees with the download page a user is comparing it against", () => {
+    // These are the real byte counts of three shipped models, and the strings
+    // are what Hugging Face prints beside them. This used to divide by 1024³
+    // under a "GB" label, so every one of these read low -- 4x-UltraSharp as
+    // "64 MB", Klein as "3.8 GB" -- and a user checking the panel against the
+    // page they were downloading from saw two different numbers for one file.
+    expect(formatBytes(4_070_624_520)).toBe("4.1 GB"); // flux-2-klein-4b-fp8
+    expect(formatBytes(8_044_982_048)).toBe("8.0 GB"); // qwen_3_4b
+    expect(formatBytes(20_533_591_821)).toBe("20.5 GB"); // qwen_image_layered_fp8mixed
   });
 });
