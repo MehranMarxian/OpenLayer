@@ -160,6 +160,11 @@
               <p>Capture several layers into an ordered list and compose them into one picture with FLUX.2 Klein — clothing, props, setting, and lighting carry across from each reference. A specific person's face does not; treat it as scene composition, not as a way to place someone recognisable into a picture.</p>
             </article>
             <article class="tool-card">
+              <span class="tool-icon"><img src="assets/tools/unflatten.png" alt=""></span>
+              <div><h3>Unflatten</h3><span class="chip chip-exp">Experimental</span></div>
+              <p>Hand it a flat layer and get the picture back as separate layers with real transparency, imported in stacking order. A photograph of someone on a bench comes back as ground, bench, and person. It needs a subject standing in front of a background &mdash; a close-up that fills the frame has no front and back to find.</p>
+            </article>
+            <article class="tool-card">
               <span class="tool-icon"><img src="assets/tools/layer-tools.png" alt=""></span>
               <div><h3>Layer Tools</h3><span class="chip chip-ready">Stable</span></div>
               <p>Send pixels the other way. Export the active layer, the current selection, or the selection mask — to a file you pick, or straight into ComfyUI's input folder where a workflow can use it.</p>
@@ -380,6 +385,10 @@
               <p>48 test generations found clothing, props, setting, and lighting carry across from a reference layer — a specific person's face does not, even from a clean studio portrait. It is honest as a composition tool and should not be used expecting a recognisable result.</p>
             </article>
             <article class="status-card">
+              <h3>Unflatten needs depth, not just a subject</h3>
+              <p>Testing found that what decides whether a picture separates is its composition, not where it came from: a generated close-up fails exactly as a photographed one does, and a subject standing clear of its background succeeds either way. The number of layers you ask for is a ceiling &mdash; empty ones are left out rather than imported.</p>
+            </article>
+            <article class="status-card">
               <h3>Inpaint is experimental</h3>
               <p>v0.20.0 retains the upload and alignment fixes while output quality across checkpoints continues to be validated by testers.</p>
             </article>
@@ -468,6 +477,10 @@
             <article>
               <h3>v0.19 · Multi-reference composition</h3>
               <p>Compose one image from an ordered list of captured layers with FLUX.2 Klein, gated on 48 live test generations before any screen was built: reference order affects output more than reference count, and a specific person's likeness does not carry the way clothing and setting do.</p>
+            </article>
+            <article>
+              <h3>v0.20 · Unflatten</h3>
+              <p>A flat layer comes back as separate layers with real transparency, inside a group, in stacking order — the layers in front rebuilt from your own full-resolution pixels wearing the model's matte. Gated on eight questions answered with live generations first, two of which overturned assumptions the plan was built on.</p>
             </article>
             <article>
               <h3>Next · Reliability and artist control</h3>
