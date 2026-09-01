@@ -24,22 +24,30 @@
   <a href="https://github.com/MehranMarxian/OpenLayer/discussions">Discussions</a>
 </p>
 
-<p align="center">
-  <img src="docs/assets/v0200/panel.png" alt="The OpenLayer panel in Photoshop" width="300">
-</p>
+<table>
+<tr>
+<td width="34%" valign="top">
+  <img src="docs/assets/v0200/dashboard-artist-dark-crop.webp" alt="The OpenLayer panel in Photoshop, Artist-Friendly Dark theme" width="100%">
+</td>
+<td valign="top">
 
 - **Free, with no subscription.** No credits, no metering, no account, no upload quota.
 - **Nothing leaves your computer.** ComfyUI runs on your own machine, on your own models.
-- **Results arrive as real Photoshop layers** — named, positioned, and editable. Not a flattened PNG
-  you paste in and hope for.
+- **Results arrive as real Photoshop layers** — named, positioned, and editable. Not a flattened
+  PNG you paste in and hope for.
+- **Eleven generation tools**, from text-to-image to splitting a flat picture back into layers.
 
-**You need:** Photoshop 2024+ · a local [ComfyUI](https://github.com/comfyanonymous/ComfyUI) server ·
-a GPU with 8 GB VRAM or more (12 GB is what this project targets) · Windows, verified — [macOS is
-untested](#installation).
+**You need:** Photoshop 2024+ · a local [ComfyUI](https://github.com/comfyanonymous/ComfyUI)
+server · a GPU with 8 GB VRAM or more (12 GB is what this project targets) · Windows, verified —
+[macOS is untested](#installation).
 
-> **Alpha.** `v0.20.0-alpha` is a public testing checkpoint, not production software. It is stable
-> enough to work with, and honest about where it stops — see [what works and what does
+> **Alpha.** `v0.20.0-alpha` is a public testing checkpoint, not production software. It is
+> stable enough to work with, and honest about where it stops — see [what works and what does
 > not](docs/known-limitations.md).
+
+</td>
+</tr>
+</table>
 
 ---
 
@@ -73,8 +81,9 @@ in stacking order inside one group. A layered result is worth very little in a w
 it is the whole point.
 
 **An AI assistant can drive it too.** All ten generation tools are reachable over the Model Context
-Protocol, so Claude or Codex can work the panel's own buttons in your open document. Off by default;
-see [`bridge/README.md`](bridge/README.md).
+Protocol, so Claude or Codex can work the panel's own buttons in your open document — "generate a
+foggy forest, then upscale it" instead of eleven clicks. Off by default, and it runs entirely on your
+machine: see [Agent Bridge (MCP)](#agent-bridge-mcp) for what it is and how to start it.
 
 ---
 
@@ -352,6 +361,84 @@ would be about 384 GB — that gap is why the stacks above are worth understandi
 non-commercial licence: `flux1-dev-fp8`, `flux1-fill-dev`, `flux2-dev-Q4_K_M.gguf`, and
 `mistral_3_small_flux2_fp8`. The panel will not fetch those for you; use the link and read the licence
 before selling anything made with them.
+
+</details>
+
+---
+
+<details>
+<summary><h3>Agent Bridge (MCP)</h3></summary>
+
+Ask Claude — or Codex, or anything else that speaks the **Model Context Protocol** — to generate an
+image, upscale a layer, caption a selection or compose a scene, and it works the panel's own buttons
+in your open document. "Make me a foggy forest at 1024 square, then upscale it" is a sentence, not
+eleven clicks.
+
+**It presses buttons; it cannot touch your document.** The bridge holds no Photoshop and no ComfyUI
+code. Its only two verbs are *ask the panel to run a tool it already has* and *read back what the
+panel said happened*, so an agent-driven generation and a clicked one are the same code path — the
+same document binding, the same transactional import, the same one-run-at-a-time lockout. Ask for a
+second generation mid-run and it is refused with "OpenLayer is busy", exactly as a second click would
+be.
+
+All **ten** generation tools are reachable:
+
+`text_to_image` · `image_to_image` · `sketch_to_image` · `inpaint` · `outpaint` · `upscale` ·
+`prompt_from_layer` · `style_reference` · `multi_reference` · `unflatten`
+
+Plus `get_panel_state`, which answers instantly without touching Photoshop — ask for that first if
+anything seems wrong.
+
+### Running it
+
+**It is not in the `.ccx` download.** A Photoshop plugin package cannot install or start a Node
+program, so the bridge lives in this repository and is off by default at both ends. Clone or download
+the repo, then:
+
+**1. Install once**
+
+```bash
+cd bridge && npm install
+```
+
+**2. Start the hub, and leave it running** — like ComfyUI, it stays up
+
+```bash
+npm run hub
+```
+
+**This is the step people miss.** Nothing connects until the hub is listening, and registering the
+client below does *not* start it.
+
+**3. Register it with your AI client, once**
+
+```bash
+claude mcp add openlayer -- node /absolute/path/to/OpenLayer/bridge/src/main.mjs
+```
+
+**4. In Photoshop:** open the panel → **Setup** → turn on **Agent Bridge**.
+
+Order between steps 2–4 barely matters; the client connects to the hub lazily on its first tool call.
+Only the hub has to be running by the time you actually ask for something.
+
+### Worth knowing
+
+- **Nothing here is Claude-specific.** It is a standard MCP server over stdio, so Claude Code and
+  Desktop, Codex CLI, VS Code agent mode, Cursor, Windsurf, Zed, Cline and Continue all work. Only
+  where you paste the config differs — the command is always the same.
+- **Two processes on purpose.** The hub is long-lived and owns `127.0.0.1:8199`; the thing your client
+  launches is a thin agent that connects to it. That is what lets several clients drive one panel at
+  once, and lets you restart your AI client without the panel dropping. Use `--port <n>` to move the
+  socket — pass it to **both** commands and set the same port in Setup.
+- **"Ask the Agent for a Prompt"**, under the Text to Image prompt box, sends a question the *other*
+  way. It needs a client that supports MCP **sampling**, which is optional in the protocol — a client
+  without it gets an instant, clear refusal rather than a hang. `get_panel_state` reports
+  `answeringAgents`, which tells you whether the button can work at all right now.
+- **Check it without Photoshop or ComfyUI:** `npm run smoke` in `bridge/` boots the real bridge,
+  attaches a fake panel, and drives a full tool call over MCP.
+
+Design notes and the full protocol are in [`docs/mcp-bridge.md`](docs/mcp-bridge.md); the bridge's own
+[`bridge/README.md`](bridge/README.md) covers its internals.
 
 </details>
 

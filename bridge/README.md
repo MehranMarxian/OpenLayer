@@ -3,8 +3,9 @@
 Lets an MCP client — Claude first, any MCP-speaking client eventually — drive the OpenLayer
 Photoshop panel's existing tools from natural language.
 
-Status: **Phases 1–3 complete.** All seven generation tools are wired up: `text_to_image`,
-`image_to_image`, `sketch_to_image`, `inpaint`, `outpaint`, `upscale`, `prompt_from_layer`.
+Status: **Phases 1–3 complete.** All ten generation tools are wired up: `text_to_image`,
+`image_to_image`, `sketch_to_image`, `inpaint`, `outpaint`, `upscale`, `prompt_from_layer`,
+`style_reference`, `multi_reference`, `unflatten`.
 The panel can also ask a connected agent for a prompt, which needs the client to support MCP
 *sampling* — see below. Cloud transport is deferred. `docs/mcp-bridge.md` has the design.
 
