@@ -65,6 +65,23 @@ export function planUnflattenLayerStack(input: UnflattenStackPlanInput): Unflatt
   };
 }
 
+/**
+ * The names a finished stack of `count` layers carries, back to front.
+ *
+ * Exported because the count is not always known when the layers are placed:
+ * a plate that turns out to be blank is skipped, and the survivors are renamed
+ * so an artist does not get "Layer 1" and "Layer 4" with nothing between them.
+ */
+export function stackLayerNames(count: number): string[] {
+  const names: string[] = [];
+
+  for (let depth = 1; depth <= count; depth += 1) {
+    names.push(formatLayerName(depth, count));
+  }
+
+  return names;
+}
+
 function formatLayerName(depth: number, layerCount: number) {
   if (layerCount === 1) return "Layer 1";
   if (depth === 1) return "Layer 1 (back)";
@@ -76,6 +93,82 @@ function formatGroupName(sourceName?: string) {
   const trimmed = sourceName?.trim();
 
   return trimmed ? `Unflatten ${trimmed}` : "Unflatten";
+}
+
+/**
+ * What a decomposed plate turns out to hold, once its pixels have been read.
+ *
+ * This replaced a rule based on the plate's position in the batch, which the
+ * gate's own runs supported and a real photograph disproved. Q8 found index 1
+ * carrying the background every time it was measured, so the import treated
+ * depth 1 as the background and everything after it as foreground. On a source
+ * outside that sample the model emitted a **pure white fill** at index 1 --
+ * RGB standard deviation 1.08, mean (254, 255, 254) -- and put the actual
+ * background at index 2. Position is a coincidence of the runs that were
+ * measured; content is the thing itself.
+ */
+export type PlateKind =
+  /** No visible alpha anywhere. Nothing to import. */
+  | "blank"
+  /** Visible, but a single flat colour: a base fill, carrying no picture. */
+  | "flat-fill"
+  /** Covers the whole frame with real content. This is a background. */
+  | "full-frame"
+  /** Real content with real transparency. This is something in front. */
+  | "cutout";
+
+export type PlateSample = Readonly<{
+  /**
+   * Fraction of the sample that is at least half opaque, 0-1.
+   *
+   * Deliberately not the peak alpha, which was the first test here and is a
+   * single-pixel statistic: one stray value decides it. This asks how much of
+   * the plate could actually show, which is the question.
+   */
+  solidFraction: number;
+  /** Fraction of the sample that is fully transparent, 0-1. */
+  clearFraction: number;
+  /** Standard deviation of the RGB channels across the sample. */
+  rgbStandardDeviation: number;
+}>;
+
+/**
+ * Every threshold below is a bright line between two measured populations
+ * rather than a tuned value, which is why they are stated as constants and
+ * tested rather than adjusted when a result disappoints.
+ */
+/**
+ * A plate needs a real, if small, amount of substantially opaque pixels.
+ *
+ * Measured across every run: plates carrying nothing peaked at 5, 8, 12, 20 and
+ * 63 -- the last of those is a quarter opaque at its strongest point, so it can
+ * never show anything, yet it cleared a ceiling set at 24 and arrived as a
+ * layer masked to near-black. Every plate carrying real content reached 255.
+ * 0.1% of a 128-square sample is sixteen pixels, which the smallest real
+ * subject measured -- 5% of its frame -- clears by two orders of magnitude.
+ */
+export const PLATE_MIN_SOLID_FRACTION = 0.001;
+/** A flat fill measured 1.08; every plate carrying a picture measured over 40. */
+export const PLATE_FLAT_FILL_DEVIATION_CEILING = 6;
+/** A background covered the frame exactly; a cut-out left 41% of it clear. */
+export const PLATE_FULL_FRAME_CLEAR_CEILING = 0.05;
+
+export function classifyPlateSample(sample: PlateSample): PlateKind {
+  if (!(sample.solidFraction > PLATE_MIN_SOLID_FRACTION)) {
+    return "blank";
+  }
+
+  // Checked before coverage, because a flat fill covers the frame completely
+  // and would otherwise be mistaken for a background and imported as one.
+  if (sample.rgbStandardDeviation < PLATE_FLAT_FILL_DEVIATION_CEILING) {
+    return "flat-fill";
+  }
+
+  if (sample.clearFraction < PLATE_FULL_FRAME_CLEAR_CEILING) {
+    return "full-frame";
+  }
+
+  return "cutout";
 }
 
 export type LayerScalePlan = Readonly<{

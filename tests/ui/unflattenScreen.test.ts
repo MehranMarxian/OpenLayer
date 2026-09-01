@@ -32,6 +32,7 @@ describe("unflatten screen", () => {
     expect(elements.unflattenSourceMeta).toBeTruthy();
     expect(elements.captureUnflattenLayerButton).toBeTruthy();
     expect(elements.captureUnflattenCanvasButton).toBeTruthy();
+    expect(elements.describeUnflattenSourceButton).toBeTruthy();
     expect(elements.generateUnflattenButton).toBeTruthy();
     expect(elements.importUnflattenButton).toBeTruthy();
     expect(elements.unflattenResultPreviewPanel).toBeTruthy();
@@ -101,5 +102,29 @@ describe("unflatten screen", () => {
     // The subtitle must not grow into a claim that it takes any layer apart.
     expect(card?.subtitle).toBe("Split a flat layer into separate layers");
     expect(HOME_TOOL_SECTIONS.some((section) => section.toolIds.includes("unflatten"))).toBe(true);
+  });
+});
+
+describe("unflatten description assist", () => {
+  it("offers to write the description, next to the field it fills", () => {
+    const view = mount().querySelector<HTMLElement>("#unflatten-view");
+    const button = view?.querySelector<HTMLElement>("#describe-unflatten-source");
+
+    expect(button).toBeTruthy();
+    // Unflatten is the one tool whose prompt describes what is already in the
+    // picture rather than what is wanted, which is exactly what Florence-2
+    // produces -- so the two halves of that operation live on one screen.
+    expect(button?.textContent).toMatch(/describe/i);
+    expect(view?.querySelector("#unflatten-prompt")).toBeTruthy();
+  });
+
+  it("does not dress an assist as a primary action", () => {
+    const button = mount().querySelector<HTMLElement>("#describe-unflatten-source");
+
+    // The panel has two button colours that carry meaning: orange generates,
+    // blue imports. A third would invent a third meaning for one assist.
+    expect(button?.classList.contains("button-primary")).toBe(false);
+    expect(button?.classList.contains("button-import")).toBe(false);
+    expect(button?.classList.contains("action-control")).toBe(true);
   });
 });

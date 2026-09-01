@@ -367,6 +367,7 @@ export type AppElements = {
   addMultiReferenceCanvasButton: HTMLElement;
   generateMultiReferenceButton: HTMLElement;
   importMultiReferenceButton: HTMLElement;
+  describeUnflattenSourceButton: HTMLElement;
   captureUnflattenLayerButton: HTMLElement;
   captureUnflattenCanvasButton: HTMLElement;
   generateUnflattenButton: HTMLElement;
@@ -1281,7 +1282,8 @@ export function createAppMarkup() {
           <div class="field img2img-field">
             <span class="label">Description${createPromptWalletControlsMarkup("unflatten-prompt")}</span>
             <textarea maxlength="10000" class="textarea compact-textarea" id="unflatten-prompt" placeholder="Describe what is already in the picture..."></textarea>
-            <div class="diagnostics-line unflatten-hint" id="unflatten-prompt-hint">Describe what is already there, not what you want changed. Needs a picture with something standing in front of something else -- a close-up that fills the frame comes back unseparated. Layers come back at 640px, so they are softer than the original on a large document.</div>
+            <button class="button source-action-button action-control" id="describe-unflatten-source" data-openlayer-action="describeUnflattenSource" type="button">Describe the source for me</button>
+            <div class="diagnostics-line unflatten-hint" id="unflatten-prompt-hint">Describe what is already there, not what you want changed. Needs a picture with something standing in front of something else -- a close-up that fills the frame comes back unseparated. Layers in front keep your own pixels and stay sharp; the background is repainted by the model at 640px, so it is softer. The cut edge comes from that 640px matte -- refine it with Select and Mask if you need a clean cut-out.</div>
           </div>
           <div class="field img2img-field">
             <span class="label">Workflow</span>
@@ -2389,6 +2391,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     addMultiReferenceCanvasButton: getElement<HTMLElement>(rootElement, "add-multi-reference-canvas"),
     generateMultiReferenceButton: getElement<HTMLElement>(rootElement, "generate-multi-reference"),
     importMultiReferenceButton: getElement<HTMLElement>(rootElement, "import-multi-reference-result"),
+    describeUnflattenSourceButton: getElement<HTMLElement>(rootElement, "describe-unflatten-source"),
     captureUnflattenLayerButton: getElement<HTMLElement>(rootElement, "capture-unflatten-layer"),
     captureUnflattenCanvasButton: getElement<HTMLElement>(rootElement, "capture-unflatten-canvas"),
     generateUnflattenButton: getElement<HTMLElement>(rootElement, "generate-unflatten"),

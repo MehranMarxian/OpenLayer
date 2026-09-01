@@ -1579,6 +1579,7 @@ export function renderApp(rootElement: HTMLElement) {
     importMultiReference: createActionRunner(elements, "importMultiReference", handleImportMultiReference),
     captureUnflattenLayer: createActionRunner(elements, "captureUnflattenLayer", handleCaptureUnflattenLayer),
     captureUnflattenCanvas: createActionRunner(elements, "captureUnflattenCanvas", handleCaptureUnflattenCanvas),
+    describeUnflattenSource: createActionRunner(elements, "describeUnflattenSource", handleDescribeUnflattenSource),
     generateUnflatten: createActionRunner(elements, "generateUnflatten", handleGenerateUnflatten),
     importUnflatten: createActionRunner(elements, "importUnflatten", handleImportUnflatten),
     captureStyleReferenceSource: createActionRunner(elements, "captureStyleReferenceSource", handleCaptureStyleReferenceSource),
@@ -1662,6 +1663,7 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.importMultiReferenceButton, actionHandlers.importMultiReference);
   bindActionControl(elements.captureUnflattenLayerButton, actionHandlers.captureUnflattenLayer);
   bindActionControl(elements.captureUnflattenCanvasButton, actionHandlers.captureUnflattenCanvas);
+  bindActionControl(elements.describeUnflattenSourceButton, actionHandlers.describeUnflattenSource);
   bindActionControl(elements.generateUnflattenButton, actionHandlers.generateUnflatten);
   bindActionControl(elements.importUnflattenButton, actionHandlers.importUnflatten);
   bindMultiReferenceRowActions();
@@ -4843,6 +4845,95 @@ export function renderApp(rootElement: HTMLElement) {
     }
   }
 
+  /**
+   * Fills the description from the captured source, with Florence-2.
+   *
+   * Unflatten is the one tool in the panel whose prompt is descriptive rather
+   * than aspirational -- it says what is already in the picture so the model
+   * knows what it is taking apart -- and that is exactly what Prompt from Layer
+   * produces. Doing it by hand meant leaving the screen, capturing the same
+   * layer a second time somewhere else, generating, copying, and coming back.
+   *
+   * It captions the source Unflatten already holds rather than capturing
+   * again, and it runs through the same busy gate as everything else, so it
+   * cannot start while a decomposition is running and it locks the same
+   * controls while it works.
+   */
+  async function handleDescribeUnflattenSource() {
+    if (blockRegularGenerationDuringLivePainting((message) => setUnflattenStatus(elements, message, "error"))) {
+      return;
+    }
+
+    if (!unflattenSource) {
+      setUnflattenStatus(elements, "Source required.", "error");
+      setUnflattenError(elements, "Capture a layer or the canvas before describing it.");
+      return;
+    }
+
+    const source = unflattenSource;
+    const seed = createRandomSeed();
+    const client = new ComfyClient(elements.serverUrl.value);
+    const preset = getWorkflowPreset("prompt-from-layer-florence2");
+
+    setUnflattenError(elements, "");
+    setUnflattenStatus(elements, "Describing the source...", "idle");
+    busyTool = "unflatten";
+    isBusy = true;
+    syncBusy();
+    let run: GenerationRunHandle | null = null;
+
+    try {
+      // Florence-2 is its own model and a separate download, so a panel that
+      // has never needed it says so here rather than failing obscurely.
+      await client.validatePresetSetup(preset);
+      const sourceImageName = await client.uploadImage(source.blob, source.filename);
+      const workflowResult = await buildPromptFromLayerWorkflow({
+        presetId: preset.id,
+        sourceImageName,
+        task: DEFAULT_PROMPT_LAYER_TASK,
+        numBeams: Number.parseInt(DEFAULT_PROMPT_LAYER_NUM_BEAMS, 10),
+        seed
+      });
+      const textOutputNodeId = getPresetTextOutputNodeId(workflowResult.preset);
+
+      const promptId = await client.submitPrompt(workflowResult.workflow);
+      run = generation.begin("unflatten", client, promptId);
+      const startedRun = run;
+      const historyItem = await client.pollUntilTextComplete(promptId, {
+        preferredNodeId: textOutputNodeId,
+        onTick: (message) => startedRun.publish(() => setUnflattenStatus(elements, message, "idle")),
+        isCancelled: () => startedRun.isRunCancelled()
+      });
+      const generatedText = await client.retrieveFirstOutputText(promptId, historyItem, {
+        preferredNodeId: textOutputNodeId
+      });
+      run.assertCanCommit();
+
+      elements.unflattenPrompt.value = generatedText;
+      run.finish();
+      run = null;
+      setUnflattenStatus(elements, "Description written.", "ready");
+      setUnflattenDiagnostics(
+        elements,
+        `Described ${source.sourceName}. Edit it if it missed something, then Unflatten.`
+      );
+    } catch (caughtError) {
+      if (isGenerationCancelledError(caughtError)) {
+        if (!run || run.isCurrent()) showGenerationCancelled("unflatten", run?.promptId);
+        return;
+      }
+
+      setUnflattenStatus(elements, "Could not describe the source.", "error");
+      setUnflattenError(elements, getErrorMessage(caughtError));
+      setUnflattenDiagnostics(elements, getTechnicalErrorDetails(caughtError));
+    } finally {
+      run?.finish();
+      isBusy = false;
+      busyTool = null;
+      syncBusy();
+    }
+  }
+
   async function handleGenerateUnflatten() {
     if (!unflattenSource) {
       setUnflattenError(elements, "Capture a layer or the canvas before unflattening.");
@@ -4968,7 +5059,7 @@ export function renderApp(rootElement: HTMLElement) {
       setUnflattenStatus(elements, `Returned ${layerCount} layers.`, "ready");
       setUnflattenDiagnostics(
         elements,
-        `${layerCount} layers plus the reassembled picture. Some may be empty -- the count is a ceiling, and a close-up cannot be separated at all. Seed used: ${buildResult.seed}. Workflow: ${buildResult.preset.id}.`
+        `${layerCount} layers plus the reassembled picture. The count is a ceiling: empty ones are left out on import, and a close-up cannot be separated at all. Seed used: ${buildResult.seed}. Workflow: ${buildResult.preset.id}.`
       );
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
@@ -5005,6 +5096,10 @@ export function renderApp(rootElement: HTMLElement) {
         originatingDocument: unflattenResult.originatingDocument,
         targetBounds: unflattenSource?.captureBounds,
         sourceName: unflattenSource?.sourceName,
+        // Every layer in front of the background is rebuilt from these pixels
+        // wearing the model's matte, so the subject stays at the resolution it
+        // was captured at rather than the 640px the graph decomposes at.
+        sourceBlob: unflattenSource?.blob,
         onProgress: (message) => {
           setUnflattenStatus(elements, message, "idle");
           setUnflattenDiagnostics(elements, message);
@@ -5019,7 +5114,13 @@ export function renderApp(rootElement: HTMLElement) {
       }
       setUnflattenDiagnostics(
         elements,
-        `Group created: ${imported.groupName}. Layers, back to front: ${imported.layerNames.join(", ")}.`
+        `Group created: ${imported.groupName}. Layers, back to front: ${imported.layerNames.join(", ")}.` +
+          (imported.sourcePixelLayerCount > 0
+            ? ` ${imported.sourcePixelLayerCount} built from your own pixels, masked.`
+            : " Built from the model's pixels.") +
+          (imported.skippedBlankLayerCount > 0
+            ? ` ${imported.skippedBlankLayerCount} came back empty and were left out.`
+            : "")
       );
     } catch (caughtError) {
       setUnflattenStatus(elements, "Import failed.", "error");
