@@ -88,6 +88,74 @@ machine: see [Agent Bridge (MCP)](#agent-bridge-mcp) for what it is and how to s
 ---
 
 <details>
+<summary><h3>See it work</h3></summary>
+
+Real sessions in Photoshop, not mockups. Each one is a local generation on a 12 GB card.
+
+<details>
+<summary><b>Unflatten</b> — one flat photo, separated into layers with real alpha</summary>
+
+<img src="docs/assets/v0200/unflatten.webp" alt="Unflatten splitting a photograph into front and back layers in Photoshop" width="100%">
+
+**Look at the Layers panel on the right.** One flat JPEG went in; what came back is a group holding
+`Layer 2 (front)` — the man, with his own layer mask — above `Layer 1 (back)`, the background the
+model repainted to fill the hole he left. Both are ordinary Photoshop layers you can move, mask and
+refine. This is the thing a web UI cannot hand you.
+
+</details>
+
+<details>
+<summary><b>Live Painting</b> — paint a rough shape, watch it become a photograph</summary>
+
+<img src="docs/assets/v0200/live-painting.webp" alt="Live Painting turning a painted silhouette into a photographic eagle" width="100%">
+
+On the right, a crude black silhouette painted by hand. In the middle, what the model made of it while
+the brush was still moving. The live preview follows your strokes; **Import Refined as Layer** commits
+the result when you stop.
+
+</details>
+
+<details>
+<summary><b>Sketch to Image</b> — line art holds the drawing, the model does the rest</summary>
+
+<img src="docs/assets/v0200/sketch-to-image.webp" alt="A white line drawing of a dog rendered as a finished illustration" width="100%">
+
+The white line drawing on the right is the input; the finished illustration is the output. The stroke
+is held exactly — pose, ears, tail — while everything else is invented. Draw dark lines on a lighter
+ground and the preprocessor reads them.
+
+It is not only for line work. The same tool, given a shaded source:
+
+<img src="docs/assets/v0200/sketch-abstract.webp" alt="An abstract painted face generated through Sketch to Image" width="100%">
+
+</details>
+
+<details>
+<summary><b>Multi-Reference</b> — several layers composed into one picture</summary>
+
+<img src="docs/assets/v0200/multi-reference.webp" alt="A figure in a yellow raincoat composed into a neon-lit rainy street" width="100%">
+
+Two captured layers — a street and a figure — composed into a single scene by
+`multi-reference-flux2-klein`. Clothing, props, setting and lighting carry across from the references.
+**A specific person's face does not**, and the panel says so where you add them.
+
+</details>
+
+<details>
+<summary><b>Outpaint</b> — extend the canvas past its edges</summary>
+
+<img src="docs/assets/v0200/outpaint.webp" alt="Outpaint extending a photographic interior beyond the original canvas" width="100%">
+
+Give the canvas more room in Photoshop, then let Flux Fill invent what belongs in the new space.
+Experimental — work on a duplicate layer.
+
+</details>
+
+</details>
+
+---
+
+<details>
 <summary><h3>Installation</h3></summary>
 
 **Download the `.ccx`, double-click it, start ComfyUI.** That is the whole process — the details
