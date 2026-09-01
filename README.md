@@ -1,781 +1,614 @@
 <p align="center">
-  <img src="docs/assets/openlayer-icon-152.png" alt="OpenLayer icon" width="96" height="96">
+  <img src="docs/assets/openlayer-icon-152.png" alt="OpenLayer" width="88" height="88">
 </p>
 
-# OpenLayer - Open Source Photoshop ComfyUI Plugin
-
-OpenLayer is an open-source Photoshop ComfyUI plugin for local AI layers.
-
-OpenLayer is an open-source Adobe Photoshop UXP plugin that connects Photoshop to a locally running ComfyUI server for text-to-image, image-to-image, sketch-to-image, preview, and importing AI results into the active Photoshop document as editable layers.
-
-## Alpha Release
-
-`v0.20.0-alpha` is the current public alpha checkpoint. It is intended for testing the core local workflows in Photoshop UXP, not for production work yet.
-
-New in `v0.20.0-alpha`:
-
-- **Unflatten** (experimental). Hand the panel a flat layer and get the picture back as separate layers with real transparency, imported into your open document in stacking order, inside one group named after the source. A photograph of someone on a bench comes back as ground, bench and person, each cut out with its own alpha. Local, through ComfyUI, every node core. Nothing else in this space puts a decomposed layer stack into a host application, which is the point: a layered result is worth very little in a web UI and nearly nothing in a canvas app.
-
-  Runs on Qwen-Image-Layered. Three files, 28.1 GB, sharing nothing with any existing preset — the largest single addition the Setup screen has taken, and it lists all three with their folders. About two minutes for four layers on a 12 GB card.
-
-  Eight questions were answered with live generations before any of the screen was built, recorded in `docs/unflatten-gate-findings.md`, and two of the answers overturned assumptions the plan was built on. **The variable that decides whether this works is composition, not where the picture came from.** A generated close-up fails exactly as a photographed one does; a photographed subject standing clear of its background succeeds exactly as a generated one does. And **640px with four layers is a measured optimum rather than a round number** — 1024 separates roughly half as well, leaves more layers empty, and costs three and a half times the time, so it is not offered at all.
-
-- **Multi-Reference Composition** (experimental). Give the panel a list of captured Photoshop layers instead of one, and it builds a single image out of all of them — a background, a person, an object, however many you add. Add Active Layer or Add Canvas repeatedly to grow the list; each entry gets Up, Down, and Remove. Order is not cosmetic: the first reference sets the output canvas size, and moving an object earlier in the list is the fix if it comes back duplicated or distorted. Built on FLUX.2 Klein's own `ReferenceLatent` conditioning, chained once per reference onto both the positive and negative branches — every node is core ComfyUI, so it shares the Klein 4B stack the other Klein presets already need and downloads nothing extra.
-
-  Answered with 48 live generations before any of the screen was built, recorded in `docs/multi-reference-gate-findings.md`: identity held with no measured ceiling on reference count; prompt phrasing barely matters, because the model matches references to the prompt by what they are rather than by position; masking or cutting out a reference's background makes no difference, because Klein already isolates the subject on its own. The one finding that shapes what this tool can honestly claim: **clothing, props, setting, and lighting carry across from a reference; a specific person's face does not.** A face from a real photograph comes back as a plausible stranger, not the person photographed — even from a clean, frontal studio portrait. So this composes a scene; it does not place someone recognisable into one, and nothing in the panel or this README claims otherwise.
-
-- **The AI assistant can compose too.** `multi_reference` joins the seven tools already reachable over MCP, with the same "requires layers captured in the panel first, only the parameters you pass are changed" boundary every other bridged tool has, and the likeness limit stated directly in the tool description an agent reads before running it.
-
-Also new in `v0.18.0-alpha`:
-
-- **The Prompt Wallet.** A small green circle in every tool's "Prompt" label saves the current positive and negative prompt together; a purple circle next to it loads one back — press it and the panel sends you to a new Prompt Wallet screen asking which tool you're picking for, and choosing a card fills both fields and returns you there. One library shared by every tool. The Wallet screen supports search, renaming, pinning, copy, and delete.
-- **Undo, on every prompt field, independent of the host.** Ctrl+Z / Ctrl+Shift+Z (or Ctrl+Y) now walk back through a prompt a word at a time, whether or not Photoshop's own textarea happens to support undo.
-- **A prompt longer than about 256 characters no longer silently stops accepting input.** That was an undocumented default of a Photoshop UXP text field, not a limit anyone had set, and it was quietly truncating prompts, Prompt from Layer captions, and the Settings diagnostics report alike.
-- **A screen's header no longer paints over the section below it**, which used to happen at the panel's smallest size.
-- **Inpaint has the "Import Automatically" button every other generating tool already had.**
-- **A first-run screen looks for ComfyUI on its own** the first time you open the panel, instead of leaving you to discover the connection requirement by trial and error.
-- **A published privacy policy and terms of service.**
-
-Also new in `v0.16.0-alpha`:
-
-- **Artist-Friendly Dark, a third theme.** A deeper, softer dark meant to sit behind artwork rather than match the Photoshop toolbar, offered in Settings alongside Compact Adobe Dark and Classic v0.4. It is the theme that turns the numeric parameters into sliders. Compact Adobe Dark is untouched — switching themes changes nothing about the panel you already know.
-- **Sliders for the numeric parameters, in Artist-Friendly Dark.** Detail (steps), Guidance (CFG), Strength (denoise) and the others become sliders; Compact Adobe Dark keeps its number boxes. One control, two faces — the number input is still the source of truth and the slider writes through to it, so nothing about how a value is read or validated changed.
-- **A dice button on the seed field**, on every tool that has one — roll a fresh random seed instead of typing one.
-- **The Advanced settings disclosure remembers whether you left it open**, per screen, stored separately from the generation defaults so Reset Settings does not re-collapse a screen you chose to keep open.
-- **FLUX.2 Klein inpainting: `inpaint-flux2-klein`.** The first inpaint preset that is not a Flux Fill model. It reuses the Klein 4B stack you already have for Text to Image — no extra model download — and repaints a selection at four steps, using the same `comfyui-inpaint-cropandstitch` node pack as the crop-and-stitch Flux Fill preset. Experimental; strongest at adding to a small selection or replacing a large region.
-- **The seed field no longer mangles wide seeds to `214748.36`.** A UXP number input cannot hold a value that large, so any seed wider than six digits — including every seed loaded from History — came back mangled and then failed the run with "Seed must be a whole number". The seed fields are plain numeric text fields now and hold the full range.
-
-Also new in `v0.15.0-alpha`:
-
-- **An AI assistant can drive OpenLayer's tools.** Ask Claude — or Codex, or anything else that speaks the Model Context Protocol — to generate an image, upscale a layer or caption a selection, and it works the panel's own buttons in your open document. All seven tools are reachable. It runs entirely on your machine and is **off until you turn it on**, in Setup → Agent Bridge.
-
-  The bridge contains no Photoshop code: it can only run a tool the panel already has and read back what the panel said happened. An agent-driven generation and a clicked one are the same code path, so the same safety rules apply to both.
-- **The bridge is not in the download.** A Photoshop plugin package cannot install or start a Node program, so it lives in the repository: clone or download it, then `cd bridge && npm install && npm run hub`. `bridge/README.md` covers the setup and the one line that registers it with your AI client.
-- **Ask the Agent for a Prompt**, under the Text to Image prompt box — the panel asking the assistant for once. Needs an AI client that supports MCP *sampling*; see the boundaries below.
-- **Version drift is a test failure now.** v0.14.0-alpha displayed `v0.13.0` in the panel footer, in both diagnostics lines, and in the version recorded against every session-history entry, because the number lives in eight places and one of them moved file. `npm test` now names whichever file disagrees.
-- **FLUX.2 Klein 4B, text-to-image, image-to-image, and instruction editing.** Three new presets — `txt2img-flux2-klein`, `img2img-flux2-klein`, and `edit-flux2-klein` — run Black Forest Labs' distilled Klein 4B at **4 steps, CFG 1**. A 1024x1024 generation completed in **11.6 seconds** on a 4070 Ti. The download is **4.07 GB** (`flux-2-klein-4b-fp8.safetensors`) plus a 336 MB VAE; the 8 GB `qwen_3_4b.safetensors` text encoder is the same file the Z_image_Turbo presets already use. Every node is core ComfyUI — no new custom-node packages — and Klein is Apache-2.0 and ungated.
-- **Instruction editing is not image-to-image.** `edit-flux2-klein` tells the model what to *change* ("make the jacket red", "turn the sky to dusk") instead of describing the whole picture. It starts from an empty latent at denoise 1 and supplies your layer as conditioning through `ReferenceLatent`, so the model follows the instruction while seeing what the scene is. Denoise is hidden because it is fixed at 1 — that is the technique, not a default.
-- **Context-aware Inpaint: `inpaint-flux-fill-cropstitch`.** A second Flux Fill preset that crops to your mask plus context, samples that at 1024x1024, and stitches the patch back with a blended seam, using lquesada's ComfyUI-Inpaint-CropAndStitch. A small mask on a large document no longer samples a few hundred pixels, and a large one no longer samples several thousand. It ships alongside `inpaint-flux-fill-basic` rather than replacing it, because the custom-node dependency is optional.
-- **Image to Image results land where they came from.** The imported layer could arrive offset from the layer it was generated from. Capture now records where in the document it read from, and the import moves the layer there explicitly.
-
-Also new in `v0.14.0-alpha`:
-
-- **Sketch to Image has two presets that are not SD 1.x.** Both load Alibaba-PAI's Z-Image Fun ControlNet Union patch on the Z_image_Turbo stack the other tools already use, so the only new download is the patch itself. They ship as a pair rather than one replacing the other: the **full** weights (6.7 GB) render shaded or densely drawn work far more photographically, while the **lite** weights (2.0 GB) hold bold sparse line art that the full weights flatten into a filled shape at any control strength. Draw dark lines on a lighter ground.
-- **Presets can declare a minimum generation size**, and the Z_image_Turbo sketch presets declare 1024. Z_image_Turbo does not degrade gracefully below its native resolution — on a 447px document the same seed gave a maze-like texture at 448 and a clean portrait at 1024 — so those presets now render at the floor and scale the result back to your canvas.
-- **The Sketch to Image model dropdown refreshes for the selected preset.** It never did: all three older presets read the same checkpoint list, so nobody noticed until a preset needed a different one.
-
-Also new in `v0.13.0-alpha`:
-
-- **The Setup screen downloads missing models.** A missing model's row offers **Download** beside Copy Link, and the panel fetches the file from the URL the registry pins — resumable, one model at a time, and never before a confirmation naming the size, the destination folder and the download host. Licence-gated weights and custom node packages are still yours to install; see the boundaries below.
-- **An optional LoRA on eleven presets**, across Text to Image, Image to Image and Sketch to Image. One dropdown and one strength control per tool. Choosing nothing leaves the shipped workflow untouched — the loader is spliced into the graph only when you actually pick a LoRA.
-- **A Depth ControlNet Sketch to Image preset.** LineArt and Scribble hold the drawn stroke; this one holds the scene's perspective, which is what you want when a generated element has to sit in an existing composite at the right camera angle. Needs one new ControlNet model, no new node package.
-- **Sketch to Image no longer ignores your sketch.** Light-on-dark art and solid filled shapes produced a blank control image, so ControlNet had no signal and the preset quietly became plain text-to-image. Fixed, and both sketch preprocessors now run at 1024 instead of 512.
-- **The Flux.2 dev (GGUF) preset actually runs now.** In v0.12.0 its model dropdown never listed a `.gguf` file and pressing Generate failed outright. Both were reported by a tester on the release.
-
-Also new in `v0.11.0-alpha`:
-
-- **A Setup screen**, on Home under Preferences. It lists every model file and custom node package the presets need, with the folder each one goes in, its size, what it unlocks, and whether it is installed, missing, or sitting in the wrong folder. It works with ComfyUI stopped — the list is static and the status is an overlay — because that is the state most people are in when they go looking for what to download.
-- **"What will run well"** ranks the presets against the VRAM ComfyUI reports for your card: Comfortable, Tight, Will offload, or Not known. It rates on the largest single file in a preset's stack rather than the total, and says plainly that a stack too big for the card runs slower rather than failing.
-- **Presets are named for artists.** Workflow Health shows "Krea-2 Turbo" and "Flux Fill" instead of the internal ids `txt2img-krea2-turbo` and `inpaint-flux-fill-basic`, and the status badge is now one squared label used on both screens.
-
-Also new in `v0.10.0-alpha`:
-
-- **The plugin zip is built to the ZIP specification for the first time.** Every release from v0.1.0 to v0.9.0-alpha stored entry paths with backslashes, which macOS `unzip` unpacks as a flat directory with no `assets/` folder, so the panel could not render. **If an earlier release gave you a blank panel on macOS, this was why — use this one.**
-- **Check Workflow Health finds models that are in the wrong folder.** When a preset's model is missing from the folder its loader reads, the report searches the other model folders and names where it found it, so "missing" and "downloaded, but one directory over" stop looking identical. It also names the repository that provides a missing custom node.
-- **Live Painting has a negative prompt** and a round of interface fixes: the session buttons no longer touch, and both of its explanatory hints are readable instead of being cut off after their first clause. It remains experimental.
-
-Also new in `v0.9.0-alpha`:
-
-- **Layer Tools**, the eighth tool and the first that is not a generation. Export the active layer, the current selection, or the selection mask, either to a file you pick with a Photoshop save dialog or straight into ComfyUI's input folder where a workflow can reference it by name.
-- Each tool's diagnostics line and error text now stay on that tool's screen. Settings remains the panel-wide log and still shows what every tool reported.
-
-Also new in the 0.8 series:
-
-- The separated **OpenLayer Preview** panel has its own **Import** buttons, so a result can be placed into the document from the large preview instead of only from the dashboard thumbnail. The buttons act on the image currently on screen, stay disabled during a run and on live sampler frames, and report the outcome on their own status line.
-- `img2img-z-image-turbo`'s editable source workflow is correct. It previously held the vendor's text-to-image demo graph, so opening it to learn the workflow showed a graph that cannot do image to image. Generation was never affected.
-- The separated **OpenLayer Preview** panel can now stay pinned to one tool instead of always following the latest generation. Its selection persists across sessions.
-- Status updates now stay with the correct tool instead of Text to Image progress appearing in Inpaint, Upscale, and the other tool screens.
-- Technical error details no longer crash while explaining a failure, and the progress bar no longer paints over the first section of the form. The bar has moved out of the sticky header and back under the status text it describes, so nothing in the header changes size when a run starts.
-- All four previously missing editable GUI source workflows are included, with a checker that compares every GUI source workflow with its API-format twin.
-- ESLint now runs in CI and rejects browser globals such as `TextEncoder` and `TextDecoder` that Node provides but Photoshop UXP does not.
-- `App.ts` has been reduced from 6,112 lines at v0.7.0 to 4,922 — down from a peak of 8,149 — by extracting error messages, status handling, and DOM event wiring. A separate CSS audit measures consolidation work without changing styles in this release.
-
-Included in this alpha:
-
-- Local ComfyUI connection from Photoshop UXP
-- Checkpoint loading from ComfyUI
-- Compact Adobe-style Home launcher with tool rows for current and planned workflows
-- Settings theme selector with `Compact Adobe Dark` as the default and `Classic v0.4` as an optional legacy visual style
-- Text-to-image generation with the `txt2img-basic` preset
-- Experimental Flux1-dev fp8 Text to Image preset using the attached checkpoint-style ComfyUI workflow
-- Image-to-image generation with the `img2img-basic` preset
-- Active Photoshop layer capture for Image to Image using Photoshop UXP Imaging API
-- Canvas capture option for Image to Image source input
-- Experimental Sketch to Image generation with the `sketch2img-linecn-basic` LINECN preset
-- Active Photoshop layer or canvas capture for Sketch to Image source input
-- ComfyUI setup validation for required LineArt/ControlNet nodes and models
-- Experimental checkpoint mode with SD 1.x, SDXL, SD3, and Flux compatibility warnings
-- Source image preview before upload to ComfyUI
-- Result preview inside the OpenLayer panel
-- Import generated output into the active Photoshop document as a new layer
-- Settings persistence for ComfyUI URL, selected checkpoint, and generation defaults
-- Passive local ComfyUI active port finder
-- GPU-aware model recommendations in Settings using ComfyUI `/system_stats`
-- Beginner-friendly model family guidance for SD 1.x, SDXL, SD3, Flux, and Z_image_Turbo
-- Workflow compatibility foundation that separates checkpoint presets from future diffusion-model-stack presets
-- Settings workflow health checker for registered presets, required ComfyUI node classes, and required model-stack files
-- Readable Settings diagnostics center with grouped workflow health cards, collapsed technical details, summary counts, and Copy Diagnostics support
-- Experimental Z_image_Turbo Text to Image and Image to Image presets using a dedicated diffusion-model-stack workflow path
-- Global Cancel Generation button path for Text to Image, Image to Image, Sketch to Image, Inpaint, Outpaint, and Prompt from Layer using ComfyUI's local interrupt endpoint
-- Prompt from Layer workflow using Florence-2 PromptGen to describe a captured layer or canvas when the local setup is installed
-- Experimental Flux Fill Outpaint workflow using `ImagePadForOutpaint`
-- FLUX.2 Klein 4B Text to Image, Image to Image, and instruction editing presets
-- Context-aware Inpaint preset using ComfyUI-Inpaint-CropAndStitch for fixed 1024 sampling
-- Image to Image `Import Automatically` toggle for sending generated results straight back into Photoshop
-- Upscale screen using ComfyUI pixel/model upscale, not generative upscale
-- `upscale-basic` workflow using `LoadImage`, `UpscaleModelLoader`, `ImageUpscaleWithModel`, and `SaveImage`
-- PNG/lossless source capture for Image to Image and Sketch to Image using raw Photoshop Imaging API pixels
-- Experimental Inpaint/Repaint Selection screen with safe Photoshop selection detection
-- PNG/lossless selected-region capture and temporary-layer grayscale mask export for Inpaint
-- Experimental SD 1.x `inpaint-basic` workflow with source image and mask upload to ComfyUI
-- Friendly Inpaint guardrails when no Photoshop selection exists, mask export fails, or required ComfyUI inpaint nodes are unavailable
-- Automated CI and unit test foundation for workflow, settings, model compatibility, and error helpers
-- Session history for recent generated previews with prompt, model, workflow preset, seed, dimensions, source mode, tool type, timestamp, and import status where available
-- Shared OpenLayer AI layer metadata model for generated/imported results, currently used by session history and prepared for future Photoshop layer persistence
-- Best-effort Photoshop layer metadata writer with an explicit unsupported fallback when the host does not expose safe layer metadata persistence
-- Reuse Settings action for recent generated-image history entries
-- Optional auto-import after generation
-- Responsive panel spacing fixes for narrow and wide Photoshop panels
-- Official OpenLayer icon and GitHub Pages landing page
-
-### v0.6 interface
+<h1 align="center">OpenLayer</h1>
 
 <p align="center">
-  <img src="docs/assets/v060/dashboard.webp" alt="OpenLayer v0.6 compact dashboard" width="278">
+  <b>The free, open-source Photoshop plugin for ComfyUI.</b><br>
+  Local AI layers, inside Photoshop.
 </p>
 
-The v0.6 dashboard is denser, clearer about tool availability, and designed for narrow Photoshop panels. The accepted UXP layout adds sticky tool headers, determinate generation progress, larger prompt editors, and consistent spacing without changing the local workflow engine.
+<p align="center">
+  <img alt="Latest release" src="https://img.shields.io/github/v/release/MehranMarxian/OpenLayer?include_prereleases&label=release&color=6f5bd6">
+  <img alt="Photoshop 2024+" src="https://img.shields.io/badge/Photoshop-2024%2B-31a8ff">
+  <img alt="Runs locally" src="https://img.shields.io/badge/runs-100%25%20locally-1f9c6b">
+  <img alt="License MIT" src="https://img.shields.io/badge/license-MIT-blue">
+  <br>
+  <a href="https://github.com/MehranMarxian/OpenLayer/releases/latest/download/openlayer-latest.ccx"><b>Download for Photoshop (.ccx)</b></a>
+  ·
+  <a href="https://mehran-ahmadi.com/OpenLayer/">Website</a>
+  ·
+  <a href="docs/getting-started.md">Getting started</a>
+  ·
+  <a href="https://github.com/MehranMarxian/OpenLayer/discussions">Discussions</a>
+</p>
 
-![OpenLayer v0.6 Text to Image generating and importing a result inside Photoshop](docs/assets/v060/text-to-image-photoshop.webp)
+<p align="center">
+  <img src="docs/assets/v0200/panel.png" alt="The OpenLayer panel in Photoshop" width="300">
+</p>
+
+- **Free, with no subscription.** No credits, no metering, no account, no upload quota.
+- **Nothing leaves your computer.** ComfyUI runs on your own machine, on your own models.
+- **Results arrive as real Photoshop layers** — named, positioned, and editable. Not a flattened PNG
+  you paste in and hope for.
+
+**You need:** Photoshop 2024+ · a local [ComfyUI](https://github.com/comfyanonymous/ComfyUI) server ·
+a GPU with 8 GB VRAM or more (12 GB is what this project targets) · Windows, verified — [macOS is
+untested](#installation).
+
+> **Alpha.** `v0.20.0-alpha` is a public testing checkpoint, not production software. It is stable
+> enough to work with, and honest about where it stops — see [what works and what does
+> not](docs/known-limitations.md).
+
+---
+
+## The tools
+
+Every tool reads from your open document and writes back to it as a layer. Nothing is uploaded
+anywhere; ComfyUI runs on your own machine.
+
+| Tool | What it does |
+| :--- | :--- |
+| **Text to Image** | Generate a new layer from a prompt |
+| **Image to Image** | Use the active layer as visual input |
+| **Sketch to Image** | Guide generation with your line art |
+| **Inpaint** | Repaint a Photoshop selection in place |
+| **Outpaint** | Extend canvas content beyond the edges |
+| **Upscale** | Enhance generated or selected layers |
+| **Prompt from Layer** | Describe a layer back into prompt text |
+| **Unflatten** ✦ | Split one flat layer into separate layers, each with real transparency |
+| **Live Painting** | Paint and watch the model respond live |
+| **Style Reference** | Borrow a reference layer's mood and colour |
+| **Multi-Reference** ✦ | Compose one image from several layers |
+| **Layer Tools** | Export layers, selections, and masks |
+| **History** · **Prompt Wallet** | Review past generations; save and reuse favourite prompts |
+| **Setup** · **Settings** | See what you still need to download; defaults, ports, diagnostics |
+
+<sub>✦ experimental</sub>
+
+**Unflatten is the one nothing else does.** Hand it a flat picture and it comes back as separate
+layers — ground, bench, person — each cut out with its own alpha, imported into your open document
+in stacking order inside one group. A layered result is worth very little in a web UI. In Photoshop
+it is the whole point.
+
+**An AI assistant can drive it too.** All ten generation tools are reachable over the Model Context
+Protocol, so Claude or Codex can work the panel's own buttons in your open document. Off by default;
+see [`bridge/README.md`](bridge/README.md).
+
+---
 
 <details>
-<summary>See the earlier dashboard design</summary>
+<summary><h3>Installation</h3></summary>
 
-![Earlier OpenLayer Home dashboard](docs/assets/openlayer-v021-dashboard.png)
+**Download the `.ccx`, double-click it, start ComfyUI.** That is the whole process — the details
+below are for when something does not go that way, and for building from source.
 
-The earlier card-based dashboard established OpenLayer's honest available/experimental/coming-soon model. v0.6 keeps that information architecture while using less space and fitting Photoshop more naturally.
+You will also need the Adobe Creative Cloud desktop app, which is what installs the `.ccx`.
+
+### 1. Install the plugin
+
+Use the **Download** button above, or grab
+[`openlayer-latest.ccx`](https://github.com/MehranMarxian/OpenLayer/releases/latest/download/openlayer-latest.ccx)
+directly, and **double-click it**. Creative Cloud installs the panel. Photoshop then lists it under
+**Plugins › OpenLayer**. Release notes for the version you just got are on the
+[Releases page](https://github.com/MehranMarxian/OpenLayer/releases).
+
+Two things worth knowing:
+
+- The plugin is **not signed and not from Adobe Exchange**, so Creative Cloud shows a "not verified by
+  Adobe" prompt. That is expected — click through it.
+- Keep the `.ccx` on the **same drive as Photoshop**. The installer only searches the drive the file
+  is sitting on, so a `.ccx` on `D:` with Photoshop on `C:` fails silently.
+
+<details>
+<summary>If double-clicking does nothing (a Windows 11 quirk)</summary>
+
+Creative Cloud sometimes opens with no progress and no error. Install directly instead:
+
+```text
+"C:\Program Files\Common Files\Adobe\Adobe Desktop Common\RemoteComponents\UPI\UnifiedPluginInstallerAgent\UnifiedPluginInstallerAgent.exe" /install "path\to\openlayer-latest.ccx"
+```
+
+`UnifiedPluginInstallerAgent.exe /list all` shows what is installed and `/remove OpenLayer`
+uninstalls it. `/list` needs `all` or the exact product name (`"Photoshop 2025 64"`) — a partial name
+like `"Photoshop"` prints nothing and no error, which looks exactly like "nothing installed".
 
 </details>
 
-v0.20.0-alpha tester focus:
+Verified on Windows 11 with Photoshop 2025. **macOS and other Photoshop versions are unverified** —
+reports either way are welcome.
 
-- **Confirm the panel footer reads `v0.20.0`.** It read the wrong version for the whole of v0.14.0-alpha, so this is worth a glance before anything else.
-- **Open Multi-Reference and add three or four layers**, one at a time, with Add Active Layer or Add Canvas. Confirm each row gets its own correct thumbnail — not a repeat of the previous one — and that the count reads "N of 8".
-- **Press Up or Down twice, fast.** A reference should move exactly one place per press, not two. Same for Remove: one press, one row gone.
-- **Compose from two references at a fixed seed, then reorder them and compose again at the same seed.** The result must change, and the output canvas size must follow whichever reference is now first — that is the one thing reference order is guaranteed to affect. If it comes back identical, the reorder is not reaching ComfyUI.
-- **Compose from more than two references captured together.** Two different images uploaded under the same filename overwrite each other in ComfyUI, and it happened once in testing before this release — the symptom is a background that resembles neither reference and an output sized to the wrong one.
-- **Try a real photograph as one of the references** — of yourself, or anyone you can judge the likeness of. Confirm what the panel's own info note says: clothing and setting carry across, the face does not. This is expected, not a bug; report back only if a face *does* come through recognisably, since that would contradict what 48 test generations found.
-- **Add a ninth reference.** It should be refused with a message naming the limit, not silently dropped or ignored.
+### 2. Start ComfyUI
 
-Also worth rechecking from `v0.18.0-alpha`:
-
-- **Switch to Artist-Friendly Dark** in Settings. The panel should restyle into the softer dark theme. Switch back to Compact Adobe Dark and confirm it looks exactly as it did before — nothing about it should have changed.
-- **In Artist-Friendly Dark, confirm the numeric parameters are sliders.** Drag Detail (steps) or Strength (denoise), confirm the number updates, and generate — the value the slider shows must be the value used. In Compact Adobe Dark the same parameters must still be number boxes.
-- **Press the dice button on a seed field.** Each press should roll a different seed, and the field must never show `214748.36`. Then **load an entry from session History and generate from it** — its seed must load and run, not fail with "Seed must be a whole number". That failure hit every History load before this release.
-- **Expand Advanced settings on one tool, collapse it on another, and reopen the panel.** Each screen must remember what you left it as. Then Reset Settings — it must not re-collapse a screen you chose to keep open.
-- **Open Inpaint, make a selection, switch to `inpaint-flux2-klein`, and generate.** Confirm the repaint blends into the surrounding image. It is strongest at *adding* something to a small selection — try that, and try replacing a larger region. It needs the `comfyui-inpaint-cropandstitch` node pack; if it is missing, Workflow Health should name it.
-
-Also worth rechecking from `v0.15.0-alpha`:
-
-- **Generate with `txt2img-flux2-klein`.** It should complete in under 15 seconds on a 4070 Ti at 1024x1024. Confirm the result is coherent and the prompt was followed.
-- **Open Image to Image, switch to `img2img-flux2-klein`, capture a layer, and generate.** The result should follow your layer. Then switch to `edit-flux2-klein`, enter a change instruction ("make the sky orange"), and generate again — the edit should apply the instruction while keeping the rest of the scene.
-- **Open Inpaint, make a selection, and switch to `inpaint-flux-fill-cropstitch`.** Generate and confirm the inpainted area blends into the surrounding image. Compare with `inpaint-flux-fill-basic` at the same selection — crop-and-stitch should produce sharper detail on small selections in large documents.
-- **Generate an Image to Image result from a layer that is not at the canvas origin**, then import it. The imported layer must land where the source layer was, not centred on the canvas.
-- **Confirm ordinary use is unaffected if you never turn the Agent Bridge on.** Text to Image gains one new button, "Ask the Agent for a Prompt" — clicking it with the bridge off should show a clear "not connected" status, not an error or a broken panel. Everything else should behave exactly as it did in v0.14. This is the most important check in the list: everything below is opt-in.
-- Open **Setup** and find the **Agent Bridge** section at the bottom. With nothing running, press **Turn Agent Bridge On** — it must report that no bridge is listening and tell you how to start one, not hang or claim to be connected.
-- Start the hub (`cd bridge && npm install && npm run hub`), then turn the toggle on. It should connect **without any AI client running at all** — the hub is independent of them.
-- Register the bridge with Claude Code or Codex (`bridge/README.md` has the line), then ask it to call `get_panel_state`. It should report `connected: true` and list all seven tools.
-- Ask it to generate something. The prompt should appear in the panel by itself and run exactly as if you had typed it. Then ask for a model or size it has not used — the panel's own dropdowns should follow.
-- **Start a generation by hand, and while it runs, ask the assistant to generate something.** It must refuse with "OpenLayer is busy", not start a second run. This is the safety rule most worth confirming in the real app.
-- Ask for one of the capture-based tools (**Upscale**, **Inpaint**, **Image to Image**) with nothing captured. It should come back with the same clear "capture a source first" refusal you would get from clicking Generate too early.
-- Try **Ask the Agent for a Prompt** under the Text to Image prompt box. If your AI client supports MCP sampling it fills the box; if not it should refuse instantly with an explanation, and that refusal is the correct behaviour rather than a bug. Report which client you used either way — that answer is genuinely unknown for most clients.
-- Close your AI client mid-generation. Photoshop should finish the job normally.
-
-Also worth rechecking from v0.14.0-alpha:
-
-- Open **Sketch to Image** and switch the Workflow dropdown to **Z-Image Fun ControlNet Union (Lite)**. The **Checkpoint** dropdown must repopulate and offer `z_image_turbo_bf16.safetensors`.
-- Draw with a pencil or soft brush on a **toned or off-white** background, not pure white, and generate with each Z-Image preset. The result must follow your drawing without your strokes appearing on the finished image.
-- Generate from a **small document**, under 1024px on the long edge. The imported layer must come back at your canvas size and must not show a maze-like texture or bare glowing lines on black.
-
-Also worth rechecking from v0.13.0-alpha:
-
-- Open **Text to Image**, pick `txt2img-krea2-turbo`, and confirm a **LoRA (optional)** row appears with `None` selected and no strength field. Generate once with `None` — it must succeed — then pick a LoRA and generate again at the same seed. The two images must differ.
-- Switch the Workflow dropdown across every preset in Text to Image, Image to Image and Sketch to Image and confirm the LoRA row appears for all of them. Confirm it does **not** appear on Inpaint, Outpaint or Upscale.
-- Pick a LoRA whose name mentions a different model family than the preset. It should still be selectable, marked `(name suggests another model)`, and generating should **succeed with a visibly unchanged image** — that is the silent failure the warning describes, not a bug.
-
-Also worth rechecking from v0.11.0-alpha:
-
-- Open **Setup** from Home *before* starting ComfyUI. Confirm every model and node package is still listed with its folder, size and links, that the three tallies show a dash rather than 0, and that nothing claims you are set up.
-- Start ComfyUI, click **Check Again**, and confirm the list splits into what you have and what you are missing, with the installed rows collapsed. The remaining download figure should count each file once even though several presets share it — and should say "Nothing" if you have everything.
-- Move one model into the wrong folder — a checkpoint into `models/diffusion_models/`, say — check again, and confirm its row says you already have the file, names the folder it is in, and does not add its size to the remaining download.
-- Use the filter chips to narrow the list to one tool, and confirm the tallies and the download total keep describing everything rather than only the filtered slice.
-- Read **"What will run well"** at the bottom of Setup. Confirm the VRAM figure matches your card, that the order runs best-first, and that the Florence-2 preset is *not* claimed to be the most comfortable one on the list.
-- Look at the status badges on both Setup and **Check Workflow Health**: they should be the same squared uppercase label on both screens, with no text cut off by an ellipsis. The longest ones are NEEDS WORKFLOW JSON and MISSING COMFYUI NODE.
-- Confirm the filter chips read as flat outlined pills of uniform height — not gold switches, not stretched ovals.
-- Confirm Workflow Health names presets the way an artist would ("Krea-2 Turbo", "Standard checkpoint") rather than by their internal ids.
-Also worth rechecking from v0.10.0-alpha:
-
-- Unzip the release package and confirm it expands into folders, with an `assets/` directory beside `index.html` — not a flat pile of files with backslashes in their names. **On macOS this is the single most useful thing to report.**
-- Put a model in the wrong folder on purpose — move a checkpoint into `models/diffusion_models/`, say — then run **Check Workflow Health** and confirm the report names the folder it actually found it in and the folder the workflow wants.
-- Open **Live Painting**. Confirm Start and Stop Live Session have a gap between them and are the same height, and that the two explanatory hints read as full paragraphs rather than ending in an ellipsis.
-- Set a Live Painting negative prompt, start a session, and paint. Then run one session with the field left blank and confirm it behaves as it did before.
-
-Also worth rechecking from v0.9.0-alpha:
-
-- Open **Layer Tools** from Home. With a layer selected, save it to a file, then send it to ComfyUI and confirm it appears in ComfyUI's `input` folder under the name the status line reports.
-- Make a selection, then run both the **Selection** and **Selection mask** exports. The mask is the one an inpainting workflow wants; confirm it is a black-and-white image matching what you selected.
-- Cancel a save dialog and confirm the status line says so without turning red — a change of mind is not an error.
-- Run a Layer Tools export with no selection, and with no open document, and confirm the message names what you were trying to do.
-- Open each tool in turn without touching anything and confirm its diagnostics line still shows its own opening hint. Then generate on Text to Image and confirm nothing from it appears on any other tool's screen.
-- Open **Plugins > OpenLayer Preview**, generate, and import the result using the panel's own **Import** button. Confirm the layer lands in the same document the generation started from, and that the panel's status line reports what happened.
-- Confirm the panel's Import button is disabled while a run is in progress and on live sampler frames, and enabled again once a result is committed.
-- Open **Plugins > OpenLayer Preview**, pin it to one tool, generate with another, and confirm the panel stays pinned and restores that choice in a later session.
-- Start Text to Image and confirm progress appears only in its own status bar; return Home and confirm the shared status row does not appear on tool screens.
-- Watch a sticky tool header before and during a run. There should be no progress bar in the header at all, its height should not change, and the bar should appear under the status text in the generation status panel with nothing painted over it.
-- Exercise an error path and open its technical details to confirm the original failure is reported without a second crash.
-- Run `npm run setup-pack` and confirm it reports no source/API mismatches at all.
-- Recheck the existing local generation, cancel, preview, import, History, and Workflow Health paths for regressions.
-
-Known v0.20.0-alpha boundaries:
-
-- **Unflatten needs a subject standing in front of a background.** A close-up that fills the frame has no front and back to find: it comes back with the picture unchanged on the background layer and empty layers above it. This is true of photographs and generated images alike — it is about the composition, not the source. The panel cannot detect this and say so, because deciding it needs the image's alpha channel and nothing in a UXP panel can decode a PNG; two cheap proxies were measured and both failed. So the limit is stated on the screen, in the tool description an agent reads, and here.
-- **The background layer is softer than the original; the layers in front are not.** The decomposition runs at 640px because higher resolution measurably separates worse. Rather than import that re-render, every layer in front of the background is rebuilt from your captured layer's own pixels wearing the model's matte, so the subject stays at the resolution you captured and only its cut edge is soft. That edge comes from the 640px matte, which makes it a starting point rather than a production cut-out — Photoshop’s own Select and Mask refines it far better than anything the panel could do, and the layer masks are there to be refined. The background cannot work that way — it holds content the model invented to fill the hole the subject left, which by definition is not in your source — so it arrives at 640 and repainting it is expected.
-- **The number of layers you ask Unflatten for is a ceiling, not a promise.** A four-layer run may come back with only two carrying anything, and which ones varies with the seed. Empty plates are left out rather than imported, and the layers that remain are renumbered so there are no gaps — so asking for four and receiving two is the tool working, not failing. A plate that is faint rather than truly empty can still slip through.
-- **Multi-Reference Composition does not preserve a specific person's likeness.** It carries clothing, props, setting and lighting from a reference; a person's face comes back as a plausible stranger rather than the person photographed, confirmed against four real photographs and dozens of Klein-generated sources. Treat it as scene composition, not as a way to put someone recognisable into a picture.
-- **The reference list is capped at 8**, a sanity bound rather than a measured quality limit — testing found no reference count at which composition degraded, up to 6. Reference order matters more than count: an object that has to sit behind the other subjects is more likely to render cleanly if it comes earlier in the list.
-- **The Agent Bridge is not in the `.ccx`/`.zip` download.** A Photoshop plugin package cannot install or start a Node program, so it lives in the repository — see `bridge/README.md`. It is off by default in the panel either way. "Ask the Agent for a Prompt" additionally depends on your AI client supporting MCP *sampling*, which is optional in the protocol; a client that does not offer it gets a clear, instant refusal rather than the button working.
-- **The Setup screen downloads missing models, but not custom nodes.** A missing model's row offers **Download** beside Copy Link, and OpenLayer fetches the file from the URL the registry pins — in resumable 8 MiB chunks, one model at a time, and never before a confirmation naming the size, the destination folder and the download host. What it will not do is unchanged and deliberate: licence-gated weights are never fetched anonymously, because an unauthenticated request saves an HTML sign-in page under the model's filename; a model already on disk in the wrong folder asks you to move it rather than downloading a second copy; and an entry published as a repository folder rather than a single file points you at the model page. Custom node packages keep Copy Link and go through ComfyUI-Manager. Full reasoning in the CHANGELOG.
-- The **Flux.2 GGUF preset is slow on a 12 GB card**: minutes per image, not seconds, and its text encoder is licence-gated, so accept the licence in a browser and download it by hand.
-- "What will run well" rates on published model weight sizes against reported VRAM. It is not a measurement of VRAM use during a run, and a preset with an unpublished model size is reported as unknown rather than guessed at.
-- Setup and Check Workflow Health overlap on purpose. Setup answers what you need and where it goes; Health answers whether a given preset can run right now.
-- Image to Image is an early foundation path, not a full production workflow yet.
-- Sketch to Image has five presets: three SD 1.x ControlNets (LineArt, Scribble, Depth) and two Z_image_Turbo presets that read the sketch through Alibaba-PAI's Z-Image Fun ControlNet Union patch -- `sketch2img-zimage-fun-controlnet` (lite, 2.0 GB, faster) and `sketch2img-zimage-fun-controlnet-full` (6.7 GB, slower). Neither Z_image_Turbo preset replaced the other, because they measured as complementary rather than ranked: the full weights render shaded or densely drawn work more photographically, while the lite weights hold bold sparse line art that the full weights flatten into a filled shape at any control strength. Their default control strengths differ for the same reason -- 1.0 for lite, 0.6 for full, which patches five times as many layer blocks. The SD 1.x presets are tested with `epicrealism_naturalSinRC1VAE.safetensors` and their respective `control_v11p_sd15_*` ControlNets; the Z_image_Turbo presets with `z_image_turbo_bf16.safetensors` and, respectively, `Z-Image-Turbo-Fun-Controlnet-Union-2.1-lite-2602-8steps.safetensors` and `Z-Image-Turbo-Fun-Controlnet-Union-2.1.safetensors`.
-- Active-layer and canvas capture now encode raw Photoshop Imaging API pixels as PNG/lossless source images.
-- Inpaint can detect and capture the selected rectangular region as a PNG/lossless source image.
-- Inpaint now attempts a temporary-layer grayscale PNG mask export and can run the experimental SD 1.x `inpaint-basic` workflow when ComfyUI has the required nodes.
-- Inpainting is available for testing, but output quality and Photoshop alignment are not confirmed stable yet.
-- Inpaint has three presets: `inpaint-basic` (SD 1.x), `inpaint-flux-fill-basic` (Flux Fill), and `inpaint-flux-fill-cropstitch` (Flux Fill with crop-and-stitch). The crop-and-stitch preset requires lquesada's `comfyui-inpaint-cropandstitch` custom-node package; without it the preset is unavailable and the original Flux Fill preset still works.
-- `img2img-basic` is the default SD 1.x/SDXL preset. SD3, SD3.5, and Flux checkpoints remain visible but are marked experimental because they usually need dedicated future workflow presets.
-- Z_image_Turbo presets are experimental and use `UNETLoader`, `CLIPLoader`, and `VAELoader` instead of the checkpoint loader.
-- `txt2img-flux1-dev-fp8` is an experimental checkpoint-style Flux Text to Image preset for `flux1-dev-fp8.safetensors`.
-- FLUX.2 Klein presets (`txt2img-flux2-klein`, `img2img-flux2-klein`, `edit-flux2-klein`) use `flux-2-klein-4b-fp8.safetensors` (4.07 GB), `qwen_3_4b.safetensors` (8 GB, shared with Z_image_Turbo), and `ae.safetensors` (336 MB). Klein is Apache-2.0 and ungated. `edit-flux2-klein` is structurally different from image-to-image: it uses `ReferenceLatent` conditioning at denoise 1, not a starting latent at partial denoise.
-- Full-precision Flux1-dev Text to Image and Image to Image presets have been removed rather than left disabled. The bf16 weight is 23.8 GB before its text encoders and VAE, which does not fit the 12 GB cards this project targets, and `txt2img-flux1-dev-fp8` already covers Flux Text to Image. Every preset the panel lists is now one you can actually run.
-- Cancel Generation uses ComfyUI's interrupt endpoint and stops OpenLayer watchers/polling for active generation tools, but cancellation cannot undo work ComfyUI already completed.
-- The Settings workflow health checker reports local readiness, but it does not auto-fix missing models, missing nodes, or workflow mappings.
-- Workflow Health now gives beginner-friendly next checks for missing models, missing ComfyUI nodes, missing workflow JSON, setup-required presets, and experimental presets.
-- Persistent Photoshop layer metadata is not confirmed safe in this UXP environment yet. OpenLayer keeps structured metadata in session history and prepares a serialized payload for future persistence.
-- Copy Diagnostics prepares a setup report for testers. It does not send data anywhere.
-- Prompt from Layer requires `comfyui-florence2` and `Florence-2-base-PromptGen-v2.0`. The `comfyui-custom-scripts` pack is no longer needed.
-- Outpaint is experimental and currently uses `outpaint-flux-fill-basic` with `flux1-fill-dev.safetensors`, `clip_l.safetensors`, `t5xxl_fp16.safetensors` or the accepted T5 fp8 fallback, and `ae.safetensors`.
-- Upscale currently uses a simple pixel/model upscale path. It does not use prompts, latent upscale, tiled diffusion, or creative enhancement.
-- Upscale needs ComfyUI's `UpscaleModelLoader` and `ImageUpscaleWithModel` nodes plus an installed upscale model such as `4x-UltraSharp.pth` or `RealESRGAN_x4plus.pth`.
-- The setup pack contains no model weights. They are roughly 85 GB and two are licence-restricted, so it ships the requirements list and a downloader instead. An internet connection is required.
-- Inpaint and Outpaint remain experimental and should be tested on duplicate layers or disposable documents.
-- CI covers pure TypeScript behavior but does not run Photoshop, UXP Developer Tool, or ComfyUI integration tests.
-- Panel-wide diagnostics such as the port scan, the GPU report, and workflow health are reported on the Settings screen rather than on every tool screen. Each tool's own diagnostics line also mirrors to Settings, which is the panel-wide log.
-- Progress is no longer pinned while a tool's form is scrolled, which is the accepted cost of taking the progress bar out of the sticky header.
-- The 0.8 releases focus on correctness and maintainability. Existing generation capabilities should remain compatible with v0.7.0.
-- The Preview panel offers each tool's primary import only. Live Painting's "Import Refined as Layer" stays on the dashboard.
-- Layer, canvas, selection, and mask capture is limited to 16 megapixels (4096 x 4096) until a downscale option is added.
-- Layer Tools' Send to ComfyUI puts the image in ComfyUI's `input` folder. It does not build or run a workflow for you — you reference the uploaded file from a workflow yourself.
-- The Layer Tools card on Home does not dim when ComfyUI is unreachable, unlike the generation tools. Saving to a file still works with ComfyUI stopped; Send to ComfyUI reports the connection error on the Layer Tools status line.
-- Live sampler previews require ComfyUI to be started with `--preview-method auto`, and the preview panel may flicker between steps until a future UI polish pass.
-- Classic v0.4 theme preserves the older visual feel, but it does not duplicate every old layout detail.
-- SDXL, SD3, and Flux Sketch to Image workflows still need dedicated future presets.
-- Workflow node IDs may need adjustment for custom ComfyUI workflows.
-- Dedicated selected-layer PNG file export, selection preservation, aligned regional workflows, advanced ControlNet-style workflows, and generative upscaling are not included yet.
-- The UI is functional and responsive enough for testing, but final visual polish will continue in later releases.
-
-## Project Page
-
-The static landing page is in:
-
-```text
-docs/index.html
-```
-
-For GitHub Pages, publish from the `docs` folder on the main branch.
-
-## Model And VRAM Guide
-
-OpenLayer includes a beginner-friendly guide for local model choices, VRAM tiers, and why diffusion model stacks such as `Z_image_Turbo` do not appear in the checkpoint selector:
-
-```text
-docs/model-guide.md
-```
-
-The current experimental inpainting status and next debugging checklist are documented in:
-
-```text
-docs/inpainting.md
-```
-
-Key technical decisions for the project are tracked in:
-
-```text
-docs/technical-decisions.md
-```
-
-## MVP Status
-
-Working foundation:
-
-- Photoshop UXP panel scaffold for Photoshop 2024+
-- Dark, minimal UXP-friendly TypeScript UI
-- Photoshop-dark Home dashboard with Text to Image, Image to Image, Sketch to Image, Inpaint, Prompt from Layer, Settings, History, and future workflow cards
-- Experimental Outpaint card and screen for Flux Fill canvas expansion testing
-- Configurable local ComfyUI server URL
-- ComfyUI connection check
-- Checkpoint/model selector loaded from ComfyUI
-- Settings page with saved local defaults and diagnostics
-- Settings hardware advisor for detecting ComfyUI GPU/VRAM and recommending safe model families
-- Session history for recent generated images
-- `txt2img-basic` workflow generation
-- Experimental `txt2img-z-image-turbo` workflow generation
-- `img2img-basic` workflow generation foundation
-- Experimental `img2img-z-image-turbo` workflow generation foundation
-- `sketch2img-linecn-basic` Sketch to Image generation foundation
-- Experimental `prompt-from-layer-florence2` text workflow with Task and Num beams controls
-- Experimental `upscale-basic` pixel/model upscale workflow
-- Active-layer or visible-canvas source capture and ComfyUI image upload
-- Experimental Inpaint/Repaint Selection screen with Photoshop selection detection, selected-region PNG source capture, grayscale mask export, and SD 1.x `inpaint-basic`
-- Experimental checkpoint mode for trying non-SD/SDXL model families with clear warnings
-- `/prompt` submission
-- `/history/{prompt_id}` polling
-- `/view` image retrieval
-- Result preview in the panel
-- Import result into the active Photoshop document as a new layer
-
-Future placeholders are included for regional import alignment and selection preservation.
-
-## Requirements
-
-**To use the plugin:**
-
-- Adobe Photoshop 2024 or newer
-- Adobe Creative Cloud desktop app, to install the `.ccx` by double-click
-- A local ComfyUI server for OpenLayer running at `http://127.0.0.1:8190`
-
-**To build from source instead:**
-
-- Adobe UXP Developer Tool
-- Node.js 18+
-
-The UXP Developer Tool is no longer needed just to run OpenLayer — see
-[One-click install](#one-click-install-verified-2026-08-03).
-
-## Local Permissions
-
-OpenLayer is local-first. The Photoshop UXP manifest currently requests filesystem and network access because:
-
-- local filesystem access is used for temporary files and Photoshop import tokens
-- network access is used to communicate with the user's local ComfyUI server
-- Copy Diagnostics prepares a local text report only
-
-OpenLayer does not send diagnostics, images, prompts, or model information anywhere automatically.
-
-## Install
-
-```bash
-npm install
-```
-
-## Development
-
-Build the plugin:
-
-```bash
-npm run build
-```
-
-Load the generated `dist` folder in Adobe UXP Developer Tool.
-
-Run local checks:
-
-```bash
-npm run typecheck
-npm test
-```
-
-These checks do not require Photoshop or ComfyUI.
-
-For fast UI iteration outside Photoshop, you can run:
-
-```bash
-npm run dev
-```
-
-The dev server is useful for panel layout work, but the Photoshop-specific APIs only run inside Photoshop through UXP.
-
-## Package
-
-```bash
-npm run package
-```
-
-This creates a zip package from `dist` in the `packages` folder. For the current alpha, the expected package name is:
-
-```text
-packages/openlayer-v0.20.0-alpha.zip
-```
-
-`npm run package` also writes `packages/openlayer-v0.20.0-alpha.ccx` beside it, from the same files.
-
-## One-click install (verified 2026-08-03)
-
-Every release attaches a `.ccx`. **Double-click it and Creative Cloud installs the panel — no UXP
-Developer Tool, no developer mode.** Photoshop then lists it under **Plugins > OpenLayer** like any
-other installed plugin.
-
-This was an open question across three releases and is now answered. What was checked, on Windows 11
-with Photoshop 2025 (26.1.0): the package installs, Adobe's Unified Plugin Installer Agent reports it
-as `Enabled OpenLayer 0.13.0` under *Photoshop 2025 64*, it unpacks to
-`%APPDATA%\Adobe\UXP\Plugins\External\com.openlayer.photoshop_<version>\` with no `debug.json` — a
-packaged install rather than a developer load — and the panel opens and works in Photoshop.
-
-Two things worth knowing before you try it:
-
-- The plugin is **not signed and not from Adobe Exchange**, so Creative Cloud shows a "not verified by
-  Adobe" trust prompt. That is expected; it is a prompt to click through, not a failure.
-- Keep the `.ccx` on the **same drive as Photoshop and Creative Cloud**. The installer only searches
-  the drive the file is sitting on, so a `.ccx` on `D:` with Photoshop on `C:` fails.
-
-If double-clicking does nothing at all — a known Windows 11 quirk where Creative Cloud opens with no
-progress and no error — install it directly instead:
-
-```text
-"C:\Program Files\Common Files\Adobe\Adobe Desktop Common\RemoteComponents\UPI\UnifiedPluginInstallerAgent\UnifiedPluginInstallerAgent.exe" /install "path\to\openlayer-vX.Y.Z-alpha.ccx"
-```
-
-`UnifiedPluginInstallerAgent.exe /list all` shows what is installed, and `/remove OpenLayer` uninstalls
-it. Note that `/list` needs `all` or the exact product display name (`"Photoshop 2025 64"`); a partial
-name like `"Photoshop"` prints nothing and no error, which looks exactly like "nothing installed".
-
-**Still unverified:** macOS, and any Photoshop other than 2025. Reports either way are welcome.
-
-The UXP Developer Tool route below still works and is what you want when building from source.
-
-## Loading In UXP Developer Tool
-
-1. Open Adobe UXP Developer Tool.
-2. Click `Add Plugin`.
-3. Select `dist/manifest.json` after running `npm run build`.
-4. Click `Load`.
-5. Open Photoshop and find OpenLayer in the Plugins panel.
-
-## Starting ComfyUI
-
-Start ComfyUI locally using your normal ComfyUI launch command. Confirm the server is reachable:
-
-```bash
-curl http://127.0.0.1:8190/system_stats
-```
-
-In OpenLayer, keep the default server URL or enter your own:
-
-```text
-http://127.0.0.1:8190
-```
-
-OpenLayer uses port `8190` by default so it does not interfere with another tool that may already be
-using ComfyUI on port `8188`.
-
-**You do not have to move your server to 8190.** If ComfyUI is already running somewhere else — 8188
-or anywhere — open **Settings** and click **Find ComfyUI Active Port**. OpenLayer scans for the running
-server, connects to it, and reports `Ready`. Use your normal launch command and leave it where it is.
-
-Starting a dedicated instance on 8190 is the other option, not the required one:
+Use your normal launch command. OpenLayer defaults to port `8190` so it does not collide with another
+tool already on `8188`:
 
 ```bash
 python main.py --listen 127.0.0.1 --port 8190 --preview-method auto
 ```
 
-`--preview-method auto` is optional but recommended: it makes ComfyUI stream live KSampler step previews into the OpenLayer result preview while generating.
+**You do not have to move your server.** If ComfyUI is already running somewhere else, open
+**Settings › Find ComfyUI Active Port** — OpenLayer scans for it, connects, and reports `Ready`.
 
-Click `Check ComfyUI` before generating.
+`--preview-method auto` is optional but recommended: it streams live sampler previews into the panel
+while generating.
 
-## First Image
+### 3. Generate
 
-1. Open a Photoshop document.
-2. Open the OpenLayer panel.
-3. Open Settings and click `Find ComfyUI Active Port` or `Check ComfyUI` to load the available checkpoints.
-4. Optional: click `Detect GPU & Recommend Models` to see hardware-aware model suggestions.
-5. Choose a checkpoint.
-6. Enter a prompt.
-7. Optionally enter a negative prompt.
-8. Keep the workflow preset set to `txt2img-basic`.
-9. Click `Generate`.
-10. Wait for the preview.
-11. Click `Import Result as New Layer`, or enable `Import Result Automatically` before generating.
+Open a document, open the panel, click **Check ComfyUI**, pick a workflow, type a prompt, press
+**Generate**. Full first-run walkthroughs for each tool are in
+[**Getting started**](docs/getting-started.md).
 
-The imported layer is named like:
+<details>
+<summary>Building from source instead</summary>
 
-```text
-OpenLayer_Generated_YYYYMMDD_HHMM
+Needs Node.js 18+ and the Adobe UXP Developer Tool.
+
+```bash
+npm install
+npm run build
 ```
 
-## First Image To Image Test
+Then load `dist/manifest.json` in the UXP Developer Tool and click **Load**.
 
-1. Open a Photoshop document.
-2. Select the layer you want to use as the source.
-3. Open the OpenLayer panel and choose `Image to Image`.
-4. Click `Capture Active Layer`, or click `Capture Canvas` to use the visible document.
-5. Confirm the source preview appears.
-6. Enter a prompt describing how to reinterpret the source.
-7. Choose a checkpoint and keep the workflow set to `img2img-basic`.
-8. Click `Generate Image to Image`.
-9. Wait for the result preview.
-10. Click `Import to Layers`.
-
-The imported layer is named like:
-
-```text
-OpenLayer_Img2Img_YYYYMMDD_HHMM
+```bash
+npm run typecheck   # local checks, no Photoshop or ComfyUI needed
+npm test
+npm run dev         # panel layout iteration in a browser
+npm run package     # writes the .zip and .ccx into packages/
 ```
 
-## First Sketch To Image LINECN Test
+</details>
+</details>
 
-1. Install or confirm this SD 1.x checkpoint is available in ComfyUI:
+---
 
-```text
-epicrealism_naturalSinRC1VAE.safetensors
-```
+<details>
+<summary><h3>Required files</h3></summary>
 
-2. Install or confirm this SD 1.5 LineArt ControlNet model is available in ComfyUI:
+You do not need all of this. Most tools share the same few files, so the list is much shorter than it
+looks — and the panel's **Setup** screen shows this same list checked against your own machine, with
+the folder each file goes in and whether you already have it. It works with ComfyUI stopped, which is
+the state most people are in when they go looking.
 
-```text
-control_v11p_sd15_lineart_fp16.safetensors
-```
+Sizes are as Hugging Face reports them. **"Add-on"** below means a ComfyUI custom node — an extension
+you install once through ComfyUI-Manager, not something you download into a models folder.
 
-3. Open a Photoshop document with a visible source layer or canvas.
-4. Open the OpenLayer panel and choose `Sketch to Image`.
-5. Click `Capture Active Layer`, or click `Capture Canvas`.
-6. Confirm the source preview appears.
-7. Enter a prompt describing the final image.
-8. Keep the workflow set to `sketch2img-linecn-basic`.
-9. Choose `epicrealism_naturalSinRC1VAE.safetensors`.
-10. Click `Generate Sketch to Image`.
-11. Wait for the result preview.
-12. Click `Import to Layers`.
+### Start here — 12.5 GB, and five tools work
 
-The imported layer is named like:
+The **FLUX.2 Klein 4B** stack is the best ratio in the whole list. Apache-2.0, ungated, no add-ons,
+and every node it uses is core ComfyUI. It generates a 1024×1024 image in about 12 seconds on a
+4070 Ti.
 
-```text
-OpenLayer_Sketch_YYYYMMDD_HHMM
-```
+| File | Folder | Size |
+| :--- | :--- | ---: |
+| `flux-2-klein-4b-fp8.safetensors` | `models/diffusion_models/` | 4.07 GB |
+| `qwen_3_4b.safetensors` | `models/text_encoders/` | 8.04 GB |
+| `flux2-vae.safetensors` | `models/vae/` | 336 MB |
 
-## First Inpaint Test
+That is **Text to Image, Image to Image, instruction editing, and Multi-Reference**. Add
+`4x-UltraSharp.pth` (67 MB, `models/upscale_models/`) and **Upscale** works too — five tools, 12.5 GB.
 
-This alpha includes the first experimental SD 1.x mask-based inpainting path.
+**Two tools need nothing at all:** Layer Tools works with ComfyUI stopped, and Upscale costs 67 MB.
 
-1. Open a Photoshop document.
-2. Make a rectangular or freeform selection in Photoshop.
-3. Open the OpenLayer panel and choose `Inpaint`.
-4. Click `Capture Selection`.
-5. Confirm the source preview appears and the status shows the selection bounds.
-6. Confirm the mask preview appears as a black/white PNG mask.
-7. Enter a prompt and click `Generate Inpaint`.
-8. Wait for the result preview.
-9. Click `Import to Layers`.
+### The four stacks
 
-The first `inpaint-basic` preset is experimental and intended for SD 1.x inpaint checkpoints first. `inpaint-flux-fill-basic` is also available as an experimental Flux Fill path when your local ComfyUI exposes the required Flux Fill model stack. `inpaint-flux-fill-cropstitch` adds crop-and-stitch sampling at 1024 on top of the same Flux Fill stack, and needs lquesada's `comfyui-inpaint-cropandstitch` node package.
+Almost every preset is one of these. Install a stack once and every tool that uses it lights up.
 
-Inpaint output quality, mask interpretation, and Photoshop alignment are still being tested. Use this path for debugging and feedback rather than production work.
+| Stack | Files | Size | Licence |
+| :--- | :--- | ---: | :--- |
+| **FLUX.2 Klein 4B** | Klein 4B fp8 + `qwen_3_4b` + `flux2-vae` | 12.5 GB | Apache-2.0, ungated |
+| **Z_image_Turbo** | `z_image_turbo_bf16` + `qwen_3_4b` + `ae` | 20.7 GB | ungated |
+| **Krea-2 Turbo** | Krea-2 fp8 + `qwen3vl_4b_fp8` + `qwen_image_vae` | 18.6 GB | ungated |
+| **Flux Fill** | `flux1-fill-dev` + `clip_l` + `t5xxl_fp16` + `ae` | 34.2 GB | **non-commercial** |
 
-## Pre-release Tester Checklist
+`qwen_3_4b.safetensors` (8.04 GB) is shared by Klein *and* Z_image_Turbo — if you have one, the other
+costs 12.3 GB, not 20.7 GB. `ae.safetensors` is shared by Z_image_Turbo and Flux Fill.
 
-Use this quick pass before reporting a v0.20.0-alpha test result:
+<details>
+<summary><b>Text to Image</b> — Klein, Z-Image, Krea-2, or any checkpoint you own</summary>
 
-1. Start ComfyUI on `http://127.0.0.1:8190`.
-2. Build OpenLayer and load `dist/manifest.json` in Adobe UXP Developer Tool.
-3. Open Photoshop, create or open a document, and launch OpenLayer.
-4. Confirm unavailable dashboard tools are visibly dimmer than available and experimental tools.
-5. Open two tool screens; confirm the Back to Tools control, icon, title, and progress track have clear spacing and remain visible while scrolling.
-6. Paste a long prompt, confirm it remains editable and scrollable, and confirm the Prompt from Layer generated-text field is substantially taller than other fields.
-7. Open Settings and click `Check ComfyUI`; confirm checkpoints load.
-8. Click `Check Workflow Health`; confirm each registered preset shows Ready, Experimental, Missing model, Missing ComfyUI node, Needs workflow JSON, or Setup required, under its artist-facing name.
-9. Confirm Settings shows readable summary counts and collapsed technical details without overlapping cards.
-10. Click `Copy Diagnostics`; confirm the report is copied or appears in the read-only diagnostics box.
-11. Generate one `txt2img-basic` image and import it as a new layer; confirm the determinate progress bar advances cleanly.
-12. Select `txt2img-flux1-dev-fp8` with `flux1-dev-fp8.safetensors` if available, generate once, and confirm the result preview appears.
-13. Start one Text to Image generation and click `Cancel Generation`; confirm the status changes to `Generation cancelled.` and the next generation still works.
-14. Open `Image to Image`, capture either the active layer or canvas, generate with `img2img-basic`, and click `Import to Layers`.
-15. Toggle Image to Image `Import Automatically`, generate once, and confirm the result imports as a new Photoshop layer.
-16. Open `Upscale`, capture either the active layer or canvas, choose `4x-UltraSharp.pth` or another listed upscale model, generate, and click `Import to Layers`.
-17. Open `Sketch to Image`, capture either the active layer or canvas, generate with `sketch2img-linecn-basic`, and click `Import to Layers`.
-18. Open `Inpaint`, make a Photoshop selection, click `Capture Selection`, and confirm the selected-region preview and mask preview appear.
-19. Generate with `inpaint-flux-fill-basic` if your Flux Fill stack is installed, then click `Import to Layers`; keep `inpaint-basic` as experimental/debug-only if it does not match the source.
-20. Start and cancel one longer Image to Image, Sketch, Outpaint, Inpaint, Prompt from Layer, or Upscale run if your ComfyUI setup supports it; confirm the next generation still works.
-21. Open History after a generation; confirm prompt, model, workflow, seed, dimensions, source mode, tool type, timestamp, import status, Preview, Import, and Reuse Settings are visible.
-22. Resize the panel narrow and wide; confirm Settings, workflow health cards, buttons, preview, and footer remain readable and reachable.
+| Preset | Needs | Extra |
+| :--- | :--- | :--- |
+| Standard checkpoint | any SD 1.x / SDXL checkpoint you already have | — |
+| FLUX.2 Klein | **Klein stack** | — |
+| Z_image_Turbo | **Z_image_Turbo stack** | — |
+| Krea-2 Turbo | **Krea-2 Turbo stack** | — |
+| Flux1-dev fp8 | `flux1-dev-fp8.safetensors` → `models/checkpoints/` (17.3 GB) | non-commercial licence |
+| Flux.2 dev (GGUF) | `flux2-dev-Q4_K_M.gguf` (20.1 GB) + `mistral_3_small_flux2_fp8.safetensors` (18.0 GB) + `full_encoder_small_decoder.safetensors` (250 MB) | add-on: [ComfyUI-GGUF](https://github.com/city96/ComfyUI-GGUF) · non-commercial · **also needs the `gguf` Python package inside ComfyUI's environment — without it the add-on registers no nodes and gives no error at all** |
 
-## Testing Checklist
+</details>
 
-For a step-by-step beginner smoke test, see:
+<details>
+<summary><b>Image to Image</b> — nothing new if you did Text to Image</summary>
 
-```text
-docs/testing-v0.1-alpha.md
-```
+Every Image to Image preset reuses a stack you may already have: **Klein** (both image-to-image and
+instruction editing), **Z_image_Turbo**, **Krea-2 Turbo**, or your own SD 1.x / SDXL checkpoint.
 
-## Workflow Notes
+No add-ons. **0 extra GB** if the matching Text to Image preset already runs.
 
-The included workflows are realistic starter ComfyUI workflows using common built-in nodes:
+</details>
 
-- `src/workflows/api/txt2img-basic.json`
-- `src/workflows/api/txt2img-flux1-dev-fp8.json`
-- `src/workflows/api/prompt-from-layer-florence2.json`
-- `src/workflows/api/img2img-basic.json`
-- `src/workflows/api/sketch2img-linecn-basic.json`
-- `src/workflows/api/inpaint-basic.json`
-- `src/workflows/api/inpaint-flux-fill-basic.json`
+<details>
+<summary><b>Sketch to Image</b> — a ControlNet on top of a stack you have</summary>
 
-You may need to replace the checkpoint name and node IDs for your own ComfyUI setup.
+All five presets need the [comfyui_controlnet_aux](https://github.com/Fannovel16/comfyui_controlnet_aux)
+add-on for the line/depth preprocessors.
 
-OpenLayer now keeps workflow files in two folders:
+| Preset | Needs | Extra |
+| :--- | :--- | ---: |
+| LineArt ControlNet | your SD 1.5 checkpoint + `control_v11p_sd15_lineart_fp16.safetensors` → `models/controlnet/` | 723 MB |
+| Scribble ControlNet | your SD 1.5 checkpoint + `control_v11p_sd15_scribble_fp16.safetensors` | 723 MB |
+| Depth ControlNet | your SD 1.5 checkpoint + `control_v11f1p_sd15_depth_fp16.safetensors` | 723 MB |
+| Z-Image Fun ControlNet (Lite) | **Z_image_Turbo stack** + the lite patch → `models/model_patches/` | +2.02 GB |
+| Z-Image Fun ControlNet (Full) | **Z_image_Turbo stack** + the full patch → `models/model_patches/` | +6.71 GB |
 
-- `src/workflows/api/` for runnable API workflows submitted to ComfyUI
-- `src/workflows/source/` for GUI-editable ComfyUI source workflows
+Lite and full are not ranked — the full weights render shaded work more photographically, the lite
+weights hold bold sparse line art that the full weights flatten into a filled shape.
 
-See `docs/workflow-files.md`, `docs/custom-workflows.md`, and `docs/comfyui-object-info-audit-v0.2.2.md` for the workflow file structure, custom workflow mapping requirements, and the local node schema audit used by the workflow compatibility foundation.
+</details>
 
-The workflow builder injects:
+<details>
+<summary><b>Inpaint</b> — cheapest via Klein, best-known via Flux Fill</summary>
 
-- prompt
-- negative prompt
-- width
-- height
-- seed
-- steps
-- cfg
+| Preset | Needs | Add-on |
+| :--- | :--- | :--- |
+| FLUX.2 Klein (crop & stitch) | **Klein stack** — 0 extra GB if you have it | [comfyui-inpaint-cropandstitch](https://github.com/lquesada/ComfyUI-Inpaint-CropAndStitch) |
+| Flux Fill | **Flux Fill stack** (34.2 GB, non-commercial) | — |
+| Flux Fill (crop & stitch) | **Flux Fill stack** — 0 extra GB | [comfyui-inpaint-cropandstitch](https://github.com/lquesada/ComfyUI-Inpaint-CropAndStitch) |
+| Standard checkpoint | your own SD 1.x **inpaint** checkpoint | — |
 
-Image to Image and Sketch to Image use Photoshop's UXP Imaging API to capture the active layer or canvas, encode the raw pixels as PNG, then send the source image to ComfyUI using `/upload/image`. JPEG source capture has been removed from this path so clean edges, masks, transparency, and linework are not degraded by lossy compression.
+Crop-and-stitch samples the masked area at a fixed 1024 and blends the patch back, so a small mask on
+a large document no longer samples a few hundred pixels.
 
-Inpaint uses the same PNG/lossless Imaging API path, clipped to a padded context around the active Photoshop selection when Photoshop exposes selection bounds. In `v0.4.1-alpha`, OpenLayer also creates a temporary white-filled selection layer, captures it as a grayscale PNG mask, deletes the temporary layer, and uploads both source and mask to ComfyUI.
+</details>
 
-The first `inpaint-basic` preset requires ComfyUI's standard `LoadImage`, `ImageToMask`, `InpaintModelConditioning`, `KSampler`, `VAEDecode`, `ImageCompositeMasked`, and `SaveImage` nodes. It is currently aimed at SD 1.x inpaint checkpoints.
+<details>
+<summary><b>Outpaint</b> — the Flux Fill stack, shared with Inpaint</summary>
 
-The experimental `inpaint-flux-fill-basic` preset requires:
+**Flux Fill stack** (34.2 GB, non-commercial licence). No add-on. **0 extra GB** if Inpaint's Flux
+Fill preset already runs — it is the same four files.
 
-- `flux1-fill-dev.safetensors` through `UNETLoader` from `models/diffusion_models`
-- `clip_l.safetensors` through `DualCLIPLoader.clip_name1` from `models/text_encoders`
-- `t5xxl_fp16.safetensors` through `DualCLIPLoader.clip_name2` from `models/text_encoders`
-- `t5xxl_fp8_e4m3fn.safetensors` as an accepted T5 fallback when the fp16 file is not installed
-- `ae.safetensors` through `VAELoader` from `models/vae`
-- `DifferentialDiffusion`, `FluxGuidance`, `ConditioningZeroOut`, `InpaintModelConditioning`, `KSampler`, `VAEDecode`, and `SaveImage`
+</details>
 
-Flux Fill follows the reference-style graph in `src/workflows/source/inpaint-flux-fill-basic.workflow.json`. That graph expects one `LoadImage` node whose alpha channel becomes the mask. OpenLayer preserves the Photoshop source PNG and embeds the white repaint mask into the uploaded PNG alpha channel before submission. Inpaint import currently uses aligned context import only. The earlier transparent outside-mask PNG experiment is disabled because Photoshop UXP canvas/blob compositing is not trusted yet. Output quality, mask polarity, and alignment are not confirmed stable yet, and Photoshop-native layer mask import remains planned future work.
+<details>
+<summary><b>Upscale</b> — 67 MB, the cheapest tool here</summary>
 
-For debugging, OpenLayer records source, mask, raw result dimensions, import mode, and temporary local debug copies of the source PNG, mask PNG, and raw generated PNG after an Inpaint run.
+`4x-UltraSharp.pth` → `models/upscale_models/` (67 MB). `RealESRGAN_x4plus.pth` also works. No add-on.
 
-`img2img-basic` is intended for SD 1.x and SDXL-style checkpoints. SD3, SD3.5, and Flux checkpoints are shown in the selector for transparency, but OpenLayer warns before running them because those model families often need different loader, text encoder, and VAE nodes.
+This is a pixel/model upscale, not a generative one — no prompt, no tiled diffusion.
 
-Sketch to Image uses the same Photoshop capture and ComfyUI upload path, then runs `sketch2img-linecn-basic`. This preset requires:
+</details>
 
-- `epicrealism_naturalSinRC1VAE.safetensors`
-- `control_v11p_sd15_lineart_fp16.safetensors`
-- `LineartStandardPreprocessor`
-- `ControlNetLoader`
-- `ControlNetApplyAdvanced`
+<details>
+<summary><b>Prompt from Layer</b> — about 1.1 GB</summary>
 
-The first LINECN preset is intentionally narrow. It is a working SD 1.x foundation, not a universal sketch workflow for SDXL, SD3, Flux, or Z_image_Turbo.
+`Florence-2-base-PromptGen-v2.0` → `models/LLM/` (the whole repo folder, about 1.1 GB).
+Add-on: [ComfyUI-Florence2](https://github.com/kijai/ComfyUI-Florence2).
 
-If you export a different workflow from ComfyUI, update the node IDs in `src/comfy/presetRegistry.ts`.
+</details>
 
-## Troubleshooting
+<details>
+<summary><b>Unflatten</b> — 30 GB, and shares nothing</summary>
 
-### GitHub Pages shows 404
+The one stack that reuses nothing else. Every node it needs is core ComfyUI, so there is no add-on.
 
-Make sure GitHub Pages is configured to publish from:
+| File | Folder | Size |
+| :--- | :--- | ---: |
+| `qwen_image_layered_fp8mixed.safetensors` | `models/diffusion_models/` | 20.5 GB |
+| `qwen_2.5_vl_7b_fp8_scaled.safetensors` | `models/text_encoders/` | 9.38 GB |
+| `qwen_image_layered_vae.safetensors` | `models/vae/` | 254 MB |
 
-```text
-main / docs
-```
+`qwen_image_layered_vae.safetensors` is **not** the same file as Krea-2's `qwen_image_vae.safetensors`,
+despite the near-identical name. About two minutes for four layers on a 12 GB card.
 
-The landing page entry file is `docs/index.html`.
+</details>
 
-### Plugin does not appear in Photoshop
+<details>
+<summary><b>Multi-Reference</b> — free if you have Klein</summary>
 
-Run `npm run build`, then load:
+**Klein stack**, and nothing else. No add-on — `ReferenceLatent` and the rest are core ComfyUI.
+**0 extra GB** if any Klein preset already runs.
 
-```text
-dist/manifest.json
-```
+</details>
 
-in Adobe UXP Developer Tool. After loading, open Photoshop and use the Plugins menu to open OpenLayer.
+<details>
+<summary><b>Style Reference</b> — 2.6 GB on top of an SD 1.5 checkpoint</summary>
 
-### The panel opens but ComfyUI does not connect
+| File | Folder | Size |
+| :--- | :--- | ---: |
+| `ip-adapter-plus_sd15.safetensors` | `models/ipadapter/` | 98 MB |
+| `CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors` | `models/clip_vision/` | 2.53 GB |
 
-Confirm ComfyUI is running on:
+Plus any SD 1.5 checkpoint. Add-on:
+[ComfyUI_IPAdapter_plus](https://github.com/cubiq/ComfyUI_IPAdapter_plus).
 
-```text
-http://127.0.0.1:8190
-```
+</details>
 
-You can test it in a browser or terminal:
+<details>
+<summary><b>Live Painting</b> — bring your own SD 1.5 checkpoint and an LCM LoRA</summary>
+
+The fast tier needs any SD 1.5 checkpoint plus an **LCM LoRA** in `models/loras/` — the panel finds it
+by looking for `lcm` in the filename. Neither is pinned, so neither appears on the Setup screen; if
+you have no LCM LoRA the fast tier has nothing to select.
+
+The refine tier reuses the **Krea-2 Turbo stack** — 0 extra GB if you have it.
+
+</details>
+
+<details>
+<summary><b>Layer Tools</b> — nothing</summary>
+
+No models, no add-ons. It exports layers, selections and masks to a file or into ComfyUI's `input/`
+folder, and works with ComfyUI stopped.
+
+</details>
+
+### If you eventually want everything
+
+Roughly **177 GB**, deduplicated. Installing every preset's stack separately, ignoring the sharing,
+would be about 384 GB — that gap is why the stacks above are worth understanding. Four files carry a
+non-commercial licence: `flux1-dev-fp8`, `flux1-fill-dev`, `flux2-dev-Q4_K_M.gguf`, and
+`mistral_3_small_flux2_fp8`. The panel will not fetch those for you; use the link and read the licence
+before selling anything made with them.
+
+</details>
+
+---
+
+<details>
+<summary><h3>Releases</h3></summary>
+
+Full notes for every version are in the [CHANGELOG](CHANGELOG.md). The headline of each:
+
+<details>
+<summary><b>v0.20.0-alpha</b> — Unflatten: one flat layer becomes separate layers</summary>
+
+Hand the panel a flat layer and get the picture back as separate layers with real transparency,
+imported into your open document in stacking order inside one group. Runs on Qwen-Image-Layered;
+every node is core ComfyUI. About two minutes for four layers on a 12 GB card.
+
+Eight questions were answered with live generations before any of the screen was built. Two of the
+answers overturned assumptions the plan was built on: **composition decides whether it works, not
+where the picture came from** — a generated close-up fails exactly as a photographed one does — and
+**640px with four layers is a measured optimum**, so 1024 is not offered at all.
+
+</details>
+
+<details>
+<summary><b>v0.19.0-alpha</b> — Multi-Reference: compose one image from several layers</summary>
+
+Give the panel a list of captured layers instead of one, and it builds a single image out of all of
+them. Built on FLUX.2 Klein's own `ReferenceLatent` conditioning, so it shares the Klein stack the
+other Klein presets already need and downloads nothing extra.
+
+48 live generations answered the design questions first. The finding that shapes what this can
+honestly claim: **clothing, props, setting and lighting carry across from a reference; a specific
+person's face does not.**
+
+</details>
+
+<details>
+<summary><b>v0.18.0-alpha</b> — The Prompt Wallet, and the Workflow section opens</summary>
+
+Save a positive and negative prompt together from any tool, and load the pair back into any other —
+one library shared by every tool, with search, renaming, pinning and delete. Three dashboard cards
+that had been greyed out since v0.14 went live, and Style Reference arrived as an experimental tool.
+
+Also: undo on every prompt field independent of the host, and a fix for prompts silently refusing
+input past ~256 characters — an undocumented default of a Photoshop UXP text field that had been
+quietly truncating prompts and diagnostics reports alike.
+
+</details>
+
+<details>
+<summary><b>v0.16.0-alpha</b> — Artist-Friendly Dark, sliders, and Klein inpainting</summary>
+
+A third theme: a deeper, softer dark meant to sit behind artwork rather than match the Photoshop
+toolbar. It is the theme that turns the numeric parameters into sliders. Compact Adobe Dark is
+untouched.
+
+Plus a dice button on every seed field, an Advanced disclosure that remembers what you left it as,
+and `inpaint-flux2-klein` — the first inpaint preset that is not a Flux Fill model, reusing the Klein
+stack you already have. The seed field also stopped mangling wide seeds to `214748.36`, which had
+been failing every generation loaded from History.
+
+</details>
+
+<details>
+<summary><b>v0.15.0-alpha</b> — An AI assistant can drive the panel, and FLUX.2 Klein</summary>
+
+Ask Claude, Codex, or anything else that speaks the Model Context Protocol to generate an image,
+upscale a layer or caption a selection, and it works the panel's own buttons in your open document.
+Entirely local, and off until you turn it on. The bridge contains no Photoshop code: an agent-driven
+generation and a clicked one are the same code path.
+
+Also three FLUX.2 Klein 4B presets at 4 steps — **11.6 seconds for 1024×1024 on a 4070 Ti** — plus
+context-aware Inpaint using crop-and-stitch, so a small mask on a large document no longer samples a
+few hundred pixels.
+
+</details>
+
+<details>
+<summary><b>v0.14.0-alpha</b> — Sketch to Image gets presets that are not SD 1.x</summary>
+
+Two of them, both loading Alibaba-PAI's Z-Image Fun ControlNet Union patch onto the Z_image_Turbo
+stack the other tools already use, so the only new download is the patch. They ship as a pair because
+they measured as complementary: the full weights render shaded work far more photographically, while
+the lite weights hold bold sparse line art that the full weights flatten into a filled shape.
+
+Sketch to Image also stopped ignoring your sketch — light-on-dark art and solid filled shapes had been
+producing a blank control image, quietly turning the preset into plain text-to-image.
+
+</details>
+
+<details>
+<summary><b>v0.13.0-alpha</b> — LoRAs, and the Setup screen downloads models</summary>
+
+An optional LoRA on eleven presets across Text to Image, Image to Image and Sketch to Image. Choosing
+nothing leaves the shipped workflow untouched — the loader is spliced into the graph only when you
+actually pick one.
+
+A missing model's row in Setup gained a **Download** button: resumable, one at a time, and never
+before a confirmation naming the size, the destination folder and the host.
+
+</details>
+
+<details>
+<summary><b>v0.11.0-alpha</b> — The Setup screen</summary>
+
+Every model file and custom node package the presets need, with the folder each goes in, its size,
+what it unlocks, and whether it is installed, missing, or sitting in the wrong folder. It works with
+ComfyUI stopped, because that is the state most people are in when they go looking for what to
+download.
+
+"What will run well" ranks the presets against the VRAM your card reports: Comfortable, Tight, Will
+offload, or Not known.
+
+</details>
+
+<details>
+<summary><b>v0.10.0-alpha</b> — The plugin zip is built to the ZIP specification</summary>
+
+Every release from v0.1.0 to v0.9.0-alpha stored entry paths with backslashes, which macOS `unzip`
+unpacks as a flat directory with no `assets/` folder, so the panel could not render. **If an earlier
+release gave you a blank panel on macOS, this was why.**
+
+</details>
+
+<details>
+<summary><b>v0.9.0-alpha</b> — Layer Tools</summary>
+
+The eighth tool, and the first that is not a generation: export the active layer, the current
+selection, or the selection mask, either to a file you pick with a Photoshop save dialog or straight
+into ComfyUI's input folder.
+
+</details>
+
+<sub><a href="CHANGELOG.md">Every release back to v0.1.8-alpha →</a></sub>
+
+</details>
+
+---
+
+<details>
+<summary><h3>Troubleshooting</h3></summary>
+
+**The panel opens but ComfyUI does not connect**
+
+Confirm the server is reachable, then click **Settings › Find ComfyUI Active Port** — it will find a
+server on any port.
 
 ```bash
 curl http://127.0.0.1:8190/system_stats
 ```
 
-If another local tool is already using `8188`, keep OpenLayer on `8190` and start a separate ComfyUI instance for OpenLayer.
+**The checkpoint list is empty**
 
-### Checkpoint list is empty
+Click **Check ComfyUI** after ComfyUI has *fully* started. If it is still empty, confirm your models
+are installed in ComfyUI and that the server URL in OpenLayer matches the running port.
 
-Click `Check ComfyUI` after ComfyUI is fully started. If it is still empty, confirm your models are installed in ComfyUI and that the server URL in OpenLayer matches the running ComfyUI port.
+**Generate fails**
 
-### Generate fails
+Run **Settings › Check Workflow Health**. It names the exact model file or ComfyUI node that is
+missing, and the folder it belongs in. For a custom workflow, node IDs need mapping in
+`src/comfy/presetRegistry.ts` — see [custom workflows](docs/custom-workflows.md).
 
-Check that the selected checkpoint exists in ComfyUI and that the selected workflow node IDs still match the starter workflow. Custom workflows currently require manual mapping in:
+**Image to Image fails with a model mismatch**
 
-```text
-src/comfy/presetRegistry.ts
-```
+Use an SD 1.x or SDXL checkpoint with `img2img-basic` first. SD3, SD3.5 and Flux checkpoints stay
+visible but are marked experimental for this preset — they usually need a dedicated preset.
 
-See `docs/custom-workflows.md` for the current custom workflow process.
+**Import Result as New Layer fails**
 
-### Image to Image fails with a model mismatch
+Open a Photoshop document before importing. OpenLayer imports into the *active* document.
 
-Use an SD 1.x or SDXL checkpoint with `img2img-basic` first. If you select SD3, SD3.5, Flux, or another newer model family, OpenLayer will keep it visible but warn that it is experimental for this preset. Those checkpoints usually need a dedicated workflow preset before they can run reliably.
+**The plugin does not appear in Photoshop**
 
-### Import Result as New Layer fails
+If you installed the `.ccx`, check **Plugins › OpenLayer**. If you built from source, run
+`npm run build` and load `dist/manifest.json` in the UXP Developer Tool.
 
-Open a Photoshop document before importing. OpenLayer imports into the active document and will show an error if no document is open.
+**A macOS install gives a blank panel**
 
-## Project Structure
+Use v0.10.0-alpha or newer. Earlier packages were built with backslash entry paths that macOS `unzip`
+flattens.
+
+**Unflatten hands the picture back unchanged**
+
+The subject fills the frame. Unflatten needs something standing in front of something else; a
+close-up has no front and back to find. This is about composition, not about whether the image was
+photographed or generated.
+
+</details>
+
+---
+
+<details>
+<summary><h3>Project structure</h3></summary>
 
 ```text
 .
-|-- docs/
-|-- scripts/
-|-- src/
-|   |-- comfy/
-|   |-- photoshop/
-|   |-- ui/
-|   |-- utils/
-|   |-- workflows/
-|   |-- index.html
-|   |-- main.ts
-|   |-- manifest.json
-|   `-- styles.css
-|-- package.json
-|-- tsconfig.json
-`-- vite.config.ts
+├── bridge/          MCP server — lets an AI assistant drive the panel
+├── docs/            Landing page, guides, and design notes
+├── scripts/         Packaging and setup-pack tooling
+├── src/
+│   ├── comfy/       ComfyUI client, preset registry, workflow builder
+│   ├── photoshop/   UXP layer capture, import, selection and mask handling
+│   ├── ui/          Panel screens and components
+│   ├── utils/
+│   ├── workflows/
+│   │   ├── api/     Runnable API-format graphs submitted to ComfyUI
+│   │   └── source/  GUI-editable graphs you can open in ComfyUI
+│   ├── index.html
+│   ├── main.ts
+│   ├── manifest.json
+│   └── styles.css
+├── package.json
+├── tsconfig.json
+└── vite.config.ts
 ```
+
+The panel is TypeScript built with Vite into a Photoshop UXP plugin. Presets are declared in
+`src/comfy/presetRegistry.ts`; each one points at an API-format graph in `src/workflows/api/` and an
+editable twin in `src/workflows/source/`, and a checker keeps the pair in sync.
+
+</details>
+
+---
+
+## Privacy
+
+Filesystem access is for temporary files; network access is to reach ComfyUI on `127.0.0.1`. Nothing
+— no image, prompt, model name, or diagnostic — is ever sent anywhere else. No telemetry, no account.
+
+## Documentation
+
+[Getting started](docs/getting-started.md) ·
+[Model & VRAM guide](docs/model-guide.md) ·
+[What works, what does not](docs/known-limitations.md) ·
+[Custom workflows](docs/custom-workflows.md) ·
+[Workflow notes](docs/workflow-notes.md) ·
+[Agent bridge](bridge/README.md) ·
+[Testing](docs/testing.md) ·
+[Roadmap](docs/roadmap.md)
+
+## Contributing
+
+Testing reports are the most valuable thing you can send — what broke, on what card, with which
+model — in [Discussions](https://github.com/MehranMarxian/OpenLayer/discussions) or as an
+[issue](https://github.com/MehranMarxian/OpenLayer/issues).
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
 
 OpenLayer™ — the OpenLayer name and logo may not be used by derivative works without permission.
 
-See also: [Privacy Policy](https://mehran-ahmadi.com/OpenLayer/privacy.html) and [Terms of Service](https://mehran-ahmadi.com/OpenLayer/terms.html).
+[Privacy Policy](https://mehran-ahmadi.com/OpenLayer/privacy.html) ·
+[Terms of Service](https://mehran-ahmadi.com/OpenLayer/terms.html)
+
+<p align="center">
+  <sub>Built by <a href="https://mehran-ahmadi.com/">Mehran Ahmadi</a>. If OpenLayer is useful to you,
+  a star helps other artists find it.</sub>
+</p>

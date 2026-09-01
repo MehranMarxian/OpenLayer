@@ -105,14 +105,19 @@ describe("version consistency", () => {
     }
   );
 
-  it("carries the current version in README's checkpoint line and package filenames", () => {
-    // README cannot use the rule above: it keeps a cumulative "Also new in
-    // v0.13.0-alpha" history whose old versions are correct and must survive.
-    // So it is pinned at the three places that describe the release being cut.
+  it("carries the current version in README's alpha notice and newest release entry", () => {
+    // README cannot use the rule above: it keeps a collapsed release history
+    // whose old versions are correct and must survive. So it is pinned at the
+    // two places that describe the release being cut.
+    //
+    // The `packages/openlayer-vX.Y.Z-alpha.zip` / `.ccx` filenames used to be
+    // pinned here too. They are gone because the README no longer writes them
+    // out: `npm run package` is documented without its output filenames, so
+    // there is nothing left there to drift. That is one fewer bump site, not an
+    // unchecked one.
     const readme = read("README.md");
 
-    expect(readme).toContain(`\`v${version}-alpha\` is the current public alpha checkpoint.`);
-    expect(readme).toContain(`packages/openlayer-v${version}-alpha.zip`);
-    expect(readme).toContain(`packages/openlayer-v${version}-alpha.ccx`);
+    expect(readme).toContain(`\`v${version}-alpha\` is a public testing checkpoint`);
+    expect(readme).toContain(`<b>v${version}-alpha</b>`);
   });
 });

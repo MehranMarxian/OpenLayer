@@ -110,3 +110,22 @@ await writeZip(ccxPath, ccxEntries);
 
 console.log(`Created ${ccxPath}`);
 console.log(`  ${ccxEntries.length} files${narrowed ? ", host narrowed to a single object" : ""}`);
+
+/**
+ * Unversioned copies, byte-identical to the two above, so the README's Download
+ * button can point at a URL that never needs a version-number edit:
+ * `.../releases/latest/download/openlayer-latest.ccx`. That URL only resolves
+ * once a release is explicitly marked "Latest" — every OpenLayer release is a
+ * pre-release, and GitHub's automatic "latest" selection skips pre-releases
+ * entirely — so `docs/release-checklist.md` carries the `gh release edit --latest`
+ * step this file cannot do on its own.
+ */
+const latestZipPath = resolve(packagesDir, "openlayer-latest.zip");
+const latestCcxPath = resolve(packagesDir, "openlayer-latest.ccx");
+
+await rm(latestZipPath, { force: true });
+await writeZip(latestZipPath, entries);
+await rm(latestCcxPath, { force: true });
+await writeZip(latestCcxPath, ccxEntries);
+
+console.log(`Created ${latestZipPath} and ${latestCcxPath} (unversioned copies for the "Latest" release link)`);

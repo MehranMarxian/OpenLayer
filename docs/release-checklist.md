@@ -49,9 +49,29 @@ Still manual, because no test can judge them:
 - Create a git tag, for example `v0.7.0-alpha`.
 - Create a GitHub Release from the tag.
 - Mark the release as a pre-release.
-- Attach the package zip from `packages/`.
+- Attach the package zip and `.ccx` from `packages/`.
 - Include known limitations in the release notes.
 - Include basic tester instructions for Photoshop, UXP Developer Tool, and ComfyUI on port `8190`.
+
+### Refresh the `latest` release
+
+`npm run package` also writes `packages/openlayer-latest.zip` and `packages/openlayer-latest.ccx` —
+byte-identical to the versioned pair, just without the version number in the filename. The README's
+Download button links to
+`https://github.com/MehranMarxian/OpenLayer/releases/latest/download/openlayer-latest.ccx`, which is
+**not** the release you just tagged: GitHub refuses to let a pre-release be "Latest"
+(`422 Latest release cannot be draft or prerelease`, confirmed 2026-09-01), so there is a separate,
+permanent, non-prerelease release tagged `latest` that exists only to hold these two files.
+
+Every release, overwrite its assets so the link keeps serving the newest build:
+
+```bash
+gh release delete-asset latest openlayer-latest.zip openlayer-latest.ccx --yes
+gh release upload latest packages/openlayer-latest.zip packages/openlayer-latest.ccx
+```
+
+If this step is skipped, the Download button silently keeps serving an old version — nothing will
+error, because the URL still resolves. There is no automated check for this yet.
 
 ## Manual Smoke Test
 
