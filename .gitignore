@@ -22,6 +22,13 @@ Thumbs.db
 # Draft shooting script for a promo video -- not part of the product.
 docs/video-01-intro-shooting-script.md
 
+# Raw screen captures behind the README's screenshots, ~12 MB of them. The .webp
+# files beside them are cropped and encoded from these and ARE committed -- the
+# README displays seven of them, so this rule is deliberately narrowed to .png
+# rather than excluding the directory. Ignoring the whole folder would leave
+# every image in the README broken on github.com.
+docs/assets/v0200/*.png
+
 # Assistant tooling, not project configuration. launch.json describes how to
 # start dev servers for a Claude Code session and settings.local.json holds
 # per-machine permissions; nothing in npm, the plugin, UXP, or CI reads either.
