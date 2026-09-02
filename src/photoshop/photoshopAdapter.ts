@@ -1374,6 +1374,17 @@ export type UnflattenLayerStackImportResult = {
   skippedBlankLayerCount: number;
   /** Plates left out because a layer already placed already held them. */
   skippedRedundantLayerCount: number;
+  /**
+   * Why no layer could be built from the artist's own pixels, when none was.
+   *
+   * The masking path is written to fail soft: a host that refuses one of its
+   * steps drops to the model's own plates rather than losing a decomposition
+   * someone waited two minutes for. Failing soft was right and failing
+   * *silently* was not -- it turned one real report into an investigation with
+   * two candidate causes and no way to tell them apart. The reason now travels
+   * back with the result.
+   */
+  fallbackReason?: string;
 };
 
 /**
@@ -1457,6 +1468,7 @@ export async function importUnflattenLayerStack(
     let sourcePixelLayerCount = 0;
     let skippedBlankLayerCount = 0;
     let skippedRedundantLayerCount = 0;
+    let fallbackReason: string | undefined;
 
     await photoshop.core.executeAsModal(
       async (executionContext) => {
@@ -1492,12 +1504,16 @@ export async function importUnflattenLayerStack(
 
             options.onProgress?.(`Placing ${placement.layerName}...`);
 
-            const { outcome, solidMask } = await placeDecomposedPlate(photoshop, {
+            const { outcome, solidMask, reason } = await placeDecomposedPlate(photoshop, {
               modelToken: tokens[placement.depth - 1],
               sourceToken,
               targetBounds: options.targetBounds,
               placedMasks
             });
+
+            // The first one is enough. Every plate in a run hits the same wall,
+            // so repeating it once per layer would bury the message it explains.
+            fallbackReason ??= reason;
 
             if (outcome === "skipped") {
               // A plate holding nothing, or holding a flat fill and no picture.
@@ -1593,7 +1609,8 @@ export async function importUnflattenLayerStack(
       layerNames,
       sourcePixelLayerCount,
       skippedBlankLayerCount,
-      skippedRedundantLayerCount
+      skippedRedundantLayerCount,
+      fallbackReason
     };
   } catch (caughtError) {
     throw createOpenLayerError(
@@ -1663,6 +1680,7 @@ async function placeDecomposedPlate(
 ): Promise<{
   outcome: "masked" | "model" | "skipped" | "redundant" | "unavailable";
   solidMask?: Uint8Array;
+  reason?: string;
 }> {
   let plateLayerId: number | undefined;
   let sourceLayerId: number | undefined;
@@ -1695,14 +1713,25 @@ async function placeDecomposedPlate(
       return { outcome: "redundant" };
     }
 
-    // A background, or a run with no source to mask against. Either way the
-    // plate as placed already is the layer.
-    if (kind === "full-frame" || options.sourceToken === undefined) {
-      // A background is deliberately not offered for comparison. It covers the
-      // whole frame, so every later plate is entirely "inside" it and the
-      // redundancy check would drop the whole stack -- which is exactly what
-      // the first version of this did before it was replayed over real runs.
-      return { outcome: "model", solidMask: kind === "cutout" ? solidMask : undefined };
+    // A background keeps the model's pixels because it holds what was invented
+    // behind the subject, which the source does not have. It is also
+    // deliberately not offered for comparison: it covers the whole frame, so
+    // every later plate would count as entirely "inside" it and the redundancy
+    // check would drop the whole stack -- which is what the first version of
+    // that rule did before it was replayed over recorded runs.
+    if (kind === "full-frame") {
+      return { outcome: "model" };
+    }
+
+    // A cut-out that cannot be masked because nothing was captured to mask
+    // with. Reported rather than silently downgraded: it looks identical to a
+    // refused descriptor from the outside and has a completely different fix.
+    if (options.sourceToken === undefined) {
+      return {
+        outcome: "model",
+        solidMask,
+        reason: "the captured source never reached the import, so there was nothing to mask with"
+      };
     }
 
     // Placed above the plate, and placed now, because after the selection
@@ -1726,7 +1755,7 @@ async function placeDecomposedPlate(
     await deselectActiveSelection(photoshop);
 
     return { outcome: "masked", solidMask };
-  } catch {
+  } catch (caughtError) {
     // Leave nothing behind: the caller is about to place this plate plainly.
     if (sourceLayerId !== undefined) {
       await deleteLayerById(photoshop, sourceLayerId, true);
@@ -1742,7 +1771,7 @@ async function placeDecomposedPlate(
       // A selection that will not clear is not worth failing the import over.
     }
 
-    return { outcome: "unavailable" };
+    return { outcome: "unavailable", reason: `Photoshop refused a masking step: ${getErrorMessage(caughtError)}` };
   }
 }
 
