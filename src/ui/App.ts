@@ -5120,6 +5120,9 @@ export function renderApp(rootElement: HTMLElement) {
             : " Built from the model's pixels.") +
           (imported.skippedBlankLayerCount > 0
             ? ` ${imported.skippedBlankLayerCount} came back empty and were left out.`
+            : "") +
+          (imported.skippedRedundantLayerCount > 0
+            ? ` ${imported.skippedRedundantLayerCount} repeated a layer below and were left out.`
             : "")
       );
     } catch (caughtError) {

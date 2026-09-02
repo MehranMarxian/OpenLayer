@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { measurePlateSample } from "../../src/photoshop/photoshopAdapter";
-import { classifyPlateSample } from "../../src/photoshop/unflattenLayerStack";
+import { extractSolidMask, measurePlateSample } from "../../src/photoshop/photoshopAdapter";
+import {
+  classifyPlateSample,
+  containmentFraction,
+  isPlateRedundant,
+  PLATE_REDUNDANT_CONTAINMENT_CEILING
+} from "../../src/photoshop/unflattenLayerStack";
 
 /** Builds interleaved RGBA bytes the way the imaging API hands them over. */
 function rgba(pixels: readonly [number, number, number, number][]) {
@@ -106,5 +111,74 @@ describe("measurePlateSample", () => {
     expect(classifyPlateSample(flatFill)).toBe("flat-fill");
     expect(classifyPlateSample(background)).toBe("full-frame");
     expect(classifyPlateSample(cutout)).toBe("cutout");
+  });
+});
+
+describe("extractSolidMask and containment", () => {
+  it("marks exactly the pixels measurePlateSample counts as solid", () => {
+    const raw = rgba([
+      [0, 0, 0, 0],
+      [9, 9, 9, 127],
+      [9, 9, 9, 128],
+      [9, 9, 9, 255]
+    ]);
+
+    // The two functions share a floor, so "how much is solid" and "which parts
+    // are solid" can never disagree.
+    expect([...extractSolidMask(raw, 4)]).toEqual([0, 0, 1, 1]);
+    expect(measurePlateSample(raw, 4).solidFraction).toBeCloseTo(0.5, 5);
+  });
+
+  it("reports how much of a plate sits inside another", () => {
+    const candidate = Uint8Array.from([1, 1, 1, 1, 0, 0]);
+    const half = Uint8Array.from([1, 1, 0, 0, 1, 1]);
+    const all = Uint8Array.from([1, 1, 1, 1, 1, 1]);
+
+    expect(containmentFraction(candidate, half)).toBeCloseTo(0.5, 5);
+    expect(containmentFraction(candidate, all)).toBe(1);
+    expect(containmentFraction(Uint8Array.from([0, 0]), all)).toBe(0);
+  });
+
+  it("drops a plate the stack already holds, and keeps one that adds something", () => {
+    const placed = [Uint8Array.from([1, 1, 1, 1, 1, 1, 1, 1, 0, 0])];
+    // 90% inside what is already down: the shape of the layer that arrived as a
+    // third near-identical mask of the same person.
+    const repeat = Uint8Array.from([1, 1, 1, 1, 1, 1, 1, 1, 1, 0]);
+    // Half of it is new, which is what a real second layer looks like.
+    const distinct = Uint8Array.from([1, 1, 0, 0, 0, 0, 0, 0, 1, 1]);
+
+    expect(isPlateRedundant(repeat, placed)).toBe(true);
+    expect(isPlateRedundant(distinct, placed)).toBe(false);
+  });
+
+  it("sits above every good run measured and below every bad one", () => {
+    // Worst containment within a run, measured across five sources:
+    //   bench 5.7%  balloon 23.0%  large-subject 53.0%  cat 99.8%  poster 100%
+    const good = [0.057, 0.23, 0.53];
+    const bad = [0.875, 0.998, 1];
+
+    for (const value of good) expect(value).toBeLessThan(PLATE_REDUNDANT_CONTAINMENT_CEILING);
+    for (const value of bad) expect(value).toBeGreaterThan(PLATE_REDUNDANT_CONTAINMENT_CEILING);
+  });
+});
+
+describe("the background must never join the comparison set", () => {
+  it("would swallow every later plate, because it covers the whole frame", () => {
+    const background = Uint8Array.from([1, 1, 1, 1, 1, 1, 1, 1]);
+    const subject = Uint8Array.from([0, 0, 1, 1, 0, 0, 0, 0]);
+    const bench = Uint8Array.from([1, 1, 0, 0, 0, 0, 0, 0]);
+
+    // Everything is inside a full-frame plate by definition, so comparing
+    // against one reports every real layer as redundant. Replaying the rule
+    // over nine recorded runs is what caught this: it dropped all three layers
+    // of the cleanest decomposition measured.
+    expect(containmentFraction(subject, background)).toBe(1);
+    expect(containmentFraction(bench, background)).toBe(1);
+    expect(isPlateRedundant(subject, [background])).toBe(true);
+
+    // Against each other, which is the comparison that means something, they
+    // are plainly different layers.
+    expect(isPlateRedundant(subject, [bench])).toBe(false);
+    expect(isPlateRedundant(bench, [subject])).toBe(false);
   });
 });

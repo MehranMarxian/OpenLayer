@@ -6,6 +6,8 @@ import { OutpaintExpansionPlan } from "./outpaintExpansion";
 import { UpscaleResizePlan } from "./upscaleResize";
 import {
   classifyPlateSample,
+  isPlateRedundant,
+  PlateKind,
   planLayerScale,
   planUnflattenLayerStack,
   stackLayerNames,
@@ -1370,6 +1372,8 @@ export type UnflattenLayerStackImportResult = {
   sourcePixelLayerCount: number;
   /** Plates that carried no matte at all and were left out. */
   skippedBlankLayerCount: number;
+  /** Plates left out because a layer already placed already held them. */
+  skippedRedundantLayerCount: number;
 };
 
 /**
@@ -1452,6 +1456,7 @@ export async function importUnflattenLayerStack(
     const layerNames: string[] = [];
     let sourcePixelLayerCount = 0;
     let skippedBlankLayerCount = 0;
+    let skippedRedundantLayerCount = 0;
 
     await photoshop.core.executeAsModal(
       async (executionContext) => {
@@ -1471,6 +1476,10 @@ export async function importUnflattenLayerStack(
           : null;
 
         const placedLayerIds: number[] = [];
+        // The sampled shape of every layer already down, so the next plate can
+        // be asked whether it adds anything. Redundancy is a relationship
+        // between layers and cannot be seen one plate at a time.
+        const placedMasks: Uint8Array[] = [];
         let operationError: unknown;
 
         try {
@@ -1483,10 +1492,11 @@ export async function importUnflattenLayerStack(
 
             options.onProgress?.(`Placing ${placement.layerName}...`);
 
-            const outcome = await placeDecomposedPlate(photoshop, {
+            const { outcome, solidMask } = await placeDecomposedPlate(photoshop, {
               modelToken: tokens[placement.depth - 1],
               sourceToken,
-              targetBounds: options.targetBounds
+              targetBounds: options.targetBounds,
+              placedMasks
             });
 
             if (outcome === "skipped") {
@@ -1494,6 +1504,19 @@ export async function importUnflattenLayerStack(
               // Either way there is no layer in it.
               skippedBlankLayerCount += 1;
               continue;
+            }
+
+            if (outcome === "redundant") {
+              // Everything in it is already on a layer below. Importing it
+              // gives the artist the same content twice.
+              skippedRedundantLayerCount += 1;
+              continue;
+            }
+
+            // Only cut-outs are worth comparing against; see the note in
+            // placeDecomposedPlate about why a background must never join this.
+            if (solidMask) {
+              placedMasks.push(solidMask);
             }
 
             if (outcome === "unavailable") {
@@ -1565,7 +1588,13 @@ export async function importUnflattenLayerStack(
     );
 
     options.onProgress?.(`Imported ${layerNames.length} layers into ${plan.groupName}.`);
-    return { groupName: plan.groupName, layerNames, sourcePixelLayerCount, skippedBlankLayerCount };
+    return {
+      groupName: plan.groupName,
+      layerNames,
+      sourcePixelLayerCount,
+      skippedBlankLayerCount,
+      skippedRedundantLayerCount
+    };
   } catch (caughtError) {
     throw createOpenLayerError(
       "PHOTOSHOP_IMPORT_FAILED",
@@ -1629,8 +1658,12 @@ async function placeDecomposedPlate(
     modelToken: string;
     sourceToken?: string;
     targetBounds?: NormalizedSelectionBounds;
+    placedMasks: readonly Uint8Array[];
   }
-): Promise<"masked" | "model" | "skipped" | "unavailable"> {
+): Promise<{
+  outcome: "masked" | "model" | "skipped" | "redundant" | "unavailable";
+  solidMask?: Uint8Array;
+}> {
   let plateLayerId: number | undefined;
   let sourceLayerId: number | undefined;
 
@@ -1644,18 +1677,32 @@ async function placeDecomposedPlate(
 
     await fitActiveLayerToBounds(photoshop, options.targetBounds);
 
-    const kind = await classifyPlacedPlate(photoshop, plateLayerId);
+    const { kind, solidMask } = await classifyPlacedPlate(photoshop, plateLayerId);
 
     if (kind === "blank" || kind === "flat-fill") {
       await deleteLayerById(photoshop, plateLayerId, true);
 
-      return "skipped";
+      return { outcome: "skipped" };
+    }
+
+    // Checked before anything is built from it. A plate whose content is
+    // already on a layer below is not a layer, it is the same layer again --
+    // which is what a stack of three near-identical masks of one subject
+    // actually was.
+    if (solidMask && isPlateRedundant(solidMask, options.placedMasks)) {
+      await deleteLayerById(photoshop, plateLayerId, true);
+
+      return { outcome: "redundant" };
     }
 
     // A background, or a run with no source to mask against. Either way the
     // plate as placed already is the layer.
     if (kind === "full-frame" || options.sourceToken === undefined) {
-      return "model";
+      // A background is deliberately not offered for comparison. It covers the
+      // whole frame, so every later plate is entirely "inside" it and the
+      // redundancy check would drop the whole stack -- which is exactly what
+      // the first version of this did before it was replayed over real runs.
+      return { outcome: "model", solidMask: kind === "cutout" ? solidMask : undefined };
     }
 
     // Placed above the plate, and placed now, because after the selection
@@ -1678,7 +1725,7 @@ async function placeDecomposedPlate(
     await addLayerMaskFromSelection(photoshop);
     await deselectActiveSelection(photoshop);
 
-    return "masked";
+    return { outcome: "masked", solidMask };
   } catch {
     // Leave nothing behind: the caller is about to place this plate plainly.
     if (sourceLayerId !== undefined) {
@@ -1695,7 +1742,7 @@ async function placeDecomposedPlate(
       // A selection that will not clear is not worth failing the import over.
     }
 
-    return "unavailable";
+    return { outcome: "unavailable" };
   }
 }
 
@@ -1708,12 +1755,15 @@ async function placeDecomposedPlate(
  * layer -- because importing something empty is a visible nuisance while
  * dropping something real is silent data loss.
  */
-async function classifyPlacedPlate(photoshop: PhotoshopModule, plateLayerId: number) {
+async function classifyPlacedPlate(
+  photoshop: PhotoshopModule,
+  plateLayerId: number
+): Promise<{ kind: PlateKind; solidMask?: Uint8Array }> {
   const imaging = photoshop.imaging;
   const documentId = getActiveDocument().id;
 
   if (!imaging?.getPixels || typeof documentId !== "number") {
-    return "cutout" as const;
+    return { kind: "cutout" };
   }
 
   let imageData: PhotoshopImageData | undefined;
@@ -1731,14 +1781,17 @@ async function classifyPlacedPlate(photoshop: PhotoshopModule, plateLayerId: num
     });
     imageData = pixels.imageData;
 
-    if (!imageData) return "cutout" as const;
+    if (!imageData) return { kind: "cutout" };
 
     const components = Number(imageData.components ?? 4);
     const raw = toUint8Array(await readImageDataBytes(imageData));
 
-    return classifyPlateSample(measurePlateSample(raw, components));
+    return {
+      kind: classifyPlateSample(measurePlateSample(raw, components)),
+      solidMask: extractSolidMask(raw, components)
+    };
   } catch {
-    return "cutout" as const;
+    return { kind: "cutout" };
   } finally {
     imageData?.dispose?.();
   }
@@ -1751,6 +1804,25 @@ async function classifyPlacedPlate(photoshop: PhotoshopModule, plateLayerId: num
  * whether a layer reaches the artist's document, and it is the one part of the
  * read that can be checked without Photoshop.
  */
+/**
+ * One byte per sampled pixel, non-zero where the plate is at least half opaque.
+ *
+ * The same floor `measurePlateSample` counts with, so "how much of this plate
+ * is solid" and "which parts of it are solid" can never disagree.
+ */
+export function extractSolidMask(raw: Uint8Array, components: number): Uint8Array {
+  const hasAlpha = components >= 4;
+  const pixelCount = components > 0 ? Math.floor(raw.length / components) : 0;
+  const mask = new Uint8Array(pixelCount);
+
+  for (let pixel = 0; pixel < pixelCount; pixel += 1) {
+    const alpha = hasAlpha ? raw[pixel * components + components - 1] : 255;
+    mask[pixel] = alpha >= PLATE_SOLID_ALPHA_FLOOR ? 1 : 0;
+  }
+
+  return mask;
+}
+
 export function measurePlateSample(raw: Uint8Array, components: number) {
   const hasAlpha = components >= 4;
   const pixelCount = components > 0 ? Math.floor(raw.length / components) : 0;

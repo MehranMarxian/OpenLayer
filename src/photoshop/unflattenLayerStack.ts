@@ -171,6 +171,54 @@ export function classifyPlateSample(sample: PlateSample): PlateKind {
   return "cutout";
 }
 
+/**
+ * How much of one plate sits inside another, as a fraction of the first, 0-1.
+ *
+ * Both masks are the same downsampled grid, one byte per pixel, non-zero where
+ * the plate is at least half opaque. Comparing them is the cheapest question
+ * that can be asked about two layers and it turns out to be the sharpest.
+ */
+export function containmentFraction(candidate: Uint8Array, placed: Uint8Array): number {
+  const length = Math.min(candidate.length, placed.length);
+  let candidateSolid = 0;
+  let shared = 0;
+
+  for (let index = 0; index < length; index += 1) {
+    if (!candidate[index]) continue;
+    candidateSolid += 1;
+    if (placed[index]) shared += 1;
+  }
+
+  return candidateSolid === 0 ? 0 : shared / candidateSolid;
+}
+
+/**
+ * A plate mostly inside one already placed adds nothing but confusion.
+ *
+ * This is the rule that explains what "bad results" actually looked like.
+ * Every earlier rule judged a plate on its own -- how much of it was solid, how
+ * flat, how much of the frame it covered -- and a stack of three layers all
+ * showing the same person passes every one of those individually. Redundancy is
+ * a relationship between layers, so it cannot be seen one plate at a time.
+ *
+ * Measured across five sources, worst containment within a run:
+ *
+ *   bench 5.7%   balloon 23.0%   large-subject 53.0%   cat 99.8%   poster 100%
+ *
+ * A clean decomposition puts different things on different layers, so its
+ * plates barely touch. A failed one hands back the same content twice. The
+ * ceiling sits above every good run measured and far below every bad one.
+ */
+export const PLATE_REDUNDANT_CONTAINMENT_CEILING = 0.75;
+
+export function isPlateRedundant(
+  candidate: Uint8Array,
+  placed: readonly Uint8Array[],
+  ceiling: number = PLATE_REDUNDANT_CONTAINMENT_CEILING
+): boolean {
+  return placed.some((mask) => containmentFraction(candidate, mask) > ceiling);
+}
+
 export type LayerScalePlan = Readonly<{
   horizontalPercent: number;
   verticalPercent: number;
