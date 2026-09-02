@@ -14,7 +14,7 @@
   <img alt="Photoshop 2024+" src="https://img.shields.io/badge/Photoshop-2024%2B-31a8ff">
   <img alt="Runs locally" src="https://img.shields.io/badge/runs-100%25%20locally-1f9c6b">
   <img alt="License MIT" src="https://img.shields.io/badge/license-MIT-blue">
-  <a href="https://github.com/MehranMarxian/OpenLayer/stargazers"><img alt="Star OpenLayer on GitHub" src="https://img.shields.io/github/stars/MehranMarxian/OpenLayer?style=social"></a>
+  <a href="https://github.com/MehranMarxian/OpenLayer/stargazers"><img alt="Star this repo" src="https://img.shields.io/badge/%E2%AD%90-Star%20this%20repo-f5c518"></a>
   <br>
   <a href="https://github.com/MehranMarxian/OpenLayer/releases/latest/download/openlayer-latest.ccx"><b>Download for Photoshop (.ccx)</b></a>
   ·
@@ -25,29 +25,22 @@
   <a href="https://github.com/MehranMarxian/OpenLayer/discussions">Discussions</a>
 </p>
 
-<table>
-<tr>
-<td width="34%" valign="top">
-  <img src="docs/assets/v0200/dashboard-artist-dark-crop.webp" alt="The OpenLayer panel in Photoshop, Artist-Friendly Dark theme" width="100%">
-</td>
-<td valign="top">
+<p align="center">
+  <img src="docs/assets/v060/text-to-image-photoshop.webp" alt="OpenLayer generating an image inside Photoshop and importing it as a layer" width="100%">
+</p>
 
 - **Free, with no subscription.** No credits, no metering, no account, no upload quota.
 - **Nothing leaves your computer.** ComfyUI runs on your own machine, on your own models.
-- **Results arrive as real Photoshop layers** — named, positioned, and editable. Not a flattened
-  PNG you paste in and hope for.
+- **Results arrive as real Photoshop layers** — named, positioned, and editable. Not a flattened PNG
+  you paste in and hope for.
 - **Eleven generation tools**, from text-to-image to splitting a flat picture back into layers.
 
-**You need:** Photoshop 2024+ · a local [ComfyUI](https://github.com/comfyanonymous/ComfyUI)
-server · a GPU with 8 GB VRAM or more (12 GB is what this project targets).
+**You need:** Photoshop 2024+ · a local [ComfyUI](https://github.com/comfyanonymous/ComfyUI) server ·
+a GPU with 8 GB VRAM or more (12 GB is what this project targets).
 
-> **Alpha.** `v0.20.0-alpha` is a public testing checkpoint, not production software. It is
-> stable enough to work with, and honest about where it stops — see [what works and what does
+> **Alpha.** `v0.20.0-alpha` is a public testing checkpoint, not production software. It is stable
+> enough to work with, and honest about where it stops — see [what works and what does
 > not](docs/known-limitations.md).
-
-</td>
-</tr>
-</table>
 
 ## The tools
 
@@ -535,6 +528,18 @@ Filesystem access is for temporary files; network access is to reach ComfyUI on 
 
 Real sessions in Photoshop, not mockups — every one a local generation on a 12 GB card.
 
+<details>
+<summary><b>The panel</b> — every tool, in the Artist-Friendly Dark theme</summary>
+
+<p align="center">
+  <img src="docs/assets/v0200/dashboard-artist-dark.webp" alt="The OpenLayer panel in Photoshop, Artist-Friendly Dark theme" width="320">
+</p>
+
+The dashboard as it opens, in the softer of the three themes — the one built to sit behind artwork
+rather than match the Photoshop toolbar. Every tool is one tap from here, and this is the theme that
+turns the numeric parameters into sliders.
+
+</details>
 
 <details>
 <summary><b>Unflatten</b> — one flat photo, separated into layers with real alpha</summary>
