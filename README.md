@@ -14,6 +14,7 @@
   <img alt="Photoshop 2024+" src="https://img.shields.io/badge/Photoshop-2024%2B-31a8ff">
   <img alt="Runs locally" src="https://img.shields.io/badge/runs-100%25%20locally-1f9c6b">
   <img alt="License MIT" src="https://img.shields.io/badge/license-MIT-blue">
+  <a href="https://github.com/MehranMarxian/OpenLayer/stargazers"><img alt="Star OpenLayer on GitHub" src="https://img.shields.io/github/stars/MehranMarxian/OpenLayer?style=social"></a>
   <br>
   <a href="https://github.com/MehranMarxian/OpenLayer/releases/latest/download/openlayer-latest.ccx"><b>Download for Photoshop (.ccx)</b></a>
   ·
@@ -38,8 +39,7 @@
 - **Eleven generation tools**, from text-to-image to splitting a flat picture back into layers.
 
 **You need:** Photoshop 2024+ · a local [ComfyUI](https://github.com/comfyanonymous/ComfyUI)
-server · a GPU with 8 GB VRAM or more (12 GB is what this project targets) · Windows, verified —
-[macOS is untested](#installation).
+server · a GPU with 8 GB VRAM or more (12 GB is what this project targets).
 
 > **Alpha.** `v0.20.0-alpha` is a public testing checkpoint, not production software. It is
 > stable enough to work with, and honest about where it stops — see [what works and what does
@@ -48,8 +48,6 @@ server · a GPU with 8 GB VRAM or more (12 GB is what this project targets) · W
 </td>
 </tr>
 </table>
-
----
 
 ## The tools
 
@@ -75,85 +73,10 @@ anywhere; ComfyUI runs on your own machine.
 
 <sub>✦ experimental</sub>
 
-**Unflatten is the one nothing else does.** Hand it a flat picture and it comes back as separate
-layers — ground, bench, person — each cut out with its own alpha, imported into your open document
-in stacking order inside one group. A layered result is worth very little in a web UI. In Photoshop
-it is the whole point.
-
 **An AI assistant can drive it too.** All ten generation tools are reachable over the Model Context
 Protocol, so Claude or Codex can work the panel's own buttons in your open document — "generate a
 foggy forest, then upscale it" instead of eleven clicks. Off by default, and it runs entirely on your
 machine: see [Agent Bridge (MCP)](#agent-bridge-mcp) for what it is and how to start it.
-
----
-
-<details>
-<summary><h3>See it work</h3></summary>
-
-Real sessions in Photoshop, not mockups. Each one is a local generation on a 12 GB card.
-
-<details>
-<summary><b>Unflatten</b> — one flat photo, separated into layers with real alpha</summary>
-
-<img src="docs/assets/v0200/unflatten.webp" alt="Unflatten splitting a photograph into front and back layers in Photoshop" width="100%">
-
-**Look at the Layers panel on the right.** One flat JPEG went in; what came back is a group holding
-`Layer 2 (front)` — the man, with his own layer mask — above `Layer 1 (back)`, the background the
-model repainted to fill the hole he left. Both are ordinary Photoshop layers you can move, mask and
-refine. This is the thing a web UI cannot hand you.
-
-</details>
-
-<details>
-<summary><b>Live Painting</b> — paint a rough shape, watch it become a photograph</summary>
-
-<img src="docs/assets/v0200/live-painting.webp" alt="Live Painting turning a painted silhouette into a photographic eagle" width="100%">
-
-On the right, a crude black silhouette painted by hand. In the middle, what the model made of it while
-the brush was still moving. The live preview follows your strokes; **Import Refined as Layer** commits
-the result when you stop.
-
-</details>
-
-<details>
-<summary><b>Sketch to Image</b> — line art holds the drawing, the model does the rest</summary>
-
-<img src="docs/assets/v0200/sketch-to-image.webp" alt="A white line drawing of a dog rendered as a finished illustration" width="100%">
-
-The white line drawing on the right is the input; the finished illustration is the output. The stroke
-is held exactly — pose, ears, tail — while everything else is invented. Draw dark lines on a lighter
-ground and the preprocessor reads them.
-
-It is not only for line work. The same tool, given a shaded source:
-
-<img src="docs/assets/v0200/sketch-abstract.webp" alt="An abstract painted face generated through Sketch to Image" width="100%">
-
-</details>
-
-<details>
-<summary><b>Multi-Reference</b> — several layers composed into one picture</summary>
-
-<img src="docs/assets/v0200/multi-reference.webp" alt="A figure in a yellow raincoat composed into a neon-lit rainy street" width="100%">
-
-Two captured layers — a street and a figure — composed into a single scene by
-`multi-reference-flux2-klein`. Clothing, props, setting and lighting carry across from the references.
-**A specific person's face does not**, and the panel says so where you add them.
-
-</details>
-
-<details>
-<summary><b>Outpaint</b> — extend the canvas past its edges</summary>
-
-<img src="docs/assets/v0200/outpaint.webp" alt="Outpaint extending a photographic interior beyond the original canvas" width="100%">
-
-Give the canvas more room in Photoshop, then let Flux Fill invent what belongs in the new space.
-Experimental — work on a duplicate layer.
-
-</details>
-
-</details>
-
----
 
 <details>
 <summary><h3>Installation</h3></summary>
@@ -239,8 +162,6 @@ npm run package     # writes the .zip and .ccx into packages/
 </details>
 </details>
 
----
-
 <details>
 <summary><h3>Required files</h3></summary>
 
@@ -266,6 +187,22 @@ and every node it uses is core ComfyUI. It generates a 1024×1024 image in about
 
 That is **Text to Image, Image to Image, instruction editing, and Multi-Reference**. Add
 `4x-UltraSharp.pth` (67 MB, `models/upscale_models/`) and **Upscale** works too — five tools, 12.5 GB.
+
+### Also get an SD 1.5 checkpoint
+
+**Three more tools are built on SD 1.5 and cannot run without one.** It is not pinned or downloadable
+from Setup, because any SD 1.5 checkpoint works and the choice is yours —
+`epicrealism_naturalSinRC1VAE.safetensors` is what the presets are tested against. Roughly 2 GB, into
+`models/checkpoints/`.
+
+| Tool | Why it needs one |
+| :--- | :--- |
+| **Style Reference** | Its only preset is SD 1.5 — without a checkpoint the tool cannot run at all |
+| **Live Painting** | The fast tier pairs an SD 1.5 checkpoint with an LCM LoRA from `models/loras/` |
+| **Sketch to Image** | All three ControlNet presets (LineArt, Scribble, Depth) build on SD 1.5 |
+
+It also unlocks the **Standard checkpoint** preset in Text to Image, Image to Image and Inpaint. If
+you have ever used ComfyUI or Automatic1111 before, you almost certainly have one already.
 
 **Two tools need nothing at all:** Layer Tools works with ComfyUI stopped, and Upscale costs 67 MB.
 
@@ -432,8 +369,6 @@ before selling anything made with them.
 
 </details>
 
----
-
 <details>
 <summary><h3>Agent Bridge (MCP)</h3></summary>
 
@@ -510,143 +445,6 @@ Design notes and the full protocol are in [`docs/mcp-bridge.md`](docs/mcp-bridge
 
 </details>
 
----
-
-<details>
-<summary><h3>Releases</h3></summary>
-
-Full notes for every version are in the [CHANGELOG](CHANGELOG.md). The headline of each:
-
-<details>
-<summary><b>v0.20.0-alpha</b> — Unflatten: one flat layer becomes separate layers</summary>
-
-Hand the panel a flat layer and get the picture back as separate layers with real transparency,
-imported into your open document in stacking order inside one group. Runs on Qwen-Image-Layered;
-every node is core ComfyUI. About two minutes for four layers on a 12 GB card.
-
-Eight questions were answered with live generations before any of the screen was built. Two of the
-answers overturned assumptions the plan was built on: **composition decides whether it works, not
-where the picture came from** — a generated close-up fails exactly as a photographed one does — and
-**640px with four layers is a measured optimum**, so 1024 is not offered at all.
-
-</details>
-
-<details>
-<summary><b>v0.19.0-alpha</b> — Multi-Reference: compose one image from several layers</summary>
-
-Give the panel a list of captured layers instead of one, and it builds a single image out of all of
-them. Built on FLUX.2 Klein's own `ReferenceLatent` conditioning, so it shares the Klein stack the
-other Klein presets already need and downloads nothing extra.
-
-48 live generations answered the design questions first. The finding that shapes what this can
-honestly claim: **clothing, props, setting and lighting carry across from a reference; a specific
-person's face does not.**
-
-</details>
-
-<details>
-<summary><b>v0.18.0-alpha</b> — The Prompt Wallet, and the Workflow section opens</summary>
-
-Save a positive and negative prompt together from any tool, and load the pair back into any other —
-one library shared by every tool, with search, renaming, pinning and delete. Three dashboard cards
-that had been greyed out since v0.14 went live, and Style Reference arrived as an experimental tool.
-
-Also: undo on every prompt field independent of the host, and a fix for prompts silently refusing
-input past ~256 characters — an undocumented default of a Photoshop UXP text field that had been
-quietly truncating prompts and diagnostics reports alike.
-
-</details>
-
-<details>
-<summary><b>v0.16.0-alpha</b> — Artist-Friendly Dark, sliders, and Klein inpainting</summary>
-
-A third theme: a deeper, softer dark meant to sit behind artwork rather than match the Photoshop
-toolbar. It is the theme that turns the numeric parameters into sliders. Compact Adobe Dark is
-untouched.
-
-Plus a dice button on every seed field, an Advanced disclosure that remembers what you left it as,
-and `inpaint-flux2-klein` — the first inpaint preset that is not a Flux Fill model, reusing the Klein
-stack you already have. The seed field also stopped mangling wide seeds to `214748.36`, which had
-been failing every generation loaded from History.
-
-</details>
-
-<details>
-<summary><b>v0.15.0-alpha</b> — An AI assistant can drive the panel, and FLUX.2 Klein</summary>
-
-Ask Claude, Codex, or anything else that speaks the Model Context Protocol to generate an image,
-upscale a layer or caption a selection, and it works the panel's own buttons in your open document.
-Entirely local, and off until you turn it on. The bridge contains no Photoshop code: an agent-driven
-generation and a clicked one are the same code path.
-
-Also three FLUX.2 Klein 4B presets at 4 steps — **11.6 seconds for 1024×1024 on a 4070 Ti** — plus
-context-aware Inpaint using crop-and-stitch, so a small mask on a large document no longer samples a
-few hundred pixels.
-
-</details>
-
-<details>
-<summary><b>v0.14.0-alpha</b> — Sketch to Image gets presets that are not SD 1.x</summary>
-
-Two of them, both loading Alibaba-PAI's Z-Image Fun ControlNet Union patch onto the Z_image_Turbo
-stack the other tools already use, so the only new download is the patch. They ship as a pair because
-they measured as complementary: the full weights render shaded work far more photographically, while
-the lite weights hold bold sparse line art that the full weights flatten into a filled shape.
-
-Sketch to Image also stopped ignoring your sketch — light-on-dark art and solid filled shapes had been
-producing a blank control image, quietly turning the preset into plain text-to-image.
-
-</details>
-
-<details>
-<summary><b>v0.13.0-alpha</b> — LoRAs, and the Setup screen downloads models</summary>
-
-An optional LoRA on eleven presets across Text to Image, Image to Image and Sketch to Image. Choosing
-nothing leaves the shipped workflow untouched — the loader is spliced into the graph only when you
-actually pick one.
-
-A missing model's row in Setup gained a **Download** button: resumable, one at a time, and never
-before a confirmation naming the size, the destination folder and the host.
-
-</details>
-
-<details>
-<summary><b>v0.11.0-alpha</b> — The Setup screen</summary>
-
-Every model file and custom node package the presets need, with the folder each goes in, its size,
-what it unlocks, and whether it is installed, missing, or sitting in the wrong folder. It works with
-ComfyUI stopped, because that is the state most people are in when they go looking for what to
-download.
-
-"What will run well" ranks the presets against the VRAM your card reports: Comfortable, Tight, Will
-offload, or Not known.
-
-</details>
-
-<details>
-<summary><b>v0.10.0-alpha</b> — The plugin zip is built to the ZIP specification</summary>
-
-Every release from v0.1.0 to v0.9.0-alpha stored entry paths with backslashes, which macOS `unzip`
-unpacks as a flat directory with no `assets/` folder, so the panel could not render. **If an earlier
-release gave you a blank panel on macOS, this was why.**
-
-</details>
-
-<details>
-<summary><b>v0.9.0-alpha</b> — Layer Tools</summary>
-
-The eighth tool, and the first that is not a generation: export the active layer, the current
-selection, or the selection mask, either to a file you pick with a Photoshop save dialog or straight
-into ComfyUI's input folder.
-
-</details>
-
-<sub><a href="CHANGELOG.md">Every release back to v0.1.8-alpha →</a></sub>
-
-</details>
-
----
-
 <details>
 <summary><h3>Troubleshooting</h3></summary>
 
@@ -697,8 +495,6 @@ photographed or generated.
 
 </details>
 
----
-
 <details>
 <summary><h3>Project structure</h3></summary>
 
@@ -730,12 +526,85 @@ editable twin in `src/workflows/source/`, and a checker keeps the pair in sync.
 
 </details>
 
----
-
 ## Privacy
 
 Filesystem access is for temporary files; network access is to reach ComfyUI on `127.0.0.1`. Nothing
 — no image, prompt, model name, or diagnostic — is ever sent anywhere else. No telemetry, no account.
+
+## Gallery
+
+Real sessions in Photoshop, not mockups — every one a local generation on a 12 GB card.
+
+
+<details>
+<summary><b>Unflatten</b> — one flat photo, separated into layers with real alpha</summary>
+
+<img src="docs/assets/v0200/unflatten.webp" alt="Unflatten splitting a photograph into front and back layers in Photoshop" width="100%">
+
+**Look at the Layers panel on the right.** One flat JPEG went in; what came back is a group holding
+`Layer 2 (front)` — the man, with his own layer mask — above `Layer 1 (back)`, the background the
+model repainted to fill the hole he left. Both are ordinary Photoshop layers you can move, mask and
+refine. This is the thing a web UI cannot hand you.
+
+</details>
+
+<details>
+<summary><b>Live Painting</b> — paint a rough shape, watch it become a photograph</summary>
+
+<img src="docs/assets/v0200/live-painting.webp" alt="Live Painting turning a painted silhouette into a photographic eagle" width="100%">
+
+On the right, a crude black silhouette painted by hand. In the middle, what the model made of it while
+the brush was still moving. The live preview follows your strokes; **Import Refined as Layer** commits
+the result when you stop.
+
+</details>
+
+<details>
+<summary><b>Sketch to Image</b> — line art holds the drawing, the model does the rest</summary>
+
+<img src="docs/assets/v0200/sketch-to-image.webp" alt="A white line drawing of a dog rendered as a finished illustration" width="100%">
+
+The white line drawing on the right is the input; the finished illustration is the output. The stroke
+is held exactly — pose, ears, tail — while everything else is invented. Draw dark lines on a lighter
+ground and the preprocessor reads them.
+
+It is not only for line work. The same tool, given a shaded source:
+
+<img src="docs/assets/v0200/sketch-abstract.webp" alt="An abstract painted face generated through Sketch to Image" width="100%">
+
+</details>
+
+<details>
+<summary><b>Multi-Reference</b> — several layers composed into one picture</summary>
+
+<img src="docs/assets/v0200/multi-reference.webp" alt="A figure in a yellow raincoat composed into a neon-lit rainy street" width="100%">
+
+Two captured layers — a street and a figure — composed into a single scene by
+`multi-reference-flux2-klein`. Clothing, props, setting and lighting carry across from the references.
+**A specific person's face does not**, and the panel says so where you add them.
+
+</details>
+
+<details>
+<summary><b>Outpaint</b> — extend the canvas past its edges</summary>
+
+<img src="docs/assets/v0200/outpaint.webp" alt="Outpaint extending a photographic interior beyond the original canvas" width="100%">
+
+Give the canvas more room in Photoshop, then let Flux Fill invent what belongs in the new space.
+Experimental — work on a duplicate layer.
+
+</details>
+
+### Watch it run
+
+Full sessions against a real ComfyUI server and a real Photoshop window, start to finish, unedited.
+
+- **[Inpaint and Outpaint, live](https://www.youtube.com/watch?v=LD_gPQoCAnw)** — repainting a
+  selection and extending canvas edges with Flux Fill.
+- **[Start to finish, one server](https://www.youtube.com/watch?v=Mh5EddKxZew)** — Text to Image
+  through Upscale, run end to end against a local ComfyUI server.
+
+<sub>Both were recorded from an earlier alpha build; the panel has changed since.</sub>
 
 ## Documentation
 
