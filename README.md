@@ -26,7 +26,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/v060/text-to-image-photoshop.webp" alt="OpenLayer generating an image inside Photoshop and importing it as a layer" width="100%">
+  <img src="docs/assets/v0200/dashboard-artist-dark-crop.webp" alt="The OpenLayer panel in Photoshop, Artist-Friendly Dark theme" width="300">
 </p>
 
 - **Free, with no subscription.** No credits, no metering, no account, no upload quota.
@@ -529,15 +529,15 @@ Filesystem access is for temporary files; network access is to reach ComfyUI on 
 Real sessions in Photoshop, not mockups — every one a local generation on a 12 GB card.
 
 <details>
-<summary><b>The panel</b> — every tool, in the Artist-Friendly Dark theme</summary>
+<summary><b>Text to Image</b> — prompt in, named layer out</summary>
 
-<p align="center">
-  <img src="docs/assets/v0200/dashboard-artist-dark.webp" alt="The OpenLayer panel in Photoshop, Artist-Friendly Dark theme" width="320">
-</p>
+<img src="docs/assets/v060/text-to-image-photoshop.webp" alt="OpenLayer generating an image inside Photoshop and importing it as a layer" width="100%">
 
-The dashboard as it opens, in the softer of the three themes — the one built to sit behind artwork
-rather than match the Photoshop toolbar. Every tool is one tap from here, and this is the theme that
-turns the numeric parameters into sliders.
+Type a prompt, press Generate, and the result lands in the open document as a layer named
+`OpenLayer_Generated_…`. The panel keeps the progress and the preview beside the canvas the whole
+time.
+
+<sub>From an earlier alpha build — the panel has changed since.</sub>
 
 </details>
 
