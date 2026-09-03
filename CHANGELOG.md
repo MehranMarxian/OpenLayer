@@ -36,6 +36,33 @@ anything at all.
   system calls it that — rendering it as "12.9 GB" would be arithmetically defensible and read as a
   bug.
 
+- **Unflatten imported the same subject two and three times over.** A four-layer run on a photograph
+  came back as three near-identical masks of one person: `Layer 4` sat 87.5% inside `Layer 3`. No
+  existing rule could have caught it, because every rule up to now judged a plate on its own — how
+  much of it is solid, how flat it is, how much of the frame it covers — and three layers all showing
+  the same person pass every one of those individually. Redundancy is a relationship *between*
+  layers.
+
+  A plate is now compared against the cut-outs already placed and left out if it is mostly inside one
+  of them. Worst containment within a run, measured across five sources: bench 5.7%, balloon 23.0%,
+  large-subject 53.0%, cat 99.8%, poster 100%. A clean decomposition puts different things on
+  different layers so its plates barely touch; a failed one hands the same content back twice. The
+  ceiling sits at 75%, above every good run measured and below every bad one.
+
+  The first version of the rule compared against *everything* already placed, including the
+  background — which covers the whole frame, so every later plate is 100% "inside" it. Replaying it
+  over nine recorded runs before touching Photoshop found it dropping all three layers of the
+  cleanest decomposition on file. Backgrounds are excluded, and that trap has its own test.
+
+- **A masking fall-back that would not say why it fell back.** When no layer can be built from the
+  artist's own pixels the import drops to the model's plates, which is the right behaviour — a host
+  that refuses one descriptor should not cost someone a decomposition they waited two minutes for.
+  But it did so through a bare `catch` that discarded the error, so a real report of "Built from the
+  model's pixels" had two possible causes with opposite fixes and no way to tell them apart. Three
+  outcomes that were indistinguishable from outside are now distinct: a background legitimately
+  keeping the model's pixels, a cut-out with nothing captured to mask against, and a masking step the
+  host refused, which now carries the error it caught into the diagnostics line.
+
 ## v0.20.0-alpha - 2026-08-30
 
 This release adds Unflatten: hand the panel a flat layer and get the picture back as separate layers with real transparency, imported into the open document in stacking order. Nothing else in this space puts a decomposed layer stack into a host application, and that is the whole point of building it here rather than anywhere else.

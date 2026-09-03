@@ -5117,9 +5117,12 @@ export function renderApp(rootElement: HTMLElement) {
         `Group created: ${imported.groupName}. Layers, back to front: ${imported.layerNames.join(", ")}.` +
           (imported.sourcePixelLayerCount > 0
             ? ` ${imported.sourcePixelLayerCount} built from your own pixels, masked.`
-            : " Built from the model's pixels.") +
+            : ` Built from the model's pixels${imported.fallbackReason ? ` -- ${imported.fallbackReason}` : ""}.`) +
           (imported.skippedBlankLayerCount > 0
             ? ` ${imported.skippedBlankLayerCount} came back empty and were left out.`
+            : "") +
+          (imported.skippedRedundantLayerCount > 0
+            ? ` ${imported.skippedRedundantLayerCount} repeated a layer below and were left out.`
             : "")
       );
     } catch (caughtError) {
