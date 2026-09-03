@@ -588,6 +588,27 @@ h3 {
   height: 520px;
 }
 
+.shot-grid-v0200 {
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+
+.shot-grid-v0200 .shot-wide {
+  grid-column: span 6;
+}
+
+.shot-grid-v0200 .shot-narrow {
+  grid-column: span 3;
+}
+
+/* Uniform height with contain, because these shots range from a 1400x569
+   canvas strip to a 431x1298 docked panel and a ragged grid reads as broken
+   rather than as varied. */
+.shot-grid-v0200 img {
+  height: 300px;
+  object-fit: contain;
+  background: #17171b;
+}
+
 /* ---------- video demos ---------- */
 
 .video-grid {
@@ -912,6 +933,11 @@ h3 {
   .shot-grid-v060 .shot-wide {
     grid-column: span 6;
   }
+
+  .shot-grid-v0200 .shot-wide,
+  .shot-grid-v0200 .shot-narrow {
+    grid-column: span 6;
+  }
 }
 
 @media (max-width: 560px) {
@@ -939,6 +965,16 @@ h3 {
   .shot-grid-v060 .shot-tall img {
     height: auto;
     max-height: 520px;
+  }
+
+  .shot-grid-v0200 .shot-wide,
+  .shot-grid-v0200 .shot-narrow {
+    grid-column: 1 / -1;
+  }
+
+  .shot-grid-v0200 img {
+    height: auto;
+    max-height: 420px;
   }
 
   .evolution-list figure {

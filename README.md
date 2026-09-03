@@ -544,12 +544,20 @@ time.
 <details>
 <summary><b>Unflatten</b> — one flat photo, separated into layers with real alpha</summary>
 
-<img src="docs/assets/v0200/unflatten.webp" alt="Unflatten splitting a photograph into front and back layers in Photoshop" width="100%">
+<img src="docs/assets/v0200/unflatten-hiker.webp" alt="Unflatten splitting a mountain photograph into three layers in Photoshop" width="100%">
 
-**Look at the Layers panel on the right.** One flat JPEG went in; what came back is a group holding
-`Layer 2 (front)` — the man, with his own layer mask — above `Layer 1 (back)`, the background the
-model repainted to fill the hole he left. Both are ordinary Photoshop layers you can move, mask and
-refine. This is the thing a web UI cannot hand you.
+**Look at the Layers panel on the right.** One flat photograph went in. What came back is a group of
+three ordinary Photoshop layers: `Layer 1 (back)`, the background the model repainted to fill the
+holes everything else left behind, and two cut-outs above it, each wearing its own layer mask.
+
+<img src="docs/assets/v0200/unflatten-masks.webp" alt="The three imported layers and their masks, close up" width="440">
+
+Those masks are the whole point. The near ridge is one, and **that speck of white in the middle
+mask is the hiker** — lifted onto his own layer, at the document's full resolution, non-destructively.
+Drag him and the mountain behind him is already painted in. Nothing here is flattened, baked, or
+one-way: they are layers and masks you can move, refine with Select and Mask, or throw away.
+
+<sub>Source: <a href="https://commons.wikimedia.org/wiki/File:Hiking_in_the_mountains_in_Schilt_(Unsplash).jpg">Hiking in the mountains in Schilt</a>, CC0.</sub>
 
 </details>
 
