@@ -33,7 +33,8 @@
 - **Nothing leaves your computer.** ComfyUI runs on your own machine, on your own models.
 - **Results arrive as real Photoshop layers** — named, positioned, and editable. Not a flattened PNG
   you paste in and hope for.
-- **Eleven generation tools**, from text-to-image to splitting a flat picture back into layers.
+- **Eleven generation tools**, from text-to-image through inpainting to multi-image composition,
+  plus an experimental one that splits a flat picture back into layers.
 
 **You need:** Photoshop 2024+ · a local [ComfyUI](https://github.com/comfyanonymous/ComfyUI) server ·
 a GPU with 8 GB VRAM or more (12 GB is what this project targets).
@@ -542,7 +543,7 @@ time.
 </details>
 
 <details>
-<summary><b>Unflatten</b> — one flat photo, separated into layers with real alpha</summary>
+<summary><b>Unflatten</b> ✦ — one flat photo, separated into layers with real alpha (experimental)</summary>
 
 <img src="docs/assets/v0200/unflatten-hiker.webp" alt="Unflatten splitting a mountain photograph into three layers in Photoshop" width="100%">
 
@@ -556,6 +557,13 @@ Those masks are the whole point. The near ridge is one, and **that speck of whit
 mask is the hiker** — lifted onto his own layer, at the document's full resolution, non-destructively.
 Drag him and the mountain behind him is already painted in. Nothing here is flattened, baked, or
 one-way: they are layers and masks you can move, refine with Select and Mask, or throw away.
+
+**This one is genuinely experimental, and this photograph is it working.** Unflatten needs a subject
+standing clear of a background; hand it a close-up that fills the frame and it returns the picture
+untouched, which the panel now tells you rather than reporting as a success. The layer count you ask
+for is a ceiling rather than a promise, and the cut edges come from a 640px matte, so they are a
+starting point for Select and Mask rather than a finished cut-out. Try it on a photograph with real
+depth before judging it — and please [say how it went](https://github.com/MehranMarxian/OpenLayer/discussions).
 
 <sub>Source: <a href="https://commons.wikimedia.org/wiki/File:Hiking_in_the_mountains_in_Schilt_(Unsplash).jpg">Hiking in the mountains in Schilt</a>, CC0.</sub>
 

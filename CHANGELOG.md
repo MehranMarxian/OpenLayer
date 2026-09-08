@@ -2,6 +2,96 @@
 
 ## Unreleased
 
+A release about telling the truth: what the panel connects to, what it can do, and — mostly — what
+it cannot. Nothing here is a new capability. Four of the five changes below make OpenLayer stop
+saying something that was not so.
+
+### Changed
+
+- **The default ComfyUI address is now `http://127.0.0.1:8188`.** It was `8190` for twenty releases,
+  picked so a second ComfyUI could sit beside one another plugin was already using. That trade is
+  backwards for the common case: almost nobody runs two servers, and the port ComfyUI starts on when
+  you follow its own install instructions is 8188. Defaulting anywhere else meant most first runs
+  failed at the first step, and the person had to learn what a port is before seeing the panel work
+  once. Most testers were already on 8188.
+
+  Finding a server is unchanged — the scan still covers 8190 (now second, since the people most
+  likely to need it are the ones on the old default), and Settings › Find ComfyUI Active Port, the
+  welcome overlay and the manual field all behave as before.
+
+  Anyone who had connected successfully is unaffected: a successful start already saves the address,
+  and a saved address beats the default. For those with nothing saved — a fresh install whose server
+  is elsewhere, or an upgrader who never got that far — a failed start now runs the port scan itself,
+  once, and adopts what it finds. Deliberately narrow: an address someone typed and saved is never
+  overridden, because if their server is off the honest answer is that it is off, not a silent hop
+  onto whatever else is running.
+
+- **Unflatten is described as experimental in the same breath as what it does**, rather than being
+  claimed first and qualified several paragraphs later. The panel already marked it experimental; the
+  README did not, and its gallery entry made the claim with no caveat at all. The tool has not
+  changed and nothing was removed — the qualifier simply moved into the sentence it belongs to, and
+  the gallery now says plainly what kind of picture it needs.
+
+- **The Prompt Wallet has its own icon.** It and Prompt from Layer shared one, which made a library
+  and a captioner look like the same tool in the list.
+
+### Added
+
+- **Prompt from Layer can save to the Prompt Wallet.** It is the one tool whose prompt the panel
+  writes rather than the artist, which makes keeping a caption *more* valuable, not less: a good one
+  came out of Florence-2 and will not come out the same way twice. Until now the only way to keep one
+  was to copy it out before the next run overwrote it.
+
+  This was also the one field where the obvious wiring fails. The Wallet enables its save control
+  from the field's `input` event, and assigning `.value` in code fires nothing — so the control would
+  have sat disabled at exactly the moment there was finally something worth saving.
+
+### Fixed
+
+- **Unflatten reported a run that separated nothing as a success.** Handed a close-up that fills the
+  frame, the model has no front and back to find: it returns the source unchanged as the background
+  and empty plates above it. Those empties are dropped on import, so what arrived was a single layer
+  that is just the original picture — announced as "Imported 1 layers", in the ready tone, with the
+  success flash. Indistinguishable from a run that worked, and the single biggest reason the tool
+  read as useless.
+
+  `docs/known-limitations.md` said this was undetectable, and for the reasons it gave it was: nothing
+  in a UXP panel can decode a PNG, and both cheap proxies measured during the v0.20 gate failed —
+  blank and populated plates overlap almost completely on file size, and the background/composite
+  size ratio put an unseparated run at 0.972 against 0.983 for a separated one.
+
+  What changed is v0.20's own blank-plate fix. It already reads each placed layer's alpha through
+  Photoshop's imaging API and drops the empties, so the question stopped being "what is in this
+  plate" and became "how many survived" — a count, not a measurement. Asking for several layers and
+  receiving exactly one is now reported as the failure it is. Asking for *one* layer is asking for no
+  separation, so that case is exempt; and a partial result is still a success, because the layer
+  count is a ceiling rather than a promise.
+
+- **Seven info panels and one tool warning had never been visible to anyone.** `.tool-warning` and
+  `.info-toggle` were both `display: none !important` in the compact theme — the only theme carrying
+  real rules — hidden as density measures in a block whose job is fitting the panel into a narrow
+  dock. Everything written in them was unreachable, including Multi-Reference's warning that faces do
+  not carry across from a reference, which means v0.19's load-bearing limitation shipped invisible.
+
+  Neither needed styling: both were fully dressed a few hundred lines up, and only these two later
+  declarations, winning by coming last at equal specificity, kept them off the screen.
+
+  Multi-Reference's note did not go back behind the toggle. It is the one limitation that changes
+  what a person should attempt, and a warning you have to go looking for is not a warning — the same
+  conclusion Unflatten's on-screen hint had already reached.
+
+- **Unflatten's Prompt Wallet controls did nothing.** It has rendered a save and a load control since
+  v0.20 but was never listed in the Wallet's tool table, so both sat permanently disabled. The markup
+  half and the registration half are one feature and only one of them shipped: every control resolved,
+  the whole suite passed, and the only symptom was two buttons that did not respond. A test now
+  asserts the two sets match, in both directions.
+
+- **The setup pack could have told people to start ComfyUI on a different port than the panel used.**
+  `DEFAULT_COMFYUI_PORT` was a second, independent copy of the number; it is read from the panel's own
+  default now, and its test asserts the two agree rather than restating the literal.
+
+## Earlier unreleased work
+
 Two reporting bugs, both found while sourcing the README's per-tool "required files" section against
 the registry rather than against the README's own prose. Neither changes what a preset runs — both
 change what OpenLayer *tells you* it needs, which is what a person acts on before they can run

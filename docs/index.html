@@ -207,7 +207,7 @@
           <div class="shot-grid shot-grid-v0200">
             <figure class="shot-wide">
               <img src="assets/v0200/unflatten-hiker.webp" alt="Unflatten splitting a mountain photograph into three separate Photoshop layers." width="1400" height="787" loading="lazy" decoding="async">
-              <figcaption><strong>Unflatten, in the document</strong><span>One flat photograph in; a group of three ordinary layers out &mdash; the repainted background, and two cut-outs above it wearing their own masks.</span></figcaption>
+              <figcaption><strong>Unflatten, in the document</strong> <span class="chip chip-exp">Experimental</span><span>One flat photograph in; a group of three ordinary layers out &mdash; the repainted background, and two cut-outs above it wearing their own masks. This is it working: it needs a subject standing clear of a background, and says so when it cannot separate one.</span></figcaption>
             </figure>
             <figure class="shot-narrow">
               <img src="assets/v0200/unflatten-masks.webp" alt="The three imported Unflatten layers and their alpha masks, close up." width="448" height="456" loading="lazy" decoding="async">
@@ -426,8 +426,8 @@
               <p>48 test generations found clothing, props, setting, and lighting carry across from a reference layer — a specific person's face does not, even from a clean studio portrait. It is honest as a composition tool and should not be used expecting a recognisable result.</p>
             </article>
             <article class="status-card">
-              <h3>Unflatten needs depth, not just a subject</h3>
-              <p>Testing found that what decides whether a picture separates is its composition, not where it came from: a generated close-up fails exactly as a photographed one does, and a subject standing clear of its background succeeds either way. The number of layers you ask for is a ceiling &mdash; empty ones are left out rather than imported.</p>
+              <h3>Unflatten is experimental, and needs depth</h3>
+              <p>Testing found that what decides whether a picture separates is its composition, not where it came from: a generated close-up fails exactly as a photographed one does, and a subject standing clear of its background succeeds either way. The number of layers you ask for is a ceiling &mdash; empty ones are left out rather than imported. As of v0.21 the panel detects a run that separated nothing and reports it, instead of presenting the unchanged picture as a result.</p>
             </article>
             <article class="status-card">
               <h3>Inpaint is experimental</h3>
@@ -520,7 +520,7 @@
               <p>Compose one image from an ordered list of captured layers with FLUX.2 Klein, gated on 48 live test generations before any screen was built: reference order affects output more than reference count, and a specific person's likeness does not carry the way clothing and setting do.</p>
             </article>
             <article>
-              <h3>v0.20 · Unflatten</h3>
+              <h3>v0.20 · Unflatten (experimental)</h3>
               <p>A flat layer comes back as separate layers with real transparency, inside a group, in stacking order — the layers in front rebuilt from your own full-resolution pixels wearing the model's matte. Gated on eight questions answered with live generations first, two of which overturned assumptions the plan was built on.</p>
             </article>
             <article>

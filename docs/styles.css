@@ -460,6 +460,16 @@ h3 {
   border: 1px solid rgba(240, 177, 83, 0.35);
 }
 
+/* A figcaption is a grid here, so a chip dropped into one stretches to the full
+   caption width and reads as a banner rather than a tag. Both declarations are
+   needed: `justify-self` keeps it at its own width in the grid, and the inline
+   flex keeps the label centred inside the pill the way it is in a tool card. */
+figcaption .chip {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+}
+
 .tool-card p {
   margin: 0;
   color: var(--muted);
