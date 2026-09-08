@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.21.0-alpha - 2026-09-08
 
 Mostly a release about telling the truth: what the panel connects to, what it can do, and what it
 cannot. One new tool — Remove Background, which is the fast, reliable cutout people have been
