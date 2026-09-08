@@ -106,6 +106,7 @@ export type ToolIconName =
   | "expand"
   | "lineart"
   | "promptFromLayer"
+  | "promptWallet"
   | "upscale"
   | "livePainting"
   | "styleReference"
@@ -253,7 +254,7 @@ export const TOOL_CARDS: ToolCard[] = [
     id: "prompt-wallet",
     title: "Prompt Wallet",
     subtitle: "Save and reuse favorite prompts",
-    icon: "promptFromLayer",
+    icon: "promptWallet",
     status: "available",
     view: "prompt-wallet"
   },

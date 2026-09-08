@@ -1861,7 +1861,7 @@ export function createAppMarkup() {
         <div class="screen-nav">
           <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
           <div class="screen-title-block">
-            ${createScreenIconMarkup("promptFromLayer", "Prompt Wallet")}
+            ${createScreenIconMarkup("promptWallet", "Prompt Wallet")}
             <span class="screen-title">Prompt Wallet</span>
           </div>
         </div>
@@ -1995,6 +1995,7 @@ function createToolIconMarkup(icon: ToolIconName) {
     expand: "outpaint.png",
     lineart: "sketch-to-image.png",
     promptFromLayer: "prompt-from-layer.png",
+    promptWallet: "prompt-wallet.png",
     upscale: "upscale.png",
     // Live Painting and Style Reference shared one file until v0.18. They are
     // separate names now so replacing either one's art cannot change the other.
