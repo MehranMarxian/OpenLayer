@@ -196,7 +196,7 @@ import {
 import { setArtistControlsEnabled, syncArtistControls } from "./artistControls";
 import { setSeedDiceEnabled } from "./seedDice";
 import { bindPromptMemory } from "./promptMemory";
-import { bindPromptWallet, PromptWalletTool } from "./promptWallet";
+import { bindPromptWallet, PROMPT_WALLET_TOOLS } from "./promptWallet";
 import {
   createUpscaleResizePlan,
   formatUpscaleScale,
@@ -1683,87 +1683,7 @@ export function renderApp(rootElement: HTMLElement) {
   bindExternalLinks(rootElement);
   bindAdvancedToggles(rootElement);
   bindPromptMemory(elements);
-  // One shared library across every tool: the same prompt is reachable from
-  // Inpaint and Text to Image alike. Each tool reports into its own status
-  // line, which is a surface with proof of life in the host -- unlike a
-  // floating toast, which would mean new injected DOM and position: fixed,
-  // both of which have already failed here.
-  const promptWalletTools: readonly PromptWalletTool[] = [
-    {
-      positive: "prompt",
-      negative: "negativePrompt",
-      saveButton: "promptWalletSave",
-      loadButton: "promptWalletLoad",
-      view: "text-to-image",
-      label: "Text to Image",
-      report: setTextToImageDiagnostics
-    },
-    {
-      positive: "imgPrompt",
-      negative: "imgNegativePrompt",
-      saveButton: "imgPromptWalletSave",
-      loadButton: "imgPromptWalletLoad",
-      view: "image-to-image",
-      label: "Image to Image",
-      report: setImageDiagnostics
-    },
-    {
-      positive: "sketchPrompt",
-      negative: "sketchNegativePrompt",
-      saveButton: "sketchPromptWalletSave",
-      loadButton: "sketchPromptWalletLoad",
-      view: "sketch-to-image",
-      label: "Sketch to Image",
-      report: setSketchDiagnostics
-    },
-    {
-      positive: "inpaintPrompt",
-      negative: "inpaintNegativePrompt",
-      saveButton: "inpaintPromptWalletSave",
-      loadButton: "inpaintPromptWalletLoad",
-      view: "inpaint",
-      label: "Inpaint",
-      report: setInpaintDiagnostics
-    },
-    // Outpaint has no negative prompt field at all, so it saves and loads the
-    // positive alone rather than being excluded from the Wallet.
-    {
-      positive: "outpaintPrompt",
-      saveButton: "outpaintPromptWalletSave",
-      loadButton: "outpaintPromptWalletLoad",
-      view: "outpaint",
-      label: "Outpaint",
-      report: setOutpaintDiagnostics
-    },
-    {
-      positive: "livePrompt",
-      negative: "liveNegativePrompt",
-      saveButton: "livePromptWalletSave",
-      loadButton: "livePromptWalletLoad",
-      view: "live-painting",
-      label: "Live Painting",
-      report: (_elements, message) => setLiveStatus(message)
-    },
-    {
-      positive: "styleReferencePrompt",
-      negative: "styleReferenceNegativePrompt",
-      saveButton: "styleReferencePromptWalletSave",
-      loadButton: "styleReferencePromptWalletLoad",
-      view: "style-reference",
-      label: "Style Reference",
-      report: setStyleReferenceDiagnostics
-    },
-    {
-      positive: "multiReferencePrompt",
-      negative: "multiReferenceNegativePrompt",
-      saveButton: "multiReferencePromptWalletSave",
-      loadButton: "multiReferencePromptWalletLoad",
-      view: "multi-reference",
-      label: "Multi-Reference",
-      report: setMultiReferenceDiagnostics
-    }
-  ];
-  const promptWallet = bindPromptWallet(elements, promptWalletTools, setView);
+  const promptWallet = bindPromptWallet(elements, PROMPT_WALLET_TOOLS, setView);
   bindWelcomeOverlay(elements);
   bindToolWarnings(rootElement);
   bindStickyProgress(rootElement);
@@ -5905,6 +5825,11 @@ export function renderApp(rootElement: HTMLElement) {
       run.assertCanCommit();
 
       elements.promptLayerGeneratedText.value = generatedText;
+      // Assigning `.value` fires nothing, and the Wallet enables its save dot
+      // from this field's "input" event. Without this the dot would sit
+      // disabled at the exact moment there is finally a caption worth saving --
+      // it would only wake up if the artist happened to edit the text by hand.
+      elements.promptLayerGeneratedText.dispatchEvent(new Event("input", { bubbles: true }));
       run.finish();
       run = null;
       setPromptLayerStatus(elements, "Prompt text generated.", "ready");

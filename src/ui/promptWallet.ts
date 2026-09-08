@@ -1,6 +1,17 @@
 import { AppElements } from "./appMarkup";
 import { AppView } from "./appConstants";
 import {
+  setImageDiagnostics,
+  setInpaintDiagnostics,
+  setMultiReferenceDiagnostics,
+  setOutpaintDiagnostics,
+  setPromptLayerDiagnostics,
+  setSketchDiagnostics,
+  setStyleReferenceDiagnostics,
+  setTextToImageDiagnostics,
+  setUnflattenDiagnostics
+} from "./statusBars";
+import {
   createPromptWalletId,
   loadPromptWallet,
   PromptWalletEntry,
@@ -55,6 +66,115 @@ export type PromptWalletTool = {
   /** Where this tool reports "Prompt saved to Wallet." and similar. */
   report: (elements: AppElements, message: string) => void;
 };
+
+// One shared library across every tool: the same prompt is reachable from
+// Inpaint and Text to Image alike. Each tool reports into its own status
+// line, which is a surface with proof of life in the host -- unlike a
+// floating toast, which would mean new injected DOM and position: fixed,
+// both of which have already failed here.
+export const PROMPT_WALLET_TOOLS: readonly PromptWalletTool[] = [
+  {
+    positive: "prompt",
+    negative: "negativePrompt",
+    saveButton: "promptWalletSave",
+    loadButton: "promptWalletLoad",
+    view: "text-to-image",
+    label: "Text to Image",
+    report: setTextToImageDiagnostics
+  },
+  {
+    positive: "imgPrompt",
+    negative: "imgNegativePrompt",
+    saveButton: "imgPromptWalletSave",
+    loadButton: "imgPromptWalletLoad",
+    view: "image-to-image",
+    label: "Image to Image",
+    report: setImageDiagnostics
+  },
+  {
+    positive: "sketchPrompt",
+    negative: "sketchNegativePrompt",
+    saveButton: "sketchPromptWalletSave",
+    loadButton: "sketchPromptWalletLoad",
+    view: "sketch-to-image",
+    label: "Sketch to Image",
+    report: setSketchDiagnostics
+  },
+  {
+    positive: "inpaintPrompt",
+    negative: "inpaintNegativePrompt",
+    saveButton: "inpaintPromptWalletSave",
+    loadButton: "inpaintPromptWalletLoad",
+    view: "inpaint",
+    label: "Inpaint",
+    report: setInpaintDiagnostics
+  },
+  // Outpaint has no negative prompt field at all, so it saves and loads the
+  // positive alone rather than being excluded from the Wallet.
+  {
+    positive: "outpaintPrompt",
+    saveButton: "outpaintPromptWalletSave",
+    loadButton: "outpaintPromptWalletLoad",
+    view: "outpaint",
+    label: "Outpaint",
+    report: setOutpaintDiagnostics
+  },
+  {
+    positive: "livePrompt",
+    negative: "liveNegativePrompt",
+    saveButton: "livePromptWalletSave",
+    loadButton: "livePromptWalletLoad",
+    view: "live-painting",
+    label: "Live Painting",
+    report: (walletElements, message) => {
+      walletElements.liveStatusText.textContent = message;
+    }
+  },
+  {
+    positive: "styleReferencePrompt",
+    negative: "styleReferenceNegativePrompt",
+    saveButton: "styleReferencePromptWalletSave",
+    loadButton: "styleReferencePromptWalletLoad",
+    view: "style-reference",
+    label: "Style Reference",
+    report: setStyleReferenceDiagnostics
+  },
+  {
+    positive: "multiReferencePrompt",
+    negative: "multiReferenceNegativePrompt",
+    saveButton: "multiReferencePromptWalletSave",
+    loadButton: "multiReferencePromptWalletLoad",
+    view: "multi-reference",
+    label: "Multi-Reference",
+    report: setMultiReferenceDiagnostics
+  },
+  // Unflatten has rendered a pair of Wallet dots since v0.20 but was never
+  // listed here, so both sat permanently disabled -- the markup and this
+  // array were the two halves of one feature and only one of them shipped.
+  // Its field is a description of what is already in the picture rather than
+  // a request, which is exactly the kind of text worth keeping: it is
+  // rewritten from scratch for every source otherwise.
+  {
+    positive: "unflattenPrompt",
+    saveButton: "unflattenPromptWalletSave",
+    loadButton: "unflattenPromptWalletLoad",
+    view: "unflatten",
+    label: "Unflatten",
+    report: setUnflattenDiagnostics
+  },
+  // Prompt from Layer is the one tool whose prompt the panel writes rather
+  // than the artist, which makes saving it *more* valuable, not less: a
+  // caption worth keeping is one Florence-2 produced and would not produce
+  // the same way twice. It has no negative field, like Outpaint.
+  {
+    positive: "promptLayerGeneratedText",
+    saveButton: "promptLayerGeneratedTextWalletSave",
+    loadButton: "promptLayerGeneratedTextWalletLoad",
+    view: "prompt-from-layer",
+    label: "Prompt from Layer",
+    report: setPromptLayerDiagnostics
+  }
+];
 
 const NAME_MAX_LENGTH = 40;
 

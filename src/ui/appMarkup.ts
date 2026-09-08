@@ -290,6 +290,8 @@ export type AppElements = {
   promptLayerTask: HTMLSelectElement;
   promptLayerNumBeams: HTMLInputElement;
   promptLayerGeneratedText: HTMLTextAreaElement;
+  promptLayerGeneratedTextWalletSave: HTMLElement;
+  promptLayerGeneratedTextWalletLoad: HTMLElement;
   historyList: HTMLElement;
   settingsUrlValue: HTMLElement;
   settingsCheckpointCount: HTMLElement;
@@ -485,7 +487,7 @@ export function createAppMarkup() {
 
         <section class="panel-section generator-panel" aria-label="Prompt from Layer text">
           <div class="section-heading">
-            <span class="label">Generated prompt</span>
+            <span class="label">Generated prompt${createPromptWalletControlsMarkup("prompt-layer-generated-text")}</span>
             <span class="muted-label">Florence-2 PromptGen</span>
           </div>
           <div class="settings-grid" aria-label="Prompt from Layer settings">
@@ -2315,6 +2317,8 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     promptLayerTask: getElement<HTMLSelectElement>(rootElement, "prompt-layer-task"),
     promptLayerNumBeams: getElement<HTMLInputElement>(rootElement, "prompt-layer-num-beams"),
     promptLayerGeneratedText: getElement<HTMLTextAreaElement>(rootElement, "prompt-layer-generated-text"),
+    promptLayerGeneratedTextWalletSave: getElement<HTMLElement>(rootElement, "prompt-layer-generated-text-wallet-save"),
+    promptLayerGeneratedTextWalletLoad: getElement<HTMLElement>(rootElement, "prompt-layer-generated-text-wallet-load"),
     historyList: getElement<HTMLElement>(rootElement, "history-list"),
     settingsUrlValue: getElement<HTMLElement>(rootElement, "settings-url-value"),
     settingsCheckpointCount: getElement<HTMLElement>(rootElement, "settings-checkpoint-count"),
