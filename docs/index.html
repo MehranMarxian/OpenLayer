@@ -404,6 +404,9 @@
           <p class="setup-note">
             OpenLayer defaults to <code>http://127.0.0.1:8188</code>, which is ComfyUI's own default port, so an untouched install already matches — and if yours runs somewhere else, you do not have to move it. If ComfyUI is already running anywhere, open <strong>Settings</strong> and click <strong>Find ComfyUI Active Port</strong>; OpenLayer finds it, connects, and reports Ready. <code>--preview-method auto</code> enables live step previews.
           </p>
+          <p class="setup-note">
+            <strong>Upgrading from v0.20 or earlier? The default port changed from <code>8190</code> to <code>8188</code>.</strong> OpenLayer used <code>8190</code> for twenty releases and now uses the port ComfyUI itself starts on. If you had ever connected successfully your address was saved, so nothing changes for you. If the panel does come up on <code>8188</code> while your server is on <code>8190</code>, it scans for the running server by itself on first launch, and <strong>Settings &rsaquo; Find ComfyUI Active Port</strong> puts it back in one click at any time &mdash; <code>8190</code> is still in the scan list.
+          </p>
         </div>
       </section>
 

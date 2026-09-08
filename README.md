@@ -126,6 +126,13 @@ python main.py --listen 127.0.0.1 --port 8188 --preview-method auto
 **You do not have to move your server.** If ComfyUI is already running somewhere else, open
 **Settings › Find ComfyUI Active Port** — OpenLayer scans for it, connects, and reports `Ready`.
 
+> **Upgrading from v0.20 or earlier? The default port changed from `8190` to `8188`.**
+> OpenLayer used `8190` for twenty releases; it now uses the port ComfyUI itself starts on.
+> If you had ever connected successfully, your address was saved and **nothing changes for you**.
+> If the panel does come up pointing at `8188` while your server is on `8190`, it scans for the
+> running server by itself on first launch — and **Settings › Find ComfyUI Active Port** puts it
+> back in one click at any time. `8190` is still in the scan list.
+
 `--preview-method auto` is optional but recommended: it streams live sampler previews into the panel
 while generating.
 
@@ -451,6 +458,12 @@ server on any port.
 ```bash
 curl http://127.0.0.1:8188/system_stats
 ```
+
+**It connected before the update and does not now**
+
+The default port moved from `8190` to `8188` in `v0.25.0-alpha`. Click **Settings › Find ComfyUI
+Active Port** — `8190` is still scanned, so this is a one-click fix — or type your address into the
+server field and press **Save Settings** to pin it.
 
 **The checkpoint list is empty**
 

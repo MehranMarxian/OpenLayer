@@ -138,14 +138,12 @@ not so.
   `DEFAULT_COMFYUI_PORT` was a second, independent copy of the number; it is read from the panel's own
   default now, and its test asserts the two agree rather than restating the literal.
 
-## Earlier unreleased work
+### Also fixed, from the weeks between the v0.20.0 tag and the version bump
 
-Two reporting bugs, both found while sourcing the README's per-tool "required files" section against
-the registry rather than against the README's own prose. Neither changes what a preset runs — both
+Two reporting bugs found while sourcing the README's per-tool "required files" section against the
+registry rather than against the README's own prose — neither changes what a preset runs, both
 change what OpenLayer *tells you* it needs, which is what a person acts on before they can run
-anything at all.
-
-### Fixed
+anything at all — and two Unflatten defects found in real runs.
 
 - **The Depth ControlNet preset reported needing no custom node at all.**
   `DepthAnythingV2Preprocessor` was missing from `CUSTOM_NODE_PACKAGES`, so Setup, the setup pack and
