@@ -8,26 +8,32 @@ Walkthroughs for your first run with each tool. Install the plugin first — see
 Start ComfyUI locally using your normal ComfyUI launch command. Confirm the server is reachable:
 
 ```bash
-curl http://127.0.0.1:8190/system_stats
+curl http://127.0.0.1:8188/system_stats
 ```
 
 In OpenLayer, keep the default server URL or enter your own:
 
 ```text
-http://127.0.0.1:8190
+http://127.0.0.1:8188
 ```
 
-OpenLayer uses port `8190` by default so it does not interfere with another tool that may already be
-using ComfyUI on port `8188`.
+`8188` is the port ComfyUI starts on by default, so if you have not deliberately moved yours, this
+already matches and there is nothing to configure.
 
-**You do not have to move your server to 8190.** If ComfyUI is already running somewhere else — 8188
-or anywhere — open **Settings** and click **Find ComfyUI Active Port**. OpenLayer scans for the running
-server, connects to it, and reports `Ready`. Use your normal launch command and leave it where it is.
+**If your ComfyUI is somewhere else, you do not have to move it.** Open **Settings** and click
+**Find ComfyUI Active Port**. OpenLayer scans the common local ports, connects to the server it
+finds, and reports `Ready`. Keep using your normal launch command and leave the server where it is.
+On a first run with nothing saved yet, the panel does this scan on its own when the default address
+does not answer.
 
-Starting a dedicated instance on 8190 is the other option, not the required one:
+> Upgrading from v0.20 or earlier? The default used to be `8190`. If you had ever connected
+> successfully, your address was saved and nothing changes. If the panel does come up pointing at
+> `8188` and your server is on `8190`, **Find ComfyUI Active Port** puts it back in one click.
+
+A launch command with the default port spelled out, for reference:
 
 ```bash
-python main.py --listen 127.0.0.1 --port 8190 --preview-method auto
+python main.py --listen 127.0.0.1 --port 8188 --preview-method auto
 ```
 
 `--preview-method auto` is optional but recommended: it makes ComfyUI stream live KSampler step previews into the OpenLayer result preview while generating.

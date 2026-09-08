@@ -114,11 +114,11 @@ reports either way are welcome.
 
 ### 2. Start ComfyUI
 
-Use your normal launch command. OpenLayer defaults to port `8190` so it does not collide with another
-tool already on `8188`:
+Use your normal launch command. OpenLayer defaults to `8188`, which is ComfyUI's own default port, so
+an untouched install already matches:
 
 ```bash
-python main.py --listen 127.0.0.1 --port 8190 --preview-method auto
+python main.py --listen 127.0.0.1 --port 8188 --preview-method auto
 ```
 
 **You do not have to move your server.** If ComfyUI is already running somewhere else, open
@@ -447,7 +447,7 @@ Confirm the server is reachable, then click **Settings › Find ComfyUI Active P
 server on any port.
 
 ```bash
-curl http://127.0.0.1:8190/system_stats
+curl http://127.0.0.1:8188/system_stats
 ```
 
 **The checkpoint list is empty**

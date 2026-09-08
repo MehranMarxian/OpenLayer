@@ -4,6 +4,7 @@ import {
   WorkflowPresetDefinition,
   WorkflowRequiredModel
 } from "./types";
+import { DEFAULT_SERVER_URL } from "../ui/appConstants";
 import { WORKFLOW_PRESETS, listRunnableWorkflowPresets } from "./presetRegistry";
 import { getModelTargetFolder, getModelTargetPath, getRequiredModelKey, listPresetRequiredModels } from "./modelFolders";
 
@@ -108,8 +109,15 @@ export const CUSTOM_NODE_PACKAGES: Record<string, { name: string; repoUrl: strin
   }
 };
 
-/** The port OpenLayer talks to by default, kept off 8188 on purpose. */
-export const DEFAULT_COMFYUI_PORT = 8190;
+/**
+ * The port OpenLayer talks to by default.
+ *
+ * Read out of `DEFAULT_SERVER_URL` rather than written down a second time. It
+ * was a separate literal until v0.21, which is exactly the shape of bug that
+ * ships: the setup pack told people to start ComfyUI on one port while the
+ * panel was pointed at another, and nothing in the build could notice.
+ */
+export const DEFAULT_COMFYUI_PORT = Number(new URL(DEFAULT_SERVER_URL).port);
 
 export type SetupManifestModel = {
   /** Stable identity: `<folder>/<file or directory name>`. */

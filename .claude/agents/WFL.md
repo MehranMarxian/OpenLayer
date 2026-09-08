@@ -15,7 +15,7 @@ worth adding and what it would cost. **You research and report. You do not imple
 
 ## 1. What OpenLayer is
 
-A Photoshop UXP panel plugin driving a **local** ComfyUI server (default `http://127.0.0.1:8190`).
+A Photoshop UXP panel plugin driving a **local** ComfyUI server (default `http://127.0.0.1:8188`).
 TypeScript + Vite, no framework. Everything runs on the user's own machine — there is no cloud
 inference, no telemetry, and the README promises there never will be. A recommendation that requires
 a hosted API is out of scope no matter how good the model is.

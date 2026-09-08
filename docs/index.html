@@ -356,7 +356,7 @@
             <h2 id="flow-title">How it works</h2>
           </div>
           <ol class="flow-steps">
-            <li><strong>Run ComfyUI</strong> locally on the OpenLayer port (8190 by default).</li>
+            <li><strong>Run ComfyUI</strong> locally (port 8188 by default — ComfyUI's own).</li>
             <li><strong>Open the panel</strong> in Photoshop and click Check ComfyUI.</li>
             <li><strong>Pick a tool</strong> — capture a layer, canvas, or selection where needed.</li>
             <li><strong>Generate</strong> and watch live sampler previews in the panel.</li>
@@ -385,7 +385,7 @@
             <article class="setup-step">
               <span>3</span>
               <h3>Start ComfyUI</h3>
-              <pre><code>python main.py --listen 127.0.0.1 --port 8190 --preview-method auto</code></pre>
+              <pre><code>python main.py --listen 127.0.0.1 --port 8188 --preview-method auto</code></pre>
             </article>
             <article class="setup-step">
               <span>4</span>
@@ -397,7 +397,7 @@
             <strong>Missing a model?</strong> The Setup screen lists every one the presets need and downloads it for you — one at a time, resumable, and only after a confirmation naming the file size, the folder it lands in, and the host it comes from. Licence-gated weights and custom node packages are the exceptions and stay a manual job; the screen says which is which.
           </p>
           <p class="setup-note">
-            OpenLayer defaults to <code>http://127.0.0.1:8190</code> so it can run beside other local tools that may already use port 8188 — but you do not have to move your server. If ComfyUI is already running anywhere, open <strong>Settings</strong> and click <strong>Find ComfyUI Active Port</strong>; OpenLayer finds it, connects, and reports Ready. <code>--preview-method auto</code> enables live step previews.
+            OpenLayer defaults to <code>http://127.0.0.1:8188</code>, which is ComfyUI's own default port, so an untouched install already matches — and if yours runs somewhere else, you do not have to move it. If ComfyUI is already running anywhere, open <strong>Settings</strong> and click <strong>Find ComfyUI Active Port</strong>; OpenLayer finds it, connects, and reports Ready. <code>--preview-method auto</code> enables live step previews.
           </p>
         </div>
       </section>

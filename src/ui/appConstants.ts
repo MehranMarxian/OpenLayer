@@ -1,10 +1,30 @@
 import { OpenLayerTheme } from "../utils/preferences";
 
-export const DEFAULT_SERVER_URL = "http://127.0.0.1:8190";
+/**
+ * ComfyUI's own default port, and now OpenLayer's.
+ *
+ * This was `8190` up to v0.20, chosen so a second ComfyUI could sit beside one
+ * another plugin was already using. That reasoning is backwards for the common
+ * case: almost nobody runs two servers, and the port ComfyUI actually starts on
+ * when you follow its own install instructions is 8188. Defaulting anywhere
+ * else means the majority of first runs fail at the very first step, and the
+ * person has to be told about a port before they have seen the panel work once.
+ *
+ * Anyone genuinely running a second instance can still point the panel at it --
+ * the Settings field, the port scan and the welcome screen are all unchanged,
+ * and `COMFY_PORT_CANDIDATES` still covers 8190 and the rest.
+ */
+export const DEFAULT_SERVER_URL = "http://127.0.0.1:8188";
 export const APP_VERSION = "0.20.0";
 export const DEVELOPER_GITHUB = "https://github.com/MehranMarxian";
 export const HISTORY_LIMIT = 5;
-export const COMFY_PORT_CANDIDATES = [8190, 8188, 8189, 8191, 8192, 8193, 7860];
+/**
+ * Scanned in this order, so the first hit on a machine running one ordinary
+ * ComfyUI is the one it is actually on. `8190` stays second rather than being
+ * dropped: it was OpenLayer's own default for twenty releases, so the people
+ * most likely to need the scan are the ones already on it.
+ */
+export const COMFY_PORT_CANDIDATES = [8188, 8190, 8189, 8191, 8192, 8193, 7860];
 export const DEFAULT_WORKFLOW = "txt2img-basic";
 export const DEFAULT_IMAGE_WORKFLOW = "img2img-basic";
 export const DEFAULT_SKETCH_WORKFLOW = "sketch2img-linecn-basic";

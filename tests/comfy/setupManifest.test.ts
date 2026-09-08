@@ -7,6 +7,7 @@ import {
   getCustomNodePackagesForPreset
 } from "../../src/comfy/setupManifest";
 import { getWorkflowPreset, listRunnableWorkflowPresets, listWorkflowPresets } from "../../src/comfy/presetRegistry";
+import { DEFAULT_SERVER_URL } from "../../src/ui/appConstants";
 
 const FIXED_TIMESTAMP = "2026-07-24T00:00:00.000Z";
 
@@ -146,7 +147,11 @@ describe("setup manifest", () => {
 
   it("records the port OpenLayer actually defaults to", () => {
     expect(build().comfyui.defaultPort).toBe(DEFAULT_COMFYUI_PORT);
-    expect(DEFAULT_COMFYUI_PORT).toBe(8190);
+    // Asserted against the panel's own default rather than a literal: the two
+    // drifting apart is the failure this guards, and a hardcoded number here
+    // would simply have to be edited alongside the drift.
+    expect(DEFAULT_COMFYUI_PORT).toBe(Number(new URL(DEFAULT_SERVER_URL).port));
+    expect(DEFAULT_COMFYUI_PORT).toBe(8188);
   });
 });
 

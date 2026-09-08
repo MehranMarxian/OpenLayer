@@ -96,7 +96,7 @@ Use this quick pass before reporting a `v0.20.0-alpha` test result:
 
 Use this quick pass before reporting a v0.20.0-alpha test result:
 
-1. Start ComfyUI on `http://127.0.0.1:8190`.
+1. Start ComfyUI on `http://127.0.0.1:8188`.
 2. Build OpenLayer and load `dist/manifest.json` in Adobe UXP Developer Tool.
 3. Open Photoshop, create or open a document, and launch OpenLayer.
 4. Confirm unavailable dashboard tools are visibly dimmer than available and experimental tools.

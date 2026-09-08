@@ -23,7 +23,7 @@ build artifact. Change the registry instead.
 
 | Path in the zip | Generated from |
 | --- | --- |
-| `README.md` | The manifest plus the port-8190 setup from `docs/setup-windows.md` |
+| `README.md` | The manifest plus the port-8188 setup from `docs/setup-windows.md` |
 | `REQUIREMENTS.md` | The manifest: models, exact target folders, custom node repos, per-preset breakdown |
 | `requirements.json` | The manifest verbatim (`schemaVersion: 1`) |
 | `Install-OpenLayerModels.ps1` | Static script; reads `requirements.json` at run time |

@@ -253,7 +253,8 @@ import {
   normalizeTheme,
   OpenLayerPreferences,
   saveAgentBridgeSettings,
-  saveOpenLayerPreferences
+  saveOpenLayerPreferences,
+  saveServerUrlPreference
 } from "../utils/preferences";
 import {
   createHistoryMetadataLine,
@@ -1925,7 +1926,49 @@ export function renderApp(rootElement: HTMLElement) {
     renderMultiReferenceList();
   });
 
-  async function loadInitialCheckpoints() {
+  /**
+   * Rescues a start-up that failed only because the *default* port was wrong.
+   *
+   * v0.21 moved the default from 8190 to 8188. Anyone who had already connected
+   * once is unaffected -- a successful start saves `serverUrl`, and a stored
+   * value wins over the default in `applyPreferences`. The people this exists
+   * for are the ones with nothing stored: a fresh install whose ComfyUI is on
+   * some other port, and the upgrader who never got far enough to save one.
+   * They would otherwise open the panel, see it fail against an address they
+   * never chose, and have to know that a port scan exists before anything works.
+   *
+   * Deliberately narrow. It runs only when the artist has no saved server URL,
+   * so the panel is second-guessing its own guess and nothing else. An address
+   * someone actually typed and saved is never overridden -- if their server is
+   * simply off, the honest answer is that it is off, not a silent hop onto a
+   * different ComfyUI that happens to be running.
+   */
+  async function recoverDefaultServerUrl(): Promise<boolean> {
+    if (preferences.serverUrl) {
+      return false;
+    }
+
+    setGlobalDiagnostics(elements, "Not at the default address -- scanning common local ComfyUI ports...");
+
+    const foundUrl = await findActiveComfyUrl(elements.serverUrl.value, (message) => {
+      setGlobalDiagnostics(elements, message);
+    });
+
+    if (!foundUrl || foundUrl === elements.serverUrl.value) {
+      return false;
+    }
+
+    elements.serverUrl.value = foundUrl;
+    // The narrow save, not the full-object one: this runs before the rest of
+    // the panel has necessarily loaded saved generation defaults into their
+    // fields, and a full write here would stamp the markup's static defaults
+    // over them. Same reason the welcome overlay uses it.
+    saveServerUrlPreference(foundUrl);
+
+    return true;
+  }
+
+  async function loadInitialCheckpoints(allowPortRecovery = true): Promise<void> {
     setGlobalStatus(elements, "Loading ComfyUI models...", "idle");
 
     try {
@@ -1951,6 +1994,14 @@ export function renderApp(rootElement: HTMLElement) {
       savePreferencesFromElements(elements);
       updateSettingsReport(elements);
     } catch (caughtError) {
+      if (allowPortRecovery && (await recoverDefaultServerUrl())) {
+        // Once only: the retry runs against a port that answered `/system_stats`
+        // a moment ago, so a second failure is a real one and must be reported
+        // rather than starting another scan.
+        await loadInitialCheckpoints(false);
+        return;
+      }
+
       setGlobalStatus(elements, "Ready.", "idle");
       setGlobalError(elements, `Using fallback model list. ${getErrorMessage(caughtError)}`);
       updateSettingsReport(elements);
