@@ -7065,14 +7065,21 @@ body,
   display: none !important;
 }
 
-.app-shell.theme-compact .tool-warning {
-  display: none !important;
-}
-
-.app-shell.theme-compact .info-toggle,
-.app-shell.theme-compact .field-label-row .info-toggle {
-  display: none !important;
-}
+/*
+ * `.tool-warning` and `.info-toggle` were hidden here as density measures --
+ * this whole block is about fitting the panel into a narrow dock, and both are
+ * chrome that costs vertical space. The cost was not visible from inside the
+ * block: it hid seven info panels and one tool warning outright, in the only
+ * theme that carries real rules, so everything written in them had never been
+ * read by anybody. Multi-Reference's "faces do not carry" note was among them,
+ * which meant v0.19's load-bearing limitation shipped invisible.
+ *
+ * Both are styled for this theme already, a few hundred lines up: the toggle is
+ * an 18px circle and the label row is flex with the label on `flex: 1 1 auto`,
+ * so the control has always had a place to sit. Only these two later
+ * declarations, which win by coming last at equal specificity, kept it off the
+ * screen. Deleting them restores the design rather than adding to it.
+ */
 
 .app-shell.theme-compact .field-label-row {
   justify-content: flex-start !important;
@@ -7706,12 +7713,22 @@ body,
    Opting out on its own class keeps those status lines exactly as they are.
    The `overflow-wrap: anywhere !important` set alongside those rules is inert
    while nowrap wins and starts working once it does. */
-.app-shell.theme-compact .live-hint {
+/* One list rather than a fourth copy of the same five declarations. Each new
+   wrapping note used to mean pasting this block again, which is how the trap
+   kept recurring; adding a class here is now the whole change. Margins stay
+   per-class below, because they are the only part that differs. */
+.app-shell.theme-compact .live-hint,
+.app-shell.theme-compact .unflatten-hint,
+.app-shell.theme-compact .multi-reference-hint,
+.app-shell.theme-compact .setup-paragraph {
   max-height: none !important;
   overflow: visible !important;
-  margin-bottom: 9px !important;
   white-space: normal !important;
   text-overflow: clip !important;
+}
+
+.app-shell.theme-compact .live-hint {
+  margin-bottom: 9px !important;
 }
 
 /* Third instance of the same trap, and the reason this one still matters.
@@ -7720,26 +7737,13 @@ body,
    it is still the only one that arrives BEFORE a two-minute run, which is the
    half that saves them the wait.
    Clamped to one line it read "Describe what is already there, not what you
-   want chang..." and the warning was never on screen at all. It cannot live in
-   an info panel either: in this theme `.info-toggle` is `display: none` and the
-   panel it would open starts `[hidden]`. */
-.app-shell.theme-compact .unflatten-hint {
-  max-height: none !important;
-  overflow: visible !important;
+   want chang..." and the warning was never on screen at all. It stays out of an
+   info panel deliberately even though those are reachable again as of v0.21: a
+   warning that only appears once you go looking for it is not a warning, and
+   this one has to land before the run starts. */
+.app-shell.theme-compact .unflatten-hint,
+.app-shell.theme-compact .multi-reference-hint {
   margin-bottom: 8px !important;
-  white-space: normal !important;
-  text-overflow: clip !important;
-}
-
-/* Same story on the Setup screen, and the base-theme `.setup-paragraph` rule
-   further up cannot do this job: one class loses to
-   `.app-shell.theme-compact .diagnostics-line`, and that block is `!important`
-   besides. The summary and the download total are sentences, so they wrap. */
-.app-shell.theme-compact .setup-paragraph {
-  max-height: none !important;
-  overflow: visible !important;
-  white-space: normal !important;
-  text-overflow: clip !important;
 }
 
 /* The copy buttons are the one place in the panel where two controls share a

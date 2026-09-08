@@ -1196,14 +1196,20 @@ export function createAppMarkup() {
             </select>
           </div>
           <div class="field img2img-field">
-            <div class="field-label-row">
-              <span class="label">Klein model</span>
-              ${createInfoToggleMarkup("multi-reference-compatibility-note")}
-            </div>
+            <span class="label">Klein model</span>
             <select class="select" id="multi-reference-checkpoint">
               ${createMultiReferenceModelOptionsMarkup()}
             </select>
-            ${createInfoPanelMarkup("multi-reference-compatibility-note", "Clothing, props, setting and lighting carry across from your layers. Faces do not: a person in a reference comes back as a plausible stranger, so this cannot place a specific person in a picture.")}
+            <!--
+              On screen rather than behind the info toggle the other six notes
+              use. This is the one limitation in the panel that changes what a
+              person should attempt -- Multi-Reference cannot put a specific
+              face in a picture -- and it shipped in v0.19 inside a panel that
+              the compact theme made unreachable, so nobody has ever read it. A
+              warning you have to go looking for is not a warning, which is the
+              same conclusion Unflatten's hint reached.
+            -->
+            <div class="diagnostics-line multi-reference-hint" id="multi-reference-compatibility-note">Clothing, props, setting and lighting carry across from your layers. Faces do not: a person in a reference comes back as a plausible stranger, so this cannot place a specific person in a picture.</div>
           </div>
           <div class="settings-grid img2img-settings-grid" aria-label="Multi-Reference settings">
             <div class="field">
