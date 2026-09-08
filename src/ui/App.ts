@@ -105,6 +105,7 @@ import {
   buildUnflattenWorkflow,
   buildStyleReferenceWorkflow,
   buildTxt2ImgWorkflow,
+  buildRemoveBackgroundWorkflow,
   buildUpscaleWorkflow
 } from "../comfy/workflowBuilder";
 import {
@@ -196,7 +197,7 @@ import {
 import { setArtistControlsEnabled, syncArtistControls } from "./artistControls";
 import { setSeedDiceEnabled } from "./seedDice";
 import { bindPromptMemory } from "./promptMemory";
-import { bindPromptWallet, PromptWalletTool } from "./promptWallet";
+import { bindPromptWallet, PROMPT_WALLET_TOOLS } from "./promptWallet";
 import {
   createUpscaleResizePlan,
   formatUpscaleScale,
@@ -243,6 +244,7 @@ import {
   getStyleReferenceFailureHint,
   getUpscaleFailureHint
 } from "./toolErrorMessages";
+import { didUnflattenSeparate } from "../photoshop/unflattenLayerStack";
 import { createLayerName, sweepStaleTemporaryFiles } from "../utils/fileUtils";
 import {
   clearOpenLayerPreferences,
@@ -253,7 +255,8 @@ import {
   normalizeTheme,
   OpenLayerPreferences,
   saveAgentBridgeSettings,
-  saveOpenLayerPreferences
+  saveOpenLayerPreferences,
+  saveServerUrlPreference
 } from "../utils/preferences";
 import {
   createHistoryMetadataLine,
@@ -314,6 +317,7 @@ import {
   DEFAULT_OUTPAINT_WORKFLOW,
   DEFAULT_PROMPT_LAYER_NUM_BEAMS,
   DEFAULT_PROMPT_LAYER_TASK,
+  DEFAULT_REMOVE_BACKGROUND_WORKFLOW,
   DEFAULT_SERVER_URL,
   DEFAULT_LORA_STRENGTH,
   DEFAULT_SKETCH_CONTROL_STRENGTH,
@@ -356,6 +360,9 @@ import {
   setOutpaintStatus,
   setPromptLayerDiagnostics,
   setPromptLayerError,
+  setRemoveBackgroundStatus,
+  setRemoveBackgroundDiagnostics,
+  setRemoveBackgroundError,
   setPromptLayerStatus,
   setSketchDiagnostics,
   setSketchError,
@@ -544,6 +551,8 @@ export function renderApp(rootElement: HTMLElement) {
   let outpaintResult: AppGeneratedImageResult | null = null;
   let upscaleSource: ImageSourceState | null = null;
   let upscaleResult: AppGeneratedImageResult | null = null;
+  let removeBackgroundSource: ImageSourceState | null = null;
+  let removeBackgroundResult: AppGeneratedImageResult | null = null;
   let styleReferenceSource: ImageSourceState | null = null;
   let styleReferenceResult: AppGeneratedImageResult | null = null;
   // An ordered list rather than a single source, which is the whole difference
@@ -568,6 +577,7 @@ export function renderApp(rootElement: HTMLElement) {
   let importAutomatically = false;
   let imageImportAutomatically = false;
   let upscaleImportAutomatically = false;
+  let removeBackgroundImportAutomatically = false;
   let inpaintImportAutomatically = false;
   let isNegativePromptOpen = false;
   let allowExperimentalCheckpoints = false;
@@ -632,7 +642,9 @@ export function renderApp(rootElement: HTMLElement) {
       multiReferenceSources: multiReferenceSources.length,
       multiReferenceResult,
       unflattenSource,
-      unflattenResult
+      unflattenResult,
+      removeBackgroundSource,
+      removeBackgroundResult
     });
     updateInpaintReferenceControlLock(elements, isBusy && busyTool === "inpaint");
     syncImportBridge();
@@ -1327,6 +1339,15 @@ export function renderApp(rootElement: HTMLElement) {
     resultAlt: "Generated Upscale preview",
     liveAlt: "Live ComfyUI Upscale preview"
   });
+  const removeBackgroundResultPanel = createResultPreviewPanel({
+    urls: objectUrls,
+    panel: elements.removeBackgroundResultPreviewPanel,
+    hub: previewHub,
+    toolId: "remove-background",
+    emptyText: "No cutout yet",
+    resultAlt: "Generated cutout preview",
+    liveAlt: "Live ComfyUI cutout preview"
+  });
   const styleReferenceResultPanel = createResultPreviewPanel({
     urls: objectUrls,
     panel: elements.styleReferenceResultPreviewPanel,
@@ -1390,6 +1411,13 @@ export function renderApp(rootElement: HTMLElement) {
     titleElement: elements.upscaleSourceTitle,
     metaElement: elements.upscaleSourceMeta,
     imageAlt: "Captured Photoshop source for Upscale"
+  });
+  const removeBackgroundSourcePanel = createSourcePreviewPanel({
+    urls: objectUrls,
+    panel: elements.removeBackgroundSourcePreviewPanel,
+    titleElement: elements.removeBackgroundSourceTitle,
+    metaElement: elements.removeBackgroundSourceMeta,
+    imageAlt: "Captured Photoshop source for Remove Background"
   });
   const styleReferenceSourcePanel = createSourcePreviewPanel({
     urls: objectUrls,
@@ -1561,6 +1589,11 @@ export function renderApp(rootElement: HTMLElement) {
     generateUpscale: createActionRunner(elements, "generateUpscale", handleGenerateUpscale),
     importUpscale: createActionRunner(elements, "importUpscale", handleImportUpscale),
     toggleUpscaleAutoImport: createActionRunner(elements, "toggleUpscaleAutoImport", handleToggleUpscaleAutoImport),
+    captureRemoveBackgroundSource: createActionRunner(elements, "captureRemoveBackgroundSource", handleCaptureRemoveBackgroundSource),
+    captureRemoveBackgroundCanvasSource: createActionRunner(elements, "captureRemoveBackgroundCanvasSource", handleCaptureRemoveBackgroundCanvasSource),
+    generateRemoveBackground: createActionRunner(elements, "generateRemoveBackground", handleGenerateRemoveBackground),
+    importRemoveBackground: createActionRunner(elements, "importRemoveBackground", handleImportRemoveBackground),
+    toggleRemoveBackgroundAutoImport: createActionRunner(elements, "toggleRemoveBackgroundAutoImport", handleToggleRemoveBackgroundAutoImport),
     toggleInpaintAutoImport: createActionRunner(elements, "toggleInpaintAutoImport", handleToggleInpaintAutoImport),
     clearHistory: createActionRunner(elements, "clearHistory", handleClearHistory),
     toggleLiveNegativePrompt: createActionRunner(elements, "toggleLiveNegativePrompt", handleToggleLiveNegativePrompt),
@@ -1641,6 +1674,11 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.generateUpscaleButton, actionHandlers.generateUpscale);
   bindActionControl(elements.importUpscaleButton, actionHandlers.importUpscale);
   bindActionControl(elements.upscaleAutoImportToggle, actionHandlers.toggleUpscaleAutoImport);
+  bindActionControl(elements.captureRemoveBackgroundSourceButton, actionHandlers.captureRemoveBackgroundSource);
+  bindActionControl(elements.captureRemoveBackgroundCanvasSourceButton, actionHandlers.captureRemoveBackgroundCanvasSource);
+  bindActionControl(elements.generateRemoveBackgroundButton, actionHandlers.generateRemoveBackground);
+  bindActionControl(elements.importRemoveBackgroundButton, actionHandlers.importRemoveBackground);
+  bindActionControl(elements.removeBackgroundAutoImportToggle, actionHandlers.toggleRemoveBackgroundAutoImport);
   bindActionControl(elements.inpaintAutoImportToggle, actionHandlers.toggleInpaintAutoImport);
   bindActionControl(elements.clearHistoryButton, actionHandlers.clearHistory);
   bindActionControl(elements.liveNegativePromptToggle, actionHandlers.toggleLiveNegativePrompt);
@@ -1682,87 +1720,7 @@ export function renderApp(rootElement: HTMLElement) {
   bindExternalLinks(rootElement);
   bindAdvancedToggles(rootElement);
   bindPromptMemory(elements);
-  // One shared library across every tool: the same prompt is reachable from
-  // Inpaint and Text to Image alike. Each tool reports into its own status
-  // line, which is a surface with proof of life in the host -- unlike a
-  // floating toast, which would mean new injected DOM and position: fixed,
-  // both of which have already failed here.
-  const promptWalletTools: readonly PromptWalletTool[] = [
-    {
-      positive: "prompt",
-      negative: "negativePrompt",
-      saveButton: "promptWalletSave",
-      loadButton: "promptWalletLoad",
-      view: "text-to-image",
-      label: "Text to Image",
-      report: setTextToImageDiagnostics
-    },
-    {
-      positive: "imgPrompt",
-      negative: "imgNegativePrompt",
-      saveButton: "imgPromptWalletSave",
-      loadButton: "imgPromptWalletLoad",
-      view: "image-to-image",
-      label: "Image to Image",
-      report: setImageDiagnostics
-    },
-    {
-      positive: "sketchPrompt",
-      negative: "sketchNegativePrompt",
-      saveButton: "sketchPromptWalletSave",
-      loadButton: "sketchPromptWalletLoad",
-      view: "sketch-to-image",
-      label: "Sketch to Image",
-      report: setSketchDiagnostics
-    },
-    {
-      positive: "inpaintPrompt",
-      negative: "inpaintNegativePrompt",
-      saveButton: "inpaintPromptWalletSave",
-      loadButton: "inpaintPromptWalletLoad",
-      view: "inpaint",
-      label: "Inpaint",
-      report: setInpaintDiagnostics
-    },
-    // Outpaint has no negative prompt field at all, so it saves and loads the
-    // positive alone rather than being excluded from the Wallet.
-    {
-      positive: "outpaintPrompt",
-      saveButton: "outpaintPromptWalletSave",
-      loadButton: "outpaintPromptWalletLoad",
-      view: "outpaint",
-      label: "Outpaint",
-      report: setOutpaintDiagnostics
-    },
-    {
-      positive: "livePrompt",
-      negative: "liveNegativePrompt",
-      saveButton: "livePromptWalletSave",
-      loadButton: "livePromptWalletLoad",
-      view: "live-painting",
-      label: "Live Painting",
-      report: (_elements, message) => setLiveStatus(message)
-    },
-    {
-      positive: "styleReferencePrompt",
-      negative: "styleReferenceNegativePrompt",
-      saveButton: "styleReferencePromptWalletSave",
-      loadButton: "styleReferencePromptWalletLoad",
-      view: "style-reference",
-      label: "Style Reference",
-      report: setStyleReferenceDiagnostics
-    },
-    {
-      positive: "multiReferencePrompt",
-      negative: "multiReferenceNegativePrompt",
-      saveButton: "multiReferencePromptWalletSave",
-      loadButton: "multiReferencePromptWalletLoad",
-      view: "multi-reference",
-      label: "Multi-Reference",
-      report: setMultiReferenceDiagnostics
-    }
-  ];
-  const promptWallet = bindPromptWallet(elements, promptWalletTools, setView);
+  const promptWallet = bindPromptWallet(elements, PROMPT_WALLET_TOOLS, setView);
   bindWelcomeOverlay(elements);
   bindToolWarnings(rootElement);
   bindStickyProgress(rootElement);
@@ -1782,6 +1740,7 @@ export function renderApp(rootElement: HTMLElement) {
   updateAutoImportToggle(elements, importAutomatically);
   updateImg2ImgAutoImportToggle(elements, imageImportAutomatically);
   updateUpscaleAutoImportToggle(elements, upscaleImportAutomatically);
+  updateRemoveBackgroundAutoImportToggle(elements, removeBackgroundImportAutomatically);
   updateInpaintAutoImportToggle(elements, inpaintImportAutomatically);
   updateExperimentalCheckpointToggle(elements, allowExperimentalCheckpoints);
   updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
@@ -1799,6 +1758,8 @@ export function renderApp(rootElement: HTMLElement) {
   setOutpaintResult(null);
   updateUpscaleCompatibility(elements, upscaleSource);
   setUpscaleSource(null);
+  setRemoveBackgroundSource(null);
+  setRemoveBackgroundResult(null);
   setUpscaleResult(null);
   updateStyleReferenceCheckpointCompatibility(elements, styleReferenceSource);
   setStyleReferenceSource(null);
@@ -1897,6 +1858,10 @@ export function renderApp(rootElement: HTMLElement) {
     ));
   });
 
+  elements.removeBackgroundWorkflow.addEventListener("change", () => {
+    void refreshRemoveBackgroundModelOptionsForSelectedPreset(elements);
+  });
+
   elements.upscaleModel.addEventListener("change", () => {
     updateUpscaleCompatibility(elements, upscaleSource);
   });
@@ -1925,7 +1890,49 @@ export function renderApp(rootElement: HTMLElement) {
     renderMultiReferenceList();
   });
 
-  async function loadInitialCheckpoints() {
+  /**
+   * Rescues a start-up that failed only because the *default* port was wrong.
+   *
+   * v0.21 moved the default from 8190 to 8188. Anyone who had already connected
+   * once is unaffected -- a successful start saves `serverUrl`, and a stored
+   * value wins over the default in `applyPreferences`. The people this exists
+   * for are the ones with nothing stored: a fresh install whose ComfyUI is on
+   * some other port, and the upgrader who never got far enough to save one.
+   * They would otherwise open the panel, see it fail against an address they
+   * never chose, and have to know that a port scan exists before anything works.
+   *
+   * Deliberately narrow. It runs only when the artist has no saved server URL,
+   * so the panel is second-guessing its own guess and nothing else. An address
+   * someone actually typed and saved is never overridden -- if their server is
+   * simply off, the honest answer is that it is off, not a silent hop onto a
+   * different ComfyUI that happens to be running.
+   */
+  async function recoverDefaultServerUrl(): Promise<boolean> {
+    if (preferences.serverUrl) {
+      return false;
+    }
+
+    setGlobalDiagnostics(elements, "Not at the default address -- scanning common local ComfyUI ports...");
+
+    const foundUrl = await findActiveComfyUrl(elements.serverUrl.value, (message) => {
+      setGlobalDiagnostics(elements, message);
+    });
+
+    if (!foundUrl || foundUrl === elements.serverUrl.value) {
+      return false;
+    }
+
+    elements.serverUrl.value = foundUrl;
+    // The narrow save, not the full-object one: this runs before the rest of
+    // the panel has necessarily loaded saved generation defaults into their
+    // fields, and a full write here would stamp the markup's static defaults
+    // over them. Same reason the welcome overlay uses it.
+    saveServerUrlPreference(foundUrl);
+
+    return true;
+  }
+
+  async function loadInitialCheckpoints(allowPortRecovery = true): Promise<void> {
     setGlobalStatus(elements, "Loading ComfyUI models...", "idle");
 
     try {
@@ -1938,6 +1945,7 @@ export function renderApp(rootElement: HTMLElement) {
       await refreshInpaintModelOptionsForSelectedPreset(elements, client);
       await refreshOutpaintModelOptionsForSelectedPreset(elements, client);
       await refreshUpscaleModelOptionsForSelectedPreset(elements, client);
+      await refreshRemoveBackgroundModelOptionsForSelectedPreset(elements, client);
       await refreshStyleReferenceModelOptionsForSelectedPreset(elements, client);
       await refreshMultiReferenceModelOptionsForSelectedPreset(elements, client);
       await refreshAllLoraOptions(elements, client);
@@ -1951,6 +1959,14 @@ export function renderApp(rootElement: HTMLElement) {
       savePreferencesFromElements(elements);
       updateSettingsReport(elements);
     } catch (caughtError) {
+      if (allowPortRecovery && (await recoverDefaultServerUrl())) {
+        // Once only: the retry runs against a port that answered `/system_stats`
+        // a moment ago, so a second failure is a real one and must be reported
+        // rather than starting another scan.
+        await loadInitialCheckpoints(false);
+        return;
+      }
+
       setGlobalStatus(elements, "Ready.", "idle");
       setGlobalError(elements, `Using fallback model list. ${getErrorMessage(caughtError)}`);
       updateSettingsReport(elements);
@@ -1972,6 +1988,7 @@ export function renderApp(rootElement: HTMLElement) {
       await refreshInpaintModelOptionsForSelectedPreset(elements, client);
       await refreshOutpaintModelOptionsForSelectedPreset(elements, client);
       await refreshUpscaleModelOptionsForSelectedPreset(elements, client);
+      await refreshRemoveBackgroundModelOptionsForSelectedPreset(elements, client);
       await refreshStyleReferenceModelOptionsForSelectedPreset(elements, client);
       await refreshMultiReferenceModelOptionsForSelectedPreset(elements, client);
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
@@ -2017,6 +2034,7 @@ export function renderApp(rootElement: HTMLElement) {
       await refreshInpaintModelOptionsForSelectedPreset(elements, client);
       await refreshOutpaintModelOptionsForSelectedPreset(elements, client);
       await refreshUpscaleModelOptionsForSelectedPreset(elements, client);
+      await refreshRemoveBackgroundModelOptionsForSelectedPreset(elements, client);
       await refreshStyleReferenceModelOptionsForSelectedPreset(elements, client);
       await refreshMultiReferenceModelOptionsForSelectedPreset(elements, client);
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
@@ -2521,6 +2539,12 @@ export function renderApp(rootElement: HTMLElement) {
     inpaint: { status: setInpaintStatus, diagnostics: setInpaintDiagnostics, error: setInpaintError, progress: setInpaintProgressPreview },
     outpaint: { status: setOutpaintStatus, diagnostics: setOutpaintDiagnostics, error: setOutpaintError, progress: setOutpaintProgressPreview },
     upscale: { status: setUpscaleStatus, diagnostics: setUpscaleDiagnostics, error: setUpscaleError, progress: setUpscaleProgressPreview },
+    "remove-background": {
+      status: setRemoveBackgroundStatus,
+      diagnostics: setRemoveBackgroundDiagnostics,
+      error: setRemoveBackgroundError,
+      progress: setRemoveBackgroundProgressPreview
+    },
     "prompt-from-layer": { status: setPromptLayerStatus, diagnostics: setPromptLayerDiagnostics, error: setPromptLayerError },
     "style-reference": { status: setStyleReferenceStatus, diagnostics: setStyleReferenceDiagnostics, error: setStyleReferenceError, progress: setStyleReferenceProgressPreview },
     "multi-reference": { status: setMultiReferenceStatus, diagnostics: setMultiReferenceDiagnostics, error: setMultiReferenceError, progress: setMultiReferenceProgressPreview },
@@ -3285,6 +3309,225 @@ export function renderApp(rootElement: HTMLElement) {
       isBusy = false;
       busyTool = null;
       syncBusy();
+    }
+  }
+
+  async function handleCaptureRemoveBackgroundSource() {
+    await captureRemoveBackgroundSourceImage({
+      progressMessage: "Capturing active Photoshop layer for Remove Background...",
+      statusMessage: "Capturing active layer...",
+      successMessage: "Source captured.",
+      capture: exportActiveLayerForImageToImage
+    });
+  }
+
+  async function handleCaptureRemoveBackgroundCanvasSource() {
+    await captureRemoveBackgroundSourceImage({
+      progressMessage: "Capturing Photoshop canvas for Remove Background...",
+      statusMessage: "Capturing canvas...",
+      successMessage: "Canvas captured.",
+      capture: exportCanvasForImageToImage
+    });
+  }
+
+  async function captureRemoveBackgroundSourceImage(options: {
+    progressMessage: string;
+    statusMessage: string;
+    successMessage: string;
+    capture: () => Promise<ExportedSourceImage>;
+  }) {
+    setRemoveBackgroundDiagnostics(elements, options.progressMessage);
+    setRemoveBackgroundError(elements, "");
+    setRemoveBackgroundStatus(elements, options.statusMessage, "idle");
+
+    try {
+      const exportedSource = await options.capture();
+      const sourcePreview = objectUrls.create(exportedSource.blob);
+      setRemoveBackgroundSource({
+        ...exportedSource,
+        previewUrl: sourcePreview
+      });
+      setRemoveBackgroundStatus(elements, options.successMessage, "ready");
+      setRemoveBackgroundDiagnostics(
+        elements,
+        `${createSourceCaptureMessage(exportedSource, " for background removal")} Press Remove Background.`
+      );
+    } catch (caughtError) {
+      setRemoveBackgroundSource(null);
+      setRemoveBackgroundStatus(elements, "Capture failed.", "error");
+      setRemoveBackgroundError(elements, getErrorMessage(caughtError));
+    }
+  }
+
+  function handleToggleRemoveBackgroundAutoImport() {
+    removeBackgroundImportAutomatically = !removeBackgroundImportAutomatically;
+    updateRemoveBackgroundAutoImportToggle(elements, removeBackgroundImportAutomatically);
+    setRemoveBackgroundDiagnostics(
+      elements,
+      removeBackgroundImportAutomatically
+        ? "Remove Background auto import is on."
+        : "Remove Background auto import is off."
+    );
+  }
+
+  /**
+   * No prompt, no seed, no sampler settings: the whole form is a source layer
+   * and a model. BiRefNet reads an image and returns a matte, so anything else
+   * the panel offered here would be a control the model never sees.
+   */
+  async function handleGenerateRemoveBackground() {
+    if (blockRegularGenerationDuringLivePainting((message) => setRemoveBackgroundStatus(elements, message, "error"))) {
+      return;
+    }
+
+    if (!removeBackgroundSource) {
+      setRemoveBackgroundError(elements, "Capture the active Photoshop layer or canvas before removing its background.");
+      setRemoveBackgroundStatus(elements, "Source required.", "error");
+      return;
+    }
+
+    setRemoveBackgroundError(elements, "");
+    setRemoveBackgroundResult(null);
+    busyTool = "remove-background";
+    isBusy = true;
+    syncBusy();
+    setRemoveBackgroundStatus(elements, "Preparing cutout workflow...", "idle");
+    setRemoveBackgroundProgressPreview(elements, "Preparing cutout workflow...");
+
+    try {
+      const workflowPreset = readSelectValue(elements.removeBackgroundWorkflow, DEFAULT_REMOVE_BACKGROUND_WORKFLOW);
+      const preset = getWorkflowPreset(workflowPreset);
+      const modelName = readSelectValue(elements.removeBackgroundModel);
+      const client = new ComfyClient(elements.serverUrl.value);
+
+      setRemoveBackgroundDiagnostics(
+        elements,
+        createWorkflowDiagnostics(preset, modelName, createSourceInputAvailability(removeBackgroundSource))
+      );
+      await client.checkOnline();
+
+      if (!modelName) {
+        throw createOpenLayerError("CHECKPOINT_REQUIRED", "Choose a background removal model before generating.");
+      }
+
+      setRemoveBackgroundStatus(elements, "Checking selected background removal model...", "idle");
+
+      if (!(await client.hasModelForPreset(modelName, preset))) {
+        throw createOpenLayerError(
+          "CHECKPOINT_REQUIRED",
+          `The ${preset.modelSource.label.toLowerCase()} "${modelName}" was not found in ComfyUI. Open Setup to download it, or click Check ComfyUI and choose one that is installed.`
+        );
+      }
+
+      setRemoveBackgroundStatus(elements, "Uploading source image to ComfyUI...", "idle");
+      setRemoveBackgroundProgressPreview(elements, "Uploading source image...");
+      const sourceImageName = await client.uploadImage(removeBackgroundSource.blob, removeBackgroundSource.filename);
+      const buildResult = await buildRemoveBackgroundWorkflow({
+        presetId: preset.id,
+        sourceImageName,
+        modelName
+      });
+
+      // A const, not the mutable field: the commit closure runs after awaits.
+      const capturedSource = removeBackgroundSource;
+      const generatedResult = await generation.runPipeline({
+        toolType: "remove-background",
+        client,
+        workflow: buildResult.workflow,
+        preferredNodeId: getSaveImageNodeId(buildResult.preset),
+        originatingDocument: capturedSource.originatingDocument,
+        ui: createPipelineUi("remove-background", elements.removeBackgroundStatusProgress),
+        messages: {
+          submitStatus: "Submitting cutout prompt...",
+          submitPreview: "Submitting prompt to ComfyUI...",
+          generateStatus: "Finding the subject...",
+          generatePreview: "Finding the subject...",
+          retrieveStatus: "Retrieving cutout...",
+          retrievePreview: "Retrieving final image...",
+          livePreview: "Live ComfyUI preview..."
+        },
+        commit: (generatedResult) => {
+          setRemoveBackgroundResult(generatedResult);
+          addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
+            prompt: `Remove background from ${capturedSource.sourceName}`,
+            checkpointName: modelName,
+            modelName,
+            workflowPreset: buildResult.preset.id,
+            toolType: "remove-background",
+            seed: 0,
+            sizeLabel: "Cutout",
+            dimensions: `${capturedSource.width} x ${capturedSource.height}`,
+            sourceMode: capturedSource.sourceName,
+            experimental: buildResult.preset.status === "experimental"
+          });
+        }
+      });
+
+      if (!generatedResult) {
+        return;
+      }
+
+      setRemoveBackgroundStatus(elements, "Cutout complete.", "ready");
+      setRemoveBackgroundDiagnostics(
+        elements,
+        `Source uploaded as ${sourceImageName}. Model: ${modelName}. Workflow: ${buildResult.preset.id}.`
+      );
+
+      if (removeBackgroundImportAutomatically) {
+        setRemoveBackgroundStatus(elements, "Cutout complete. Auto-importing...", "idle");
+        await handleImportRemoveBackground();
+      }
+    } catch (caughtError) {
+      if (isGenerationCancelledError(caughtError)) {
+        showGenerationCancelled("remove-background");
+        return;
+      }
+
+      setRemoveBackgroundStatus(elements, "Cutout failed.", "error");
+      setRemoveBackgroundError(elements, getErrorMessage(caughtError));
+      console.error("[OpenLayer] Remove Background failed", getTechnicalErrorDetails(caughtError));
+    } finally {
+      isBusy = false;
+      busyTool = null;
+      syncBusy();
+    }
+  }
+
+  async function handleImportRemoveBackground() {
+    if (!removeBackgroundResult) {
+      setRemoveBackgroundError(elements, "Remove a background before importing.");
+      return;
+    }
+
+    setRemoveBackgroundError(elements, "");
+    setRemoveBackgroundStatus(elements, "Importing cutout into Photoshop...", "idle");
+
+    try {
+      const layerName = createLayerName("OpenLayer_Cutout");
+      const importedLayerName = await importGeneratedImageAsLayer({
+        blob: removeBackgroundResult.blob,
+        originatingDocument: removeBackgroundResult.originatingDocument,
+        layerName,
+        onProgress: (message) => {
+          setRemoveBackgroundStatus(elements, message, "idle");
+          setRemoveBackgroundDiagnostics(elements, message);
+        }
+      });
+      setRemoveBackgroundStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
+      flashImported(elements.removeBackgroundStatusText);
+      markHistoryImported(elements, historyEntries, removeBackgroundResult, importedLayerName);
+      const metadataMessage = await writeMetadataForImportedResult(
+        historyEntries,
+        removeBackgroundResult,
+        importedLayerName,
+        (message) => {
+          setRemoveBackgroundDiagnostics(elements, message);
+        }
+      );
+      setRemoveBackgroundDiagnostics(elements, `Layer created: ${importedLayerName}. ${metadataMessage}`);
+    } catch (caughtError) {
+      setRemoveBackgroundStatus(elements, "Import failed.", "error");
+      setRemoveBackgroundError(elements, getErrorMessage(caughtError));
     }
   }
 
@@ -5106,12 +5349,39 @@ export function renderApp(rootElement: HTMLElement) {
         }
       });
 
-      setUnflattenStatus(elements, `Imported ${imported.layerNames.length} layers into ${imported.groupName}.`, "ready");
-      flashImported(elements.unflattenStatusText);
+      // A run that separated nothing must not be reported like one that worked.
+      // The model hands a close-up straight back as the background and returns
+      // empty plates above it; those are dropped on import, so what arrives is
+      // one layer that is simply the original picture. Until now that was
+      // "Imported 1 layers" in the ready tone with the success flash -- which is
+      // exactly what a successful run looks like, and is the single biggest
+      // reason the tool reads as not working.
+      const separated = didUnflattenSeparate({
+        requestedLayerCount: imported.requestedLayerCount,
+        importedLayerCount: imported.layerNames.length
+      });
 
+      // Marked before the branch either way: a group was created and a layer
+      // was placed, so leaving the history entry reading "not imported" would
+      // be its own small lie.
       if (unflattenHistoryResult) {
         markHistoryImported(elements, historyEntries, unflattenHistoryResult, imported.groupName);
       }
+
+      if (!separated) {
+        setUnflattenStatus(elements, "Unflatten could not separate this picture.", "error");
+        setUnflattenDiagnostics(
+          elements,
+          `The model returned the picture unchanged, so only one layer was imported into ${imported.groupName}. ` +
+            "This happens when there is no clear front and back to find -- a close-up that fills the frame is the " +
+            "usual cause. Try a source where a subject stands clear of its background, and describe what is " +
+            "already in the picture rather than what you want changed. Nothing was lost: undo removes the group."
+        );
+        return;
+      }
+
+      setUnflattenStatus(elements, `Imported ${imported.layerNames.length} layers into ${imported.groupName}.`, "ready");
+      flashImported(elements.unflattenStatusText);
       setUnflattenDiagnostics(
         elements,
         `Group created: ${imported.groupName}. Layers, back to front: ${imported.layerNames.join(", ")}.` +
@@ -5854,6 +6124,11 @@ export function renderApp(rootElement: HTMLElement) {
       run.assertCanCommit();
 
       elements.promptLayerGeneratedText.value = generatedText;
+      // Assigning `.value` fires nothing, and the Wallet enables its save dot
+      // from this field's "input" event. Without this the dot would sit
+      // disabled at the exact moment there is finally a caption worth saving --
+      // it would only wake up if the artist happened to edit the text by hand.
+      elements.promptLayerGeneratedText.dispatchEvent(new Event("input", { bubbles: true }));
       run.finish();
       run = null;
       setPromptLayerStatus(elements, "Prompt text generated.", "ready");
@@ -6315,6 +6590,26 @@ export function renderApp(rootElement: HTMLElement) {
     upscaleResultPanel.showProgress(message, blob);
   }
 
+  function setRemoveBackgroundSource(nextSource: ImageSourceState | null) {
+    removeBackgroundSource = nextSource;
+    removeBackgroundSourcePanel.show(removeBackgroundSource && {
+      previewUrl: removeBackgroundSource.previewUrl,
+      title: removeBackgroundSource.sourceName,
+      meta: createSourceMetaText(removeBackgroundSource)
+    });
+    syncBusy();
+  }
+
+  function setRemoveBackgroundResult(nextResult: AppGeneratedImageResult | null) {
+    removeBackgroundResult = nextResult;
+    removeBackgroundResultPanel.showResult(removeBackgroundResult?.blob ?? null);
+    syncBusy();
+  }
+
+  function setRemoveBackgroundProgressPreview(elements: AppElements, message: string, blob?: Blob) {
+    removeBackgroundResultPanel.showProgress(message, blob);
+  }
+
   function setStyleReferenceSource(nextSource: ImageSourceState | null) {
     styleReferenceSource = nextSource;
     styleReferenceSourcePanel.show(styleReferenceSource && {
@@ -6388,6 +6683,7 @@ export function renderApp(rootElement: HTMLElement) {
     elements.outpaintView.hidden = currentView !== "outpaint";
     elements.promptFromLayerView.hidden = currentView !== "prompt-from-layer";
     elements.upscaleView.hidden = currentView !== "upscale";
+    elements.removeBackgroundView.hidden = currentView !== "remove-background";
     elements.styleReferenceView.hidden = currentView !== "style-reference";
     elements.multiReferenceView.hidden = currentView !== "multi-reference";
     elements.unflattenView.hidden = currentView !== "unflatten";
@@ -6526,6 +6822,12 @@ function updateUpscaleAutoImportToggle(elements: AppElements, isEnabled: boolean
   elements.upscaleAutoImportToggle.textContent = isEnabled ? "Auto Import On" : "Import Automatically";
   elements.upscaleAutoImportToggle.setAttribute("aria-pressed", String(isEnabled));
   elements.upscaleAutoImportToggle.classList.toggle("is-active", isEnabled);
+}
+
+function updateRemoveBackgroundAutoImportToggle(elements: AppElements, isEnabled: boolean) {
+  elements.removeBackgroundAutoImportToggle.textContent = isEnabled ? "Auto Import On" : "Import Automatically";
+  elements.removeBackgroundAutoImportToggle.setAttribute("aria-pressed", String(isEnabled));
+  elements.removeBackgroundAutoImportToggle.classList.toggle("is-active", isEnabled);
 }
 
 function updateExperimentalCheckpointToggle(elements: AppElements, isEnabled: boolean) {
@@ -6865,6 +7167,31 @@ async function refreshOutpaintModelOptionsForSelectedPreset(
   }
 
   updateOutpaintCheckpointCompatibility(elements);
+}
+
+async function refreshRemoveBackgroundModelOptionsForSelectedPreset(
+  elements: AppElements,
+  client = new ComfyClient(elements.serverUrl.value),
+  preferredValue = readSelectValue(elements.removeBackgroundModel)
+) {
+  const preset = getWorkflowPreset(
+    readSelectValue(elements.removeBackgroundWorkflow, DEFAULT_REMOVE_BACKGROUND_WORKFLOW)
+  );
+
+  try {
+    const modelNames = await client.getModelNamesForPreset(preset);
+
+    if (modelNames.length > 0) {
+      const preferredPresetModel = preset.requiredModels?.find(
+        (model) => modelNames.includes(model.modelName)
+      )?.modelName;
+      const preferredModel = modelNames.includes(preferredValue) ? preferredValue : preferredPresetModel;
+
+      fillSingleCheckpointSelect(elements.removeBackgroundModel, modelNames, preferredModel);
+    }
+  } catch {
+    // Keep the fallback list if ComfyUI is offline or the folder is empty.
+  }
 }
 
 async function refreshUpscaleModelOptionsForSelectedPreset(
@@ -7463,21 +7790,27 @@ function applyTheme(elements: AppElements, theme: OpenLayerTheme) {
 
   elements.settingsThemeSelect.value = nextTheme;
 
-  // Artist-Friendly Dark KEEPS the compact class and stacks theme-artist on
-  // top of it. The compact rules are the stylesheet -- 1,158 of them against
-  // 9 unprefixed base rules -- so a theme that drops the compact class
-  // inherits almost nothing and has to re-state the whole panel. That is how
-  // Classic v0.4 ended up a veneer, and the token pass exists precisely so a
-  // theme can be an override instead.
-  const usesCompactLayout = nextTheme === "compact" || nextTheme === "artist";
-  elements.appShell.classList.toggle("theme-compact", usesCompactLayout);
+  // EVERY theme keeps the compact class and stacks its own on top. The compact
+  // rules are the stylesheet -- ~1,197 of them against 9 unprefixed base rules
+  // -- so a theme that drops the class inherits almost nothing and has to
+  // re-state the whole panel.
+  //
+  // Classic v0.4 used to stand alone, and that is exactly how it broke: with no
+  // layout underneath, nothing sized the tool icons and they rendered at their
+  // natural 128px behind their own titles, overlapping the cards into an
+  // unusable stack. Settings was unreachable in it, so choosing the theme was a
+  // one-way trip. It is a colour override now, like Artist-Friendly Dark, which
+  // is what the token pass was built for.
+  elements.appShell.classList.add("theme-compact");
   elements.appShell.classList.toggle("theme-classic", nextTheme === "classic");
   elements.appShell.classList.toggle("theme-artist", nextTheme === "artist");
 
   // html/body/#root paint the shell behind the panel from --ol-section-bg, and
   // they are ancestors of the app shell rather than descendants, so a token
   // override scoped to the shell cannot reach them. Mirror the class onto body.
-  elements.appShell.ownerDocument?.body?.classList.toggle("theme-artist", nextTheme === "artist");
+  const body = elements.appShell.ownerDocument?.body;
+  body?.classList.toggle("theme-artist", nextTheme === "artist");
+  body?.classList.toggle("theme-classic", nextTheme === "classic");
 
   // Build the slider face only for Artist-Friendly Dark, and tear it out
   // again otherwise, so Compact Adobe Dark keeps the DOM it always had. The

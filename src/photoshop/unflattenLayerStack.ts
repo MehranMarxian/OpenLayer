@@ -65,6 +65,47 @@ export function planUnflattenLayerStack(input: UnflattenStackPlanInput): Unflatt
   };
 }
 
+export type UnflattenImportCounts = Readonly<{
+  /** Layers the run was asked for, i.e. `plan.placements.length`. */
+  requestedLayerCount: number;
+  /** Layers that actually made it into the document. */
+  importedLayerCount: number;
+}>;
+
+/**
+ * Whether a finished run actually took the picture apart.
+ *
+ * The failure this names is the one stated in docs/known-limitations.md: given
+ * a close-up that fills the frame, the model has no front and back to find, so
+ * it hands the source straight back as the background and returns empty plates
+ * for every layer above it. Those empties are dropped on import, and what
+ * arrives is a single layer that is just the original picture -- reported until
+ * now as "Imported 1 layers", in the ready tone, which is indistinguishable
+ * from success and is the main reason the tool reads as not working.
+ *
+ * Deciding it needs nothing new. Both proxies measured during the v0.20 gate
+ * were rejected -- file size cannot tell a blank plate from a populated one,
+ * and the background/composite size ratio put an unseparated run at 0.972
+ * against 0.983 for a separated one -- but neither is needed here. The import
+ * loop already reads each placed plate's alpha through the imaging API and
+ * drops the blanks, so by the time it finishes, "one layer survived out of the
+ * several we asked for" is simply a count.
+ *
+ * The `> 1` guard matters: asking for one layer is asking for no separation, so
+ * getting one back is the whole request honoured, not a failure.
+ *
+ * A partial result is NOT a failure and is deliberately not reported as one --
+ * the layer count is a ceiling rather than a promise, and asking for four and
+ * receiving two is the tool working.
+ */
+export function didUnflattenSeparate(counts: UnflattenImportCounts): boolean {
+  if (counts.requestedLayerCount <= 1) {
+    return true;
+  }
+
+  return counts.importedLayerCount > 1;
+}
+
 /**
  * The names a finished stack of `count` layers carries, back to front.
  *

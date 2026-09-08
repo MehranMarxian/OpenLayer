@@ -41,6 +41,7 @@ export const PREVIEW_TOOLS = [
   { id: "inpaint", label: "Inpaint" },
   { id: "outpaint", label: "Outpaint" },
   { id: "upscale", label: "Upscale" },
+  { id: "remove-background", label: "Remove Background" },
   { id: "style-reference", label: "Style Reference" },
   { id: "multi-reference", label: "Multi-Reference" },
   { id: "unflatten", label: "Unflatten" },

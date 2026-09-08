@@ -1,11 +1,32 @@
 import { OpenLayerTheme } from "../utils/preferences";
 
-export const DEFAULT_SERVER_URL = "http://127.0.0.1:8190";
-export const APP_VERSION = "0.20.0";
+/**
+ * ComfyUI's own default port, and now OpenLayer's.
+ *
+ * This was `8190` up to v0.20, chosen so a second ComfyUI could sit beside one
+ * another plugin was already using. That reasoning is backwards for the common
+ * case: almost nobody runs two servers, and the port ComfyUI actually starts on
+ * when you follow its own install instructions is 8188. Defaulting anywhere
+ * else means the majority of first runs fail at the very first step, and the
+ * person has to be told about a port before they have seen the panel work once.
+ *
+ * Anyone genuinely running a second instance can still point the panel at it --
+ * the Settings field, the port scan and the welcome screen are all unchanged,
+ * and `COMFY_PORT_CANDIDATES` still covers 8190 and the rest.
+ */
+export const DEFAULT_SERVER_URL = "http://127.0.0.1:8188";
+export const APP_VERSION = "0.25.0";
 export const DEVELOPER_GITHUB = "https://github.com/MehranMarxian";
 export const HISTORY_LIMIT = 5;
-export const COMFY_PORT_CANDIDATES = [8190, 8188, 8189, 8191, 8192, 8193, 7860];
+/**
+ * Scanned in this order, so the first hit on a machine running one ordinary
+ * ComfyUI is the one it is actually on. `8190` stays second rather than being
+ * dropped: it was OpenLayer's own default for twenty releases, so the people
+ * most likely to need the scan are the ones already on it.
+ */
+export const COMFY_PORT_CANDIDATES = [8188, 8190, 8189, 8191, 8192, 8193, 7860];
 export const DEFAULT_WORKFLOW = "txt2img-basic";
+export const DEFAULT_REMOVE_BACKGROUND_WORKFLOW = "remove-background-birefnet";
 export const DEFAULT_IMAGE_WORKFLOW = "img2img-basic";
 export const DEFAULT_SKETCH_WORKFLOW = "sketch2img-linecn-basic";
 export const DEFAULT_INPAINT_WORKFLOW = "inpaint-basic";
@@ -26,6 +47,7 @@ export const DEFAULT_UNFLATTEN_LAYER_COUNT = "4";
 export const MIN_UNFLATTEN_LAYER_COUNT = 2;
 export const MAX_UNFLATTEN_LAYER_COUNT = 4;
 export const FALLBACK_UPSCALE_MODELS = ["4x-UltraSharp.pth", "RealESRGAN_x4plus.pth"];
+export const FALLBACK_BACKGROUND_REMOVAL_MODELS = ["birefnet.safetensors", "lucida.safetensors"];
 export const RECOMMENDED_SKETCH_CHECKPOINT = "epicrealism_naturalSinRC1VAE.safetensors";
 export const RECOMMENDED_STYLE_REFERENCE_CHECKPOINT = "epicrealism_naturalSinRC1VAE.safetensors";
 export const DEFAULT_WIDTH = "512";
@@ -87,7 +109,8 @@ export type AppView =
   | "setup"
   | "history"
   | "layer-tools"
-  | "prompt-wallet";
+  | "prompt-wallet"
+  | "remove-background";
 export type ToolCardStatus = "available" | "experimental" | "coming-soon";
 
 export type ToolCard = {
@@ -106,11 +129,13 @@ export type ToolIconName =
   | "expand"
   | "lineart"
   | "promptFromLayer"
+  | "promptWallet"
   | "upscale"
   | "livePainting"
   | "styleReference"
   | "multiReference"
   | "unflatten"
+  | "removeBackground"
   | "control"
   | "workflow"
   | "layers"
@@ -173,6 +198,17 @@ export const TOOL_CARDS: ToolCard[] = [
     icon: "upscale",
     status: "available",
     view: "upscale"
+  },
+  {
+    id: "remove-background",
+    title: "Remove Background",
+    // Says what it gives you rather than what it takes away. "Real alpha" is
+    // the part that matters in Photoshop and the part a flattened PNG cannot
+    // do -- and unlike Unflatten this one is not experimental.
+    subtitle: "Cut the subject out onto its own layer",
+    icon: "removeBackground",
+    status: "available",
+    view: "remove-background"
   },
   {
     id: "live-painting",
@@ -253,7 +289,7 @@ export const TOOL_CARDS: ToolCard[] = [
     id: "prompt-wallet",
     title: "Prompt Wallet",
     subtitle: "Save and reuse favorite prompts",
-    icon: "promptFromLayer",
+    icon: "promptWallet",
     status: "available",
     view: "prompt-wallet"
   },
@@ -278,7 +314,7 @@ export const TOOL_CARDS: ToolCard[] = [
 export const HOME_TOOL_SECTIONS = [
   {
     title: "Generate",
-    toolIds: ["text-to-image", "image-to-image", "lineart", "inpaint", "outpaint", "upscale", "prompt-from-layer", "unflatten", "live-painting", "style-reference", "multi-reference"]
+    toolIds: ["text-to-image", "image-to-image", "lineart", "inpaint", "outpaint", "upscale", "remove-background", "prompt-from-layer", "unflatten", "live-painting", "style-reference", "multi-reference"]
   },
   {
     title: "Workflow",

@@ -20,6 +20,7 @@ import {
   DEFAULT_PROMPT_LAYER_NUM_BEAMS,
   DEFAULT_PROMPT_LAYER_TASK,
   DEFAULT_SERVER_URL,
+  FALLBACK_BACKGROUND_REMOVAL_MODELS,
   DEFAULT_SKETCH_CONTROL_STRENGTH,
   DEFAULT_SKETCH_DENOISE,
   DEFAULT_SKETCH_STEPS,
@@ -290,6 +291,8 @@ export type AppElements = {
   promptLayerTask: HTMLSelectElement;
   promptLayerNumBeams: HTMLInputElement;
   promptLayerGeneratedText: HTMLTextAreaElement;
+  promptLayerGeneratedTextWalletSave: HTMLElement;
+  promptLayerGeneratedTextWalletLoad: HTMLElement;
   historyList: HTMLElement;
   settingsUrlValue: HTMLElement;
   settingsCheckpointCount: HTMLElement;
@@ -382,6 +385,23 @@ export type AppElements = {
   multiReferenceErrorMessage: HTMLElement;
   multiReferenceResultPreviewPanel: HTMLElement;
   unflattenView: HTMLElement;
+  removeBackgroundView: HTMLElement;
+  captureRemoveBackgroundSourceButton: HTMLElement;
+  captureRemoveBackgroundCanvasSourceButton: HTMLElement;
+  removeBackgroundSourcePreviewPanel: HTMLElement;
+  removeBackgroundSourceTitle: HTMLElement;
+  removeBackgroundSourceMeta: HTMLElement;
+  removeBackgroundWorkflow: HTMLSelectElement;
+  removeBackgroundModel: HTMLSelectElement;
+  generateRemoveBackgroundButton: HTMLElement;
+  removeBackgroundStatusText: HTMLElement;
+  removeBackgroundStatusPill: HTMLElement;
+  removeBackgroundStatusProgress: HTMLElement;
+  removeBackgroundDiagnosticsText: HTMLElement;
+  removeBackgroundErrorMessage: HTMLElement;
+  removeBackgroundResultPreviewPanel: HTMLElement;
+  importRemoveBackgroundButton: HTMLElement;
+  removeBackgroundAutoImportToggle: HTMLElement;
   unflattenPrompt: HTMLTextAreaElement;
   unflattenPromptWalletSave: HTMLElement;
   unflattenPromptWalletLoad: HTMLElement;
@@ -485,7 +505,7 @@ export function createAppMarkup() {
 
         <section class="panel-section generator-panel" aria-label="Prompt from Layer text">
           <div class="section-heading">
-            <span class="label">Generated prompt</span>
+            <span class="label">Generated prompt${createPromptWalletControlsMarkup("prompt-layer-generated-text")}</span>
             <span class="muted-label">Florence-2 PromptGen</span>
           </div>
           <div class="settings-grid" aria-label="Prompt from Layer settings">
@@ -1194,14 +1214,20 @@ export function createAppMarkup() {
             </select>
           </div>
           <div class="field img2img-field">
-            <div class="field-label-row">
-              <span class="label">Klein model</span>
-              ${createInfoToggleMarkup("multi-reference-compatibility-note")}
-            </div>
+            <span class="label">Klein model</span>
             <select class="select" id="multi-reference-checkpoint">
               ${createMultiReferenceModelOptionsMarkup()}
             </select>
-            ${createInfoPanelMarkup("multi-reference-compatibility-note", "Clothing, props, setting and lighting carry across from your layers. Faces do not: a person in a reference comes back as a plausible stranger, so this cannot place a specific person in a picture.")}
+            <!--
+              On screen rather than behind the info toggle the other six notes
+              use. This is the one limitation in the panel that changes what a
+              person should attempt -- Multi-Reference cannot put a specific
+              face in a picture -- and it shipped in v0.19 inside a panel that
+              the compact theme made unreachable, so nobody has ever read it. A
+              warning you have to go looking for is not a warning, which is the
+              same conclusion Unflatten's hint reached.
+            -->
+            <div class="diagnostics-line multi-reference-hint" id="multi-reference-compatibility-note">Clothing, props, setting and lighting carry across from your layers. Faces do not: a person in a reference comes back as a plausible stranger, so this cannot place a specific person in a picture.</div>
           </div>
           <div class="settings-grid img2img-settings-grid" aria-label="Multi-Reference settings">
             <div class="field">
@@ -1661,6 +1687,82 @@ export function createAppMarkup() {
         </section>
       </section>
 
+      <section class="remove-background-view image-to-image-view" id="remove-background-view" aria-label="Remove Background" hidden>
+        <div class="screen-nav">
+          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
+          <div class="screen-title-block">
+            ${createScreenIconMarkup("removeBackground", "Remove Background")}
+            <span class="screen-title">Remove Background</span>
+          </div>
+        </div>
+
+        <section class="panel-section generator-panel source-panel" aria-label="Remove Background source">
+          <div class="section-heading">
+            <span class="label">Source layer</span>
+            <span class="muted-label">Cutout input</span>
+          </div>
+          <div class="source-action-row" aria-label="Remove Background source capture actions">
+            <button class="button source-action-button action-control" id="capture-remove-background-source" data-openlayer-action="captureRemoveBackgroundSource" type="button">Capture Active Layer</button>
+            <button class="button source-action-button action-control" id="capture-remove-background-canvas-source" data-openlayer-action="captureRemoveBackgroundCanvasSource" type="button">Capture Canvas</button>
+          </div>
+          <div class="source-card">
+            <div class="source-thumb-frame" id="remove-background-source-preview-panel">
+              <span class="source-empty">None</span>
+            </div>
+            <div class="source-card-body">
+              <span class="source-title" id="remove-background-source-title">No source captured</span>
+              <span class="source-card-meta" id="remove-background-source-meta">Choose active layer or full canvas.</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel-section generator-panel img2img-form-panel" aria-label="Remove Background settings">
+          <div class="section-heading">
+            <span class="label">Cutout</span>
+            <span class="muted-label">Model and workflow</span>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Workflow</span>
+            <select class="select" id="remove-background-workflow">
+              ${listRunnableWorkflowPresets("remove-background").map((preset) => `<option value="${preset.id}">${preset.label}</option>`).join("")}
+            </select>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Background removal model</span>
+            <select class="select" id="remove-background-model">
+              ${FALLBACK_BACKGROUND_REMOVAL_MODELS.map((model) => `<option value="${model}">${model}</option>`).join("")}
+            </select>
+            <div class="diagnostics-line remove-background-hint" id="remove-background-hint">Your layer comes back with the background erased and everything else untouched: the pixels are your own, at full resolution, with only an alpha channel added. No prompt, no checkpoint and no sampling, so it does not matter which image models you have installed.</div>
+          </div>
+          <button class="button button-primary button-generate button-wide action-control" id="generate-remove-background" data-openlayer-action="generateRemoveBackground" type="button">Remove Background</button>
+          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
+        </section>
+
+        <section class="generation-status-panel img2img-status-panel" aria-label="Remove Background status">
+          <div class="status-bar" role="status">
+            <span class="status-text" id="remove-background-status-text">Ready.</span>
+            <span class="status-pill idle" id="remove-background-status-pill">Status</span>
+          </div>
+          <div class="status-progress" id="remove-background-status-progress" hidden><span></span></div>
+          <div class="diagnostics-line" id="remove-background-diagnostics-text">Capture a layer, then cut its subject out.</div>
+          <div class="error-message" id="remove-background-error-message" hidden></div>
+        </section>
+
+        <section class="panel-section result-panel img2img-result-panel" aria-label="Remove Background result">
+          <div class="section-heading">
+            <span class="label">Result preview</span>
+            <span class="muted-label">Cutout appears here</span>
+          </div>
+          <div class="preview-panel" id="remove-background-result-preview-panel">
+            <span class="preview-empty">No cutout yet</span>
+          </div>
+          <div class="import-actions">
+            <button class="button button-import button-import-blue action-control is-disabled" id="import-remove-background-result" data-openlayer-action="importRemoveBackground" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
+            <button class="button auto-import-toggle action-control" id="remove-background-auto-import-toggle" data-openlayer-action="toggleRemoveBackgroundAutoImport" type="button" aria-pressed="false">Import Automatically</button>
+          </div>
+        </section>
+      </section>
+
       <section class="layer-tools-view" id="layer-tools-view" aria-label="Layer Tools" hidden>
         <div class="screen-nav">
           <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
@@ -1861,7 +1963,7 @@ export function createAppMarkup() {
         <div class="screen-nav">
           <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
           <div class="screen-title-block">
-            ${createScreenIconMarkup("promptFromLayer", "Prompt Wallet")}
+            ${createScreenIconMarkup("promptWallet", "Prompt Wallet")}
             <span class="screen-title">Prompt Wallet</span>
           </div>
         </div>
@@ -1995,6 +2097,7 @@ function createToolIconMarkup(icon: ToolIconName) {
     expand: "outpaint.png",
     lineart: "sketch-to-image.png",
     promptFromLayer: "prompt-from-layer.png",
+    promptWallet: "prompt-wallet.png",
     upscale: "upscale.png",
     // Live Painting and Style Reference shared one file until v0.18. They are
     // separate names now so replacing either one's art cannot change the other.
@@ -2002,6 +2105,7 @@ function createToolIconMarkup(icon: ToolIconName) {
     styleReference: "style-reference.png",
     multiReference: "multi-reference.png",
     unflatten: "unflatten.png",
+    removeBackground: "remove-background.png",
     control: "workflow-presets.png",
     workflow: "workflow.png",
     layers: "layer-tools.png",
@@ -2314,6 +2418,8 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     promptLayerTask: getElement<HTMLSelectElement>(rootElement, "prompt-layer-task"),
     promptLayerNumBeams: getElement<HTMLInputElement>(rootElement, "prompt-layer-num-beams"),
     promptLayerGeneratedText: getElement<HTMLTextAreaElement>(rootElement, "prompt-layer-generated-text"),
+    promptLayerGeneratedTextWalletSave: getElement<HTMLElement>(rootElement, "prompt-layer-generated-text-wallet-save"),
+    promptLayerGeneratedTextWalletLoad: getElement<HTMLElement>(rootElement, "prompt-layer-generated-text-wallet-load"),
     historyList: getElement<HTMLElement>(rootElement, "history-list"),
     settingsUrlValue: getElement<HTMLElement>(rootElement, "settings-url-value"),
     settingsCheckpointCount: getElement<HTMLElement>(rootElement, "settings-checkpoint-count"),
@@ -2406,6 +2512,23 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     multiReferenceErrorMessage: getElement<HTMLElement>(rootElement, "multi-reference-error-message"),
     multiReferenceResultPreviewPanel: getElement<HTMLElement>(rootElement, "multi-reference-result-preview-panel"),
     unflattenView: getElement<HTMLElement>(rootElement, "unflatten-view"),
+    removeBackgroundView: getElement<HTMLElement>(rootElement, "remove-background-view"),
+    captureRemoveBackgroundSourceButton: getElement<HTMLElement>(rootElement, "capture-remove-background-source"),
+    captureRemoveBackgroundCanvasSourceButton: getElement<HTMLElement>(rootElement, "capture-remove-background-canvas-source"),
+    removeBackgroundSourcePreviewPanel: getElement<HTMLElement>(rootElement, "remove-background-source-preview-panel"),
+    removeBackgroundSourceTitle: getElement<HTMLElement>(rootElement, "remove-background-source-title"),
+    removeBackgroundSourceMeta: getElement<HTMLElement>(rootElement, "remove-background-source-meta"),
+    removeBackgroundWorkflow: getElement<HTMLSelectElement>(rootElement, "remove-background-workflow"),
+    removeBackgroundModel: getElement<HTMLSelectElement>(rootElement, "remove-background-model"),
+    generateRemoveBackgroundButton: getElement<HTMLElement>(rootElement, "generate-remove-background"),
+    removeBackgroundStatusText: getElement<HTMLElement>(rootElement, "remove-background-status-text"),
+    removeBackgroundStatusPill: getElement<HTMLElement>(rootElement, "remove-background-status-pill"),
+    removeBackgroundStatusProgress: getElement<HTMLElement>(rootElement, "remove-background-status-progress"),
+    removeBackgroundDiagnosticsText: getElement<HTMLElement>(rootElement, "remove-background-diagnostics-text"),
+    removeBackgroundErrorMessage: getElement<HTMLElement>(rootElement, "remove-background-error-message"),
+    removeBackgroundResultPreviewPanel: getElement<HTMLElement>(rootElement, "remove-background-result-preview-panel"),
+    importRemoveBackgroundButton: getElement<HTMLElement>(rootElement, "import-remove-background-result"),
+    removeBackgroundAutoImportToggle: getElement<HTMLElement>(rootElement, "remove-background-auto-import-toggle"),
     unflattenPrompt: getElement<HTMLTextAreaElement>(rootElement, "unflatten-prompt"),
     unflattenPromptWalletSave: getElement<HTMLElement>(rootElement, "unflatten-prompt-wallet-save"),
     unflattenPromptWalletLoad: getElement<HTMLElement>(rootElement, "unflatten-prompt-wallet-load"),

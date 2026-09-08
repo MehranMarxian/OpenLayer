@@ -15,7 +15,8 @@ const MODE_LABELS: Record<WorkflowPresetDefinition["mode"], string> = {
   upscale: "Upscale",
   "style-reference": "Style Reference",
   "multi-reference": "Multi-Reference Composition",
-  unflatten: "Unflatten"
+  unflatten: "Unflatten",
+  "remove-background": "Remove Background"
 };
 
 const DEFAULT_CONTROLS: Record<WorkflowPresetDefinition["mode"], readonly WorkflowControlId[]> = {
@@ -42,7 +43,11 @@ const DEFAULT_CONTROLS: Record<WorkflowPresetDefinition["mode"], readonly Workfl
   "multi-reference": ["prompt", "negativePrompt", "steps", "cfg", "seed"],
   // No width/height: the latent is sized from the captured source. No denoise:
   // this decomposes an existing picture rather than re-sampling it.
-  unflatten: ["prompt", "layerCount", "steps", "seed"]
+  unflatten: ["prompt", "layerCount", "steps", "seed"],
+  // Deliberately empty. BiRefNet takes an image and returns a matte; there
+  // is no sampler, no prompt and no seed, so every control the panel could
+  // offer would be a lie about what the model reads.
+  "remove-background": []
 };
 
 export function getWorkflowCapability(preset: WorkflowPresetDefinition): WorkflowCapability {

@@ -24,7 +24,8 @@ export type WorkflowPreset =
   | "upscale-basic"
   | "style-reference-sd15"
   | "multi-reference-flux2-klein"
-  | "unflatten-qwen-layered";
+  | "unflatten-qwen-layered"
+  | "remove-background-birefnet";
 export type WorkflowMode =
   | "txt2img"
   | "img2img"
@@ -35,10 +36,16 @@ export type WorkflowMode =
   | "upscale"
   | "style-reference"
   | "multi-reference"
-  | "unflatten";
+  | "unflatten"
+  | "remove-background";
 export type ModelFamily = "sd1" | "sdxl" | "sd3" | "flux" | "flux2" | "zImage" | "unknown";
 export type WorkflowToolType = WorkflowMode | "realtime";
-export type WorkflowLoaderType = "checkpoint" | "diffusion-model-stack" | "vision-language" | "upscale";
+export type WorkflowLoaderType =
+  | "checkpoint"
+  | "diffusion-model-stack"
+  | "vision-language"
+  | "upscale"
+  | "background-removal";
 export type WorkflowControlId =
   | "prompt"
   | "negativePrompt"
@@ -74,7 +81,9 @@ export type WorkflowOutputKind =
   | "transparent-patch"
   | "layer-mask-candidate"
   | "prompt-text"
-  | "upscaled-image";
+  | "upscaled-image"
+  /** The source's own pixels, unchanged, carrying a new alpha channel. */
+  | "cutout-image";
 export type WorkflowOutputSize =
   | "preset"
   | "source"
@@ -142,6 +151,7 @@ export type ComfyModelInventory = {
   modelPatches: string[];
   clipVisionModels: string[];
   ipAdapterModels: string[];
+  backgroundRemovalModels: string[];
   missingSources: string[];
 };
 
@@ -321,6 +331,12 @@ export type BuildPromptFromLayerWorkflowOptions = {
   seed: number;
 };
 
+export type BuildRemoveBackgroundWorkflowOptions = {
+  presetId?: WorkflowPreset;
+  sourceImageName: string;
+  modelName: string;
+};
+
 export type BuildUpscaleWorkflowOptions = {
   presetId?: string;
   sourceImageName: string;
@@ -482,7 +498,8 @@ export type WorkflowModelSourceKind =
   | "upscale"
   | "model-patch"
   | "clip-vision"
-  | "ip-adapter";
+  | "ip-adapter"
+  | "background-removal";
 
 export type WorkflowModelSource = {
   kind: WorkflowModelSourceKind;
@@ -507,7 +524,8 @@ export type WorkflowModelFolder =
   | "LLM"
   | "model_patches"
   | "clip_vision"
-  | "ipadapter";
+  | "ipadapter"
+  | "background_removal";
 
 /**
  * A model whose terms have to be accepted by a person before it is fetched.

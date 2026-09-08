@@ -32,15 +32,15 @@ dist
 Start ComfyUI using your normal Windows launch command. The default OpenLayer URL is:
 
 ```text
-http://127.0.0.1:8190
+http://127.0.0.1:8188
 ```
 
-OpenLayer uses `8190` by default so it does not interfere with another plugin that may already be using ComfyUI on `8188`.
+`8188` is ComfyUI's own default port, so an untouched install already matches and there is nothing to set up.
 
-If your other plugin is already using ComfyUI on `8188`, start a second ComfyUI instance for OpenLayer on `8190`, for example:
+If yours runs somewhere else, leave it there and open **Settings > Find ComfyUI Active Port** — OpenLayer scans the common local ports and connects to whatever is running. To pin a specific one instead:
 
 ```powershell
-python main.py --listen 127.0.0.1 --port 8190
+python main.py --listen 127.0.0.1 --port 8188
 ```
 
 ## First Test

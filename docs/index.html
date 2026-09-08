@@ -33,10 +33,10 @@
       "operatingSystem": "Windows, macOS",
       "applicationCategory": "DesignApplication",
       "applicationSubCategory": "Adobe Photoshop plugin",
-      "softwareVersion": "0.20.0-alpha",
+      "softwareVersion": "0.25.0-alpha",
       "description": "Open-source Photoshop UXP plugin that connects to a local ComfyUI server for AI image generation: text to image, image to image, sketch to image, inpaint, outpaint, and upscale with Stable Diffusion, SDXL, and Flux models.",
       "url": "https://mehran-ahmadi.com/OpenLayer/",
-      "downloadUrl": "https://github.com/MehranMarxian/OpenLayer/releases/tag/v0.20.0-alpha",
+      "downloadUrl": "https://github.com/MehranMarxian/OpenLayer/releases/tag/v0.25.0-alpha",
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
       "author": { "@type": "Person", "name": "Mehran Ahmadi", "url": "https://github.com/MehranMarxian" }
     }
@@ -67,7 +67,7 @@
     <main id="top">
       <section class="hero" aria-labelledby="hero-title">
         <div class="hero-copy">
-          <p class="hero-badge"><span class="pulse-dot" aria-hidden="true"></span> Alpha v0.20.0 · free &amp; open source</p>
+          <p class="hero-badge"><span class="pulse-dot" aria-hidden="true"></span> Alpha v0.25.0 · free &amp; open source</p>
           <h1 id="hero-title">Local AI layers,<br><span class="grad">inside Photoshop.</span></h1>
           <p class="hero-lede">
             OpenLayer connects Photoshop to <strong>your own ComfyUI server</strong>.
@@ -76,7 +76,7 @@
             <strong>No cloud. No credits. No subscription.</strong>
           </p>
           <div class="hero-actions">
-            <a class="button button-primary" href="https://github.com/MehranMarxian/OpenLayer/releases/tag/v0.20.0-alpha">Download alpha</a>
+            <a class="button button-primary" href="https://github.com/MehranMarxian/OpenLayer/releases/tag/v0.25.0-alpha">Download alpha</a>
             <a class="button button-secondary" href="https://github.com/MehranMarxian/OpenLayer">Star on GitHub</a>
           </div>
           <ul class="signal-list" aria-label="Project signals">
@@ -146,6 +146,11 @@
               <p>Enhance layers with local upscale models such as <code>4x-UltraSharp</code> — fast pixel/model upscaling through ComfyUI.</p>
             </article>
             <article class="tool-card">
+              <span class="tool-icon"><img src="assets/tools/remove-background.png" alt=""></span>
+              <div><h3>Remove Background</h3><span class="chip chip-ready">Stable</span></div>
+              <p>One button, and the subject comes back on its own layer with real alpha &mdash; about two seconds, no prompt and no checkpoint, because there is no diffusion in the graph at all. The pixels are your own at full resolution with only an alpha channel added, so nothing is re-rendered or softened.</p>
+            </article>
+            <article class="tool-card">
               <span class="tool-icon"><img src="assets/tools/prompt-from-layer.png" alt=""></span>
               <div><h3>Prompt from Layer</h3><span class="chip chip-ready">Stable</span></div>
               <p>Describe any layer or canvas into editable prompt text with Florence-2 PromptGen, then send it straight to Text to Image.</p>
@@ -207,7 +212,7 @@
           <div class="shot-grid shot-grid-v0200">
             <figure class="shot-wide">
               <img src="assets/v0200/unflatten-hiker.webp" alt="Unflatten splitting a mountain photograph into three separate Photoshop layers." width="1400" height="787" loading="lazy" decoding="async">
-              <figcaption><strong>Unflatten, in the document</strong><span>One flat photograph in; a group of three ordinary layers out &mdash; the repainted background, and two cut-outs above it wearing their own masks.</span></figcaption>
+              <figcaption><strong>Unflatten, in the document</strong> <span class="chip chip-exp">Experimental</span><span>One flat photograph in; a group of three ordinary layers out &mdash; the repainted background, and two cut-outs above it wearing their own masks. This is it working: it needs a subject standing clear of a background, and says so when it cannot separate one.</span></figcaption>
             </figure>
             <figure class="shot-narrow">
               <img src="assets/v0200/unflatten-masks.webp" alt="The three imported Unflatten layers and their alpha masks, close up." width="448" height="456" loading="lazy" decoding="async">
@@ -356,7 +361,7 @@
             <h2 id="flow-title">How it works</h2>
           </div>
           <ol class="flow-steps">
-            <li><strong>Run ComfyUI</strong> locally on the OpenLayer port (8190 by default).</li>
+            <li><strong>Run ComfyUI</strong> locally (port 8188 by default — ComfyUI's own).</li>
             <li><strong>Open the panel</strong> in Photoshop and click Check ComfyUI.</li>
             <li><strong>Pick a tool</strong> — capture a layer, canvas, or selection where needed.</li>
             <li><strong>Generate</strong> and watch live sampler previews in the panel.</li>
@@ -375,7 +380,7 @@
             <article class="setup-step">
               <span>1</span>
               <h3>Download and double-click</h3>
-              <p>Grab <code>openlayer-v0.20.0-alpha.ccx</code> from the <a href="https://github.com/MehranMarxian/OpenLayer/releases/tag/v0.20.0-alpha">latest release</a> and double-click it. Creative Cloud installs the panel — no developer tools, nothing to build.</p>
+              <p>Grab <code>openlayer-v0.25.0-alpha.ccx</code> from the <a href="https://github.com/MehranMarxian/OpenLayer/releases/tag/v0.25.0-alpha">latest release</a> and double-click it. Creative Cloud installs the panel — no developer tools, nothing to build.</p>
             </article>
             <article class="setup-step">
               <span>2</span>
@@ -385,7 +390,7 @@
             <article class="setup-step">
               <span>3</span>
               <h3>Start ComfyUI</h3>
-              <pre><code>python main.py --listen 127.0.0.1 --port 8190 --preview-method auto</code></pre>
+              <pre><code>python main.py --listen 127.0.0.1 --port 8188 --preview-method auto</code></pre>
             </article>
             <article class="setup-step">
               <span>4</span>
@@ -397,7 +402,7 @@
             <strong>Missing a model?</strong> The Setup screen lists every one the presets need and downloads it for you — one at a time, resumable, and only after a confirmation naming the file size, the folder it lands in, and the host it comes from. Licence-gated weights and custom node packages are the exceptions and stay a manual job; the screen says which is which.
           </p>
           <p class="setup-note">
-            OpenLayer defaults to <code>http://127.0.0.1:8190</code> so it can run beside other local tools that may already use port 8188 — but you do not have to move your server. If ComfyUI is already running anywhere, open <strong>Settings</strong> and click <strong>Find ComfyUI Active Port</strong>; OpenLayer finds it, connects, and reports Ready. <code>--preview-method auto</code> enables live step previews.
+            OpenLayer defaults to <code>http://127.0.0.1:8188</code>, which is ComfyUI's own default port, so an untouched install already matches — and if yours runs somewhere else, you do not have to move it. If ComfyUI is already running anywhere, open <strong>Settings</strong> and click <strong>Find ComfyUI Active Port</strong>; OpenLayer finds it, connects, and reports Ready. <code>--preview-method auto</code> enables live step previews.
           </p>
         </div>
       </section>
@@ -419,19 +424,19 @@
             </article>
             <article class="status-card">
               <h3>Testing alpha</h3>
-              <p>OpenLayer v0.20.0-alpha is for local testing and feedback. It is not production-ready yet.</p>
+              <p>OpenLayer v0.25.0-alpha is for local testing and feedback. It is not production-ready yet.</p>
             </article>
             <article class="status-card">
               <h3>Multi-Reference composes; it does not preserve likeness</h3>
               <p>48 test generations found clothing, props, setting, and lighting carry across from a reference layer — a specific person's face does not, even from a clean studio portrait. It is honest as a composition tool and should not be used expecting a recognisable result.</p>
             </article>
             <article class="status-card">
-              <h3>Unflatten needs depth, not just a subject</h3>
-              <p>Testing found that what decides whether a picture separates is its composition, not where it came from: a generated close-up fails exactly as a photographed one does, and a subject standing clear of its background succeeds either way. The number of layers you ask for is a ceiling &mdash; empty ones are left out rather than imported.</p>
+              <h3>Unflatten is experimental, and needs depth</h3>
+              <p>Testing found that what decides whether a picture separates is its composition, not where it came from: a generated close-up fails exactly as a photographed one does, and a subject standing clear of its background succeeds either way. The number of layers you ask for is a ceiling &mdash; empty ones are left out rather than imported. As of v0.21 the panel detects a run that separated nothing and reports it, instead of presenting the unchanged picture as a result.</p>
             </article>
             <article class="status-card">
               <h3>Inpaint is experimental</h3>
-              <p>v0.20.0 retains the upload and alignment fixes while output quality across checkpoints continues to be validated by testers.</p>
+              <p>v0.25.0 retains the upload and alignment fixes while output quality across checkpoints continues to be validated by testers.</p>
             </article>
             <article class="status-card">
               <h3>Flux Fill is experimental</h3>
@@ -454,7 +459,7 @@
               <li>Inpaint and Outpaint should be tested on duplicate layers first.</li>
               <li>Prompt from Layer requires the local Florence-2 PromptGen model and the comfyui-florence2 nodes. The custom-scripts pack is no longer needed.</li>
               <li>Upscale uses pixel/model upscale only. Generative upscale, tiled diffusion, and creative enhancement are future work.</li>
-              <li>Custom workflow import, batch variants, and true persistent Photoshop AI layer metadata are future work. v0.20.0 keeps the shared metadata foundation and session-history wiring.</li>
+              <li>Custom workflow import, batch variants, and true persistent Photoshop AI layer metadata are future work. v0.25.0 keeps the shared metadata foundation and session-history wiring.</li>
               <li>The LoRA list cannot be filtered by which model a LoRA suits: ComfyUI reports only a name and size. Entries are labelled from their filenames and likely matches sorted first, but a mismatched LoRA loads without error and quietly does nothing.</li>
               <li>CI does not run Photoshop, UXP, or ComfyUI integration tests.</li>
               <li>Live sampler previews require ComfyUI to be started with <code>--preview-method auto</code>.</li>
@@ -520,8 +525,12 @@
               <p>Compose one image from an ordered list of captured layers with FLUX.2 Klein, gated on 48 live test generations before any screen was built: reference order affects output more than reference count, and a specific person's likeness does not carry the way clothing and setting do.</p>
             </article>
             <article>
-              <h3>v0.20 · Unflatten</h3>
+              <h3>v0.20 · Unflatten (experimental)</h3>
               <p>A flat layer comes back as separate layers with real transparency, inside a group, in stacking order — the layers in front rebuilt from your own full-resolution pixels wearing the model's matte. Gated on eight questions answered with live generations first, two of which overturned assumptions the plan was built on.</p>
+            </article>
+            <article>
+              <h3>v0.21 &middot; Remove Background</h3>
+              <p>One button, and the subject comes back on its own layer with real alpha &mdash; about two seconds, no prompt and no checkpoint, because there is no diffusion in the graph at all. The pixels are your own at full resolution with only an alpha channel added. The rest of the release is honesty work: the panel now says when Unflatten failed to separate anything, and seven warnings it had been hiding are back on screen.</p>
             </article>
             <article>
               <h3>Next · Reliability and artist control</h3>
@@ -552,7 +561,7 @@
     </main>
 
     <footer class="site-footer">
-      <p>OpenLayer v0.20.0-alpha. Developed by Mehran Ahmadi, 2026.</p>
+      <p>OpenLayer v0.25.0-alpha. Developed by Mehran Ahmadi, 2026.</p>
       <p>
         <a href="https://github.com/MehranMarxian">GitHub</a> &middot;
         <a href="./privacy.html">Privacy Policy</a> &middot;

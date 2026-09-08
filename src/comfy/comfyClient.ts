@@ -83,6 +83,9 @@ export const MODEL_INVENTORY_SOURCES = {
   ],
   ipAdapterModels: [
     { objectInfoNode: "IPAdapterModelLoader", inputName: "ipadapter_file", label: "IPAdapter model loader" }
+  ],
+  backgroundRemovalModels: [
+    { objectInfoNode: "LoadBackgroundRemovalModel", inputName: "bg_removal_name", label: "background removal loader" }
   ]
 } as const;
 
@@ -192,6 +195,7 @@ export class ComfyClient {
       modelPatches: [],
       clipVisionModels: [],
       ipAdapterModels: [],
+      backgroundRemovalModels: [],
       missingSources: []
     };
 
@@ -205,6 +209,11 @@ export class ComfyClient {
     await this.collectInventoryNames(inventory, "modelPatches", MODEL_INVENTORY_SOURCES.modelPatches);
     await this.collectInventoryNames(inventory, "clipVisionModels", MODEL_INVENTORY_SOURCES.clipVisionModels);
     await this.collectInventoryNames(inventory, "ipAdapterModels", MODEL_INVENTORY_SOURCES.ipAdapterModels);
+    await this.collectInventoryNames(
+      inventory,
+      "backgroundRemovalModels",
+      MODEL_INVENTORY_SOURCES.backgroundRemovalModels
+    );
 
     return inventory;
   }

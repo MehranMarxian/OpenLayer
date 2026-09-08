@@ -33,12 +33,13 @@
 - **Nothing leaves your computer.** ComfyUI runs on your own machine, on your own models.
 - **Results arrive as real Photoshop layers** — named, positioned, and editable. Not a flattened PNG
   you paste in and hope for.
-- **Eleven generation tools**, from text-to-image to splitting a flat picture back into layers.
+- **Twelve generation tools**, from text-to-image through inpainting and background removal to
+  multi-image composition, plus an experimental one that splits a flat picture back into layers.
 
 **You need:** Photoshop 2024+ · a local [ComfyUI](https://github.com/comfyanonymous/ComfyUI) server ·
 a GPU with 8 GB VRAM or more (12 GB is what this project targets).
 
-> **Alpha.** `v0.20.0-alpha` is a public testing checkpoint, not production software. It is stable
+> **Alpha.** `v0.25.0-alpha` is a public testing checkpoint, not production software. It is stable
 > enough to work with, and honest about where it stops — see [what works and what does
 > not](docs/known-limitations.md).
 
@@ -55,6 +56,7 @@ anywhere; ComfyUI runs on your own machine.
 | **Inpaint** | Repaint a Photoshop selection in place |
 | **Outpaint** | Extend canvas content beyond the edges |
 | **Upscale** | Enhance generated or selected layers |
+| **Remove Background** | Cut the subject out onto its own layer, with real alpha |
 | **Prompt from Layer** | Describe a layer back into prompt text |
 | **Unflatten** ✦ | Split one flat layer into separate layers, each with real transparency |
 | **Live Painting** | Paint and watch the model respond live |
@@ -114,11 +116,11 @@ reports either way are welcome.
 
 ### 2. Start ComfyUI
 
-Use your normal launch command. OpenLayer defaults to port `8190` so it does not collide with another
-tool already on `8188`:
+Use your normal launch command. OpenLayer defaults to `8188`, which is ComfyUI's own default port, so
+an untouched install already matches:
 
 ```bash
-python main.py --listen 127.0.0.1 --port 8190 --preview-method auto
+python main.py --listen 127.0.0.1 --port 8188 --preview-method auto
 ```
 
 **You do not have to move your server.** If ComfyUI is already running somewhere else, open
@@ -447,7 +449,7 @@ Confirm the server is reachable, then click **Settings › Find ComfyUI Active P
 server on any port.
 
 ```bash
-curl http://127.0.0.1:8190/system_stats
+curl http://127.0.0.1:8188/system_stats
 ```
 
 **The checkpoint list is empty**
@@ -542,7 +544,7 @@ time.
 </details>
 
 <details>
-<summary><b>Unflatten</b> — one flat photo, separated into layers with real alpha</summary>
+<summary><b>Unflatten</b> ✦ — one flat photo, separated into layers with real alpha (experimental)</summary>
 
 <img src="docs/assets/v0200/unflatten-hiker.webp" alt="Unflatten splitting a mountain photograph into three layers in Photoshop" width="100%">
 
@@ -556,6 +558,13 @@ Those masks are the whole point. The near ridge is one, and **that speck of whit
 mask is the hiker** — lifted onto his own layer, at the document's full resolution, non-destructively.
 Drag him and the mountain behind him is already painted in. Nothing here is flattened, baked, or
 one-way: they are layers and masks you can move, refine with Select and Mask, or throw away.
+
+**This one is genuinely experimental, and this photograph is it working.** Unflatten needs a subject
+standing clear of a background; hand it a close-up that fills the frame and it returns the picture
+untouched, which the panel now tells you rather than reporting as a success. The layer count you ask
+for is a ceiling rather than a promise, and the cut edges come from a 640px matte, so they are a
+starting point for Select and Mask rather than a finished cut-out. Try it on a photograph with real
+depth before judging it — and please [say how it went](https://github.com/MehranMarxian/OpenLayer/discussions).
 
 <sub>Source: <a href="https://commons.wikimedia.org/wiki/File:Hiking_in_the_mountains_in_Schilt_(Unsplash).jpg">Hiking in the mountains in Schilt</a>, CC0.</sub>
 

@@ -2443,22 +2443,6 @@ a:hover {
   padding-bottom: 10px;
 }
 
-.app-shell.theme-classic {
-  --ol-bg: #2b2b2b;
-  --ol-panel: #333333;
-  --ol-panel-soft: #303030;
-  --ol-panel-raised: #454545;
-  --ol-line: #4f4f4f;
-  --ol-line-soft: #424242;
-  --ol-text: #f2f2f2;
-  --ol-muted: #bdbdbd;
-  --ol-dim: #9d9d9d;
-  --ol-accent: #d7b64b;
-  --ol-accent-soft: #5b4b18;
-  --ol-success: #21c842;
-  --ol-danger: #de5959;
-}
-
 .app-shell.theme-compact .app-header {
   align-items: center;
   gap: 8px;
@@ -3995,57 +3979,6 @@ a:hover {
 .app-shell.theme-compact .status-bar {
   min-height: 26px;
   padding: 3px 6px;
-}
-
-.app-shell.theme-classic {
-  gap: 12px;
-  padding: 18px 18px 28px;
-  background: var(--ol-bg);
-}
-
-.app-shell.theme-classic .brand-icon {
-  width: 48px;
-  height: 48px;
-  margin-right: 17px;
-  border-radius: 10px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
-}
-
-.app-shell.theme-classic .tool-grid {
-  flex-direction: row;
-  flex-wrap: wrap;
-  margin: 0 -8px -16px;
-}
-
-.app-shell.theme-classic .tool-card {
-  display: block;
-  min-width: 190px;
-  min-height: 80px;
-  flex: 1 1 190px;
-  border: 1px solid #707070;
-  border-radius: 12px;
-  margin: 0 8px 16px;
-  padding: 11px 12px;
-  background: var(--ol-panel-raised);
-}
-
-.app-shell.theme-classic .tool-card-body {
-  padding-left: 38px;
-}
-
-.app-shell.theme-classic .tool-title-row {
-  display: block;
-}
-
-.app-shell.theme-classic .tool-status {
-  display: block;
-  margin-top: 3px;
-  padding: 0;
-  background: transparent;
-}
-
-.app-shell.theme-classic .tool-arrow {
-  display: none;
 }
 
 /* v0.5.3 narrow-panel cleanup and local PNG icon set. */
@@ -7065,14 +6998,21 @@ body,
   display: none !important;
 }
 
-.app-shell.theme-compact .tool-warning {
-  display: none !important;
-}
-
-.app-shell.theme-compact .info-toggle,
-.app-shell.theme-compact .field-label-row .info-toggle {
-  display: none !important;
-}
+/*
+ * `.tool-warning` and `.info-toggle` were hidden here as density measures --
+ * this whole block is about fitting the panel into a narrow dock, and both are
+ * chrome that costs vertical space. The cost was not visible from inside the
+ * block: it hid seven info panels and one tool warning outright, in the only
+ * theme that carries real rules, so everything written in them had never been
+ * read by anybody. Multi-Reference's "faces do not carry" note was among them,
+ * which meant v0.19's load-bearing limitation shipped invisible.
+ *
+ * Both are styled for this theme already, a few hundred lines up: the toggle is
+ * an 18px circle and the label row is flex with the label on `flex: 1 1 auto`,
+ * so the control has always had a place to sit. Only these two later
+ * declarations, which win by coming last at equal specificity, kept it off the
+ * screen. Deleting them restores the design rather than adding to it.
+ */
 
 .app-shell.theme-compact .field-label-row {
   justify-content: flex-start !important;
@@ -7706,40 +7646,39 @@ body,
    Opting out on its own class keeps those status lines exactly as they are.
    The `overflow-wrap: anywhere !important` set alongside those rules is inert
    while nowrap wins and starts working once it does. */
-.app-shell.theme-compact .live-hint {
-  max-height: none !important;
-  overflow: visible !important;
-  margin-bottom: 9px !important;
-  white-space: normal !important;
-  text-overflow: clip !important;
-}
-
-/* Third instance of the same trap, and the reason this one matters more than
-   the other two. Whether an Unflatten result actually separated cannot be
-   detected -- it needs the alpha channel, nothing in the panel can decode a
-   PNG, and both cheap proxies were measured and rejected -- so this sentence is
-   the ONLY warning an artist gets that a close-up will come back untouched.
-   Clamped to one line it read "Describe what is already there, not what you
-   want chang..." and the warning was never on screen at all. It cannot live in
-   an info panel either: in this theme `.info-toggle` is `display: none` and the
-   panel it would open starts `[hidden]`. */
-.app-shell.theme-compact .unflatten-hint {
-  max-height: none !important;
-  overflow: visible !important;
-  margin-bottom: 8px !important;
-  white-space: normal !important;
-  text-overflow: clip !important;
-}
-
-/* Same story on the Setup screen, and the base-theme `.setup-paragraph` rule
-   further up cannot do this job: one class loses to
-   `.app-shell.theme-compact .diagnostics-line`, and that block is `!important`
-   besides. The summary and the download total are sentences, so they wrap. */
+/* One list rather than a fourth copy of the same five declarations. Each new
+   wrapping note used to mean pasting this block again, which is how the trap
+   kept recurring; adding a class here is now the whole change. Margins stay
+   per-class below, because they are the only part that differs. */
+.app-shell.theme-compact .live-hint,
+.app-shell.theme-compact .unflatten-hint,
+.app-shell.theme-compact .multi-reference-hint,
+.app-shell.theme-compact .remove-background-hint,
 .app-shell.theme-compact .setup-paragraph {
   max-height: none !important;
   overflow: visible !important;
   white-space: normal !important;
   text-overflow: clip !important;
+}
+
+.app-shell.theme-compact .live-hint {
+  margin-bottom: 9px !important;
+}
+
+/* Third instance of the same trap, and the reason this one still matters.
+   Since v0.21 the panel does detect a run that separated nothing and says so
+   afterwards, so this is no longer the only warning an artist ever gets -- but
+   it is still the only one that arrives BEFORE a two-minute run, which is the
+   half that saves them the wait.
+   Clamped to one line it read "Describe what is already there, not what you
+   want chang..." and the warning was never on screen at all. It stays out of an
+   info panel deliberately even though those are reachable again as of v0.21: a
+   warning that only appears once you go looking for it is not a warning, and
+   this one has to land before the run starts. */
+.app-shell.theme-compact .unflatten-hint,
+.app-shell.theme-compact .multi-reference-hint,
+.app-shell.theme-compact .remove-background-hint {
+  margin-bottom: 8px !important;
 }
 
 /* The copy buttons are the one place in the panel where two controls share a
@@ -8126,6 +8065,85 @@ body,
    image is the brightest thing on screen, and soften pure-white text to a
    warm off-white that is easier to sit in front of for hours.
    ========================================================================== */
+
+/* ==========================================================================
+   Classic v0.4: the original flat grey panel, as an override rather than a
+   rewrite.
+
+   What this used to be, and why it broke. Classic dropped the .theme-compact
+   class and stood alone on nine rules, seven of which styled a WRAPPING GRID
+   of 190px cards -- .tool-grid, .tool-card { flex: 1 1 190px }, a
+   .tool-card-body indented 38px to clear an absolutely positioned icon. The
+   dashboard became a list of rows several releases later and those rules were
+   never revisited, so they described a DOM that no longer existed. With no
+   compact rules underneath and nothing sizing .icon-image, every tool icon
+   rendered at its natural 128px behind its own title and the cards overlapped
+   into an unusable stack -- Settings included, which is what made it a trap
+   rather than an ugly theme: you could select it and then could not get out.
+
+   So Classic keeps the compact class now and overrides only colour, exactly as
+   Artist-Friendly Dark does. The compact sheet is 1,197 rules against 9
+   unprefixed base ones; a theme that stands alone inherits almost nothing and
+   has to re-state the entire panel, which is a project rather than a theme.
+
+   Specificity is deliberately equal to .app-shell.theme-compact (0,2,0), so
+   this wins on source order. It has to stay after every compact block -- the
+   compact sheet re-declares --ol-bg three times, the last at line ~6296, and
+   the old block sat above all of them.
+
+   Intent: the flatter, cooler, slightly lighter grey of v0.4 with its warmer
+   gold accent -- recognisably the old panel, in the current layout. */
+body.theme-classic,
+.app-shell.theme-classic {
+  /* Surfaces: flat neutral grey, no warm tint. */
+  --ol-input-bg: #262626;
+  --ol-field-bg: #262626;
+  --ol-bg: #2b2b2b;
+  --ol-panel-soft: #303030;
+  --ol-panel: #333333;
+  --ol-surface: #383838;
+  --ol-surface-alt: #3c3c3c;
+  --ol-surface-strong: #404040;
+  --ol-surface-soft: #434343;
+  --ol-panel-raised: #454545;
+
+  /* v0.4 framed the panel in a mid grey rather than compact's #535353. */
+  --ol-section-bg: #4a4a4a;
+
+  /* Borders: the solid grey lines the old panel drew, not alpha hairlines. */
+  --ol-border-soft: #424242;
+  --ol-border-subtle: #464646;
+  --ol-line-soft: #424242;
+  --ol-border: #4f4f4f;
+  --ol-line: #4f4f4f;
+  --ol-hover: #3f3f3f;
+  --ol-hover-border: #5a5a5a;
+
+  /* Text: the old panel's near-white. */
+  --ol-text: #f2f2f2;
+  --ol-text-soft: #e6e6e6;
+  --ol-text-secondary: #d8d8d8;
+  --ol-link: #cfcfcf;
+  --ol-muted: #bdbdbd;
+  --ol-muted-soft: #a5a5a5;
+  --ol-dim: #9d9d9d;
+
+  /* Accent: v0.4's gold. */
+  --ol-accent: #d7b64b;
+  --ol-accent-soft: #5b4b18;
+  --ol-accent-border: #d7b64b;
+  --ol-accent-bright: #e8ca63;
+  --ol-accent-glow: #f5e6ad;
+
+  /* Status: the original saturated set. */
+  --ol-success: #21c842;
+  --ol-danger: #de5959;
+  --ol-warning: #e0a63c;
+  --ol-blue: #4076c4;
+  --ol-green: #2f7d47;
+  --ol-orange: #d98b2a;
+  --ol-orange-hover: #b8701c;
+}
 
 body.theme-artist,
 .app-shell.theme-artist {

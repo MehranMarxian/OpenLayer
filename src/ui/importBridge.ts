@@ -55,6 +55,7 @@ export const IMPORT_TARGETS: Record<PreviewToolId, { label: string; hasAutoImpor
   inpaint: { label: "Import to Layers", hasAutoImport: false },
   outpaint: { label: "Import to Layers", hasAutoImport: false },
   upscale: { label: "Import to Layers", hasAutoImport: false },
+  "remove-background": { label: "Import to Layers", hasAutoImport: true },
   "style-reference": { label: "Import to Layers", hasAutoImport: false },
   "multi-reference": { label: "Import to Layers", hasAutoImport: false },
   unflatten: { label: "Import to Layers", hasAutoImport: false },

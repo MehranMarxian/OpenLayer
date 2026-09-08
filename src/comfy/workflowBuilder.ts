@@ -32,6 +32,7 @@ import {
   BuildSketchToImageWorkflowOptions,
   BuildStyleReferenceWorkflowOptions,
   BuildUnflattenWorkflowOptions,
+  BuildRemoveBackgroundWorkflowOptions,
   BuildUpscaleWorkflowOptions,
   BuildWorkflowOptions,
   BuildWorkflowResult,
@@ -416,6 +417,33 @@ export async function buildPromptFromLayerWorkflow(
   return {
     workflow,
     seed,
+    preset
+  };
+}
+
+/**
+ * Seed is 0 and stays 0: there is no sampler in this graph. BiRefNet is
+ * deterministic, so the same layer produces the same matte every time, and
+ * offering a seed would imply a variation that does not exist.
+ */
+export async function buildRemoveBackgroundWorkflow(
+  options: BuildRemoveBackgroundWorkflowOptions
+): Promise<BuildWorkflowResult> {
+  const preset = getWorkflowPreset(options.presetId ?? "remove-background-birefnet");
+  assertPresetMode(preset, "remove-background");
+  assertPresetRunnable(preset);
+  const workflow = await cloneWorkflowTemplate(preset);
+
+  validateWorkflowForPreset(workflow, preset);
+
+  setPresetInput(workflow, preset, "sourceImage", options.sourceImageName, true);
+  setPresetInput(workflow, preset, "checkpoint", options.modelName, true);
+
+  validateWorkflowForPreset(workflow, preset);
+
+  return {
+    workflow,
+    seed: 0,
     preset
   };
 }

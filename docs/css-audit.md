@@ -8,27 +8,27 @@ the numbers come from parsing the stylesheet and cross-referencing every class n
 
 | | |
 |---|---:|
-| Lines | 8006 |
-| Rule blocks | 985 |
-| Distinct selectors | 744 |
-| Selectors declared more than once | 261 |
-| `!important` declarations | 1080 |
-| …of those, inside a `theme-compact` rule | 1077 |
+| Lines | 8714 |
+| Rule blocks | 1036 |
+| Distinct selectors | 797 |
+| Selectors declared more than once | 266 |
+| `!important` declarations | 1199 |
+| …of those, inside a `theme-compact` rule | 1182 |
 
 ## The two themes
 
 `theme-compact` and `theme-classic` are both selectable in Settings ("Compact Adobe Dark" and
 "Classic v0.4"). Compact is the default and the shipped look. Classic is not a dead code path —
-it is what the 355 unscoped rules render.
+it is what the 384 unscoped rules render.
 
 | | rules | lines |
 |---|---:|---:|
-| Scoped to `.theme-compact` | 621 | 5926 |
+| Scoped to `.theme-compact` | 643 | 6260 |
 | Scoped to `.theme-classic` | 9 | 76 |
-| Unscoped (base — what Classic renders) | 355 | 2926 |
+| Unscoped (base — what Classic renders) | 384 | 3354 |
 
-63.0% of all rules are compact overrides and they carry
-99.7% of the `!important` in the file. **150** base selectors have a
+62.1% of all rules are compact overrides and they carry
+98.6% of the `!important` in the file. **148** base selectors have a
 `theme-compact` counterpart.
 
 That last number is the override tax, and it is the mechanism behind the trap recorded in
@@ -64,7 +64,7 @@ concluding a base rule is what renders.
 ## Unreferenced classes
 
 28 class names appear in the stylesheet and nowhere in `src/` or `scripts/`. Rules that match
-only those names span **630 lines across 83 rule blocks** — roughly 7.9% of the file.
+only those names span **630 lines across 83 rule blocks** — roughly 7.2% of the file.
 
 ### `ol-*` (the pre-v0.5 naming)
 
@@ -89,8 +89,8 @@ not. Do not delete these:
    touched. It still needs a real Photoshop pass, because the check is "no literal mention in
    the source", and only the host can prove nothing regressed.
 2. **Consolidation is a bigger job than it looks, and it is not deletion.** Both themes ship,
-   so the 150 shadowed selectors cannot simply collapse into one rule; that work is merging
+   so the 148 shadowed selectors cannot simply collapse into one rule; that work is merging
    two designs, and it belongs behind a decision about whether Classic still earns its place.
-3. **The `!important` count is a symptom, not the disease.** 99.7% of it sits in compact
+3. **The `!important` count is a symptom, not the disease.** 98.6% of it sits in compact
    overrides fighting base rules. It shrinks when the theme layering is fixed, not by editing
    the declarations.

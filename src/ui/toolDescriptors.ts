@@ -113,7 +113,10 @@ export const BUSY_DISABLED_FIELD_GROUPS: Readonly<
     "unflattenLayerCount",
     "unflattenSteps",
     "unflattenSeed"
-  ]
+  ],
+  // No prompt, seed or sampler fields: this tool has none. The two selects and
+  // the two capture buttons are the whole form.
+  "remove-background": ["removeBackgroundWorkflow", "removeBackgroundModel"]
 };
 
 // Actions that are unavailable during every operation. The two primary
@@ -192,7 +195,9 @@ export type BusyGateName =
   | "multiReferenceSources"
   | "multiReferenceResult"
   | "unflattenSource"
-  | "unflattenResult";
+  | "unflattenResult"
+  | "removeBackgroundSource"
+  | "removeBackgroundResult";
 
 export type BusyGatedAction = Readonly<{
   button: ActionElementKey;
@@ -221,5 +226,7 @@ export const BUSY_GATED_ACTIONS: readonly BusyGatedAction[] = [
   // Captions the source Unflatten already holds, so it waits on the same
   // gate the Unflatten button does rather than on a second one.
   { button: "describeUnflattenSourceButton", gate: "unflattenSource" },
-  { button: "importUnflattenButton", gate: "unflattenResult" }
+  { button: "importUnflattenButton", gate: "unflattenResult" },
+  { button: "generateRemoveBackgroundButton", gate: "removeBackgroundSource" },
+  { button: "importRemoveBackgroundButton", gate: "removeBackgroundResult" }
 ];

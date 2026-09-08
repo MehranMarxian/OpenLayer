@@ -8,6 +8,7 @@ import {
   bindPromptWallet,
   createWalletEntryName,
   filterWalletEntries,
+  PROMPT_WALLET_TOOLS,
   PromptWalletTool,
   sortWalletEntries
 } from "../../src/ui/promptWallet";
@@ -34,7 +35,9 @@ const reported: string[] = [];
 const visitedViews: string[] = [];
 const setView = (view: string) => visitedViews.push(view);
 
-/** Mirrors the real table in App.ts, including Outpaint having no negative. */
+/** A two-tool fixture, deliberately not the real table: these cases are about
+ * the binder's behaviour, not about which tools are wired. The real table gets
+ * its own completeness check at the bottom of this file. */
 const TOOLS: readonly PromptWalletTool[] = [
   {
     positive: "prompt",
@@ -417,5 +420,63 @@ describe("prompt wallet: UXP null-value regression", () => {
     typeInto(elements.outpaintPrompt, "extend the shoreline");
     elements.outpaintPromptWalletSave.click();
     expect(loadPromptWallet()).toHaveLength(1);
+  });
+});
+
+/**
+ * Every Wallet dot in the markup must belong to a registered tool.
+ *
+ * This exists because the opposite shipped. Unflatten rendered a save and a
+ * load dot from v0.20 and was never added to the tool table, so both sat
+ * permanently `is-disabled` -- the two halves of one feature, only one of them
+ * wired, and nothing anywhere could tell. The markup was valid, `getElement`
+ * resolved both controls happily, every existing test passed, and the only
+ * symptom was two buttons that did nothing when pressed.
+ *
+ * Asserted in both directions on purpose. A dot with no tool is the bug that
+ * happened; a tool naming a control the markup does not render is the same
+ * mistake from the other side, and would throw at panel startup rather than
+ * in CI.
+ */
+describe("prompt wallet registration", () => {
+  it("registers a tool for every wallet dot the panel renders", () => {
+    const root = document.createElement("div");
+    root.innerHTML = createAppMarkup();
+    const elements = getAppElements(root);
+
+    const renderedSaveIds = [...root.querySelectorAll("[id$='-wallet-save']")].map((node) => node.id);
+    const registeredSaveIds = PROMPT_WALLET_TOOLS.map(
+      (tool) => (elements[tool.saveButton] as HTMLElement).id
+    );
+
+    expect([...registeredSaveIds].sort()).toEqual([...renderedSaveIds].sort());
+  });
+
+  it("registers a load control for every save control", () => {
+    const root = document.createElement("div");
+    root.innerHTML = createAppMarkup();
+    const elements = getAppElements(root);
+
+    for (const tool of PROMPT_WALLET_TOOLS) {
+      const save = elements[tool.saveButton] as HTMLElement;
+      const load = elements[tool.loadButton] as HTMLElement;
+
+      expect(load, `${tool.label} is missing its load control`).toBeTruthy();
+      expect(load.id).toBe(save.id.replace(/-wallet-save$/, "-wallet-load"));
+    }
+  });
+
+  it("points every tool at a prompt field that exists", () => {
+    const root = document.createElement("div");
+    root.innerHTML = createAppMarkup();
+    const elements = getAppElements(root);
+
+    for (const tool of PROMPT_WALLET_TOOLS) {
+      expect(elements[tool.positive], `${tool.label} has no positive field`).toBeTruthy();
+
+      if (tool.negative) {
+        expect(elements[tool.negative], `${tool.label} has no negative field`).toBeTruthy();
+      }
+    }
   });
 });

@@ -51,7 +51,7 @@ Still manual, because no test can judge them:
 - Mark the release as a pre-release.
 - Attach the package zip and `.ccx` from `packages/`.
 - Include known limitations in the release notes.
-- Include basic tester instructions for Photoshop, UXP Developer Tool, and ComfyUI on port `8190`.
+- Include basic tester instructions for Photoshop, UXP Developer Tool, and ComfyUI on port `8188`.
 
 ### Refresh the `latest` release
 

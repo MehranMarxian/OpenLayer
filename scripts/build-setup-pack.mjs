@@ -229,16 +229,16 @@ using the folder table in \`REQUIREMENTS.md\`.
 
 ## 3. Start ComfyUI on port ${manifest.comfyui.defaultPort}
 
-OpenLayer defaults to \`http://127.0.0.1:${manifest.comfyui.defaultPort}\` so it does not collide with another plugin
-already using ComfyUI on 8188.
+\`${manifest.comfyui.defaultPort}\` is ComfyUI's own default, so an untouched install already matches
+OpenLayer's default of \`http://127.0.0.1:${manifest.comfyui.defaultPort}\` and there is nothing to configure.
 
 \`\`\`powershell
 python main.py --listen 127.0.0.1 --port ${manifest.comfyui.defaultPort}
 \`\`\`
 
-If you already run ComfyUI on 8188 for something else, start a second instance on
-${manifest.comfyui.defaultPort} rather than moving the first one. OpenLayer can also be pointed at a different port
-from its Settings screen.
+If you keep ComfyUI on a different port, leave it there — open OpenLayer's Settings screen and
+click **Find ComfyUI Active Port**, which scans the common local ports and connects to whichever
+one answers.
 
 ## 4. Check it from OpenLayer
 

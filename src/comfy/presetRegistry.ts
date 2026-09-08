@@ -98,6 +98,13 @@ const UPSCALE_MODEL_SOURCE = {
   label: "Upscale model"
 } as const;
 
+const BACKGROUND_REMOVAL_MODEL_SOURCE = {
+  kind: "background-removal",
+  objectInfoNode: "LoadBackgroundRemovalModel",
+  inputName: "bg_removal_name",
+  label: "Background removal model"
+} as const;
+
 const FLUX2_KLEIN_4B_STACK = [
   {
     kind: "diffusion-model-stack",
@@ -387,6 +394,23 @@ const UPSCALE_BASIC_MODEL = {
   downloadUrl: "https://huggingface.co/Kim2091/UltraSharp/resolve/main/4x-UltraSharp.pth",
   sourcePageUrl: "https://huggingface.co/Kim2091/UltraSharp",
   downloadSizeBytes: 66961958
+} as const;
+
+const REMOVE_BACKGROUND_BIREFNET_MODEL = {
+  kind: "background-removal",
+  objectInfoNode: "LoadBackgroundRemovalModel",
+  inputName: "bg_removal_name",
+  label: "Background removal model",
+  modelName: "birefnet.safetensors",
+  // The 885 MB `lucida.safetensors` sits beside it in the same repository and
+  // loads through the same node, so it is accepted rather than reported as the
+  // wrong file for anyone who already has it.
+  acceptedModelNames: ["lucida.safetensors"],
+  setupHint: "Install birefnet.safetensors in ComfyUI's models/background_removal/ folder.",
+  downloadUrl:
+    "https://huggingface.co/Comfy-Org/BiRefNet/resolve/main/background_removal/birefnet.safetensors",
+  sourcePageUrl: "https://huggingface.co/Comfy-Org/BiRefNet",
+  downloadSizeBytes: 444473596
 } as const;
 
 const TXT2IMG_BASIC_NODES = {
@@ -899,6 +923,19 @@ const PROMPT_FROM_LAYER_FLORENCE2_NODES = {
   textPreview: "41"
 } as const;
 
+// Node ids match src/workflows/api/remove-background-birefnet.json exactly.
+// The graph was hand-built and verified against a live ComfyUI 0.30.0 before
+// any of this file was written: two real sources, 2.2s each on a 4070 Ti, RGB
+// bit-identical to the input.
+const REMOVE_BACKGROUND_BIREFNET_NODES = {
+  loadImage: "10",
+  backgroundRemovalLoader: "11",
+  removeBackground: "12",
+  invertMask: "14",
+  joinAlpha: "13",
+  saveImage: "9"
+} as const;
+
 const UPSCALE_BASIC_NODES = {
   loadImage: "10",
   upscaleModelLoader: "11",
@@ -1223,6 +1260,11 @@ const PROMPT_FROM_LAYER_FLORENCE2_INJECTIONS = {
   task: target(PROMPT_FROM_LAYER_FLORENCE2_NODES.florenceRun, "task"),
   numBeams: target(PROMPT_FROM_LAYER_FLORENCE2_NODES.florenceRun, "num_beams"),
   seed: target(PROMPT_FROM_LAYER_FLORENCE2_NODES.florenceRun, "seed")
+} as const;
+
+const REMOVE_BACKGROUND_BIREFNET_INJECTIONS = {
+  sourceImage: target(REMOVE_BACKGROUND_BIREFNET_NODES.loadImage, "image"),
+  checkpoint: target(REMOVE_BACKGROUND_BIREFNET_NODES.backgroundRemovalLoader, "bg_removal_name")
 } as const;
 
 const UPSCALE_BASIC_INJECTIONS = {
@@ -1853,6 +1895,25 @@ const STYLE_REFERENCE_SD15_CAPABILITY: WorkflowCapability = {
   }
 };
 
+const REMOVE_BACKGROUND_BIREFNET_CAPABILITY: WorkflowCapability = {
+  toolType: "remove-background",
+  loaderType: "background-removal",
+  artistLabel: "Remove Background",
+  technicalLabel: "remove-background-birefnet",
+  requiredPhotoshopInputs: [{ anyOf: ["active-layer", "canvas"], label: "an active layer or captured canvas" }],
+  controls: [],
+  output: {
+    kind: "cutout-image",
+    size: "source",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Background removal model",
+    primaryActionLabel: "Remove Background"
+  }
+};
+
 const UPSCALE_BASIC_CAPABILITY: WorkflowCapability = {
   toolType: "upscale",
   loaderType: "upscale",
@@ -2116,6 +2177,64 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
       },
       {
         id: UPSCALE_BASIC_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images", "filename_prefix"]
+      }
+    ]
+  },
+  {
+    id: "remove-background-birefnet",
+    label: "remove-background-birefnet",
+    displayName: "BiRefNet",
+    mode: "remove-background",
+    description: "Cuts the subject out of a layer with BiRefNet and returns it with real alpha.",
+    workflowFile: "workflows/api/remove-background-birefnet.json",
+    sourceWorkflowFile: "workflows/source/remove-background-birefnet.workflow.json",
+    status: "stable",
+    supportedModelFamilies: ["unknown"],
+    experimentalModelFamilies: ["sd1", "sdxl", "sd3", "flux", "flux2", "zImage"],
+    modelSource: BACKGROUND_REMOVAL_MODEL_SOURCE,
+    capability: REMOVE_BACKGROUND_BIREFNET_CAPABILITY,
+    requiredModels: [REMOVE_BACKGROUND_BIREFNET_MODEL],
+    injections: REMOVE_BACKGROUND_BIREFNET_INJECTIONS,
+    compatibilityNote:
+      "Uses ComfyUI's own background-removal nodes. No checkpoint, prompt, or diffusion sampling is involved, so it does not care which image model you have.",
+    requiredNodes: [
+      {
+        id: REMOVE_BACKGROUND_BIREFNET_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: REMOVE_BACKGROUND_BIREFNET_NODES.backgroundRemovalLoader,
+        classType: "LoadBackgroundRemovalModel",
+        requiredInputs: ["bg_removal_name"]
+      },
+      {
+        id: REMOVE_BACKGROUND_BIREFNET_NODES.removeBackground,
+        classType: "RemoveBackground",
+        requiredInputs: ["bg_removal_model", "image"]
+      },
+      {
+        // RemoveBackground returns the BACKGROUND, not the subject: run against
+        // a photograph of a fisherman, its mask came back with the man at 0 and
+        // the lake at 255, so joining it as alpha erased everything except the
+        // background. Verified by rendering the raw mask before trusting it.
+        id: REMOVE_BACKGROUND_BIREFNET_NODES.invertMask,
+        classType: "InvertMask",
+        requiredInputs: ["mask"]
+      },
+      {
+        // The whole reason this is worth shipping: the RGB handed to SaveImage
+        // is the artist's own uploaded pixels, untouched, with only an alpha
+        // channel added. Measured at a mean absolute difference of 0.0 against
+        // the source. Nothing is re-rendered, so nothing is degraded.
+        id: REMOVE_BACKGROUND_BIREFNET_NODES.joinAlpha,
+        classType: "JoinImageWithAlpha",
+        requiredInputs: ["image", "alpha"]
+      },
+      {
+        id: REMOVE_BACKGROUND_BIREFNET_NODES.saveImage,
         classType: "SaveImage",
         requiredInputs: ["images", "filename_prefix"]
       }

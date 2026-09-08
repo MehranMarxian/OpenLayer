@@ -7,7 +7,7 @@ Audience: **any AI assistant or human continuing this project** — future Claud
 
 ## 1. What this project is
 
-OpenLayer is a Photoshop UXP panel plugin driving a local ComfyUI server (default `http://127.0.0.1:8190`). Seven tools: Text to Image, Image to Image, Sketch to Image, Inpaint, Outpaint, Upscale, Prompt from Layer, plus an experimental Live Painting spike. TypeScript + Vite, no framework. Tests are Vitest, node environment, **pure logic only** — there is no DOM or Photoshop in CI. Anything host-dependent is verified manually by Mehran in a real Photoshop.
+OpenLayer is a Photoshop UXP panel plugin driving a local ComfyUI server (default `http://127.0.0.1:8188`). Seven tools: Text to Image, Image to Image, Sketch to Image, Inpaint, Outpaint, Upscale, Prompt from Layer, plus an experimental Live Painting spike. TypeScript + Vite, no framework. Tests are Vitest, node environment, **pure logic only** — there is no DOM or Photoshop in CI. Anything host-dependent is verified manually by Mehran in a real Photoshop.
 
 Validation trio, run after every change, all must stay green:
 
@@ -72,7 +72,7 @@ Extract from below `renderApp`; leave the closure alone.
 - One commit per task, PR per task (or small PR per couple of related commits). Commit messages explain *why*, in prose.
 - `.claude/settings.local.json` is local — never commit it.
 - Smoke checklists in PR descriptions must be concrete click-paths, not "verify it works."
-- ComfyUI at `127.0.0.1:8190` is often up — you can (read-only) query `object_info` etc. to verify node/model availability instead of guessing. That resolved several "bugs" that were actually environment issues (models in the wrong folder: `CheckpointLoaderSimple` reads `models/checkpoints/`, `UNETLoader` reads `models/diffusion_models/`).
+- Mehran's own ComfyUI runs on `127.0.0.1:8190` (not the panel default) and is often up — you can (read-only) query `object_info` etc. to verify node/model availability instead of guessing. That resolved several "bugs" that were actually environment issues (models in the wrong folder: `CheckpointLoaderSimple` reads `models/checkpoints/`, `UNETLoader` reads `models/diffusion_models/`).
 
 ## 5. Codex delegation protocol (hard-won — follow exactly)
 
