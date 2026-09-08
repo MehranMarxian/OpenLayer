@@ -113,7 +113,10 @@ export const BUSY_DISABLED_FIELD_GROUPS: Readonly<
     "unflattenLayerCount",
     "unflattenSteps",
     "unflattenSeed"
-  ]
+  ],
+  // No prompt, seed or sampler fields: this tool has none. The two selects and
+  // the two capture buttons are the whole form.
+  "remove-background": ["removeBackgroundWorkflow", "removeBackgroundModel"]
 };
 
 // Actions that are unavailable during every operation. The two primary

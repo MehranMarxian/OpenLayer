@@ -2,9 +2,10 @@
 
 ## Unreleased
 
-A release about telling the truth: what the panel connects to, what it can do, and — mostly — what
-it cannot. Nothing here is a new capability. Four of the five changes below make OpenLayer stop
-saying something that was not so.
+Mostly a release about telling the truth: what the panel connects to, what it can do, and what it
+cannot. One new tool — Remove Background, which is the fast, reliable cutout people have been
+mistaking Unflatten for — and a run of changes that make OpenLayer stop saying things that were
+not so.
 
 ### Changed
 
@@ -36,6 +37,23 @@ saying something that was not so.
   and a captioner look like the same tool in the list.
 
 ### Added
+
+- **Remove Background.** Capture a layer, press one button, and the subject comes back on its own
+  layer with real alpha. It runs on ComfyUI's own background-removal nodes with BiRefNet
+  (444 MB, MIT), so there is no prompt, no checkpoint and no sampling — it does not care which image
+  models you have, and it does not care which GPU you have either. Measured at 2.2 seconds on a
+  4070 Ti.
+
+  The part worth knowing: the pixels that come back are yours. The graph joins BiRefNet's matte onto
+  the image you uploaded rather than re-rendering anything, measured at a mean absolute difference of
+  **0.0** against the source at full capture resolution. Nothing is scaled, re-encoded or degraded;
+  only an alpha channel is added.
+
+  The graph was built and run against a live ComfyUI before a line of the panel was written, which is
+  how the one real trap was found: `RemoveBackground` returns the **background**, not the subject.
+  Its mask came back with a photographed fisherman at alpha 0 and the lake behind him at 255, so
+  joining it directly erased everything except what you wanted to lose. The mask is inverted before
+  it becomes alpha, and the raw matte was rendered and looked at rather than assumed.
 
 - **Prompt from Layer can save to the Prompt Wallet.** It is the one tool whose prompt the panel
   writes rather than the artist, which makes keeping a caption *more* valuable, not less: a good one
@@ -85,6 +103,14 @@ saying something that was not so.
   half and the registration half are one feature and only one of them shipped: every control resolved,
   the whole suite passed, and the only symptom was two buttons that did not respond. A test now
   asserts the two sets match, in both directions.
+
+- **A tool card missing from the home screen's own section list rendered nowhere.** The dashboard is
+  driven by two lists: one describes every tool, the other decides which are grouped onto the home
+  screen. A card absent from the second is not an error anywhere — the renderer maps ids to cards and
+  quietly drops what it cannot find — so the tool never appears, with its screen, its bindings and its
+  preset all present and working behind an entry point nobody can reach. Remove Background shipped
+  into a local build exactly that way before a test caught it. The two lists are now checked against
+  each other in both directions.
 
 - **The setup pack could have told people to start ComfyUI on a different port than the panel used.**
   `DEFAULT_COMFYUI_PORT` was a second, independent copy of the number; it is read from the panel's own

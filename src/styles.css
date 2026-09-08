@@ -7720,6 +7720,7 @@ body,
 .app-shell.theme-compact .live-hint,
 .app-shell.theme-compact .unflatten-hint,
 .app-shell.theme-compact .multi-reference-hint,
+.app-shell.theme-compact .remove-background-hint,
 .app-shell.theme-compact .setup-paragraph {
   max-height: none !important;
   overflow: visible !important;
@@ -7742,7 +7743,8 @@ body,
    warning that only appears once you go looking for it is not a warning, and
    this one has to land before the run starts. */
 .app-shell.theme-compact .unflatten-hint,
-.app-shell.theme-compact .multi-reference-hint {
+.app-shell.theme-compact .multi-reference-hint,
+.app-shell.theme-compact .remove-background-hint {
   margin-bottom: 8px !important;
 }
 

@@ -1,0 +1,77 @@
+{
+  "10": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "openlayer-remove-background-source.png"
+    },
+    "_meta": {
+      "title": "Load Source Image"
+    }
+  },
+  "11": {
+    "class_type": "LoadBackgroundRemovalModel",
+    "inputs": {
+      "bg_removal_name": "birefnet.safetensors"
+    },
+    "_meta": {
+      "title": "Load Background Removal Model"
+    }
+  },
+  "12": {
+    "class_type": "RemoveBackground",
+    "inputs": {
+      "bg_removal_model": [
+        "11",
+        0
+      ],
+      "image": [
+        "10",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Find The Subject"
+    }
+  },
+  "14": {
+    "class_type": "InvertMask",
+    "inputs": {
+      "mask": [
+        "12",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Flip To Subject-Is-Opaque"
+    }
+  },
+  "13": {
+    "class_type": "JoinImageWithAlpha",
+    "inputs": {
+      "image": [
+        "10",
+        0
+      ],
+      "alpha": [
+        "14",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Keep The Source Pixels, Add The Alpha"
+    }
+  },
+  "9": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "OpenLayer_RemoveBackground",
+      "images": [
+        "13",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Save Cutout"
+    }
+  }
+}

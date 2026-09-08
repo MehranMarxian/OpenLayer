@@ -49,7 +49,8 @@ describe("model folder mapping", () => {
       // verified against cubiq/ComfyUI_IPAdapter_plus's own loader source.
       CLIPVisionLoader: "clip_vision",
       IPAdapterModelLoader: "ipadapter",
-      IPAdapterUnifiedLoader: "ipadapter"
+      IPAdapterUnifiedLoader: "ipadapter",
+      LoadBackgroundRemovalModel: "background_removal"
     });
   });
 
@@ -64,7 +65,8 @@ describe("model folder mapping", () => {
       upscaleModels: "upscale_models",
       modelPatches: "model_patches",
       clipVisionModels: "clip_vision",
-      ipAdapterModels: "ipadapter"
+      ipAdapterModels: "ipadapter",
+      backgroundRemovalModels: "background_removal"
     });
 
     const loaderFolders = Object.values(MODEL_FOLDER_BY_OBJECT_INFO_NODE);
@@ -127,6 +129,7 @@ describe("required model inventory", () => {
     expect(runnableModels.map(getRequiredModelKey).sort()).toEqual(
       [
         "LLM/Florence-2-base-PromptGen-v2.0",
+        "background_removal/birefnet.safetensors",
         "checkpoints/flux1-dev-fp8.safetensors",
         "controlnet/control_v11f1p_sd15_depth_fp16.safetensors",
         "controlnet/control_v11p_sd15_lineart_fp16.safetensors",

@@ -26,6 +26,7 @@ export const HISTORY_LIMIT = 5;
  */
 export const COMFY_PORT_CANDIDATES = [8188, 8190, 8189, 8191, 8192, 8193, 7860];
 export const DEFAULT_WORKFLOW = "txt2img-basic";
+export const DEFAULT_REMOVE_BACKGROUND_WORKFLOW = "remove-background-birefnet";
 export const DEFAULT_IMAGE_WORKFLOW = "img2img-basic";
 export const DEFAULT_SKETCH_WORKFLOW = "sketch2img-linecn-basic";
 export const DEFAULT_INPAINT_WORKFLOW = "inpaint-basic";
@@ -46,6 +47,7 @@ export const DEFAULT_UNFLATTEN_LAYER_COUNT = "4";
 export const MIN_UNFLATTEN_LAYER_COUNT = 2;
 export const MAX_UNFLATTEN_LAYER_COUNT = 4;
 export const FALLBACK_UPSCALE_MODELS = ["4x-UltraSharp.pth", "RealESRGAN_x4plus.pth"];
+export const FALLBACK_BACKGROUND_REMOVAL_MODELS = ["birefnet.safetensors", "lucida.safetensors"];
 export const RECOMMENDED_SKETCH_CHECKPOINT = "epicrealism_naturalSinRC1VAE.safetensors";
 export const RECOMMENDED_STYLE_REFERENCE_CHECKPOINT = "epicrealism_naturalSinRC1VAE.safetensors";
 export const DEFAULT_WIDTH = "512";
@@ -107,7 +109,8 @@ export type AppView =
   | "setup"
   | "history"
   | "layer-tools"
-  | "prompt-wallet";
+  | "prompt-wallet"
+  | "remove-background";
 export type ToolCardStatus = "available" | "experimental" | "coming-soon";
 
 export type ToolCard = {
@@ -132,6 +135,7 @@ export type ToolIconName =
   | "styleReference"
   | "multiReference"
   | "unflatten"
+  | "removeBackground"
   | "control"
   | "workflow"
   | "layers"
@@ -194,6 +198,17 @@ export const TOOL_CARDS: ToolCard[] = [
     icon: "upscale",
     status: "available",
     view: "upscale"
+  },
+  {
+    id: "remove-background",
+    title: "Remove Background",
+    // Says what it gives you rather than what it takes away. "Real alpha" is
+    // the part that matters in Photoshop and the part a flattened PNG cannot
+    // do -- and unlike Unflatten this one is not experimental.
+    subtitle: "Cut the subject out onto its own layer",
+    icon: "removeBackground",
+    status: "available",
+    view: "remove-background"
   },
   {
     id: "live-painting",
@@ -299,7 +314,7 @@ export const TOOL_CARDS: ToolCard[] = [
 export const HOME_TOOL_SECTIONS = [
   {
     title: "Generate",
-    toolIds: ["text-to-image", "image-to-image", "lineart", "inpaint", "outpaint", "upscale", "prompt-from-layer", "unflatten", "live-painting", "style-reference", "multi-reference"]
+    toolIds: ["text-to-image", "image-to-image", "lineart", "inpaint", "outpaint", "upscale", "remove-background", "prompt-from-layer", "unflatten", "live-painting", "style-reference", "multi-reference"]
   },
   {
     title: "Workflow",

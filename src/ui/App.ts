@@ -105,6 +105,7 @@ import {
   buildUnflattenWorkflow,
   buildStyleReferenceWorkflow,
   buildTxt2ImgWorkflow,
+  buildRemoveBackgroundWorkflow,
   buildUpscaleWorkflow
 } from "../comfy/workflowBuilder";
 import {
@@ -316,6 +317,7 @@ import {
   DEFAULT_OUTPAINT_WORKFLOW,
   DEFAULT_PROMPT_LAYER_NUM_BEAMS,
   DEFAULT_PROMPT_LAYER_TASK,
+  DEFAULT_REMOVE_BACKGROUND_WORKFLOW,
   DEFAULT_SERVER_URL,
   DEFAULT_LORA_STRENGTH,
   DEFAULT_SKETCH_CONTROL_STRENGTH,
@@ -358,6 +360,9 @@ import {
   setOutpaintStatus,
   setPromptLayerDiagnostics,
   setPromptLayerError,
+  setRemoveBackgroundStatus,
+  setRemoveBackgroundDiagnostics,
+  setRemoveBackgroundError,
   setPromptLayerStatus,
   setSketchDiagnostics,
   setSketchError,
@@ -546,6 +551,8 @@ export function renderApp(rootElement: HTMLElement) {
   let outpaintResult: AppGeneratedImageResult | null = null;
   let upscaleSource: ImageSourceState | null = null;
   let upscaleResult: AppGeneratedImageResult | null = null;
+  let removeBackgroundSource: ImageSourceState | null = null;
+  let removeBackgroundResult: AppGeneratedImageResult | null = null;
   let styleReferenceSource: ImageSourceState | null = null;
   let styleReferenceResult: AppGeneratedImageResult | null = null;
   // An ordered list rather than a single source, which is the whole difference
@@ -570,6 +577,7 @@ export function renderApp(rootElement: HTMLElement) {
   let importAutomatically = false;
   let imageImportAutomatically = false;
   let upscaleImportAutomatically = false;
+  let removeBackgroundImportAutomatically = false;
   let inpaintImportAutomatically = false;
   let isNegativePromptOpen = false;
   let allowExperimentalCheckpoints = false;
@@ -1329,6 +1337,15 @@ export function renderApp(rootElement: HTMLElement) {
     resultAlt: "Generated Upscale preview",
     liveAlt: "Live ComfyUI Upscale preview"
   });
+  const removeBackgroundResultPanel = createResultPreviewPanel({
+    urls: objectUrls,
+    panel: elements.removeBackgroundResultPreviewPanel,
+    hub: previewHub,
+    toolId: "remove-background",
+    emptyText: "No cutout yet",
+    resultAlt: "Generated cutout preview",
+    liveAlt: "Live ComfyUI cutout preview"
+  });
   const styleReferenceResultPanel = createResultPreviewPanel({
     urls: objectUrls,
     panel: elements.styleReferenceResultPreviewPanel,
@@ -1392,6 +1409,13 @@ export function renderApp(rootElement: HTMLElement) {
     titleElement: elements.upscaleSourceTitle,
     metaElement: elements.upscaleSourceMeta,
     imageAlt: "Captured Photoshop source for Upscale"
+  });
+  const removeBackgroundSourcePanel = createSourcePreviewPanel({
+    urls: objectUrls,
+    panel: elements.removeBackgroundSourcePreviewPanel,
+    titleElement: elements.removeBackgroundSourceTitle,
+    metaElement: elements.removeBackgroundSourceMeta,
+    imageAlt: "Captured Photoshop source for Remove Background"
   });
   const styleReferenceSourcePanel = createSourcePreviewPanel({
     urls: objectUrls,
@@ -1563,6 +1587,11 @@ export function renderApp(rootElement: HTMLElement) {
     generateUpscale: createActionRunner(elements, "generateUpscale", handleGenerateUpscale),
     importUpscale: createActionRunner(elements, "importUpscale", handleImportUpscale),
     toggleUpscaleAutoImport: createActionRunner(elements, "toggleUpscaleAutoImport", handleToggleUpscaleAutoImport),
+    captureRemoveBackgroundSource: createActionRunner(elements, "captureRemoveBackgroundSource", handleCaptureRemoveBackgroundSource),
+    captureRemoveBackgroundCanvasSource: createActionRunner(elements, "captureRemoveBackgroundCanvasSource", handleCaptureRemoveBackgroundCanvasSource),
+    generateRemoveBackground: createActionRunner(elements, "generateRemoveBackground", handleGenerateRemoveBackground),
+    importRemoveBackground: createActionRunner(elements, "importRemoveBackground", handleImportRemoveBackground),
+    toggleRemoveBackgroundAutoImport: createActionRunner(elements, "toggleRemoveBackgroundAutoImport", handleToggleRemoveBackgroundAutoImport),
     toggleInpaintAutoImport: createActionRunner(elements, "toggleInpaintAutoImport", handleToggleInpaintAutoImport),
     clearHistory: createActionRunner(elements, "clearHistory", handleClearHistory),
     toggleLiveNegativePrompt: createActionRunner(elements, "toggleLiveNegativePrompt", handleToggleLiveNegativePrompt),
@@ -1643,6 +1672,11 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.generateUpscaleButton, actionHandlers.generateUpscale);
   bindActionControl(elements.importUpscaleButton, actionHandlers.importUpscale);
   bindActionControl(elements.upscaleAutoImportToggle, actionHandlers.toggleUpscaleAutoImport);
+  bindActionControl(elements.captureRemoveBackgroundSourceButton, actionHandlers.captureRemoveBackgroundSource);
+  bindActionControl(elements.captureRemoveBackgroundCanvasSourceButton, actionHandlers.captureRemoveBackgroundCanvasSource);
+  bindActionControl(elements.generateRemoveBackgroundButton, actionHandlers.generateRemoveBackground);
+  bindActionControl(elements.importRemoveBackgroundResultButton, actionHandlers.importRemoveBackground);
+  bindActionControl(elements.removeBackgroundAutoImportToggle, actionHandlers.toggleRemoveBackgroundAutoImport);
   bindActionControl(elements.inpaintAutoImportToggle, actionHandlers.toggleInpaintAutoImport);
   bindActionControl(elements.clearHistoryButton, actionHandlers.clearHistory);
   bindActionControl(elements.liveNegativePromptToggle, actionHandlers.toggleLiveNegativePrompt);
@@ -1704,6 +1738,7 @@ export function renderApp(rootElement: HTMLElement) {
   updateAutoImportToggle(elements, importAutomatically);
   updateImg2ImgAutoImportToggle(elements, imageImportAutomatically);
   updateUpscaleAutoImportToggle(elements, upscaleImportAutomatically);
+  updateRemoveBackgroundAutoImportToggle(elements, removeBackgroundImportAutomatically);
   updateInpaintAutoImportToggle(elements, inpaintImportAutomatically);
   updateExperimentalCheckpointToggle(elements, allowExperimentalCheckpoints);
   updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
@@ -1721,6 +1756,8 @@ export function renderApp(rootElement: HTMLElement) {
   setOutpaintResult(null);
   updateUpscaleCompatibility(elements, upscaleSource);
   setUpscaleSource(null);
+  setRemoveBackgroundSource(null);
+  setRemoveBackgroundResult(null);
   setUpscaleResult(null);
   updateStyleReferenceCheckpointCompatibility(elements, styleReferenceSource);
   setStyleReferenceSource(null);
@@ -1819,6 +1856,10 @@ export function renderApp(rootElement: HTMLElement) {
     ));
   });
 
+  elements.removeBackgroundWorkflow.addEventListener("change", () => {
+    void refreshRemoveBackgroundModelOptionsForSelectedPreset(elements);
+  });
+
   elements.upscaleModel.addEventListener("change", () => {
     updateUpscaleCompatibility(elements, upscaleSource);
   });
@@ -1902,6 +1943,7 @@ export function renderApp(rootElement: HTMLElement) {
       await refreshInpaintModelOptionsForSelectedPreset(elements, client);
       await refreshOutpaintModelOptionsForSelectedPreset(elements, client);
       await refreshUpscaleModelOptionsForSelectedPreset(elements, client);
+      await refreshRemoveBackgroundModelOptionsForSelectedPreset(elements, client);
       await refreshStyleReferenceModelOptionsForSelectedPreset(elements, client);
       await refreshMultiReferenceModelOptionsForSelectedPreset(elements, client);
       await refreshAllLoraOptions(elements, client);
@@ -1944,6 +1986,7 @@ export function renderApp(rootElement: HTMLElement) {
       await refreshInpaintModelOptionsForSelectedPreset(elements, client);
       await refreshOutpaintModelOptionsForSelectedPreset(elements, client);
       await refreshUpscaleModelOptionsForSelectedPreset(elements, client);
+      await refreshRemoveBackgroundModelOptionsForSelectedPreset(elements, client);
       await refreshStyleReferenceModelOptionsForSelectedPreset(elements, client);
       await refreshMultiReferenceModelOptionsForSelectedPreset(elements, client);
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
@@ -1989,6 +2032,7 @@ export function renderApp(rootElement: HTMLElement) {
       await refreshInpaintModelOptionsForSelectedPreset(elements, client);
       await refreshOutpaintModelOptionsForSelectedPreset(elements, client);
       await refreshUpscaleModelOptionsForSelectedPreset(elements, client);
+      await refreshRemoveBackgroundModelOptionsForSelectedPreset(elements, client);
       await refreshStyleReferenceModelOptionsForSelectedPreset(elements, client);
       await refreshMultiReferenceModelOptionsForSelectedPreset(elements, client);
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
@@ -2493,6 +2537,12 @@ export function renderApp(rootElement: HTMLElement) {
     inpaint: { status: setInpaintStatus, diagnostics: setInpaintDiagnostics, error: setInpaintError, progress: setInpaintProgressPreview },
     outpaint: { status: setOutpaintStatus, diagnostics: setOutpaintDiagnostics, error: setOutpaintError, progress: setOutpaintProgressPreview },
     upscale: { status: setUpscaleStatus, diagnostics: setUpscaleDiagnostics, error: setUpscaleError, progress: setUpscaleProgressPreview },
+    "remove-background": {
+      status: setRemoveBackgroundStatus,
+      diagnostics: setRemoveBackgroundDiagnostics,
+      error: setRemoveBackgroundError,
+      progress: setRemoveBackgroundProgressPreview
+    },
     "prompt-from-layer": { status: setPromptLayerStatus, diagnostics: setPromptLayerDiagnostics, error: setPromptLayerError },
     "style-reference": { status: setStyleReferenceStatus, diagnostics: setStyleReferenceDiagnostics, error: setStyleReferenceError, progress: setStyleReferenceProgressPreview },
     "multi-reference": { status: setMultiReferenceStatus, diagnostics: setMultiReferenceDiagnostics, error: setMultiReferenceError, progress: setMultiReferenceProgressPreview },
@@ -3257,6 +3307,225 @@ export function renderApp(rootElement: HTMLElement) {
       isBusy = false;
       busyTool = null;
       syncBusy();
+    }
+  }
+
+  async function handleCaptureRemoveBackgroundSource() {
+    await captureRemoveBackgroundSourceImage({
+      progressMessage: "Capturing active Photoshop layer for Remove Background...",
+      statusMessage: "Capturing active layer...",
+      successMessage: "Source captured.",
+      capture: exportActiveLayerForImageToImage
+    });
+  }
+
+  async function handleCaptureRemoveBackgroundCanvasSource() {
+    await captureRemoveBackgroundSourceImage({
+      progressMessage: "Capturing Photoshop canvas for Remove Background...",
+      statusMessage: "Capturing canvas...",
+      successMessage: "Canvas captured.",
+      capture: exportCanvasForImageToImage
+    });
+  }
+
+  async function captureRemoveBackgroundSourceImage(options: {
+    progressMessage: string;
+    statusMessage: string;
+    successMessage: string;
+    capture: () => Promise<ExportedSourceImage>;
+  }) {
+    setRemoveBackgroundDiagnostics(elements, options.progressMessage);
+    setRemoveBackgroundError(elements, "");
+    setRemoveBackgroundStatus(elements, options.statusMessage, "idle");
+
+    try {
+      const exportedSource = await options.capture();
+      const sourcePreview = objectUrls.create(exportedSource.blob);
+      setRemoveBackgroundSource({
+        ...exportedSource,
+        previewUrl: sourcePreview
+      });
+      setRemoveBackgroundStatus(elements, options.successMessage, "ready");
+      setRemoveBackgroundDiagnostics(
+        elements,
+        `${createSourceCaptureMessage(exportedSource, " for background removal")} Press Remove Background.`
+      );
+    } catch (caughtError) {
+      setRemoveBackgroundSource(null);
+      setRemoveBackgroundStatus(elements, "Capture failed.", "error");
+      setRemoveBackgroundError(elements, getErrorMessage(caughtError));
+    }
+  }
+
+  function handleToggleRemoveBackgroundAutoImport() {
+    removeBackgroundImportAutomatically = !removeBackgroundImportAutomatically;
+    updateRemoveBackgroundAutoImportToggle(elements, removeBackgroundImportAutomatically);
+    setRemoveBackgroundDiagnostics(
+      elements,
+      removeBackgroundImportAutomatically
+        ? "Remove Background auto import is on."
+        : "Remove Background auto import is off."
+    );
+  }
+
+  /**
+   * No prompt, no seed, no sampler settings: the whole form is a source layer
+   * and a model. BiRefNet reads an image and returns a matte, so anything else
+   * the panel offered here would be a control the model never sees.
+   */
+  async function handleGenerateRemoveBackground() {
+    if (blockRegularGenerationDuringLivePainting((message) => setRemoveBackgroundStatus(elements, message, "error"))) {
+      return;
+    }
+
+    if (!removeBackgroundSource) {
+      setRemoveBackgroundError(elements, "Capture the active Photoshop layer or canvas before removing its background.");
+      setRemoveBackgroundStatus(elements, "Source required.", "error");
+      return;
+    }
+
+    setRemoveBackgroundError(elements, "");
+    setRemoveBackgroundResult(null);
+    busyTool = "remove-background";
+    isBusy = true;
+    syncBusy();
+    setRemoveBackgroundStatus(elements, "Preparing cutout workflow...", "idle");
+    setRemoveBackgroundProgressPreview(elements, "Preparing cutout workflow...");
+
+    try {
+      const workflowPreset = readSelectValue(elements.removeBackgroundWorkflow, DEFAULT_REMOVE_BACKGROUND_WORKFLOW);
+      const preset = getWorkflowPreset(workflowPreset);
+      const modelName = readSelectValue(elements.removeBackgroundModel);
+      const client = new ComfyClient(elements.serverUrl.value);
+
+      setRemoveBackgroundDiagnostics(
+        elements,
+        createWorkflowDiagnostics(preset, modelName, createSourceInputAvailability(removeBackgroundSource))
+      );
+      await client.checkOnline();
+
+      if (!modelName) {
+        throw createOpenLayerError("CHECKPOINT_REQUIRED", "Choose a background removal model before generating.");
+      }
+
+      setRemoveBackgroundStatus(elements, "Checking selected background removal model...", "idle");
+
+      if (!(await client.hasModelForPreset(modelName, preset))) {
+        throw createOpenLayerError(
+          "CHECKPOINT_REQUIRED",
+          `The ${preset.modelSource.label.toLowerCase()} "${modelName}" was not found in ComfyUI. Open Setup to download it, or click Check ComfyUI and choose one that is installed.`
+        );
+      }
+
+      setRemoveBackgroundStatus(elements, "Uploading source image to ComfyUI...", "idle");
+      setRemoveBackgroundProgressPreview(elements, "Uploading source image...");
+      const sourceImageName = await client.uploadImage(removeBackgroundSource.blob, removeBackgroundSource.filename);
+      const buildResult = await buildRemoveBackgroundWorkflow({
+        presetId: preset.id,
+        sourceImageName,
+        modelName
+      });
+
+      // A const, not the mutable field: the commit closure runs after awaits.
+      const capturedSource = removeBackgroundSource;
+      const generatedResult = await generation.runPipeline({
+        toolType: "remove-background",
+        client,
+        workflow: buildResult.workflow,
+        preferredNodeId: getSaveImageNodeId(buildResult.preset),
+        originatingDocument: capturedSource.originatingDocument,
+        ui: createPipelineUi("remove-background", elements.removeBackgroundStatusProgress),
+        messages: {
+          submitStatus: "Submitting cutout prompt...",
+          submitPreview: "Submitting prompt to ComfyUI...",
+          generateStatus: "Finding the subject...",
+          generatePreview: "Finding the subject...",
+          retrieveStatus: "Retrieving cutout...",
+          retrievePreview: "Retrieving final image...",
+          livePreview: "Live ComfyUI preview..."
+        },
+        commit: (generatedResult) => {
+          setRemoveBackgroundResult(generatedResult);
+          addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
+            prompt: `Remove background from ${capturedSource.sourceName}`,
+            checkpointName: modelName,
+            modelName,
+            workflowPreset: buildResult.preset.id,
+            toolType: "remove-background",
+            seed: 0,
+            sizeLabel: "Cutout",
+            dimensions: `${capturedSource.width} x ${capturedSource.height}`,
+            sourceMode: capturedSource.sourceName,
+            experimental: buildResult.preset.status === "experimental"
+          });
+        }
+      });
+
+      if (!generatedResult) {
+        return;
+      }
+
+      setRemoveBackgroundStatus(elements, "Cutout complete.", "ready");
+      setRemoveBackgroundDiagnostics(
+        elements,
+        `Source uploaded as ${sourceImageName}. Model: ${modelName}. Workflow: ${buildResult.preset.id}.`
+      );
+
+      if (removeBackgroundImportAutomatically) {
+        setRemoveBackgroundStatus(elements, "Cutout complete. Auto-importing...", "idle");
+        await handleImportRemoveBackground();
+      }
+    } catch (caughtError) {
+      if (isGenerationCancelledError(caughtError)) {
+        showGenerationCancelled("remove-background");
+        return;
+      }
+
+      setRemoveBackgroundStatus(elements, "Cutout failed.", "error");
+      setRemoveBackgroundError(elements, getErrorMessage(caughtError));
+      console.error("[OpenLayer] Remove Background failed", getTechnicalErrorDetails(caughtError));
+    } finally {
+      isBusy = false;
+      busyTool = null;
+      syncBusy();
+    }
+  }
+
+  async function handleImportRemoveBackground() {
+    if (!removeBackgroundResult) {
+      setRemoveBackgroundError(elements, "Remove a background before importing.");
+      return;
+    }
+
+    setRemoveBackgroundError(elements, "");
+    setRemoveBackgroundStatus(elements, "Importing cutout into Photoshop...", "idle");
+
+    try {
+      const layerName = createLayerName("OpenLayer_Cutout");
+      const importedLayerName = await importGeneratedImageAsLayer({
+        blob: removeBackgroundResult.blob,
+        originatingDocument: removeBackgroundResult.originatingDocument,
+        layerName,
+        onProgress: (message) => {
+          setRemoveBackgroundStatus(elements, message, "idle");
+          setRemoveBackgroundDiagnostics(elements, message);
+        }
+      });
+      setRemoveBackgroundStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
+      flashImported(elements.removeBackgroundStatusText);
+      markHistoryImported(elements, historyEntries, removeBackgroundResult, importedLayerName);
+      const metadataMessage = await writeMetadataForImportedResult(
+        historyEntries,
+        removeBackgroundResult,
+        importedLayerName,
+        (message) => {
+          setRemoveBackgroundDiagnostics(elements, message);
+        }
+      );
+      setRemoveBackgroundDiagnostics(elements, `Layer created: ${importedLayerName}. ${metadataMessage}`);
+    } catch (caughtError) {
+      setRemoveBackgroundStatus(elements, "Import failed.", "error");
+      setRemoveBackgroundError(elements, getErrorMessage(caughtError));
     }
   }
 
@@ -6319,6 +6588,26 @@ export function renderApp(rootElement: HTMLElement) {
     upscaleResultPanel.showProgress(message, blob);
   }
 
+  function setRemoveBackgroundSource(nextSource: ImageSourceState | null) {
+    removeBackgroundSource = nextSource;
+    removeBackgroundSourcePanel.show(removeBackgroundSource && {
+      previewUrl: removeBackgroundSource.previewUrl,
+      title: removeBackgroundSource.sourceName,
+      meta: createSourceMetaText(removeBackgroundSource)
+    });
+    syncBusy();
+  }
+
+  function setRemoveBackgroundResult(nextResult: AppGeneratedImageResult | null) {
+    removeBackgroundResult = nextResult;
+    removeBackgroundResultPanel.showResult(removeBackgroundResult?.blob ?? null);
+    syncBusy();
+  }
+
+  function setRemoveBackgroundProgressPreview(elements: AppElements, message: string, blob?: Blob) {
+    removeBackgroundResultPanel.showProgress(message, blob);
+  }
+
   function setStyleReferenceSource(nextSource: ImageSourceState | null) {
     styleReferenceSource = nextSource;
     styleReferenceSourcePanel.show(styleReferenceSource && {
@@ -6392,6 +6681,7 @@ export function renderApp(rootElement: HTMLElement) {
     elements.outpaintView.hidden = currentView !== "outpaint";
     elements.promptFromLayerView.hidden = currentView !== "prompt-from-layer";
     elements.upscaleView.hidden = currentView !== "upscale";
+    elements.removeBackgroundView.hidden = currentView !== "remove-background";
     elements.styleReferenceView.hidden = currentView !== "style-reference";
     elements.multiReferenceView.hidden = currentView !== "multi-reference";
     elements.unflattenView.hidden = currentView !== "unflatten";
@@ -6530,6 +6820,12 @@ function updateUpscaleAutoImportToggle(elements: AppElements, isEnabled: boolean
   elements.upscaleAutoImportToggle.textContent = isEnabled ? "Auto Import On" : "Import Automatically";
   elements.upscaleAutoImportToggle.setAttribute("aria-pressed", String(isEnabled));
   elements.upscaleAutoImportToggle.classList.toggle("is-active", isEnabled);
+}
+
+function updateRemoveBackgroundAutoImportToggle(elements: AppElements, isEnabled: boolean) {
+  elements.removeBackgroundAutoImportToggle.textContent = isEnabled ? "Auto Import On" : "Import Automatically";
+  elements.removeBackgroundAutoImportToggle.setAttribute("aria-pressed", String(isEnabled));
+  elements.removeBackgroundAutoImportToggle.classList.toggle("is-active", isEnabled);
 }
 
 function updateExperimentalCheckpointToggle(elements: AppElements, isEnabled: boolean) {
@@ -6869,6 +7165,31 @@ async function refreshOutpaintModelOptionsForSelectedPreset(
   }
 
   updateOutpaintCheckpointCompatibility(elements);
+}
+
+async function refreshRemoveBackgroundModelOptionsForSelectedPreset(
+  elements: AppElements,
+  client = new ComfyClient(elements.serverUrl.value),
+  preferredValue = readSelectValue(elements.removeBackgroundModel)
+) {
+  const preset = getWorkflowPreset(
+    readSelectValue(elements.removeBackgroundWorkflow, DEFAULT_REMOVE_BACKGROUND_WORKFLOW)
+  );
+
+  try {
+    const modelNames = await client.getModelNamesForPreset(preset);
+
+    if (modelNames.length > 0) {
+      const preferredPresetModel = preset.requiredModels?.find(
+        (model) => modelNames.includes(model.modelName)
+      )?.modelName;
+      const preferredModel = modelNames.includes(preferredValue) ? preferredValue : preferredPresetModel;
+
+      fillSingleCheckpointSelect(elements.removeBackgroundModel, modelNames, preferredModel);
+    }
+  } catch {
+    // Keep the fallback list if ComfyUI is offline or the folder is empty.
+  }
 }
 
 async function refreshUpscaleModelOptionsForSelectedPreset(

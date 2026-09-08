@@ -67,6 +67,8 @@ function getModelBucket(inventory: Partial<ComfyModelInventory>, kind: WorkflowR
       return inventory.clipVisionModels ?? [];
     case "ip-adapter":
       return inventory.ipAdapterModels ?? [];
+    case "background-removal":
+      return inventory.backgroundRemovalModels ?? [];
     default:
       return [];
   }

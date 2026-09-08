@@ -33,8 +33,8 @@
 - **Nothing leaves your computer.** ComfyUI runs on your own machine, on your own models.
 - **Results arrive as real Photoshop layers** — named, positioned, and editable. Not a flattened PNG
   you paste in and hope for.
-- **Eleven generation tools**, from text-to-image through inpainting to multi-image composition,
-  plus an experimental one that splits a flat picture back into layers.
+- **Twelve generation tools**, from text-to-image through inpainting and background removal to
+  multi-image composition, plus an experimental one that splits a flat picture back into layers.
 
 **You need:** Photoshop 2024+ · a local [ComfyUI](https://github.com/comfyanonymous/ComfyUI) server ·
 a GPU with 8 GB VRAM or more (12 GB is what this project targets).
@@ -56,6 +56,7 @@ anywhere; ComfyUI runs on your own machine.
 | **Inpaint** | Repaint a Photoshop selection in place |
 | **Outpaint** | Extend canvas content beyond the edges |
 | **Upscale** | Enhance generated or selected layers |
+| **Remove Background** | Cut the subject out onto its own layer, with real alpha |
 | **Prompt from Layer** | Describe a layer back into prompt text |
 | **Unflatten** ✦ | Split one flat layer into separate layers, each with real transparency |
 | **Live Painting** | Paint and watch the model respond live |

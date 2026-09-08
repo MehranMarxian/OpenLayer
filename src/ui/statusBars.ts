@@ -300,6 +300,17 @@ export function setUpscaleStatus(elements: AppElements, status: string, tone: St
   applyToolStatus(elements, elements.upscaleStatusText, elements.upscaleStatusPill, elements.upscaleStatusProgress, status, tone);
 }
 
+export function setRemoveBackgroundStatus(elements: AppElements, status: string, tone: StatusTone) {
+  applyToolStatus(
+    elements,
+    elements.removeBackgroundStatusText,
+    elements.removeBackgroundStatusPill,
+    elements.removeBackgroundStatusProgress,
+    status,
+    tone
+  );
+}
+
 export function setPromptLayerStatus(elements: AppElements, status: string, tone: StatusTone) {
   applyToolStatus(elements, elements.promptLayerStatusText, elements.promptLayerStatusPill, elements.promptLayerStatusProgress, status, tone);
 }
@@ -381,6 +392,10 @@ export function setUpscaleError(elements: AppElements, message: string) {
   applyToolError(elements.upscaleErrorMessage, message);
 }
 
+export function setRemoveBackgroundError(elements: AppElements, message: string) {
+  applyToolError(elements.removeBackgroundErrorMessage, message);
+}
+
 export function setPromptLayerError(elements: AppElements, message: string) {
   applyToolError(elements.promptLayerErrorMessage, message);
 }
@@ -451,6 +466,11 @@ export function setOutpaintDiagnostics(elements: AppElements, message: string) {
 
 export function setUpscaleDiagnostics(elements: AppElements, message: string) {
   elements.upscaleDiagnosticsText.textContent = message;
+  elements.settingsDiagnosticsText.textContent = message;
+}
+
+export function setRemoveBackgroundDiagnostics(elements: AppElements, message: string) {
+  elements.removeBackgroundDiagnosticsText.textContent = message;
   elements.settingsDiagnosticsText.textContent = message;
 }
 

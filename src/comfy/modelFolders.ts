@@ -52,7 +52,12 @@ export const MODEL_FOLDER_BY_OBJECT_INFO_NODE = {
   // both read models/ipadapter/ -- verified against that pack's own loader source.
   CLIPVisionLoader: "clip_vision",
   IPAdapterModelLoader: "ipadapter",
-  IPAdapterUnifiedLoader: "ipadapter"
+  IPAdapterUnifiedLoader: "ipadapter",
+  // Core ComfyUI as of 0.21 (`comfy_extras.nodes_bg_removal`), reading a
+  // folder none of the others share. Verified live on 0.30.0: dropping
+  // birefnet.safetensors into models/background_removal/ made it appear in
+  // this loader's combo without a restart.
+  LoadBackgroundRemovalModel: "background_removal"
 } as const satisfies Record<string, WorkflowModelFolder>;
 
 export type ComfyModelInventoryBucket = Exclude<keyof ComfyModelInventory, "missingSources">;
@@ -68,7 +73,8 @@ export const MODEL_FOLDER_BY_INVENTORY_BUCKET = {
   upscaleModels: "upscale_models",
   modelPatches: "model_patches",
   clipVisionModels: "clip_vision",
-  ipAdapterModels: "ipadapter"
+  ipAdapterModels: "ipadapter",
+  backgroundRemovalModels: "background_removal"
 } as const satisfies Record<ComfyModelInventoryBucket, WorkflowModelFolder>;
 
 export type MappedModelLoaderNode = keyof typeof MODEL_FOLDER_BY_OBJECT_INFO_NODE;

@@ -22,7 +22,8 @@ describe("busy-state tables", () => {
       "prompt-from-layer",
       "style-reference",
       "multi-reference",
-      "unflatten"
+      "unflatten",
+      "remove-background"
     ]);
     expect(fieldGroups.every((fields) => fields.length > 0)).toBe(true);
   });
@@ -79,6 +80,8 @@ describe("busy-state tables", () => {
       "upscaleWorkflow",
       "upscaleModel",
       "promptLayerTask",
+      "removeBackgroundModel",
+      "removeBackgroundWorkflow",
       "promptLayerNumBeams",
       "promptLayerGeneratedText",
       "styleReferencePrompt",
