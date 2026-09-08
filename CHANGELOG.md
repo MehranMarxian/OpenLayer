@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.21.0-alpha - 2026-09-08
+## v0.25.0-alpha - 2026-09-09
 
 Mostly a release about telling the truth: what the panel connects to, what it can do, and what it
 cannot. One new tool — Remove Background, which is the fast, reliable cutout people have been
@@ -103,6 +103,28 @@ not so.
   half and the registration half are one feature and only one of them shipped: every control resolved,
   the whole suite passed, and the only symptom was two buttons that did not respond. A test now
   asserts the two sets match, in both directions.
+
+- **Classic v0.4 was a trap: you could select it, and then you could not get out.** It rendered the
+  dashboard as a pile of overlapping cards with every tool icon blown up to 128px behind its own
+  title, Settings included — so the one control that would have changed the theme back was buried
+  under the wreckage.
+
+  It was not a styling regression. Classic was the only theme that dropped the `theme-compact`
+  class and stood alone, on nine rules — and seven of those styled a **wrapping grid of 190px
+  cards**: `.tool-grid`, `flex: 1 1 190px`, a card body indented 38px to clear an absolutely
+  positioned icon. The dashboard became a list of rows several releases later and those rules were
+  never revisited, so the theme described a DOM that no longer existed. With no compact layout
+  underneath and nothing sizing `.icon-image`, each icon simply drew at its natural size.
+
+  Classic keeps the compact layout now and overrides only colour, exactly as Artist-Friendly Dark
+  has since v0.16 — which is what the token pass was built for. The palette is the same flat grey
+  and gold it always was; only the seven dead layout rules are gone. Its token block also had to
+  move to the end of the stylesheet: the compact sheet re-declares `--ol-bg` three times, all of
+  them below where Classic used to sit, so its colours would otherwise have lost to the layout it
+  now inherits.
+
+- **Remove Background and Unflatten have their own icons.** Remove Background had been borrowing
+  Layer Tools' drawing since it shipped.
 
 - **A tool card missing from the home screen's own section list rendered nowhere.** The dashboard is
   driven by two lists: one describes every tool, the other decides which are grouped onto the home

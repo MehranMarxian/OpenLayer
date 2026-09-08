@@ -7790,21 +7790,27 @@ function applyTheme(elements: AppElements, theme: OpenLayerTheme) {
 
   elements.settingsThemeSelect.value = nextTheme;
 
-  // Artist-Friendly Dark KEEPS the compact class and stacks theme-artist on
-  // top of it. The compact rules are the stylesheet -- 1,158 of them against
-  // 9 unprefixed base rules -- so a theme that drops the compact class
-  // inherits almost nothing and has to re-state the whole panel. That is how
-  // Classic v0.4 ended up a veneer, and the token pass exists precisely so a
-  // theme can be an override instead.
-  const usesCompactLayout = nextTheme === "compact" || nextTheme === "artist";
-  elements.appShell.classList.toggle("theme-compact", usesCompactLayout);
+  // EVERY theme keeps the compact class and stacks its own on top. The compact
+  // rules are the stylesheet -- ~1,197 of them against 9 unprefixed base rules
+  // -- so a theme that drops the class inherits almost nothing and has to
+  // re-state the whole panel.
+  //
+  // Classic v0.4 used to stand alone, and that is exactly how it broke: with no
+  // layout underneath, nothing sized the tool icons and they rendered at their
+  // natural 128px behind their own titles, overlapping the cards into an
+  // unusable stack. Settings was unreachable in it, so choosing the theme was a
+  // one-way trip. It is a colour override now, like Artist-Friendly Dark, which
+  // is what the token pass was built for.
+  elements.appShell.classList.add("theme-compact");
   elements.appShell.classList.toggle("theme-classic", nextTheme === "classic");
   elements.appShell.classList.toggle("theme-artist", nextTheme === "artist");
 
   // html/body/#root paint the shell behind the panel from --ol-section-bg, and
   // they are ancestors of the app shell rather than descendants, so a token
   // override scoped to the shell cannot reach them. Mirror the class onto body.
-  elements.appShell.ownerDocument?.body?.classList.toggle("theme-artist", nextTheme === "artist");
+  const body = elements.appShell.ownerDocument?.body;
+  body?.classList.toggle("theme-artist", nextTheme === "artist");
+  body?.classList.toggle("theme-classic", nextTheme === "classic");
 
   // Build the slider face only for Artist-Friendly Dark, and tear it out
   // again otherwise, so Compact Adobe Dark keeps the DOM it always had. The

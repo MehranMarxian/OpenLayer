@@ -39,7 +39,7 @@
 **You need:** Photoshop 2024+ · a local [ComfyUI](https://github.com/comfyanonymous/ComfyUI) server ·
 a GPU with 8 GB VRAM or more (12 GB is what this project targets).
 
-> **Alpha.** `v0.21.0-alpha` is a public testing checkpoint, not production software. It is stable
+> **Alpha.** `v0.25.0-alpha` is a public testing checkpoint, not production software. It is stable
 > enough to work with, and honest about where it stops — see [what works and what does
 > not](docs/known-limitations.md).
 

@@ -2105,13 +2105,7 @@ function createToolIconMarkup(icon: ToolIconName) {
     styleReference: "style-reference.png",
     multiReference: "multi-reference.png",
     unflatten: "unflatten.png",
-    // TODO(art): borrows Layer Tools' drawing until Remove Background has its
-    // own. It is a separate NAME on purpose -- the v0.18 split of Live Painting
-    // and Style Reference exists because sharing a name means replacing one
-    // tool's art silently changes another's. Dropping a
-    // `remove-background.png` beside the others and changing this one line is
-    // the whole swap.
-    removeBackground: "layer-tools.png",
+    removeBackground: "remove-background.png",
     control: "workflow-presets.png",
     workflow: "workflow.png",
     layers: "layer-tools.png",
