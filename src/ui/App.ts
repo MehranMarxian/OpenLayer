@@ -642,7 +642,9 @@ export function renderApp(rootElement: HTMLElement) {
       multiReferenceSources: multiReferenceSources.length,
       multiReferenceResult,
       unflattenSource,
-      unflattenResult
+      unflattenResult,
+      removeBackgroundSource,
+      removeBackgroundResult
     });
     updateInpaintReferenceControlLock(elements, isBusy && busyTool === "inpaint");
     syncImportBridge();
@@ -1675,7 +1677,7 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.captureRemoveBackgroundSourceButton, actionHandlers.captureRemoveBackgroundSource);
   bindActionControl(elements.captureRemoveBackgroundCanvasSourceButton, actionHandlers.captureRemoveBackgroundCanvasSource);
   bindActionControl(elements.generateRemoveBackgroundButton, actionHandlers.generateRemoveBackground);
-  bindActionControl(elements.importRemoveBackgroundResultButton, actionHandlers.importRemoveBackground);
+  bindActionControl(elements.importRemoveBackgroundButton, actionHandlers.importRemoveBackground);
   bindActionControl(elements.removeBackgroundAutoImportToggle, actionHandlers.toggleRemoveBackgroundAutoImport);
   bindActionControl(elements.inpaintAutoImportToggle, actionHandlers.toggleInpaintAutoImport);
   bindActionControl(elements.clearHistoryButton, actionHandlers.clearHistory);

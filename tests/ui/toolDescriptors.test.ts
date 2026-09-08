@@ -1,4 +1,9 @@
+// @vitest-environment jsdom
+//
+// jsdom because the reachability checks at the bottom derive the button list
+// from the real panel markup rather than a hand-written inventory.
 import { describe, expect, it } from "vitest";
+import { createAppMarkup, getAppElements } from "../../src/ui/appMarkup";
 import {
   BUSY_ALLOWED_ACTIONS,
   BUSY_ALWAYS_DISABLED_ACTIONS,
@@ -127,7 +132,7 @@ describe("busy-state tables", () => {
     // model-download spike button, plus Style Reference's two capture buttons,
     // plus Multi-Reference's two. Deleting the spike takes this back to 39.
     expect(plainActions).toHaveLength(42);
-    expect(BUSY_GATED_ACTIONS).toHaveLength(18);
+    expect(BUSY_GATED_ACTIONS).toHaveLength(20);
     expect(new Set(allActions).size).toBe(allActions.length);
   });
 
@@ -188,6 +193,8 @@ describe("busy-state tables", () => {
       "describeUnflattenSourceButton",
       "generateUnflattenButton",
       "importUnflattenButton",
+      "generateRemoveBackgroundButton",
+      "importRemoveBackgroundButton",
       "checkButton",
       "findPortButton",
       "detectHardwareButton",
@@ -226,5 +233,61 @@ describe("busy-state tables", () => {
     expect(gates.importInpaintButton).toBe("inpaintResult");
     expect(gates.importOutpaintButton).toBe("outpaintResult");
     expect(gates.importUpscaleButton).toBe("upscaleResult");
+  });
+});
+
+/**
+ * Every Import and Generate button must be gated on something.
+ *
+ * `BUSY_GATED_ACTIONS` is what makes those buttons clickable: `setBusy` walks
+ * it and disables anything whose gate is empty. A button the table does not
+ * mention is never visited, so it keeps the `is-disabled` class its markup
+ * ships with and stays dead forever, looking exactly like a button that is
+ * merely waiting for a result.
+ *
+ * That shipped. Remove Background's "Import to Layers" rendered, bound its
+ * handler, and could not be pressed -- caught only by a person clicking it in
+ * Photoshop, because nothing in the suite knew the table was supposed to cover
+ * it. It was the third bug of this shape in one release: a control drawn in one
+ * list and enabled by a second, with nothing checking the two agree.
+ *
+ * Derived from the real markup rather than a hand-written inventory, so a new
+ * tool is covered the moment its buttons exist.
+ */
+describe("every action button is reachable", () => {
+  const gatedButtons = new Set(BUSY_GATED_ACTIONS.map((action) => action.button));
+  const alwaysDisabled = new Set<string>(BUSY_ALWAYS_DISABLED_ACTIONS);
+  /**
+   * Live Painting drives these two itself, from session state rather than from
+   * a "a result exists" gate: one follows the session being live, the other the
+   * refine pass having produced something. Listed by name rather than by
+   * loosening the check, so a third one cannot join them silently.
+   */
+  const selfManaged = new Set(["importLiveButton", "importLiveRefinedButton"]);
+
+  function actionButtonKeys(prefix: string) {
+    const root = document.createElement("div");
+    root.innerHTML = createAppMarkup();
+    const elements = getAppElements(root) as unknown as Record<string, HTMLElement>;
+
+    return Object.keys(elements).filter(
+      (key) => key.startsWith(prefix) && key.endsWith("Button") && elements[key]?.tagName === "BUTTON"
+    );
+  }
+
+  it("gates every Import button on a result", () => {
+    const ungated = actionButtonKeys("import").filter(
+      (key) => !gatedButtons.has(key as never) && !alwaysDisabled.has(key) && !selfManaged.has(key)
+    );
+
+    expect(ungated, "import buttons no gate enables, so they can never be pressed").toEqual([]);
+  });
+
+  it("gates every Generate button on a source", () => {
+    const ungated = actionButtonKeys("generate").filter(
+      (key) => !gatedButtons.has(key as never) && !alwaysDisabled.has(key) && !selfManaged.has(key)
+    );
+
+    expect(ungated, "generate buttons no gate enables, so they can never be pressed").toEqual([]);
   });
 });

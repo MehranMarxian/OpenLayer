@@ -400,7 +400,7 @@ export type AppElements = {
   removeBackgroundDiagnosticsText: HTMLElement;
   removeBackgroundErrorMessage: HTMLElement;
   removeBackgroundResultPreviewPanel: HTMLElement;
-  importRemoveBackgroundResultButton: HTMLElement;
+  importRemoveBackgroundButton: HTMLElement;
   removeBackgroundAutoImportToggle: HTMLElement;
   unflattenPrompt: HTMLTextAreaElement;
   unflattenPromptWalletSave: HTMLElement;
@@ -2533,7 +2533,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     removeBackgroundDiagnosticsText: getElement<HTMLElement>(rootElement, "remove-background-diagnostics-text"),
     removeBackgroundErrorMessage: getElement<HTMLElement>(rootElement, "remove-background-error-message"),
     removeBackgroundResultPreviewPanel: getElement<HTMLElement>(rootElement, "remove-background-result-preview-panel"),
-    importRemoveBackgroundResultButton: getElement<HTMLElement>(rootElement, "import-remove-background-result"),
+    importRemoveBackgroundButton: getElement<HTMLElement>(rootElement, "import-remove-background-result"),
     removeBackgroundAutoImportToggle: getElement<HTMLElement>(rootElement, "remove-background-auto-import-toggle"),
     unflattenPrompt: getElement<HTMLTextAreaElement>(rootElement, "unflatten-prompt"),
     unflattenPromptWalletSave: getElement<HTMLElement>(rootElement, "unflatten-prompt-wallet-save"),

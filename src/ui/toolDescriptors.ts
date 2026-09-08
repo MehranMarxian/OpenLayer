@@ -195,7 +195,9 @@ export type BusyGateName =
   | "multiReferenceSources"
   | "multiReferenceResult"
   | "unflattenSource"
-  | "unflattenResult";
+  | "unflattenResult"
+  | "removeBackgroundSource"
+  | "removeBackgroundResult";
 
 export type BusyGatedAction = Readonly<{
   button: ActionElementKey;
@@ -224,5 +226,7 @@ export const BUSY_GATED_ACTIONS: readonly BusyGatedAction[] = [
   // Captions the source Unflatten already holds, so it waits on the same
   // gate the Unflatten button does rather than on a second one.
   { button: "describeUnflattenSourceButton", gate: "unflattenSource" },
-  { button: "importUnflattenButton", gate: "unflattenResult" }
+  { button: "importUnflattenButton", gate: "unflattenResult" },
+  { button: "generateRemoveBackgroundButton", gate: "removeBackgroundSource" },
+  { button: "importRemoveBackgroundButton", gate: "removeBackgroundResult" }
 ];
