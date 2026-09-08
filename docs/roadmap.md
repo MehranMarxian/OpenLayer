@@ -2,79 +2,75 @@
 
 OpenLayer is a local-first Photoshop UXP plugin for artist-friendly ComfyUI workflows. The roadmap favors a trustworthy foundation before larger creative features.
 
-## Current Alpha Features
+## Where it is now
 
-- Text to Image with `txt2img-basic`
-- Image to Image with active-layer or canvas capture
-- Sketch to Image with the SD 1.x LINECN starter workflow
-- Experimental Inpaint with Photoshop selection detection, selected-region PNG capture, grayscale mask export, aligned context import, SD 1.x `inpaint-basic`, and experimental Flux Fill preset metadata/workflow
-- Experimental Outpaint with active-layer/canvas capture and Flux Fill `ImagePadForOutpaint` canvas expansion
-- Prompt from Layer available for alpha testing with Florence-2 PromptGen
-- Flux Fill metadata prefers `t5xxl_fp16.safetensors`, accepts `t5xxl_fp8_e4m3fn.safetensors` as a T5 fallback, and validates source/mask dimensions before submit
-- Inpaint output diagnostics and best-effort transparent outside-mask import, with aligned context fallback when compositing is unavailable
-- Import generated results as new Photoshop layers
-- Local ComfyUI connection, checkpoint loading, and status diagnostics
-- GPU-aware model recommendations
-- Workflow preset registry with disabled future metadata for Flux and Z_image_Turbo
+Eleven generation tools, all running against a local ComfyUI: Text to Image, Image to Image,
+Sketch to Image, Inpaint, Outpaint, Upscale, Prompt from Layer, Live Painting, Style Reference,
+Multi-Reference and Unflatten, plus Layer Tools, History, the Prompt Wallet, Workflow Presets,
+custom workflow checking, and a Setup screen that checks what you have against what each preset
+needs and can download what is missing.
 
-## v0.3 Stabilization
+Four of those carry a caveat rather than a clean bill of health, and the list is deliberately
+honest rather than short: Inpaint, Outpaint, Multi-Reference and Unflatten. What each one does and
+does not do is in [known limitations](known-limitations.md), which is the document to read before
+this one.
 
-- GitHub Actions CI for install, type-check, tests, and build
-- Lightweight unit tests for pure TypeScript workflow logic
-- PNG/lossless source capture from raw Photoshop Imaging API pixels
-- Clearer workflow validation errors for custom API workflow remapping
-- Contributor, security, issue template, and custom workflow docs
+The foundations under all of it: a preset registry every other surface is derived from, a workflow
+health check, GPU-aware model recommendations, LoRA support, results imported as real named layers
+with masks and alignment, generation history, cancellation, themes, and an optional MCP bridge that
+lets an agent drive the panel.
 
-## v0.4 Inpainting And Mask Workflows
+## What is being worked on
 
-- Selection bounds capture (started in v0.4.0-alpha)
-- Selected-region PNG/lossless source capture (started in v0.4.0-alpha)
-- Selection mask export (started in v0.4.1-alpha)
-- Experimental `inpaint-basic` preset with real source and mask inputs (started in v0.4.1-alpha)
-- Experimental `inpaint-flux-fill-basic` preset for local Flux Fill stacks (started in v0.4.1-alpha)
-- Continue Flux Fill testing against real Photoshop selections, including mask polarity, source/context size, and aligned import behavior
-- Verify whether the transparent outside-mask import path works reliably across Photoshop UXP environments or should be replaced by Photoshop layer-mask import
-- Import generated regions aligned to the original selection context (started in v0.4.1-alpha)
-- Confirm inpaint mask polarity for SD inpaint and Flux Fill workflows
-- Decide between full-canvas import, cropped patch import, transparent outside-mask import, or Photoshop layer-mask import
-- Verify inpaint output quality and Photoshop alignment before calling the feature stable
-- Preserve and restore selection state
-- Add cleaner transparency/layer-mask options for imported inpaint patches
+- **Making the experimental four less experimental.** Reliability before reach: nothing new is worth
+  as much as one of these becoming something a person can rely on.
+- **Unflatten's background quality.** The gate found the bottleneck is not segmentation but what the
+  model paints into the hole a subject leaves. Flat ground reconstructs well; a complex scene does
+  not. Raising the resolution makes it worse, so the likely route is a masked inpaint pass over the
+  background using the crop-and-stitch stacks already shipped.
+- **First-run friction.** Every step between downloading the plugin and seeing it work once.
 
-## v0.6 Compact UXP Interface
+## Still ahead, roughly in order of appetite
 
-- Compact Adobe-style dashboard with grouped tool rows and clearer unavailable states
-- Sticky tool headers with stable spacing in the real Photoshop UXP renderer
-- Determinate ComfyUI progress driven by the numeric WebSocket progress channel
-- Collapsible Advanced settings and compact experimental-info controls
-- Larger, scrollable prompt fields without unreliable auto-grow behavior
-- Consistent form gutters, status tones, toggle feedback, and import success feedback
+- One-click background removal with real alpha, which ComfyUI now has a core node for
+- Relighting and compositing harmonisation, so an extracted layer can be matched to its new scene
+- Creative and tiled upscaling, rather than the pixel/model enlargement Upscale does today
+- A LoRA browser, batch variants and contact sheets
+- Guided custom workflow import with node mapping and validation against `/object_info`
+- Persistent per-layer generation metadata, so a layer remembers how it was made
+- Better guide previews for lineart, depth and pose
 
-## v0.15 MCP Agent Bridge
+## History
 
-- Let an agentic AI (Claude first, any MCP client eventually) drive OpenLayer's tools from natural language
-- Local-first: a loopback-only bridge process speaking MCP (stdio) to the agent and WebSocket to the panel
-- Bidirectional: the panel can also ask the connected agent for help (e.g. suggest a prompt)
-- Off by default; explicit Setup-screen opt-in before any connection is made
-- Full architecture: [`docs/mcp-bridge.md`](mcp-bridge.md)
+Earlier milestones, kept because the reasoning in them still explains why parts of the panel are
+shaped the way they are. Everything in this section has shipped.
 
-## Future Custom Workflow Importer
+<details>
+<summary>v0.3 stabilization, v0.4 inpainting and masks, v0.6 compact interface</summary>
 
-- Guided API workflow import
-- Node mapping UI for prompts, model inputs, source image, seed, steps, CFG, denoise, and outputs
-- Validation against local ComfyUI `/object_info`
-- Safer workflow preset save/load
+**v0.3 Stabilization** — GitHub Actions CI for install, type-check, tests and build; unit tests for
+pure TypeScript workflow logic; PNG/lossless capture from raw Photoshop Imaging API pixels; clearer
+validation errors for custom API workflow remapping; contributor, security and custom workflow docs.
 
-## Future Directions
+**v0.4 Inpainting And Mask Workflows** — selection bounds capture, selected-region lossless capture,
+selection mask export, the `inpaint-basic` and Flux Fill presets, aligned import back into the
+original selection context, and the long run of mask-polarity and import-shape decisions behind
+them.
 
-- Dedicated Flux, SD3.5, and Z_image_Turbo workflows
-- LoRA browser
-- Batch variants
-- Contact sheet generation
-- Upscaling
-- Style reference
-- Realtime local preview experiments
-- Cancel or interrupt long-running ComfyUI jobs from the panel
-- Persistent generation metadata for prompt, seed, checkpoint, source, mask, and workflow
-- Future simplified UI once the technical workflow paths are stable
-- Better guide previews for lineart, depth, pose, and related control workflows
+**v0.6 Compact UXP Interface** — the compact dashboard with grouped tool rows and clear unavailable
+states, sticky tool headers, determinate progress from the numeric WebSocket channel, collapsible
+Advanced sections, scrollable prompt fields, and consistent gutters and status tones.
+
+**v0.15 MCP Agent Bridge** — an agentic AI drives the panel's tools from natural language over a
+loopback-only bridge speaking MCP to the agent and WebSocket to the panel. Bidirectional, so the
+panel can ask the agent for a prompt too. Off by default, with an explicit opt-in before anything
+connects. Architecture in [`docs/mcp-bridge.md`](mcp-bridge.md).
+
+</details>
+
+---
+
+Anything not listed here is not refused, just unclaimed. The
+[Discussions](https://github.com/MehranMarxian/OpenLayer/discussions) board is the place to argue
+for something, and a report that one of the four experimental tools failed on a real picture is
+worth more to this list than a feature request.
