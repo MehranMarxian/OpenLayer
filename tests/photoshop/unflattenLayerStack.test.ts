@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   classifyPlateSample,
+  didUnflattenSeparate,
   stackLayerNames,
   planLayerScale,
   planUnflattenLayerStack,
@@ -149,5 +150,41 @@ describe("stackLayerNames", () => {
 
   it("does not label a lone survivor as back or front", () => {
     expect(stackLayerNames(1)).toEqual(["Layer 1"]);
+  });
+});
+
+/**
+ * The close-up failure, which the panel could not name until v0.21.
+ *
+ * docs/known-limitations.md used to state this was undetectable, and for the
+ * reasons it gave that was true: nothing in a UXP panel can decode a PNG, and
+ * both cheap proxies measured during the gate failed -- blank and populated
+ * plates overlap almost completely on file size, and the background/composite
+ * size ratio put an unseparated run at 0.972 against 0.983 for a separated one.
+ *
+ * What changed is that the v0.20 blank-plate work already reads each placed
+ * layer's alpha through the imaging API and drops the empties. So by the time
+ * the import finishes, the question is no longer "what is in this plate" but
+ * "how many survived", and that is a count.
+ */
+describe("didUnflattenSeparate", () => {
+  it("reports the close-up failure: several asked for, one came back", () => {
+    expect(didUnflattenSeparate({ requestedLayerCount: 4, importedLayerCount: 1 })).toBe(false);
+  });
+
+  it("treats a partial result as a success, because the count is a ceiling", () => {
+    // Asking for four and receiving two is the tool working, not failing.
+    expect(didUnflattenSeparate({ requestedLayerCount: 4, importedLayerCount: 2 })).toBe(true);
+  });
+
+  it("does not call a one-layer request a failure", () => {
+    // Asking for one layer is asking for no separation, so one back is the
+    // whole request honoured. Without this guard the panel would report a
+    // failure at precisely the setting that cannot fail.
+    expect(didUnflattenSeparate({ requestedLayerCount: 1, importedLayerCount: 1 })).toBe(true);
+  });
+
+  it("counts a full result as separated", () => {
+    expect(didUnflattenSeparate({ requestedLayerCount: 2, importedLayerCount: 2 })).toBe(true);
   });
 });

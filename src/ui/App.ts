@@ -243,6 +243,7 @@ import {
   getStyleReferenceFailureHint,
   getUpscaleFailureHint
 } from "./toolErrorMessages";
+import { didUnflattenSeparate } from "../photoshop/unflattenLayerStack";
 import { createLayerName, sweepStaleTemporaryFiles } from "../utils/fileUtils";
 import {
   clearOpenLayerPreferences,
@@ -5077,12 +5078,39 @@ export function renderApp(rootElement: HTMLElement) {
         }
       });
 
-      setUnflattenStatus(elements, `Imported ${imported.layerNames.length} layers into ${imported.groupName}.`, "ready");
-      flashImported(elements.unflattenStatusText);
+      // A run that separated nothing must not be reported like one that worked.
+      // The model hands a close-up straight back as the background and returns
+      // empty plates above it; those are dropped on import, so what arrives is
+      // one layer that is simply the original picture. Until now that was
+      // "Imported 1 layers" in the ready tone with the success flash -- which is
+      // exactly what a successful run looks like, and is the single biggest
+      // reason the tool reads as not working.
+      const separated = didUnflattenSeparate({
+        requestedLayerCount: imported.requestedLayerCount,
+        importedLayerCount: imported.layerNames.length
+      });
 
+      // Marked before the branch either way: a group was created and a layer
+      // was placed, so leaving the history entry reading "not imported" would
+      // be its own small lie.
       if (unflattenHistoryResult) {
         markHistoryImported(elements, historyEntries, unflattenHistoryResult, imported.groupName);
       }
+
+      if (!separated) {
+        setUnflattenStatus(elements, "Unflatten could not separate this picture.", "error");
+        setUnflattenDiagnostics(
+          elements,
+          `The model returned the picture unchanged, so only one layer was imported into ${imported.groupName}. ` +
+            "This happens when there is no clear front and back to find -- a close-up that fills the frame is the " +
+            "usual cause. Try a source where a subject stands clear of its background, and describe what is " +
+            "already in the picture rather than what you want changed. Nothing was lost: undo removes the group."
+        );
+        return;
+      }
+
+      setUnflattenStatus(elements, `Imported ${imported.layerNames.length} layers into ${imported.groupName}.`, "ready");
+      flashImported(elements.unflattenStatusText);
       setUnflattenDiagnostics(
         elements,
         `Group created: ${imported.groupName}. Layers, back to front: ${imported.layerNames.join(", ")}.` +

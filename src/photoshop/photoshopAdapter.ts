@@ -1368,6 +1368,13 @@ export type UnflattenLayerStackImportOptions = {
 export type UnflattenLayerStackImportResult = {
   groupName: string;
   layerNames: string[];
+  /**
+   * Layers the run was asked for, kept so the caller can tell a run that
+   * separated nothing from one that separated less than it hoped. Without it
+   * "one layer came back" is ambiguous: it is the whole request honoured when
+   * one was asked for, and a total failure when several were.
+   */
+  requestedLayerCount: number;
   /** How many layers were built from the source rather than the model. */
   sourcePixelLayerCount: number;
   /** Plates that carried no matte at all and were left out. */
@@ -1607,6 +1614,7 @@ export async function importUnflattenLayerStack(
     return {
       groupName: plan.groupName,
       layerNames,
+      requestedLayerCount: plan.placements.length,
       sourcePixelLayerCount,
       skippedBlankLayerCount,
       skippedRedundantLayerCount,
