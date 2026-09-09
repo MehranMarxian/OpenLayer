@@ -66,6 +66,17 @@ export const CUSTOM_NODE_PACKAGES: Record<string, { name: string; repoUrl: strin
     name: "comfyui_controlnet_aux",
     repoUrl: "https://github.com/Fannovel16/comfyui_controlnet_aux"
   },
+  // The only class OpenLayer uses from KJNodes, and the only reason the package
+  // is required at all -- named here so Workflow Health can say which install is
+  // missing rather than reporting an unexplained absent node.
+  Superprompt: {
+    name: "ComfyUI-KJNodes",
+    repoUrl: "https://github.com/kijai/ComfyUI-KJNodes"
+  },
+  StringConstantMultiline: {
+    name: "ComfyUI-KJNodes",
+    repoUrl: "https://github.com/kijai/ComfyUI-KJNodes"
+  },
   Florence2ModelLoader: {
     name: "ComfyUI-Florence2",
     repoUrl: "https://github.com/kijai/ComfyUI-Florence2"

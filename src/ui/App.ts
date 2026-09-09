@@ -108,6 +108,7 @@ import {
   buildTxt2ImgWorkflow,
   buildRemoveBackgroundWorkflow,
   buildLayerMapsWorkflow,
+  buildEnhancePromptWorkflow,
   buildUpscaleWorkflow
 } from "../comfy/workflowBuilder";
 import {
@@ -199,7 +200,7 @@ import {
 import { setArtistControlsEnabled, syncArtistControls } from "./artistControls";
 import { setSeedDiceEnabled } from "./seedDice";
 import { bindPromptMemory } from "./promptMemory";
-import { bindPromptWallet, PROMPT_WALLET_TOOLS } from "./promptWallet";
+import { bindPromptWallet, PROMPT_WALLET_TOOLS, PromptWalletTool } from "./promptWallet";
 import {
   createUpscaleResizePlan,
   formatUpscaleScale,
@@ -1898,6 +1899,91 @@ export function renderApp(rootElement: HTMLElement) {
   elements.removeBackgroundWorkflow.addEventListener("change", () => {
     void refreshRemoveBackgroundModelOptionsForSelectedPreset(elements);
   });
+
+  /**
+   * The amber dot beside every prompt field.
+   *
+   * Deliberately NOT a tool screen. Enhancing a prompt is something you do to
+   * the box you are already typing in, and sending the artist to another screen
+   * to do it would cost more than it saves -- so it reuses PROMPT_WALLET_TOOLS,
+   * which already knows every prompt field in the panel and where each one
+   * reports its status.
+   *
+   * It writes the result straight back into the field. The prompt-memory undo
+   * stack listens for "input", so dispatching one gives the original text its
+   * own undo step and Ctrl+Z brings it back -- the same contract Load from
+   * Wallet already has.
+   *
+   * `isBusy` is not touched. This is a sub-second call with no sampler, and
+   * locking the whole panel behind it would make a small convenience feel like
+   * a generation. The dot disables itself instead, so a double press cannot
+   * queue two.
+   */
+  async function handleEnhancePrompt(tool: PromptWalletTool) {
+    const positive = elements[tool.positive] as HTMLTextAreaElement;
+    const enhanceButton = elements[tool.enhanceButton] as HTMLElement;
+    // UXP reports an empty field as null where every browser reports "".
+    const draftPrompt = (positive.value ?? "").trim();
+
+    if (!draftPrompt) {
+      tool.report(elements, "Type a prompt before enhancing it.");
+      return;
+    }
+
+    if (enhanceButton.classList.contains("is-working")) {
+      return;
+    }
+
+    enhanceButton.classList.add("is-working");
+    enhanceButton.classList.add("is-disabled");
+    enhanceButton.setAttribute("aria-disabled", "true");
+    tool.report(elements, "Enhancing prompt...");
+
+    try {
+      const client = new ComfyClient(elements.serverUrl.value);
+      await client.checkOnline();
+
+      const buildResult = await buildEnhancePromptWorkflow({ draftPrompt });
+      const textOutputNodeId = getPresetTextOutputNodeId(buildResult.preset);
+      const promptId = await client.submitPrompt(buildResult.workflow);
+      const historyItem = await client.pollUntilTextComplete(promptId, {
+        preferredNodeId: textOutputNodeId,
+        onTick: (message) => tool.report(elements, message)
+      });
+      const enhancedPrompt = (
+        await client.retrieveFirstOutputText(promptId, historyItem, { preferredNodeId: textOutputNodeId })
+      ).trim();
+
+      if (!enhancedPrompt) {
+        tool.report(elements, "The expander returned nothing. Your prompt is unchanged.");
+        return;
+      }
+
+      positive.value = enhancedPrompt;
+      positive.dispatchEvent(new Event("input", { bubbles: true }));
+      tool.report(elements, "Prompt enhanced. Undo to get your original back.");
+    } catch (caughtError) {
+      tool.report(elements, "Enhance failed: " + getErrorMessage(caughtError));
+      console.error("[OpenLayer] Enhance Prompt failed", getTechnicalErrorDetails(caughtError));
+    } finally {
+      enhanceButton.classList.remove("is-working");
+      // Re-derived rather than assumed: the field may have been edited or
+      // cleared while the request was in flight.
+      const stillHasText = Boolean((positive.value ?? "").trim());
+      enhanceButton.classList.toggle("is-disabled", !stillHasText);
+      enhanceButton.setAttribute("aria-disabled", String(!stillHasText));
+    }
+  }
+
+  for (const walletTool of PROMPT_WALLET_TOOLS) {
+    const enhanceButton = elements[walletTool.enhanceButton] as HTMLElement;
+
+    enhanceButton.addEventListener("click", () => {
+      if (!enhanceButton.classList.contains("is-disabled")) {
+        void handleEnhancePrompt(walletTool);
+      }
+    });
+  }
 
   elements.layerMapsWorkflow.addEventListener("change", () => {
     syncLayerMapsPresetUi();

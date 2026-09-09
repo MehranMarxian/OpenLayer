@@ -34,6 +34,7 @@ import {
   BuildUnflattenWorkflowOptions,
   BuildRemoveBackgroundWorkflowOptions,
   BuildLayerMapsWorkflowOptions,
+  BuildEnhancePromptWorkflowOptions,
   BuildUpscaleWorkflowOptions,
   BuildWorkflowOptions,
   BuildWorkflowResult,
@@ -471,6 +472,42 @@ export function resolveLayerMapDetail(sourceWidth: number, sourceHeight: number)
   const clamped = Math.min(Math.max(shortSide, LAYER_MAP_MIN_DETAIL), LAYER_MAP_MAX_DETAIL);
 
   return Math.round(clamped / 64) * 64;
+}
+
+/**
+ * The prompt expander. Seed is 0 and stays 0 because the node has none:
+ * SuperPrompt-v1 decodes greedily, and the same draft with the same
+ * instruction was measured returning a byte-identical expansion twice.
+ *
+ * 128 tokens by default rather than the node's 4096 ceiling. This is a 248M
+ * model; given a long budget it keeps going after it has run out of things to
+ * say and starts padding with stock phrasing, so the cap is a quality setting
+ * as much as a length one.
+ */
+const DEFAULT_ENHANCE_PROMPT_INSTRUCTION = "Expand the following prompt to add more detail";
+const DEFAULT_ENHANCE_PROMPT_MAX_TOKENS = 128;
+
+export async function buildEnhancePromptWorkflow(
+  options: BuildEnhancePromptWorkflowOptions
+): Promise<BuildWorkflowResult> {
+  const preset = getWorkflowPreset(options.presetId ?? "enhance-prompt-superprompt");
+  assertPresetMode(preset, "enhance-prompt");
+  assertPresetRunnable(preset);
+  const workflow = await cloneWorkflowTemplate(preset);
+
+  validateWorkflowForPreset(workflow, preset);
+
+  setPresetInput(workflow, preset, "positivePrompt", options.draftPrompt, true);
+  setPresetInput(workflow, preset, "task", options.instruction ?? DEFAULT_ENHANCE_PROMPT_INSTRUCTION, true);
+  setPresetInput(workflow, preset, "numBeams", options.maxNewTokens ?? DEFAULT_ENHANCE_PROMPT_MAX_TOKENS, true);
+
+  validateWorkflowForPreset(workflow, preset);
+
+  return {
+    workflow,
+    seed: 0,
+    preset
+  };
 }
 
 export async function buildLayerMapsWorkflow(

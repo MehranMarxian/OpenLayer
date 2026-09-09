@@ -44,6 +44,7 @@ const TOOLS: readonly PromptWalletTool[] = [
     negative: "negativePrompt",
     saveButton: "promptWalletSave",
     loadButton: "promptWalletLoad",
+    enhanceButton: "promptWalletEnhance",
     view: "text-to-image",
     label: "Text to Image",
     report: (_elements, message) => reported.push(message)
@@ -52,6 +53,7 @@ const TOOLS: readonly PromptWalletTool[] = [
     positive: "outpaintPrompt",
     saveButton: "outpaintPromptWalletSave",
     loadButton: "outpaintPromptWalletLoad",
+    enhanceButton: "outpaintPromptWalletEnhance",
     view: "outpaint",
     label: "Outpaint",
     report: (_elements, message) => reported.push(message)
@@ -463,6 +465,24 @@ describe("prompt wallet registration", () => {
 
       expect(load, `${tool.label} is missing its load control`).toBeTruthy();
       expect(load.id).toBe(save.id.replace(/-wallet-save$/, "-wallet-load"));
+    }
+  });
+
+  // The enhance dot's click handler lives in App.ts rather than in the wallet
+  // binder, so nothing else in this file would notice a tool whose amber
+  // control was never rendered -- it would simply sit dead beside two working
+  // ones. This is the check that it exists for every tool in the table.
+  it("registers an enhance control for every save control", () => {
+    const root = document.createElement("div");
+    root.innerHTML = createAppMarkup();
+    const elements = getAppElements(root);
+
+    for (const tool of PROMPT_WALLET_TOOLS) {
+      const save = elements[tool.saveButton] as HTMLElement;
+      const enhance = elements[tool.enhanceButton] as HTMLElement;
+
+      expect(enhance, `${tool.label} is missing its enhance control`).toBeTruthy();
+      expect(enhance.id).toBe(save.id.replace(/-wallet-save$/, "-wallet-enhance"));
     }
   });
 

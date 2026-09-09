@@ -103,6 +103,7 @@ export type AppElements = {
   prompt: HTMLTextAreaElement;
   promptWalletSave: HTMLElement;
   promptWalletLoad: HTMLElement;
+  promptWalletEnhance: HTMLElement;
   negativePrompt: HTMLTextAreaElement;
   workflow: HTMLSelectElement;
   checkpoint: HTMLSelectElement;
@@ -142,6 +143,7 @@ export type AppElements = {
   imgPrompt: HTMLTextAreaElement;
   imgPromptWalletSave: HTMLElement;
   imgPromptWalletLoad: HTMLElement;
+  imgPromptWalletEnhance: HTMLElement;
   imgNegativePrompt: HTMLTextAreaElement;
   imgWorkflow: HTMLSelectElement;
   imgCheckpoint: HTMLSelectElement;
@@ -156,6 +158,7 @@ export type AppElements = {
   sketchPrompt: HTMLTextAreaElement;
   sketchPromptWalletSave: HTMLElement;
   sketchPromptWalletLoad: HTMLElement;
+  sketchPromptWalletEnhance: HTMLElement;
   sketchNegativePrompt: HTMLTextAreaElement;
   sketchWorkflow: HTMLSelectElement;
   sketchCheckpoint: HTMLSelectElement;
@@ -171,6 +174,7 @@ export type AppElements = {
   inpaintPrompt: HTMLTextAreaElement;
   inpaintPromptWalletSave: HTMLElement;
   inpaintPromptWalletLoad: HTMLElement;
+  inpaintPromptWalletEnhance: HTMLElement;
   inpaintNegativePrompt: HTMLTextAreaElement;
   inpaintWorkflow: HTMLSelectElement;
   inpaintCheckpoint: HTMLSelectElement;
@@ -187,6 +191,7 @@ export type AppElements = {
   outpaintPrompt: HTMLTextAreaElement;
   outpaintPromptWalletSave: HTMLElement;
   outpaintPromptWalletLoad: HTMLElement;
+  outpaintPromptWalletEnhance: HTMLElement;
   outpaintWorkflow: HTMLSelectElement;
   outpaintCheckpoint: HTMLSelectElement;
   outpaintSteps: HTMLInputElement;
@@ -295,6 +300,7 @@ export type AppElements = {
   promptLayerGeneratedText: HTMLTextAreaElement;
   promptLayerGeneratedTextWalletSave: HTMLElement;
   promptLayerGeneratedTextWalletLoad: HTMLElement;
+  promptLayerGeneratedTextWalletEnhance: HTMLElement;
   historyList: HTMLElement;
   settingsUrlValue: HTMLElement;
   settingsCheckpointCount: HTMLElement;
@@ -316,6 +322,7 @@ export type AppElements = {
   livePrompt: HTMLTextAreaElement;
   livePromptWalletSave: HTMLElement;
   livePromptWalletLoad: HTMLElement;
+  livePromptWalletEnhance: HTMLElement;
   liveNegativePrompt: HTMLTextAreaElement;
   liveNegativePromptToggle: HTMLElement;
   liveNegativePromptField: HTMLElement;
@@ -335,6 +342,7 @@ export type AppElements = {
   styleReferencePrompt: HTMLTextAreaElement;
   styleReferencePromptWalletSave: HTMLElement;
   styleReferencePromptWalletLoad: HTMLElement;
+  styleReferencePromptWalletEnhance: HTMLElement;
   styleReferenceNegativePrompt: HTMLTextAreaElement;
   styleReferenceWorkflow: HTMLSelectElement;
   styleReferenceCheckpoint: HTMLSelectElement;
@@ -362,6 +370,7 @@ export type AppElements = {
   multiReferencePrompt: HTMLTextAreaElement;
   multiReferencePromptWalletSave: HTMLElement;
   multiReferencePromptWalletLoad: HTMLElement;
+  multiReferencePromptWalletEnhance: HTMLElement;
   multiReferenceNegativePrompt: HTMLTextAreaElement;
   multiReferenceWorkflow: HTMLSelectElement;
   multiReferenceCheckpoint: HTMLSelectElement;
@@ -427,6 +436,7 @@ export type AppElements = {
   unflattenPrompt: HTMLTextAreaElement;
   unflattenPromptWalletSave: HTMLElement;
   unflattenPromptWalletLoad: HTMLElement;
+  unflattenPromptWalletEnhance: HTMLElement;
   unflattenWorkflow: HTMLSelectElement;
   unflattenCheckpoint: HTMLSelectElement;
   unflattenLayerCount: HTMLInputElement;
@@ -2247,7 +2257,14 @@ function createPromptWalletControlsMarkup(fieldId: string) {
     aria-disabled="true"
     aria-label="Load a prompt from the Wallet"
     title="Load a prompt from the Wallet"
-  >↓</button>`;
+  >↓</button><button
+    class="prompt-wallet-dot prompt-wallet-enhance is-disabled"
+    id="${fieldId}-wallet-enhance"
+    type="button"
+    aria-disabled="true"
+    aria-label="Enhance this prompt"
+    title="Enhance this prompt: expand it into a longer, more descriptive one"
+  >✦</button>`;
 }
 
 function createInfoToggleMarkup(targetId: string) {
@@ -2327,6 +2344,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     prompt: getElement<HTMLTextAreaElement>(rootElement, "prompt"),
     promptWalletSave: getElement<HTMLElement>(rootElement, "prompt-wallet-save"),
     promptWalletLoad: getElement<HTMLElement>(rootElement, "prompt-wallet-load"),
+    promptWalletEnhance: getElement<HTMLElement>(rootElement, "prompt-wallet-enhance"),
     negativePrompt: getElement<HTMLTextAreaElement>(rootElement, "negative-prompt"),
     workflow: getElement<HTMLSelectElement>(rootElement, "workflow"),
     checkpoint: getElement<HTMLSelectElement>(rootElement, "checkpoint"),
@@ -2366,6 +2384,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     imgPrompt: getElement<HTMLTextAreaElement>(rootElement, "img-prompt"),
     imgPromptWalletSave: getElement<HTMLElement>(rootElement, "img-prompt-wallet-save"),
     imgPromptWalletLoad: getElement<HTMLElement>(rootElement, "img-prompt-wallet-load"),
+    imgPromptWalletEnhance: getElement<HTMLElement>(rootElement, "img-prompt-wallet-enhance"),
     imgNegativePrompt: getElement<HTMLTextAreaElement>(rootElement, "img-negative-prompt"),
     imgWorkflow: getElement<HTMLSelectElement>(rootElement, "img-workflow"),
     imgCheckpoint: getElement<HTMLSelectElement>(rootElement, "img-checkpoint"),
@@ -2380,6 +2399,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     sketchPrompt: getElement<HTMLTextAreaElement>(rootElement, "sketch-prompt"),
     sketchPromptWalletSave: getElement<HTMLElement>(rootElement, "sketch-prompt-wallet-save"),
     sketchPromptWalletLoad: getElement<HTMLElement>(rootElement, "sketch-prompt-wallet-load"),
+    sketchPromptWalletEnhance: getElement<HTMLElement>(rootElement, "sketch-prompt-wallet-enhance"),
     sketchNegativePrompt: getElement<HTMLTextAreaElement>(rootElement, "sketch-negative-prompt"),
     sketchWorkflow: getElement<HTMLSelectElement>(rootElement, "sketch-workflow"),
     sketchCheckpoint: getElement<HTMLSelectElement>(rootElement, "sketch-checkpoint"),
@@ -2395,6 +2415,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     inpaintPrompt: getElement<HTMLTextAreaElement>(rootElement, "inpaint-prompt"),
     inpaintPromptWalletSave: getElement<HTMLElement>(rootElement, "inpaint-prompt-wallet-save"),
     inpaintPromptWalletLoad: getElement<HTMLElement>(rootElement, "inpaint-prompt-wallet-load"),
+    inpaintPromptWalletEnhance: getElement<HTMLElement>(rootElement, "inpaint-prompt-wallet-enhance"),
     inpaintNegativePrompt: getElement<HTMLTextAreaElement>(rootElement, "inpaint-negative-prompt"),
     inpaintWorkflow: getElement<HTMLSelectElement>(rootElement, "inpaint-workflow"),
     inpaintCheckpoint: getElement<HTMLSelectElement>(rootElement, "inpaint-checkpoint"),
@@ -2411,6 +2432,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     outpaintPrompt: getElement<HTMLTextAreaElement>(rootElement, "outpaint-prompt"),
     outpaintPromptWalletSave: getElement<HTMLElement>(rootElement, "outpaint-prompt-wallet-save"),
     outpaintPromptWalletLoad: getElement<HTMLElement>(rootElement, "outpaint-prompt-wallet-load"),
+    outpaintPromptWalletEnhance: getElement<HTMLElement>(rootElement, "outpaint-prompt-wallet-enhance"),
     outpaintWorkflow: getElement<HTMLSelectElement>(rootElement, "outpaint-workflow"),
     outpaintCheckpoint: getElement<HTMLSelectElement>(rootElement, "outpaint-checkpoint"),
     outpaintSteps: getElement<HTMLInputElement>(rootElement, "outpaint-steps"),
@@ -2519,6 +2541,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     promptLayerGeneratedText: getElement<HTMLTextAreaElement>(rootElement, "prompt-layer-generated-text"),
     promptLayerGeneratedTextWalletSave: getElement<HTMLElement>(rootElement, "prompt-layer-generated-text-wallet-save"),
     promptLayerGeneratedTextWalletLoad: getElement<HTMLElement>(rootElement, "prompt-layer-generated-text-wallet-load"),
+    promptLayerGeneratedTextWalletEnhance: getElement<HTMLElement>(rootElement, "prompt-layer-generated-text-wallet-enhance"),
     historyList: getElement<HTMLElement>(rootElement, "history-list"),
     settingsUrlValue: getElement<HTMLElement>(rootElement, "settings-url-value"),
     settingsCheckpointCount: getElement<HTMLElement>(rootElement, "settings-checkpoint-count"),
@@ -2540,6 +2563,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     livePrompt: getElement<HTMLTextAreaElement>(rootElement, "live-prompt"),
     livePromptWalletSave: getElement<HTMLElement>(rootElement, "live-prompt-wallet-save"),
     livePromptWalletLoad: getElement<HTMLElement>(rootElement, "live-prompt-wallet-load"),
+    livePromptWalletEnhance: getElement<HTMLElement>(rootElement, "live-prompt-wallet-enhance"),
     liveNegativePrompt: getElement<HTMLTextAreaElement>(rootElement, "live-negative-prompt"),
     liveNegativePromptToggle: getElement<HTMLElement>(rootElement, "live-negative-prompt-toggle"),
     liveNegativePromptField: getElement<HTMLElement>(rootElement, "live-negative-prompt-field"),
@@ -2559,6 +2583,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     styleReferencePrompt: getElement<HTMLTextAreaElement>(rootElement, "style-reference-prompt"),
     styleReferencePromptWalletSave: getElement<HTMLElement>(rootElement, "style-reference-prompt-wallet-save"),
     styleReferencePromptWalletLoad: getElement<HTMLElement>(rootElement, "style-reference-prompt-wallet-load"),
+    styleReferencePromptWalletEnhance: getElement<HTMLElement>(rootElement, "style-reference-prompt-wallet-enhance"),
     styleReferenceNegativePrompt: getElement<HTMLTextAreaElement>(rootElement, "style-reference-negative-prompt"),
     styleReferenceWorkflow: getElement<HTMLSelectElement>(rootElement, "style-reference-workflow"),
     styleReferenceCheckpoint: getElement<HTMLSelectElement>(rootElement, "style-reference-checkpoint"),
@@ -2586,6 +2611,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     multiReferencePrompt: getElement<HTMLTextAreaElement>(rootElement, "multi-reference-prompt"),
     multiReferencePromptWalletSave: getElement<HTMLElement>(rootElement, "multi-reference-prompt-wallet-save"),
     multiReferencePromptWalletLoad: getElement<HTMLElement>(rootElement, "multi-reference-prompt-wallet-load"),
+    multiReferencePromptWalletEnhance: getElement<HTMLElement>(rootElement, "multi-reference-prompt-wallet-enhance"),
     multiReferenceNegativePrompt: getElement<HTMLTextAreaElement>(rootElement, "multi-reference-negative-prompt"),
     multiReferenceWorkflow: getElement<HTMLSelectElement>(rootElement, "multi-reference-workflow"),
     multiReferenceCheckpoint: getElement<HTMLSelectElement>(rootElement, "multi-reference-checkpoint"),
@@ -2650,6 +2676,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     unflattenPrompt: getElement<HTMLTextAreaElement>(rootElement, "unflatten-prompt"),
     unflattenPromptWalletSave: getElement<HTMLElement>(rootElement, "unflatten-prompt-wallet-save"),
     unflattenPromptWalletLoad: getElement<HTMLElement>(rootElement, "unflatten-prompt-wallet-load"),
+    unflattenPromptWalletEnhance: getElement<HTMLElement>(rootElement, "unflatten-prompt-wallet-enhance"),
     unflattenWorkflow: getElement<HTMLSelectElement>(rootElement, "unflatten-workflow"),
     unflattenCheckpoint: getElement<HTMLSelectElement>(rootElement, "unflatten-checkpoint"),
     unflattenLayerCount: getElement<HTMLInputElement>(rootElement, "unflatten-layer-count"),

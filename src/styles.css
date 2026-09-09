@@ -8650,6 +8650,27 @@ body.theme-artist,
   background: #7959b3 !important;
 }
 
+/* Amber, so the three dots read as three different actions at a glance and
+   the one that calls out to ComfyUI is not the same colour as the two that
+   only touch local storage. Same 11px circle as its siblings -- this is a
+   secondary action on a prompt field, not a third Generate button. */
+.app-shell.theme-compact button.prompt-wallet-enhance {
+  border: 1px solid #c08a2e !important;
+  background: #a8761f !important;
+  color: #fff6e6 !important;
+}
+
+.app-shell.theme-compact button.prompt-wallet-enhance:hover:not(.is-disabled) {
+  background: #bd8626 !important;
+}
+
+/* Held through the whole round trip, which is the one way this dot differs
+   from the other two: they finish instantly, this one waits on a server. */
+.app-shell.theme-compact button.prompt-wallet-enhance.is-working {
+  background: #6f4f16 !important;
+  border-color: #8a6420 !important;
+}
+
 .app-shell.theme-compact button.prompt-wallet-dot.is-disabled {
   opacity: 0.4 !important;
   cursor: default !important;

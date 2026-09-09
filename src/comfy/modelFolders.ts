@@ -102,7 +102,10 @@ export function isMappedModelLoaderNode(objectInfoNode: string): objectInfoNode 
 export const SELF_MANAGED_WEIGHT_NODES = new Set<string>([
   "DepthAnythingV2Preprocessor",
   "LineArtPreprocessor",
-  "BAE-NormalMapPreprocessor"
+  "BAE-NormalMapPreprocessor",
+  // KJNodes' expander does the same thing: it pulls SuperPrompt-v1 into its own
+  // cache on first use, and nothing is ever placed under models/ for it.
+  "Superprompt"
 ]);
 
 export function isSelfManagedWeightNode(objectInfoNode: string): boolean {

@@ -59,6 +59,13 @@ const EXPECTED_CUSTOM_NODE_CLASSES = [
   // lines on white.
   "LineArtPreprocessor",
   "Scribble_PiDiNet_Preprocessor",
+  // Enhance Prompt (v0.30). Two classes from ComfyUI-KJNodes, and the only
+  // reason that package is a dependency at all. StringConstantMultiline is not
+  // decoration: Superprompt's `prompt` input is declared forceInput, so it has
+  // no widget and the graph needs an upstream STRING node to inject the
+  // artist's draft into.
+  "StringConstantMultiline",
+  "Superprompt",
   // Flux.2's quantised model. Note only the UNET loader appears: its text
   // encoder is a safetensors file read by core CLIPLoader, so CLIPLoaderGGUF is
   // mapped in the registry but not required by any shipped preset.

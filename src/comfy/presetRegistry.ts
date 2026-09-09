@@ -147,6 +147,18 @@ const DEPTH_MAP_MODEL_SOURCE = {
  * `getModelNamesForPreset` is only called to fill a selector that is never
  * rendered. It is here to be true, not to be used.
  */
+/**
+ * SuperPrompt loads one fixed set of weights and offers no enum, so like the
+ * line-art and normal annotators this exists to be true rather than to be read:
+ * the capability sets `showModelSelector: false` and nothing fills a selector.
+ */
+const PROMPT_EXPANDER_MODEL_SOURCE = {
+  kind: "prompt-expander",
+  objectInfoNode: "Superprompt",
+  inputName: "max_new_tokens",
+  label: "Prompt expander"
+} as const;
+
 const LINEART_ANNOTATOR_SOURCE = {
   kind: "layer-map",
   objectInfoNode: "LineArtPreprocessor",
@@ -1014,6 +1026,25 @@ const UPSCALE_BASIC_NODES = {
  * first release. ImageScale pins width and height to the captured source and
  * leaves `resolution` free to act as what it actually is -- a detail dial.
  */
+/**
+ * Node ids match src/workflows/api/enhance-prompt-superprompt.json exactly.
+ * Verified against a live ComfyUI 0.30.0 before this was written: the same
+ * draft returned the same expansion twice, so the "no seed" reading of the node
+ * is confirmed rather than assumed, and a warm run took under a second.
+ *
+ * `Superprompt.prompt` is declared `forceInput`, so it has no widget and cannot
+ * be written to directly -- the graph needs an upstream STRING node to inject
+ * into. That is what node 20 is for, and it is why the panel's prompt targets
+ * `promptFeed` rather than the expander itself.
+ */
+const ENHANCE_PROMPT_SUPERPROMPT_NODES = {
+  promptFeed: "20",
+  expander: "21",
+  // Superprompt is not an OUTPUT_NODE, so without this the graph never queues
+  // and no text reaches history -- the same shape Prompt from Layer needs.
+  textPreview: "22"
+} as const;
+
 const LAYER_MAPS_DEPTH_NODES = {
   loadImage: "10",
   preprocessor: "11",
@@ -1374,6 +1405,12 @@ const LAYER_MAPS_NORMAL_INJECTIONS = {
   sourceImage: target(LAYER_MAPS_NORMAL_NODES.loadImage, "image"),
   width: target(LAYER_MAPS_NORMAL_NODES.scaleToSource, "width"),
   height: target(LAYER_MAPS_NORMAL_NODES.scaleToSource, "height")
+} as const;
+
+const ENHANCE_PROMPT_SUPERPROMPT_INJECTIONS = {
+  positivePrompt: target(ENHANCE_PROMPT_SUPERPROMPT_NODES.promptFeed, "string"),
+  task: target(ENHANCE_PROMPT_SUPERPROMPT_NODES.expander, "instruction_prompt"),
+  numBeams: target(ENHANCE_PROMPT_SUPERPROMPT_NODES.expander, "max_new_tokens")
 } as const;
 
 const PROMPT_FROM_LAYER_FLORENCE2_INJECTIONS = {
@@ -2035,6 +2072,29 @@ const REMOVE_BACKGROUND_BIREFNET_CAPABILITY: WorkflowCapability = {
   }
 };
 
+const ENHANCE_PROMPT_SUPERPROMPT_CAPABILITY: WorkflowCapability = {
+  toolType: "enhance-prompt",
+  loaderType: "prompt-expander",
+  artistLabel: "Enhance Prompt",
+  technicalLabel: "enhance-prompt-superprompt",
+  // The only preset in the registry that reads nothing from Photoshop: its
+  // input is the text already in a prompt box.
+  requiredPhotoshopInputs: [],
+  controls: [],
+  output: {
+    kind: "prompt-text",
+    size: "none",
+    importBehavior: "none"
+  },
+  uiHints: {
+    showModelSelector: false,
+    modelSelectorLabel: "Prompt expander",
+    primaryActionLabel: "Enhance Prompt",
+    experimentalNote:
+      "Expands a short prompt into a longer, more descriptive one. It runs entirely locally and has no seed, so the same draft always returns the same expansion. It is a 248M-parameter model: it embellishes what you wrote, it does not reason about it, and it sometimes reaches for stock phrasing."
+  }
+};
+
 const LAYER_MAPS_DEPTH_CAPABILITY: WorkflowCapability = {
   toolType: "layer-maps",
   loaderType: "layer-map",
@@ -2363,6 +2423,40 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
         id: UPSCALE_BASIC_NODES.saveImage,
         classType: "SaveImage",
         requiredInputs: ["images", "filename_prefix"]
+      }
+    ]
+  },
+  {
+    id: "enhance-prompt-superprompt",
+    label: "enhance-prompt-superprompt",
+    displayName: "SuperPrompt v1",
+    mode: "enhance-prompt",
+    description: "Expands a short prompt into a longer, more descriptive one, entirely locally.",
+    workflowFile: "workflows/api/enhance-prompt-superprompt.json",
+    sourceWorkflowFile: "workflows/source/enhance-prompt-superprompt.workflow.json",
+    status: "stable",
+    supportedModelFamilies: ["unknown"],
+    experimentalModelFamilies: ["sd1", "sdxl", "sd3", "flux", "flux2", "zImage"],
+    modelSource: PROMPT_EXPANDER_MODEL_SOURCE,
+    capability: ENHANCE_PROMPT_SUPERPROMPT_CAPABILITY,
+    injections: ENHANCE_PROMPT_SUPERPROMPT_INJECTIONS,
+    compatibilityNote:
+      "Needs ComfyUI-KJNodes, which is the only reason that package is required at all -- OpenLayer uses exactly one class from it. The expander downloads its own ~308 MB SuperPrompt-v1 weights on first run rather than through Setup, so the first enhancement is slow and later ones take about a second. No checkpoint, prompt encoder or sampler is involved, so it does not care which image models you have.",
+    requiredNodes: [
+      {
+        id: ENHANCE_PROMPT_SUPERPROMPT_NODES.promptFeed,
+        classType: "StringConstantMultiline",
+        requiredInputs: ["string"]
+      },
+      {
+        id: ENHANCE_PROMPT_SUPERPROMPT_NODES.expander,
+        classType: "Superprompt",
+        requiredInputs: ["instruction_prompt", "prompt", "max_new_tokens"]
+      },
+      {
+        id: ENHANCE_PROMPT_SUPERPROMPT_NODES.textPreview,
+        classType: "PreviewAny",
+        requiredInputs: ["source"]
       }
     ]
   },

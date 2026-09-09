@@ -1,0 +1,38 @@
+{
+  "20": {
+    "class_type": "StringConstantMultiline",
+    "inputs": {
+      "string": "a cat on a chair",
+      "strip_newlines": true
+    },
+    "_meta": {
+      "title": "Draft prompt from the panel"
+    }
+  },
+  "21": {
+    "class_type": "Superprompt",
+    "inputs": {
+      "instruction_prompt": "Expand the following prompt to add more detail",
+      "prompt": [
+        "20",
+        0
+      ],
+      "max_new_tokens": 128
+    },
+    "_meta": {
+      "title": "Expand the prompt"
+    }
+  },
+  "22": {
+    "class_type": "PreviewAny",
+    "inputs": {
+      "source": [
+        "21",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Preview expanded prompt text"
+    }
+  }
+}

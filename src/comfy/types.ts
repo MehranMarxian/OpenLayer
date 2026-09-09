@@ -28,7 +28,8 @@ export type WorkflowPreset =
   | "remove-background-birefnet"
   | "layer-maps-depth"
   | "layer-maps-lineart"
-  | "layer-maps-normal";
+  | "layer-maps-normal"
+  | "enhance-prompt-superprompt";
 export type WorkflowMode =
   | "txt2img"
   | "img2img"
@@ -41,7 +42,8 @@ export type WorkflowMode =
   | "multi-reference"
   | "unflatten"
   | "remove-background"
-  | "layer-maps";
+  | "layer-maps"
+  | "enhance-prompt";
 export type ModelFamily = "sd1" | "sdxl" | "sd3" | "flux" | "flux2" | "zImage" | "unknown";
 export type WorkflowToolType = WorkflowMode | "realtime";
 export type WorkflowLoaderType =
@@ -55,7 +57,8 @@ export type WorkflowLoaderType =
    * a choice of weights; line art and normals each load exactly one annotator
    * and expose no picker at all.
    */
-  | "layer-map";
+  | "layer-map"
+  | "prompt-expander";
 export type WorkflowControlId =
   | "prompt"
   | "negativePrompt"
@@ -353,6 +356,16 @@ export type BuildUpscaleWorkflowOptions = {
   modelName: string;
 };
 
+export type BuildEnhancePromptWorkflowOptions = {
+  presetId?: WorkflowPreset;
+  /** The draft the artist typed, taken from whichever prompt box asked. */
+  draftPrompt: string;
+  /** What to do with it, e.g. "Expand the following prompt to add more detail". */
+  instruction?: string;
+  /** Length cap on the expansion, not on the draft. */
+  maxNewTokens?: number;
+};
+
 export type BuildLayerMapsWorkflowOptions = {
   presetId?: WorkflowPreset;
   sourceImageName: string;
@@ -525,7 +538,9 @@ export type WorkflowModelSourceKind =
   | "ip-adapter"
   | "background-removal"
   /** Depth/normal/line-art annotator weights, loaded by the preprocessor itself. */
-  | "layer-map";
+  | "layer-map"
+  /** A text-to-text prompt expander, loaded by its own node. */
+  | "prompt-expander";
 
 export type WorkflowModelSource = {
   kind: WorkflowModelSourceKind;
