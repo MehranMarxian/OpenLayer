@@ -690,7 +690,9 @@ export function renderApp(rootElement: HTMLElement) {
       "prompt_from_layer",
       "style_reference",
       "multi_reference",
-      "unflatten"
+      "unflatten",
+      "remove_background",
+      "layer_maps"
     ] as const) {
       agentBridge.publishCapability(toolId, { canRun: !isBusy, reason });
     }
@@ -981,6 +983,40 @@ export function renderApp(rootElement: HTMLElement) {
       statusText: elements.upscaleStatusText,
       statusPill: elements.upscaleStatusPill,
       errorText: elements.upscaleErrorMessage
+    });
+
+    agentBridge.register("remove_background", {
+      run: handleGenerateRemoveBackground,
+      fields: {
+        workflow: elements.removeBackgroundWorkflow,
+        model: elements.removeBackgroundModel
+      },
+      leadingParams: ["workflow"],
+      settle: async () => {
+        await refreshRemoveBackgroundModelOptionsForSelectedPreset(elements);
+      },
+      statusText: elements.removeBackgroundStatusText,
+      statusPill: elements.removeBackgroundStatusPill,
+      errorText: elements.removeBackgroundErrorMessage
+    });
+
+    agentBridge.register("layer_maps", {
+      run: handleGenerateLayerMaps,
+      fields: {
+        workflow: elements.layerMapsWorkflow,
+        model: elements.layerMapsModel
+      },
+      // `workflow` first: changing the map type rewrites the model field's
+      // visibility and its options, so a model passed alongside it must be
+      // applied after, not before.
+      leadingParams: ["workflow"],
+      settle: async () => {
+        syncLayerMapsPresetUi();
+        await refreshLayerMapsModelOptionsForSelectedPreset(elements);
+      },
+      statusText: elements.layerMapsStatusText,
+      statusPill: elements.layerMapsStatusPill,
+      errorText: elements.layerMapsErrorMessage
     });
 
     // No leadingParams: task and numBeams are independent selects with no

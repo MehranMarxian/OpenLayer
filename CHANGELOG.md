@@ -1,5 +1,62 @@
 # Changelog
 
+## v0.30.0-alpha - 2026-09-10
+
+Two additions, both of which take something OpenLayer already had inside it and hand it to the
+artist. Nothing here needs a new checkpoint, and neither one runs a sampler.
+
+### Added
+
+- **Layer Maps** — read a **depth**, **line-art** or **normal** pass off any layer, returned as a new
+  layer at the source's exact pixel size. Photoshop has no native depth or normal export at all, and
+  its edge filters are not in the same class as a learned line-art detector. OpenLayer has shipped
+  all three preprocessors since v0.13 as ControlNet *conditioning*; this is the same machinery with
+  the pass itself as the deliverable. Warm timings on a 4070 Ti: 3.0s depth, 0.7s line art, 2.1s
+  normal. Uses `comfyui_controlnet_aux`, which the Sketch to Image presets already require, and the
+  annotators download their own weights on first run.
+
+  Three things about it were measured rather than assumed, and each changed the graph:
+
+  - `resolution` on these preprocessors sets the **short side** and rescales the output to match, so
+    it never returns the source's own dimensions — a 768x512 source at resolution 768 came back
+    1152x768. A map that is not pixel-for-pixel its source does not sit over it. Every graph now
+    ends in an `ImageScale` pinned to the captured layer, which frees `resolution` to be what it
+    actually is: a detail dial.
+  - Line-art annotators are built for ControlNet and return **white lines on black** — 98.7%
+    near-black on a real photograph. That is backwards for anyone meaning to ink or colour over the
+    result, so the graph inverts before saving. Set the imported layer to Multiply and work under it.
+  - The depth default is **Base, not the node's own Large default**. Large collapsed a wide landscape
+    into an unreadable near-white band where Base returned a clean pass, and Large is also the one
+    size of the four under a non-commercial licence. Both reasons point the same way. All four sizes
+    are still selectable.
+
+- **Enhance Prompt** — a small amber dot beside every prompt field in the panel, next to the Wallet's
+  green save and purple load. It expands a short prompt into a longer, more descriptive one, locally,
+  using SuperPrompt-v1 through ComfyUI-KJNodes. Chosen over larger local models on size and
+  predictability rather than quality: 308 MB against 4–8 GB, and no seed at all — verified live that
+  the same draft returns a byte-identical expansion twice. A warm run is under a second.
+
+  It replaces the text in the field and dispatches an input event, so the original gets its own step
+  on the undo stack and Ctrl+Z brings it back. It does not lock the panel: this is a sub-second call
+  with no sampler, so the dot disables itself for the round trip instead.
+
+  It is a 248M-parameter model. It embellishes what you wrote rather than reasoning about it, and it
+  sometimes reaches for stock phrasing or invents detail you did not ask for — asked to expand
+  "a lighthouse at dusk" it added a city. Treat it as a starting point.
+
+### Fixed
+
+- **Remove Background and Layer Maps are now reachable over the Agent Bridge.** Remove Background
+  shipped in v0.25 without an MCP entry, so an agent could drive every generation tool in the panel
+  except that one, while the README said all of them were covered. Both are registered now, and the
+  claim is true again.
+
+### Changed
+
+- The setup pack now lists **ComfyUI-KJNodes** as a sixth custom node package. OpenLayer uses exactly
+  one class from it, and it is named in the manifest so Setup and Workflow Health can say which
+  install is missing rather than reporting an unexplained absent node.
+
 ## v0.25.0-alpha - 2026-09-09
 
 Mostly a release about telling the truth: what the panel connects to, what it can do, and what it
