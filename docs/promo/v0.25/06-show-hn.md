@@ -1,18 +1,40 @@
 # Draft — Show HN
 
 **Destination:** https://news.ycombinator.com/submit
-**Account:** Mehran's HN account. **Before treating this as unused: GitHub's own referrer stats show
-58 hits / 53 uniques from `news.ycombinator.com` in the last two weeks** (see `00-plan.md`). I found
-no Show HN thread for this project via search, so this could be an unrelated mention rather than a
-spent submission — but it needs Mehran's own check of his HN history before this draft is submitted,
-because if a title was already used, this exact title can't be resubmitted.
+
+> ### ⚠️ This is a RESUBMISSION, not a first attempt. Verified 2026-09-09.
+>
+> **"Show HN: OpenLayer – local Photoshop plugin for ComfyUI (inpaint/outpaint demo)"** was
+> submitted **2026-08-28 by `HMUSER`** — https://news.ycombinator.com/item?id=49480266 — and got
+> **7 points and 0 comments**. Found in the HN Algolia index; it accounts for the 58 referrer hits
+> that looked unexplained.
+>
+> **What that changes:**
+>
+> - **The same URL cannot simply be posted again.** HN de-duplicates repeat submissions of a URL,
+>   and eleven days is well inside the window where a repost is folded into the original rather
+>   than treated as new.
+> - **7 points and no comments is a near-miss, not a rejection.** It was seen and did not catch.
+>   HN's own guidance is that a resubmission is fine once a project has *materially changed* — and
+>   v0.25.0 genuinely has: a new tool that did not exist on 28 August, and a working demo claim
+>   that is checkable rather than descriptive.
+> - **So the resubmission has to be honest about being one.** Lead with what is new since, and
+>   submit the **release page**, not the bare repo root, so it is a different URL pointing at
+>   different content:
+>   `https://github.com/MehranMarxian/OpenLayer/releases/tag/v0.25.0-alpha`
+> - **Wait longer than you want to.** Eleven days after a 7-point Show HN is too soon. Several
+>   weeks, or once there is a second substantial release, is the honest interval.
+>
+> **My recommendation: do not send this one in this cycle.** Send the Reddit and Discord posts,
+> gather the two answers we actually need, and come back to HN when there is something to say that
+> is not "same project, eleven days later." Mehran overrides this if he disagrees — but the draft
+> below assumes it will be held.
+
 **Guidelines, reconfirmed today from `news.ycombinator.com/showhn.html`:** must be something you made
 and are around to discuss; must be try-able, ideally without a signup barrier; don't ask for votes or
 comments; early-stage work is fine but minor version bumps alone don't qualify — a new tool with a
 concrete, checkable claim does.
-**This is a one-shot** (assuming it hasn't already been spent — see above).
-**Timing:** after r/comfyui and ideally r/StableDiffusion, so bugs or wording problems surface in a
-lower-stakes venue first.
+**Timing:** hold. See the box above.
 
 ---
 

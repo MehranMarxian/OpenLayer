@@ -51,11 +51,11 @@ Checked directly against the repo before writing anything new:
   search for the project name alongside each venue returned nothing. I can't access reddit.com or a
   gated Discord directly, so this is "no trace found," not "confirmed did not happen" — worth Mehran
   confirming from his own accounts before this cycle assumes a clean slate.
-- **One real anomaly**: GitHub's own referrer traffic (below) shows 58 hits / 53 uniques from
-  `news.ycombinator.com` in the last two weeks, which is a lot for a submission nobody remembers
-  making. It could be someone else linking the repo in an unrelated HN thread or comment, not a Show
-  HN post — I can't tell which from here. **Mehran should check his HN account's submission/comment
-  history before this cycle's Show HN draft is treated as untouched territory.**
+- **RESOLVED — a Show HN already went out.** Searched the HN Algolia index directly:
+  **"Show HN: OpenLayer – local Photoshop plugin for ComfyUI (inpaint/outpaint demo)"**, submitted
+  **2026-08-28 by user `HMUSER`**, https://news.ycombinator.com/item?id=49480266 — **7 points, 0
+  comments**. That is the 58 referrer hits, and it means Show HN is NOT untouched territory. See
+  `06-show-hn.md`, which has been rewritten around this.
 
 ## Fresh traffic numbers (pulled today, 2026-09-09)
 
