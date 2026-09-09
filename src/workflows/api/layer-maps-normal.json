@@ -1,0 +1,53 @@
+{
+  "10": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "openlayer-layer-maps-source.png"
+    },
+    "_meta": {
+      "title": "Load Photoshop source"
+    }
+  },
+  "11": {
+    "class_type": "BAE-NormalMapPreprocessor",
+    "inputs": {
+      "image": [
+        "10",
+        0
+      ],
+      "resolution": 1024
+    },
+    "_meta": {
+      "title": "Estimate surface normals"
+    }
+  },
+  "12": {
+    "class_type": "ImageScale",
+    "inputs": {
+      "image": [
+        "11",
+        0
+      ],
+      "upscale_method": "lanczos",
+      "width": 1024,
+      "height": 1024,
+      "crop": "disabled"
+    },
+    "_meta": {
+      "title": "Force exact source size"
+    }
+  },
+  "9": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "OpenLayer_LayerMaps_Normal",
+      "images": [
+        "12",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Save normal map"
+    }
+  }
+}

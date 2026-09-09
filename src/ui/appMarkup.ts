@@ -21,6 +21,8 @@ import {
   DEFAULT_PROMPT_LAYER_TASK,
   DEFAULT_SERVER_URL,
   FALLBACK_BACKGROUND_REMOVAL_MODELS,
+  FALLBACK_DEPTH_MAP_MODELS,
+  DEFAULT_DEPTH_MAP_MODEL,
   DEFAULT_SKETCH_CONTROL_STRENGTH,
   DEFAULT_SKETCH_DENOISE,
   DEFAULT_SKETCH_STEPS,
@@ -402,6 +404,26 @@ export type AppElements = {
   removeBackgroundResultPreviewPanel: HTMLElement;
   importRemoveBackgroundButton: HTMLElement;
   removeBackgroundAutoImportToggle: HTMLElement;
+  layerMapsView: HTMLElement;
+  captureLayerMapsSourceButton: HTMLElement;
+  captureLayerMapsCanvasSourceButton: HTMLElement;
+  layerMapsSourcePreviewPanel: HTMLElement;
+  layerMapsSourceTitle: HTMLElement;
+  layerMapsSourceMeta: HTMLElement;
+  layerMapsWorkflow: HTMLSelectElement;
+  layerMapsModel: HTMLSelectElement;
+  /** Hidden for line art and normals, which load a fixed annotator. */
+  layerMapsModelField: HTMLElement;
+  layerMapsHint: HTMLElement;
+  generateLayerMapsButton: HTMLElement;
+  layerMapsStatusText: HTMLElement;
+  layerMapsStatusPill: HTMLElement;
+  layerMapsStatusProgress: HTMLElement;
+  layerMapsDiagnosticsText: HTMLElement;
+  layerMapsErrorMessage: HTMLElement;
+  layerMapsResultPreviewPanel: HTMLElement;
+  importLayerMapsButton: HTMLElement;
+  layerMapsAutoImportToggle: HTMLElement;
   unflattenPrompt: HTMLTextAreaElement;
   unflattenPromptWalletSave: HTMLElement;
   unflattenPromptWalletLoad: HTMLElement;
@@ -1763,6 +1785,82 @@ export function createAppMarkup() {
         </section>
       </section>
 
+      <section class="layer-maps-view image-to-image-view" id="layer-maps-view" aria-label="Layer Maps" hidden>
+        <div class="screen-nav">
+          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
+          <div class="screen-title-block">
+            ${createScreenIconMarkup("layerMaps", "Layer Maps")}
+            <span class="screen-title">Layer Maps</span>
+          </div>
+        </div>
+
+        <section class="panel-section generator-panel source-panel" aria-label="Layer Maps source">
+          <div class="section-heading">
+            <span class="label">Source layer</span>
+            <span class="muted-label">Map input</span>
+          </div>
+          <div class="source-action-row" aria-label="Layer Maps source capture actions">
+            <button class="button source-action-button action-control" id="capture-layer-maps-source" data-openlayer-action="captureLayerMapsSource" type="button">Capture Active Layer</button>
+            <button class="button source-action-button action-control" id="capture-layer-maps-canvas-source" data-openlayer-action="captureLayerMapsCanvasSource" type="button">Capture Canvas</button>
+          </div>
+          <div class="source-card">
+            <div class="source-thumb-frame" id="layer-maps-source-preview-panel">
+              <span class="source-empty">None</span>
+            </div>
+            <div class="source-card-body">
+              <span class="source-title" id="layer-maps-source-title">No source captured</span>
+              <span class="source-card-meta" id="layer-maps-source-meta">Choose active layer or full canvas.</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel-section generator-panel img2img-form-panel" aria-label="Layer Maps settings">
+          <div class="section-heading">
+            <span class="label">Map</span>
+            <span class="muted-label">Pass and model</span>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Map type</span>
+            <select class="select" id="layer-maps-workflow">
+              ${listRunnableWorkflowPresets("layer-maps").map((preset) => `<option value="${preset.id}">${preset.displayName}</option>`).join("")}
+            </select>
+          </div>
+          <div class="field img2img-field" id="layer-maps-model-field">
+            <span class="label">Depth model</span>
+            <select class="select" id="layer-maps-model">
+              ${FALLBACK_DEPTH_MAP_MODELS.map((model) => `<option value="${model}"${model === DEFAULT_DEPTH_MAP_MODEL ? " selected" : ""}>${model}</option>`).join("")}
+            </select>
+          </div>
+          <div class="diagnostics-line layer-maps-hint" id="layer-maps-hint">The map comes back at your layer's exact size, so it sits straight over it.</div>
+          <button class="button button-primary button-generate button-wide action-control" id="generate-layer-maps" data-openlayer-action="generateLayerMaps" type="button">Generate Depth Map</button>
+          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
+        </section>
+
+        <section class="generation-status-panel img2img-status-panel" aria-label="Layer Maps status">
+          <div class="status-bar" role="status">
+            <span class="status-text" id="layer-maps-status-text">Ready.</span>
+            <span class="status-pill idle" id="layer-maps-status-pill">Status</span>
+          </div>
+          <div class="status-progress" id="layer-maps-status-progress" hidden><span></span></div>
+          <div class="diagnostics-line" id="layer-maps-diagnostics-text">Capture a layer, then read a map from it.</div>
+          <div class="error-message" id="layer-maps-error-message" hidden></div>
+        </section>
+
+        <section class="panel-section result-panel img2img-result-panel" aria-label="Layer Maps result">
+          <div class="section-heading">
+            <span class="label">Result preview</span>
+            <span class="muted-label">Map appears here</span>
+          </div>
+          <div class="preview-panel" id="layer-maps-result-preview-panel">
+            <span class="preview-empty">No map yet</span>
+          </div>
+          <div class="import-actions">
+            <button class="button button-import button-import-blue action-control is-disabled" id="import-layer-maps-result" data-openlayer-action="importLayerMaps" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
+            <button class="button auto-import-toggle action-control" id="layer-maps-auto-import-toggle" data-openlayer-action="toggleLayerMapsAutoImport" type="button" aria-pressed="false">Import Automatically</button>
+          </div>
+        </section>
+      </section>
+
       <section class="layer-tools-view" id="layer-tools-view" aria-label="Layer Tools" hidden>
         <div class="screen-nav">
           <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
@@ -2106,6 +2204,7 @@ function createToolIconMarkup(icon: ToolIconName) {
     multiReference: "multi-reference.png",
     unflatten: "unflatten.png",
     removeBackground: "remove-background.png",
+    layerMaps: "layer-maps.png",
     control: "workflow-presets.png",
     workflow: "workflow.png",
     layers: "layer-tools.png",
@@ -2529,6 +2628,25 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     removeBackgroundResultPreviewPanel: getElement<HTMLElement>(rootElement, "remove-background-result-preview-panel"),
     importRemoveBackgroundButton: getElement<HTMLElement>(rootElement, "import-remove-background-result"),
     removeBackgroundAutoImportToggle: getElement<HTMLElement>(rootElement, "remove-background-auto-import-toggle"),
+    layerMapsView: getElement<HTMLElement>(rootElement, "layer-maps-view"),
+    captureLayerMapsSourceButton: getElement<HTMLElement>(rootElement, "capture-layer-maps-source"),
+    captureLayerMapsCanvasSourceButton: getElement<HTMLElement>(rootElement, "capture-layer-maps-canvas-source"),
+    layerMapsSourcePreviewPanel: getElement<HTMLElement>(rootElement, "layer-maps-source-preview-panel"),
+    layerMapsSourceTitle: getElement<HTMLElement>(rootElement, "layer-maps-source-title"),
+    layerMapsSourceMeta: getElement<HTMLElement>(rootElement, "layer-maps-source-meta"),
+    layerMapsWorkflow: getElement<HTMLSelectElement>(rootElement, "layer-maps-workflow"),
+    layerMapsModel: getElement<HTMLSelectElement>(rootElement, "layer-maps-model"),
+    layerMapsModelField: getElement<HTMLElement>(rootElement, "layer-maps-model-field"),
+    layerMapsHint: getElement<HTMLElement>(rootElement, "layer-maps-hint"),
+    generateLayerMapsButton: getElement<HTMLElement>(rootElement, "generate-layer-maps"),
+    layerMapsStatusText: getElement<HTMLElement>(rootElement, "layer-maps-status-text"),
+    layerMapsStatusPill: getElement<HTMLElement>(rootElement, "layer-maps-status-pill"),
+    layerMapsStatusProgress: getElement<HTMLElement>(rootElement, "layer-maps-status-progress"),
+    layerMapsDiagnosticsText: getElement<HTMLElement>(rootElement, "layer-maps-diagnostics-text"),
+    layerMapsErrorMessage: getElement<HTMLElement>(rootElement, "layer-maps-error-message"),
+    layerMapsResultPreviewPanel: getElement<HTMLElement>(rootElement, "layer-maps-result-preview-panel"),
+    importLayerMapsButton: getElement<HTMLElement>(rootElement, "import-layer-maps-result"),
+    layerMapsAutoImportToggle: getElement<HTMLElement>(rootElement, "layer-maps-auto-import-toggle"),
     unflattenPrompt: getElement<HTMLTextAreaElement>(rootElement, "unflatten-prompt"),
     unflattenPromptWalletSave: getElement<HTMLElement>(rootElement, "unflatten-prompt-wallet-save"),
     unflattenPromptWalletLoad: getElement<HTMLElement>(rootElement, "unflatten-prompt-wallet-load"),

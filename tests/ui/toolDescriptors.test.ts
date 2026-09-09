@@ -28,7 +28,8 @@ describe("busy-state tables", () => {
       "style-reference",
       "multi-reference",
       "unflatten",
-      "remove-background"
+      "remove-background",
+      "layer-maps"
     ]);
     expect(fieldGroups.every((fields) => fields.length > 0)).toBe(true);
   });
@@ -87,6 +88,8 @@ describe("busy-state tables", () => {
       "promptLayerTask",
       "removeBackgroundModel",
       "removeBackgroundWorkflow",
+      "layerMapsModel",
+      "layerMapsWorkflow",
       "promptLayerNumBeams",
       "promptLayerGeneratedText",
       "styleReferencePrompt",
@@ -132,7 +135,8 @@ describe("busy-state tables", () => {
     // model-download spike button, plus Style Reference's two capture buttons,
     // plus Multi-Reference's two. Deleting the spike takes this back to 39.
     expect(plainActions).toHaveLength(42);
-    expect(BUSY_GATED_ACTIONS).toHaveLength(20);
+    // 22 = 20, plus Layer Maps' Generate and Import.
+    expect(BUSY_GATED_ACTIONS).toHaveLength(22);
     expect(new Set(allActions).size).toBe(allActions.length);
   });
 
@@ -195,6 +199,8 @@ describe("busy-state tables", () => {
       "importUnflattenButton",
       "generateRemoveBackgroundButton",
       "importRemoveBackgroundButton",
+      "generateLayerMapsButton",
+      "importLayerMapsButton",
       "checkButton",
       "findPortButton",
       "detectHardwareButton",

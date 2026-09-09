@@ -16,7 +16,8 @@ const MODE_LABELS: Record<WorkflowPresetDefinition["mode"], string> = {
   "style-reference": "Style Reference",
   "multi-reference": "Multi-Reference Composition",
   unflatten: "Unflatten",
-  "remove-background": "Remove Background"
+  "remove-background": "Remove Background",
+  "layer-maps": "Layer Maps"
 };
 
 const DEFAULT_CONTROLS: Record<WorkflowPresetDefinition["mode"], readonly WorkflowControlId[]> = {
@@ -47,7 +48,12 @@ const DEFAULT_CONTROLS: Record<WorkflowPresetDefinition["mode"], readonly Workfl
   // Deliberately empty. BiRefNet takes an image and returns a matte; there
   // is no sampler, no prompt and no seed, so every control the panel could
   // offer would be a lie about what the model reads.
-  "remove-background": []
+  "remove-background": [],
+  // Empty for the same reason. A preprocessor reads an image and returns a
+  // pass; there is nothing to prompt, sample or seed. Output size is not a
+  // control either -- it is always the captured source's, which is the whole
+  // point of the map.
+  "layer-maps": []
 };
 
 export function getWorkflowCapability(preset: WorkflowPresetDefinition): WorkflowCapability {

@@ -46,8 +46,23 @@ export const DEFAULT_UNFLATTEN_CFG = "2.5";
 export const DEFAULT_UNFLATTEN_LAYER_COUNT = "4";
 export const MIN_UNFLATTEN_LAYER_COUNT = 2;
 export const MAX_UNFLATTEN_LAYER_COUNT = 4;
+export const DEFAULT_LAYER_MAPS_WORKFLOW = "layer-maps-depth";
 export const FALLBACK_UPSCALE_MODELS = ["4x-UltraSharp.pth", "RealESRGAN_x4plus.pth"];
 export const FALLBACK_BACKGROUND_REMOVAL_MODELS = ["birefnet.safetensors", "lucida.safetensors"];
+/**
+ * Depth Anything V2's four sizes, in the order the preprocessor lists them.
+ * Base is the shipped default rather than Large: Large was measured collapsing
+ * a wide landscape into an unreadable near-white band, and it is the one size
+ * of the four under a non-commercial licence. See DEPTH_MAP_MODEL_SOURCE in
+ * src/comfy/presetRegistry.ts for the measurements.
+ */
+export const FALLBACK_DEPTH_MAP_MODELS = [
+  "depth_anything_v2_vitb.pth",
+  "depth_anything_v2_vits.pth",
+  "depth_anything_v2_vitl.pth",
+  "depth_anything_v2_vitg.pth"
+];
+export const DEFAULT_DEPTH_MAP_MODEL = "depth_anything_v2_vitb.pth";
 export const RECOMMENDED_SKETCH_CHECKPOINT = "epicrealism_naturalSinRC1VAE.safetensors";
 export const RECOMMENDED_STYLE_REFERENCE_CHECKPOINT = "epicrealism_naturalSinRC1VAE.safetensors";
 export const DEFAULT_WIDTH = "512";
@@ -110,7 +125,8 @@ export type AppView =
   | "history"
   | "layer-tools"
   | "prompt-wallet"
-  | "remove-background";
+  | "remove-background"
+  | "layer-maps";
 export type ToolCardStatus = "available" | "experimental" | "coming-soon";
 
 export type ToolCard = {
@@ -136,6 +152,7 @@ export type ToolIconName =
   | "multiReference"
   | "unflatten"
   | "removeBackground"
+  | "layerMaps"
   | "control"
   | "workflow"
   | "layers"
@@ -209,6 +226,17 @@ export const TOOL_CARDS: ToolCard[] = [
     icon: "removeBackground",
     status: "available",
     view: "remove-background"
+  },
+  {
+    id: "layer-maps",
+    title: "Layer Maps",
+    // Named for what comes back, not for the models behind it: three different
+    // preprocessors, one deliverable each, all of them a new layer sitting
+    // exactly over the one they were read from.
+    subtitle: "Depth, line art and normal passes from a layer",
+    icon: "layerMaps",
+    status: "available",
+    view: "layer-maps"
   },
   {
     id: "live-painting",
@@ -314,7 +342,7 @@ export const TOOL_CARDS: ToolCard[] = [
 export const HOME_TOOL_SECTIONS = [
   {
     title: "Generate",
-    toolIds: ["text-to-image", "image-to-image", "lineart", "inpaint", "outpaint", "upscale", "remove-background", "prompt-from-layer", "unflatten", "live-painting", "style-reference", "multi-reference"]
+    toolIds: ["text-to-image", "image-to-image", "lineart", "inpaint", "outpaint", "upscale", "remove-background", "layer-maps", "prompt-from-layer", "unflatten", "live-painting", "style-reference", "multi-reference"]
   },
   {
     title: "Workflow",

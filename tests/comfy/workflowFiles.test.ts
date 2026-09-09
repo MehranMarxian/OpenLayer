@@ -31,6 +31,10 @@ const EXPECTED_CUSTOM_NODE_CLASSES = [
   // Lineart/Scribble preprocessors, which return a blank control image for
   // light-on-dark art and so silently degrade the preset to text-to-image.
   "AnyLineArtPreprocessor_aux",
+  // Layer Maps (v0.30). The three preprocessors below are the same package as
+  // the sketch presets' -- OpenLayer already had all of them as *conditioning*
+  // and never handed the artist the pass itself.
+  "BAE-NormalMapPreprocessor",
   // Fannovel16's depth estimator, used only by sketch2img-depth-basic. Absent
   // from CUSTOM_NODE_PACKAGES from v0.13.0 until it was noticed, which is why
   // the assertion below exists: this list can only see classes that are already
@@ -49,6 +53,11 @@ const EXPECTED_CUSTOM_NODE_CLASSES = [
   // than the Inpaint tool.
   "InpaintCropImproved",
   "InpaintStitchImproved",
+  // Layer Maps' line art. Distinct from AnyLineArtPreprocessor_aux above: this
+  // one is the classic detector, chosen because the map is the deliverable
+  // here rather than a control image, and its output inverts to clean black
+  // lines on white.
+  "LineArtPreprocessor",
   "Scribble_PiDiNet_Preprocessor",
   // Flux.2's quantised model. Note only the UNET loader appears: its text
   // encoder is a safetensors file read by core CLIPLoader, so CLIPLoaderGGUF is

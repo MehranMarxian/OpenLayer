@@ -84,6 +84,32 @@ export function isMappedModelLoaderNode(objectInfoNode: string): objectInfoNode 
 }
 
 /**
+ * Nodes that fetch their own weights and do not read `models/` at all.
+ *
+ * `comfyui_controlnet_aux`'s preprocessors download on first use into
+ * `custom_nodes/comfyui_controlnet_aux/ckpts/`, outside the models tree
+ * entirely -- verified on this rig, where the Depth Anything V2 Base weights
+ * landed at `ckpts/depth-anything/Depth-Anything-V2-Base/depth_anything_v2_vitb.pth`
+ * after a Layer Maps run, with nothing written under `models/`.
+ *
+ * They are listed separately rather than given a folder because the map above
+ * answers "where does the artist put this file", and for these the answer is
+ * "nowhere -- the node handles it". Inventing a folder for them would put a
+ * path in Setup's instructions that nothing reads and no file ever appears in.
+ * The cost of that is a slower first run, not a failure, which is what the
+ * presets' compatibility notes say.
+ */
+export const SELF_MANAGED_WEIGHT_NODES = new Set<string>([
+  "DepthAnythingV2Preprocessor",
+  "LineArtPreprocessor",
+  "BAE-NormalMapPreprocessor"
+]);
+
+export function isSelfManagedWeightNode(objectInfoNode: string): boolean {
+  return SELF_MANAGED_WEIGHT_NODES.has(objectInfoNode);
+}
+
+/**
  * The folder a model belongs in, derived from the loader that reads it.
  * Throws rather than guessing: a preset that names an unmapped loader would
  * otherwise produce setup instructions that quietly send files nowhere.

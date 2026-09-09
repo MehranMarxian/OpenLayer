@@ -1,0 +1,66 @@
+{
+  "10": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "openlayer-layer-maps-source.png"
+    },
+    "_meta": {
+      "title": "Load Photoshop source"
+    }
+  },
+  "11": {
+    "class_type": "LineArtPreprocessor",
+    "inputs": {
+      "image": [
+        "10",
+        0
+      ],
+      "coarse": "disable",
+      "resolution": 1024
+    },
+    "_meta": {
+      "title": "Extract line art"
+    }
+  },
+  "13": {
+    "class_type": "ImageInvert",
+    "inputs": {
+      "image": [
+        "11",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Invert to black lines on white"
+    }
+  },
+  "12": {
+    "class_type": "ImageScale",
+    "inputs": {
+      "image": [
+        "13",
+        0
+      ],
+      "upscale_method": "lanczos",
+      "width": 1024,
+      "height": 1024,
+      "crop": "disabled"
+    },
+    "_meta": {
+      "title": "Force exact source size"
+    }
+  },
+  "9": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "OpenLayer_LayerMaps_LineArt",
+      "images": [
+        "12",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Save line art"
+    }
+  }
+}

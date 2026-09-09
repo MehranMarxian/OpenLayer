@@ -9,7 +9,8 @@ export type OpenLayerMetadataToolType =
   | "style-reference"
   | "multi-reference"
   | "unflatten"
-  | "remove-background";
+  | "remove-background"
+  | "layer-maps";
 
 export type OpenLayerLayerBounds = {
   left: number;
