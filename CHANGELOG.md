@@ -8,11 +8,12 @@ artist. Nothing here needs a new checkpoint, and neither one runs a sampler.
 ### Added
 
 - **Layer Maps** — read a **depth**, **line-art** or **normal** pass off any layer, returned as a new
-  layer at the source's exact pixel size. Photoshop has no native depth or normal export at all, and
-  its edge filters are not in the same class as a learned line-art detector. OpenLayer has shipped
+  layer at the source's exact pixel size. Photoshop has no normal-map export at all, its
+  edge filters are not in the same class as a learned line-art detector, and its one depth output — the
+  Depth Blur neural filter — needs an internet connection. This runs on your machine. OpenLayer has shipped
   all three preprocessors since v0.13 as ControlNet *conditioning*; this is the same machinery with
-  the pass itself as the deliverable. Warm timings on a 4070 Ti: 3.0s depth, 0.7s line art, 2.1s
-  normal. Uses `comfyui_controlnet_aux`, which the Sketch to Image presets already require, and the
+  the pass itself as the deliverable. Warm timings on a 4070 Ti for a 768x512 layer: 3.0s depth, 0.7s
+  line art, 2.1s normal; a 4K photo takes about 5s, 3s and 4s. Uses `comfyui_controlnet_aux`, which the Sketch to Image presets already require, and the
   annotators download their own weights on first run.
 
   Four things about it were measured rather than assumed, and each changed what shipped:
