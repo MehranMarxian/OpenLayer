@@ -8,12 +8,12 @@ the numbers come from parsing the stylesheet and cross-referencing every class n
 
 | | |
 |---|---:|
-| Lines | 8777 |
+| Lines | 8779 |
 | Rule blocks | 1031 |
 | Distinct selectors | 796 |
 | Selectors declared more than once | 269 |
-| `!important` declarations | 1199 |
-| …of those, inside a `theme-compact` rule | 1182 |
+| `!important` declarations | 1197 |
+| …of those, inside a `theme-compact` rule | 1180 |
 
 ## The two themes
 
@@ -23,7 +23,7 @@ it is what the 384 unscoped rules render.
 
 | | rules | lines |
 |---|---:|---:|
-| Scoped to `.theme-compact` | 646 | 6314 |
+| Scoped to `.theme-compact` | 646 | 6316 |
 | Scoped to `.theme-classic` | 1 | 102 |
 | Unscoped (base — what Classic renders) | 384 | 3332 |
 

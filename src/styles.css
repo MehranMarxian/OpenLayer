@@ -8614,57 +8614,59 @@ body.theme-artist,
    pairing is what finally worked. line-height must stay equal to the CONTENT
    box height, which is 11px -- see below.
 
-   ## The circle is 11px; the button is 23px
+   ## The circle is 16px, and that is the fourth thing tried
 
-   The visible dot stayed 11px through v0.30 and was measured as a 121px^2
-   click target. WCAG's minimum is 24x24 (576px^2), so it was well under even
-   mouse-friendly guidance, and the amber Enhance dot added in v0.30 is the
-   one people actually reach for mid-sentence.
+   It was 11px from v0.17 to v0.30 -- a 121px^2 click target, against WCAG's
+   24x24 (576px^2) minimum. Nobody mentioned it while the two dots were Save
+   and Load, both of which you press deliberately. The amber Enhance dot added
+   in v0.30 is the one you reach for mid-sentence, and it made the size matter.
 
-   Rather than grow the circles -- which would change a design shipped since
-   v0.17 and make the label row taller -- each button carries a 6px
-   *transparent* border. The border-box becomes 23px and catches the click;
-   `background-clip: padding-box` stops the fill at the 11px padding box, so
-   the dot looks exactly as it did. Negative margins absorb the extra 12px so
-   nothing moves: `margin-left` drops from 6px to 0 because the transparent
-   border now supplies that 6px itself.
+   **The clever version does not work in this host.** Keeping an 11px circle
+   inside a 23px transparent border, with `background-clip: padding-box`
+   holding the fill back to the padding box, is correct CSS and measured
+   correctly in a browser: border-box 23px, background-clip reported as
+   `padding-box`, visible circle 11px. In UXP it rendered three ~23px filled
+   blobs -- the clip is ignored, so the background filled the transparent
+   border. Confirmed from a real panel screenshot, not inferred.
 
-   There was measured room for this: 23px of empty space sat between adjacent
-   dots, and each one only claims 6px of it per side, so their hit boxes come
-   no closer than 11px apart and can never overlap.
+   So the size is simply 16px now: 256px^2, a little over twice the old target,
+   still small enough to read as a secondary control on a label rather than a
+   third button. `border` carries the 1px ring again, because nothing is using
+   it for anything else.
 
-   The 1px ring moved from `border` to an inset box-shadow, because the border
-   is now doing the hit-area job and one element cannot have two.
+   Do not reach for `background-clip`, `padding` + `content-box`, or a
+   pseudo-element to shrink the visible dot back to 11px while keeping a wide
+   hit box. The first is measured as ignored here; the other two depend on the
+   same box-painting behaviour and on pseudo-element support this host has
+   already been unreliable about. This is the fourth attempt at a glyph in a
+   circle in this file and the plain one keeps winning.
 
-   IF `background-clip` IS EVER IGNORED BY THE HOST, this degrades to a 23px
-   filled circle rather than to something broken -- visibly wrong at a glance,
-   which is the failure mode to want. The fallback is to set width/height to
-   16px and drop the transparent border. */
+   Centred with text-align + line-height, NOT flex, for the reason above the
+   rule. line-height must stay equal to the content-box height: 16px box minus
+   two 1px borders is 14px. */
 .app-shell.theme-compact button.prompt-wallet-dot {
   display: inline-block !important;
   box-sizing: border-box !important;
-  width: 23px !important;
-  height: 23px !important;
-  min-height: 23px !important;
+  width: 16px !important;
+  height: 16px !important;
+  min-height: 16px !important;
   padding: 0 !important;
-  border: 6px solid transparent !important;
-  background-clip: padding-box !important;
-  margin: -6px 0 -6px 0 !important;
+  margin: 0 0 0 6px !important;
   border-radius: 50% !important;
   vertical-align: middle !important;
   text-align: center !important;
-  line-height: 10px !important;
-  font-size: 8px !important;
+  line-height: 14px !important;
+  font-size: 11px !important;
   font-weight: 900 !important;
   cursor: pointer !important;
 }
 
-/* `background-color`, never the `background` shorthand: the shorthand resets
-   `background-clip` to border-box, which fills the transparent hit-area border
-   and turns the 11px dot into a 23px one. Measured happening. */
+/* `background-color` rather than the `background` shorthand, kept from the
+   attempt above: the shorthand resets `background-clip`, and while nothing
+   depends on that any more, the longhand is the safer habit in this file. */
 .app-shell.theme-compact button.prompt-wallet-save {
+  border: 1px solid #3f8f5a !important;
   background-color: #2f7a49 !important;
-  box-shadow: inset 0 0 0 1px #3f8f5a !important;
   color: #eafff1 !important;
 }
 
@@ -8673,8 +8675,8 @@ body.theme-artist,
 }
 
 .app-shell.theme-compact button.prompt-wallet-load {
+  border: 1px solid #7c5fb8 !important;
   background-color: #6a4fa0 !important;
-  box-shadow: inset 0 0 0 1px #7c5fb8 !important;
   color: #f2ecff !important;
 }
 
@@ -8684,11 +8686,11 @@ body.theme-artist,
 
 /* Amber, so the three dots read as three different actions at a glance and
    the one that calls out to ComfyUI is not the same colour as the two that
-   only touch local storage. Same 11px circle as its siblings -- this is a
+   only touch local storage. Same circle as its siblings -- this is a
    secondary action on a prompt field, not a third Generate button. */
 .app-shell.theme-compact button.prompt-wallet-enhance {
+  border: 1px solid #c08a2e !important;
   background-color: #a8761f !important;
-  box-shadow: inset 0 0 0 1px #c08a2e !important;
   color: #fff6e6 !important;
 }
 
@@ -8700,7 +8702,7 @@ body.theme-artist,
    from the other two: they finish instantly, this one waits on a server. */
 .app-shell.theme-compact button.prompt-wallet-enhance.is-working {
   background-color: #6f4f16 !important;
-  box-shadow: inset 0 0 0 1px #8a6420 !important;
+  border-color: #8a6420 !important;
 }
 
 .app-shell.theme-compact button.prompt-wallet-dot.is-disabled {

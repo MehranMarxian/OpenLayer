@@ -49,10 +49,18 @@ artist. Nothing here needs a new checkpoint, and neither one runs a sampler.
 
 ### Fixed
 
-- **The Prompt Wallet dots are four times easier to hit.** The green save, purple load and new amber
-  enhance circles were an 11x11 click target &mdash; 121 square pixels, against the 24x24 minimum
-  WCAG asks for. They look exactly the same, but each one now carries a transparent border that
-  widens the clickable area to 23x23 without moving anything or changing the design shipped in v0.17.
+- **The Prompt Wallet dots are twice the click target.** The green save, purple load and new amber
+  enhance circles were 11x11 &mdash; 121 square pixels, against the 24x24 minimum WCAG asks for.
+  Save and Load you press deliberately, so nobody minded; Enhance is the one you reach for
+  mid-sentence, which is what made the size matter. All three are now 16x16 (256 square pixels).
+  Slightly larger than the v0.17 design, and still small enough to read as a secondary control on a
+  label rather than a third button.
+
+  The first attempt kept the circles at 11px and hid a 23px hit box behind a transparent border,
+  which is correct CSS, measured correctly in a browser, and **rendered as three fat blobs in
+  Photoshop** &mdash; UXP ignores `background-clip`. The plain larger circle is the version that
+  actually works in the host, and the reasoning is written into `styles.css` so the clever one does
+  not get attempted a second time.
 - **Remove Background and Layer Maps are now reachable over the Agent Bridge.** Remove Background
   shipped in v0.25 without an MCP entry, so an agent could drive every generation tool in the panel
   except that one, while the README said all of them were covered. Both are registered now, and the
