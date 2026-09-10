@@ -15,7 +15,7 @@ artist. Nothing here needs a new checkpoint, and neither one runs a sampler.
   normal. Uses `comfyui_controlnet_aux`, which the Sketch to Image presets already require, and the
   annotators download their own weights on first run.
 
-  Three things about it were measured rather than assumed, and each changed the graph:
+  Four things about it were measured rather than assumed, and each changed what shipped:
 
   - `resolution` on these preprocessors sets the **short side** and rescales the output to match, so
     it never returns the source's own dimensions — a 768x512 source at resolution 768 came back
@@ -27,11 +27,11 @@ artist. Nothing here needs a new checkpoint, and neither one runs a sampler.
     result, so the graph inverts before saving. Set the imported layer to Multiply and work under it.
   - The depth default is **Base, not the node's own Large default**. Large collapsed a wide landscape
     into an unreadable near-white band where Base returned a clean pass, and Large is also the one
-    size of the four under a non-commercial licence. Both reasons point the same way. All four sizes
-    are still selectable &mdash; except Giant, which is not offered at all, because its weights were
-  announced and never published. The node advertises four sizes and only three can be downloaded;
-  picking the fourth used to queue a run that died inside the preprocessor. Small, Base and Large
-  answer 200 and Giant answers 401.
+    downloadable size under a non-commercial licence. Both reasons point the same way. Small and
+    Large are still there if you want them.
+  - **Giant is not offered at all.** The node advertises four sizes, but Giant's weights were
+    announced and never published — its repository answers 401 where the other three answer 200 —
+    so picking it used to queue a run that died inside the preprocessor.
 
 - **Enhance Prompt** — a small amber dot beside every prompt field in the panel, next to the Wallet's
   green save and purple load. It expands a short prompt into a longer, more descriptive one, locally,
@@ -50,7 +50,7 @@ artist. Nothing here needs a new checkpoint, and neither one runs a sampler.
 ### Fixed
 
 - **The Prompt Wallet dots are twice the click target.** The green save, purple load and new amber
-  enhance circles were 11x11 &mdash; 121 square pixels, against the 24x24 minimum WCAG asks for.
+  enhance circles were 11x11 — 121 square pixels, against the 24x24 minimum WCAG asks for.
   Save and Load you press deliberately, so nobody minded; Enhance is the one you reach for
   mid-sentence, which is what made the size matter. All three are now 16x16 (256 square pixels).
   Slightly larger than the v0.17 design, and still small enough to read as a secondary control on a
@@ -58,7 +58,7 @@ artist. Nothing here needs a new checkpoint, and neither one runs a sampler.
 
   The first attempt kept the circles at 11px and hid a 23px hit box behind a transparent border,
   which is correct CSS, measured correctly in a browser, and **rendered as three fat blobs in
-  Photoshop** &mdash; UXP ignores `background-clip`. The plain larger circle is the version that
+  Photoshop** — UXP ignores `background-clip`. The plain larger circle is the version that
   actually works in the host, and the reasoning is written into `styles.css` so the clever one does
   not get attempted a second time.
 - **Remove Background and Layer Maps are now reachable over the Agent Bridge.** Remove Background
