@@ -323,6 +323,7 @@ import {
   DEFAULT_REMOVE_BACKGROUND_WORKFLOW,
   DEFAULT_LAYER_MAPS_WORKFLOW,
   DEFAULT_DEPTH_MAP_MODEL,
+  UNAVAILABLE_DEPTH_MAP_MODELS,
   DEFAULT_SERVER_URL,
   DEFAULT_LORA_STRENGTH,
   DEFAULT_SKETCH_CONTROL_STRENGTH,
@@ -7619,12 +7620,17 @@ async function refreshLayerMapsModelOptionsForSelectedPreset(
   }
 
   try {
-    const modelNames = await client.getModelNamesForPreset(preset);
+    // Filtered, not taken as given: the node's enum advertises a Giant size
+    // whose weights were never published, so it is dropped here as well as from
+    // the offline fallback list. See UNAVAILABLE_DEPTH_MAP_MODELS.
+    const modelNames = (await client.getModelNamesForPreset(preset)).filter(
+      (modelName) => !UNAVAILABLE_DEPTH_MAP_MODELS.includes(modelName)
+    );
 
     if (modelNames.length > 0) {
       // Base stays the default when the artist has not picked something else:
       // Large was measured returning an unreadable near-white band on a wide
-      // scene, and it is the one size of the four under a non-commercial
+      // scene, and it is the one downloadable size under a non-commercial
       // licence. See DEPTH_MAP_MODEL_SOURCE in presetRegistry.ts.
       const preferredModel = modelNames.includes(preferredValue)
         ? preferredValue

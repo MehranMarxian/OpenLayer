@@ -8611,16 +8611,45 @@ body.theme-artist,
    Centred with text-align + line-height, NOT flex. A glyph in a circle has
    already cost this project three rounds: flex centring measured correctly
    in a browser and still rendered visibly off in the host, while this
-   pairing is what finally worked. line-height must stay equal to the box
-   height. */
+   pairing is what finally worked. line-height must stay equal to the CONTENT
+   box height, which is 11px -- see below.
+
+   ## The circle is 11px; the button is 23px
+
+   The visible dot stayed 11px through v0.30 and was measured as a 121px^2
+   click target. WCAG's minimum is 24x24 (576px^2), so it was well under even
+   mouse-friendly guidance, and the amber Enhance dot added in v0.30 is the
+   one people actually reach for mid-sentence.
+
+   Rather than grow the circles -- which would change a design shipped since
+   v0.17 and make the label row taller -- each button carries a 6px
+   *transparent* border. The border-box becomes 23px and catches the click;
+   `background-clip: padding-box` stops the fill at the 11px padding box, so
+   the dot looks exactly as it did. Negative margins absorb the extra 12px so
+   nothing moves: `margin-left` drops from 6px to 0 because the transparent
+   border now supplies that 6px itself.
+
+   There was measured room for this: 23px of empty space sat between adjacent
+   dots, and each one only claims 6px of it per side, so their hit boxes come
+   no closer than 11px apart and can never overlap.
+
+   The 1px ring moved from `border` to an inset box-shadow, because the border
+   is now doing the hit-area job and one element cannot have two.
+
+   IF `background-clip` IS EVER IGNORED BY THE HOST, this degrades to a 23px
+   filled circle rather than to something broken -- visibly wrong at a glance,
+   which is the failure mode to want. The fallback is to set width/height to
+   16px and drop the transparent border. */
 .app-shell.theme-compact button.prompt-wallet-dot {
   display: inline-block !important;
   box-sizing: border-box !important;
-  width: 11px !important;
-  height: 11px !important;
-  min-height: 11px !important;
+  width: 23px !important;
+  height: 23px !important;
+  min-height: 23px !important;
   padding: 0 !important;
-  margin: 0 0 0 6px !important;
+  border: 6px solid transparent !important;
+  background-clip: padding-box !important;
+  margin: -6px 0 -6px 0 !important;
   border-radius: 50% !important;
   vertical-align: middle !important;
   text-align: center !important;
@@ -8630,24 +8659,27 @@ body.theme-artist,
   cursor: pointer !important;
 }
 
+/* `background-color`, never the `background` shorthand: the shorthand resets
+   `background-clip` to border-box, which fills the transparent hit-area border
+   and turns the 11px dot into a 23px one. Measured happening. */
 .app-shell.theme-compact button.prompt-wallet-save {
-  border: 1px solid #3f8f5a !important;
-  background: #2f7a49 !important;
+  background-color: #2f7a49 !important;
+  box-shadow: inset 0 0 0 1px #3f8f5a !important;
   color: #eafff1 !important;
 }
 
 .app-shell.theme-compact button.prompt-wallet-save:hover:not(.is-disabled) {
-  background: #379055 !important;
+  background-color: #379055 !important;
 }
 
 .app-shell.theme-compact button.prompt-wallet-load {
-  border: 1px solid #7c5fb8 !important;
-  background: #6a4fa0 !important;
+  background-color: #6a4fa0 !important;
+  box-shadow: inset 0 0 0 1px #7c5fb8 !important;
   color: #f2ecff !important;
 }
 
 .app-shell.theme-compact button.prompt-wallet-load:hover:not(.is-disabled) {
-  background: #7959b3 !important;
+  background-color: #7959b3 !important;
 }
 
 /* Amber, so the three dots read as three different actions at a glance and
@@ -8655,20 +8687,20 @@ body.theme-artist,
    only touch local storage. Same 11px circle as its siblings -- this is a
    secondary action on a prompt field, not a third Generate button. */
 .app-shell.theme-compact button.prompt-wallet-enhance {
-  border: 1px solid #c08a2e !important;
-  background: #a8761f !important;
+  background-color: #a8761f !important;
+  box-shadow: inset 0 0 0 1px #c08a2e !important;
   color: #fff6e6 !important;
 }
 
 .app-shell.theme-compact button.prompt-wallet-enhance:hover:not(.is-disabled) {
-  background: #bd8626 !important;
+  background-color: #bd8626 !important;
 }
 
 /* Held through the whole round trip, which is the one way this dot differs
    from the other two: they finish instantly, this one waits on a server. */
 .app-shell.theme-compact button.prompt-wallet-enhance.is-working {
-  background: #6f4f16 !important;
-  border-color: #8a6420 !important;
+  background-color: #6f4f16 !important;
+  box-shadow: inset 0 0 0 1px #8a6420 !important;
 }
 
 .app-shell.theme-compact button.prompt-wallet-dot.is-disabled {
