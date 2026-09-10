@@ -8,12 +8,12 @@ the numbers come from parsing the stylesheet and cross-referencing every class n
 
 | | |
 |---|---:|
-| Lines | 8714 |
-| Rule blocks | 1036 |
-| Distinct selectors | 797 |
-| Selectors declared more than once | 266 |
-| `!important` declarations | 1199 |
-| …of those, inside a `theme-compact` rule | 1182 |
+| Lines | 8779 |
+| Rule blocks | 1031 |
+| Distinct selectors | 796 |
+| Selectors declared more than once | 269 |
+| `!important` declarations | 1197 |
+| …of those, inside a `theme-compact` rule | 1180 |
 
 ## The two themes
 
@@ -23,11 +23,11 @@ it is what the 384 unscoped rules render.
 
 | | rules | lines |
 |---|---:|---:|
-| Scoped to `.theme-compact` | 643 | 6260 |
-| Scoped to `.theme-classic` | 9 | 76 |
-| Unscoped (base — what Classic renders) | 384 | 3354 |
+| Scoped to `.theme-compact` | 646 | 6316 |
+| Scoped to `.theme-classic` | 1 | 102 |
+| Unscoped (base — what Classic renders) | 384 | 3332 |
 
-62.1% of all rules are compact overrides and they carry
+62.7% of all rules are compact overrides and they carry
 98.6% of the `!important` in the file. **148** base selectors have a
 `theme-compact` counterpart.
 
@@ -64,7 +64,7 @@ concluding a base rule is what renders.
 ## Unreferenced classes
 
 28 class names appear in the stylesheet and nowhere in `src/` or `scripts/`. Rules that match
-only those names span **630 lines across 83 rule blocks** — roughly 7.2% of the file.
+only those names span **615 lines across 81 rule blocks** — roughly 7.0% of the file.
 
 ### `ol-*` (the pre-v0.5 naming)
 
@@ -85,7 +85,7 @@ not. Do not delete these:
 
 ## What the numbers say
 
-1. **Deleting the dead classes is the cheap, safe win** — about 630 lines, no live selector
+1. **Deleting the dead classes is the cheap, safe win** — about 615 lines, no live selector
    touched. It still needs a real Photoshop pass, because the check is "no literal mention in
    the source", and only the host can prove nothing regressed.
 2. **Consolidation is a bigger job than it looks, and it is not deletion.** Both themes ship,

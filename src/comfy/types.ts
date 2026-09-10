@@ -25,7 +25,11 @@ export type WorkflowPreset =
   | "style-reference-sd15"
   | "multi-reference-flux2-klein"
   | "unflatten-qwen-layered"
-  | "remove-background-birefnet";
+  | "remove-background-birefnet"
+  | "layer-maps-depth"
+  | "layer-maps-lineart"
+  | "layer-maps-normal"
+  | "enhance-prompt-superprompt";
 export type WorkflowMode =
   | "txt2img"
   | "img2img"
@@ -37,7 +41,9 @@ export type WorkflowMode =
   | "style-reference"
   | "multi-reference"
   | "unflatten"
-  | "remove-background";
+  | "remove-background"
+  | "layer-maps"
+  | "enhance-prompt";
 export type ModelFamily = "sd1" | "sdxl" | "sd3" | "flux" | "flux2" | "zImage" | "unknown";
 export type WorkflowToolType = WorkflowMode | "realtime";
 export type WorkflowLoaderType =
@@ -45,7 +51,14 @@ export type WorkflowLoaderType =
   | "diffusion-model-stack"
   | "vision-language"
   | "upscale"
-  | "background-removal";
+  | "background-removal"
+  /**
+   * Depth/normal/line-art preprocessors. Only the depth preset actually offers
+   * a choice of weights; line art and normals each load exactly one annotator
+   * and expose no picker at all.
+   */
+  | "layer-map"
+  | "prompt-expander";
 export type WorkflowControlId =
   | "prompt"
   | "negativePrompt"
@@ -343,6 +356,30 @@ export type BuildUpscaleWorkflowOptions = {
   modelName: string;
 };
 
+export type BuildEnhancePromptWorkflowOptions = {
+  presetId?: WorkflowPreset;
+  /** The draft the artist typed, taken from whichever prompt box asked. */
+  draftPrompt: string;
+  /** What to do with it, e.g. "Expand the following prompt to add more detail". */
+  instruction?: string;
+  /** Length cap on the expansion, not on the draft. */
+  maxNewTokens?: number;
+};
+
+export type BuildLayerMapsWorkflowOptions = {
+  presetId?: WorkflowPreset;
+  sourceImageName: string;
+  /**
+   * The captured source's own pixel dimensions. Injected into the graph's
+   * ImageScale so the finished map is pixel-for-pixel its source and sits over
+   * the layer it describes.
+   */
+  sourceWidth: number;
+  sourceHeight: number;
+  /** Depth only; line art and normals load a fixed annotator. */
+  modelName?: string;
+};
+
 export type BuildWorkflowResult = {
   workflow: ComfyWorkflow;
   seed: number;
@@ -499,7 +536,11 @@ export type WorkflowModelSourceKind =
   | "model-patch"
   | "clip-vision"
   | "ip-adapter"
-  | "background-removal";
+  | "background-removal"
+  /** Depth/normal/line-art annotator weights, loaded by the preprocessor itself. */
+  | "layer-map"
+  /** A text-to-text prompt expander, loaded by its own node. */
+  | "prompt-expander";
 
 export type WorkflowModelSource = {
   kind: WorkflowModelSourceKind;

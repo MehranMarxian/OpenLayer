@@ -50,7 +50,9 @@ export const AGENT_TOOLS = [
   "prompt_from_layer",
   "style_reference",
   "multi_reference",
-  "unflatten"
+  "unflatten",
+  "remove_background",
+  "layer_maps"
 ];
 
 const FRAME_TYPES = new Set(["hello", "welcome", "command", "result", "event", "state", "ask"]);

@@ -4,11 +4,12 @@ OpenLayer is a local-first Photoshop UXP plugin for artist-friendly ComfyUI work
 
 ## Where it is now
 
-Twelve generation tools, all running against a local ComfyUI: Text to Image, Image to Image,
-Sketch to Image, Inpaint, Outpaint, Upscale, Remove Background, Prompt from Layer, Live Painting,
-Style Reference, Multi-Reference and Unflatten, plus Layer Tools, History, the Prompt Wallet, Workflow Presets,
-custom workflow checking, and a Setup screen that checks what you have against what each preset
-needs and can download what is missing.
+Thirteen generation tools, all running against a local ComfyUI: Text to Image, Image to Image,
+Sketch to Image, Inpaint, Outpaint, Upscale, Remove Background, Layer Maps, Prompt from Layer,
+Live Painting, Style Reference, Multi-Reference and Unflatten, plus Layer Tools, History, the
+Prompt Wallet, Enhance Prompt beside every prompt field, Workflow Presets, custom workflow checking,
+and a Setup screen that checks what you have against what each preset needs and can download what
+is missing.
 
 Four of those carry a caveat rather than a clean bill of health, and the list is deliberately
 honest rather than short: Inpaint, Outpaint, Multi-Reference and Unflatten. What each one does and
@@ -37,7 +38,7 @@ lets an agent drive the panel.
 - A LoRA browser, batch variants and contact sheets
 - Guided custom workflow import with node mapping and validation against `/object_info`
 - Persistent per-layer generation metadata, so a layer remembers how it was made
-- Better guide previews for lineart, depth and pose
+- Pose guide previews (lineart and depth now ship as Layer Maps)
 
 ## History
 

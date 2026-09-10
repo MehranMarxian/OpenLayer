@@ -105,6 +105,74 @@ const BACKGROUND_REMOVAL_MODEL_SOURCE = {
   label: "Background removal model"
 } as const;
 
+/**
+ * Depth Anything V2's four sizes, read from the preprocessor's own input enum
+ * rather than a models folder. The list is hard-coded inside the node, so all
+ * four appear in the picker whether or not their weights have been downloaded
+ * yet -- selecting one that is missing downloads it on first run.
+ *
+ * The default is deliberately **vitb, not the node's own vitl default**, for
+ * two independent reasons found separately.
+ *
+ * Measured: vitl collapses on wide scenes. On a generated terrace photograph
+ * with distant mountains it returned p1=223 p50=232 p99=251 -- the entire scene
+ * squeezed into a near-white band by a single outlier pixel, visually a blank
+ * page with one black dot. vitb on the identical source gave p1=78 p50=123
+ * p99=237 and a clean, readable depth pass. On a close-up still life vitl
+ * recovered (spread 129) and vitb was still better (spread 151), so this is not
+ * a broken file -- it is vitl normalising against an extreme far point that a
+ * landscape always has and a close-up does not.
+ *
+ * Licensing lands in the same place: Depth Anything V2 Large is CC-BY-NC, while
+ * vitb and vits are Apache-2.0. Defaulting to a non-commercial checkpoint in a
+ * tool artists use for paid work would be the wrong default even if it were the
+ * better estimator, and it is not.
+ */
+const DEPTH_MAP_MODEL_SOURCE = {
+  kind: "layer-map",
+  objectInfoNode: "DepthAnythingV2Preprocessor",
+  inputName: "ckpt_name",
+  label: "Depth model"
+} as const;
+
+/**
+ * Line art and normals each load exactly one annotator, chosen by the node
+ * rather than by the artist -- `LineArtPreprocessor` and
+ * `BAE-NormalMapPreprocessor` expose no weights enum at all, only a detail
+ * `resolution`. `modelSource` is a required field on every preset, so these two
+ * point at their own preprocessor honestly instead of borrowing the depth
+ * preset's checkpoint list, which would advertise a choice that does not exist.
+ *
+ * Nothing reads it: both capabilities set `showModelSelector: false`, and
+ * `getModelNamesForPreset` is only called to fill a selector that is never
+ * rendered. It is here to be true, not to be used.
+ */
+/**
+ * SuperPrompt loads one fixed set of weights and offers no enum, so like the
+ * line-art and normal annotators this exists to be true rather than to be read:
+ * the capability sets `showModelSelector: false` and nothing fills a selector.
+ */
+const PROMPT_EXPANDER_MODEL_SOURCE = {
+  kind: "prompt-expander",
+  objectInfoNode: "Superprompt",
+  inputName: "max_new_tokens",
+  label: "Prompt expander"
+} as const;
+
+const LINEART_ANNOTATOR_SOURCE = {
+  kind: "layer-map",
+  objectInfoNode: "LineArtPreprocessor",
+  inputName: "resolution",
+  label: "Line art annotator"
+} as const;
+
+const NORMAL_ANNOTATOR_SOURCE = {
+  kind: "layer-map",
+  objectInfoNode: "BAE-NormalMapPreprocessor",
+  inputName: "resolution",
+  label: "Normal annotator"
+} as const;
+
 const FLUX2_KLEIN_4B_STACK = [
   {
     kind: "diffusion-model-stack",
@@ -943,6 +1011,67 @@ const UPSCALE_BASIC_NODES = {
   saveImage: "9"
 } as const;
 
+/**
+ * Node ids match src/workflows/api/layer-maps-*.json exactly. All three graphs
+ * were hand-built and run against a live ComfyUI 0.30.0 before this was
+ * written: a generated terrace photograph through each preset, warm timings of
+ * 3.0s (depth), 0.7s (line art) and 2.1s (normal) on a 4070 Ti.
+ *
+ * Every one of them ends in ImageScale, and that node is the whole reason these
+ * maps are usable as layers. `resolution` on a controlnet_aux preprocessor sets
+ * the SHORT side and rescales the output to match, so it never returns the
+ * source's own dimensions: measured, a 768x512 source at resolution 768 came
+ * back 1152x768. A map that is not pixel-for-pixel its source does not sit over
+ * it, which is the same upscale-on-import softness that cost Unflatten its
+ * first release. ImageScale pins width and height to the captured source and
+ * leaves `resolution` free to act as what it actually is -- a detail dial.
+ */
+/**
+ * Node ids match src/workflows/api/enhance-prompt-superprompt.json exactly.
+ * Verified against a live ComfyUI 0.30.0 before this was written: the same
+ * draft returned the same expansion twice, so the "no seed" reading of the node
+ * is confirmed rather than assumed, and a warm run took under a second.
+ *
+ * `Superprompt.prompt` is declared `forceInput`, so it has no widget and cannot
+ * be written to directly -- the graph needs an upstream STRING node to inject
+ * into. That is what node 20 is for, and it is why the panel's prompt targets
+ * `promptFeed` rather than the expander itself.
+ */
+const ENHANCE_PROMPT_SUPERPROMPT_NODES = {
+  promptFeed: "20",
+  expander: "21",
+  // Superprompt is not an OUTPUT_NODE, so without this the graph never queues
+  // and no text reaches history -- the same shape Prompt from Layer needs.
+  textPreview: "22"
+} as const;
+
+const LAYER_MAPS_DEPTH_NODES = {
+  loadImage: "10",
+  preprocessor: "11",
+  scaleToSource: "12",
+  saveImage: "9"
+} as const;
+
+const LAYER_MAPS_LINEART_NODES = {
+  loadImage: "10",
+  preprocessor: "11",
+  // Line-art preprocessors are built for ControlNet, which wants WHITE lines on
+  // BLACK. Measured on a real photograph, the raw output was 98.7% near-black.
+  // An artist inking or colouring over the result wants the opposite, so this
+  // graph inverts before it ever reaches Photoshop: the same run came back
+  // 98.8% near-white with black lines. Core node, no dependency.
+  invert: "13",
+  scaleToSource: "12",
+  saveImage: "9"
+} as const;
+
+const LAYER_MAPS_NORMAL_NODES = {
+  loadImage: "10",
+  preprocessor: "11",
+  scaleToSource: "12",
+  saveImage: "9"
+} as const;
+
 // Node ids match src/workflows/api/style-reference-sd15.json exactly -- this
 // preset's graph was hand-built and verified against a live ComfyUI (a real
 // cat-on-a-chair generation absorbed a vaporwave reference's palette without
@@ -1253,6 +1382,35 @@ const KREA2_TURBO_IMG2IMG_INJECTIONS = {
   steps: target(KREA2_TURBO_IMG2IMG_NODES.sampler, "steps"),
   cfg: target(KREA2_TURBO_IMG2IMG_NODES.sampler, "cfg"),
   denoise: target(KREA2_TURBO_IMG2IMG_NODES.sampler, "denoise")
+} as const;
+
+// `width`/`height` target ImageScale rather than any latent: they are the
+// captured source's own dimensions, pinning the map to the pixels it describes.
+// `checkpoint` is the estimator size on the depth preset only -- line art and
+// normals each load exactly one annotator and have nothing to choose.
+const LAYER_MAPS_DEPTH_INJECTIONS = {
+  sourceImage: target(LAYER_MAPS_DEPTH_NODES.loadImage, "image"),
+  checkpoint: target(LAYER_MAPS_DEPTH_NODES.preprocessor, "ckpt_name"),
+  width: target(LAYER_MAPS_DEPTH_NODES.scaleToSource, "width"),
+  height: target(LAYER_MAPS_DEPTH_NODES.scaleToSource, "height")
+} as const;
+
+const LAYER_MAPS_LINEART_INJECTIONS = {
+  sourceImage: target(LAYER_MAPS_LINEART_NODES.loadImage, "image"),
+  width: target(LAYER_MAPS_LINEART_NODES.scaleToSource, "width"),
+  height: target(LAYER_MAPS_LINEART_NODES.scaleToSource, "height")
+} as const;
+
+const LAYER_MAPS_NORMAL_INJECTIONS = {
+  sourceImage: target(LAYER_MAPS_NORMAL_NODES.loadImage, "image"),
+  width: target(LAYER_MAPS_NORMAL_NODES.scaleToSource, "width"),
+  height: target(LAYER_MAPS_NORMAL_NODES.scaleToSource, "height")
+} as const;
+
+const ENHANCE_PROMPT_SUPERPROMPT_INJECTIONS = {
+  positivePrompt: target(ENHANCE_PROMPT_SUPERPROMPT_NODES.promptFeed, "string"),
+  task: target(ENHANCE_PROMPT_SUPERPROMPT_NODES.expander, "instruction_prompt"),
+  numBeams: target(ENHANCE_PROMPT_SUPERPROMPT_NODES.expander, "max_new_tokens")
 } as const;
 
 const PROMPT_FROM_LAYER_FLORENCE2_INJECTIONS = {
@@ -1914,6 +2072,92 @@ const REMOVE_BACKGROUND_BIREFNET_CAPABILITY: WorkflowCapability = {
   }
 };
 
+const ENHANCE_PROMPT_SUPERPROMPT_CAPABILITY: WorkflowCapability = {
+  toolType: "enhance-prompt",
+  loaderType: "prompt-expander",
+  artistLabel: "Enhance Prompt",
+  technicalLabel: "enhance-prompt-superprompt",
+  // The only preset in the registry that reads nothing from Photoshop: its
+  // input is the text already in a prompt box.
+  requiredPhotoshopInputs: [],
+  controls: [],
+  output: {
+    kind: "prompt-text",
+    size: "none",
+    importBehavior: "none"
+  },
+  uiHints: {
+    showModelSelector: false,
+    modelSelectorLabel: "Prompt expander",
+    primaryActionLabel: "Enhance Prompt",
+    experimentalNote:
+      "Expands a short prompt into a longer, more descriptive one. It runs entirely locally and has no seed, so the same draft always returns the same expansion. It is a 248M-parameter model: it embellishes what you wrote, it does not reason about it, and it sometimes reaches for stock phrasing."
+  }
+};
+
+const LAYER_MAPS_DEPTH_CAPABILITY: WorkflowCapability = {
+  toolType: "layer-maps",
+  loaderType: "layer-map",
+  artistLabel: "Depth map",
+  technicalLabel: "layer-maps-depth",
+  requiredPhotoshopInputs: [{ anyOf: ["active-layer", "canvas"], label: "an active layer or captured canvas" }],
+  controls: [],
+  output: {
+    kind: "source-sized-image",
+    size: "source",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Depth model",
+    primaryActionLabel: "Generate Depth Map",
+    experimentalNote:
+      "Near is bright, far is dark, and the scale is relative to this image alone -- two layers' depth maps are not comparable to each other. Useful for fog, depth-of-field, displacement and relighting comps. The estimator downloads its own weights on first run, so the first map is slower than later ones."
+  }
+};
+
+const LAYER_MAPS_LINEART_CAPABILITY: WorkflowCapability = {
+  toolType: "layer-maps",
+  loaderType: "layer-map",
+  artistLabel: "Line art",
+  technicalLabel: "layer-maps-lineart",
+  requiredPhotoshopInputs: [{ anyOf: ["active-layer", "canvas"], label: "an active layer or captured canvas" }],
+  controls: [],
+  output: {
+    kind: "source-sized-image",
+    size: "source",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: false,
+    modelSelectorLabel: "Line art model",
+    primaryActionLabel: "Generate Line Art",
+    experimentalNote:
+      "Black lines on white, ready to ink or colour over -- set the layer to Multiply to work under it. This traces what is already in the picture; it does not invent detail, and a soft or low-contrast source gives a soft tracing. The annotator downloads its own weights on first run."
+  }
+};
+
+const LAYER_MAPS_NORMAL_CAPABILITY: WorkflowCapability = {
+  toolType: "layer-maps",
+  loaderType: "layer-map",
+  artistLabel: "Normal map",
+  technicalLabel: "layer-maps-normal",
+  requiredPhotoshopInputs: [{ anyOf: ["active-layer", "canvas"], label: "an active layer or captured canvas" }],
+  controls: [],
+  output: {
+    kind: "source-sized-image",
+    size: "source",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: false,
+    modelSelectorLabel: "Normal model",
+    primaryActionLabel: "Generate Normal Map",
+    experimentalNote:
+      "A tangent-space surface-normal pass: RGB encodes which way each surface faces, so it drives relighting and texture work rather than being looked at directly. Estimated from a single photograph, not measured, so it reads large forms well and fine surface detail loosely. The annotator downloads its own weights on first run."
+  }
+};
+
 const UPSCALE_BASIC_CAPABILITY: WorkflowCapability = {
   toolType: "upscale",
   loaderType: "upscale",
@@ -2177,6 +2421,165 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
       },
       {
         id: UPSCALE_BASIC_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images", "filename_prefix"]
+      }
+    ]
+  },
+  {
+    id: "enhance-prompt-superprompt",
+    label: "enhance-prompt-superprompt",
+    displayName: "SuperPrompt v1",
+    mode: "enhance-prompt",
+    description: "Expands a short prompt into a longer, more descriptive one, entirely locally.",
+    workflowFile: "workflows/api/enhance-prompt-superprompt.json",
+    sourceWorkflowFile: "workflows/source/enhance-prompt-superprompt.workflow.json",
+    status: "stable",
+    supportedModelFamilies: ["unknown"],
+    experimentalModelFamilies: ["sd1", "sdxl", "sd3", "flux", "flux2", "zImage"],
+    modelSource: PROMPT_EXPANDER_MODEL_SOURCE,
+    capability: ENHANCE_PROMPT_SUPERPROMPT_CAPABILITY,
+    injections: ENHANCE_PROMPT_SUPERPROMPT_INJECTIONS,
+    compatibilityNote:
+      "Needs ComfyUI-KJNodes, which is the only reason that package is required at all -- OpenLayer uses exactly one class from it. The expander downloads its own ~308 MB SuperPrompt-v1 weights on first run rather than through Setup, so the first enhancement is slow and later ones take about a second. No checkpoint, prompt encoder or sampler is involved, so it does not care which image models you have.",
+    requiredNodes: [
+      {
+        id: ENHANCE_PROMPT_SUPERPROMPT_NODES.promptFeed,
+        classType: "StringConstantMultiline",
+        requiredInputs: ["string"]
+      },
+      {
+        id: ENHANCE_PROMPT_SUPERPROMPT_NODES.expander,
+        classType: "Superprompt",
+        requiredInputs: ["instruction_prompt", "prompt", "max_new_tokens"]
+      },
+      {
+        id: ENHANCE_PROMPT_SUPERPROMPT_NODES.textPreview,
+        classType: "PreviewAny",
+        requiredInputs: ["source"]
+      }
+    ]
+  },
+  {
+    id: "layer-maps-depth",
+    label: "layer-maps-depth",
+    displayName: "Depth (Depth Anything V2)",
+    mode: "layer-maps",
+    description: "Estimates a depth pass from a layer and returns it at the layer's own size.",
+    workflowFile: "workflows/api/layer-maps-depth.json",
+    sourceWorkflowFile: "workflows/source/layer-maps-depth.workflow.json",
+    status: "stable",
+    supportedModelFamilies: ["unknown"],
+    experimentalModelFamilies: ["sd1", "sdxl", "sd3", "flux", "flux2", "zImage"],
+    modelSource: DEPTH_MAP_MODEL_SOURCE,
+    capability: LAYER_MAPS_DEPTH_CAPABILITY,
+    injections: LAYER_MAPS_DEPTH_INJECTIONS,
+    compatibilityNote:
+      "Needs only comfyui_controlnet_aux, the same package the Sketch to Image depth preset already uses. No checkpoint, prompt or diffusion sampling is involved, so it does not care which image model you have. The estimator weights are downloaded by the preprocessor itself on first run rather than through Setup. The default is the Base checkpoint, not Large: Large was measured collapsing a wide landscape into a near-white band with no readable depth at all, and it is also the one size of the four under a non-commercial licence.",
+    requiredNodes: [
+      {
+        id: LAYER_MAPS_DEPTH_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: LAYER_MAPS_DEPTH_NODES.preprocessor,
+        classType: "DepthAnythingV2Preprocessor",
+        requiredInputs: ["image", "ckpt_name", "resolution"]
+      },
+      {
+        // Pins the map to its source's exact pixel dimensions. Without it the
+        // preprocessor returns whatever its short-side `resolution` implies and
+        // the map no longer sits over the layer it describes.
+        id: LAYER_MAPS_DEPTH_NODES.scaleToSource,
+        classType: "ImageScale",
+        requiredInputs: ["image", "width", "height", "upscale_method", "crop"]
+      },
+      {
+        id: LAYER_MAPS_DEPTH_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images", "filename_prefix"]
+      }
+    ]
+  },
+  {
+    id: "layer-maps-lineart",
+    label: "layer-maps-lineart",
+    displayName: "Line art",
+    mode: "layer-maps",
+    description: "Traces a layer into black lines on white, at the layer's own size.",
+    workflowFile: "workflows/api/layer-maps-lineart.json",
+    sourceWorkflowFile: "workflows/source/layer-maps-lineart.workflow.json",
+    status: "stable",
+    supportedModelFamilies: ["unknown"],
+    experimentalModelFamilies: ["sd1", "sdxl", "sd3", "flux", "flux2", "zImage"],
+    modelSource: LINEART_ANNOTATOR_SOURCE,
+    capability: LAYER_MAPS_LINEART_CAPABILITY,
+    injections: LAYER_MAPS_LINEART_INJECTIONS,
+    compatibilityNote:
+      "Needs only comfyui_controlnet_aux, the same package the Sketch to Image line-art preset already uses. The graph inverts the preprocessor's output before saving: line-art annotators are built for ControlNet and return white lines on black, which is the wrong way round for anyone meaning to ink or colour over the result.",
+    requiredNodes: [
+      {
+        id: LAYER_MAPS_LINEART_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: LAYER_MAPS_LINEART_NODES.preprocessor,
+        classType: "LineArtPreprocessor",
+        requiredInputs: ["image", "coarse", "resolution"]
+      },
+      {
+        id: LAYER_MAPS_LINEART_NODES.invert,
+        classType: "ImageInvert",
+        requiredInputs: ["image"]
+      },
+      {
+        id: LAYER_MAPS_LINEART_NODES.scaleToSource,
+        classType: "ImageScale",
+        requiredInputs: ["image", "width", "height", "upscale_method", "crop"]
+      },
+      {
+        id: LAYER_MAPS_LINEART_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images", "filename_prefix"]
+      }
+    ]
+  },
+  {
+    id: "layer-maps-normal",
+    label: "layer-maps-normal",
+    displayName: "Normal map (BAE)",
+    mode: "layer-maps",
+    description: "Estimates a tangent-space normal pass from a layer, at the layer's own size.",
+    workflowFile: "workflows/api/layer-maps-normal.json",
+    sourceWorkflowFile: "workflows/source/layer-maps-normal.workflow.json",
+    status: "stable",
+    supportedModelFamilies: ["unknown"],
+    experimentalModelFamilies: ["sd1", "sdxl", "sd3", "flux", "flux2", "zImage"],
+    modelSource: NORMAL_ANNOTATOR_SOURCE,
+    capability: LAYER_MAPS_NORMAL_CAPABILITY,
+    injections: LAYER_MAPS_NORMAL_INJECTIONS,
+    compatibilityNote:
+      "Needs only comfyui_controlnet_aux, the same package the Sketch to Image presets already use. No checkpoint, prompt or diffusion sampling is involved. The BAE annotator downloads its own weights on first run rather than through Setup.",
+    requiredNodes: [
+      {
+        id: LAYER_MAPS_NORMAL_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: LAYER_MAPS_NORMAL_NODES.preprocessor,
+        classType: "BAE-NormalMapPreprocessor",
+        requiredInputs: ["image", "resolution"]
+      },
+      {
+        id: LAYER_MAPS_NORMAL_NODES.scaleToSource,
+        classType: "ImageScale",
+        requiredInputs: ["image", "width", "height", "upscale_method", "crop"]
+      },
+      {
+        id: LAYER_MAPS_NORMAL_NODES.saveImage,
         classType: "SaveImage",
         requiredInputs: ["images", "filename_prefix"]
       }

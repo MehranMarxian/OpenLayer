@@ -6,6 +6,8 @@ import {
   getModelTargetPath,
   getRequiredModelKey,
   isMappedModelLoaderNode,
+  isSelfManagedWeightNode,
+  SELF_MANAGED_WEIGHT_NODES,
   listPresetRequiredModels,
   listRequiredModelsForPresets
 } from "../../src/comfy/modelFolders";
@@ -101,6 +103,11 @@ describe("model folder mapping", () => {
     expect(getTechnicalErrorDetails(thrown)).toContain("MODEL_FOLDER_BY_OBJECT_INFO_NODE");
   });
 
+  // A preset's loader must either name a folder the artist can put a file in,
+  // or be declared as fetching its own weights. What must never happen is a
+  // loader falling through both, because then Setup has nothing true to say
+  // about it -- which is exactly how sketch2img-depth-basic shipped in v0.13
+  // reporting that it needed no custom node at all.
   it("maps every loader node any preset actually names", () => {
     const unmapped: string[] = [];
 
@@ -112,13 +119,19 @@ describe("model folder mapping", () => {
       ];
 
       for (const node of nodes) {
-        if (!isMappedModelLoaderNode(node)) {
+        if (!isMappedModelLoaderNode(node) && !isSelfManagedWeightNode(node)) {
           unmapped.push(`${preset.id}: ${node}`);
         }
       }
     }
 
     expect(unmapped).toEqual([]);
+  });
+
+  it("never lets a loader be both artist-installed and self-managed", () => {
+    const both = [...SELF_MANAGED_WEIGHT_NODES].filter((node) => isMappedModelLoaderNode(node));
+
+    expect(both).toEqual([]);
   });
 });
 

@@ -9,7 +9,8 @@ export type HistoryToolType =
   | "style-reference"
   | "multi-reference"
   | "unflatten"
-  | "remove-background";
+  | "remove-background"
+  | "layer-maps";
 
 export type HistoryImportStatus = "not-imported" | "imported";
 
@@ -24,7 +25,8 @@ const TOOL_LABELS: Record<HistoryToolType, string> = {
   "style-reference": "Style Reference",
   "multi-reference": "Multi-Reference Composition",
   unflatten: "Unflatten",
-  "remove-background": "Remove Background"
+  "remove-background": "Remove Background",
+  "layer-maps": "Layer Maps"
 };
 
 export function formatHistoryToolLabel(toolType: HistoryToolType) {

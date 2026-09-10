@@ -311,6 +311,17 @@ export function setRemoveBackgroundStatus(elements: AppElements, status: string,
   );
 }
 
+export function setLayerMapsStatus(elements: AppElements, status: string, tone: StatusTone) {
+  applyToolStatus(
+    elements,
+    elements.layerMapsStatusText,
+    elements.layerMapsStatusPill,
+    elements.layerMapsStatusProgress,
+    status,
+    tone
+  );
+}
+
 export function setPromptLayerStatus(elements: AppElements, status: string, tone: StatusTone) {
   applyToolStatus(elements, elements.promptLayerStatusText, elements.promptLayerStatusPill, elements.promptLayerStatusProgress, status, tone);
 }
@@ -396,6 +407,10 @@ export function setRemoveBackgroundError(elements: AppElements, message: string)
   applyToolError(elements.removeBackgroundErrorMessage, message);
 }
 
+export function setLayerMapsError(elements: AppElements, message: string) {
+  applyToolError(elements.layerMapsErrorMessage, message);
+}
+
 export function setPromptLayerError(elements: AppElements, message: string) {
   applyToolError(elements.promptLayerErrorMessage, message);
 }
@@ -471,6 +486,11 @@ export function setUpscaleDiagnostics(elements: AppElements, message: string) {
 
 export function setRemoveBackgroundDiagnostics(elements: AppElements, message: string) {
   elements.removeBackgroundDiagnosticsText.textContent = message;
+  elements.settingsDiagnosticsText.textContent = message;
+}
+
+export function setLayerMapsDiagnostics(elements: AppElements, message: string) {
+  elements.layerMapsDiagnosticsText.textContent = message;
   elements.settingsDiagnosticsText.textContent = message;
 }
 

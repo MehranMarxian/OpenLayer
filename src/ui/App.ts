@@ -79,6 +79,7 @@ import {
   listRunnableWorkflowPresets,
   listWorkflowPresets
 } from "../comfy/presetRegistry";
+import { getWorkflowCapability } from "../comfy/workflowCapabilities";
 import { createWorkflowPresetsView } from "./workflowPresetsModel";
 import {
   CustomWorkflowReport,
@@ -106,6 +107,8 @@ import {
   buildStyleReferenceWorkflow,
   buildTxt2ImgWorkflow,
   buildRemoveBackgroundWorkflow,
+  buildLayerMapsWorkflow,
+  buildEnhancePromptWorkflow,
   buildUpscaleWorkflow
 } from "../comfy/workflowBuilder";
 import {
@@ -197,7 +200,7 @@ import {
 import { setArtistControlsEnabled, syncArtistControls } from "./artistControls";
 import { setSeedDiceEnabled } from "./seedDice";
 import { bindPromptMemory } from "./promptMemory";
-import { bindPromptWallet, PROMPT_WALLET_TOOLS } from "./promptWallet";
+import { bindPromptWallet, PROMPT_WALLET_TOOLS, PromptWalletTool } from "./promptWallet";
 import {
   createUpscaleResizePlan,
   formatUpscaleScale,
@@ -318,6 +321,9 @@ import {
   DEFAULT_PROMPT_LAYER_NUM_BEAMS,
   DEFAULT_PROMPT_LAYER_TASK,
   DEFAULT_REMOVE_BACKGROUND_WORKFLOW,
+  DEFAULT_LAYER_MAPS_WORKFLOW,
+  DEFAULT_DEPTH_MAP_MODEL,
+  UNAVAILABLE_DEPTH_MAP_MODELS,
   DEFAULT_SERVER_URL,
   DEFAULT_LORA_STRENGTH,
   DEFAULT_SKETCH_CONTROL_STRENGTH,
@@ -363,6 +369,9 @@ import {
   setRemoveBackgroundStatus,
   setRemoveBackgroundDiagnostics,
   setRemoveBackgroundError,
+  setLayerMapsStatus,
+  setLayerMapsDiagnostics,
+  setLayerMapsError,
   setPromptLayerStatus,
   setSketchDiagnostics,
   setSketchError,
@@ -578,6 +587,9 @@ export function renderApp(rootElement: HTMLElement) {
   let imageImportAutomatically = false;
   let upscaleImportAutomatically = false;
   let removeBackgroundImportAutomatically = false;
+  let layerMapsSource: ImageSourceState | null = null;
+  let layerMapsResult: AppGeneratedImageResult | null = null;
+  let layerMapsImportAutomatically = false;
   let inpaintImportAutomatically = false;
   let isNegativePromptOpen = false;
   let allowExperimentalCheckpoints = false;
@@ -644,7 +656,9 @@ export function renderApp(rootElement: HTMLElement) {
       unflattenSource,
       unflattenResult,
       removeBackgroundSource,
-      removeBackgroundResult
+      removeBackgroundResult,
+      layerMapsSource,
+      layerMapsResult
     });
     updateInpaintReferenceControlLock(elements, isBusy && busyTool === "inpaint");
     syncImportBridge();
@@ -677,7 +691,9 @@ export function renderApp(rootElement: HTMLElement) {
       "prompt_from_layer",
       "style_reference",
       "multi_reference",
-      "unflatten"
+      "unflatten",
+      "remove_background",
+      "layer_maps"
     ] as const) {
       agentBridge.publishCapability(toolId, { canRun: !isBusy, reason });
     }
@@ -968,6 +984,40 @@ export function renderApp(rootElement: HTMLElement) {
       statusText: elements.upscaleStatusText,
       statusPill: elements.upscaleStatusPill,
       errorText: elements.upscaleErrorMessage
+    });
+
+    agentBridge.register("remove_background", {
+      run: handleGenerateRemoveBackground,
+      fields: {
+        workflow: elements.removeBackgroundWorkflow,
+        model: elements.removeBackgroundModel
+      },
+      leadingParams: ["workflow"],
+      settle: async () => {
+        await refreshRemoveBackgroundModelOptionsForSelectedPreset(elements);
+      },
+      statusText: elements.removeBackgroundStatusText,
+      statusPill: elements.removeBackgroundStatusPill,
+      errorText: elements.removeBackgroundErrorMessage
+    });
+
+    agentBridge.register("layer_maps", {
+      run: handleGenerateLayerMaps,
+      fields: {
+        workflow: elements.layerMapsWorkflow,
+        model: elements.layerMapsModel
+      },
+      // `workflow` first: changing the map type rewrites the model field's
+      // visibility and its options, so a model passed alongside it must be
+      // applied after, not before.
+      leadingParams: ["workflow"],
+      settle: async () => {
+        syncLayerMapsPresetUi();
+        await refreshLayerMapsModelOptionsForSelectedPreset(elements);
+      },
+      statusText: elements.layerMapsStatusText,
+      statusPill: elements.layerMapsStatusPill,
+      errorText: elements.layerMapsErrorMessage
     });
 
     // No leadingParams: task and numBeams are independent selects with no
@@ -1348,6 +1398,15 @@ export function renderApp(rootElement: HTMLElement) {
     resultAlt: "Generated cutout preview",
     liveAlt: "Live ComfyUI cutout preview"
   });
+  const layerMapsResultPanel = createResultPreviewPanel({
+    urls: objectUrls,
+    panel: elements.layerMapsResultPreviewPanel,
+    hub: previewHub,
+    toolId: "layer-maps",
+    emptyText: "No map yet",
+    resultAlt: "Generated layer map preview",
+    liveAlt: "Live ComfyUI map preview"
+  });
   const styleReferenceResultPanel = createResultPreviewPanel({
     urls: objectUrls,
     panel: elements.styleReferenceResultPreviewPanel,
@@ -1418,6 +1477,13 @@ export function renderApp(rootElement: HTMLElement) {
     titleElement: elements.removeBackgroundSourceTitle,
     metaElement: elements.removeBackgroundSourceMeta,
     imageAlt: "Captured Photoshop source for Remove Background"
+  });
+  const layerMapsSourcePanel = createSourcePreviewPanel({
+    urls: objectUrls,
+    panel: elements.layerMapsSourcePreviewPanel,
+    titleElement: elements.layerMapsSourceTitle,
+    metaElement: elements.layerMapsSourceMeta,
+    imageAlt: "Captured Photoshop source for Layer Maps"
   });
   const styleReferenceSourcePanel = createSourcePreviewPanel({
     urls: objectUrls,
@@ -1594,6 +1660,11 @@ export function renderApp(rootElement: HTMLElement) {
     generateRemoveBackground: createActionRunner(elements, "generateRemoveBackground", handleGenerateRemoveBackground),
     importRemoveBackground: createActionRunner(elements, "importRemoveBackground", handleImportRemoveBackground),
     toggleRemoveBackgroundAutoImport: createActionRunner(elements, "toggleRemoveBackgroundAutoImport", handleToggleRemoveBackgroundAutoImport),
+    captureLayerMapsSource: createActionRunner(elements, "captureLayerMapsSource", handleCaptureLayerMapsSource),
+    captureLayerMapsCanvasSource: createActionRunner(elements, "captureLayerMapsCanvasSource", handleCaptureLayerMapsCanvasSource),
+    generateLayerMaps: createActionRunner(elements, "generateLayerMaps", handleGenerateLayerMaps),
+    importLayerMaps: createActionRunner(elements, "importLayerMaps", handleImportLayerMaps),
+    toggleLayerMapsAutoImport: createActionRunner(elements, "toggleLayerMapsAutoImport", handleToggleLayerMapsAutoImport),
     toggleInpaintAutoImport: createActionRunner(elements, "toggleInpaintAutoImport", handleToggleInpaintAutoImport),
     clearHistory: createActionRunner(elements, "clearHistory", handleClearHistory),
     toggleLiveNegativePrompt: createActionRunner(elements, "toggleLiveNegativePrompt", handleToggleLiveNegativePrompt),
@@ -1760,6 +1831,10 @@ export function renderApp(rootElement: HTMLElement) {
   setUpscaleSource(null);
   setRemoveBackgroundSource(null);
   setRemoveBackgroundResult(null);
+  updateLayerMapsAutoImportToggle(elements, layerMapsImportAutomatically);
+  setLayerMapsSource(null);
+  setLayerMapsResult(null);
+  syncLayerMapsPresetUi();
   setUpscaleResult(null);
   updateStyleReferenceCheckpointCompatibility(elements, styleReferenceSource);
   setStyleReferenceSource(null);
@@ -1862,6 +1937,96 @@ export function renderApp(rootElement: HTMLElement) {
     void refreshRemoveBackgroundModelOptionsForSelectedPreset(elements);
   });
 
+  /**
+   * The amber dot beside every prompt field.
+   *
+   * Deliberately NOT a tool screen. Enhancing a prompt is something you do to
+   * the box you are already typing in, and sending the artist to another screen
+   * to do it would cost more than it saves -- so it reuses PROMPT_WALLET_TOOLS,
+   * which already knows every prompt field in the panel and where each one
+   * reports its status.
+   *
+   * It writes the result straight back into the field. The prompt-memory undo
+   * stack listens for "input", so dispatching one gives the original text its
+   * own undo step and Ctrl+Z brings it back -- the same contract Load from
+   * Wallet already has.
+   *
+   * `isBusy` is not touched. This is a sub-second call with no sampler, and
+   * locking the whole panel behind it would make a small convenience feel like
+   * a generation. The dot disables itself instead, so a double press cannot
+   * queue two.
+   */
+  async function handleEnhancePrompt(tool: PromptWalletTool) {
+    const positive = elements[tool.positive] as HTMLTextAreaElement;
+    const enhanceButton = elements[tool.enhanceButton] as HTMLElement;
+    // UXP reports an empty field as null where every browser reports "".
+    const draftPrompt = (positive.value ?? "").trim();
+
+    if (!draftPrompt) {
+      tool.report(elements, "Type a prompt before enhancing it.");
+      return;
+    }
+
+    if (enhanceButton.classList.contains("is-working")) {
+      return;
+    }
+
+    enhanceButton.classList.add("is-working");
+    enhanceButton.classList.add("is-disabled");
+    enhanceButton.setAttribute("aria-disabled", "true");
+    tool.report(elements, "Enhancing prompt...");
+
+    try {
+      const client = new ComfyClient(elements.serverUrl.value);
+      await client.checkOnline();
+
+      const buildResult = await buildEnhancePromptWorkflow({ draftPrompt });
+      const textOutputNodeId = getPresetTextOutputNodeId(buildResult.preset);
+      const promptId = await client.submitPrompt(buildResult.workflow);
+      const historyItem = await client.pollUntilTextComplete(promptId, {
+        preferredNodeId: textOutputNodeId,
+        onTick: (message) => tool.report(elements, message)
+      });
+      const enhancedPrompt = (
+        await client.retrieveFirstOutputText(promptId, historyItem, { preferredNodeId: textOutputNodeId })
+      ).trim();
+
+      if (!enhancedPrompt) {
+        tool.report(elements, "The expander returned nothing. Your prompt is unchanged.");
+        return;
+      }
+
+      positive.value = enhancedPrompt;
+      positive.dispatchEvent(new Event("input", { bubbles: true }));
+      tool.report(elements, "Prompt enhanced. Undo to get your original back.");
+    } catch (caughtError) {
+      tool.report(elements, "Enhance failed: " + getErrorMessage(caughtError));
+      console.error("[OpenLayer] Enhance Prompt failed", getTechnicalErrorDetails(caughtError));
+    } finally {
+      enhanceButton.classList.remove("is-working");
+      // Re-derived rather than assumed: the field may have been edited or
+      // cleared while the request was in flight.
+      const stillHasText = Boolean((positive.value ?? "").trim());
+      enhanceButton.classList.toggle("is-disabled", !stillHasText);
+      enhanceButton.setAttribute("aria-disabled", String(!stillHasText));
+    }
+  }
+
+  for (const walletTool of PROMPT_WALLET_TOOLS) {
+    const enhanceButton = elements[walletTool.enhanceButton] as HTMLElement;
+
+    enhanceButton.addEventListener("click", () => {
+      if (!enhanceButton.classList.contains("is-disabled")) {
+        void handleEnhancePrompt(walletTool);
+      }
+    });
+  }
+
+  elements.layerMapsWorkflow.addEventListener("change", () => {
+    syncLayerMapsPresetUi();
+    void refreshLayerMapsModelOptionsForSelectedPreset(elements);
+  });
+
   elements.upscaleModel.addEventListener("change", () => {
     updateUpscaleCompatibility(elements, upscaleSource);
   });
@@ -1946,6 +2111,7 @@ export function renderApp(rootElement: HTMLElement) {
       await refreshOutpaintModelOptionsForSelectedPreset(elements, client);
       await refreshUpscaleModelOptionsForSelectedPreset(elements, client);
       await refreshRemoveBackgroundModelOptionsForSelectedPreset(elements, client);
+      await refreshLayerMapsModelOptionsForSelectedPreset(elements, client);
       await refreshStyleReferenceModelOptionsForSelectedPreset(elements, client);
       await refreshMultiReferenceModelOptionsForSelectedPreset(elements, client);
       await refreshAllLoraOptions(elements, client);
@@ -2544,6 +2710,12 @@ export function renderApp(rootElement: HTMLElement) {
       diagnostics: setRemoveBackgroundDiagnostics,
       error: setRemoveBackgroundError,
       progress: setRemoveBackgroundProgressPreview
+    },
+    "layer-maps": {
+      status: setLayerMapsStatus,
+      diagnostics: setLayerMapsDiagnostics,
+      error: setLayerMapsError,
+      progress: setLayerMapsProgressPreview
     },
     "prompt-from-layer": { status: setPromptLayerStatus, diagnostics: setPromptLayerDiagnostics, error: setPromptLayerError },
     "style-reference": { status: setStyleReferenceStatus, diagnostics: setStyleReferenceDiagnostics, error: setStyleReferenceError, progress: setStyleReferenceProgressPreview },
@@ -3528,6 +3700,240 @@ export function renderApp(rootElement: HTMLElement) {
     } catch (caughtError) {
       setRemoveBackgroundStatus(elements, "Import failed.", "error");
       setRemoveBackgroundError(elements, getErrorMessage(caughtError));
+    }
+  }
+
+  async function handleCaptureLayerMapsSource() {
+    await captureLayerMapsSourceImage({
+      progressMessage: "Capturing active Photoshop layer for Layer Maps...",
+      statusMessage: "Capturing active layer...",
+      successMessage: "Source captured.",
+      capture: exportActiveLayerForImageToImage
+    });
+  }
+
+  async function handleCaptureLayerMapsCanvasSource() {
+    await captureLayerMapsSourceImage({
+      progressMessage: "Capturing Photoshop canvas for Layer Maps...",
+      statusMessage: "Capturing canvas...",
+      successMessage: "Canvas captured.",
+      capture: exportCanvasForImageToImage
+    });
+  }
+
+  async function captureLayerMapsSourceImage(options: {
+    progressMessage: string;
+    statusMessage: string;
+    successMessage: string;
+    capture: () => Promise<ExportedSourceImage>;
+  }) {
+    setLayerMapsDiagnostics(elements, options.progressMessage);
+    setLayerMapsError(elements, "");
+    setLayerMapsStatus(elements, options.statusMessage, "idle");
+
+    try {
+      const exportedSource = await options.capture();
+      const sourcePreview = objectUrls.create(exportedSource.blob);
+      setLayerMapsSource({
+        ...exportedSource,
+        previewUrl: sourcePreview
+      });
+      setLayerMapsStatus(elements, options.successMessage, "ready");
+      setLayerMapsDiagnostics(
+        elements,
+        createSourceCaptureMessage(exportedSource, " for a layer map") +
+          " Press " + readLayerMapsActionLabel() + "."
+      );
+    } catch (caughtError) {
+      setLayerMapsSource(null);
+      setLayerMapsStatus(elements, "Capture failed.", "error");
+      setLayerMapsError(elements, getErrorMessage(caughtError));
+    }
+  }
+
+  function handleToggleLayerMapsAutoImport() {
+    layerMapsImportAutomatically = !layerMapsImportAutomatically;
+    updateLayerMapsAutoImportToggle(elements, layerMapsImportAutomatically);
+    setLayerMapsDiagnostics(
+      elements,
+      layerMapsImportAutomatically ? "Layer Maps auto import is on." : "Layer Maps auto import is off."
+    );
+  }
+
+  function readLayerMapsPreset() {
+    return getWorkflowPreset(readSelectValue(elements.layerMapsWorkflow, DEFAULT_LAYER_MAPS_WORKFLOW));
+  }
+
+  function readLayerMapsActionLabel() {
+    return getWorkflowCapability(readLayerMapsPreset()).uiHints.primaryActionLabel;
+  }
+
+  /**
+   * The three map presets differ in exactly two visible ways: what the Generate
+   * button says, and whether there is a model to choose at all. Line art and
+   * normals each load one fixed annotator, so showing them a model picker would
+   * invent a decision the artist does not have.
+   */
+  function syncLayerMapsPresetUi() {
+    const capability = getWorkflowCapability(readLayerMapsPreset());
+
+    elements.generateLayerMapsButton.textContent = capability.uiHints.primaryActionLabel;
+    elements.layerMapsModelField.hidden = !capability.uiHints.showModelSelector;
+    elements.layerMapsHint.textContent = capability.uiHints.experimentalNote ?? "";
+  }
+
+  /**
+   * No prompt, no seed, no sampler: a preprocessor reads an image and returns a
+   * pass. The map always comes back at the captured source's exact pixel size,
+   * which is what lets it sit straight over the layer it was read from.
+   */
+  async function handleGenerateLayerMaps() {
+    if (blockRegularGenerationDuringLivePainting((message) => setLayerMapsStatus(elements, message, "error"))) {
+      return;
+    }
+
+    if (!layerMapsSource) {
+      setLayerMapsError(elements, "Capture the active Photoshop layer or canvas before reading a map from it.");
+      setLayerMapsStatus(elements, "Source required.", "error");
+      return;
+    }
+
+    setLayerMapsError(elements, "");
+    setLayerMapsResult(null);
+    busyTool = "layer-maps";
+    isBusy = true;
+    syncBusy();
+    setLayerMapsStatus(elements, "Preparing map workflow...", "idle");
+    setLayerMapsProgressPreview(elements, "Preparing map workflow...");
+
+    try {
+      const preset = readLayerMapsPreset();
+      const capability = getWorkflowCapability(preset);
+      // Only the depth preset has weights to choose. Passing a model name for
+      // the other two would target an injection point they do not have.
+      const modelName = capability.uiHints.showModelSelector ? readSelectValue(elements.layerMapsModel) : undefined;
+      const client = new ComfyClient(elements.serverUrl.value);
+
+      setLayerMapsDiagnostics(
+        elements,
+        createWorkflowDiagnostics(preset, modelName ?? "", createSourceInputAvailability(layerMapsSource))
+      );
+      await client.checkOnline();
+
+      setLayerMapsStatus(elements, "Uploading source image to ComfyUI...", "idle");
+      setLayerMapsProgressPreview(elements, "Uploading source image...");
+      const sourceImageName = await client.uploadImage(layerMapsSource.blob, layerMapsSource.filename);
+      const buildResult = await buildLayerMapsWorkflow({
+        presetId: preset.id,
+        sourceImageName,
+        sourceWidth: layerMapsSource.width,
+        sourceHeight: layerMapsSource.height,
+        modelName
+      });
+
+      // A const, not the mutable field: the commit closure runs after awaits.
+      const capturedSource = layerMapsSource;
+      const passLabel = capability.artistLabel.toLowerCase();
+      const generatedResult = await generation.runPipeline({
+        toolType: "layer-maps",
+        client,
+        workflow: buildResult.workflow,
+        preferredNodeId: getSaveImageNodeId(buildResult.preset),
+        originatingDocument: capturedSource.originatingDocument,
+        ui: createPipelineUi("layer-maps", elements.layerMapsStatusProgress),
+        messages: {
+          submitStatus: "Submitting map prompt...",
+          submitPreview: "Submitting prompt to ComfyUI...",
+          generateStatus: "Reading the " + passLabel + "...",
+          generatePreview: "Reading the " + passLabel + "...",
+          retrieveStatus: "Retrieving map...",
+          retrievePreview: "Retrieving final image...",
+          livePreview: "Live ComfyUI preview..."
+        },
+        commit: (generatedResult) => {
+          setLayerMapsResult(generatedResult);
+          addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
+            prompt: capability.artistLabel + " from " + capturedSource.sourceName,
+            checkpointName: modelName ?? capability.artistLabel,
+            modelName: modelName ?? capability.artistLabel,
+            workflowPreset: buildResult.preset.id,
+            toolType: "layer-maps",
+            seed: 0,
+            sizeLabel: capability.artistLabel,
+            dimensions: capturedSource.width + " x " + capturedSource.height,
+            sourceMode: capturedSource.sourceName,
+            experimental: buildResult.preset.status === "experimental"
+          });
+        }
+      });
+
+      if (!generatedResult) {
+        return;
+      }
+
+      setLayerMapsStatus(elements, capability.artistLabel + " complete.", "ready");
+      setLayerMapsDiagnostics(
+        elements,
+        "Source uploaded as " + sourceImageName + ". Workflow: " + buildResult.preset.id +
+          ". Map size: " + capturedSource.width + " x " + capturedSource.height + "."
+      );
+
+      if (layerMapsImportAutomatically) {
+        setLayerMapsStatus(elements, capability.artistLabel + " complete. Auto-importing...", "idle");
+        await handleImportLayerMaps();
+      }
+    } catch (caughtError) {
+      if (isGenerationCancelledError(caughtError)) {
+        showGenerationCancelled("layer-maps");
+        return;
+      }
+
+      setLayerMapsStatus(elements, "Map failed.", "error");
+      setLayerMapsError(elements, getErrorMessage(caughtError));
+      console.error("[OpenLayer] Layer Maps failed", getTechnicalErrorDetails(caughtError));
+    } finally {
+      isBusy = false;
+      busyTool = null;
+      syncBusy();
+    }
+  }
+
+  async function handleImportLayerMaps() {
+    if (!layerMapsResult) {
+      setLayerMapsError(elements, "Generate a map before importing.");
+      return;
+    }
+
+    setLayerMapsError(elements, "");
+    setLayerMapsStatus(elements, "Importing map into Photoshop...", "idle");
+
+    try {
+      const capability = getWorkflowCapability(readLayerMapsPreset());
+      const layerName = createLayerName("OpenLayer_" + capability.artistLabel.replace(/\s+/g, ""));
+      const importedLayerName = await importGeneratedImageAsLayer({
+        blob: layerMapsResult.blob,
+        originatingDocument: layerMapsResult.originatingDocument,
+        layerName,
+        onProgress: (message) => {
+          setLayerMapsStatus(elements, message, "idle");
+          setLayerMapsDiagnostics(elements, message);
+        }
+      });
+      setLayerMapsStatus(elements, "Imported layer: " + importedLayerName, "ready");
+      flashImported(elements.layerMapsStatusText);
+      markHistoryImported(elements, historyEntries, layerMapsResult, importedLayerName);
+      const metadataMessage = await writeMetadataForImportedResult(
+        historyEntries,
+        layerMapsResult,
+        importedLayerName,
+        (message) => {
+          setLayerMapsDiagnostics(elements, message);
+        }
+      );
+      setLayerMapsDiagnostics(elements, "Layer created: " + importedLayerName + ". " + metadataMessage);
+    } catch (caughtError) {
+      setLayerMapsStatus(elements, "Import failed.", "error");
+      setLayerMapsError(elements, getErrorMessage(caughtError));
     }
   }
 
@@ -6610,6 +7016,26 @@ export function renderApp(rootElement: HTMLElement) {
     removeBackgroundResultPanel.showProgress(message, blob);
   }
 
+  function setLayerMapsSource(nextSource: ImageSourceState | null) {
+    layerMapsSource = nextSource;
+    layerMapsSourcePanel.show(layerMapsSource && {
+      previewUrl: layerMapsSource.previewUrl,
+      title: layerMapsSource.sourceName,
+      meta: createSourceMetaText(layerMapsSource)
+    });
+    syncBusy();
+  }
+
+  function setLayerMapsResult(nextResult: AppGeneratedImageResult | null) {
+    layerMapsResult = nextResult;
+    layerMapsResultPanel.showResult(layerMapsResult?.blob ?? null);
+    syncBusy();
+  }
+
+  function setLayerMapsProgressPreview(elements: AppElements, message: string, blob?: Blob) {
+    layerMapsResultPanel.showProgress(message, blob);
+  }
+
   function setStyleReferenceSource(nextSource: ImageSourceState | null) {
     styleReferenceSource = nextSource;
     styleReferenceSourcePanel.show(styleReferenceSource && {
@@ -6684,6 +7110,7 @@ export function renderApp(rootElement: HTMLElement) {
     elements.promptFromLayerView.hidden = currentView !== "prompt-from-layer";
     elements.upscaleView.hidden = currentView !== "upscale";
     elements.removeBackgroundView.hidden = currentView !== "remove-background";
+    elements.layerMapsView.hidden = currentView !== "layer-maps";
     elements.styleReferenceView.hidden = currentView !== "style-reference";
     elements.multiReferenceView.hidden = currentView !== "multi-reference";
     elements.unflattenView.hidden = currentView !== "unflatten";
@@ -6828,6 +7255,12 @@ function updateRemoveBackgroundAutoImportToggle(elements: AppElements, isEnabled
   elements.removeBackgroundAutoImportToggle.textContent = isEnabled ? "Auto Import On" : "Import Automatically";
   elements.removeBackgroundAutoImportToggle.setAttribute("aria-pressed", String(isEnabled));
   elements.removeBackgroundAutoImportToggle.classList.toggle("is-active", isEnabled);
+}
+
+function updateLayerMapsAutoImportToggle(elements: AppElements, isEnabled: boolean) {
+  elements.layerMapsAutoImportToggle.textContent = isEnabled ? "Auto Import On" : "Import Automatically";
+  elements.layerMapsAutoImportToggle.setAttribute("aria-pressed", String(isEnabled));
+  elements.layerMapsAutoImportToggle.classList.toggle("is-active", isEnabled);
 }
 
 function updateExperimentalCheckpointToggle(elements: AppElements, isEnabled: boolean) {
@@ -7167,6 +7600,49 @@ async function refreshOutpaintModelOptionsForSelectedPreset(
   }
 
   updateOutpaintCheckpointCompatibility(elements);
+}
+
+/**
+ * Only the depth preset has weights to list. The other two load a fixed
+ * annotator, and asking `/object_info` for their `resolution` input would
+ * return numbers to show in a model dropdown -- so this returns early rather
+ * than filling a select the artist should never be shown.
+ */
+async function refreshLayerMapsModelOptionsForSelectedPreset(
+  elements: AppElements,
+  client = new ComfyClient(elements.serverUrl.value),
+  preferredValue = readSelectValue(elements.layerMapsModel)
+) {
+  const preset = getWorkflowPreset(readSelectValue(elements.layerMapsWorkflow, DEFAULT_LAYER_MAPS_WORKFLOW));
+
+  if (!getWorkflowCapability(preset).uiHints.showModelSelector) {
+    return;
+  }
+
+  try {
+    // Filtered, not taken as given: the node's enum advertises a Giant size
+    // whose weights were never published, so it is dropped here as well as from
+    // the offline fallback list. See UNAVAILABLE_DEPTH_MAP_MODELS.
+    const modelNames = (await client.getModelNamesForPreset(preset)).filter(
+      (modelName) => !UNAVAILABLE_DEPTH_MAP_MODELS.includes(modelName)
+    );
+
+    if (modelNames.length > 0) {
+      // Base stays the default when the artist has not picked something else:
+      // Large was measured returning an unreadable near-white band on a wide
+      // scene, and it is the one downloadable size under a non-commercial
+      // licence. See DEPTH_MAP_MODEL_SOURCE in presetRegistry.ts.
+      const preferredModel = modelNames.includes(preferredValue)
+        ? preferredValue
+        : modelNames.includes(DEFAULT_DEPTH_MAP_MODEL)
+          ? DEFAULT_DEPTH_MAP_MODEL
+          : undefined;
+
+      fillSingleCheckpointSelect(elements.layerMapsModel, modelNames, preferredModel);
+    }
+  } catch {
+    // Keep the fallback list if ComfyUI is offline.
+  }
 }
 
 async function refreshRemoveBackgroundModelOptionsForSelectedPreset(

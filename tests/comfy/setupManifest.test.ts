@@ -78,7 +78,7 @@ describe("setup manifest", () => {
     expect(sharedVae?.usedByPresets).toContain("txt2img-z-image-turbo");
   });
 
-  it("requires only the five custom node packages that are left", () => {
+  it("requires only the six custom node packages that are left", () => {
     const manifest = build();
 
     // ComfyUI-GGUF joined when the Flux.2 preset landed. It is worth naming
@@ -93,7 +93,12 @@ describe("setup manifest", () => {
       "ComfyUI_IPAdapter_plus",
       "ComfyUI-Florence2",
       "ComfyUI-GGUF",
-      "comfyui-inpaint-cropandstitch"
+      "comfyui-inpaint-cropandstitch",
+      // ComfyUI-KJNodes joined for Enhance Prompt (v0.30) and is the newest and
+      // narrowest dependency here: OpenLayer uses exactly one class from a very
+      // large utility pack. Naming it is what lets Setup say which install is
+      // missing instead of reporting an unexplained absent node.
+      "ComfyUI-KJNodes"
     ]);
 
     for (const node of manifest.customNodes) {

@@ -30,7 +30,7 @@ describe("IMPORT_TARGETS", () => {
       .map(([toolId]) => toolId)
       .sort();
 
-    expect(withAuto).toEqual(["image-to-image", "live-painting",
+    expect(withAuto).toEqual(["image-to-image", "layer-maps", "live-painting",
       "remove-background", "text-to-image"]);
   });
 });

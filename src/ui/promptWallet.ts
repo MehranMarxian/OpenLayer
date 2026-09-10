@@ -59,6 +59,12 @@ export type PromptWalletTool = {
   negative?: keyof AppElements;
   saveButton: keyof AppElements;
   loadButton: keyof AppElements;
+  /**
+   * The amber dot. Unlike the other two this one calls out to ComfyUI, so the
+   * click handler lives in App.ts where the client and the busy state are --
+   * this table only names the button so both halves agree on which one it is.
+   */
+  enhanceButton: keyof AppElements;
   /** The view Load returns to once a prompt is picked. */
   view: AppView;
   /** The tool's name, for "Choose a prompt for <label>". */
@@ -78,6 +84,7 @@ export const PROMPT_WALLET_TOOLS: readonly PromptWalletTool[] = [
     negative: "negativePrompt",
     saveButton: "promptWalletSave",
     loadButton: "promptWalletLoad",
+    enhanceButton: "promptWalletEnhance",
     view: "text-to-image",
     label: "Text to Image",
     report: setTextToImageDiagnostics
@@ -87,6 +94,7 @@ export const PROMPT_WALLET_TOOLS: readonly PromptWalletTool[] = [
     negative: "imgNegativePrompt",
     saveButton: "imgPromptWalletSave",
     loadButton: "imgPromptWalletLoad",
+    enhanceButton: "imgPromptWalletEnhance",
     view: "image-to-image",
     label: "Image to Image",
     report: setImageDiagnostics
@@ -96,6 +104,7 @@ export const PROMPT_WALLET_TOOLS: readonly PromptWalletTool[] = [
     negative: "sketchNegativePrompt",
     saveButton: "sketchPromptWalletSave",
     loadButton: "sketchPromptWalletLoad",
+    enhanceButton: "sketchPromptWalletEnhance",
     view: "sketch-to-image",
     label: "Sketch to Image",
     report: setSketchDiagnostics
@@ -105,6 +114,7 @@ export const PROMPT_WALLET_TOOLS: readonly PromptWalletTool[] = [
     negative: "inpaintNegativePrompt",
     saveButton: "inpaintPromptWalletSave",
     loadButton: "inpaintPromptWalletLoad",
+    enhanceButton: "inpaintPromptWalletEnhance",
     view: "inpaint",
     label: "Inpaint",
     report: setInpaintDiagnostics
@@ -115,6 +125,7 @@ export const PROMPT_WALLET_TOOLS: readonly PromptWalletTool[] = [
     positive: "outpaintPrompt",
     saveButton: "outpaintPromptWalletSave",
     loadButton: "outpaintPromptWalletLoad",
+    enhanceButton: "outpaintPromptWalletEnhance",
     view: "outpaint",
     label: "Outpaint",
     report: setOutpaintDiagnostics
@@ -124,6 +135,7 @@ export const PROMPT_WALLET_TOOLS: readonly PromptWalletTool[] = [
     negative: "liveNegativePrompt",
     saveButton: "livePromptWalletSave",
     loadButton: "livePromptWalletLoad",
+    enhanceButton: "livePromptWalletEnhance",
     view: "live-painting",
     label: "Live Painting",
     report: (walletElements, message) => {
@@ -135,6 +147,7 @@ export const PROMPT_WALLET_TOOLS: readonly PromptWalletTool[] = [
     negative: "styleReferenceNegativePrompt",
     saveButton: "styleReferencePromptWalletSave",
     loadButton: "styleReferencePromptWalletLoad",
+    enhanceButton: "styleReferencePromptWalletEnhance",
     view: "style-reference",
     label: "Style Reference",
     report: setStyleReferenceDiagnostics
@@ -144,6 +157,7 @@ export const PROMPT_WALLET_TOOLS: readonly PromptWalletTool[] = [
     negative: "multiReferenceNegativePrompt",
     saveButton: "multiReferencePromptWalletSave",
     loadButton: "multiReferencePromptWalletLoad",
+    enhanceButton: "multiReferencePromptWalletEnhance",
     view: "multi-reference",
     label: "Multi-Reference",
     report: setMultiReferenceDiagnostics
@@ -158,6 +172,7 @@ export const PROMPT_WALLET_TOOLS: readonly PromptWalletTool[] = [
     positive: "unflattenPrompt",
     saveButton: "unflattenPromptWalletSave",
     loadButton: "unflattenPromptWalletLoad",
+    enhanceButton: "unflattenPromptWalletEnhance",
     view: "unflatten",
     label: "Unflatten",
     report: setUnflattenDiagnostics
@@ -170,6 +185,7 @@ export const PROMPT_WALLET_TOOLS: readonly PromptWalletTool[] = [
     positive: "promptLayerGeneratedText",
     saveButton: "promptLayerGeneratedTextWalletSave",
     loadButton: "promptLayerGeneratedTextWalletLoad",
+    enhanceButton: "promptLayerGeneratedTextWalletEnhance",
     view: "prompt-from-layer",
     label: "Prompt from Layer",
     report: setPromptLayerDiagnostics
@@ -245,8 +261,17 @@ export function createPromptWallet(
   const syncButtons = () => {
     for (const tool of tools) {
       const positive = elements[tool.positive] as HTMLTextAreaElement;
-      setDisabled(elements[tool.saveButton] as HTMLElement, !readValue(positive).trim());
+      const hasText = Boolean(readValue(positive).trim());
+      setDisabled(elements[tool.saveButton] as HTMLElement, !hasText);
       setDisabled(elements[tool.loadButton] as HTMLElement, entries.length === 0);
+      // Same gate as Save, and for the same reason: there is nothing to expand
+      // until something is typed. Never re-enabled here while a run is in
+      // flight -- App.ts owns that, and this would fight it.
+      const enhance = elements[tool.enhanceButton] as HTMLElement;
+
+      if (!enhance.classList.contains("is-working")) {
+        setDisabled(enhance, !hasText);
+      }
     }
   };
 

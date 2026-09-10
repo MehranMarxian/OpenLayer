@@ -34,7 +34,11 @@ export const AGENT_TOOL_IDS = [
   "prompt_from_layer",
   "style_reference",
   "multi_reference",
-  "unflatten"
+  "unflatten",
+  // Added in v0.30. Remove Background shipped in v0.25 without a bridge entry,
+  // so an agent could drive twelve of the panel's tools and not that one.
+  "remove_background",
+  "layer_maps"
 ] as const;
 
 export type AgentToolId = (typeof AGENT_TOOL_IDS)[number];

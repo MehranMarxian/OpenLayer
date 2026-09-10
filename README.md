@@ -33,13 +33,14 @@
 - **Nothing leaves your computer.** ComfyUI runs on your own machine, on your own models.
 - **Results arrive as real Photoshop layers** — named, positioned, and editable. Not a flattened PNG
   you paste in and hope for.
-- **Twelve generation tools**, from text-to-image through inpainting and background removal to
-  multi-image composition, plus an experimental one that splits a flat picture back into layers.
+- **Thirteen generation tools**, from text-to-image through inpainting and background removal to
+  multi-image composition and depth/line-art/normal passes, plus an experimental one that splits a
+  flat picture back into layers.
 
 **You need:** Photoshop 2024+ · a local [ComfyUI](https://github.com/comfyanonymous/ComfyUI) server ·
 a GPU with 8 GB VRAM or more (12 GB is what this project targets).
 
-> **Alpha.** `v0.25.0-alpha` is a public testing checkpoint, not production software. It is stable
+> **Alpha.** `v0.30.0-alpha` is a public testing checkpoint, not production software. It is stable
 > enough to work with, and honest about where it stops — see [what works and what does
 > not](docs/known-limitations.md).
 
@@ -57,6 +58,7 @@ anywhere; ComfyUI runs on your own machine.
 | **Outpaint** | Extend canvas content beyond the edges |
 | **Upscale** | Enhance generated or selected layers |
 | **Remove Background** | Cut the subject out onto its own layer, with real alpha |
+| **Layer Maps** | Read a depth, line-art or normal pass off a layer, at its exact size |
 | **Prompt from Layer** | Describe a layer back into prompt text |
 | **Unflatten** ✦ | Split one flat layer into separate layers, each with real transparency |
 | **Live Painting** | Paint and watch the model respond live |
@@ -68,7 +70,7 @@ anywhere; ComfyUI runs on your own machine.
 
 <sub>✦ experimental</sub>
 
-**An AI assistant can drive it too.** All ten generation tools are reachable over the Model Context
+**An AI assistant can drive it too.** Every generation tool is reachable over the Model Context
 Protocol, so Claude or Codex can work the panel's own buttons in your open document — "generate a
 foggy forest, then upscale it" instead of eleven clicks. Off by default, and it runs entirely on your
 machine: see [Agent Bridge (MCP)](#agent-bridge-mcp) for what it is and how to start it.

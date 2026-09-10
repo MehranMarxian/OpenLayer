@@ -33,6 +33,8 @@ import {
   BuildStyleReferenceWorkflowOptions,
   BuildUnflattenWorkflowOptions,
   BuildRemoveBackgroundWorkflowOptions,
+  BuildLayerMapsWorkflowOptions,
+  BuildEnhancePromptWorkflowOptions,
   BuildUpscaleWorkflowOptions,
   BuildWorkflowOptions,
   BuildWorkflowResult,
@@ -438,6 +440,108 @@ export async function buildRemoveBackgroundWorkflow(
 
   setPresetInput(workflow, preset, "sourceImage", options.sourceImageName, true);
   setPresetInput(workflow, preset, "checkpoint", options.modelName, true);
+
+  validateWorkflowForPreset(workflow, preset);
+
+  return {
+    workflow,
+    seed: 0,
+    preset
+  };
+}
+
+/**
+ * Depth, line art and normal passes. Seed is 0 and stays 0 for the same reason
+ * as Remove Background: there is no sampler in any of these graphs, and every
+ * one of these preprocessors is deterministic, so the same layer returns the
+ * same map every time.
+ *
+ * `resolution` is set here rather than left at the template's default. It is
+ * the SHORT side the preprocessor works at -- not the output size, which the
+ * graph's ImageScale pins to the source -- so it acts purely as a detail dial.
+ * Deriving it from the source's own short side means a small layer is not
+ * upsampled into invented detail and a large one is not read through a 512px
+ * keyhole, and the clamp keeps a 6000px document from asking for a pass that
+ * costs minutes for detail no one will see. Rounded to the node's 64px step.
+ */
+const LAYER_MAP_MIN_DETAIL = 512;
+const LAYER_MAP_MAX_DETAIL = 1536;
+
+export function resolveLayerMapDetail(sourceWidth: number, sourceHeight: number): number {
+  const shortSide = Math.min(sourceWidth, sourceHeight);
+  const clamped = Math.min(Math.max(shortSide, LAYER_MAP_MIN_DETAIL), LAYER_MAP_MAX_DETAIL);
+
+  return Math.round(clamped / 64) * 64;
+}
+
+/**
+ * The prompt expander. Seed is 0 and stays 0 because the node has none:
+ * SuperPrompt-v1 decodes greedily, and the same draft with the same
+ * instruction was measured returning a byte-identical expansion twice.
+ *
+ * 128 tokens by default rather than the node's 4096 ceiling. This is a 248M
+ * model; given a long budget it keeps going after it has run out of things to
+ * say and starts padding with stock phrasing, so the cap is a quality setting
+ * as much as a length one.
+ */
+const DEFAULT_ENHANCE_PROMPT_INSTRUCTION = "Expand the following prompt to add more detail";
+const DEFAULT_ENHANCE_PROMPT_MAX_TOKENS = 128;
+
+export async function buildEnhancePromptWorkflow(
+  options: BuildEnhancePromptWorkflowOptions
+): Promise<BuildWorkflowResult> {
+  const preset = getWorkflowPreset(options.presetId ?? "enhance-prompt-superprompt");
+  assertPresetMode(preset, "enhance-prompt");
+  assertPresetRunnable(preset);
+  const workflow = await cloneWorkflowTemplate(preset);
+
+  validateWorkflowForPreset(workflow, preset);
+
+  setPresetInput(workflow, preset, "positivePrompt", options.draftPrompt, true);
+  setPresetInput(workflow, preset, "task", options.instruction ?? DEFAULT_ENHANCE_PROMPT_INSTRUCTION, true);
+  setPresetInput(workflow, preset, "numBeams", options.maxNewTokens ?? DEFAULT_ENHANCE_PROMPT_MAX_TOKENS, true);
+
+  validateWorkflowForPreset(workflow, preset);
+
+  return {
+    workflow,
+    seed: 0,
+    preset
+  };
+}
+
+export async function buildLayerMapsWorkflow(
+  options: BuildLayerMapsWorkflowOptions
+): Promise<BuildWorkflowResult> {
+  const preset = getWorkflowPreset(options.presetId ?? "layer-maps-depth");
+  assertPresetMode(preset, "layer-maps");
+  assertPresetRunnable(preset);
+  const workflow = await cloneWorkflowTemplate(preset);
+
+  validateWorkflowForPreset(workflow, preset);
+
+  setPresetInput(workflow, preset, "sourceImage", options.sourceImageName, true);
+  setPresetInput(workflow, preset, "width", options.sourceWidth, true);
+  setPresetInput(workflow, preset, "height", options.sourceHeight, true);
+
+  // Only the depth preset offers a choice of weights. Line art and normals
+  // have no `checkpoint` injection target at all, so asking for one would
+  // throw rather than quietly do nothing.
+  if (options.modelName && preset.injections.checkpoint) {
+    setPresetInput(workflow, preset, "checkpoint", options.modelName, true);
+  }
+
+  const detail = resolveLayerMapDetail(options.sourceWidth, options.sourceHeight);
+
+  for (const requirement of preset.requiredNodes) {
+    if (requirement.requiredInputs.includes("resolution")) {
+      const node = workflow[requirement.id];
+
+      if (node) {
+        node.inputs.resolution = detail;
+      }
+    }
+  }
 
   validateWorkflowForPreset(workflow, preset);
 

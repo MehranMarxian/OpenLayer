@@ -135,6 +135,19 @@ export const UPSCALE_SCHEMA = {
   model: z.string().optional().describe("Upscale model filename as listed by ComfyUI.")
 };
 
+export const REMOVE_BACKGROUND_SCHEMA = {
+  workflow,
+  model: z.string().optional().describe("Background removal model filename as listed by ComfyUI.")
+};
+
+export const LAYER_MAPS_SCHEMA = {
+  workflow,
+  model: z
+    .string()
+    .optional()
+    .describe("Depth estimator filename. Ignored by the line art and normal presets, which have no choice of weights.")
+};
+
 export const PROMPT_FROM_LAYER_SCHEMA = {
   task: z.string().optional().describe("Captioning task id, as listed in the panel."),
   numBeams: z.number().int().min(1).max(32).optional()
@@ -317,6 +330,29 @@ export const MCP_TOOLS = [
       "minutes. Only the parameters you pass are changed. Returns the panel's own status " +
       "message.",
     schema: UNFLATTEN_SCHEMA,
+    timeoutMs: GENERATION_TIMEOUT_MS
+  },
+  {
+    name: "remove_background",
+    title: "Remove Background",
+    description:
+      "Cut the subject out of the layer or canvas already captured for Remove Background in the " +
+      "OpenLayer panel, returning it with real alpha. Requires a source captured in the panel " +
+      "first — this tool cannot capture one. No prompt, checkpoint or sampling is involved. Only " +
+      "the parameters you pass are changed. Returns the panel's own status message.",
+    schema: REMOVE_BACKGROUND_SCHEMA,
+    timeoutMs: GENERATION_TIMEOUT_MS
+  },
+  {
+    name: "layer_maps",
+    title: "Layer Maps",
+    description:
+      "Read a depth, line-art or normal pass off the layer or canvas already captured for Layer " +
+      "Maps in the OpenLayer panel. Choose which pass with the `workflow` parameter " +
+      "(layer-maps-depth, layer-maps-lineart, layer-maps-normal). The map comes back at the " +
+      "captured source's exact pixel size. Requires a source captured in the panel first — this " +
+      "tool cannot capture one. Returns the panel's own status message.",
+    schema: LAYER_MAPS_SCHEMA,
     timeoutMs: GENERATION_TIMEOUT_MS
   }
 ];

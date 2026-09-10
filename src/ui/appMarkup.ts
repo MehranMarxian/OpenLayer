@@ -21,6 +21,8 @@ import {
   DEFAULT_PROMPT_LAYER_TASK,
   DEFAULT_SERVER_URL,
   FALLBACK_BACKGROUND_REMOVAL_MODELS,
+  FALLBACK_DEPTH_MAP_MODELS,
+  DEFAULT_DEPTH_MAP_MODEL,
   DEFAULT_SKETCH_CONTROL_STRENGTH,
   DEFAULT_SKETCH_DENOISE,
   DEFAULT_SKETCH_STEPS,
@@ -101,6 +103,7 @@ export type AppElements = {
   prompt: HTMLTextAreaElement;
   promptWalletSave: HTMLElement;
   promptWalletLoad: HTMLElement;
+  promptWalletEnhance: HTMLElement;
   negativePrompt: HTMLTextAreaElement;
   workflow: HTMLSelectElement;
   checkpoint: HTMLSelectElement;
@@ -140,6 +143,7 @@ export type AppElements = {
   imgPrompt: HTMLTextAreaElement;
   imgPromptWalletSave: HTMLElement;
   imgPromptWalletLoad: HTMLElement;
+  imgPromptWalletEnhance: HTMLElement;
   imgNegativePrompt: HTMLTextAreaElement;
   imgWorkflow: HTMLSelectElement;
   imgCheckpoint: HTMLSelectElement;
@@ -154,6 +158,7 @@ export type AppElements = {
   sketchPrompt: HTMLTextAreaElement;
   sketchPromptWalletSave: HTMLElement;
   sketchPromptWalletLoad: HTMLElement;
+  sketchPromptWalletEnhance: HTMLElement;
   sketchNegativePrompt: HTMLTextAreaElement;
   sketchWorkflow: HTMLSelectElement;
   sketchCheckpoint: HTMLSelectElement;
@@ -169,6 +174,7 @@ export type AppElements = {
   inpaintPrompt: HTMLTextAreaElement;
   inpaintPromptWalletSave: HTMLElement;
   inpaintPromptWalletLoad: HTMLElement;
+  inpaintPromptWalletEnhance: HTMLElement;
   inpaintNegativePrompt: HTMLTextAreaElement;
   inpaintWorkflow: HTMLSelectElement;
   inpaintCheckpoint: HTMLSelectElement;
@@ -185,6 +191,7 @@ export type AppElements = {
   outpaintPrompt: HTMLTextAreaElement;
   outpaintPromptWalletSave: HTMLElement;
   outpaintPromptWalletLoad: HTMLElement;
+  outpaintPromptWalletEnhance: HTMLElement;
   outpaintWorkflow: HTMLSelectElement;
   outpaintCheckpoint: HTMLSelectElement;
   outpaintSteps: HTMLInputElement;
@@ -293,6 +300,7 @@ export type AppElements = {
   promptLayerGeneratedText: HTMLTextAreaElement;
   promptLayerGeneratedTextWalletSave: HTMLElement;
   promptLayerGeneratedTextWalletLoad: HTMLElement;
+  promptLayerGeneratedTextWalletEnhance: HTMLElement;
   historyList: HTMLElement;
   settingsUrlValue: HTMLElement;
   settingsCheckpointCount: HTMLElement;
@@ -314,6 +322,7 @@ export type AppElements = {
   livePrompt: HTMLTextAreaElement;
   livePromptWalletSave: HTMLElement;
   livePromptWalletLoad: HTMLElement;
+  livePromptWalletEnhance: HTMLElement;
   liveNegativePrompt: HTMLTextAreaElement;
   liveNegativePromptToggle: HTMLElement;
   liveNegativePromptField: HTMLElement;
@@ -333,6 +342,7 @@ export type AppElements = {
   styleReferencePrompt: HTMLTextAreaElement;
   styleReferencePromptWalletSave: HTMLElement;
   styleReferencePromptWalletLoad: HTMLElement;
+  styleReferencePromptWalletEnhance: HTMLElement;
   styleReferenceNegativePrompt: HTMLTextAreaElement;
   styleReferenceWorkflow: HTMLSelectElement;
   styleReferenceCheckpoint: HTMLSelectElement;
@@ -360,6 +370,7 @@ export type AppElements = {
   multiReferencePrompt: HTMLTextAreaElement;
   multiReferencePromptWalletSave: HTMLElement;
   multiReferencePromptWalletLoad: HTMLElement;
+  multiReferencePromptWalletEnhance: HTMLElement;
   multiReferenceNegativePrompt: HTMLTextAreaElement;
   multiReferenceWorkflow: HTMLSelectElement;
   multiReferenceCheckpoint: HTMLSelectElement;
@@ -402,9 +413,30 @@ export type AppElements = {
   removeBackgroundResultPreviewPanel: HTMLElement;
   importRemoveBackgroundButton: HTMLElement;
   removeBackgroundAutoImportToggle: HTMLElement;
+  layerMapsView: HTMLElement;
+  captureLayerMapsSourceButton: HTMLElement;
+  captureLayerMapsCanvasSourceButton: HTMLElement;
+  layerMapsSourcePreviewPanel: HTMLElement;
+  layerMapsSourceTitle: HTMLElement;
+  layerMapsSourceMeta: HTMLElement;
+  layerMapsWorkflow: HTMLSelectElement;
+  layerMapsModel: HTMLSelectElement;
+  /** Hidden for line art and normals, which load a fixed annotator. */
+  layerMapsModelField: HTMLElement;
+  layerMapsHint: HTMLElement;
+  generateLayerMapsButton: HTMLElement;
+  layerMapsStatusText: HTMLElement;
+  layerMapsStatusPill: HTMLElement;
+  layerMapsStatusProgress: HTMLElement;
+  layerMapsDiagnosticsText: HTMLElement;
+  layerMapsErrorMessage: HTMLElement;
+  layerMapsResultPreviewPanel: HTMLElement;
+  importLayerMapsButton: HTMLElement;
+  layerMapsAutoImportToggle: HTMLElement;
   unflattenPrompt: HTMLTextAreaElement;
   unflattenPromptWalletSave: HTMLElement;
   unflattenPromptWalletLoad: HTMLElement;
+  unflattenPromptWalletEnhance: HTMLElement;
   unflattenWorkflow: HTMLSelectElement;
   unflattenCheckpoint: HTMLSelectElement;
   unflattenLayerCount: HTMLInputElement;
@@ -1763,6 +1795,82 @@ export function createAppMarkup() {
         </section>
       </section>
 
+      <section class="layer-maps-view image-to-image-view" id="layer-maps-view" aria-label="Layer Maps" hidden>
+        <div class="screen-nav">
+          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
+          <div class="screen-title-block">
+            ${createScreenIconMarkup("layerMaps", "Layer Maps")}
+            <span class="screen-title">Layer Maps</span>
+          </div>
+        </div>
+
+        <section class="panel-section generator-panel source-panel" aria-label="Layer Maps source">
+          <div class="section-heading">
+            <span class="label">Source layer</span>
+            <span class="muted-label">Map input</span>
+          </div>
+          <div class="source-action-row" aria-label="Layer Maps source capture actions">
+            <button class="button source-action-button action-control" id="capture-layer-maps-source" data-openlayer-action="captureLayerMapsSource" type="button">Capture Active Layer</button>
+            <button class="button source-action-button action-control" id="capture-layer-maps-canvas-source" data-openlayer-action="captureLayerMapsCanvasSource" type="button">Capture Canvas</button>
+          </div>
+          <div class="source-card">
+            <div class="source-thumb-frame" id="layer-maps-source-preview-panel">
+              <span class="source-empty">None</span>
+            </div>
+            <div class="source-card-body">
+              <span class="source-title" id="layer-maps-source-title">No source captured</span>
+              <span class="source-card-meta" id="layer-maps-source-meta">Choose active layer or full canvas.</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel-section generator-panel img2img-form-panel" aria-label="Layer Maps settings">
+          <div class="section-heading">
+            <span class="label">Map</span>
+            <span class="muted-label">Pass and model</span>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Map type</span>
+            <select class="select" id="layer-maps-workflow">
+              ${listRunnableWorkflowPresets("layer-maps").map((preset) => `<option value="${preset.id}">${preset.displayName}</option>`).join("")}
+            </select>
+          </div>
+          <div class="field img2img-field" id="layer-maps-model-field">
+            <span class="label">Depth model</span>
+            <select class="select" id="layer-maps-model">
+              ${FALLBACK_DEPTH_MAP_MODELS.map((model) => `<option value="${model}"${model === DEFAULT_DEPTH_MAP_MODEL ? " selected" : ""}>${model}</option>`).join("")}
+            </select>
+          </div>
+          <div class="diagnostics-line layer-maps-hint" id="layer-maps-hint">The map comes back at your layer's exact size, so it sits straight over it.</div>
+          <button class="button button-primary button-generate button-wide action-control" id="generate-layer-maps" data-openlayer-action="generateLayerMaps" type="button">Generate Depth Map</button>
+          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
+        </section>
+
+        <section class="generation-status-panel img2img-status-panel" aria-label="Layer Maps status">
+          <div class="status-bar" role="status">
+            <span class="status-text" id="layer-maps-status-text">Ready.</span>
+            <span class="status-pill idle" id="layer-maps-status-pill">Status</span>
+          </div>
+          <div class="status-progress" id="layer-maps-status-progress" hidden><span></span></div>
+          <div class="diagnostics-line" id="layer-maps-diagnostics-text">Capture a layer, then read a map from it.</div>
+          <div class="error-message" id="layer-maps-error-message" hidden></div>
+        </section>
+
+        <section class="panel-section result-panel img2img-result-panel" aria-label="Layer Maps result">
+          <div class="section-heading">
+            <span class="label">Result preview</span>
+            <span class="muted-label">Map appears here</span>
+          </div>
+          <div class="preview-panel" id="layer-maps-result-preview-panel">
+            <span class="preview-empty">No map yet</span>
+          </div>
+          <div class="import-actions">
+            <button class="button button-import button-import-blue action-control is-disabled" id="import-layer-maps-result" data-openlayer-action="importLayerMaps" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
+            <button class="button auto-import-toggle action-control" id="layer-maps-auto-import-toggle" data-openlayer-action="toggleLayerMapsAutoImport" type="button" aria-pressed="false">Import Automatically</button>
+          </div>
+        </section>
+      </section>
+
       <section class="layer-tools-view" id="layer-tools-view" aria-label="Layer Tools" hidden>
         <div class="screen-nav">
           <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
@@ -2106,6 +2214,7 @@ function createToolIconMarkup(icon: ToolIconName) {
     multiReference: "multi-reference.png",
     unflatten: "unflatten.png",
     removeBackground: "remove-background.png",
+    layerMaps: "layer-maps.png",
     control: "workflow-presets.png",
     workflow: "workflow.png",
     layers: "layer-tools.png",
@@ -2148,7 +2257,14 @@ function createPromptWalletControlsMarkup(fieldId: string) {
     aria-disabled="true"
     aria-label="Load a prompt from the Wallet"
     title="Load a prompt from the Wallet"
-  >↓</button>`;
+  >↓</button><button
+    class="prompt-wallet-dot prompt-wallet-enhance is-disabled"
+    id="${fieldId}-wallet-enhance"
+    type="button"
+    aria-disabled="true"
+    aria-label="Enhance this prompt"
+    title="Enhance this prompt: expand it into a longer, more descriptive one"
+  >✦</button>`;
 }
 
 function createInfoToggleMarkup(targetId: string) {
@@ -2228,6 +2344,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     prompt: getElement<HTMLTextAreaElement>(rootElement, "prompt"),
     promptWalletSave: getElement<HTMLElement>(rootElement, "prompt-wallet-save"),
     promptWalletLoad: getElement<HTMLElement>(rootElement, "prompt-wallet-load"),
+    promptWalletEnhance: getElement<HTMLElement>(rootElement, "prompt-wallet-enhance"),
     negativePrompt: getElement<HTMLTextAreaElement>(rootElement, "negative-prompt"),
     workflow: getElement<HTMLSelectElement>(rootElement, "workflow"),
     checkpoint: getElement<HTMLSelectElement>(rootElement, "checkpoint"),
@@ -2267,6 +2384,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     imgPrompt: getElement<HTMLTextAreaElement>(rootElement, "img-prompt"),
     imgPromptWalletSave: getElement<HTMLElement>(rootElement, "img-prompt-wallet-save"),
     imgPromptWalletLoad: getElement<HTMLElement>(rootElement, "img-prompt-wallet-load"),
+    imgPromptWalletEnhance: getElement<HTMLElement>(rootElement, "img-prompt-wallet-enhance"),
     imgNegativePrompt: getElement<HTMLTextAreaElement>(rootElement, "img-negative-prompt"),
     imgWorkflow: getElement<HTMLSelectElement>(rootElement, "img-workflow"),
     imgCheckpoint: getElement<HTMLSelectElement>(rootElement, "img-checkpoint"),
@@ -2281,6 +2399,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     sketchPrompt: getElement<HTMLTextAreaElement>(rootElement, "sketch-prompt"),
     sketchPromptWalletSave: getElement<HTMLElement>(rootElement, "sketch-prompt-wallet-save"),
     sketchPromptWalletLoad: getElement<HTMLElement>(rootElement, "sketch-prompt-wallet-load"),
+    sketchPromptWalletEnhance: getElement<HTMLElement>(rootElement, "sketch-prompt-wallet-enhance"),
     sketchNegativePrompt: getElement<HTMLTextAreaElement>(rootElement, "sketch-negative-prompt"),
     sketchWorkflow: getElement<HTMLSelectElement>(rootElement, "sketch-workflow"),
     sketchCheckpoint: getElement<HTMLSelectElement>(rootElement, "sketch-checkpoint"),
@@ -2296,6 +2415,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     inpaintPrompt: getElement<HTMLTextAreaElement>(rootElement, "inpaint-prompt"),
     inpaintPromptWalletSave: getElement<HTMLElement>(rootElement, "inpaint-prompt-wallet-save"),
     inpaintPromptWalletLoad: getElement<HTMLElement>(rootElement, "inpaint-prompt-wallet-load"),
+    inpaintPromptWalletEnhance: getElement<HTMLElement>(rootElement, "inpaint-prompt-wallet-enhance"),
     inpaintNegativePrompt: getElement<HTMLTextAreaElement>(rootElement, "inpaint-negative-prompt"),
     inpaintWorkflow: getElement<HTMLSelectElement>(rootElement, "inpaint-workflow"),
     inpaintCheckpoint: getElement<HTMLSelectElement>(rootElement, "inpaint-checkpoint"),
@@ -2312,6 +2432,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     outpaintPrompt: getElement<HTMLTextAreaElement>(rootElement, "outpaint-prompt"),
     outpaintPromptWalletSave: getElement<HTMLElement>(rootElement, "outpaint-prompt-wallet-save"),
     outpaintPromptWalletLoad: getElement<HTMLElement>(rootElement, "outpaint-prompt-wallet-load"),
+    outpaintPromptWalletEnhance: getElement<HTMLElement>(rootElement, "outpaint-prompt-wallet-enhance"),
     outpaintWorkflow: getElement<HTMLSelectElement>(rootElement, "outpaint-workflow"),
     outpaintCheckpoint: getElement<HTMLSelectElement>(rootElement, "outpaint-checkpoint"),
     outpaintSteps: getElement<HTMLInputElement>(rootElement, "outpaint-steps"),
@@ -2420,6 +2541,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     promptLayerGeneratedText: getElement<HTMLTextAreaElement>(rootElement, "prompt-layer-generated-text"),
     promptLayerGeneratedTextWalletSave: getElement<HTMLElement>(rootElement, "prompt-layer-generated-text-wallet-save"),
     promptLayerGeneratedTextWalletLoad: getElement<HTMLElement>(rootElement, "prompt-layer-generated-text-wallet-load"),
+    promptLayerGeneratedTextWalletEnhance: getElement<HTMLElement>(rootElement, "prompt-layer-generated-text-wallet-enhance"),
     historyList: getElement<HTMLElement>(rootElement, "history-list"),
     settingsUrlValue: getElement<HTMLElement>(rootElement, "settings-url-value"),
     settingsCheckpointCount: getElement<HTMLElement>(rootElement, "settings-checkpoint-count"),
@@ -2441,6 +2563,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     livePrompt: getElement<HTMLTextAreaElement>(rootElement, "live-prompt"),
     livePromptWalletSave: getElement<HTMLElement>(rootElement, "live-prompt-wallet-save"),
     livePromptWalletLoad: getElement<HTMLElement>(rootElement, "live-prompt-wallet-load"),
+    livePromptWalletEnhance: getElement<HTMLElement>(rootElement, "live-prompt-wallet-enhance"),
     liveNegativePrompt: getElement<HTMLTextAreaElement>(rootElement, "live-negative-prompt"),
     liveNegativePromptToggle: getElement<HTMLElement>(rootElement, "live-negative-prompt-toggle"),
     liveNegativePromptField: getElement<HTMLElement>(rootElement, "live-negative-prompt-field"),
@@ -2460,6 +2583,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     styleReferencePrompt: getElement<HTMLTextAreaElement>(rootElement, "style-reference-prompt"),
     styleReferencePromptWalletSave: getElement<HTMLElement>(rootElement, "style-reference-prompt-wallet-save"),
     styleReferencePromptWalletLoad: getElement<HTMLElement>(rootElement, "style-reference-prompt-wallet-load"),
+    styleReferencePromptWalletEnhance: getElement<HTMLElement>(rootElement, "style-reference-prompt-wallet-enhance"),
     styleReferenceNegativePrompt: getElement<HTMLTextAreaElement>(rootElement, "style-reference-negative-prompt"),
     styleReferenceWorkflow: getElement<HTMLSelectElement>(rootElement, "style-reference-workflow"),
     styleReferenceCheckpoint: getElement<HTMLSelectElement>(rootElement, "style-reference-checkpoint"),
@@ -2487,6 +2611,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     multiReferencePrompt: getElement<HTMLTextAreaElement>(rootElement, "multi-reference-prompt"),
     multiReferencePromptWalletSave: getElement<HTMLElement>(rootElement, "multi-reference-prompt-wallet-save"),
     multiReferencePromptWalletLoad: getElement<HTMLElement>(rootElement, "multi-reference-prompt-wallet-load"),
+    multiReferencePromptWalletEnhance: getElement<HTMLElement>(rootElement, "multi-reference-prompt-wallet-enhance"),
     multiReferenceNegativePrompt: getElement<HTMLTextAreaElement>(rootElement, "multi-reference-negative-prompt"),
     multiReferenceWorkflow: getElement<HTMLSelectElement>(rootElement, "multi-reference-workflow"),
     multiReferenceCheckpoint: getElement<HTMLSelectElement>(rootElement, "multi-reference-checkpoint"),
@@ -2529,9 +2654,29 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     removeBackgroundResultPreviewPanel: getElement<HTMLElement>(rootElement, "remove-background-result-preview-panel"),
     importRemoveBackgroundButton: getElement<HTMLElement>(rootElement, "import-remove-background-result"),
     removeBackgroundAutoImportToggle: getElement<HTMLElement>(rootElement, "remove-background-auto-import-toggle"),
+    layerMapsView: getElement<HTMLElement>(rootElement, "layer-maps-view"),
+    captureLayerMapsSourceButton: getElement<HTMLElement>(rootElement, "capture-layer-maps-source"),
+    captureLayerMapsCanvasSourceButton: getElement<HTMLElement>(rootElement, "capture-layer-maps-canvas-source"),
+    layerMapsSourcePreviewPanel: getElement<HTMLElement>(rootElement, "layer-maps-source-preview-panel"),
+    layerMapsSourceTitle: getElement<HTMLElement>(rootElement, "layer-maps-source-title"),
+    layerMapsSourceMeta: getElement<HTMLElement>(rootElement, "layer-maps-source-meta"),
+    layerMapsWorkflow: getElement<HTMLSelectElement>(rootElement, "layer-maps-workflow"),
+    layerMapsModel: getElement<HTMLSelectElement>(rootElement, "layer-maps-model"),
+    layerMapsModelField: getElement<HTMLElement>(rootElement, "layer-maps-model-field"),
+    layerMapsHint: getElement<HTMLElement>(rootElement, "layer-maps-hint"),
+    generateLayerMapsButton: getElement<HTMLElement>(rootElement, "generate-layer-maps"),
+    layerMapsStatusText: getElement<HTMLElement>(rootElement, "layer-maps-status-text"),
+    layerMapsStatusPill: getElement<HTMLElement>(rootElement, "layer-maps-status-pill"),
+    layerMapsStatusProgress: getElement<HTMLElement>(rootElement, "layer-maps-status-progress"),
+    layerMapsDiagnosticsText: getElement<HTMLElement>(rootElement, "layer-maps-diagnostics-text"),
+    layerMapsErrorMessage: getElement<HTMLElement>(rootElement, "layer-maps-error-message"),
+    layerMapsResultPreviewPanel: getElement<HTMLElement>(rootElement, "layer-maps-result-preview-panel"),
+    importLayerMapsButton: getElement<HTMLElement>(rootElement, "import-layer-maps-result"),
+    layerMapsAutoImportToggle: getElement<HTMLElement>(rootElement, "layer-maps-auto-import-toggle"),
     unflattenPrompt: getElement<HTMLTextAreaElement>(rootElement, "unflatten-prompt"),
     unflattenPromptWalletSave: getElement<HTMLElement>(rootElement, "unflatten-prompt-wallet-save"),
     unflattenPromptWalletLoad: getElement<HTMLElement>(rootElement, "unflatten-prompt-wallet-load"),
+    unflattenPromptWalletEnhance: getElement<HTMLElement>(rootElement, "unflatten-prompt-wallet-enhance"),
     unflattenWorkflow: getElement<HTMLSelectElement>(rootElement, "unflatten-workflow"),
     unflattenCheckpoint: getElement<HTMLSelectElement>(rootElement, "unflatten-checkpoint"),
     unflattenLayerCount: getElement<HTMLInputElement>(rootElement, "unflatten-layer-count"),

@@ -42,6 +42,7 @@ export const PREVIEW_TOOLS = [
   { id: "outpaint", label: "Outpaint" },
   { id: "upscale", label: "Upscale" },
   { id: "remove-background", label: "Remove Background" },
+  { id: "layer-maps", label: "Layer Maps" },
   { id: "style-reference", label: "Style Reference" },
   { id: "multi-reference", label: "Multi-Reference" },
   { id: "unflatten", label: "Unflatten" },
