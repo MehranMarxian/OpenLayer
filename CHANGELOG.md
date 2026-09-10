@@ -28,7 +28,10 @@ artist. Nothing here needs a new checkpoint, and neither one runs a sampler.
   - The depth default is **Base, not the node's own Large default**. Large collapsed a wide landscape
     into an unreadable near-white band where Base returned a clean pass, and Large is also the one
     size of the four under a non-commercial licence. Both reasons point the same way. All four sizes
-    are still selectable.
+    are still selectable &mdash; except Giant, which is not offered at all, because its weights were
+  announced and never published. The node advertises four sizes and only three can be downloaded;
+  picking the fourth used to queue a run that died inside the preprocessor. Small, Base and Large
+  answer 200 and Giant answers 401.
 
 - **Enhance Prompt** — a small amber dot beside every prompt field in the panel, next to the Wallet's
   green save and purple load. It expands a short prompt into a longer, more descriptive one, locally,
@@ -46,6 +49,10 @@ artist. Nothing here needs a new checkpoint, and neither one runs a sampler.
 
 ### Fixed
 
+- **The Prompt Wallet dots are four times easier to hit.** The green save, purple load and new amber
+  enhance circles were an 11x11 click target &mdash; 121 square pixels, against the 24x24 minimum
+  WCAG asks for. They look exactly the same, but each one now carries a transparent border that
+  widens the clickable area to 23x23 without moving anything or changing the design shipped in v0.17.
 - **Remove Background and Layer Maps are now reachable over the Agent Bridge.** Remove Background
   shipped in v0.25 without an MCP entry, so an agent could drive every generation tool in the panel
   except that one, while the README said all of them were covered. Both are registered now, and the
