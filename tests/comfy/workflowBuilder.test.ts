@@ -334,6 +334,56 @@ describe("workflowBuilder", () => {
     expect(workflow["9"].inputs.images).toEqual(["30", 0]);
   });
 
+  it("plugs each extra Qwen-Image 2.1 reference into the next numbered encoder slot, alpha intact", async () => {
+    const result = await buildMultiReferenceWorkflow({
+      presetId: "multi-reference-qwen-image-21",
+      prompt: "put the teapot from <image2> on the table in <image1>",
+      negativePrompt: "",
+      checkpointName: "qwen_image_2.1_int8_convrot.safetensors",
+      referenceImageNames: ["scene.png", "teapot.png", "person.png"],
+      steps: 25,
+      cfg: 1,
+      seed: 24
+    });
+    const workflow = result.workflow;
+
+    // Reference 1 is the shipped slot.
+    expect(workflow["30"].inputs.image).toBe("scene.png");
+    expect(workflow["6"].inputs["images.image_1"]).toEqual(["31", 0]);
+
+    // References 2 and 3 are cloned LoadImage + JoinImageWithAlpha pairs.
+    expect(workflow.ref2load.inputs.image).toBe("teapot.png");
+    expect(workflow.ref2alpha.class_type).toBe("JoinImageWithAlpha");
+    expect(workflow.ref2alpha.inputs.alpha).toEqual(["ref2load", 1]);
+    expect(workflow["6"].inputs["images.image_2"]).toEqual(["ref2alpha", 0]);
+    expect(workflow.ref3load.inputs.image).toBe("person.png");
+    expect(workflow["6"].inputs["images.image_3"]).toEqual(["ref3alpha", 0]);
+
+    // No conditioning chain: the sampler still reads the encoder directly.
+    expect(workflow["3"].inputs.positive).toEqual(["6", 0]);
+    expect(workflow["3"].inputs.negative).toEqual(["6", 1]);
+    expect(workflow["3"].inputs.latent_image).toEqual(["6", 2]);
+    expect(Object.values(workflow).some((node) => node.class_type === "ReferenceLatent")).toBe(false);
+    expect(workflow["9"].inputs.images).toEqual(["40", 0]);
+  });
+
+  it("refuses more Qwen-Image 2.1 references than its ceiling", async () => {
+    const ceiling = getWorkflowPreset("multi-reference-qwen-image-21").referenceChain?.maximumReferences ?? 0;
+
+    await expect(
+      buildMultiReferenceWorkflow({
+        presetId: "multi-reference-qwen-image-21",
+        prompt: "compose",
+        negativePrompt: "",
+        checkpointName: "qwen_image_2.1_int8_convrot.safetensors",
+        referenceImageNames: Array.from({ length: ceiling + 1 }, (_, index) => `ref${index}.png`),
+        steps: 25,
+        cfg: 1,
+        seed: 1
+      })
+    ).rejects.toThrow(/at most/);
+  });
+
   it("chains one ReferenceLatent pair per reference and samples from the end of both chains", async () => {
     const result = await buildMultiReferenceWorkflow({
       prompt: "the man and the woman standing on the beach at sunset",

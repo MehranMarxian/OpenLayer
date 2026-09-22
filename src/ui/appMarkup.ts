@@ -1246,7 +1246,7 @@ export function createAppMarkup() {
             </select>
           </div>
           <div class="field img2img-field">
-            <span class="label">Klein model</span>
+            <span class="label">Model</span>
             <select class="select" id="multi-reference-checkpoint">
               ${createMultiReferenceModelOptionsMarkup()}
             </select>
@@ -1259,7 +1259,7 @@ export function createAppMarkup() {
               warning you have to go looking for is not a warning, which is the
               same conclusion Unflatten's hint reached.
             -->
-            <div class="diagnostics-line multi-reference-hint" id="multi-reference-compatibility-note">Clothing, props, setting and lighting carry across from your layers. Faces do not: a person in a reference comes back as a plausible stranger, so this cannot place a specific person in a picture.</div>
+            <div class="diagnostics-line multi-reference-hint" id="multi-reference-compatibility-note">${createMultiReferenceInitialHint()}</div>
           </div>
           <div class="settings-grid img2img-settings-grid" aria-label="Multi-Reference settings">
             <div class="field">
@@ -2188,6 +2188,16 @@ function createUnflattenModelOptionsMarkup() {
   const modelName = preset.modelStack?.find((model) => model.kind === preset.modelSource.kind)?.modelName;
 
   return modelName ? `<option value="${modelName}">${modelName}</option>` : "";
+}
+
+/**
+ * The first preset's screen hint, so the panel opens with it before any script
+ * runs; changing preset swaps it via textContent. This one IS interpolated into
+ * markup, which is why multiReferencePreset.test.ts requires the first preset's
+ * hint to be free of `<` and `&`.
+ */
+function createMultiReferenceInitialHint() {
+  return listRunnableWorkflowPresets("multi-reference")[0]?.capability?.uiHints.screenHint ?? "";
 }
 
 function createMultiReferenceModelOptionsMarkup() {

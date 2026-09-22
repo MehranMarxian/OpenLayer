@@ -12,6 +12,7 @@ export type WorkflowPreset =
   | "img2img-krea2-turbo"
   | "txt2img-qwen-image-21"
   | "edit-qwen-image-21"
+  | "multi-reference-qwen-image-21"
   | "prompt-from-layer-florence2"
   | "sketch2img-linecn-basic"
   | "sketch2img-scribble-basic"
@@ -115,6 +116,12 @@ export type WorkflowCapabilityUiHints = {
   primaryActionLabel: string;
   warning?: string;
   experimentalNote?: string;
+  /**
+   * One line shown on the tool screen itself, beside the model picker, and
+   * swapped when the preset changes. Written with textContent, so literal
+   * prompt syntax such as `<image1>` is safe here.
+   */
+  screenHint?: string;
   hiddenControls?: readonly WorkflowControlId[];
 };
 
@@ -501,7 +508,11 @@ export type WorkflowLoraSelection = {
  * real quality lever -- see `docs/multi-reference-gate-findings.md`, where
  * moving a bicycle ahead of a dog fixed a reproducible duplication.
  */
-export type WorkflowReferenceChain = {
+export type WorkflowReferenceChain = WorkflowReferenceLatentChain | WorkflowEncoderImageSlots;
+
+/** FLUX.2 Klein: one `ReferenceLatent` per reference, chained on both branches. */
+export type WorkflowReferenceLatentChain = {
+  kind: "reference-latent";
   /** Slot-1 nodes cloned once per additional reference. */
   loadImage: string;
   scale: string;
@@ -521,6 +532,34 @@ export type WorkflowReferenceChain = {
    * Upper bound on references, and a guard rather than a quality cliff -- gate
    * testing found no count at which identity degrades. It exists so a runaway
    * caller cannot build a thousand-node graph.
+   */
+  maximumReferences: number;
+};
+
+/**
+ * Qwen-Image 2.1: every reference is an image input on the ONE text-encode
+ * node, `images.image_1` .. `images.image_16` (an autogrow input -- /object_info
+ * declares only the parent, `images`). There is no conditioning chain to grow;
+ * each extra reference is a cloned `LoadImage -> JoinImageWithAlpha` pair
+ * plugged into the next numbered slot. The artist addresses them in the prompt
+ * as `<image1>`, `<image2>` ..., so list order is prompt order, and image_1 is
+ * the canvas: the encoder sizes the sampling latent from it.
+ */
+export type WorkflowEncoderImageSlots = {
+  kind: "encoder-image-slots";
+  /** Slot-1 `LoadImage`, cloned once per additional reference. */
+  loadImage: string;
+  /** Slot-1 `JoinImageWithAlpha`, cloned alongside it so cut-outs stay cut out. */
+  keepAlpha: string;
+  /** The node whose numbered image inputs receive the references. */
+  encoder: string;
+  /** Slot *k* is written to `${inputPrefix}${k}`. */
+  inputPrefix: string;
+  /** Same contract as the reference-latent chain's prefix. */
+  generatedNodeIdPrefix: string;
+  /**
+   * Measured to three on a 12 GB card, at about +29 s per reference. The
+   * encoder accepts sixteen; the bound is time, not quality.
    */
   maximumReferences: number;
 };

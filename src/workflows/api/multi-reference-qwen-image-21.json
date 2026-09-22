@@ -1,0 +1,151 @@
+{
+  "20": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "qwen_image_2.1_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "Load Qwen-Image 2.1 Diffusion Model"
+    }
+  },
+  "21": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen3vl_8b_w4a8.safetensors",
+      "type": "qwen_image",
+      "device": "default"
+    },
+    "_meta": {
+      "title": "Load Qwen3-VL 8B Text Encoder"
+    }
+  },
+  "22": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "qwen_image_2.1_vae_bf16.safetensors"
+    },
+    "_meta": {
+      "title": "Load Qwen-Image 2.1 VAE (RGBA)"
+    }
+  },
+  "30": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": ""
+    },
+    "_meta": {
+      "title": "Load Reference 1"
+    }
+  },
+  "31": {
+    "class_type": "JoinImageWithAlpha",
+    "inputs": {
+      "image": [
+        "30",
+        0
+      ],
+      "alpha": [
+        "30",
+        1
+      ]
+    },
+    "_meta": {
+      "title": "Keep Reference 1 Transparency"
+    }
+  },
+  "6": {
+    "class_type": "TextEncodeQwenImage21",
+    "inputs": {
+      "clip": [
+        "21",
+        0
+      ],
+      "vae": [
+        "22",
+        0
+      ],
+      "prompt": "",
+      "negative_prompt": "",
+      "resolution": 1024,
+      "images.image_1": [
+        "31",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Composition Prompt (<image1> = reference 1)"
+    }
+  },
+  "3": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 1,
+      "steps": 25,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": [
+        "20",
+        0
+      ],
+      "positive": [
+        "6",
+        0
+      ],
+      "negative": [
+        "6",
+        1
+      ],
+      "latent_image": [
+        "6",
+        2
+      ]
+    },
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "8": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "3",
+        0
+      ],
+      "vae": [
+        "22",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "VAE Decode (RGBA)"
+    }
+  },
+  "40": {
+    "class_type": "SplitImageWithAlpha",
+    "inputs": {
+      "image": [
+        "8",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Drop Alpha"
+    }
+  },
+  "9": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "OpenLayer_Qwen21_Composition",
+      "images": [
+        "40",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Save Image"
+    }
+  }
+}

@@ -1055,12 +1055,7 @@ export function renderApp(rootElement: HTMLElement) {
       },
       leadingParams: ["workflow"],
       settle: async () => {
-        applyRecommendedPresetSettings(
-          elements.multiReferenceWorkflow,
-          DEFAULT_MULTI_REFERENCE_WORKFLOW,
-          elements.multiReferenceSteps,
-          elements.multiReferenceCfg
-        );
+        syncMultiReferencePresetUi(elements);
         await refreshMultiReferenceModelOptionsForSelectedPreset(elements);
       },
       statusText: elements.multiReferenceStatusText,
@@ -2048,9 +2043,11 @@ export function renderApp(rootElement: HTMLElement) {
     updateStyleReferenceCheckpointCompatibility(elements, styleReferenceSource);
   });
 
-  // Only one preset exists for this mode today, but the list is read from the
-  // registry, so a second one must not silently keep the first one's models.
+  // Klein runs 4 steps and Qwen-Image 2.1 runs 25, so switching must carry the
+  // preset's own settings across -- keeping Klein's 4 would quietly produce a
+  // half-formed 2.1 picture -- and its own models and hint along with them.
   elements.multiReferenceWorkflow.addEventListener("change", () => {
+    syncMultiReferencePresetUi(elements);
     void refreshMultiReferenceModelOptionsForSelectedPreset(elements);
     renderMultiReferenceList();
   });
@@ -5352,7 +5349,7 @@ export function renderApp(rootElement: HTMLElement) {
         );
       }
 
-      setMultiReferenceStatus(elements, "Checking Klein nodes and models...", "idle");
+      setMultiReferenceStatus(elements, "Checking composition nodes and models...", "idle");
       setMultiReferenceProgressPreview(elements, "Checking composition setup...");
       await client.validatePresetSetup(preset);
 
@@ -5423,7 +5420,9 @@ export function renderApp(rootElement: HTMLElement) {
       setMultiReferenceStatus(elements, "Composition complete.", "ready");
       setMultiReferenceDiagnostics(
         elements,
-        `Seed used: ${buildResult.seed}. ${referenceImageNames.length} references uploaded. Workflow: ${buildResult.preset.id}. Faces are re-imagined rather than reproduced.`
+        `Seed used: ${buildResult.seed}. ${referenceImageNames.length} references uploaded. Workflow: ${buildResult.preset.id}.${
+          buildResult.preset.id === "multi-reference-flux2-klein" ? " Faces are re-imagined rather than reproduced." : ""
+        }`
       );
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
@@ -7983,6 +7982,24 @@ function readSelectValue(select: HTMLSelectElement, fallback = "") {
   const optionValue = option?.value?.trim() || option?.textContent?.trim() || "";
 
   return optionValue || fallback;
+}
+
+/**
+ * Everything on the Multi-Reference screen that belongs to the selected preset
+ * rather than to the tool: recommended steps/CFG and the one-line hint under
+ * the model picker. The hint goes in as textContent, never markup, because the
+ * Qwen-Image 2.1 hint quotes the literal `<image1>` prompt syntax.
+ */
+function syncMultiReferencePresetUi(elements: AppElements) {
+  applyRecommendedPresetSettings(
+    elements.multiReferenceWorkflow,
+    DEFAULT_MULTI_REFERENCE_WORKFLOW,
+    elements.multiReferenceSteps,
+    elements.multiReferenceCfg
+  );
+
+  const preset = getWorkflowPreset(readSelectValue(elements.multiReferenceWorkflow, DEFAULT_MULTI_REFERENCE_WORKFLOW));
+  elements.multiReferenceCompatibilityNote.textContent = preset.capability?.uiHints.screenHint ?? "";
 }
 
 function applyRecommendedPresetSettings(

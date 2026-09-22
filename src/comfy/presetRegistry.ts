@@ -902,6 +902,19 @@ const QWEN_IMAGE_21_EDIT_NODES = {
   saveImage: "9"
 } as const;
 
+const QWEN_IMAGE_21_MULTI_REFERENCE_NODES = {
+  diffusionModelLoader: "20",
+  clipLoader: "21",
+  vaeLoader: "22",
+  loadImage: "30",
+  keepAlpha: "31",
+  textEncode: "6",
+  sampler: "3",
+  decode: "8",
+  dropAlpha: "40",
+  saveImage: "9"
+} as const;
+
 const SKETCH2IMG_ZIMAGE_FUN_CONTROLNET_NODES = {
   diffusionModelLoader: "20",
   clipLoader: "21",
@@ -1521,6 +1534,18 @@ const QWEN_IMAGE_21_EDIT_INJECTIONS = {
   // encoder's empty latent at denoise 1, and that is the technique.
 } as const;
 
+const QWEN_IMAGE_21_MULTI_REFERENCE_INJECTIONS = {
+  checkpoint: target(QWEN_IMAGE_21_MULTI_REFERENCE_NODES.diffusionModelLoader, "unet_name"),
+  // Reference 1 only; references 2..n are wired into images.image_2 onwards
+  // by applyEncoderImageSlots in workflowBuilder.ts.
+  sourceImage: target(QWEN_IMAGE_21_MULTI_REFERENCE_NODES.loadImage, "image"),
+  positivePrompt: target(QWEN_IMAGE_21_MULTI_REFERENCE_NODES.textEncode, "prompt"),
+  negativePrompt: target(QWEN_IMAGE_21_MULTI_REFERENCE_NODES.textEncode, "negative_prompt"),
+  seed: target(QWEN_IMAGE_21_MULTI_REFERENCE_NODES.sampler, "seed"),
+  steps: target(QWEN_IMAGE_21_MULTI_REFERENCE_NODES.sampler, "steps"),
+  cfg: target(QWEN_IMAGE_21_MULTI_REFERENCE_NODES.sampler, "cfg")
+} as const;
+
 // `width`/`height` target ImageScale rather than any latent: they are the
 // captured source's own dimensions, pinning the map to the pixels it describes.
 // `checkpoint` is the estimator size on the depth preset only -- line art and
@@ -2042,8 +2067,34 @@ const FLUX2_KLEIN_MULTI_REFERENCE_CAPABILITY: WorkflowCapability = {
     modelSelectorLabel: "Klein model",
     primaryActionLabel: "Compose",
     hiddenControls: ["denoise", "width", "height"],
+    screenHint:
+      "Clothing, props, setting and lighting carry across from your layers. Faces do not: a person in a reference comes back as a plausible stranger, so this cannot place a specific person in a picture.",
     experimentalNote:
       "Composes one picture out of several layers. Clothing, props, setting and lighting all carry across; faces do not -- a person in a reference comes back as a plausible stranger rather than themselves, so this cannot place a specific person. Reference 1 sets the output size. Order matters: if an object behind the subjects comes out duplicated or stretched, move it earlier in the list."
+  }
+};
+
+const QWEN_IMAGE_21_MULTI_REFERENCE_CAPABILITY: WorkflowCapability = {
+  toolType: "multi-reference",
+  loaderType: "diffusion-model-stack",
+  artistLabel: "Multi-Reference Composition",
+  technicalLabel: "multi-reference-qwen-image-21",
+  requiredPhotoshopInputs: [],
+  controls: ["prompt", "negativePrompt", "steps", "cfg", "seed"],
+  output: {
+    kind: "full-image",
+    size: "first-reference",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Qwen-Image 2.1 model",
+    primaryActionLabel: "Compose",
+    hiddenControls: ["denoise", "width", "height"],
+    screenHint:
+      "Name your layers in the prompt as <image1>, <image2> and so on, in list order; reference 1 is the scene. About 30 seconds per reference. Research licence: research and evaluation use only.",
+    experimentalNote:
+      "Research licence: Qwen allows these weights for research and evaluation only, not commercial work. Name the layers in the prompt as <image1>, <image2> and so on, in list order -- for example \"put the teapot from <image2> on the table in <image1>\". Reference 1 is the scene and sets the output size. Transparent layers keep their cut-out edges. Each reference adds about 30 seconds on a 12 GB card, so six take about three minutes."
   }
 };
 
@@ -3924,6 +3975,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     requiredModels: [...FLUX2_KLEIN_4B_STACK],
     injections: FLUX2_KLEIN_MULTI_REFERENCE_INJECTIONS,
     referenceChain: {
+      kind: "reference-latent",
       loadImage: FLUX2_KLEIN_MULTI_REFERENCE_NODES.loadImage,
       scale: FLUX2_KLEIN_MULTI_REFERENCE_NODES.referenceScale,
       encode: FLUX2_KLEIN_MULTI_REFERENCE_NODES.vaeEncode,
@@ -4020,6 +4072,91 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     ],
     compatibilityNote:
       "Same Klein 4B stack as the other Flux.2 Klein presets, so it downloads nothing extra for anyone who already has them, and every node is core ComfyUI -- ReferenceLatent, ImageScaleToTotalPixels and GetImageSize all ship with ComfyUI itself. The graph is the one validated in docs/multi-reference-gate-findings.md: each reference is normalised to 1 MP, VAE-encoded, and chained onto BOTH conditioning branches, sampled at denoise 1 from an empty latent sized by reference 1. Gate testing across 48 live runs found no reference count at which identity degrades, so the maximumReferences of 8 is a sanity bound and not a quality cliff. It also found the limits worth stating plainly: faces are not carried, and a wide thin object that must sit behind the subjects can duplicate unless it is moved earlier in the chain.",
+  },
+  {
+    id: "multi-reference-qwen-image-21",
+    // The panel's workflow dropdowns show `label`, so the licence goes here.
+    label: "multi-reference-qwen-image-21 (research licence)",
+    displayName: "Qwen-Image 2.1 (composition, research licence)",
+    mode: "multi-reference",
+    description:
+      "Composes several captured layers with Qwen-Image 2.1: each layer is a numbered image input on one encoder, addressed in the prompt by number. Transparent layers keep their alpha. Research-licensed weights.",
+    workflowFile: "workflows/api/multi-reference-qwen-image-21.json",
+    sourceWorkflowFile: "workflows/source/multi-reference-qwen-image-21.workflow.json",
+    status: "experimental",
+    recommendedSettings: { steps: 25, cfg: 1 },
+    supportedModelFamilies: ["unknown"],
+    experimentalModelFamilies: ["sd1", "sdxl", "sd3", "flux", "flux2", "zImage"],
+    modelSource: DIFFUSION_MODEL_SOURCE,
+    capability: QWEN_IMAGE_21_MULTI_REFERENCE_CAPABILITY,
+    modelStack: [...QWEN_IMAGE_21_STACK],
+    requiredModels: [...QWEN_IMAGE_21_STACK],
+    injections: QWEN_IMAGE_21_MULTI_REFERENCE_INJECTIONS,
+    referenceChain: {
+      kind: "encoder-image-slots",
+      loadImage: QWEN_IMAGE_21_MULTI_REFERENCE_NODES.loadImage,
+      keepAlpha: QWEN_IMAGE_21_MULTI_REFERENCE_NODES.keepAlpha,
+      encoder: QWEN_IMAGE_21_MULTI_REFERENCE_NODES.textEncode,
+      inputPrefix: "images.image_",
+      // Every shipped id is numeric, as in the Klein graph.
+      generatedNodeIdPrefix: "ref",
+      maximumReferences: 6
+    },
+    requiredNodes: [
+      {
+        id: QWEN_IMAGE_21_MULTI_REFERENCE_NODES.diffusionModelLoader,
+        classType: "UNETLoader",
+        requiredInputs: ["unet_name", "weight_dtype"]
+      },
+      {
+        id: QWEN_IMAGE_21_MULTI_REFERENCE_NODES.clipLoader,
+        classType: "CLIPLoader",
+        requiredInputs: ["clip_name", "type"]
+      },
+      {
+        id: QWEN_IMAGE_21_MULTI_REFERENCE_NODES.vaeLoader,
+        classType: "VAELoader",
+        requiredInputs: ["vae_name"]
+      },
+      {
+        id: QWEN_IMAGE_21_MULTI_REFERENCE_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: QWEN_IMAGE_21_MULTI_REFERENCE_NODES.keepAlpha,
+        classType: "JoinImageWithAlpha",
+        requiredInputs: ["image", "alpha"]
+      },
+      {
+        // See txt2img-qwen-image-21 on why `images` is never listed.
+        id: QWEN_IMAGE_21_MULTI_REFERENCE_NODES.textEncode,
+        classType: "TextEncodeQwenImage21",
+        requiredInputs: ["clip", "vae", "prompt", "negative_prompt", "resolution"]
+      },
+      {
+        id: QWEN_IMAGE_21_MULTI_REFERENCE_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["model", "seed", "steps", "cfg", "sampler_name", "scheduler", "positive", "negative", "latent_image", "denoise"]
+      },
+      {
+        id: QWEN_IMAGE_21_MULTI_REFERENCE_NODES.decode,
+        classType: "VAEDecode",
+        requiredInputs: ["samples", "vae"]
+      },
+      {
+        id: QWEN_IMAGE_21_MULTI_REFERENCE_NODES.dropAlpha,
+        classType: "SplitImageWithAlpha",
+        requiredInputs: ["image"]
+      },
+      {
+        id: QWEN_IMAGE_21_MULTI_REFERENCE_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images", "filename_prefix"]
+      }
+    ],
+    compatibilityNote:
+      "multi-reference-qwen-image-21 is the official Qwen-Image 2.1 image-edit template with more than one image, flattened out of its subgraph. Every reference is a LoadImage rejoined with its own alpha and plugged into the next numbered image input of TextEncodeQwenImage21; the encoder resizes each to about 1 megapixel, encodes it as a reference latent, and sizes the sampling latent from image_1. Measured on a 12 GB 4070 Ti: 1 reference 23 s, 2 references 54 s, 3 references 82 s, with a scene, a person and a transparent product composed correctly in one run. The ceiling of 6 is a time bound, not a quality cliff; the encoder accepts sixteen. Research-licensed weights; see txt2img-qwen-image-21."
   },
   {
     // Deliberately not named img2img-*: it sits in the Image to Image tool and
@@ -4449,7 +4586,8 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
   },
   {
     id: "txt2img-qwen-image-21",
-    label: "txt2img-qwen-image-21",
+    // The panel's workflow dropdowns show `label`, so the licence goes here.
+    label: "txt2img-qwen-image-21 (research licence)",
     displayName: "Qwen-Image 2.1 (research licence)",
     mode: "txt2img",
     description:
@@ -4592,7 +4730,8 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
   },
   {
     id: "edit-qwen-image-21",
-    label: "edit-qwen-image-21",
+    // The panel's workflow dropdowns show `label`, so the licence goes here.
+    label: "edit-qwen-image-21 (research licence)",
     displayName: "Qwen-Image 2.1 (edit, research licence)",
     mode: "img2img",
     description:

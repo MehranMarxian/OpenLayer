@@ -25,6 +25,7 @@ import styleReferenceSd15Workflow from "../workflows/api/style-reference-sd15.js
 import multiReferenceFlux2KleinWorkflow from "../workflows/api/multi-reference-flux2-klein.json";
 import txt2imgQwenImage21Workflow from "../workflows/api/txt2img-qwen-image-21.json";
 import editQwenImage21Workflow from "../workflows/api/edit-qwen-image-21.json";
+import multiReferenceQwenImage21Workflow from "../workflows/api/multi-reference-qwen-image-21.json";
 import {
   BuildInpaintWorkflowOptions,
   BuildImageToImageWorkflowOptions,
@@ -45,6 +46,7 @@ import {
   WorkflowLoraSelection,
   WorkflowPreset,
   WorkflowPresetDefinition,
+  WorkflowEncoderImageSlots,
   WorkflowInjectionTargetList
 } from "./types";
 import { getPresetInputTarget, getWorkflowPreset, validateWorkflowForPreset } from "./presetRegistry";
@@ -80,7 +82,8 @@ const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
   "style-reference-sd15": styleReferenceSd15Workflow as ComfyWorkflow,
   "multi-reference-flux2-klein": multiReferenceFlux2KleinWorkflow as ComfyWorkflow,
   "txt2img-qwen-image-21": txt2imgQwenImage21Workflow as ComfyWorkflow,
-  "edit-qwen-image-21": editQwenImage21Workflow as ComfyWorkflow
+  "edit-qwen-image-21": editQwenImage21Workflow as ComfyWorkflow,
+  "multi-reference-qwen-image-21": multiReferenceQwenImage21Workflow as ComfyWorkflow
 };
 
 export async function buildTxt2ImgWorkflow(options: BuildWorkflowOptions): Promise<BuildWorkflowResult> {
@@ -725,6 +728,11 @@ function applyReferenceChain(
     );
   }
 
+  if (chain.kind === "encoder-image-slots") {
+    applyEncoderImageSlots(workflow, preset, chain, referenceImageNames);
+    return;
+  }
+
   const templates = {
     load: requireNode(workflow, chain.loadImage, preset),
     scale: requireNode(workflow, chain.scale, preset),
@@ -789,6 +797,53 @@ function applyReferenceChain(
 
   setInput(workflow, chain.positiveConsumer.nodeId, chain.positiveConsumer.inputName, [positiveTail, 0]);
   setInput(workflow, chain.negativeConsumer.nodeId, chain.negativeConsumer.inputName, [negativeTail, 0]);
+}
+
+/**
+ * The Qwen-Image 2.1 shape: no conditioning chain, just numbered image inputs
+ * on one encoder. Slot 1 ships wired; each further reference clones slot 1's
+ * `LoadImage -> JoinImageWithAlpha` pair and plugs it into the next slot, so a
+ * transparent layer reaches the encoder with its alpha exactly as reference 1
+ * does. Nothing downstream changes -- the encoder already feeds the sampler.
+ */
+function applyEncoderImageSlots(
+  workflow: ComfyWorkflow,
+  preset: WorkflowPresetDefinition,
+  slots: WorkflowEncoderImageSlots,
+  referenceImageNames: readonly string[]
+) {
+  const templates = {
+    load: requireNode(workflow, slots.loadImage, preset),
+    keepAlpha: requireNode(workflow, slots.keepAlpha, preset)
+  };
+  requireNode(workflow, slots.encoder, preset);
+
+  for (let index = 1; index < referenceImageNames.length; index += 1) {
+    const slot = index + 1;
+    const ids = {
+      load: `${slots.generatedNodeIdPrefix}${slot}load`,
+      keepAlpha: `${slots.generatedNodeIdPrefix}${slot}alpha`
+    };
+
+    for (const id of Object.values(ids)) {
+      if (workflow[id]) {
+        throw createOpenLayerError(
+          "WORKFLOW_INVALID",
+          `The ${preset.id} workflow already uses node ${id}.`,
+          `Give ${preset.id}'s referenceChain an unused generatedNodeIdPrefix in src/comfy/presetRegistry.ts.`
+        );
+      }
+    }
+
+    workflow[ids.load] = cloneNode(templates.load, `Load Reference ${slot}`);
+    workflow[ids.load].inputs.image = referenceImageNames[index];
+
+    workflow[ids.keepAlpha] = cloneNode(templates.keepAlpha, `Keep Reference ${slot} Transparency`);
+    workflow[ids.keepAlpha].inputs.image = [ids.load, 0];
+    workflow[ids.keepAlpha].inputs.alpha = [ids.load, 1];
+
+    setInput(workflow, slots.encoder, `${slots.inputPrefix}${slot}`, [ids.keepAlpha, 0]);
+  }
 }
 
 function requireNode(workflow: ComfyWorkflow, nodeId: string, preset: WorkflowPresetDefinition) {
