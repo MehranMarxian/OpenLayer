@@ -1222,6 +1222,21 @@ export function renderApp(rootElement: HTMLElement) {
         statusText: elements.styleReferenceStatusText,
         statusPill: elements.styleReferenceStatusPill
       },
+      // Both of these published canImport from syncImportBridge since they
+      // shipped, but had no handler here, so the Preview panel showed an enabled
+      // Import button that did nothing at all.
+      {
+        toolId: "multi-reference",
+        run: handleImportMultiReference,
+        statusText: elements.multiReferenceStatusText,
+        statusPill: elements.multiReferenceStatusPill
+      },
+      {
+        toolId: "unflatten",
+        run: handleImportUnflatten,
+        statusText: elements.unflattenStatusText,
+        statusPill: elements.unflattenStatusPill
+      },
       {
         toolId: "live-painting",
         run: handleImportLiveResult,

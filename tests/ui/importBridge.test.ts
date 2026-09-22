@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   createImportBridge,
@@ -32,6 +34,24 @@ describe("IMPORT_TARGETS", () => {
 
     expect(withAuto).toEqual(["image-to-image", "layer-maps", "live-painting",
       "remove-background", "text-to-image"]);
+  });
+});
+
+describe("App.ts import registrations", () => {
+  it("registers a handler for every tool that tells the Preview panel it can import", () => {
+    // Read from source because renderApp needs a whole Photoshop host to run.
+    // Multi-Reference and Unflatten published canImport for several releases
+    // with no handler registered, so the panel's Import button did nothing.
+    const app = readFileSync(resolve(__dirname, "../../src/ui/App.ts"), "utf8");
+    const published = [...app.matchAll(/importBridge\.publishCapability\("([^"]+)"/g)].map((match) => match[1]);
+    const registrationBlock = app.slice(
+      app.indexOf("const registrations: ImportRegistration[] = ["),
+      app.indexOf("for (const registration of registrations)")
+    );
+    const registered = [...registrationBlock.matchAll(/toolId: "([^"]+)"/g)].map((match) => match[1]);
+
+    expect(published.length).toBeGreaterThan(0);
+    expect([...new Set(published)].sort()).toEqual([...new Set(registered)].sort());
   });
 });
 
