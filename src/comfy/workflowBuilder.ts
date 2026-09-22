@@ -23,6 +23,8 @@ import outpaintFluxFillBasicWorkflow from "../workflows/api/outpaint-flux-fill-b
 import upscaleBasicWorkflow from "../workflows/api/upscale-basic.json";
 import styleReferenceSd15Workflow from "../workflows/api/style-reference-sd15.json";
 import multiReferenceFlux2KleinWorkflow from "../workflows/api/multi-reference-flux2-klein.json";
+import txt2imgQwenImage21Workflow from "../workflows/api/txt2img-qwen-image-21.json";
+import editQwenImage21Workflow from "../workflows/api/edit-qwen-image-21.json";
 import {
   BuildInpaintWorkflowOptions,
   BuildImageToImageWorkflowOptions,
@@ -76,7 +78,9 @@ const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
   "outpaint-flux-fill-basic": outpaintFluxFillBasicWorkflow as ComfyWorkflow,
   "upscale-basic": upscaleBasicWorkflow as ComfyWorkflow,
   "style-reference-sd15": styleReferenceSd15Workflow as ComfyWorkflow,
-  "multi-reference-flux2-klein": multiReferenceFlux2KleinWorkflow as ComfyWorkflow
+  "multi-reference-flux2-klein": multiReferenceFlux2KleinWorkflow as ComfyWorkflow,
+  "txt2img-qwen-image-21": txt2imgQwenImage21Workflow as ComfyWorkflow,
+  "edit-qwen-image-21": editQwenImage21Workflow as ComfyWorkflow
 };
 
 export async function buildTxt2ImgWorkflow(options: BuildWorkflowOptions): Promise<BuildWorkflowResult> {

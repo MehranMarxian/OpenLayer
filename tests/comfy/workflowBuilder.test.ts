@@ -267,6 +267,73 @@ describe("workflowBuilder", () => {
     expect(result.workflow["9"].inputs.images).toEqual(["17", 0]);
   });
 
+  it("writes both Qwen-Image 2.1 prompts into the one encoder and saves an alpha-free image", async () => {
+    const result = await buildTxt2ImgWorkflow({
+      presetId: "txt2img-qwen-image-21",
+      prompt: 'a poster that reads "OPENLAYER LIVE"',
+      negativePrompt: "blurry",
+      checkpointName: "qwen_image_2.1_int8_convrot.safetensors",
+      width: 2048,
+      height: 1024,
+      steps: 25,
+      cfg: 1,
+      seed: 21
+    });
+    const workflow = result.workflow;
+
+    // Positive and negative are two inputs on ONE node, not two CLIPTextEncodes.
+    expect(workflow["6"].class_type).toBe("TextEncodeQwenImage21");
+    expect(workflow["6"].inputs.prompt).toBe('a poster that reads "OPENLAYER LIVE"');
+    expect(workflow["6"].inputs.negative_prompt).toBe("blurry");
+    expect(workflow["3"].inputs.positive).toEqual(["6", 0]);
+    expect(workflow["3"].inputs.negative).toEqual(["6", 1]);
+    expect(workflow["5"].inputs.width).toBe(2048);
+    expect(workflow["5"].inputs.height).toBe(1024);
+    expect(workflow["20"].inputs.unet_name).toBe("qwen_image_2.1_int8_convrot.safetensors");
+
+    // The 2.1 VAE decodes RGBA even for opaque pictures (alpha 248-252 on
+    // about a tenth of the pixels, measured). Saving the decode directly would
+    // import a faintly see-through layer, so SaveImage must read the split.
+    expect(workflow["30"].class_type).toBe("SplitImageWithAlpha");
+    expect(workflow["30"].inputs.image).toEqual(["8", 0]);
+    expect(workflow["9"].inputs.images).toEqual(["30", 0]);
+  });
+
+  it("passes the Qwen-Image 2.1 edit source in as image_1 with its alpha and never injects denoise", async () => {
+    const result = await buildImg2ImgWorkflow({
+      presetId: "edit-qwen-image-21",
+      prompt: "replace the cart with a red bicycle",
+      negativePrompt: "",
+      checkpointName: "qwen_image_2.1_int8_convrot.safetensors",
+      sourceImageName: "openlayer-source.png",
+      steps: 25,
+      cfg: 1,
+      seed: 22,
+      denoise: 0.35
+    });
+    const workflow = result.workflow;
+
+    expect(workflow["10"].inputs.image).toBe("openlayer-source.png");
+    // LoadImage splits off the alpha as an inverted mask; JoinImageWithAlpha
+    // puts it back so a cut-out layer reaches the encoder as a cut-out.
+    expect(workflow["11"].class_type).toBe("JoinImageWithAlpha");
+    expect(workflow["11"].inputs.alpha).toEqual(["10", 1]);
+    expect(workflow["6"].inputs["images.image_1"]).toEqual(["11", 0]);
+    expect(workflow["6"].inputs.vae).toEqual(["22", 0]);
+    expect(workflow["6"].inputs.prompt).toBe("replace the cart with a red bicycle");
+
+    // The sampler starts from the encoder's own latent, sized from image_1,
+    // at denoise 1 whatever the panel's slider says.
+    expect(workflow["3"].inputs.latent_image).toEqual(["6", 2]);
+    expect(workflow["3"].inputs.denoise).toBe(1);
+
+    // Returned at the captured layer's exact size, then made opaque.
+    expect(workflow["17"].inputs.width).toEqual(["16", 0]);
+    expect(workflow["16"].inputs.image).toEqual(["10", 0]);
+    expect(workflow["30"].inputs.image).toEqual(["17", 0]);
+    expect(workflow["9"].inputs.images).toEqual(["30", 0]);
+  });
+
   it("chains one ReferenceLatent pair per reference and samples from the end of both chains", async () => {
     const result = await buildMultiReferenceWorkflow({
       prompt: "the man and the woman standing on the beach at sunset",

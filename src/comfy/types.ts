@@ -10,6 +10,8 @@ export type WorkflowPreset =
   | "img2img-z-image-turbo"
   | "txt2img-krea2-turbo"
   | "img2img-krea2-turbo"
+  | "txt2img-qwen-image-21"
+  | "edit-qwen-image-21"
   | "prompt-from-layer-florence2"
   | "sketch2img-linecn-basic"
   | "sketch2img-scribble-basic"

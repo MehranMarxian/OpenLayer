@@ -37,7 +37,8 @@ describe("presetRegistry", () => {
       "txt2img-flux2-klein",
       "txt2img-z-image-turbo",
       "txt2img-krea2-turbo",
-      "txt2img-flux2-dev-gguf"
+      "txt2img-flux2-dev-gguf",
+      "txt2img-qwen-image-21"
     ]);
     expect(allImg2ImgIds).toContain("img2img-z-image-turbo");
     // edit-flux2-klein lives in img2img mode on purpose: it takes the same
@@ -47,7 +48,8 @@ describe("presetRegistry", () => {
       "img2img-flux2-klein",
       "edit-flux2-klein",
       "img2img-z-image-turbo",
-      "img2img-krea2-turbo"
+      "img2img-krea2-turbo",
+      "edit-qwen-image-21"
     ]);
     expect(runnablePromptIds).toEqual(["prompt-from-layer-florence2"]);
     expect(allInpaintIds).toEqual([

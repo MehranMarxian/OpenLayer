@@ -137,9 +137,10 @@ describe("setup manifest", () => {
     const manifest = build();
 
     expect(manifest.totals.models).toBe(manifest.models.length);
-    // Four: both Flux.1 weights, plus Flux.2's diffusion model and its
-    // Mistral-3 encoder. The Flux.2 VAE is published ungated and is not one.
-    expect(manifest.totals.licenseGatedModels).toBe(4);
+    // Seven: both Flux.1 weights, Flux.2's diffusion model and its Mistral-3
+    // encoder (the Flux.2 VAE is published ungated and is not one), and all
+    // three Qwen-Image 2.1 files, which share one research licence.
+    expect(manifest.totals.licenseGatedModels).toBe(7);
     expect(manifest.totals.knownDownloadBytes).toBe(
       manifest.models.reduce((total, model) => total + (model.sizeBytes ?? 0), 0)
     );
