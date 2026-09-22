@@ -47,7 +47,8 @@ import {
   WorkflowPreset,
   WorkflowPresetDefinition,
   WorkflowEncoderImageSlots,
-  WorkflowInjectionTargetList
+  WorkflowInjectionTargetList,
+  WorkflowTransparentOutput
 } from "./types";
 import { getPresetInputTarget, getWorkflowPreset, validateWorkflowForPreset } from "./presetRegistry";
 import { createRequiredModelSelectionKey } from "./workflowModelRequirements";
@@ -101,7 +102,12 @@ export async function buildTxt2ImgWorkflow(options: BuildWorkflowOptions): Promi
     setPresetInput(workflow, preset, "checkpoint", options.checkpointName, true);
   }
 
-  setPresetInput(workflow, preset, "positivePrompt", options.prompt, true);
+  const transparent = resolveTransparentOutput(preset, options.transparentBackground === true, true);
+  const prompt = transparent?.promptWrapper
+    ? `${transparent.promptWrapper.prefix}${options.prompt}${transparent.promptWrapper.suffix}`
+    : options.prompt;
+
+  setPresetInput(workflow, preset, "positivePrompt", prompt, true);
   setPresetInput(workflow, preset, "negativePrompt", options.negativePrompt ?? "");
   setPresetInput(workflow, preset, "width", options.width, true);
   setPresetInput(workflow, preset, "height", options.height, true);
@@ -110,6 +116,7 @@ export async function buildTxt2ImgWorkflow(options: BuildWorkflowOptions): Promi
   setPresetInput(workflow, preset, "cfg", options.cfg, true);
 
   applyLoraSelection(workflow, preset, options.lora);
+  applyTransparentOutput(workflow, transparent);
 
   validateWorkflowForPreset(workflow, preset);
 
@@ -158,6 +165,9 @@ export async function buildImg2ImgWorkflow(
   );
 
   applyLoraSelection(workflow, preset, options.lora);
+  // Not required: a cut-out edited by a preset without an alpha channel still
+  // comes back as a correct, opaque edit.
+  applyTransparentOutput(workflow, resolveTransparentOutput(preset, options.keepTransparency === true, false));
 
   validateWorkflowForPreset(workflow, preset);
 
@@ -679,6 +689,58 @@ function applyLoraSelection(
 
   for (const consumer of insertion.clipConsumers) {
     setInput(workflow, consumer.nodeId, consumer.inputName, [insertion.nodeId, 1]);
+  }
+}
+
+/**
+ * Returns the preset's transparency rewiring when it was asked for, or null.
+ *
+ * `required` separates the two callers. Text to Image only offers the option on
+ * presets that have it, so a request anywhere else is a bug and fails loudly;
+ * an edit asks whenever the captured layer happens to be a cut-out, and a
+ * preset without an alpha channel simply returns an opaque edit.
+ */
+function resolveTransparentOutput(preset: WorkflowPresetDefinition, requested: boolean, required: boolean) {
+  if (!requested) {
+    return null;
+  }
+
+  if (!preset.transparentOutput) {
+    if (required) {
+      throw createOpenLayerError(
+        "WORKFLOW_INVALID",
+        `The ${preset.id} preset cannot return a transparent background.`,
+        `Turn Transparent Background off, or choose a preset with a transparentOutput entry in src/comfy/presetRegistry.ts.`
+      );
+    }
+
+    return null;
+  }
+
+  return preset.transparentOutput;
+}
+
+/**
+ * Points SaveImage past the alpha-dropping step, back at the node that still
+ * carries the decode's alpha. Runs after the value injections for the same
+ * reason the LoRA splice does: nothing later may overwrite the rewired input.
+ */
+function applyTransparentOutput(workflow: ComfyWorkflow, transparent: WorkflowTransparentOutput | null) {
+  if (!transparent) {
+    return;
+  }
+
+  requireNodeId(workflow, transparent.rgbaSource);
+  setInput(workflow, transparent.saveImage.nodeId, transparent.saveImage.inputName, [transparent.rgbaSource, 0]);
+}
+
+function requireNodeId(workflow: ComfyWorkflow, nodeId: string) {
+  if (!workflow[nodeId]) {
+    throw createOpenLayerError(
+      "WORKFLOW_INVALID",
+      `Workflow node ${nodeId} was not found.`,
+      "Update presetRegistry.ts to match the exported ComfyUI workflow."
+    );
   }
 }
 

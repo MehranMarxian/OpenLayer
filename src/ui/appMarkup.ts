@@ -221,6 +221,8 @@ export type AppElements = {
   upscaleAutoImportToggle: HTMLElement;
   imgAutoImportToggle: HTMLElement;
   experimentalCheckpointToggle: HTMLElement;
+  transparentBackgroundField: HTMLElement;
+  transparentBackgroundToggle: HTMLElement;
   negativePromptToggle: HTMLElement;
   negativePromptField: HTMLElement;
   clearHistoryButton: HTMLElement;
@@ -797,6 +799,16 @@ export function createAppMarkup() {
             </label>
             <div class="diagnostics-line" id="lora-note" hidden></div>
           </section>
+          <!--
+            Shown only for presets with a transparentOutput entry. The toggle
+            reuses the Image to Image "Experimental Checkpoints" button styling,
+            already verified in Photoshop, so this adds no CSS. The wrapper
+            carries [hidden] because the compact theme forces that button to
+            display:flex !important.
+          -->
+          <div id="transparent-background-field" hidden>
+            <button class="button experimental-toggle action-control" id="transparent-background-toggle" data-openlayer-action="toggleTransparentBackground" type="button" aria-pressed="false">Transparent Background Off</button>
+          </div>
           <div class="settings-grid" aria-label="Generation settings">
             <label class="field">
               <span class="label">Width</span>
@@ -2472,6 +2484,8 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     upscaleAutoImportToggle: getElement<HTMLElement>(rootElement, "upscale-auto-import-toggle"),
     imgAutoImportToggle: getElement<HTMLElement>(rootElement, "img2img-auto-import-toggle"),
     experimentalCheckpointToggle: getElement<HTMLElement>(rootElement, "experimental-checkpoint-toggle"),
+    transparentBackgroundField: getElement<HTMLElement>(rootElement, "transparent-background-field"),
+    transparentBackgroundToggle: getElement<HTMLElement>(rootElement, "transparent-background-toggle"),
     negativePromptToggle: getElement<HTMLElement>(rootElement, "negative-prompt-toggle"),
     negativePromptField: getElement<HTMLElement>(rootElement, "negative-prompt-field"),
     clearHistoryButton: getElement<HTMLElement>(rootElement, "clear-history"),

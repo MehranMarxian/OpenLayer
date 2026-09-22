@@ -198,6 +198,12 @@ export type BuildWorkflowOptions = {
   cfg: number;
   seed: number;
   lora?: WorkflowLoraSelection;
+  /**
+   * Keep the decode's alpha and ask the model for a transparent background.
+   * Only presets with `transparentOutput` honour it; the builder refuses it
+   * elsewhere rather than quietly returning an opaque picture.
+   */
+  transparentBackground?: boolean;
 };
 
 export type BuildImageToImageWorkflowOptions = {
@@ -212,6 +218,12 @@ export type BuildImageToImageWorkflowOptions = {
   denoise: number;
   requiredModelSelections?: Record<string, string>;
   lora?: WorkflowLoraSelection;
+  /**
+   * The captured layer is a cut-out. Presets with `transparentOutput` then
+   * return the model's alpha instead of flattening it; others ignore this,
+   * because an opaque edit of a cut-out is still a correct edit.
+   */
+  keepTransparency?: boolean;
 };
 
 export type BuildSketchToImageWorkflowOptions = BuildImageToImageWorkflowOptions & {
@@ -564,6 +576,28 @@ export type WorkflowEncoderImageSlots = {
   maximumReferences: number;
 };
 
+/**
+ * How a preset hands Photoshop a transparent layer instead of an opaque one.
+ *
+ * Qwen-Image 2.1's VAE decodes RGBA for every picture, so its shipped graphs
+ * end in SplitImageWithAlpha to make ordinary results genuinely opaque. Keeping
+ * transparency is therefore a rewire, not a second graph: SaveImage is pointed
+ * back at the node that still carries the alpha.
+ */
+export type WorkflowTransparentOutput = {
+  /** The SaveImage input to rewire. */
+  saveImage: WorkflowInputTarget;
+  /** The node whose IMAGE output (slot 0) still has the decode's alpha. */
+  rgbaSource: string;
+  /**
+   * Wraps the artist's prompt when generating from nothing -- the phrasing the
+   * model was trained to answer with an alpha channel. Absent for edits, where
+   * a cut-out source carries its own transparency through (measured: 69% clear
+   * in, 69% clear out, with no mention of it in the instruction).
+   */
+  promptWrapper?: { prefix: string; suffix: string };
+};
+
 export type WorkflowInjectionTargets = Partial<Record<WorkflowInjectionName, WorkflowInjectionTargetList>>;
 
 export type WorkflowModelSourceKind =
@@ -698,6 +732,8 @@ export type WorkflowPresetDefinition = {
   loraInsertion?: WorkflowLoraInsertion;
   /** Present only on presets that compose a variable number of references. */
   referenceChain?: WorkflowReferenceChain;
+  /** Present only on presets whose model can return a real alpha channel. */
+  transparentOutput?: WorkflowTransparentOutput;
   compatibilityNote?: string;
   disabledReason?: string;
 };

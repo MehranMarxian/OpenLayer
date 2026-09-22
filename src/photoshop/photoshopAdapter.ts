@@ -132,6 +132,7 @@ type CapturedSourceImage = {
   sourceName: string;
   captureFormat: SourceCaptureFormat;
   originatingDocument: PhotoshopDocumentIdentity;
+  hasTransparency?: boolean;
 };
 
 type ImportProgress = (message: string) => void;
@@ -196,6 +197,12 @@ export type ExportedSourceImage = {
    * bounds, in which case the import falls back to centring on the canvas.
    */
   captureBounds?: NormalizedSelectionBounds;
+  /**
+   * The layer is a cut-out rather than a filled rectangle -- see
+   * `hasMeaningfulTransparency`. Lets an edit preset that can return alpha
+   * return a cut-out too. Absent means "not measured", which reads as opaque.
+   */
+  hasTransparency?: boolean;
 };
 
 export type SelectionMaskExport = {
@@ -2957,7 +2964,8 @@ async function captureSourceImage(
       height: Number(imageData.height ?? 0),
       sourceName: options.sourceName,
       captureFormat: encoded.captureFormat,
-      originatingDocument: options.originatingDocument
+      originatingDocument: options.originatingDocument,
+      hasTransparency: encoded.hasTransparency
     };
   } finally {
     imageData?.dispose?.();
@@ -3012,7 +3020,8 @@ function createExportedSourceImage(capturedSource: CapturedSourceImage): Exporte
     height: capturedSource.height,
     sourceName: capturedSource.sourceName,
     captureFormat: capturedSource.captureFormat,
-    originatingDocument: capturedSource.originatingDocument
+    originatingDocument: capturedSource.originatingDocument,
+    hasTransparency: capturedSource.hasTransparency
   };
 }
 
@@ -3062,8 +3071,41 @@ async function encodeSourceImageDataAsPng(imageData: PhotoshopImageData) {
     bytes,
     captureFormat: "png" as const,
     extension: "png",
-    mimeType: "image/png"
+    mimeType: "image/png",
+    hasTransparency: hasMeaningfulTransparency(rgba)
   };
+}
+
+/**
+ * True when at least one pixel in a thousand is more transparent than opaque.
+ *
+ * Not "any alpha below 255": a photograph with one soft-erased corner pixel is
+ * still an opaque layer, and treating it as a cut-out would hand the artist the
+ * model's own faint edge alpha across the whole edit. One in a thousand is a
+ * few dozen pixels on a small layer and thousands on a large one -- far below
+ * any real cut-out, far above stray antialiasing.
+ */
+export function hasMeaningfulTransparency(rgba: Uint8Array): boolean {
+  const pixelCount = Math.floor(rgba.length / 4);
+
+  if (pixelCount === 0) {
+    return false;
+  }
+
+  const threshold = Math.max(1, Math.ceil(pixelCount / 1000));
+  let transparentPixels = 0;
+
+  for (let index = 3; index < rgba.length; index += 4) {
+    if (rgba[index] < 128) {
+      transparentPixels += 1;
+
+      if (transparentPixels >= threshold) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 async function captureMaskImage(

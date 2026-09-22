@@ -39,6 +39,7 @@ export type ActionName =
   | "resetSettings"
   | "toggleNegativePrompt"
   | "toggleAutoImport"
+  | "toggleTransparentBackground"
   | "generate"
   | "cancelGeneration"
   | "import"

@@ -4603,6 +4603,17 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     modelStack: [...QWEN_IMAGE_21_STACK],
     requiredModels: [...QWEN_IMAGE_21_STACK],
     injections: QWEN_IMAGE_21_TXT2IMG_INJECTIONS,
+    // The wrapper is the Comfy template's own documented phrasing. Measured with
+    // it: a studio teapot came back 69% fully clear with a clean handle hole and
+    // a soft contact shadow, straight from the model with no matting step.
+    transparentOutput: {
+      saveImage: target(QWEN_IMAGE_21_TXT2IMG_NODES.saveImage, "images"),
+      rgbaSource: QWEN_IMAGE_21_TXT2IMG_NODES.decode,
+      promptWrapper: {
+        prefix: "This is an RGBA format image with transparency. ",
+        suffix: " The image has an alpha channel and a transparent background."
+      }
+    },
     requiredNodes: [
       {
         id: QWEN_IMAGE_21_TXT2IMG_NODES.diffusionModelLoader,
@@ -4735,7 +4746,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     displayName: "Qwen-Image 2.1 (edit, research licence)",
     mode: "img2img",
     description:
-      "Instruction editing with Qwen-Image 2.1: the layer goes in as image_1 and the instruction is applied at denoise 1. Research-licensed weights.",
+      "Instruction editing with Qwen-Image 2.1: the layer goes in as image_1 and the instruction is applied at denoise 1. A cut-out layer comes back as a cut-out. Research-licensed weights.",
     workflowFile: "workflows/api/edit-qwen-image-21.json",
     sourceWorkflowFile: "workflows/source/edit-qwen-image-21.workflow.json",
     status: "experimental",
@@ -4747,6 +4758,12 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     modelStack: [...QWEN_IMAGE_21_STACK],
     requiredModels: [...QWEN_IMAGE_21_STACK],
     injections: QWEN_IMAGE_21_EDIT_INJECTIONS,
+    // Taken only when the captured layer is a cut-out. The source-size restore
+    // (ImageScale) sits before the alpha drop, so it is the RGBA source here.
+    transparentOutput: {
+      saveImage: target(QWEN_IMAGE_21_EDIT_NODES.saveImage, "images"),
+      rgbaSource: QWEN_IMAGE_21_EDIT_NODES.outputScale
+    },
     requiredNodes: [
       {
         id: QWEN_IMAGE_21_EDIT_NODES.diffusionModelLoader,

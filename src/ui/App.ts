@@ -585,6 +585,9 @@ export function renderApp(rootElement: HTMLElement) {
   let promptLayerSource: ImageSourceState | null = null;
   let importAutomatically = false;
   let imageImportAutomatically = false;
+  // Remembered across preset switches but only honoured while the selected
+  // preset can return alpha; see syncTransparentBackgroundField.
+  let transparentBackground = false;
   let upscaleImportAutomatically = false;
   let removeBackgroundImportAutomatically = false;
   let layerMapsSource: ImageSourceState | null = null;
@@ -835,6 +838,7 @@ export function renderApp(rootElement: HTMLElement) {
       leadingParams: ["workflow"],
       settle: async () => {
         applyRecommendedPresetSettings(elements.workflow, DEFAULT_WORKFLOW, elements.steps, elements.cfg);
+        syncTransparentBackgroundField();
         await refreshTextModelOptionsForSelectedPreset(elements);
         updateTextCheckpointCompatibility(elements);
         await refreshLoraOptions(getTextLoraControls(elements), elements);
@@ -1618,6 +1622,11 @@ export function renderApp(rootElement: HTMLElement) {
     resetSettings: createActionRunner(elements, "resetSettings", handleResetSettings),
     toggleNegativePrompt: createActionRunner(elements, "toggleNegativePrompt", handleToggleNegativePrompt),
     toggleAutoImport: createActionRunner(elements, "toggleAutoImport", handleToggleAutoImport),
+    toggleTransparentBackground: createActionRunner(
+      elements,
+      "toggleTransparentBackground",
+      handleToggleTransparentBackground
+    ),
     generate: createActionRunner(elements, "generate", handleGenerate),
     cancelGeneration: createActionRunner(elements, "cancelGeneration", handleCancelGeneration),
     import: createActionRunner(elements, "import", handleImport),
@@ -1730,6 +1739,7 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.captureLayerButton, actionHandlers.captureImageSource);
   bindActionControl(elements.captureCanvasButton, actionHandlers.captureCanvasSource);
   bindActionControl(elements.experimentalCheckpointToggle, actionHandlers.toggleExperimentalCheckpoints);
+  bindActionControl(elements.transparentBackgroundToggle, actionHandlers.toggleTransparentBackground);
   bindActionControl(elements.generateImg2ImgButton, actionHandlers.generateImg2Img);
   bindActionControl(elements.importImg2ImgButton, actionHandlers.importImg2Img);
   bindActionControl(elements.imgAutoImportToggle, actionHandlers.toggleImg2ImgAutoImport);
@@ -1864,8 +1874,11 @@ export function renderApp(rootElement: HTMLElement) {
   updateLiveStateBadge("idle");
   void loadInitialCheckpoints();
 
+  syncTransparentBackgroundField();
+
   elements.workflow.addEventListener("change", () => {
     applyRecommendedPresetSettings(elements.workflow, DEFAULT_WORKFLOW, elements.steps, elements.cfg);
+    syncTransparentBackgroundField();
     void refreshTextModelOptionsForSelectedPreset(elements).then(() => updateTextCheckpointCompatibility(elements));
     void refreshLoraOptions(getTextLoraControls(elements), elements);
   });
@@ -2627,6 +2640,7 @@ export function renderApp(rootElement: HTMLElement) {
   function handleResetSettings() {
     clearOpenLayerPreferences();
     applyDefaultSettings(elements);
+    syncTransparentBackgroundField();
     updateInpaintReferenceControlLock(elements);
     applyTheme(elements, DEFAULT_THEME);
     fillCheckpointOptions(elements, FALLBACK_CHECKPOINTS, FALLBACK_CHECKPOINTS[0]);
@@ -2646,6 +2660,25 @@ export function renderApp(rootElement: HTMLElement) {
   function handleToggleNegativePrompt() {
     isNegativePromptOpen = !isNegativePromptOpen;
     updateNegativePromptDisclosure(elements, isNegativePromptOpen);
+  }
+
+  function handleToggleTransparentBackground() {
+    transparentBackground = !transparentBackground;
+    updateTransparentBackgroundToggle(elements, transparentBackground);
+    setTextToImageDiagnostics(
+      elements,
+      transparentBackground
+        ? "Transparent background is on: the result imports as a cut-out layer with its own alpha channel."
+        : "Transparent background is off."
+    );
+  }
+
+  /** The toggle exists only for presets that can return alpha. */
+  function syncTransparentBackgroundField() {
+    const preset = getWorkflowPreset(readSelectValue(elements.workflow, DEFAULT_WORKFLOW));
+
+    elements.transparentBackgroundField.hidden = !preset.transparentOutput;
+    updateTransparentBackgroundToggle(elements, transparentBackground);
   }
 
   function handleToggleAutoImport() {
@@ -2857,6 +2890,7 @@ export function renderApp(rootElement: HTMLElement) {
         );
       }
 
+      const wantsTransparency = transparentBackground && Boolean(preset.transparentOutput);
       const buildResult = await buildTxt2ImgWorkflow({
         presetId: preset.id,
         prompt: elements.prompt.value,
@@ -2867,7 +2901,8 @@ export function renderApp(rootElement: HTMLElement) {
         steps: settings.steps,
         cfg: settings.cfg,
         seed: settings.seed,
-        lora: readLoraSelection(getTextLoraControls(elements))
+        lora: readLoraSelection(getTextLoraControls(elements)),
+        transparentBackground: wantsTransparency
       });
 
       const generatedResult = await generation.runPipeline({
@@ -2898,7 +2933,7 @@ export function renderApp(rootElement: HTMLElement) {
           seed: buildResult.seed,
           sizeLabel: `${settings.width} x ${settings.height}`,
           dimensions: `${settings.width} x ${settings.height}`,
-          sourceMode: "Prompt only",
+          sourceMode: wantsTransparency ? "Prompt only, transparent background" : "Prompt only",
           experimental: buildResult.preset.status === "experimental"
         });
         }
@@ -2914,7 +2949,10 @@ export function renderApp(rootElement: HTMLElement) {
         await handleImport("auto");
       } else {
         setTextToImageStatus(elements, "Generation complete.", "ready");
-        setTextToImageDiagnostics(elements, `Seed used: ${buildResult.seed}. Workflow: ${buildResult.preset.id}.`);
+        setTextToImageDiagnostics(
+          elements,
+          `Seed used: ${buildResult.seed}. Workflow: ${buildResult.preset.id}.${wantsTransparency ? " Transparent background." : ""}`
+        );
       }
 
       savePreferencesFromElements(elements, { seed: requestedSeed });
@@ -3098,6 +3136,7 @@ export function renderApp(rootElement: HTMLElement) {
         // compose from layers the artist may since have changed.
         elements.multiReferencePrompt.value = entry.prompt;
         setSelectValueIfPresent(elements.multiReferenceWorkflow, entry.workflowPreset);
+        syncMultiReferencePresetUi(elements);
         setSelectValueIfPresent(elements.multiReferenceCheckpoint, entry.modelName);
         elements.multiReferenceSeed.value = String(entry.seed);
         setView("multi-reference");
@@ -3106,6 +3145,7 @@ export function renderApp(rootElement: HTMLElement) {
       default:
         elements.prompt.value = entry.prompt;
         setSelectValueIfPresent(elements.workflow, entry.workflowPreset);
+        syncTransparentBackgroundField();
         setSelectValueIfPresent(elements.checkpoint, entry.modelName);
         elements.seed.value = String(entry.seed);
         setView("text-to-image");
@@ -3313,7 +3353,8 @@ export function renderApp(rootElement: HTMLElement) {
         cfg: settings.cfg,
         seed: settings.seed,
         denoise: settings.denoise,
-        lora: readLoraSelection(getImageLoraControls(elements))
+        lora: readLoraSelection(getImageLoraControls(elements)),
+        keepTransparency: imageSource.hasTransparency === true
       });
 
       // The commit closure runs after awaits; a const keeps the null-checked
@@ -7239,6 +7280,12 @@ function updateLiveNegativePromptDisclosure(elements: AppElements, isOpen: boole
   elements.liveNegativePromptToggle.textContent = isOpen ? "Hide Negative Prompt" : "Show Negative Prompt";
   elements.liveNegativePromptToggle.setAttribute("aria-expanded", String(isOpen));
   elements.liveNegativePromptToggle.classList.toggle("is-active", isOpen);
+}
+
+function updateTransparentBackgroundToggle(elements: AppElements, isEnabled: boolean) {
+  elements.transparentBackgroundToggle.textContent = isEnabled ? "Transparent Background On" : "Transparent Background Off";
+  elements.transparentBackgroundToggle.setAttribute("aria-pressed", String(isEnabled));
+  elements.transparentBackgroundToggle.classList.toggle("is-active", isEnabled);
 }
 
 function updateAutoImportToggle(elements: AppElements, isEnabled: boolean) {

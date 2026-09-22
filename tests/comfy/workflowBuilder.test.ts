@@ -334,6 +334,92 @@ describe("workflowBuilder", () => {
     expect(workflow["9"].inputs.images).toEqual(["30", 0]);
   });
 
+  it("keeps the alpha and wraps the prompt when Qwen-Image 2.1 is asked for a transparent background", async () => {
+    const result = await buildTxt2ImgWorkflow({
+      presetId: "txt2img-qwen-image-21",
+      prompt: "A red ceramic teapot.",
+      negativePrompt: "",
+      width: 1024,
+      height: 1024,
+      steps: 25,
+      cfg: 1,
+      seed: 5,
+      transparentBackground: true
+    });
+    const workflow = result.workflow;
+
+    // SaveImage reads the RGBA decode directly, skipping the alpha drop.
+    expect(workflow["9"].inputs.images).toEqual(["8", 0]);
+    // The wrapper is the template's documented phrasing; the artist's words sit inside it.
+    expect(workflow["6"].inputs.prompt).toBe(
+      "This is an RGBA format image with transparency. A red ceramic teapot. The image has an alpha channel and a transparent background."
+    );
+  });
+
+  it("leaves the prompt alone and the alpha dropped when transparency is not asked for", async () => {
+    const result = await buildTxt2ImgWorkflow({
+      presetId: "txt2img-qwen-image-21",
+      prompt: "A red ceramic teapot.",
+      width: 1024,
+      height: 1024,
+      steps: 25,
+      cfg: 1,
+      seed: 5
+    });
+
+    expect(result.workflow["6"].inputs.prompt).toBe("A red ceramic teapot.");
+    expect(result.workflow["9"].inputs.images).toEqual(["30", 0]);
+  });
+
+  it("refuses a transparent background on a preset that has no alpha channel", async () => {
+    await expect(
+      buildTxt2ImgWorkflow({
+        presetId: "txt2img-flux2-klein",
+        prompt: "a teapot",
+        width: 1024,
+        height: 1024,
+        steps: 4,
+        cfg: 1,
+        seed: 5,
+        transparentBackground: true
+      })
+    ).rejects.toThrow(/cannot return a transparent background/);
+  });
+
+  it("returns a Qwen-Image 2.1 edit of a cut-out layer as a cut-out, at the source size", async () => {
+    const result = await buildImg2ImgWorkflow({
+      presetId: "edit-qwen-image-21",
+      prompt: "make the teapot cobalt blue",
+      sourceImageName: "teapot.png",
+      steps: 25,
+      cfg: 1,
+      seed: 6,
+      denoise: 1,
+      keepTransparency: true
+    });
+
+    // The restored-size RGBA image, not the alpha drop that follows it.
+    expect(result.workflow["9"].inputs.images).toEqual(["17", 0]);
+    // No prompt wrapper for edits: the source's alpha carries through on its own.
+    expect(result.workflow["6"].inputs.prompt).toBe("make the teapot cobalt blue");
+  });
+
+  it("gives a cut-out an ordinary opaque edit on a preset without an alpha channel", async () => {
+    const result = await buildImg2ImgWorkflow({
+      presetId: "edit-flux2-klein",
+      prompt: "make the teapot cobalt blue",
+      sourceImageName: "teapot.png",
+      steps: 4,
+      cfg: 1,
+      seed: 6,
+      denoise: 1,
+      keepTransparency: true
+    });
+
+    expect(result.workflow["9"].inputs.images).toEqual(["17", 0]);
+    expect(result.workflow["6"].inputs.text).toBe("make the teapot cobalt blue");
+  });
+
   it("plugs each extra Qwen-Image 2.1 reference into the next numbered encoder slot, alpha intact", async () => {
     const result = await buildMultiReferenceWorkflow({
       presetId: "multi-reference-qwen-image-21",
