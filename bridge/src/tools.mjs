@@ -73,7 +73,14 @@ export const TEXT_TO_IMAGE_SCHEMA = {
   height: dimension.optional(),
   steps,
   cfg,
-  seed
+  seed,
+  transparentBackground: z
+    .boolean()
+    .optional()
+    .describe(
+      "Return a cut-out layer with a real alpha channel instead of a filled background. " +
+        "Only the txt2img-qwen-image-21 workflow supports it; pass that workflow in the same call."
+    )
 };
 
 export const IMAGE_TO_IMAGE_SCHEMA = {
@@ -222,8 +229,11 @@ export const MCP_TOOLS = [
     title: "Text to Image",
     description:
       "Generate an image from a text prompt in the OpenLayer Photoshop panel and import it as a " +
-      "new layer. Only the parameters you pass are changed; anything omitted keeps the value " +
-      "currently in the panel. Returns the panel's own status message.",
+      "new layer. With the txt2img-qwen-image-21 workflow it can generate a transparent cut-out " +
+      "(transparentBackground) and render exact lettering -- put the words in quotes. That " +
+      "workflow's weights are research-licensed: not for commercial work. Only the parameters " +
+      "you pass are changed; anything omitted keeps the value currently in the panel. Returns the " +
+      "panel's own status message.",
     schema: TEXT_TO_IMAGE_SCHEMA,
     timeoutMs: GENERATION_TIMEOUT_MS
   },
@@ -305,10 +315,13 @@ export const MCP_TOOLS = [
     description:
       "Compose one image from the ordered list of reference layers already captured in the " +
       "OpenLayer panel, guided by a text prompt. Requires those layers captured in the panel " +
-      "first — this tool cannot capture them, add to the list, or reorder it. Clothing, props, " +
-      "setting and lighting carry across from the references; faces do not, so this cannot place " +
-      "a specific person in a picture. The first reference sets the output size. Only the " +
-      "parameters you pass are changed. Returns the panel's own status message.",
+      "first — this tool cannot capture them, add to the list, or reorder it. The first " +
+      "reference sets the output size. Two workflows: multi-reference-flux2-klein (the default) " +
+      "carries clothing, props, setting and lighting but not faces, so it cannot place a specific " +
+      "person; multi-reference-qwen-image-21 names the references in the prompt as <image1>, " +
+      "<image2> and so on in list order, keeps transparent layers' edges, takes about 30 seconds " +
+      "per reference, and uses research-licensed weights. Only the parameters you pass are " +
+      "changed. Returns the panel's own status message.",
     schema: MULTI_REFERENCE_SCHEMA,
     timeoutMs: GENERATION_TIMEOUT_MS
   },

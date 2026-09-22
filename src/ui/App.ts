@@ -25,7 +25,7 @@ import {
 import { createObjectUrlRegistry, ObjectUrlRegistry } from "./objectUrlRegistry";
 import { previewHub, PreviewPublicationKind, PreviewToolId } from "./previewHub";
 import { importBridge } from "./importBridge";
-import { agentBridge } from "./agentBridge";
+import { agentBridge, createAgentToggleField } from "./agentBridge";
 import { AgentConnectionStatus, createAgentConnection, openWebSocket } from "./agentConnection";
 import {
   canAddReference,
@@ -833,7 +833,18 @@ export function renderApp(rootElement: HTMLElement) {
         height: elements.height,
         steps: elements.steps,
         cfg: elements.cfg,
-        seed: elements.seed
+        seed: elements.seed,
+        // Applied after `workflow` settles, so "true" is on offer only when the
+        // preset chosen in the same command can return alpha.
+        transparentBackground: createAgentToggleField({
+          read: () => transparentBackground,
+          write: (isOn) => {
+            transparentBackground = isOn;
+            updateTransparentBackgroundToggle(elements, transparentBackground);
+          },
+          canTurnOn: () =>
+            Boolean(getWorkflowPreset(readSelectValue(elements.workflow, DEFAULT_WORKFLOW)).transparentOutput)
+        })
       },
       leadingParams: ["workflow"],
       settle: async () => {
