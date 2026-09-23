@@ -2042,6 +2042,8 @@ const FLUX2_KLEIN_EDIT_CAPABILITY: WorkflowCapability = {
     modelSelectorLabel: "Klein model",
     primaryActionLabel: "Generate Edit",
     hiddenControls: ["denoise"],
+    screenHint:
+      "Write what should change, not the whole picture: \"make the jacket red\", \"remove the parked car\". The rest of the layer stays put.",
     experimentalNote:
       "Instruction editing, not image-to-image. Write what you want CHANGED -- \"make the jacket red\", \"remove the parked car\", \"turn the sky to dusk\" -- rather than describing the whole picture. The rest of the frame is held by reference conditioning rather than by a low denoise, so it stays put far better than the image-to-image preset while still obeying the instruction. Denoise is hidden because it is fixed at 1; that is the technique, not a default."
   }
@@ -2238,6 +2240,8 @@ const QWEN_IMAGE_21_EDIT_CAPABILITY: WorkflowCapability = {
     modelSelectorLabel: "Qwen-Image 2.1 model",
     primaryActionLabel: "Generate Edit",
     hiddenControls: ["denoise"],
+    screenHint:
+      "Write what should change: \"make it a rainy evening\", \"change the sign to read OPEN\". Capture Selection edits only the selected area. A cut-out layer comes back as a cut-out. Research licence: research and evaluation use only.",
     experimentalNote:
       "Research licence: Qwen allows these weights for research and evaluation only, not commercial work. Write what you want CHANGED -- \"change the sign to read OPEN\", \"make it a rainy evening\", \"replace the cart with a bicycle\". Objects stay where they are, but the whole picture is repainted and can come back slightly darker, so compare before you keep it. About 25 s per edit at CFG 1; the negative prompt has no effect."
   }
@@ -2831,6 +2835,9 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     capability: REMOVE_BACKGROUND_BIREFNET_CAPABILITY,
     requiredModels: [REMOVE_BACKGROUND_BIREFNET_MODEL],
     injections: REMOVE_BACKGROUND_BIREFNET_INJECTIONS,
+    // The cutout is transparent around the subject, so without anchors it
+    // imports aligned by the subject's box instead of by the captured layer.
+    placementAnchor: target(REMOVE_BACKGROUND_BIREFNET_NODES.saveImage, "images"),
     compatibilityNote:
       "Uses ComfyUI's own background-removal nodes. No checkpoint, prompt, or diffusion sampling is involved, so it does not care which image model you have.",
     requiredNodes: [
@@ -4764,6 +4771,13 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
       saveImage: target(QWEN_IMAGE_21_EDIT_NODES.saveImage, "images"),
       rgbaSource: QWEN_IMAGE_21_EDIT_NODES.outputScale
     },
+    selectionEdit: {
+      loadImage: QWEN_IMAGE_21_EDIT_NODES.loadImage,
+      encoderImage: target(QWEN_IMAGE_21_EDIT_NODES.textEncode, "images.image_1"),
+      editedImage: QWEN_IMAGE_21_EDIT_NODES.dropAlpha,
+      saveImage: target(QWEN_IMAGE_21_EDIT_NODES.saveImage, "images"),
+      generatedNodeIdPrefix: "sel"
+    },
     requiredNodes: [
       {
         id: QWEN_IMAGE_21_EDIT_NODES.diffusionModelLoader,
@@ -5020,6 +5034,21 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
 
 export function listWorkflowPresets(mode?: WorkflowPresetDefinition["mode"]) {
   return mode ? WORKFLOW_PRESETS.filter((preset) => preset.mode === mode) : WORKFLOW_PRESETS;
+}
+
+/**
+ * The Image to Image screen has two modes since v0.36. Instruction editing
+ * (`edit-*`) samples at denoise 1 with the layer as conditioning, so it offers
+ * no denoise control; every other image-to-image preset is driven by one. That
+ * declared control -- not the preset id -- is what decides which mode lists a
+ * preset, so a new edit preset lands in Edit Image by declaring itself.
+ */
+export function isInstructionEditPreset(preset: WorkflowPresetDefinition) {
+  return preset.mode === "img2img" && !(preset.capability?.controls.includes("denoise") ?? true);
+}
+
+export function listImageScreenPresets(mode: "transform" | "edit") {
+  return listRunnableWorkflowPresets("img2img").filter((preset) => isInstructionEditPreset(preset) === (mode === "edit"));
 }
 
 export function listRunnableWorkflowPresets(mode?: WorkflowPresetDefinition["mode"]) {

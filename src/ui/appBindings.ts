@@ -43,6 +43,7 @@ export type ActionName =
   | "import"
   | "captureImageSource"
   | "captureCanvasSource"
+  | "captureImageSelection"
   | "toggleExperimentalCheckpoints"
   | "generateImg2Img"
   | "importImg2Img"

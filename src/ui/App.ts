@@ -25,8 +25,10 @@ import {
 import { createObjectUrlRegistry, ObjectUrlRegistry } from "./objectUrlRegistry";
 import { previewHub, PreviewPublicationKind, PreviewToolId } from "./previewHub";
 import { importBridge } from "./importBridge";
-import { agentBridge, createAgentToggleField } from "./agentBridge";
+import { agentBridge, createAgentChoiceField, createAgentToggleField } from "./agentBridge";
 import { readTextareaValue } from "./textareaValue";
+import { measureSelectionFraction, selectionEditStrength } from "../comfy/selectionEdit";
+import { decodeRgbaPng } from "../utils/png";
 import { AgentConnectionStatus, createAgentConnection, openWebSocket } from "./agentConnection";
 import {
   canAddReference,
@@ -76,6 +78,8 @@ import { getCheckpointCompatibility } from "../comfy/modelCompatibility";
 import {
   getPresetTextOutputNodeId,
   getRecommendedPresetSettings,
+  isInstructionEditPreset,
+  listImageScreenPresets,
   getWorkflowPreset,
   listRunnableWorkflowPresets,
   listWorkflowPresets
@@ -327,6 +331,7 @@ import {
   DEFAULT_SKETCH_WORKFLOW,
   DEFAULT_STEPS,
   DEFAULT_MULTI_REFERENCE_WORKFLOW,
+  DEFAULT_EDIT_WORKFLOW,
   DEFAULT_UNFLATTEN_WORKFLOW,
   DEFAULT_STYLE_REFERENCE_CONTROL_STRENGTH,
   DEFAULT_STYLE_REFERENCE_WORKFLOW,
@@ -417,6 +422,11 @@ type HistoryEntry = {
 
 type ImageSourceState = ExportedSourceImage & {
   previewUrl: string;
+  /**
+   * Set only by Edit Image's Capture Selection: the source is the selection's
+   * context crop, `captureBounds` is that crop, and this is the selection.
+   */
+  selectionEdit?: { maskBlob: Blob; selectedFraction: number };
 };
 
 /**
@@ -544,6 +554,14 @@ export function renderApp(rootElement: HTMLElement) {
   // than wherever placeEvent would drop it. Re-reading imageSource at import
   // time would use whatever the artist has captured since.
   let imageImportBounds: NormalizedSelectionBounds | null = null;
+  // The Image to Image screen's mode; the Edit Image card opens it as "edit".
+  // Each mode remembers its own last preset, so hopping between the two cards
+  // does not reset either one's choice.
+  let imageScreenMode: ImageScreenMode = "transform";
+  const imageScreenPresetByMode: Record<ImageScreenMode, string> = {
+    transform: DEFAULT_IMAGE_WORKFLOW,
+    edit: DEFAULT_EDIT_WORKFLOW
+  };
   // Same contract as imageImportBounds: where the captured layer sat, recorded
   // when the result is made so the import lands on it. Both tools shipped
   // without this and centred every result on the canvas, so a cutout of an
@@ -688,6 +706,7 @@ export function renderApp(rootElement: HTMLElement) {
     for (const toolId of [
       "text_to_image",
       "image_to_image",
+      "edit_image",
       "sketch_to_image",
       "inpaint",
       "outpaint",
@@ -880,12 +899,54 @@ export function renderApp(rootElement: HTMLElement) {
      * the user to open the panel and read the real reason themselves, which
      * defeats driving the tool from outside Photoshop in the first place.
      */
-    agentBridge.register("image_to_image", {
+    // The two tools share one screen. Each prepares its own mode, and the
+    // workflow field is a virtual choice so an agent is validated against the
+    // presets the TOOL accepts, not the ones the screen happens to list.
+    const createImageScreenWorkflowField = (accepts: () => string[]) =>
+      createAgentChoiceField({
+        read: () => readSelectValue(elements.imgWorkflow, currentImageScreenDefault()),
+        write: (presetId) => {
+          applyImageScreenMode(imageScreenViewForPreset(presetId) === "edit-image" ? "edit" : "transform");
+          setSelectValueIfPresent(elements.imgWorkflow, presetId);
+        },
+        options: accepts
+      });
+    const settleImageScreen = async () => {
+      applyRecommendedPresetSettings(elements.imgWorkflow, currentImageScreenDefault(), elements.imgSteps, elements.imgCfg);
+      paintImageScreenHint(elements, imageScreenMode);
+      await refreshImageModelOptionsForSelectedPreset(elements);
+      updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
+      await refreshLoraOptions(getImageLoraControls(elements), elements);
+    };
+
+    agentBridge.register("edit_image", {
       run: handleGenerateImg2Img,
+      prepare: () => applyImageScreenMode("edit"),
       fields: {
         prompt: elements.imgPrompt,
         negativePrompt: elements.imgNegativePrompt,
-        workflow: elements.imgWorkflow,
+        workflow: createImageScreenWorkflowField(() => listImageScreenPresets("edit").map((preset) => preset.id)),
+        checkpoint: elements.imgCheckpoint,
+        steps: elements.imgSteps,
+        cfg: elements.imgCfg,
+        seed: elements.imgSeed
+      },
+      leadingParams: ["workflow"],
+      settle: settleImageScreen,
+      statusText: elements.imgStatusText,
+      statusPill: elements.imgStatusPill,
+      errorText: elements.imgErrorMessage
+    });
+
+    agentBridge.register("image_to_image", {
+      run: handleGenerateImg2Img,
+      prepare: () => applyImageScreenMode("transform"),
+      fields: {
+        prompt: elements.imgPrompt,
+        negativePrompt: elements.imgNegativePrompt,
+        // Still accepts the edit presets for one release (v0.36), switching to
+        // edit mode when given one, so agents written for v0.35 keep working.
+        workflow: createImageScreenWorkflowField(() => listRunnableWorkflowPresets("img2img").map((preset) => preset.id)),
         checkpoint: elements.imgCheckpoint,
         steps: elements.imgSteps,
         cfg: elements.imgCfg,
@@ -894,7 +955,8 @@ export function renderApp(rootElement: HTMLElement) {
       },
       leadingParams: ["workflow"],
       settle: async () => {
-        applyRecommendedPresetSettings(elements.imgWorkflow, DEFAULT_IMAGE_WORKFLOW, elements.imgSteps, elements.imgCfg);
+        applyRecommendedPresetSettings(elements.imgWorkflow, currentImageScreenDefault(), elements.imgSteps, elements.imgCfg);
+        paintImageScreenHint(elements, imageScreenMode);
         await refreshImageModelOptionsForSelectedPreset(elements);
         updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
         await refreshLoraOptions(getImageLoraControls(elements), elements);
@@ -1643,6 +1705,7 @@ export function renderApp(rootElement: HTMLElement) {
     import: createActionRunner(elements, "import", handleImport),
     captureImageSource: createActionRunner(elements, "captureImageSource", handleCaptureImageSource),
     captureCanvasSource: createActionRunner(elements, "captureCanvasSource", handleCaptureCanvasSource),
+    captureImageSelection: createActionRunner(elements, "captureImageSelection", handleCaptureImageSelection),
     toggleExperimentalCheckpoints: createActionRunner(
       elements,
       "toggleExperimentalCheckpoints",
@@ -1748,6 +1811,7 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.importButton, actionHandlers.import);
   bindActionControl(elements.captureLayerButton, actionHandlers.captureImageSource);
   bindActionControl(elements.captureCanvasButton, actionHandlers.captureCanvasSource);
+  bindActionControl(elements.captureImageSelectionButton, actionHandlers.captureImageSelection);
   bindActionControl(elements.experimentalCheckpointToggle, actionHandlers.toggleExperimentalCheckpoints);
   bindActionControl(elements.transparentBackgroundToggle, actionHandlers.toggleTransparentBackground);
   bindActionControl(elements.generateImg2ImgButton, actionHandlers.generateImg2Img);
@@ -1910,11 +1974,7 @@ export function renderApp(rootElement: HTMLElement) {
   });
 
   elements.imgWorkflow.addEventListener("change", () => {
-    applyRecommendedPresetSettings(elements.imgWorkflow, DEFAULT_IMAGE_WORKFLOW, elements.imgSteps, elements.imgCfg);
-    void refreshImageModelOptionsForSelectedPreset(elements).then(() => (
-      updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource)
-    ));
-    void refreshLoraOptions(getImageLoraControls(elements), elements);
+    handleImageWorkflowChanged();
   });
 
   elements.imgCheckpoint.addEventListener("change", () => {
@@ -2649,6 +2709,36 @@ export function renderApp(rootElement: HTMLElement) {
     updateNegativePromptDisclosure(elements, isNegativePromptOpen);
   }
 
+  function handleImageWorkflowChanged() {
+    applyRecommendedPresetSettings(elements.imgWorkflow, currentImageScreenDefault(), elements.imgSteps, elements.imgCfg);
+    paintImageScreenHint(elements, imageScreenMode);
+    void refreshImageModelOptionsForSelectedPreset(elements).then(() => (
+      updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource)
+    ));
+    void refreshLoraOptions(getImageLoraControls(elements), elements);
+  }
+
+  function currentImageScreenDefault() {
+    return imageScreenMode === "edit" ? DEFAULT_EDIT_WORKFLOW : DEFAULT_IMAGE_WORKFLOW;
+  }
+
+  /**
+   * Switches the one Image to Image screen between its two modes. A no-op when
+   * the mode is unchanged, so a history reuse can pick a preset after calling
+   * setView without the list being rebuilt under it.
+   */
+  function applyImageScreenMode(mode: ImageScreenMode) {
+    if (mode === imageScreenMode) {
+      return;
+    }
+
+    imageScreenPresetByMode[imageScreenMode] = readSelectValue(elements.imgWorkflow, currentImageScreenDefault());
+    imageScreenMode = mode;
+    fillImageScreenWorkflowOptions(elements, mode, imageScreenPresetByMode[mode]);
+    paintImageScreenMode(elements, mode);
+    handleImageWorkflowChanged();
+  }
+
   function handleToggleTransparentBackground() {
     transparentBackground = !transparentBackground;
     updateTransparentBackgroundToggle(elements, transparentBackground);
@@ -3009,7 +3099,7 @@ export function renderApp(rootElement: HTMLElement) {
     switch (entry.toolType) {
       case "image-to-image":
         setImageResult(entry.result);
-        setView("image-to-image");
+        setView(imageScreenViewForPreset(entry.workflowPreset));
         return;
       case "sketch-to-image":
         setSketchResult(entry.result);
@@ -3077,11 +3167,15 @@ export function renderApp(rootElement: HTMLElement) {
   function reuseHistorySettings(entry: HistoryEntry) {
     switch (entry.toolType) {
       case "image-to-image":
+        // The view first: it rebuilds the Workflow list for its mode, and an
+        // edit preset only exists in the Edit Image list.
+        setView(imageScreenViewForPreset(entry.workflowPreset));
         elements.imgPrompt.value = entry.prompt;
-        setSelectValueIfPresent(elements.imgWorkflow, entry.workflowPreset);
+        if (setSelectValueIfPresent(elements.imgWorkflow, entry.workflowPreset)) {
+          handleImageWorkflowChanged();
+        }
         setSelectValueIfPresent(elements.imgCheckpoint, entry.modelName);
         elements.imgSeed.value = String(entry.seed);
-        setView("image-to-image");
         break;
       case "sketch-to-image":
         elements.sketchPrompt.value = entry.prompt;
@@ -3206,11 +3300,49 @@ export function renderApp(rootElement: HTMLElement) {
     });
   }
 
+  async function handleCaptureImageSelection() {
+    await captureImageToImageSource({
+      progressMessage: "Capturing the Photoshop selection with some surrounding context...",
+      statusMessage: "Capturing selection...",
+      successMessage: "Selection captured. Only the selected area will change.",
+      capture: async () => {
+        const region = await captureSelectionForInpainting("visible-canvas");
+
+        if (!region.maskAvailable || !region.mask) {
+          throw createOpenLayerError(
+            "INPAINT_SOURCE_INVALID",
+            "Photoshop did not return a mask for this selection.",
+            region.maskMessage || "Make a selection with the Marquee or Lasso tool, then capture it again."
+          );
+        }
+
+        const mask = decodeRgbaPng(new Uint8Array(await region.mask.blob.arrayBuffer()));
+        const selectedFraction = measureSelectionFraction(mask.rgba);
+
+        return {
+          blob: region.blob,
+          filename: region.filename,
+          mimeType: region.mimeType,
+          width: region.width,
+          height: region.height,
+          sourceName: "Selection",
+          captureFormat: region.captureFormat,
+          originatingDocument: region.originatingDocument,
+          // The crop, not the selection: the result covers the crop and is
+          // transparent outside the feathered selection.
+          captureBounds: region.selection.contextBounds,
+          hasTransparency: false,
+          selectionEdit: { maskBlob: region.mask.blob, selectedFraction }
+        };
+      }
+    });
+  }
+
   async function captureImageToImageSource(options: {
     progressMessage: string;
     statusMessage: string;
     successMessage: string;
-    capture: () => Promise<ExportedSourceImage>;
+    capture: () => Promise<ExportedSourceImage & Pick<ImageSourceState, "selectionEdit">>;
   }) {
     setImageDiagnostics(elements, options.progressMessage);
     setImageError(elements, "");
@@ -3329,7 +3461,22 @@ export function renderApp(rootElement: HTMLElement) {
 
       setImageStatus(elements, "Uploading source image to ComfyUI...", "idle");
       setImageProgressPreview(elements, "Uploading source image...");
-      const sourceImageName = await client.uploadImage(imageSource.blob, imageSource.filename);
+      // A selection source edits only the selection, and only in Edit Image
+      // with a preset that can; in Image to Image the crop is an ordinary source.
+      const selectionEdit = imageScreenMode === "edit" ? imageSource.selectionEdit : undefined;
+
+      if (selectionEdit && !preset.selectionEdit) {
+        throw createOpenLayerError(
+          "WORKFLOW_INVALID",
+          `${preset.displayName} cannot edit just a selection.`,
+          "Choose Qwen-Image 2.1 (edit), or capture the layer or canvas instead."
+        );
+      }
+
+      const upload = selectionEdit
+        ? await createFluxFillEmbeddedMaskSource(imageSource.blob, selectionEdit.maskBlob, "openlayer-edit-selection.png")
+        : { blob: imageSource.blob, filename: imageSource.filename };
+      const sourceImageName = await client.uploadImage(upload.blob, upload.filename);
       const buildResult = await buildImg2ImgWorkflow({
         presetId: preset.id,
         prompt: readTextareaValue(elements.imgPrompt),
@@ -3341,7 +3488,8 @@ export function renderApp(rootElement: HTMLElement) {
         seed: settings.seed,
         denoise: settings.denoise,
         lora: readLoraSelection(getImageLoraControls(elements)),
-        keepTransparency: imageSource.hasTransparency === true
+        keepTransparency: imageSource.hasTransparency === true,
+        selectionEdit: selectionEdit ? { strength: selectionEditStrength(selectionEdit.selectedFraction) } : undefined
       });
 
       // The commit closure runs after awaits; a const keeps the null-checked
@@ -7149,7 +7297,11 @@ export function renderApp(rootElement: HTMLElement) {
     elements.appHeader.hidden = view !== "home";
     elements.homeView.hidden = currentView !== "home";
     elements.generatorView.hidden = currentView !== "text-to-image";
-    elements.imageToImageView.hidden = currentView !== "image-to-image";
+    elements.imageToImageView.hidden = currentView !== "image-to-image" && currentView !== "edit-image";
+
+    if (currentView === "image-to-image" || currentView === "edit-image") {
+      applyImageScreenMode(currentView === "edit-image" ? "edit" : "transform");
+    }
     elements.sketchToImageView.hidden = currentView !== "sketch-to-image";
     elements.inpaintView.hidden = currentView !== "inpaint";
     elements.outpaintView.hidden = currentView !== "outpaint";
@@ -7271,6 +7423,68 @@ function updateLiveNegativePromptDisclosure(elements: AppElements, isOpen: boole
   elements.liveNegativePromptToggle.textContent = isOpen ? "Hide Negative Prompt" : "Show Negative Prompt";
   elements.liveNegativePromptToggle.setAttribute("aria-expanded", String(isOpen));
   elements.liveNegativePromptToggle.classList.toggle("is-active", isOpen);
+}
+
+type ImageScreenMode = "transform" | "edit";
+
+function imageScreenViewForPreset(presetId: string | undefined): AppView {
+  try {
+    return presetId && isInstructionEditPreset(getWorkflowPreset(presetId)) ? "edit-image" : "image-to-image";
+  } catch {
+    return "image-to-image";
+  }
+}
+
+/** Rebuilt with createElement, never innerHTML strings, as fillLoraSelect does. */
+function fillImageScreenWorkflowOptions(elements: AppElements, mode: ImageScreenMode, preferred: string) {
+  const presets = listImageScreenPresets(mode);
+  const select = elements.imgWorkflow;
+
+  select.innerHTML = "";
+
+  for (const preset of presets) {
+    const option = document.createElement("option");
+    option.value = preset.id;
+    option.textContent = preset.label;
+    select.append(option);
+  }
+
+  const fallback = presets[0]?.id ?? "";
+  select.value = presets.some((preset) => preset.id === preferred) ? preferred : fallback;
+}
+
+/**
+ * Everything on the shared screen that differs by mode. Denoise, LoRA and the
+ * experimental-checkpoint switch are image-to-image controls: an edit samples
+ * at denoise 1 from conditioning, and neither edit preset takes a LoRA (the
+ * LoRA row already hides itself for them).
+ */
+function paintImageScreenMode(elements: AppElements, mode: ImageScreenMode) {
+  const isEdit = mode === "edit";
+
+  elements.imgScreenTitle.textContent = isEdit ? "Edit Image" : "Image to Image";
+  elements.imgScreenIconTransform.hidden = isEdit;
+  elements.imgScreenIconEdit.hidden = !isEdit;
+  elements.imgDenoiseField.hidden = isEdit;
+  elements.imgExperimentalField.hidden = isEdit;
+  elements.generateImg2ImgButton.textContent = isEdit ? "Generate Edit" : "Generate Image to Image";
+  elements.imgPrompt.setAttribute(
+    "placeholder",
+    isEdit ? "What should change? e.g. change the sign to read OPEN" : "Describe how to reinterpret the active layer..."
+  );
+  paintImageScreenHint(elements, mode);
+}
+
+function paintImageScreenHint(elements: AppElements, mode: ImageScreenMode) {
+  const preset = getWorkflowPreset(readSelectValue(elements.imgWorkflow, mode === "edit" ? DEFAULT_EDIT_WORKFLOW : DEFAULT_IMAGE_WORKFLOW));
+  const hint = mode === "edit" ? preset.capability?.uiHints.screenHint ?? "" : "";
+
+  // Capture Selection belongs to Edit Image and to presets that can use it.
+  elements.imgSelectionCaptureField.hidden = !(mode === "edit" && preset.selectionEdit);
+
+  // textContent: the hints quote prompt text, and one day may quote <image1>.
+  elements.imgEditHint.textContent = hint;
+  elements.imgEditHint.hidden = hint.length === 0;
 }
 
 function updateTransparentBackgroundToggle(elements: AppElements, isEnabled: boolean) {

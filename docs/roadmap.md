@@ -4,7 +4,7 @@ OpenLayer is a local-first Photoshop UXP plugin for artist-friendly ComfyUI work
 
 ## Where it is now
 
-Thirteen generation tools, all running against a local ComfyUI: Text to Image, Image to Image,
+Fourteen generation tools, all running against a local ComfyUI: Text to Image, Image to Image, Edit Image,
 Sketch to Image, Inpaint, Outpaint, Upscale, Remove Background, Layer Maps, Prompt from Layer,
 Live Painting, Style Reference, Multi-Reference and Unflatten, plus Layer Tools, History, the
 Prompt Wallet, Enhance Prompt beside every prompt field, Workflow Presets, custom workflow checking,

@@ -8776,3 +8776,10 @@ body.theme-artist,
 .app-shell.theme-compact .prompt-wallet-text.is-negative {
   color: #9d9d9d !important;
 }
+
+/* v0.36 Edit Image: the Capture Selection row sits under the two capture
+   buttons. An id rule because .generator-panel children have their margins
+   zeroed with !important, and the id outranks that class rule. */
+#img-selection-capture-field {
+  margin-top: 8px !important;
+}

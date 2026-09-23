@@ -48,6 +48,7 @@ import {
   WorkflowPresetDefinition,
   WorkflowEncoderImageSlots,
   WorkflowInjectionTargetList,
+  WorkflowInputTarget,
   WorkflowTransparentOutput
 } from "./types";
 import { getPresetInputTarget, getWorkflowPreset, validateWorkflowForPreset } from "./presetRegistry";
@@ -165,9 +166,16 @@ export async function buildImg2ImgWorkflow(
   );
 
   applyLoraSelection(workflow, preset, options.lora);
-  // Not required: a cut-out edited by a preset without an alpha channel still
-  // comes back as a correct, opaque edit.
-  applyTransparentOutput(workflow, resolveTransparentOutput(preset, options.keepTransparency === true, false));
+
+  if (options.selectionEdit) {
+    // A selection edit owns the output: its alpha is the feathered selection,
+    // so the cut-out rewiring below must not also claim SaveImage.
+    applySelectionEdit(workflow, preset, options.selectionEdit.strength);
+  } else {
+    // Not required: a cut-out edited by a preset without an alpha channel still
+    // comes back as a correct, opaque edit.
+    applyTransparentOutput(workflow, resolveTransparentOutput(preset, options.keepTransparency === true, false));
+  }
 
   validateWorkflowForPreset(workflow, preset);
 
@@ -458,6 +466,10 @@ export async function buildRemoveBackgroundWorkflow(
   setPresetInput(workflow, preset, "sourceImage", options.sourceImageName, true);
   setPresetInput(workflow, preset, "checkpoint", options.modelName, true);
 
+  if (preset.placementAnchor) {
+    anchorSavedImage(workflow, preset.placementAnchor, "anchor");
+  }
+
   validateWorkflowForPreset(workflow, preset);
 
   return {
@@ -732,6 +744,174 @@ function applyTransparentOutput(workflow: ComfyWorkflow, transparent: WorkflowTr
 
   requireNodeId(workflow, transparent.rgbaSource);
   setInput(workflow, transparent.saveImage.nodeId, transparent.saveImage.inputName, [transparent.rgbaSource, 0]);
+  anchorSavedImage(workflow, transparent.saveImage, "anchor");
+}
+
+/**
+ * Makes Photoshop see a transparent result's whole canvas, not just its
+ * visible pixels.
+ *
+ * A placed layer's bounds are the box around its non-transparent pixels, and
+ * the import aligns that box to the captured position. For a result that is
+ * transparent at its edges -- a cutout, a cut-out edit, a feathered selection
+ * edit -- the box is smaller than the canvas, so the layer landed shifted by
+ * the transparent margin (a selection edit arrived up and to the left of its
+ * selection, seen in Photoshop 2026-09-23). Giving the top-left and
+ * bottom-right pixels 1% alpha (about 2.5/255, invisible) makes the box the
+ * whole canvas again, and the existing alignment puts it exactly back.
+ *
+ * All core nodes: split off the alpha (as its inverse, SplitImageWithAlpha's
+ * convention), multiply it by a mask that is 1 everywhere and 0.99 at the two
+ * corners, and rejoin.
+ */
+function anchorSavedImage(workflow: ComfyWorkflow, saveTarget: WorkflowInputTarget, prefix: string) {
+  const save = workflow[saveTarget.nodeId];
+
+  if (!save) {
+    throw createOpenLayerError("WORKFLOW_INVALID", `Workflow node ${saveTarget.nodeId} was not found.`);
+  }
+
+  const rgba = save.inputs[saveTarget.inputName];
+  const id = (name: string) => `${prefix}${name}`;
+  const ids = ["split", "size", "full", "dot", "tl", "tlimg", "rot", "br", "corners", "alpha", "join"].map(id);
+
+  for (const nodeId of ids) {
+    if (workflow[nodeId]) {
+      throw createOpenLayerError("WORKFLOW_INVALID", `The workflow already uses node ${nodeId}.`);
+    }
+  }
+
+  const node = (class_type: string, inputs: Record<string, unknown>, title: string): ComfyWorkflowNode => ({
+    class_type,
+    inputs,
+    _meta: { title }
+  });
+
+  workflow[id("split")] = node("SplitImageWithAlpha", { image: rgba }, "Anchor: Split Alpha");
+  workflow[id("size")] = node("GetImageSize", { image: [id("split"), 0] }, "Anchor: Canvas Size");
+  workflow[id("full")] = node(
+    "SolidMask",
+    { value: 1, width: [id("size"), 0], height: [id("size"), 1] },
+    "Anchor: Canvas Of Ones"
+  );
+  workflow[id("dot")] = node("SolidMask", { value: 0.99, width: 1, height: 1 }, "Anchor: One Pixel");
+  workflow[id("tl")] = node(
+    "MaskComposite",
+    { destination: [id("full"), 0], source: [id("dot"), 0], x: 0, y: 0, operation: "multiply" },
+    "Anchor: Top-Left"
+  );
+  workflow[id("tlimg")] = node("MaskToImage", { mask: [id("tl"), 0] }, "Anchor: As Image");
+  workflow[id("rot")] = node("ImageRotate", { image: [id("tlimg"), 0], rotation: "180 degrees" }, "Anchor: Rotate To Bottom-Right");
+  workflow[id("br")] = node("ImageToMask", { image: [id("rot"), 0], channel: "red" }, "Anchor: Bottom-Right");
+  workflow[id("corners")] = node(
+    "MaskComposite",
+    { destination: [id("tl"), 0], source: [id("br"), 0], x: 0, y: 0, operation: "multiply" },
+    "Anchor: Both Corners"
+  );
+  workflow[id("alpha")] = node(
+    "MaskComposite",
+    { destination: [id("split"), 1], source: [id("corners"), 0], x: 0, y: 0, operation: "multiply" },
+    "Anchor: Apply To Alpha"
+  );
+  workflow[id("join")] = node(
+    "JoinImageWithAlpha",
+    { image: [id("split"), 0], alpha: [id("alpha"), 0] },
+    "Anchor: Rejoin"
+  );
+
+  setInput(workflow, saveTarget.nodeId, saveTarget.inputName, [id("join"), 0]);
+}
+
+/**
+ * Rewires an edit graph to edit only the selection carried in the source's
+ * alpha. Every added node is core ComfyUI (ColorTransfer since 0.37). The
+ * shape is the one measured in the v0.36 spike: build a frame that is the
+ * original inside the selection and the edit outside it, batch it before the
+ * edit, let ColorTransfer compute its transform from that frame alone
+ * (`target_frame` 0) and apply it to both, keep the corrected edit, and save
+ * it with a feathered copy of the selection as its alpha.
+ */
+function applySelectionEdit(workflow: ComfyWorkflow, preset: WorkflowPresetDefinition, strength: number) {
+  const edit = preset.selectionEdit;
+
+  if (!edit) {
+    throw createOpenLayerError(
+      "WORKFLOW_INVALID",
+      `The ${preset.id} preset cannot edit just a selection.`,
+      "Choose Qwen-Image 2.1 (edit), or capture a layer or the canvas instead of a selection."
+    );
+  }
+
+  requireNodeId(workflow, edit.loadImage);
+  requireNodeId(workflow, edit.editedImage);
+
+  const id = (name: string) => `${edit.generatedNodeIdPrefix}${name}`;
+  const ids = ["ring", "batch", "match", "pick", "maskimg", "blur", "feather", "invert", "rgba"].map(id);
+
+  for (const nodeId of ids) {
+    if (workflow[nodeId]) {
+      throw createOpenLayerError(
+        "WORKFLOW_INVALID",
+        `The ${preset.id} workflow already uses node ${nodeId}.`,
+        `Give ${preset.id}'s selectionEdit an unused generatedNodeIdPrefix in src/comfy/presetRegistry.ts.`
+      );
+    }
+  }
+
+  const source: [string, number] = [edit.loadImage, 0];
+  const selection: [string, number] = [edit.loadImage, 1];
+  const edited: [string, number] = [edit.editedImage, 0];
+  const node = (class_type: string, inputs: Record<string, unknown>, title: string): ComfyWorkflowNode => ({
+    class_type,
+    inputs,
+    _meta: { title }
+  });
+
+  // The alpha of this upload is the selection, not transparency: the encoder
+  // must see the plain crop.
+  setInput(workflow, edit.encoderImage.nodeId, edit.encoderImage.inputName, source);
+
+  workflow[id("ring")] = node(
+    "ImageCompositeMasked",
+    { destination: edited, source, x: 0, y: 0, resize_source: false, mask: selection },
+    "Selection Edit: Ring-Only Frame"
+  );
+  workflow[id("batch")] = node("ImageBatch", { image1: [id("ring"), 0], image2: edited }, "Selection Edit: Batch");
+  workflow[id("match")] = node(
+    "ColorTransfer",
+    {
+      image_target: [id("batch"), 0],
+      image_ref: source,
+      method: "reinhard_lab",
+      source_stats: "target_frame",
+      "source_stats.target_index": 0,
+      strength
+    },
+    "Selection Edit: Match Colour From The Ring"
+  );
+  workflow[id("pick")] = node(
+    "ImageFromBatch",
+    { image: [id("match"), 0], batch_index: 1, length: 1 },
+    "Selection Edit: Corrected Edit"
+  );
+  workflow[id("maskimg")] = node("MaskToImage", { mask: selection }, "Selection Edit: Selection As Image");
+  workflow[id("blur")] = node(
+    "ImageBlur",
+    { image: [id("maskimg"), 0], blur_radius: 31, sigma: 10 },
+    "Selection Edit: Feather"
+  );
+  workflow[id("feather")] = node("ImageToMask", { image: [id("blur"), 0], channel: "red" }, "Selection Edit: Feathered Selection");
+  // JoinImageWithAlpha stores 1 - mask as alpha (LoadImage's convention), so
+  // the feathered selection is inverted first to come out as the alpha.
+  workflow[id("invert")] = node("InvertMask", { mask: [id("feather"), 0] }, "Selection Edit: Invert For Alpha");
+  workflow[id("rgba")] = node(
+    "JoinImageWithAlpha",
+    { image: [id("pick"), 0], alpha: [id("invert"), 0] },
+    "Selection Edit: Edit With Feathered Alpha"
+  );
+
+  setInput(workflow, edit.saveImage.nodeId, edit.saveImage.inputName, [id("rgba"), 0]);
+  anchorSavedImage(workflow, edit.saveImage, "anchor");
 }
 
 function requireNodeId(workflow: ComfyWorkflow, nodeId: string) {

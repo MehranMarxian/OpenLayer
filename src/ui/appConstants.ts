@@ -15,7 +15,7 @@ import { OpenLayerTheme } from "../utils/preferences";
  * and `COMFY_PORT_CANDIDATES` still covers 8190 and the rest.
  */
 export const DEFAULT_SERVER_URL = "http://127.0.0.1:8188";
-export const APP_VERSION = "0.35.0";
+export const APP_VERSION = "0.36.0";
 export const DEVELOPER_GITHUB = "https://github.com/MehranMarxian";
 export const HISTORY_LIMIT = 5;
 /**
@@ -35,6 +35,8 @@ export const DEFAULT_THEME: OpenLayerTheme = "compact";
 export const DEFAULT_UPSCALE_WORKFLOW = "upscale-basic";
 export const DEFAULT_STYLE_REFERENCE_WORKFLOW = "style-reference-sd15";
 export const DEFAULT_MULTI_REFERENCE_WORKFLOW = "multi-reference-flux2-klein";
+// Apache-2.0 and ungated, so the default is never the research-licensed one.
+export const DEFAULT_EDIT_WORKFLOW = "edit-flux2-klein";
 export const DEFAULT_UNFLATTEN_WORKFLOW = "unflatten-qwen-layered";
 /** Klein's distilled operating point, the same one the edit preset runs at. */
 export const DEFAULT_MULTI_REFERENCE_STEPS = "4";
@@ -126,6 +128,8 @@ export type AppView =
   | "home"
   | "text-to-image"
   | "image-to-image"
+  /** The Image to Image screen in instruction-editing mode; see isInstructionEditPreset. */
+  | "edit-image"
   | "sketch-to-image"
   | "inpaint"
   | "outpaint"
@@ -157,6 +161,7 @@ export type ToolCard = {
 
 export type ToolIconName =
   | "image"
+  | "editImage"
   | "imagePlus"
   | "brush"
   | "expand"
@@ -192,6 +197,14 @@ export const TOOL_CARDS: ToolCard[] = [
     icon: "image",
     status: "available",
     view: "image-to-image"
+  },
+  {
+    id: "edit-image",
+    title: "Edit Image",
+    subtitle: "Change a layer by describing the change",
+    icon: "editImage",
+    status: "available",
+    view: "edit-image"
   },
   {
     id: "inpaint",
@@ -359,7 +372,7 @@ export const TOOL_CARDS: ToolCard[] = [
 export const HOME_TOOL_SECTIONS = [
   {
     title: "Generate",
-    toolIds: ["text-to-image", "image-to-image", "lineart", "inpaint", "outpaint", "upscale", "remove-background", "layer-maps", "prompt-from-layer", "unflatten", "live-painting", "style-reference", "multi-reference"]
+    toolIds: ["text-to-image", "image-to-image", "edit-image", "lineart", "inpaint", "outpaint", "upscale", "remove-background", "layer-maps", "prompt-from-layer", "unflatten", "live-painting", "style-reference", "multi-reference"]
   },
   {
     title: "Workflow",
