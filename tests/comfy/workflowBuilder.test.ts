@@ -348,8 +348,10 @@ describe("workflowBuilder", () => {
     });
     const workflow = result.workflow;
 
-    // SaveImage reads the RGBA decode directly, skipping the alpha drop.
-    expect(workflow["9"].inputs.images).toEqual(["8", 0]);
+    // SaveImage reads the RGBA decode, skipping the alpha drop, through the
+    // corner anchors that make Photoshop align the whole canvas.
+    expect(workflow.anchorsplit.inputs.image).toEqual(["8", 0]);
+    expect(workflow["9"].inputs.images).toEqual(["anchorjoin", 0]);
     // The wrapper is the template's documented phrasing; the artist's words sit inside it.
     expect(workflow["6"].inputs.prompt).toBe(
       "This is an RGBA format image with transparency. A red ceramic teapot. The image has an alpha channel and a transparent background."
@@ -398,8 +400,10 @@ describe("workflowBuilder", () => {
       keepTransparency: true
     });
 
-    // The restored-size RGBA image, not the alpha drop that follows it.
-    expect(result.workflow["9"].inputs.images).toEqual(["17", 0]);
+    // The restored-size RGBA image, not the alpha drop that follows it,
+    // anchored so the cut-out lands on its layer rather than by its visible box.
+    expect(result.workflow.anchorsplit.inputs.image).toEqual(["17", 0]);
+    expect(result.workflow["9"].inputs.images).toEqual(["anchorjoin", 0]);
     // No prompt wrapper for edits: the source's alpha carries through on its own.
     expect(result.workflow["6"].inputs.prompt).toBe("make the teapot cobalt blue");
   });

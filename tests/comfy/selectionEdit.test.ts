@@ -62,7 +62,11 @@ describe("selection edit graph", () => {
     });
     expect(workflow.selpick.inputs).toEqual({ image: ["selmatch", 0], batch_index: 1, length: 1 });
     expect(workflow.selrgba.inputs).toEqual({ image: ["selpick", 0], alpha: ["selinvert", 0] });
-    expect(workflow["9"].inputs.images).toEqual(["selrgba", 0]);
+    expect(workflow.anchorsplit.inputs.image).toEqual(["selrgba", 0]);
+    expect(workflow["9"].inputs.images).toEqual(["anchorjoin", 0]);
+    // Two corner pixels at 1% alpha, so Photoshop measures the whole crop.
+    expect(workflow.anchordot.inputs).toEqual({ value: 0.99, width: 1, height: 1 });
+    expect(workflow.anchorrot.inputs.rotation).toBe("180 degrees");
   });
 
   it("refuses a selection on a preset that cannot edit one", async () => {

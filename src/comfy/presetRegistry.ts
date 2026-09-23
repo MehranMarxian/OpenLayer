@@ -2835,6 +2835,9 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     capability: REMOVE_BACKGROUND_BIREFNET_CAPABILITY,
     requiredModels: [REMOVE_BACKGROUND_BIREFNET_MODEL],
     injections: REMOVE_BACKGROUND_BIREFNET_INJECTIONS,
+    // The cutout is transparent around the subject, so without anchors it
+    // imports aligned by the subject's box instead of by the captured layer.
+    placementAnchor: target(REMOVE_BACKGROUND_BIREFNET_NODES.saveImage, "images"),
     compatibilityNote:
       "Uses ComfyUI's own background-removal nodes. No checkpoint, prompt, or diffusion sampling is involved, so it does not care which image model you have.",
     requiredNodes: [

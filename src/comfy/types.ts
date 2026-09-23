@@ -761,6 +761,12 @@ export type WorkflowPresetDefinition = {
   transparentOutput?: WorkflowTransparentOutput;
   /** Present only on edit presets that can edit just a selection. */
   selectionEdit?: WorkflowSelectionEdit;
+  /**
+   * The SaveImage input of a preset whose output is ALWAYS transparent and is
+   * imported at a captured position (Remove Background). The builder anchors
+   * its corners; see anchorPlacementCorners in workflowBuilder.ts.
+   */
+  placementAnchor?: WorkflowInputTarget;
   compatibilityNote?: string;
   disabledReason?: string;
 };

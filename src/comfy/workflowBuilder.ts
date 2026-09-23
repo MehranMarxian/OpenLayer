@@ -48,6 +48,7 @@ import {
   WorkflowPresetDefinition,
   WorkflowEncoderImageSlots,
   WorkflowInjectionTargetList,
+  WorkflowInputTarget,
   WorkflowTransparentOutput
 } from "./types";
 import { getPresetInputTarget, getWorkflowPreset, validateWorkflowForPreset } from "./presetRegistry";
@@ -465,6 +466,10 @@ export async function buildRemoveBackgroundWorkflow(
   setPresetInput(workflow, preset, "sourceImage", options.sourceImageName, true);
   setPresetInput(workflow, preset, "checkpoint", options.modelName, true);
 
+  if (preset.placementAnchor) {
+    anchorSavedImage(workflow, preset.placementAnchor, "anchor");
+  }
+
   validateWorkflowForPreset(workflow, preset);
 
   return {
@@ -739,6 +744,82 @@ function applyTransparentOutput(workflow: ComfyWorkflow, transparent: WorkflowTr
 
   requireNodeId(workflow, transparent.rgbaSource);
   setInput(workflow, transparent.saveImage.nodeId, transparent.saveImage.inputName, [transparent.rgbaSource, 0]);
+  anchorSavedImage(workflow, transparent.saveImage, "anchor");
+}
+
+/**
+ * Makes Photoshop see a transparent result's whole canvas, not just its
+ * visible pixels.
+ *
+ * A placed layer's bounds are the box around its non-transparent pixels, and
+ * the import aligns that box to the captured position. For a result that is
+ * transparent at its edges -- a cutout, a cut-out edit, a feathered selection
+ * edit -- the box is smaller than the canvas, so the layer landed shifted by
+ * the transparent margin (a selection edit arrived up and to the left of its
+ * selection, seen in Photoshop 2026-09-23). Giving the top-left and
+ * bottom-right pixels 1% alpha (about 2.5/255, invisible) makes the box the
+ * whole canvas again, and the existing alignment puts it exactly back.
+ *
+ * All core nodes: split off the alpha (as its inverse, SplitImageWithAlpha's
+ * convention), multiply it by a mask that is 1 everywhere and 0.99 at the two
+ * corners, and rejoin.
+ */
+function anchorSavedImage(workflow: ComfyWorkflow, saveTarget: WorkflowInputTarget, prefix: string) {
+  const save = workflow[saveTarget.nodeId];
+
+  if (!save) {
+    throw createOpenLayerError("WORKFLOW_INVALID", `Workflow node ${saveTarget.nodeId} was not found.`);
+  }
+
+  const rgba = save.inputs[saveTarget.inputName];
+  const id = (name: string) => `${prefix}${name}`;
+  const ids = ["split", "size", "full", "dot", "tl", "tlimg", "rot", "br", "corners", "alpha", "join"].map(id);
+
+  for (const nodeId of ids) {
+    if (workflow[nodeId]) {
+      throw createOpenLayerError("WORKFLOW_INVALID", `The workflow already uses node ${nodeId}.`);
+    }
+  }
+
+  const node = (class_type: string, inputs: Record<string, unknown>, title: string): ComfyWorkflowNode => ({
+    class_type,
+    inputs,
+    _meta: { title }
+  });
+
+  workflow[id("split")] = node("SplitImageWithAlpha", { image: rgba }, "Anchor: Split Alpha");
+  workflow[id("size")] = node("GetImageSize", { image: [id("split"), 0] }, "Anchor: Canvas Size");
+  workflow[id("full")] = node(
+    "SolidMask",
+    { value: 1, width: [id("size"), 0], height: [id("size"), 1] },
+    "Anchor: Canvas Of Ones"
+  );
+  workflow[id("dot")] = node("SolidMask", { value: 0.99, width: 1, height: 1 }, "Anchor: One Pixel");
+  workflow[id("tl")] = node(
+    "MaskComposite",
+    { destination: [id("full"), 0], source: [id("dot"), 0], x: 0, y: 0, operation: "multiply" },
+    "Anchor: Top-Left"
+  );
+  workflow[id("tlimg")] = node("MaskToImage", { mask: [id("tl"), 0] }, "Anchor: As Image");
+  workflow[id("rot")] = node("ImageRotate", { image: [id("tlimg"), 0], rotation: "180 degrees" }, "Anchor: Rotate To Bottom-Right");
+  workflow[id("br")] = node("ImageToMask", { image: [id("rot"), 0], channel: "red" }, "Anchor: Bottom-Right");
+  workflow[id("corners")] = node(
+    "MaskComposite",
+    { destination: [id("tl"), 0], source: [id("br"), 0], x: 0, y: 0, operation: "multiply" },
+    "Anchor: Both Corners"
+  );
+  workflow[id("alpha")] = node(
+    "MaskComposite",
+    { destination: [id("split"), 1], source: [id("corners"), 0], x: 0, y: 0, operation: "multiply" },
+    "Anchor: Apply To Alpha"
+  );
+  workflow[id("join")] = node(
+    "JoinImageWithAlpha",
+    { image: [id("split"), 0], alpha: [id("alpha"), 0] },
+    "Anchor: Rejoin"
+  );
+
+  setInput(workflow, saveTarget.nodeId, saveTarget.inputName, [id("join"), 0]);
 }
 
 /**
@@ -830,6 +911,7 @@ function applySelectionEdit(workflow: ComfyWorkflow, preset: WorkflowPresetDefin
   );
 
   setInput(workflow, edit.saveImage.nodeId, edit.saveImage.inputName, [id("rgba"), 0]);
+  anchorSavedImage(workflow, edit.saveImage, "anchor");
 }
 
 function requireNodeId(workflow: ComfyWorkflow, nodeId: string) {
