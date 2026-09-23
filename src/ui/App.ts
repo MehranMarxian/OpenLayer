@@ -27,6 +27,7 @@ import { previewHub, PreviewPublicationKind, PreviewToolId } from "./previewHub"
 import { importBridge } from "./importBridge";
 import { agentBridge, createAgentChoiceField, createAgentToggleField } from "./agentBridge";
 import { readTextareaValue } from "./textareaValue";
+import { keepsPreferredModel } from "./modelPreference";
 import { measureSelectionFraction, selectionEditStrength } from "../comfy/selectionEdit";
 import { decodeRgbaPng } from "../utils/png";
 import { AgentConnectionStatus, createAgentConnection, openWebSocket } from "./agentConnection";
@@ -7893,7 +7894,7 @@ async function refreshModelOptionsForSelectedPreset(
       const preferredPresetModel = preset.modelStack?.find(
         (model) => model.kind === preset.modelSource.kind && modelNames.includes(model.modelName)
       )?.modelName;
-      const preferredModel = modelNames.includes(preferredValue) ? preferredValue : preferredPresetModel;
+      const preferredModel = keepsPreferredModel(preferredValue, modelNames, preset) ? preferredValue : preferredPresetModel;
 
       fillSingleCheckpointSelect(modelSelect, modelNames, preferredModel);
     }
@@ -7916,7 +7917,7 @@ async function refreshSketchModelOptionsForSelectedPreset(
       const preferredPresetModel = preset.modelStack?.find(
         (model) => model.kind === preset.modelSource.kind && modelNames.includes(model.modelName)
       )?.modelName;
-      const preferredModel = modelNames.includes(preferredValue)
+      const preferredModel = keepsPreferredModel(preferredValue, modelNames, preset)
         ? preferredValue
         : (modelNames.includes(RECOMMENDED_SKETCH_CHECKPOINT) ? RECOMMENDED_SKETCH_CHECKPOINT : preferredPresetModel);
 
@@ -7941,7 +7942,7 @@ async function refreshInpaintModelOptionsForSelectedPreset(
       const preferredPresetModel = preset.modelStack?.find(
         (model) => model.kind === preset.modelSource.kind && modelNames.includes(model.modelName)
       )?.modelName;
-      const preferredModel = modelNames.includes(preferredValue) ? preferredValue : preferredPresetModel;
+      const preferredModel = keepsPreferredModel(preferredValue, modelNames, preset) ? preferredValue : preferredPresetModel;
 
       fillSingleCheckpointSelect(elements.inpaintCheckpoint, modelNames, preferredModel);
     }
@@ -7966,7 +7967,7 @@ async function refreshOutpaintModelOptionsForSelectedPreset(
       const preferredPresetModel = preset.modelStack?.find(
         (model) => model.kind === preset.modelSource.kind && modelNames.includes(model.modelName)
       )?.modelName;
-      const preferredModel = modelNames.includes(preferredValue) ? preferredValue : preferredPresetModel;
+      const preferredModel = keepsPreferredModel(preferredValue, modelNames, preset) ? preferredValue : preferredPresetModel;
 
       fillSingleCheckpointSelect(elements.outpaintCheckpoint, modelNames, preferredModel);
     }
@@ -8007,7 +8008,7 @@ async function refreshLayerMapsModelOptionsForSelectedPreset(
       // Large was measured returning an unreadable near-white band on a wide
       // scene, and it is the one downloadable size under a non-commercial
       // licence. See DEPTH_MAP_MODEL_SOURCE in presetRegistry.ts.
-      const preferredModel = modelNames.includes(preferredValue)
+      const preferredModel = keepsPreferredModel(preferredValue, modelNames, preset)
         ? preferredValue
         : modelNames.includes(DEFAULT_DEPTH_MAP_MODEL)
           ? DEFAULT_DEPTH_MAP_MODEL
@@ -8036,7 +8037,7 @@ async function refreshRemoveBackgroundModelOptionsForSelectedPreset(
       const preferredPresetModel = preset.requiredModels?.find(
         (model) => modelNames.includes(model.modelName)
       )?.modelName;
-      const preferredModel = modelNames.includes(preferredValue) ? preferredValue : preferredPresetModel;
+      const preferredModel = keepsPreferredModel(preferredValue, modelNames, preset) ? preferredValue : preferredPresetModel;
 
       fillSingleCheckpointSelect(elements.removeBackgroundModel, modelNames, preferredModel);
     }
@@ -8059,7 +8060,7 @@ async function refreshUpscaleModelOptionsForSelectedPreset(
       const preferredPresetModel = preset.requiredModels?.find(
         (model) => modelNames.includes(model.modelName)
       )?.modelName;
-      const preferredModel = modelNames.includes(preferredValue) ? preferredValue : preferredPresetModel;
+      const preferredModel = keepsPreferredModel(preferredValue, modelNames, preset) ? preferredValue : preferredPresetModel;
 
       fillSingleCheckpointSelect(elements.upscaleModel, modelNames, preferredModel);
     }
@@ -8095,7 +8096,7 @@ async function refreshStyleReferenceModelOptionsForSelectedPreset(
     const modelNames = await client.getModelNamesForPreset(preset);
 
     if (modelNames.length > 0) {
-      const preferredModel = modelNames.includes(preferredValue)
+      const preferredModel = keepsPreferredModel(preferredValue, modelNames, preset)
         ? preferredValue
         : (modelNames.includes(RECOMMENDED_STYLE_REFERENCE_CHECKPOINT) ? RECOMMENDED_STYLE_REFERENCE_CHECKPOINT : undefined);
 
