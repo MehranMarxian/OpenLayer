@@ -36,6 +36,9 @@
 - **Thirteen generation tools**, from text-to-image through inpainting and background removal to
   multi-image composition and depth/line-art/normal passes, plus an experimental one that splits a
   flat picture back into layers.
+- **Now with Qwen-Image 2.1** — transparent cut-out layers straight from the model, lettering that
+  comes out spelled right at native 2K, and instruction editing. Its weights are for research and
+  evaluation only, so the 2.1 presets are opt-in, never a default, and labelled "(research licence)".
 
 **You need:** Photoshop 2024+ · a local [ComfyUI](https://github.com/comfyanonymous/ComfyUI) server ·
 a GPU with 8 GB VRAM or more (12 GB is what this project targets).
