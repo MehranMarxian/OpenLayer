@@ -44,7 +44,7 @@ a GPU with 8 GB VRAM or more (12 GB is what this project targets).
 OpenLayer is the Photoshop panel that talks to it — you work in Photoshop, ComfyUI does the
 generating in the background, and every result comes back as a layer.
 
-> **Alpha.** `v0.35.0-alpha` is a public testing checkpoint, not production software. It is stable
+> **Alpha.** `v0.36.0-alpha` is a public testing checkpoint, not production software. It is stable
 > enough to work with, and honest about where it stops — see [what works and what does
 > not](docs/known-limitations.md).
 

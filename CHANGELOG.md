@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.35.0-alpha - unreleased
+## v0.35.0-alpha - 2026-09-23
 
 Qwen-Image 2.1 arrives as three opt-in presets in tools you already have: Text to Image, Image to
 Image and Multi-Reference. It brings transparent layers straight from the model, exact lettering,
