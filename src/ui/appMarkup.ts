@@ -1,4 +1,9 @@
-import { getWorkflowPreset, listRunnableWorkflowPresets, listWorkflowPresets } from "../comfy/presetRegistry";
+import {
+  getWorkflowPreset,
+  listImageScreenPresets,
+  listRunnableWorkflowPresets,
+  listWorkflowPresets
+} from "../comfy/presetRegistry";
 import { NO_LORA_VALUE } from "../comfy/loraCompatibility";
 import {
   APP_VERSION,
@@ -150,6 +155,12 @@ export type AppElements = {
   imgCfg: HTMLInputElement;
   imgSeed: HTMLInputElement;
   imgDenoise: HTMLInputElement;
+  imgDenoiseField: HTMLElement;
+  imgExperimentalField: HTMLElement;
+  imgEditHint: HTMLElement;
+  imgScreenTitle: HTMLElement;
+  imgScreenIconTransform: HTMLElement;
+  imgScreenIconEdit: HTMLElement;
   captureLayerButton: HTMLElement;
   captureCanvasButton: HTMLElement;
   generateImg2ImgButton: HTMLElement;
@@ -862,8 +873,10 @@ export function createAppMarkup() {
         <div class="screen-nav">
           <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
           <div class="screen-title-block">
-            ${createScreenIconMarkup("image", "Image to Image")}
-            <span class="screen-title">Image to Image</span>
+            <!-- One screen, two modes since v0.36: the Edit Image card opens it too. -->
+            <span id="img-screen-icon-transform">${createScreenIconMarkup("image", "Image to Image")}</span>
+            <span id="img-screen-icon-edit" hidden>${createScreenIconMarkup("editImage", "Edit Image")}</span>
+            <span class="screen-title" id="img-screen-title">Image to Image</span>
           </div>
         </div>
 
@@ -903,7 +916,7 @@ export function createAppMarkup() {
           <div class="field img2img-field">
             <span class="label">Workflow</span>
             <select class="select" id="img-workflow">
-              ${listRunnableWorkflowPresets("img2img").map((preset) => `<option value="${preset.id}">${preset.label}</option>`).join("")}
+              ${listImageScreenPresets("transform").map((preset) => `<option value="${preset.id}">${preset.label}</option>`).join("")}
             </select>
           </div>
           <div class="field img2img-field">
@@ -915,6 +928,7 @@ export function createAppMarkup() {
               ${FALLBACK_CHECKPOINTS.map((checkpoint) => `<option value="${checkpoint}">${checkpoint}</option>`).join("")}
             </select>
             ${createInfoPanelMarkup("img-compatibility-note", "img2img-basic is safest with SD 1.x and SDXL checkpoints. SD3 and Flux may need dedicated presets.")}
+            <div class="diagnostics-line multi-reference-hint" id="img-edit-hint" hidden></div>
           </div>
           <section class="lora-section" id="img-lora-field" aria-label="LoRA" hidden>
             <label class="field">
@@ -929,7 +943,9 @@ export function createAppMarkup() {
             </label>
             <div class="diagnostics-line" id="img-lora-note" hidden></div>
           </section>
-          <button class="button experimental-toggle action-control" id="experimental-checkpoint-toggle" data-openlayer-action="toggleExperimentalCheckpoints" type="button" aria-pressed="false">Experimental Checkpoints Off</button>
+          <div id="img-experimental-field">
+            <button class="button experimental-toggle action-control" id="experimental-checkpoint-toggle" data-openlayer-action="toggleExperimentalCheckpoints" type="button" aria-pressed="false">Experimental Checkpoints Off</button>
+          </div>
           <div class="settings-grid img2img-settings-grid" aria-label="Image to Image settings">
             <div class="field ol-setting-row">
               <span class="label">Steps</span>
@@ -939,7 +955,7 @@ export function createAppMarkup() {
               <span class="label">CFG</span>
               <input class="input input-compact" id="img-cfg" type="number" min="1" max="30" step="0.5" value="${DEFAULT_CFG}" />
             </div>
-            <div class="field ol-setting-row">
+            <div class="field ol-setting-row" id="img-denoise-field">
               <span class="label">Denoise</span>
               <input class="input input-compact" id="img-denoise" type="number" min="0.05" max="1" step="0.05" value="${DEFAULT_IMG2IMG_DENOISE}" />
             </div>
@@ -2219,6 +2235,7 @@ function createMultiReferenceModelOptionsMarkup() {
 function createToolIconMarkup(icon: ToolIconName) {
   const icons: Record<ToolIconName, string> = {
     image: "image-to-image.png",
+    editImage: "edit-image.png",
     imagePlus: "text-to-image.png",
     brush: "inpaint.png",
     expand: "outpaint.png",
@@ -2410,6 +2427,12 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     imgCfg: getElement<HTMLInputElement>(rootElement, "img-cfg"),
     imgSeed: getElement<HTMLInputElement>(rootElement, "img-seed"),
     imgDenoise: getElement<HTMLInputElement>(rootElement, "img-denoise"),
+    imgDenoiseField: getElement<HTMLElement>(rootElement, "img-denoise-field"),
+    imgExperimentalField: getElement<HTMLElement>(rootElement, "img-experimental-field"),
+    imgEditHint: getElement<HTMLElement>(rootElement, "img-edit-hint"),
+    imgScreenTitle: getElement<HTMLElement>(rootElement, "img-screen-title"),
+    imgScreenIconTransform: getElement<HTMLElement>(rootElement, "img-screen-icon-transform"),
+    imgScreenIconEdit: getElement<HTMLElement>(rootElement, "img-screen-icon-edit"),
     captureLayerButton: getElement<HTMLElement>(rootElement, "capture-image-source"),
     captureCanvasButton: getElement<HTMLElement>(rootElement, "capture-canvas-source"),
     generateImg2ImgButton: getElement<HTMLElement>(rootElement, "generate-img2img"),

@@ -76,6 +76,8 @@ import { getCheckpointCompatibility } from "../comfy/modelCompatibility";
 import {
   getPresetTextOutputNodeId,
   getRecommendedPresetSettings,
+  isInstructionEditPreset,
+  listImageScreenPresets,
   getWorkflowPreset,
   listRunnableWorkflowPresets,
   listWorkflowPresets
@@ -327,6 +329,7 @@ import {
   DEFAULT_SKETCH_WORKFLOW,
   DEFAULT_STEPS,
   DEFAULT_MULTI_REFERENCE_WORKFLOW,
+  DEFAULT_EDIT_WORKFLOW,
   DEFAULT_UNFLATTEN_WORKFLOW,
   DEFAULT_STYLE_REFERENCE_CONTROL_STRENGTH,
   DEFAULT_STYLE_REFERENCE_WORKFLOW,
@@ -544,6 +547,14 @@ export function renderApp(rootElement: HTMLElement) {
   // than wherever placeEvent would drop it. Re-reading imageSource at import
   // time would use whatever the artist has captured since.
   let imageImportBounds: NormalizedSelectionBounds | null = null;
+  // The Image to Image screen's mode; the Edit Image card opens it as "edit".
+  // Each mode remembers its own last preset, so hopping between the two cards
+  // does not reset either one's choice.
+  let imageScreenMode: ImageScreenMode = "transform";
+  const imageScreenPresetByMode: Record<ImageScreenMode, string> = {
+    transform: DEFAULT_IMAGE_WORKFLOW,
+    edit: DEFAULT_EDIT_WORKFLOW
+  };
   // Same contract as imageImportBounds: where the captured layer sat, recorded
   // when the result is made so the import lands on it. Both tools shipped
   // without this and centred every result on the canvas, so a cutout of an
@@ -1910,11 +1921,7 @@ export function renderApp(rootElement: HTMLElement) {
   });
 
   elements.imgWorkflow.addEventListener("change", () => {
-    applyRecommendedPresetSettings(elements.imgWorkflow, DEFAULT_IMAGE_WORKFLOW, elements.imgSteps, elements.imgCfg);
-    void refreshImageModelOptionsForSelectedPreset(elements).then(() => (
-      updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource)
-    ));
-    void refreshLoraOptions(getImageLoraControls(elements), elements);
+    handleImageWorkflowChanged();
   });
 
   elements.imgCheckpoint.addEventListener("change", () => {
@@ -2649,6 +2656,36 @@ export function renderApp(rootElement: HTMLElement) {
     updateNegativePromptDisclosure(elements, isNegativePromptOpen);
   }
 
+  function handleImageWorkflowChanged() {
+    applyRecommendedPresetSettings(elements.imgWorkflow, currentImageScreenDefault(), elements.imgSteps, elements.imgCfg);
+    paintImageScreenHint(elements, imageScreenMode);
+    void refreshImageModelOptionsForSelectedPreset(elements).then(() => (
+      updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource)
+    ));
+    void refreshLoraOptions(getImageLoraControls(elements), elements);
+  }
+
+  function currentImageScreenDefault() {
+    return imageScreenMode === "edit" ? DEFAULT_EDIT_WORKFLOW : DEFAULT_IMAGE_WORKFLOW;
+  }
+
+  /**
+   * Switches the one Image to Image screen between its two modes. A no-op when
+   * the mode is unchanged, so a history reuse can pick a preset after calling
+   * setView without the list being rebuilt under it.
+   */
+  function applyImageScreenMode(mode: ImageScreenMode) {
+    if (mode === imageScreenMode) {
+      return;
+    }
+
+    imageScreenPresetByMode[imageScreenMode] = readSelectValue(elements.imgWorkflow, currentImageScreenDefault());
+    imageScreenMode = mode;
+    fillImageScreenWorkflowOptions(elements, mode, imageScreenPresetByMode[mode]);
+    paintImageScreenMode(elements, mode);
+    handleImageWorkflowChanged();
+  }
+
   function handleToggleTransparentBackground() {
     transparentBackground = !transparentBackground;
     updateTransparentBackgroundToggle(elements, transparentBackground);
@@ -3009,7 +3046,7 @@ export function renderApp(rootElement: HTMLElement) {
     switch (entry.toolType) {
       case "image-to-image":
         setImageResult(entry.result);
-        setView("image-to-image");
+        setView(imageScreenViewForPreset(entry.workflowPreset));
         return;
       case "sketch-to-image":
         setSketchResult(entry.result);
@@ -3077,11 +3114,15 @@ export function renderApp(rootElement: HTMLElement) {
   function reuseHistorySettings(entry: HistoryEntry) {
     switch (entry.toolType) {
       case "image-to-image":
+        // The view first: it rebuilds the Workflow list for its mode, and an
+        // edit preset only exists in the Edit Image list.
+        setView(imageScreenViewForPreset(entry.workflowPreset));
         elements.imgPrompt.value = entry.prompt;
-        setSelectValueIfPresent(elements.imgWorkflow, entry.workflowPreset);
+        if (setSelectValueIfPresent(elements.imgWorkflow, entry.workflowPreset)) {
+          handleImageWorkflowChanged();
+        }
         setSelectValueIfPresent(elements.imgCheckpoint, entry.modelName);
         elements.imgSeed.value = String(entry.seed);
-        setView("image-to-image");
         break;
       case "sketch-to-image":
         elements.sketchPrompt.value = entry.prompt;
@@ -7149,7 +7190,11 @@ export function renderApp(rootElement: HTMLElement) {
     elements.appHeader.hidden = view !== "home";
     elements.homeView.hidden = currentView !== "home";
     elements.generatorView.hidden = currentView !== "text-to-image";
-    elements.imageToImageView.hidden = currentView !== "image-to-image";
+    elements.imageToImageView.hidden = currentView !== "image-to-image" && currentView !== "edit-image";
+
+    if (currentView === "image-to-image" || currentView === "edit-image") {
+      applyImageScreenMode(currentView === "edit-image" ? "edit" : "transform");
+    }
     elements.sketchToImageView.hidden = currentView !== "sketch-to-image";
     elements.inpaintView.hidden = currentView !== "inpaint";
     elements.outpaintView.hidden = currentView !== "outpaint";
@@ -7271,6 +7316,67 @@ function updateLiveNegativePromptDisclosure(elements: AppElements, isOpen: boole
   elements.liveNegativePromptToggle.textContent = isOpen ? "Hide Negative Prompt" : "Show Negative Prompt";
   elements.liveNegativePromptToggle.setAttribute("aria-expanded", String(isOpen));
   elements.liveNegativePromptToggle.classList.toggle("is-active", isOpen);
+}
+
+type ImageScreenMode = "transform" | "edit";
+
+function imageScreenViewForPreset(presetId: string | undefined): AppView {
+  try {
+    return presetId && isInstructionEditPreset(getWorkflowPreset(presetId)) ? "edit-image" : "image-to-image";
+  } catch {
+    return "image-to-image";
+  }
+}
+
+/** Rebuilt with createElement, never innerHTML strings, as fillLoraSelect does. */
+function fillImageScreenWorkflowOptions(elements: AppElements, mode: ImageScreenMode, preferred: string) {
+  const presets = listImageScreenPresets(mode);
+  const select = elements.imgWorkflow;
+
+  select.innerHTML = "";
+
+  for (const preset of presets) {
+    const option = document.createElement("option");
+    option.value = preset.id;
+    option.textContent = preset.label;
+    select.append(option);
+  }
+
+  const fallback = presets[0]?.id ?? "";
+  select.value = presets.some((preset) => preset.id === preferred) ? preferred : fallback;
+}
+
+/**
+ * Everything on the shared screen that differs by mode. Denoise, LoRA and the
+ * experimental-checkpoint switch are image-to-image controls: an edit samples
+ * at denoise 1 from conditioning, and neither edit preset takes a LoRA (the
+ * LoRA row already hides itself for them).
+ */
+function paintImageScreenMode(elements: AppElements, mode: ImageScreenMode) {
+  const isEdit = mode === "edit";
+
+  elements.imgScreenTitle.textContent = isEdit ? "Edit Image" : "Image to Image";
+  elements.imgScreenIconTransform.hidden = isEdit;
+  elements.imgScreenIconEdit.hidden = !isEdit;
+  elements.imgDenoiseField.hidden = isEdit;
+  elements.imgExperimentalField.hidden = isEdit;
+  elements.generateImg2ImgButton.textContent = isEdit ? "Generate Edit" : "Generate Image to Image";
+  elements.imgPrompt.setAttribute(
+    "placeholder",
+    isEdit ? "What should change? e.g. change the sign to read OPEN" : "Describe how to reinterpret the active layer..."
+  );
+  paintImageScreenHint(elements, mode);
+}
+
+function paintImageScreenHint(elements: AppElements, mode: ImageScreenMode) {
+  const hint =
+    mode === "edit"
+      ? getWorkflowPreset(readSelectValue(elements.imgWorkflow, DEFAULT_EDIT_WORKFLOW)).capability?.uiHints.screenHint ?? ""
+      : "";
+
+  // textContent: the hints quote prompt text, and one day may quote <image1>.
+  elements.imgEditHint.textContent = hint;
+  elements.imgEditHint.hidden = hint.length === 0;
 }
 
 function updateTransparentBackgroundToggle(elements: AppElements, isEnabled: boolean) {
