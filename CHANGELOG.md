@@ -13,8 +13,23 @@ Editing by instruction gets its own place on the Home screen.
   prompt asks what should change, and a hint under the model picker explains the preset you chose.
   Capture, result, import and history are the ones Image to Image already uses, so a layer captured
   in one is ready in the other.
+- **Edit just a selection** (Qwen-Image 2.1). In Edit Image, **Capture Selection** edits only the
+  selected area and returns it as its own layer, transparent everywhere else, with the original
+  untouched underneath. The model repaints untouched areas a few levels darker, which is what
+  cut this from v0.35: in a smooth sky the selection's edge showed. The edit is now colour-matched
+  to the original using only the untouched ring around the selection before it is feathered in.
+  On that same sky test the edge went from a sharp −1.96 levels to −0.47, invisible even under a
+  strong Curves boost. Core ComfyUI nodes only.
 - **Agent Bridge:** a new `edit_image` tool. `image_to_image` still accepts the edit presets for this
   release, so agents written for v0.35 keep working.
+
+### Fixed
+
+- **Transparent results land exactly where they were captured.** Photoshop measures a layer by its
+  visible pixels, so a result that is transparent at its edges was aligned by its visible box and
+  landed shifted. That affected Remove Background whenever the subject didn't reach the layer's
+  edges, as well as cut-out edits and selection edits. Every transparent result now carries two
+  invisible corner pixels (1% opacity), so Photoshop measures the whole image and places it exactly.
 
 ### Changed
 

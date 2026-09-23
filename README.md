@@ -57,7 +57,7 @@ anywhere; ComfyUI runs on your own machine.
 | :--- | :--- |
 | **Text to Image** | Generate a new layer from a prompt — or a transparent cut-out |
 | **Image to Image** | Use the active layer as visual input |
-| **Edit Image** | Change a layer by describing the change — "make the jacket red" |
+| **Edit Image** | Change a layer, or just a selection, by describing the change — "make the jacket red" |
 | **Sketch to Image** | Guide generation with your line art |
 | **Inpaint** | Repaint a Photoshop selection in place |
 | **Outpaint** | Extend canvas content beyond the edges |
