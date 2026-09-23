@@ -40,6 +40,10 @@
 **You need:** Photoshop 2024+ · a local [ComfyUI](https://github.com/comfyanonymous/ComfyUI) server ·
 a GPU with 8 GB VRAM or more (12 GB is what this project targets).
 
+**How it fits together:** ComfyUI is a free app that runs AI image models on your own graphics card.
+OpenLayer is the Photoshop panel that talks to it — you work in Photoshop, ComfyUI does the
+generating in the background, and every result comes back as a layer.
+
 > **Alpha.** `v0.35.0-alpha` is a public testing checkpoint, not production software. It is stable
 > enough to work with, and honest about where it stops — see [what works and what does
 > not](docs/known-limitations.md).
@@ -74,6 +78,94 @@ anywhere; ComfyUI runs on your own machine.
 the Model Context Protocol, so Claude or Codex can work the panel's own buttons in your open document — "generate a
 foggy forest, then upscale it" instead of eleven clicks. Off by default, and it runs entirely on your
 machine: see [Agent Bridge (MCP)](#agent-bridge-mcp) for what it is and how to start it.
+
+## See it in Photoshop
+
+Real sessions, not mockups — every result a local generation on a 12 GB card, landing in the
+document as an ordinary layer. **Click any picture to see it full size.**
+
+<table>
+  <tr>
+    <td width="280" valign="top">
+      <a href="docs/assets/v060/text-to-image-photoshop.webp"><img src="docs/assets/v060/text-to-image-photoshop.webp" alt="OpenLayer generating an image inside Photoshop and importing it as a layer" width="260"></a>
+    </td>
+    <td valign="top">
+      <b>Text to Image</b> — prompt in, layer out<br>
+      Type what you want, press Generate, and the picture arrives in your open document as a new
+      named layer. Progress and preview stay beside the canvas the whole time.<br>
+      <sub>Recorded on an earlier build; the panel looks different now.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="280" valign="top">
+      <a href="docs/assets/v0200/sketch-to-image.webp"><img src="docs/assets/v0200/sketch-to-image.webp" alt="A white line drawing of a dog rendered as a finished illustration" width="260"></a>
+    </td>
+    <td valign="top">
+      <b>Sketch to Image</b> — your drawing, finished<br>
+      The line drawing on the right goes in; the illustration comes out. Pose, ears and tail follow
+      your strokes exactly — the model only fills in the rest.
+    </td>
+  </tr>
+  <tr>
+    <td width="280" valign="top">
+      <a href="docs/assets/v0200/sketch-abstract.webp"><img src="docs/assets/v0200/sketch-abstract.webp" alt="An abstract painted face generated through Sketch to Image" width="260"></a>
+    </td>
+    <td valign="top">
+      <b>Sketch to Image</b> — from a painted source<br>
+      Not only for line art: give it a shaded or painted layer and it keeps your shapes and values.
+    </td>
+  </tr>
+  <tr>
+    <td width="280" valign="top">
+      <a href="docs/assets/v0200/live-painting.webp"><img src="docs/assets/v0200/live-painting.webp" alt="Live Painting turning a painted silhouette into a photographic eagle" width="260"></a>
+    </td>
+    <td valign="top">
+      <b>Live Painting</b> — paint rough, watch it render<br>
+      Brush a crude shape and the preview turns it into a photograph while you paint.
+      <b>Import Refined as Layer</b> keeps the one you like.
+    </td>
+  </tr>
+  <tr>
+    <td width="280" valign="top">
+      <a href="docs/assets/v0200/multi-reference.webp"><img src="docs/assets/v0200/multi-reference.webp" alt="A figure in a yellow raincoat composed into a neon-lit rainy street" width="260"></a>
+    </td>
+    <td valign="top">
+      <b>Multi-Reference</b> ✦ — several layers, one picture<br>
+      A street layer and a figure layer composed into one scene. Clothing, props, setting and light
+      carry across; <b>a specific person's face does not</b>, and the panel tells you so.
+    </td>
+  </tr>
+  <tr>
+    <td width="280" valign="top">
+      <a href="docs/assets/v0200/unflatten-hiker.webp"><img src="docs/assets/v0200/unflatten-hiker.webp" alt="Unflatten splitting a mountain photograph into three layers in Photoshop" width="260"></a>
+    </td>
+    <td valign="top">
+      <b>Unflatten</b> ✦ — one flat photo back into layers<br>
+      A single photograph came back as three layers with real masks — look at the Layers panel.
+      The small white speck in the middle mask is the hiker, on his own layer, with the mountain
+      behind him already painted in (<a href="docs/assets/v0200/unflatten-masks.webp">masks close up</a>).
+      Needs a subject standing clear of its background; edges are a starting point for Select and Mask.<br>
+      <sub>Photo: <a href="https://commons.wikimedia.org/wiki/File:Hiking_in_the_mountains_in_Schilt_(Unsplash).jpg">Hiking in the mountains in Schilt</a>, CC0.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="280" valign="top">
+      <a href="docs/assets/v0200/outpaint.webp"><img src="docs/assets/v0200/outpaint.webp" alt="Outpaint extending a photographic interior beyond the original canvas" width="260"></a>
+    </td>
+    <td valign="top">
+      <b>Outpaint</b> ✦ — grow the canvas<br>
+      Enlarge the canvas in Photoshop, and the model paints what belongs in the new space.
+      Experimental — try it on a duplicate.
+    </td>
+  </tr>
+</table>
+
+<sub>✦ experimental</sub>
+
+**Watch it run** — full sessions against a real ComfyUI and a real Photoshop window, unedited:
+[Inpaint and Outpaint, live](https://www.youtube.com/watch?v=LD_gPQoCAnw) ·
+[Start to finish, one server](https://www.youtube.com/watch?v=Mh5EddKxZew)
+<sub>(recorded on an earlier build)</sub>
 
 <details>
 <summary><h3>Installation</h3></summary>
@@ -548,108 +640,6 @@ editable twin in `src/workflows/source/`, and a checker keeps the pair in sync.
 
 Filesystem access is for temporary files; network access is to reach ComfyUI on `127.0.0.1`. Nothing
 — no image, prompt, model name, or diagnostic — is ever sent anywhere else. No telemetry, no account.
-
-## Gallery
-
-Real sessions in Photoshop, not mockups — every one a local generation on a 12 GB card.
-
-<details>
-<summary><b>Text to Image</b> — prompt in, named layer out</summary>
-
-<img src="docs/assets/v060/text-to-image-photoshop.webp" alt="OpenLayer generating an image inside Photoshop and importing it as a layer" width="100%">
-
-Type a prompt, press Generate, and the result lands in the open document as a layer named
-`OpenLayer_Generated_…`. The panel keeps the progress and the preview beside the canvas the whole
-time.
-
-<sub>From an earlier alpha build — the panel has changed since.</sub>
-
-</details>
-
-<details>
-<summary><b>Unflatten</b> ✦ — one flat photo, separated into layers with real alpha (experimental)</summary>
-
-<img src="docs/assets/v0200/unflatten-hiker.webp" alt="Unflatten splitting a mountain photograph into three layers in Photoshop" width="100%">
-
-**Look at the Layers panel on the right.** One flat photograph went in. What came back is a group of
-three ordinary Photoshop layers: `Layer 1 (back)`, the background the model repainted to fill the
-holes everything else left behind, and two cut-outs above it, each wearing its own layer mask.
-
-<img src="docs/assets/v0200/unflatten-masks.webp" alt="The three imported layers and their masks, close up" width="440">
-
-Those masks are the whole point. The near ridge is one, and **that speck of white in the middle
-mask is the hiker** — lifted onto his own layer, at the document's full resolution, non-destructively.
-Drag him and the mountain behind him is already painted in. Nothing here is flattened, baked, or
-one-way: they are layers and masks you can move, refine with Select and Mask, or throw away.
-
-**This one is genuinely experimental, and this photograph is it working.** Unflatten needs a subject
-standing clear of a background; hand it a close-up that fills the frame and it returns the picture
-untouched, which the panel now tells you rather than reporting as a success. The layer count you ask
-for is a ceiling rather than a promise, and the cut edges come from a 640px matte, so they are a
-starting point for Select and Mask rather than a finished cut-out. Try it on a photograph with real
-depth before judging it — and please [say how it went](https://github.com/MehranMarxian/OpenLayer/discussions).
-
-<sub>Source: <a href="https://commons.wikimedia.org/wiki/File:Hiking_in_the_mountains_in_Schilt_(Unsplash).jpg">Hiking in the mountains in Schilt</a>, CC0.</sub>
-
-</details>
-
-<details>
-<summary><b>Live Painting</b> — paint a rough shape, watch it become a photograph</summary>
-
-<img src="docs/assets/v0200/live-painting.webp" alt="Live Painting turning a painted silhouette into a photographic eagle" width="100%">
-
-On the right, a crude black silhouette painted by hand. In the middle, what the model made of it while
-the brush was still moving. The live preview follows your strokes; **Import Refined as Layer** commits
-the result when you stop.
-
-</details>
-
-<details>
-<summary><b>Sketch to Image</b> — line art holds the drawing, the model does the rest</summary>
-
-<img src="docs/assets/v0200/sketch-to-image.webp" alt="A white line drawing of a dog rendered as a finished illustration" width="100%">
-
-The white line drawing on the right is the input; the finished illustration is the output. The stroke
-is held exactly — pose, ears, tail — while everything else is invented. Draw dark lines on a lighter
-ground and the preprocessor reads them.
-
-It is not only for line work. The same tool, given a shaded source:
-
-<img src="docs/assets/v0200/sketch-abstract.webp" alt="An abstract painted face generated through Sketch to Image" width="100%">
-
-</details>
-
-<details>
-<summary><b>Multi-Reference</b> — several layers composed into one picture</summary>
-
-<img src="docs/assets/v0200/multi-reference.webp" alt="A figure in a yellow raincoat composed into a neon-lit rainy street" width="100%">
-
-Two captured layers — a street and a figure — composed into a single scene by
-`multi-reference-flux2-klein`. Clothing, props, setting and lighting carry across from the references.
-**A specific person's face does not**, and the panel says so where you add them.
-
-</details>
-
-<details>
-<summary><b>Outpaint</b> — extend the canvas past its edges</summary>
-
-<img src="docs/assets/v0200/outpaint.webp" alt="Outpaint extending a photographic interior beyond the original canvas" width="100%">
-
-Give the canvas more room in Photoshop, then let Flux Fill invent what belongs in the new space.
-Experimental — work on a duplicate layer.
-
-</details>
-
-### Watch it run
-
-Full sessions against a real ComfyUI server and a real Photoshop window, start to finish, unedited.
-
-- **[Inpaint and Outpaint, live](https://www.youtube.com/watch?v=LD_gPQoCAnw)** — repainting a
-  selection and extending canvas edges with Flux Fill.
-- **[Start to finish, one server](https://www.youtube.com/watch?v=Mh5EddKxZew)** — Text to Image
-  through Upscale, run end to end against a local ComfyUI server.
-
-<sub>Both were recorded from an earlier alpha build; the panel has changed since.</sub>
 
 ## Documentation
 
