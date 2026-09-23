@@ -33,7 +33,7 @@
 - **Nothing leaves your computer.** ComfyUI runs on your own machine, on your own models.
 - **Results arrive as real Photoshop layers** — named, positioned, and editable. Not a flattened PNG
   you paste in and hope for.
-- **Thirteen generation tools**, from text-to-image through inpainting and background removal to
+- **Fourteen generation tools**, from text-to-image and editing by instruction through inpainting and background removal to
   multi-image composition and depth/line-art/normal passes, plus an experimental one that splits a
   flat picture back into layers.
 
@@ -57,6 +57,7 @@ anywhere; ComfyUI runs on your own machine.
 | :--- | :--- |
 | **Text to Image** | Generate a new layer from a prompt — or a transparent cut-out |
 | **Image to Image** | Use the active layer as visual input |
+| **Edit Image** | Change a layer by describing the change — "make the jacket red" |
 | **Sketch to Image** | Guide generation with your line art |
 | **Inpaint** | Repaint a Photoshop selection in place |
 | **Outpaint** | Extend canvas content beyond the edges |
@@ -335,9 +336,9 @@ costs 12.3 GB, not 20.7 GB. `ae.safetensors` is shared by Z_image_Turbo and Flux
 <details>
 <summary><b>Image to Image</b> — nothing new if you did Text to Image</summary>
 
-Every Image to Image preset reuses a stack you may already have: **Klein** (both image-to-image and
-instruction editing), **Z_image_Turbo**, **Krea-2 Turbo**, **Qwen-Image 2.1** (instruction editing
-that keeps a cut-out layer a cut-out; research licence), or your own SD 1.x / SDXL checkpoint.
+Every Image to Image preset reuses a stack you may already have: **Klein**, **Z_image_Turbo**,
+**Krea-2 Turbo**, or your own SD 1.x / SDXL checkpoint. **Edit Image** has two: **Klein** (the
+default) and **Qwen-Image 2.1**, which keeps a cut-out layer a cut-out (research licence).
 
 No add-ons. **0 extra GB** if the matching Text to Image preset already runs.
 
@@ -487,9 +488,9 @@ same document binding, the same transactional import, the same one-run-at-a-time
 second generation mid-run and it is refused with "OpenLayer is busy", exactly as a second click would
 be.
 
-**Twelve** generation tools are reachable — every one except Live Painting:
+**Thirteen** generation tools are reachable — every one except Live Painting:
 
-`text_to_image` · `image_to_image` · `sketch_to_image` · `inpaint` · `outpaint` · `upscale` ·
+`text_to_image` · `image_to_image` · `edit_image` · `sketch_to_image` · `inpaint` · `outpaint` · `upscale` ·
 `prompt_from_layer` · `style_reference` · `multi_reference` · `unflatten` · `remove_background` ·
 `layer_maps`
 

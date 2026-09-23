@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.36.0-alpha - unreleased
+
+Editing by instruction gets its own place on the Home screen.
+
+### Added
+
+- **Edit Image.** A new card on Home for changing a layer by describing the change — "make the
+  jacket red", "remove the parked car", "change the sign to read OPEN" — while the rest of the
+  picture stays where it is. It opens the Image to Image screen in edit mode: only the two edit
+  presets are listed (FLUX.2 Klein by default, Qwen-Image 2.1 as the research-licensed option), the
+  prompt asks what should change, and a hint under the model picker explains the preset you chose.
+  Capture, result, import and history are the ones Image to Image already uses, so a layer captured
+  in one is ready in the other.
+- **Agent Bridge:** a new `edit_image` tool. `image_to_image` still accepts the edit presets for this
+  release, so agents written for v0.35 keep working.
+
+### Changed
+
+- **Image to Image lists only its denoise presets**, so its Denoise slider always does something.
+  It used to be shown for the edit presets too, which ignored it.
 ## v0.35.0-alpha - 2026-09-23
 
 Qwen-Image 2.1 arrives as three opt-in presets in tools you already have: Text to Image, Image to
