@@ -27,6 +27,8 @@ import { previewHub, PreviewPublicationKind, PreviewToolId } from "./previewHub"
 import { importBridge } from "./importBridge";
 import { agentBridge, createAgentChoiceField, createAgentToggleField } from "./agentBridge";
 import { readTextareaValue } from "./textareaValue";
+import { measureSelectionFraction, selectionEditStrength } from "../comfy/selectionEdit";
+import { decodeRgbaPng } from "../utils/png";
 import { AgentConnectionStatus, createAgentConnection, openWebSocket } from "./agentConnection";
 import {
   canAddReference,
@@ -420,6 +422,11 @@ type HistoryEntry = {
 
 type ImageSourceState = ExportedSourceImage & {
   previewUrl: string;
+  /**
+   * Set only by Edit Image's Capture Selection: the source is the selection's
+   * context crop, `captureBounds` is that crop, and this is the selection.
+   */
+  selectionEdit?: { maskBlob: Blob; selectedFraction: number };
 };
 
 /**
@@ -1698,6 +1705,7 @@ export function renderApp(rootElement: HTMLElement) {
     import: createActionRunner(elements, "import", handleImport),
     captureImageSource: createActionRunner(elements, "captureImageSource", handleCaptureImageSource),
     captureCanvasSource: createActionRunner(elements, "captureCanvasSource", handleCaptureCanvasSource),
+    captureImageSelection: createActionRunner(elements, "captureImageSelection", handleCaptureImageSelection),
     toggleExperimentalCheckpoints: createActionRunner(
       elements,
       "toggleExperimentalCheckpoints",
@@ -1803,6 +1811,7 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.importButton, actionHandlers.import);
   bindActionControl(elements.captureLayerButton, actionHandlers.captureImageSource);
   bindActionControl(elements.captureCanvasButton, actionHandlers.captureCanvasSource);
+  bindActionControl(elements.captureImageSelectionButton, actionHandlers.captureImageSelection);
   bindActionControl(elements.experimentalCheckpointToggle, actionHandlers.toggleExperimentalCheckpoints);
   bindActionControl(elements.transparentBackgroundToggle, actionHandlers.toggleTransparentBackground);
   bindActionControl(elements.generateImg2ImgButton, actionHandlers.generateImg2Img);
@@ -3291,11 +3300,49 @@ export function renderApp(rootElement: HTMLElement) {
     });
   }
 
+  async function handleCaptureImageSelection() {
+    await captureImageToImageSource({
+      progressMessage: "Capturing the Photoshop selection with some surrounding context...",
+      statusMessage: "Capturing selection...",
+      successMessage: "Selection captured. Only the selected area will change.",
+      capture: async () => {
+        const region = await captureSelectionForInpainting("visible-canvas");
+
+        if (!region.maskAvailable || !region.mask) {
+          throw createOpenLayerError(
+            "INPAINT_SOURCE_INVALID",
+            "Photoshop did not return a mask for this selection.",
+            region.maskMessage || "Make a selection with the Marquee or Lasso tool, then capture it again."
+          );
+        }
+
+        const mask = decodeRgbaPng(new Uint8Array(await region.mask.blob.arrayBuffer()));
+        const selectedFraction = measureSelectionFraction(mask.rgba);
+
+        return {
+          blob: region.blob,
+          filename: region.filename,
+          mimeType: region.mimeType,
+          width: region.width,
+          height: region.height,
+          sourceName: "Selection",
+          captureFormat: region.captureFormat,
+          originatingDocument: region.originatingDocument,
+          // The crop, not the selection: the result covers the crop and is
+          // transparent outside the feathered selection.
+          captureBounds: region.selection.contextBounds,
+          hasTransparency: false,
+          selectionEdit: { maskBlob: region.mask.blob, selectedFraction }
+        };
+      }
+    });
+  }
+
   async function captureImageToImageSource(options: {
     progressMessage: string;
     statusMessage: string;
     successMessage: string;
-    capture: () => Promise<ExportedSourceImage>;
+    capture: () => Promise<ExportedSourceImage & Pick<ImageSourceState, "selectionEdit">>;
   }) {
     setImageDiagnostics(elements, options.progressMessage);
     setImageError(elements, "");
@@ -3414,7 +3461,22 @@ export function renderApp(rootElement: HTMLElement) {
 
       setImageStatus(elements, "Uploading source image to ComfyUI...", "idle");
       setImageProgressPreview(elements, "Uploading source image...");
-      const sourceImageName = await client.uploadImage(imageSource.blob, imageSource.filename);
+      // A selection source edits only the selection, and only in Edit Image
+      // with a preset that can; in Image to Image the crop is an ordinary source.
+      const selectionEdit = imageScreenMode === "edit" ? imageSource.selectionEdit : undefined;
+
+      if (selectionEdit && !preset.selectionEdit) {
+        throw createOpenLayerError(
+          "WORKFLOW_INVALID",
+          `${preset.displayName} cannot edit just a selection.`,
+          "Choose Qwen-Image 2.1 (edit), or capture the layer or canvas instead."
+        );
+      }
+
+      const upload = selectionEdit
+        ? await createFluxFillEmbeddedMaskSource(imageSource.blob, selectionEdit.maskBlob, "openlayer-edit-selection.png")
+        : { blob: imageSource.blob, filename: imageSource.filename };
+      const sourceImageName = await client.uploadImage(upload.blob, upload.filename);
       const buildResult = await buildImg2ImgWorkflow({
         presetId: preset.id,
         prompt: readTextareaValue(elements.imgPrompt),
@@ -3426,7 +3488,8 @@ export function renderApp(rootElement: HTMLElement) {
         seed: settings.seed,
         denoise: settings.denoise,
         lora: readLoraSelection(getImageLoraControls(elements)),
-        keepTransparency: imageSource.hasTransparency === true
+        keepTransparency: imageSource.hasTransparency === true,
+        selectionEdit: selectionEdit ? { strength: selectionEditStrength(selectionEdit.selectedFraction) } : undefined
       });
 
       // The commit closure runs after awaits; a const keeps the null-checked
@@ -7413,10 +7476,11 @@ function paintImageScreenMode(elements: AppElements, mode: ImageScreenMode) {
 }
 
 function paintImageScreenHint(elements: AppElements, mode: ImageScreenMode) {
-  const hint =
-    mode === "edit"
-      ? getWorkflowPreset(readSelectValue(elements.imgWorkflow, DEFAULT_EDIT_WORKFLOW)).capability?.uiHints.screenHint ?? ""
-      : "";
+  const preset = getWorkflowPreset(readSelectValue(elements.imgWorkflow, mode === "edit" ? DEFAULT_EDIT_WORKFLOW : DEFAULT_IMAGE_WORKFLOW));
+  const hint = mode === "edit" ? preset.capability?.uiHints.screenHint ?? "" : "";
+
+  // Capture Selection belongs to Edit Image and to presets that can use it.
+  elements.imgSelectionCaptureField.hidden = !(mode === "edit" && preset.selectionEdit);
 
   // textContent: the hints quote prompt text, and one day may quote <image1>.
   elements.imgEditHint.textContent = hint;

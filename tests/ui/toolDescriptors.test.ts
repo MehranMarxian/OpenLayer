@@ -131,10 +131,11 @@ describe("busy-state tables", () => {
       ...BUSY_GATED_ACTIONS.map(({ button }) => button)
     ];
 
-    // 41 since v0.35.0 removed the model-download spike button (42 before).
+    // 42 since v0.36.0 added Edit Image's Capture Selection (41 after v0.35.0
+    // removed the model-download spike button).
     // The per-feature breakdown that used to sit here had drifted two behind
     // the assertion, so it is not repeated; the list above is the record.
-    expect(plainActions).toHaveLength(41);
+    expect(plainActions).toHaveLength(42);
     // 22 = 20, plus Layer Maps' Generate and Import.
     expect(BUSY_GATED_ACTIONS).toHaveLength(22);
     expect(new Set(allActions).size).toBe(allActions.length);
@@ -148,6 +149,7 @@ describe("busy-state tables", () => {
       "upscaleAutoImportToggle",
       "captureLayerButton",
       "captureCanvasButton",
+      "captureImageSelectionButton",
       "experimentalCheckpointToggle",
       "captureSketchLayerButton",
       "captureSketchCanvasButton",

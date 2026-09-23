@@ -2241,7 +2241,7 @@ const QWEN_IMAGE_21_EDIT_CAPABILITY: WorkflowCapability = {
     primaryActionLabel: "Generate Edit",
     hiddenControls: ["denoise"],
     screenHint:
-      "Write what should change: \"make it a rainy evening\", \"change the sign to read OPEN\". A cut-out layer comes back as a cut-out. Research licence: research and evaluation use only.",
+      "Write what should change: \"make it a rainy evening\", \"change the sign to read OPEN\". Capture Selection edits only the selected area. A cut-out layer comes back as a cut-out. Research licence: research and evaluation use only.",
     experimentalNote:
       "Research licence: Qwen allows these weights for research and evaluation only, not commercial work. Write what you want CHANGED -- \"change the sign to read OPEN\", \"make it a rainy evening\", \"replace the cart with a bicycle\". Objects stay where they are, but the whole picture is repainted and can come back slightly darker, so compare before you keep it. About 25 s per edit at CFG 1; the negative prompt has no effect."
   }
@@ -4767,6 +4767,13 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     transparentOutput: {
       saveImage: target(QWEN_IMAGE_21_EDIT_NODES.saveImage, "images"),
       rgbaSource: QWEN_IMAGE_21_EDIT_NODES.outputScale
+    },
+    selectionEdit: {
+      loadImage: QWEN_IMAGE_21_EDIT_NODES.loadImage,
+      encoderImage: target(QWEN_IMAGE_21_EDIT_NODES.textEncode, "images.image_1"),
+      editedImage: QWEN_IMAGE_21_EDIT_NODES.dropAlpha,
+      saveImage: target(QWEN_IMAGE_21_EDIT_NODES.saveImage, "images"),
+      generatedNodeIdPrefix: "sel"
     },
     requiredNodes: [
       {

@@ -224,6 +224,12 @@ export type BuildImageToImageWorkflowOptions = {
    * because an opaque edit of a cut-out is still a correct edit.
    */
   keepTransparency?: boolean;
+  /**
+   * The source is a selection's context crop with the selection in its alpha
+   * channel. Only presets with `selectionEdit` accept it; strength comes from
+   * `selectionEditStrength` in selectionEdit.ts.
+   */
+  selectionEdit?: { strength: number };
 };
 
 export type BuildSketchToImageWorkflowOptions = BuildImageToImageWorkflowOptions & {
@@ -598,6 +604,25 @@ export type WorkflowTransparentOutput = {
   promptWrapper?: { prefix: string; suffix: string };
 };
 
+/**
+ * Where an edit graph is rewired to edit only a selection. The uploaded PNG
+ * carries the selection in its alpha, so `LoadImage` hands back the crop on
+ * output 0 and the selection as a mask on output 1. The builder feeds the
+ * encoder the plain RGB (the alpha is a selection now, not transparency),
+ * colour-matches the edit from the untouched ring, and saves it with a
+ * feathered alpha, so it imports as a layer that shows only the edited area.
+ */
+export type WorkflowSelectionEdit = {
+  loadImage: string;
+  /** The encoder input that normally reads the alpha-rejoined source. */
+  encoderImage: WorkflowInputTarget;
+  /** The node whose output 0 is the finished RGB edit at the crop's size. */
+  editedImage: string;
+  saveImage: WorkflowInputTarget;
+  /** Must not prefix any shipped node id. */
+  generatedNodeIdPrefix: string;
+};
+
 export type WorkflowInjectionTargets = Partial<Record<WorkflowInjectionName, WorkflowInjectionTargetList>>;
 
 export type WorkflowModelSourceKind =
@@ -734,6 +759,8 @@ export type WorkflowPresetDefinition = {
   referenceChain?: WorkflowReferenceChain;
   /** Present only on presets whose model can return a real alpha channel. */
   transparentOutput?: WorkflowTransparentOutput;
+  /** Present only on edit presets that can edit just a selection. */
+  selectionEdit?: WorkflowSelectionEdit;
   compatibilityNote?: string;
   disabledReason?: string;
 };

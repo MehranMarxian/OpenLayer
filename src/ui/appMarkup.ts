@@ -156,6 +156,8 @@ export type AppElements = {
   imgSeed: HTMLInputElement;
   imgDenoise: HTMLInputElement;
   imgDenoiseField: HTMLElement;
+  imgSelectionCaptureField: HTMLElement;
+  captureImageSelectionButton: HTMLElement;
   imgExperimentalField: HTMLElement;
   imgEditHint: HTMLElement;
   imgScreenTitle: HTMLElement;
@@ -888,6 +890,17 @@ export function createAppMarkup() {
           <div class="source-action-row ol-capture-actions" aria-label="Source capture actions">
             <button class="button source-action-button action-control" id="capture-image-source" data-openlayer-action="captureImageSource" type="button">Capture Active Layer</button>
             <button class="button source-action-button action-control" id="capture-canvas-source" data-openlayer-action="captureCanvasSource" type="button">Capture Canvas</button>
+          </div>
+          <!--
+            Edit Image only, and only for presets that can edit a selection. The
+            [hidden] sits on this plain wrapper, not on the row: two compact
+            rules force .source-action-row to display:flex !important AFTER the
+            stylesheet's final [hidden] guard, so a hidden row would still show.
+          -->
+          <div id="img-selection-capture-field" hidden>
+            <div class="source-action-row" aria-label="Selection capture">
+              <button class="button source-action-button action-control" id="capture-image-selection" data-openlayer-action="captureImageSelection" type="button">Capture Selection</button>
+            </div>
           </div>
           <div class="source-card">
             <div class="source-thumb-frame" id="image-source-preview-panel">
@@ -2428,6 +2441,8 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     imgSeed: getElement<HTMLInputElement>(rootElement, "img-seed"),
     imgDenoise: getElement<HTMLInputElement>(rootElement, "img-denoise"),
     imgDenoiseField: getElement<HTMLElement>(rootElement, "img-denoise-field"),
+    imgSelectionCaptureField: getElement<HTMLElement>(rootElement, "img-selection-capture-field"),
+    captureImageSelectionButton: getElement<HTMLElement>(rootElement, "capture-image-selection"),
     imgExperimentalField: getElement<HTMLElement>(rootElement, "img-experimental-field"),
     imgEditHint: getElement<HTMLElement>(rootElement, "img-edit-hint"),
     imgScreenTitle: getElement<HTMLElement>(rootElement, "img-screen-title"),

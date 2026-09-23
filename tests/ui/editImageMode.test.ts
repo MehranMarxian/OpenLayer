@@ -61,3 +61,15 @@ describe("Edit Image mode (v0.36)", () => {
     expect(elements.imgDenoiseField.hidden).toBe(false);
   });
 });
+
+describe("Edit Image selection capture", () => {
+  it("starts hidden, wrapped so the compact theme's forced flex row cannot show it", () => {
+    const root = document.createElement("div");
+    root.innerHTML = createAppMarkup();
+    const elements = getAppElements(root);
+
+    expect(elements.imgSelectionCaptureField.hidden).toBe(true);
+    expect(elements.imgSelectionCaptureField.classList.contains("source-action-row")).toBe(false);
+    expect(elements.imgSelectionCaptureField.contains(elements.captureImageSelectionButton)).toBe(true);
+  });
+});
