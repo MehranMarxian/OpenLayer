@@ -26,6 +26,7 @@ import { createObjectUrlRegistry, ObjectUrlRegistry } from "./objectUrlRegistry"
 import { previewHub, PreviewPublicationKind, PreviewToolId } from "./previewHub";
 import { importBridge } from "./importBridge";
 import { agentBridge, createAgentToggleField } from "./agentBridge";
+import { readTextareaValue } from "./textareaValue";
 import { AgentConnectionStatus, createAgentConnection, openWebSocket } from "./agentConnection";
 import {
   canAddReference,
@@ -783,7 +784,7 @@ export function renderApp(rootElement: HTMLElement) {
       return;
     }
 
-    const existing = elements.prompt.value.trim();
+    const existing = readTextareaValue(elements.prompt).trim();
     // The existing prompt is context, not something to overwrite blindly: on a
     // second press this reads as "give me another angle on this", which is how
     // the button actually gets used.
@@ -1057,7 +1058,7 @@ export function renderApp(rootElement: HTMLElement) {
       // separate field a human would read visually; an agent cannot, so it is
       // appended to the reply here.
       describeResult: () => {
-        const caption = elements.promptLayerGeneratedText.value.trim();
+        const caption = readTextareaValue(elements.promptLayerGeneratedText).trim();
 
         return caption ? `Generated text: "${caption}"` : "";
       }
@@ -2854,7 +2855,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     setTextToImageDiagnostics(elements, `Generate pressed at ${new Date().toLocaleTimeString()}.`);
 
-    if (!elements.prompt.value.trim()) {
+    if (!readTextareaValue(elements.prompt).trim()) {
       setTextToImageError(elements, getErrorMessage(createOpenLayerError("PROMPT_REQUIRED", "Enter a prompt before generating.")));
       setTextToImageStatus(elements, "Prompt required.", "error");
       return;
@@ -2910,8 +2911,8 @@ export function renderApp(rootElement: HTMLElement) {
       const wantsTransparency = transparentBackground && Boolean(preset.transparentOutput);
       const buildResult = await buildTxt2ImgWorkflow({
         presetId: preset.id,
-        prompt: elements.prompt.value,
-        negativePrompt: elements.negativePrompt.value,
+        prompt: readTextareaValue(elements.prompt),
+        negativePrompt: readTextareaValue(elements.negativePrompt),
         checkpointName,
         width: settings.width,
         height: settings.height,
@@ -2941,8 +2942,8 @@ export function renderApp(rootElement: HTMLElement) {
         commit: (generatedResult) => {
         setResult(generatedResult);
         addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
-          prompt: elements.prompt.value,
-          negativePrompt: elements.negativePrompt.value,
+          prompt: readTextareaValue(elements.prompt),
+          negativePrompt: readTextareaValue(elements.negativePrompt),
           checkpointName,
           modelName: checkpointName,
           workflowPreset: buildResult.preset.id,
@@ -3293,7 +3294,7 @@ export function renderApp(rootElement: HTMLElement) {
       return;
     }
 
-    if (!elements.imgPrompt.value.trim()) {
+    if (!readTextareaValue(elements.imgPrompt).trim()) {
       setImageError(elements, getErrorMessage(createOpenLayerError("PROMPT_REQUIRED", "Enter a prompt before generating.")));
       setImageStatus(elements, "Prompt required.", "error");
       return;
@@ -3362,8 +3363,8 @@ export function renderApp(rootElement: HTMLElement) {
       const sourceImageName = await client.uploadImage(imageSource.blob, imageSource.filename);
       const buildResult = await buildImg2ImgWorkflow({
         presetId: preset.id,
-        prompt: elements.imgPrompt.value,
-        negativePrompt: elements.imgNegativePrompt.value,
+        prompt: readTextareaValue(elements.imgPrompt),
+        negativePrompt: readTextareaValue(elements.imgNegativePrompt),
         checkpointName,
         sourceImageName,
         steps: settings.steps,
@@ -3397,8 +3398,8 @@ export function renderApp(rootElement: HTMLElement) {
         commit: (generatedResult) => {
         setImageResult(generatedResult);
         addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
-          prompt: elements.imgPrompt.value,
-          negativePrompt: elements.imgNegativePrompt.value,
+          prompt: readTextareaValue(elements.imgPrompt),
+          negativePrompt: readTextareaValue(elements.imgNegativePrompt),
           checkpointName,
           modelName: checkpointName,
           workflowPreset: buildResult.preset.id,
@@ -4336,7 +4337,7 @@ export function renderApp(rootElement: HTMLElement) {
       return;
     }
 
-    if (!elements.outpaintPrompt.value.trim()) {
+    if (!readTextareaValue(elements.outpaintPrompt).trim()) {
       setOutpaintError(
         elements,
         getErrorMessage(createOpenLayerError("PROMPT_REQUIRED", "Enter a prompt before generating Outpaint."))
@@ -4409,7 +4410,7 @@ export function renderApp(rootElement: HTMLElement) {
       );
       const buildResult = await buildOutpaintWorkflow({
         presetId: preset.id,
-        prompt: elements.outpaintPrompt.value,
+        prompt: readTextareaValue(elements.outpaintPrompt),
         checkpointName,
         sourceImageName,
         steps: settings.steps,
@@ -4456,7 +4457,7 @@ export function renderApp(rootElement: HTMLElement) {
         setOutpaintResult(generatedResult);
         activeOutpaintImportContext = generatedOutpaintContext;
         addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
-          prompt: elements.outpaintPrompt.value,
+          prompt: readTextareaValue(elements.outpaintPrompt),
           checkpointName,
           modelName: checkpointName,
           workflowPreset: buildResult.preset.id,
@@ -4678,7 +4679,7 @@ export function renderApp(rootElement: HTMLElement) {
       return;
     }
 
-    if (!elements.sketchPrompt.value.trim()) {
+    if (!readTextareaValue(elements.sketchPrompt).trim()) {
       setSketchError(
         elements,
         getErrorMessage(createOpenLayerError("PROMPT_REQUIRED", "Enter a prompt before generating Sketch to Image."))
@@ -4751,8 +4752,8 @@ export function renderApp(rootElement: HTMLElement) {
       const generationSize = getGenerationSize(preset, sketchSource.width, sketchSource.height);
       const buildResult = await buildSketchToImageWorkflow({
         presetId: preset.id,
-        prompt: elements.sketchPrompt.value,
-        negativePrompt: elements.sketchNegativePrompt.value,
+        prompt: readTextareaValue(elements.sketchPrompt),
+        negativePrompt: readTextareaValue(elements.sketchNegativePrompt),
         checkpointName,
         sourceImageName,
         width: generationSize.width,
@@ -4789,8 +4790,8 @@ export function renderApp(rootElement: HTMLElement) {
         commit: (generatedResult) => {
         setSketchResult(generatedResult);
         addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
-          prompt: elements.sketchPrompt.value,
-          negativePrompt: elements.sketchNegativePrompt.value,
+          prompt: readTextareaValue(elements.sketchPrompt),
+          negativePrompt: readTextareaValue(elements.sketchNegativePrompt),
           checkpointName,
           modelName: checkpointName,
           workflowPreset: buildResult.preset.id,
@@ -4948,7 +4949,7 @@ export function renderApp(rootElement: HTMLElement) {
       return;
     }
 
-    if (!elements.styleReferencePrompt.value.trim()) {
+    if (!readTextareaValue(elements.styleReferencePrompt).trim()) {
       setStyleReferenceError(
         elements,
         getErrorMessage(createOpenLayerError("PROMPT_REQUIRED", "Enter a prompt before generating Style Reference."))
@@ -5021,8 +5022,8 @@ export function renderApp(rootElement: HTMLElement) {
       const sourceImageName = await client.uploadImage(styleReferenceSource.blob, styleReferenceSource.filename);
       const buildResult = await buildStyleReferenceWorkflow({
         presetId: preset.id,
-        prompt: elements.styleReferencePrompt.value,
-        negativePrompt: elements.styleReferenceNegativePrompt.value,
+        prompt: readTextareaValue(elements.styleReferencePrompt),
+        negativePrompt: readTextareaValue(elements.styleReferenceNegativePrompt),
         checkpointName,
         sourceImageName,
         width: settings.width,
@@ -5052,8 +5053,8 @@ export function renderApp(rootElement: HTMLElement) {
         commit: (generatedResult) => {
         setStyleReferenceResult(generatedResult);
         addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
-          prompt: elements.styleReferencePrompt.value,
-          negativePrompt: elements.styleReferenceNegativePrompt.value,
+          prompt: readTextareaValue(elements.styleReferencePrompt),
+          negativePrompt: readTextareaValue(elements.styleReferenceNegativePrompt),
           checkpointName,
           modelName: checkpointName,
           workflowPreset: buildResult.preset.id,
@@ -5374,7 +5375,7 @@ export function renderApp(rootElement: HTMLElement) {
       return;
     }
 
-    if (!elements.multiReferencePrompt.value.trim()) {
+    if (!readTextareaValue(elements.multiReferencePrompt).trim()) {
       setMultiReferenceError(
         elements,
         getErrorMessage(createOpenLayerError("PROMPT_REQUIRED", "Describe the picture these layers should become."))
@@ -5447,8 +5448,8 @@ export function renderApp(rootElement: HTMLElement) {
 
       const buildResult = await buildMultiReferenceWorkflow({
         presetId: preset.id,
-        prompt: elements.multiReferencePrompt.value,
-        negativePrompt: elements.multiReferenceNegativePrompt.value,
+        prompt: readTextareaValue(elements.multiReferencePrompt),
+        negativePrompt: readTextareaValue(elements.multiReferenceNegativePrompt),
         checkpointName,
         referenceImageNames,
         steps: settings.steps,
@@ -5475,8 +5476,8 @@ export function renderApp(rootElement: HTMLElement) {
         commit: (generatedResult) => {
           setMultiReferenceResult(generatedResult);
           addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
-            prompt: elements.multiReferencePrompt.value,
-            negativePrompt: elements.multiReferenceNegativePrompt.value,
+            prompt: readTextareaValue(elements.multiReferencePrompt),
+            negativePrompt: readTextareaValue(elements.multiReferenceNegativePrompt),
             checkpointName,
             modelName: checkpointName,
             workflowPreset: buildResult.preset.id,
@@ -5715,7 +5716,7 @@ export function renderApp(rootElement: HTMLElement) {
 
       const buildResult = await buildUnflattenWorkflow({
         presetId: preset.id,
-        prompt: elements.unflattenPrompt.value,
+        prompt: readTextareaValue(elements.unflattenPrompt),
         checkpointName,
         sourceImageName: uploadedName,
         layerCount: settings.layerCount,
@@ -5755,7 +5756,7 @@ export function renderApp(rootElement: HTMLElement) {
             stackResult.originatingDocument
           );
           addHistoryEntry(elements, historyEntries, objectUrls, unflattenHistoryResult, {
-            prompt: elements.unflattenPrompt.value,
+            prompt: readTextareaValue(elements.unflattenPrompt),
             checkpointName,
             modelName: checkpointName,
             workflowPreset: buildResult.preset.id,
@@ -5947,7 +5948,7 @@ export function renderApp(rootElement: HTMLElement) {
     elements.customWorkflowSummary.textContent = "";
     elements.customWorkflowResults.innerHTML = "";
 
-    const parsed = parseCustomWorkflowText(elements.customWorkflowInput.value);
+    const parsed = parseCustomWorkflowText(readTextareaValue(elements.customWorkflowInput));
 
     if (!parsed.ok) {
       setCustomWorkflowStatus(parsed.reason, "error");
@@ -6095,7 +6096,7 @@ export function renderApp(rootElement: HTMLElement) {
       preset: resolveInpaintPreset(presetId),
       presetId,
       checkpointName: readSelectValue(elements.inpaintCheckpoint),
-      prompt: elements.inpaintPrompt.value
+      prompt: readTextareaValue(elements.inpaintPrompt)
     });
 
     if (!localReadiness.ok) {
@@ -6190,7 +6191,7 @@ export function renderApp(rootElement: HTMLElement) {
         preset,
         presetId: preset.id,
         checkpointName,
-        prompt: elements.inpaintPrompt.value,
+        prompt: readTextareaValue(elements.inpaintPrompt),
         installedModelNames: await client.getModelNamesForPreset(preset)
       });
 
@@ -6229,8 +6230,8 @@ export function renderApp(rootElement: HTMLElement) {
           : await client.uploadImage(maskUploadBlob, maskUploadFilename);
       const buildResult = await buildInpaintWorkflow({
         presetId: preset.id,
-        prompt: elements.inpaintPrompt.value,
-        negativePrompt: elements.inpaintNegativePrompt.value,
+        prompt: readTextareaValue(elements.inpaintPrompt),
+        negativePrompt: readTextareaValue(elements.inpaintNegativePrompt),
         checkpointName,
         sourceImageName,
         maskImageName,
@@ -6304,8 +6305,8 @@ export function renderApp(rootElement: HTMLElement) {
         activeInpaintImportContext = generatedImportContext;
         setInpaintResult(generatedResult);
         addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
-          prompt: elements.inpaintPrompt.value,
-          negativePrompt: elements.inpaintNegativePrompt.value,
+          prompt: readTextareaValue(elements.inpaintPrompt),
+          negativePrompt: readTextareaValue(elements.inpaintNegativePrompt),
           checkpointName,
           modelName: checkpointName,
           workflowPreset: buildResult.preset.id,
@@ -6636,7 +6637,7 @@ export function renderApp(rootElement: HTMLElement) {
   }
 
   async function handleCopyPromptFromLayer() {
-    const generatedText = elements.promptLayerGeneratedText.value.trim();
+    const generatedText = readTextareaValue(elements.promptLayerGeneratedText).trim();
 
     if (!generatedText) {
       setPromptLayerError(elements, "No generated prompt text to copy yet.");
@@ -6654,7 +6655,7 @@ export function renderApp(rootElement: HTMLElement) {
   }
 
   function handleSendPromptToTextToImage() {
-    const generatedText = elements.promptLayerGeneratedText.value.trim();
+    const generatedText = readTextareaValue(elements.promptLayerGeneratedText).trim();
 
     if (!generatedText) {
       setPromptLayerError(elements, "No generated prompt text to send yet.");
@@ -6683,7 +6684,7 @@ export function renderApp(rootElement: HTMLElement) {
       return;
     }
 
-    const prompt = elements.livePrompt.value.trim();
+    const prompt = readTextareaValue(elements.livePrompt).trim();
 
     if (!prompt) {
       setLiveStatus("Enter a prompt before starting the live session.");
@@ -6702,7 +6703,7 @@ export function renderApp(rootElement: HTMLElement) {
       {
         checkpointName,
         prompt,
-        negativePrompt: elements.liveNegativePrompt.value,
+        negativePrompt: readTextareaValue(elements.liveNegativePrompt),
         denoise: Number.isFinite(denoise) ? denoise : 0.6,
         autoRefineOnPause: liveAutoRefine,
         refineDenoise: 0.45,
