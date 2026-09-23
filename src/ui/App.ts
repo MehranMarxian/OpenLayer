@@ -25,7 +25,7 @@ import {
 import { createObjectUrlRegistry, ObjectUrlRegistry } from "./objectUrlRegistry";
 import { previewHub, PreviewPublicationKind, PreviewToolId } from "./previewHub";
 import { importBridge } from "./importBridge";
-import { agentBridge, createAgentToggleField } from "./agentBridge";
+import { agentBridge, createAgentChoiceField, createAgentToggleField } from "./agentBridge";
 import { readTextareaValue } from "./textareaValue";
 import { AgentConnectionStatus, createAgentConnection, openWebSocket } from "./agentConnection";
 import {
@@ -699,6 +699,7 @@ export function renderApp(rootElement: HTMLElement) {
     for (const toolId of [
       "text_to_image",
       "image_to_image",
+      "edit_image",
       "sketch_to_image",
       "inpaint",
       "outpaint",
@@ -891,12 +892,54 @@ export function renderApp(rootElement: HTMLElement) {
      * the user to open the panel and read the real reason themselves, which
      * defeats driving the tool from outside Photoshop in the first place.
      */
-    agentBridge.register("image_to_image", {
+    // The two tools share one screen. Each prepares its own mode, and the
+    // workflow field is a virtual choice so an agent is validated against the
+    // presets the TOOL accepts, not the ones the screen happens to list.
+    const createImageScreenWorkflowField = (accepts: () => string[]) =>
+      createAgentChoiceField({
+        read: () => readSelectValue(elements.imgWorkflow, currentImageScreenDefault()),
+        write: (presetId) => {
+          applyImageScreenMode(imageScreenViewForPreset(presetId) === "edit-image" ? "edit" : "transform");
+          setSelectValueIfPresent(elements.imgWorkflow, presetId);
+        },
+        options: accepts
+      });
+    const settleImageScreen = async () => {
+      applyRecommendedPresetSettings(elements.imgWorkflow, currentImageScreenDefault(), elements.imgSteps, elements.imgCfg);
+      paintImageScreenHint(elements, imageScreenMode);
+      await refreshImageModelOptionsForSelectedPreset(elements);
+      updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
+      await refreshLoraOptions(getImageLoraControls(elements), elements);
+    };
+
+    agentBridge.register("edit_image", {
       run: handleGenerateImg2Img,
+      prepare: () => applyImageScreenMode("edit"),
       fields: {
         prompt: elements.imgPrompt,
         negativePrompt: elements.imgNegativePrompt,
-        workflow: elements.imgWorkflow,
+        workflow: createImageScreenWorkflowField(() => listImageScreenPresets("edit").map((preset) => preset.id)),
+        checkpoint: elements.imgCheckpoint,
+        steps: elements.imgSteps,
+        cfg: elements.imgCfg,
+        seed: elements.imgSeed
+      },
+      leadingParams: ["workflow"],
+      settle: settleImageScreen,
+      statusText: elements.imgStatusText,
+      statusPill: elements.imgStatusPill,
+      errorText: elements.imgErrorMessage
+    });
+
+    agentBridge.register("image_to_image", {
+      run: handleGenerateImg2Img,
+      prepare: () => applyImageScreenMode("transform"),
+      fields: {
+        prompt: elements.imgPrompt,
+        negativePrompt: elements.imgNegativePrompt,
+        // Still accepts the edit presets for one release (v0.36), switching to
+        // edit mode when given one, so agents written for v0.35 keep working.
+        workflow: createImageScreenWorkflowField(() => listRunnableWorkflowPresets("img2img").map((preset) => preset.id)),
         checkpoint: elements.imgCheckpoint,
         steps: elements.imgSteps,
         cfg: elements.imgCfg,
@@ -905,7 +948,8 @@ export function renderApp(rootElement: HTMLElement) {
       },
       leadingParams: ["workflow"],
       settle: async () => {
-        applyRecommendedPresetSettings(elements.imgWorkflow, DEFAULT_IMAGE_WORKFLOW, elements.imgSteps, elements.imgCfg);
+        applyRecommendedPresetSettings(elements.imgWorkflow, currentImageScreenDefault(), elements.imgSteps, elements.imgCfg);
+        paintImageScreenHint(elements, imageScreenMode);
         await refreshImageModelOptionsForSelectedPreset(elements);
         updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
         await refreshLoraOptions(getImageLoraControls(elements), elements);

@@ -27,6 +27,8 @@ export const PROTOCOL_VERSION = 1;
 export const AGENT_TOOL_IDS = [
   "text_to_image",
   "image_to_image",
+  // Added in v0.36 with the Edit Image mode of the Image to Image screen.
+  "edit_image",
   "sketch_to_image",
   "inpaint",
   "outpaint",

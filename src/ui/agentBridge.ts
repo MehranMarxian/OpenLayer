@@ -86,6 +86,31 @@ export type AgentToggleField = {
   dispatchEvent: (event: Event) => boolean;
 };
 
+/**
+ * A choice whose list depends on panel state, shaped like a select so
+ * `applyParams` validates it the same way. Used where the real select's
+ * options are filtered by a screen mode but an agent may name any value the
+ * tool accepts: `write` is what switches the mode.
+ */
+export function createAgentChoiceField(choice: {
+  read: () => string;
+  write: (next: string) => void;
+  options: () => readonly string[];
+}): AgentToggleField {
+  return {
+    get value() {
+      return choice.read();
+    },
+    set value(next: string) {
+      choice.write(next);
+    },
+    get options() {
+      return choice.options().map((value) => ({ value }));
+    },
+    dispatchEvent: () => true
+  };
+}
+
 export function createAgentToggleField(toggle: {
   read: () => boolean;
   write: (isOn: boolean) => void;
@@ -123,6 +148,14 @@ export type AgentToolRegistration = {
    * waiting on the listener is not possible from outside the closure.
    */
   settle?: () => Promise<void>;
+  /**
+   * Runs before any parameter is applied. For a tool that shares a screen with
+   * another -- Edit Image is a mode of the Image to Image screen -- this puts
+   * the screen in the right mode first, so the options every later field is
+   * validated against belong to this tool and not to whichever mode the
+   * artist last left it in.
+   */
+  prepare?: () => void;
   /** The tool's status line, read after `run` settles. */
   statusText: HTMLElement;
   /** The tool's status pill, whose `error` class is the reliable failure signal. */
@@ -356,6 +389,8 @@ export function createAgentBridge(): AgentBridge {
           status: capability?.reason || "OpenLayer is busy with another operation."
         };
       }
+
+      registration.prepare?.();
 
       // Pass one: the fields that rewrite other fields, in the order given.
       const leadingNames = (registration.leadingParams ?? []).filter(

@@ -43,6 +43,7 @@ export const ROLES = ["panel", "agent"];
 export const AGENT_TOOLS = [
   "text_to_image",
   "image_to_image",
+  "edit_image",
   "sketch_to_image",
   "inpaint",
   "outpaint",

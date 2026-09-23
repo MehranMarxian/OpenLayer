@@ -94,6 +94,24 @@ export const IMAGE_TO_IMAGE_SCHEMA = {
   denoise
 };
 
+// No denoise: an edit samples at denoise 1 by construction. No size: the
+// result is the captured layer's own size.
+export const EDIT_IMAGE_SCHEMA = {
+  prompt: z
+    .string()
+    .optional()
+    .describe("What should change, as an instruction: \"make the jacket red\". Omit to reuse the panel's."),
+  negativePrompt,
+  workflow: z
+    .string()
+    .optional()
+    .describe("edit-flux2-klein (default) or edit-qwen-image-21 (research licence; keeps a cut-out layer a cut-out)."),
+  checkpoint,
+  steps,
+  cfg,
+  seed
+};
+
 export const SKETCH_TO_IMAGE_SCHEMA = {
   prompt,
   negativePrompt,
@@ -242,9 +260,23 @@ export const MCP_TOOLS = [
     title: "Image to Image",
     description:
       "Regenerate the layer or canvas already captured for Image to Image in the OpenLayer panel. " +
-      "Requires a source captured in the panel first — this tool cannot capture one. Only the " +
-      "parameters you pass are changed. Returns the panel's own status message.",
+      "Requires a source captured in the panel first — this tool cannot capture one. For an " +
+      "instruction such as \"make the jacket red\", use edit_image instead; this tool still accepts " +
+      "the edit workflows for now. Only the parameters you pass are changed. Returns the panel's " +
+      "own status message.",
     schema: IMAGE_TO_IMAGE_SCHEMA,
+    timeoutMs: GENERATION_TIMEOUT_MS
+  },
+  {
+    name: "edit_image",
+    title: "Edit Image",
+    description:
+      "Change the layer or canvas already captured for Image to Image in the OpenLayer panel by " +
+      "describing the change (\"make the jacket red\", \"remove the parked car\"). Requires a source " +
+      "captured in the panel first — this tool cannot capture one. The rest of the picture stays " +
+      "where it is, and the result is the source's size. Only the parameters you pass are changed. " +
+      "Returns the panel's own status message.",
+    schema: EDIT_IMAGE_SCHEMA,
     timeoutMs: GENERATION_TIMEOUT_MS
   },
   {

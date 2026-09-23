@@ -3,6 +3,7 @@ import {
   AgentField,
   AgentToolRegistration,
   applyParams,
+  createAgentChoiceField,
   createAgentToggleField,
   createAgentBridge,
   readOutcome
@@ -225,6 +226,58 @@ describe("createAgentBridge", () => {
     });
     expect(fields.prompt.value).toBe("a cat");
     expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it("prepares the tool's screen before writing any field", async () => {
+    // Edit Image and Image to Image share a screen: prepare switches its mode,
+    // and a field written before the switch would be reset by it.
+    const bridge = createAgentBridge();
+    const order: string[] = [];
+    const prompt = {
+      get value() {
+        return "";
+      },
+      set value(next: string) {
+        order.push(`prompt=${next}`);
+      },
+      dispatchEvent: () => true
+    } as unknown as AgentField;
+
+    bridge.register(
+      "edit_image",
+      registration({
+        run: vi.fn(),
+        prepare: () => order.push("prepare"),
+        fields: { prompt },
+        statusText: statusElement("Done.")
+      })
+    );
+    bridge.publishCapability("edit_image", { canRun: true, reason: "" });
+
+    await bridge.execute("edit_image", { prompt: "make the jacket red" });
+    expect(order).toEqual(["prepare", "prompt=make the jacket red"]);
+  });
+
+  it("validates a choice field against the tool's own list, not the screen's", async () => {
+    const bridge = createAgentBridge();
+    const written: string[] = [];
+    const workflow = createAgentChoiceField({
+      read: () => "edit-flux2-klein",
+      write: (next) => written.push(next),
+      options: () => ["edit-flux2-klein", "edit-qwen-image-21"]
+    });
+    const run = vi.fn();
+
+    bridge.register("edit_image", registration({ run, fields: { workflow }, statusText: statusElement("Done.") }));
+    bridge.publishCapability("edit_image", { canRun: true, reason: "" });
+
+    const refused = await bridge.execute("edit_image", { workflow: "img2img-basic" });
+    expect(refused.ok).toBe(false);
+    expect(refused.status).toMatch(/edit-flux2-klein, edit-qwen-image-21/);
+    expect(run).not.toHaveBeenCalled();
+
+    await bridge.execute("edit_image", { workflow: "edit-qwen-image-21" });
+    expect(written).toEqual(["edit-qwen-image-21"]);
   });
 
   it("does not run when a parameter was rejected", async () => {
