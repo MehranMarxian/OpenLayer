@@ -210,7 +210,7 @@ function createModelNotes(model: SetupModelRequirement): string[] {
 
   if (model.licenseGated) {
     notes.push(
-      "Accept the licence on the model page before downloading. This file is not available without signing in."
+      "Read the licence on the model page before downloading. OpenLayer never downloads a licence-restricted file for you: use Copy Link once you have accepted it."
     );
   }
 

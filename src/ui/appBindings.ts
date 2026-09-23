@@ -33,12 +33,11 @@ export type ActionName =
   | "checkWorkflowHealth"
   | "checkSetup"
   | "copyDiagnostics"
-  // SPIKE: delete with src/ui/spikeModelDownload.ts.
-  | "spikeModelDownload"
   | "saveSettings"
   | "resetSettings"
   | "toggleNegativePrompt"
   | "toggleAutoImport"
+  | "toggleTransparentBackground"
   | "generate"
   | "cancelGeneration"
   | "import"

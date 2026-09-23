@@ -70,7 +70,41 @@ import { AgentParams, AgentToolId } from "./agentProtocol";
  */
 
 /** A form control an agent may write into. */
-export type AgentField = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+export type AgentField = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | AgentToggleField;
+
+/**
+ * An on/off control that is a button rather than a form field -- Text to
+ * Image's Transparent Background toggle. Shaped like a select, so `applyParams`
+ * validates it the same way: "true" and "false" are its options, and `options`
+ * is read at apply time so a toggle can withdraw "true" while the selected
+ * preset cannot honour it, and the agent is told so rather than silently
+ * getting the opposite.
+ */
+export type AgentToggleField = {
+  value: string;
+  readonly options: ArrayLike<{ value: string }>;
+  dispatchEvent: (event: Event) => boolean;
+};
+
+export function createAgentToggleField(toggle: {
+  read: () => boolean;
+  write: (isOn: boolean) => void;
+  canTurnOn: () => boolean;
+}): AgentToggleField {
+  return {
+    get value() {
+      return String(toggle.read());
+    },
+    set value(next: string) {
+      toggle.write(next === "true");
+    },
+    get options() {
+      return toggle.canTurnOn() ? [{ value: "false" }, { value: "true" }] : [{ value: "false" }];
+    },
+    // Nothing listens: `write` already updates the toggle the way a click would.
+    dispatchEvent: () => true
+  };
+}
 
 export type AgentToolRegistration = {
   /** The existing zero-arg handler. Never re-implemented, only called. */

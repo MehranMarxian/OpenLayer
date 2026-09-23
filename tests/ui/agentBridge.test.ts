@@ -3,6 +3,7 @@ import {
   AgentField,
   AgentToolRegistration,
   applyParams,
+  createAgentToggleField,
   createAgentBridge,
   readOutcome
 } from "../../src/ui/agentBridge";
@@ -40,6 +41,47 @@ function statusElement(text: string, classes: string[] = []) {
     classList: { contains: (name: string) => classes.includes(name) }
   } as unknown as HTMLElement;
 }
+
+describe("createAgentToggleField", () => {
+  function toggle(canTurnOn: boolean) {
+    let isOn = false;
+    const field = createAgentToggleField({
+      read: () => isOn,
+      write: (next) => {
+        isOn = next;
+      },
+      canTurnOn: () => canTurnOn
+    });
+
+    return { field, isOn: () => isOn };
+  }
+
+  it("turns the toggle on through applyParams, from the boolean an agent sends", () => {
+    const { field, isOn } = toggle(true);
+    const result = applyParams({ transparentBackground: field }, { transparentBackground: true });
+
+    expect(result.applied).toEqual(["transparentBackground"]);
+    expect(isOn()).toBe(true);
+    expect(field.value).toBe("true");
+  });
+
+  it("refuses to turn on when the selected preset cannot honour it, and says what can", () => {
+    const { field, isOn } = toggle(false);
+    const result = applyParams({ transparentBackground: field }, { transparentBackground: true });
+
+    expect(result.applied).toEqual([]);
+    expect(result.rejected[0].reason).toMatch(/not available.*false/);
+    expect(isOn()).toBe(false);
+  });
+
+  it("can always be turned off", () => {
+    const { field } = toggle(false);
+
+    expect(applyParams({ transparentBackground: field }, { transparentBackground: false }).applied).toEqual([
+      "transparentBackground"
+    ]);
+  });
+});
 
 describe("applyParams", () => {
   it("writes values and notifies, so the panel reacts as it would to typing", () => {

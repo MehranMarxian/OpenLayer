@@ -139,7 +139,7 @@ describe("setup tab model", () => {
     expect(licenceModel).toBeDefined();
     expect(folderModel).toBeDefined();
     expect(getRow(view, licenceModel!.key).notes).toContain(
-      "Accept the licence on the model page before downloading. This file is not available without signing in."
+      "Read the licence on the model page before downloading. OpenLayer never downloads a licence-restricted file for you: use Copy Link once you have accepted it."
     );
     expect(getRow(view, folderModel!.key).notes).toContain(
       "Clone the whole repository folder, not a single file. This loader opens a directory."

@@ -25,7 +25,8 @@ import {
 import { createObjectUrlRegistry, ObjectUrlRegistry } from "./objectUrlRegistry";
 import { previewHub, PreviewPublicationKind, PreviewToolId } from "./previewHub";
 import { importBridge } from "./importBridge";
-import { agentBridge } from "./agentBridge";
+import { agentBridge, createAgentToggleField } from "./agentBridge";
+import { readTextareaValue } from "./textareaValue";
 import { AgentConnectionStatus, createAgentConnection, openWebSocket } from "./agentConnection";
 import {
   canAddReference,
@@ -191,12 +192,6 @@ import {
   createFolderDestination,
   UxpFolderLike
 } from "../photoshop/modelFileDestination";
-import {
-  formatSpikeReport,
-  PROBE_MODELS_FOLDER,
-  runModelDownloadSpike,
-  summarizeSpike
-} from "./spikeModelDownload";
 import { setArtistControlsEnabled, syncArtistControls } from "./artistControls";
 import { setSeedDiceEnabled } from "./seedDice";
 import { bindPromptMemory } from "./promptMemory";
@@ -549,6 +544,12 @@ export function renderApp(rootElement: HTMLElement) {
   // than wherever placeEvent would drop it. Re-reading imageSource at import
   // time would use whatever the artist has captured since.
   let imageImportBounds: NormalizedSelectionBounds | null = null;
+  // Same contract as imageImportBounds: where the captured layer sat, recorded
+  // when the result is made so the import lands on it. Both tools shipped
+  // without this and centred every result on the canvas, so a cutout of an
+  // off-centre layer landed somewhere the artist then had to drag it back from.
+  let removeBackgroundImportBounds: NormalizedSelectionBounds | null = null;
+  let layerMapsImportBounds: NormalizedSelectionBounds | null = null;
   let sketchSource: ImageSourceState | null = null;
   let sketchResult: AppGeneratedImageResult | null = null;
   let inpaintSource: InpaintSourceState | null = null;
@@ -585,6 +586,9 @@ export function renderApp(rootElement: HTMLElement) {
   let promptLayerSource: ImageSourceState | null = null;
   let importAutomatically = false;
   let imageImportAutomatically = false;
+  // Remembered across preset switches but only honoured while the selected
+  // preset can return alpha; see syncTransparentBackgroundField.
+  let transparentBackground = false;
   let upscaleImportAutomatically = false;
   let removeBackgroundImportAutomatically = false;
   let layerMapsSource: ImageSourceState | null = null;
@@ -774,7 +778,7 @@ export function renderApp(rootElement: HTMLElement) {
       return;
     }
 
-    const existing = elements.prompt.value.trim();
+    const existing = readTextareaValue(elements.prompt).trim();
     // The existing prompt is context, not something to overwrite blindly: on a
     // second press this reads as "give me another angle on this", which is how
     // the button actually gets used.
@@ -830,11 +834,23 @@ export function renderApp(rootElement: HTMLElement) {
         height: elements.height,
         steps: elements.steps,
         cfg: elements.cfg,
-        seed: elements.seed
+        seed: elements.seed,
+        // Applied after `workflow` settles, so "true" is on offer only when the
+        // preset chosen in the same command can return alpha.
+        transparentBackground: createAgentToggleField({
+          read: () => transparentBackground,
+          write: (isOn) => {
+            transparentBackground = isOn;
+            updateTransparentBackgroundToggle(elements, transparentBackground);
+          },
+          canTurnOn: () =>
+            Boolean(getWorkflowPreset(readSelectValue(elements.workflow, DEFAULT_WORKFLOW)).transparentOutput)
+        })
       },
       leadingParams: ["workflow"],
       settle: async () => {
         applyRecommendedPresetSettings(elements.workflow, DEFAULT_WORKFLOW, elements.steps, elements.cfg);
+        syncTransparentBackgroundField();
         await refreshTextModelOptionsForSelectedPreset(elements);
         updateTextCheckpointCompatibility(elements);
         await refreshLoraOptions(getTextLoraControls(elements), elements);
@@ -1036,7 +1052,7 @@ export function renderApp(rootElement: HTMLElement) {
       // separate field a human would read visually; an agent cannot, so it is
       // appended to the reply here.
       describeResult: () => {
-        const caption = elements.promptLayerGeneratedText.value.trim();
+        const caption = readTextareaValue(elements.promptLayerGeneratedText).trim();
 
         return caption ? `Generated text: "${caption}"` : "";
       }
@@ -1055,12 +1071,7 @@ export function renderApp(rootElement: HTMLElement) {
       },
       leadingParams: ["workflow"],
       settle: async () => {
-        applyRecommendedPresetSettings(
-          elements.multiReferenceWorkflow,
-          DEFAULT_MULTI_REFERENCE_WORKFLOW,
-          elements.multiReferenceSteps,
-          elements.multiReferenceCfg
-        );
+        syncMultiReferencePresetUi(elements);
         await refreshMultiReferenceModelOptionsForSelectedPreset(elements);
       },
       statusText: elements.multiReferenceStatusText,
@@ -1226,6 +1237,21 @@ export function renderApp(rootElement: HTMLElement) {
         run: handleImportStyleReference,
         statusText: elements.styleReferenceStatusText,
         statusPill: elements.styleReferenceStatusPill
+      },
+      // Both of these published canImport from syncImportBridge since they
+      // shipped, but had no handler here, so the Preview panel showed an enabled
+      // Import button that did nothing at all.
+      {
+        toolId: "multi-reference",
+        run: handleImportMultiReference,
+        statusText: elements.multiReferenceStatusText,
+        statusPill: elements.multiReferenceStatusPill
+      },
+      {
+        toolId: "unflatten",
+        run: handleImportUnflatten,
+        statusText: elements.unflattenStatusText,
+        statusPill: elements.unflattenStatusPill
       },
       {
         toolId: "live-painting",
@@ -1597,7 +1623,6 @@ export function renderApp(rootElement: HTMLElement) {
     checkWorkflowHealth: createActionRunner(elements, "checkWorkflowHealth", handleCheckWorkflowHealth),
     checkSetup: createActionRunner(elements, "checkSetup", handleCheckSetup),
     copyDiagnostics: createActionRunner(elements, "copyDiagnostics", handleCopyDiagnostics),
-    spikeModelDownload: createActionRunner(elements, "spikeModelDownload", handleSpikeModelDownload),
     exportLayerToFile: createActionRunner(elements, "exportLayerToFile", () => handleLayerExport("layer", "file")),
     exportLayerToComfyUI: createActionRunner(elements, "exportLayerToComfyUI", () => handleLayerExport("layer", "comfyui")),
     exportSelectionToFile: createActionRunner(elements, "exportSelectionToFile", () => handleLayerExport("selection", "file")),
@@ -1608,6 +1633,11 @@ export function renderApp(rootElement: HTMLElement) {
     resetSettings: createActionRunner(elements, "resetSettings", handleResetSettings),
     toggleNegativePrompt: createActionRunner(elements, "toggleNegativePrompt", handleToggleNegativePrompt),
     toggleAutoImport: createActionRunner(elements, "toggleAutoImport", handleToggleAutoImport),
+    toggleTransparentBackground: createActionRunner(
+      elements,
+      "toggleTransparentBackground",
+      handleToggleTransparentBackground
+    ),
     generate: createActionRunner(elements, "generate", handleGenerate),
     cancelGeneration: createActionRunner(elements, "cancelGeneration", handleCancelGeneration),
     import: createActionRunner(elements, "import", handleImport),
@@ -1703,7 +1733,6 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.checkWorkflowHealthButton, actionHandlers.checkWorkflowHealth);
   bindActionControl(elements.setupCheck, actionHandlers.checkSetup);
   bindActionControl(elements.copyDiagnosticsButton, actionHandlers.copyDiagnostics);
-  bindActionControl(elements.spikeModelDownloadButton, actionHandlers.spikeModelDownload);
   bindActionControl(elements.exportLayerFileButton, actionHandlers.exportLayerToFile);
   bindActionControl(elements.exportLayerComfyButton, actionHandlers.exportLayerToComfyUI);
   bindActionControl(elements.exportSelectionFileButton, actionHandlers.exportSelectionToFile);
@@ -1720,6 +1749,7 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.captureLayerButton, actionHandlers.captureImageSource);
   bindActionControl(elements.captureCanvasButton, actionHandlers.captureCanvasSource);
   bindActionControl(elements.experimentalCheckpointToggle, actionHandlers.toggleExperimentalCheckpoints);
+  bindActionControl(elements.transparentBackgroundToggle, actionHandlers.toggleTransparentBackground);
   bindActionControl(elements.generateImg2ImgButton, actionHandlers.generateImg2Img);
   bindActionControl(elements.importImg2ImgButton, actionHandlers.importImg2Img);
   bindActionControl(elements.imgAutoImportToggle, actionHandlers.toggleImg2ImgAutoImport);
@@ -1854,8 +1884,11 @@ export function renderApp(rootElement: HTMLElement) {
   updateLiveStateBadge("idle");
   void loadInitialCheckpoints();
 
+  syncTransparentBackgroundField();
+
   elements.workflow.addEventListener("change", () => {
     applyRecommendedPresetSettings(elements.workflow, DEFAULT_WORKFLOW, elements.steps, elements.cfg);
+    syncTransparentBackgroundField();
     void refreshTextModelOptionsForSelectedPreset(elements).then(() => updateTextCheckpointCompatibility(elements));
     void refreshLoraOptions(getTextLoraControls(elements), elements);
   });
@@ -2048,9 +2081,11 @@ export function renderApp(rootElement: HTMLElement) {
     updateStyleReferenceCheckpointCompatibility(elements, styleReferenceSource);
   });
 
-  // Only one preset exists for this mode today, but the list is read from the
-  // registry, so a second one must not silently keep the first one's models.
+  // Klein runs 4 steps and Qwen-Image 2.1 runs 25, so switching must carry the
+  // preset's own settings across -- keeping Klein's 4 would quietly produce a
+  // half-formed 2.1 picture -- and its own models and hint along with them.
   elements.multiReferenceWorkflow.addEventListener("change", () => {
+    syncMultiReferencePresetUi(elements);
     void refreshMultiReferenceModelOptionsForSelectedPreset(elements);
     renderMultiReferenceList();
   });
@@ -2524,29 +2559,6 @@ export function renderApp(rootElement: HTMLElement) {
     }
   }
 
-  // SPIKE: delete with src/ui/spikeModelDownload.ts and its button.
-  async function handleSpikeModelDownload() {
-    elements.settingsDiagnosticsText.textContent = "Running model download spike...";
-
-    const results = await runModelDownloadSpike({
-      loadUxp: () => require("uxp") as never,
-      loadFs: () => {
-        try {
-          return (require as unknown as (name: string) => unknown)("fs");
-        } catch {
-          return undefined;
-        }
-      },
-      fetch: (...args) => fetch(...args),
-      modelsFolderPath: PROBE_MODELS_FOLDER
-    });
-
-    const report = `${summarizeSpike(results)}\n\n${formatSpikeReport(results)}`;
-    elements.settingsDiagnosticsReport.value = report;
-    elements.settingsDiagnosticsReport.hidden = false;
-    elements.settingsDiagnosticsText.textContent = summarizeSpike(results);
-  }
-
   async function handleCopyDiagnostics() {
     const reportText = createDiagnosticsReport(elements, hardwareReport, workflowHealthReport);
     elements.settingsDiagnosticsReport.value = reportText;
@@ -2615,6 +2627,7 @@ export function renderApp(rootElement: HTMLElement) {
   function handleResetSettings() {
     clearOpenLayerPreferences();
     applyDefaultSettings(elements);
+    syncTransparentBackgroundField();
     updateInpaintReferenceControlLock(elements);
     applyTheme(elements, DEFAULT_THEME);
     fillCheckpointOptions(elements, FALLBACK_CHECKPOINTS, FALLBACK_CHECKPOINTS[0]);
@@ -2634,6 +2647,25 @@ export function renderApp(rootElement: HTMLElement) {
   function handleToggleNegativePrompt() {
     isNegativePromptOpen = !isNegativePromptOpen;
     updateNegativePromptDisclosure(elements, isNegativePromptOpen);
+  }
+
+  function handleToggleTransparentBackground() {
+    transparentBackground = !transparentBackground;
+    updateTransparentBackgroundToggle(elements, transparentBackground);
+    setTextToImageDiagnostics(
+      elements,
+      transparentBackground
+        ? "Transparent background is on: the result imports as a cut-out layer with its own alpha channel."
+        : "Transparent background is off."
+    );
+  }
+
+  /** The toggle exists only for presets that can return alpha. */
+  function syncTransparentBackgroundField() {
+    const preset = getWorkflowPreset(readSelectValue(elements.workflow, DEFAULT_WORKFLOW));
+
+    elements.transparentBackgroundField.hidden = !preset.transparentOutput;
+    updateTransparentBackgroundToggle(elements, transparentBackground);
   }
 
   function handleToggleAutoImport() {
@@ -2792,7 +2824,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     setTextToImageDiagnostics(elements, `Generate pressed at ${new Date().toLocaleTimeString()}.`);
 
-    if (!elements.prompt.value.trim()) {
+    if (!readTextareaValue(elements.prompt).trim()) {
       setTextToImageError(elements, getErrorMessage(createOpenLayerError("PROMPT_REQUIRED", "Enter a prompt before generating.")));
       setTextToImageStatus(elements, "Prompt required.", "error");
       return;
@@ -2845,17 +2877,19 @@ export function renderApp(rootElement: HTMLElement) {
         );
       }
 
+      const wantsTransparency = transparentBackground && Boolean(preset.transparentOutput);
       const buildResult = await buildTxt2ImgWorkflow({
         presetId: preset.id,
-        prompt: elements.prompt.value,
-        negativePrompt: elements.negativePrompt.value,
+        prompt: readTextareaValue(elements.prompt),
+        negativePrompt: readTextareaValue(elements.negativePrompt),
         checkpointName,
         width: settings.width,
         height: settings.height,
         steps: settings.steps,
         cfg: settings.cfg,
         seed: settings.seed,
-        lora: readLoraSelection(getTextLoraControls(elements))
+        lora: readLoraSelection(getTextLoraControls(elements)),
+        transparentBackground: wantsTransparency
       });
 
       const generatedResult = await generation.runPipeline({
@@ -2877,8 +2911,8 @@ export function renderApp(rootElement: HTMLElement) {
         commit: (generatedResult) => {
         setResult(generatedResult);
         addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
-          prompt: elements.prompt.value,
-          negativePrompt: elements.negativePrompt.value,
+          prompt: readTextareaValue(elements.prompt),
+          negativePrompt: readTextareaValue(elements.negativePrompt),
           checkpointName,
           modelName: checkpointName,
           workflowPreset: buildResult.preset.id,
@@ -2886,7 +2920,7 @@ export function renderApp(rootElement: HTMLElement) {
           seed: buildResult.seed,
           sizeLabel: `${settings.width} x ${settings.height}`,
           dimensions: `${settings.width} x ${settings.height}`,
-          sourceMode: "Prompt only",
+          sourceMode: wantsTransparency ? "Prompt only, transparent background" : "Prompt only",
           experimental: buildResult.preset.status === "experimental"
         });
         }
@@ -2902,7 +2936,10 @@ export function renderApp(rootElement: HTMLElement) {
         await handleImport("auto");
       } else {
         setTextToImageStatus(elements, "Generation complete.", "ready");
-        setTextToImageDiagnostics(elements, `Seed used: ${buildResult.seed}. Workflow: ${buildResult.preset.id}.`);
+        setTextToImageDiagnostics(
+          elements,
+          `Seed used: ${buildResult.seed}. Workflow: ${buildResult.preset.id}.${wantsTransparency ? " Transparent background." : ""}`
+        );
       }
 
       savePreferencesFromElements(elements, { seed: requestedSeed });
@@ -3086,6 +3123,7 @@ export function renderApp(rootElement: HTMLElement) {
         // compose from layers the artist may since have changed.
         elements.multiReferencePrompt.value = entry.prompt;
         setSelectValueIfPresent(elements.multiReferenceWorkflow, entry.workflowPreset);
+        syncMultiReferencePresetUi(elements);
         setSelectValueIfPresent(elements.multiReferenceCheckpoint, entry.modelName);
         elements.multiReferenceSeed.value = String(entry.seed);
         setView("multi-reference");
@@ -3094,6 +3132,7 @@ export function renderApp(rootElement: HTMLElement) {
       default:
         elements.prompt.value = entry.prompt;
         setSelectValueIfPresent(elements.workflow, entry.workflowPreset);
+        syncTransparentBackgroundField();
         setSelectValueIfPresent(elements.checkpoint, entry.modelName);
         elements.seed.value = String(entry.seed);
         setView("text-to-image");
@@ -3224,7 +3263,7 @@ export function renderApp(rootElement: HTMLElement) {
       return;
     }
 
-    if (!elements.imgPrompt.value.trim()) {
+    if (!readTextareaValue(elements.imgPrompt).trim()) {
       setImageError(elements, getErrorMessage(createOpenLayerError("PROMPT_REQUIRED", "Enter a prompt before generating.")));
       setImageStatus(elements, "Prompt required.", "error");
       return;
@@ -3293,15 +3332,16 @@ export function renderApp(rootElement: HTMLElement) {
       const sourceImageName = await client.uploadImage(imageSource.blob, imageSource.filename);
       const buildResult = await buildImg2ImgWorkflow({
         presetId: preset.id,
-        prompt: elements.imgPrompt.value,
-        negativePrompt: elements.imgNegativePrompt.value,
+        prompt: readTextareaValue(elements.imgPrompt),
+        negativePrompt: readTextareaValue(elements.imgNegativePrompt),
         checkpointName,
         sourceImageName,
         steps: settings.steps,
         cfg: settings.cfg,
         seed: settings.seed,
         denoise: settings.denoise,
-        lora: readLoraSelection(getImageLoraControls(elements))
+        lora: readLoraSelection(getImageLoraControls(elements)),
+        keepTransparency: imageSource.hasTransparency === true
       });
 
       // The commit closure runs after awaits; a const keeps the null-checked
@@ -3327,8 +3367,8 @@ export function renderApp(rootElement: HTMLElement) {
         commit: (generatedResult) => {
         setImageResult(generatedResult);
         addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
-          prompt: elements.imgPrompt.value,
-          negativePrompt: elements.imgNegativePrompt.value,
+          prompt: readTextareaValue(elements.imgPrompt),
+          negativePrompt: readTextareaValue(elements.imgNegativePrompt),
           checkpointName,
           modelName: checkpointName,
           workflowPreset: buildResult.preset.id,
@@ -3602,6 +3642,7 @@ export function renderApp(rootElement: HTMLElement) {
 
       // A const, not the mutable field: the commit closure runs after awaits.
       const capturedSource = removeBackgroundSource;
+      removeBackgroundImportBounds = capturedSource.captureBounds ?? null;
       const generatedResult = await generation.runPipeline({
         toolType: "remove-background",
         client,
@@ -3680,6 +3721,7 @@ export function renderApp(rootElement: HTMLElement) {
         blob: removeBackgroundResult.blob,
         originatingDocument: removeBackgroundResult.originatingDocument,
         layerName,
+        targetBounds: removeBackgroundImportBounds ?? undefined,
         onProgress: (message) => {
           setRemoveBackgroundStatus(elements, message, "idle");
           setRemoveBackgroundDiagnostics(elements, message);
@@ -3833,6 +3875,7 @@ export function renderApp(rootElement: HTMLElement) {
 
       // A const, not the mutable field: the commit closure runs after awaits.
       const capturedSource = layerMapsSource;
+      layerMapsImportBounds = capturedSource.captureBounds ?? null;
       const passLabel = capability.artistLabel.toLowerCase();
       const generatedResult = await generation.runPipeline({
         toolType: "layer-maps",
@@ -3914,6 +3957,7 @@ export function renderApp(rootElement: HTMLElement) {
         blob: layerMapsResult.blob,
         originatingDocument: layerMapsResult.originatingDocument,
         layerName,
+        targetBounds: layerMapsImportBounds ?? undefined,
         onProgress: (message) => {
           setLayerMapsStatus(elements, message, "idle");
           setLayerMapsDiagnostics(elements, message);
@@ -4262,7 +4306,7 @@ export function renderApp(rootElement: HTMLElement) {
       return;
     }
 
-    if (!elements.outpaintPrompt.value.trim()) {
+    if (!readTextareaValue(elements.outpaintPrompt).trim()) {
       setOutpaintError(
         elements,
         getErrorMessage(createOpenLayerError("PROMPT_REQUIRED", "Enter a prompt before generating Outpaint."))
@@ -4335,7 +4379,7 @@ export function renderApp(rootElement: HTMLElement) {
       );
       const buildResult = await buildOutpaintWorkflow({
         presetId: preset.id,
-        prompt: elements.outpaintPrompt.value,
+        prompt: readTextareaValue(elements.outpaintPrompt),
         checkpointName,
         sourceImageName,
         steps: settings.steps,
@@ -4382,7 +4426,7 @@ export function renderApp(rootElement: HTMLElement) {
         setOutpaintResult(generatedResult);
         activeOutpaintImportContext = generatedOutpaintContext;
         addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
-          prompt: elements.outpaintPrompt.value,
+          prompt: readTextareaValue(elements.outpaintPrompt),
           checkpointName,
           modelName: checkpointName,
           workflowPreset: buildResult.preset.id,
@@ -4604,7 +4648,7 @@ export function renderApp(rootElement: HTMLElement) {
       return;
     }
 
-    if (!elements.sketchPrompt.value.trim()) {
+    if (!readTextareaValue(elements.sketchPrompt).trim()) {
       setSketchError(
         elements,
         getErrorMessage(createOpenLayerError("PROMPT_REQUIRED", "Enter a prompt before generating Sketch to Image."))
@@ -4677,8 +4721,8 @@ export function renderApp(rootElement: HTMLElement) {
       const generationSize = getGenerationSize(preset, sketchSource.width, sketchSource.height);
       const buildResult = await buildSketchToImageWorkflow({
         presetId: preset.id,
-        prompt: elements.sketchPrompt.value,
-        negativePrompt: elements.sketchNegativePrompt.value,
+        prompt: readTextareaValue(elements.sketchPrompt),
+        negativePrompt: readTextareaValue(elements.sketchNegativePrompt),
         checkpointName,
         sourceImageName,
         width: generationSize.width,
@@ -4715,8 +4759,8 @@ export function renderApp(rootElement: HTMLElement) {
         commit: (generatedResult) => {
         setSketchResult(generatedResult);
         addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
-          prompt: elements.sketchPrompt.value,
-          negativePrompt: elements.sketchNegativePrompt.value,
+          prompt: readTextareaValue(elements.sketchPrompt),
+          negativePrompt: readTextareaValue(elements.sketchNegativePrompt),
           checkpointName,
           modelName: checkpointName,
           workflowPreset: buildResult.preset.id,
@@ -4874,7 +4918,7 @@ export function renderApp(rootElement: HTMLElement) {
       return;
     }
 
-    if (!elements.styleReferencePrompt.value.trim()) {
+    if (!readTextareaValue(elements.styleReferencePrompt).trim()) {
       setStyleReferenceError(
         elements,
         getErrorMessage(createOpenLayerError("PROMPT_REQUIRED", "Enter a prompt before generating Style Reference."))
@@ -4947,8 +4991,8 @@ export function renderApp(rootElement: HTMLElement) {
       const sourceImageName = await client.uploadImage(styleReferenceSource.blob, styleReferenceSource.filename);
       const buildResult = await buildStyleReferenceWorkflow({
         presetId: preset.id,
-        prompt: elements.styleReferencePrompt.value,
-        negativePrompt: elements.styleReferenceNegativePrompt.value,
+        prompt: readTextareaValue(elements.styleReferencePrompt),
+        negativePrompt: readTextareaValue(elements.styleReferenceNegativePrompt),
         checkpointName,
         sourceImageName,
         width: settings.width,
@@ -4978,8 +5022,8 @@ export function renderApp(rootElement: HTMLElement) {
         commit: (generatedResult) => {
         setStyleReferenceResult(generatedResult);
         addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
-          prompt: elements.styleReferencePrompt.value,
-          negativePrompt: elements.styleReferenceNegativePrompt.value,
+          prompt: readTextareaValue(elements.styleReferencePrompt),
+          negativePrompt: readTextareaValue(elements.styleReferenceNegativePrompt),
           checkpointName,
           modelName: checkpointName,
           workflowPreset: buildResult.preset.id,
@@ -5300,7 +5344,7 @@ export function renderApp(rootElement: HTMLElement) {
       return;
     }
 
-    if (!elements.multiReferencePrompt.value.trim()) {
+    if (!readTextareaValue(elements.multiReferencePrompt).trim()) {
       setMultiReferenceError(
         elements,
         getErrorMessage(createOpenLayerError("PROMPT_REQUIRED", "Describe the picture these layers should become."))
@@ -5352,7 +5396,7 @@ export function renderApp(rootElement: HTMLElement) {
         );
       }
 
-      setMultiReferenceStatus(elements, "Checking Klein nodes and models...", "idle");
+      setMultiReferenceStatus(elements, "Checking composition nodes and models...", "idle");
       setMultiReferenceProgressPreview(elements, "Checking composition setup...");
       await client.validatePresetSetup(preset);
 
@@ -5373,8 +5417,8 @@ export function renderApp(rootElement: HTMLElement) {
 
       const buildResult = await buildMultiReferenceWorkflow({
         presetId: preset.id,
-        prompt: elements.multiReferencePrompt.value,
-        negativePrompt: elements.multiReferenceNegativePrompt.value,
+        prompt: readTextareaValue(elements.multiReferencePrompt),
+        negativePrompt: readTextareaValue(elements.multiReferenceNegativePrompt),
         checkpointName,
         referenceImageNames,
         steps: settings.steps,
@@ -5401,8 +5445,8 @@ export function renderApp(rootElement: HTMLElement) {
         commit: (generatedResult) => {
           setMultiReferenceResult(generatedResult);
           addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
-            prompt: elements.multiReferencePrompt.value,
-            negativePrompt: elements.multiReferenceNegativePrompt.value,
+            prompt: readTextareaValue(elements.multiReferencePrompt),
+            negativePrompt: readTextareaValue(elements.multiReferenceNegativePrompt),
             checkpointName,
             modelName: checkpointName,
             workflowPreset: buildResult.preset.id,
@@ -5423,7 +5467,9 @@ export function renderApp(rootElement: HTMLElement) {
       setMultiReferenceStatus(elements, "Composition complete.", "ready");
       setMultiReferenceDiagnostics(
         elements,
-        `Seed used: ${buildResult.seed}. ${referenceImageNames.length} references uploaded. Workflow: ${buildResult.preset.id}. Faces are re-imagined rather than reproduced.`
+        `Seed used: ${buildResult.seed}. ${referenceImageNames.length} references uploaded. Workflow: ${buildResult.preset.id}.${
+          buildResult.preset.id === "multi-reference-flux2-klein" ? " Faces are re-imagined rather than reproduced." : ""
+        }`
       );
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
@@ -5639,7 +5685,7 @@ export function renderApp(rootElement: HTMLElement) {
 
       const buildResult = await buildUnflattenWorkflow({
         presetId: preset.id,
-        prompt: elements.unflattenPrompt.value,
+        prompt: readTextareaValue(elements.unflattenPrompt),
         checkpointName,
         sourceImageName: uploadedName,
         layerCount: settings.layerCount,
@@ -5679,7 +5725,7 @@ export function renderApp(rootElement: HTMLElement) {
             stackResult.originatingDocument
           );
           addHistoryEntry(elements, historyEntries, objectUrls, unflattenHistoryResult, {
-            prompt: elements.unflattenPrompt.value,
+            prompt: readTextareaValue(elements.unflattenPrompt),
             checkpointName,
             modelName: checkpointName,
             workflowPreset: buildResult.preset.id,
@@ -5871,7 +5917,7 @@ export function renderApp(rootElement: HTMLElement) {
     elements.customWorkflowSummary.textContent = "";
     elements.customWorkflowResults.innerHTML = "";
 
-    const parsed = parseCustomWorkflowText(elements.customWorkflowInput.value);
+    const parsed = parseCustomWorkflowText(readTextareaValue(elements.customWorkflowInput));
 
     if (!parsed.ok) {
       setCustomWorkflowStatus(parsed.reason, "error");
@@ -6019,7 +6065,7 @@ export function renderApp(rootElement: HTMLElement) {
       preset: resolveInpaintPreset(presetId),
       presetId,
       checkpointName: readSelectValue(elements.inpaintCheckpoint),
-      prompt: elements.inpaintPrompt.value
+      prompt: readTextareaValue(elements.inpaintPrompt)
     });
 
     if (!localReadiness.ok) {
@@ -6114,7 +6160,7 @@ export function renderApp(rootElement: HTMLElement) {
         preset,
         presetId: preset.id,
         checkpointName,
-        prompt: elements.inpaintPrompt.value,
+        prompt: readTextareaValue(elements.inpaintPrompt),
         installedModelNames: await client.getModelNamesForPreset(preset)
       });
 
@@ -6153,8 +6199,8 @@ export function renderApp(rootElement: HTMLElement) {
           : await client.uploadImage(maskUploadBlob, maskUploadFilename);
       const buildResult = await buildInpaintWorkflow({
         presetId: preset.id,
-        prompt: elements.inpaintPrompt.value,
-        negativePrompt: elements.inpaintNegativePrompt.value,
+        prompt: readTextareaValue(elements.inpaintPrompt),
+        negativePrompt: readTextareaValue(elements.inpaintNegativePrompt),
         checkpointName,
         sourceImageName,
         maskImageName,
@@ -6228,8 +6274,8 @@ export function renderApp(rootElement: HTMLElement) {
         activeInpaintImportContext = generatedImportContext;
         setInpaintResult(generatedResult);
         addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
-          prompt: elements.inpaintPrompt.value,
-          negativePrompt: elements.inpaintNegativePrompt.value,
+          prompt: readTextareaValue(elements.inpaintPrompt),
+          negativePrompt: readTextareaValue(elements.inpaintNegativePrompt),
           checkpointName,
           modelName: checkpointName,
           workflowPreset: buildResult.preset.id,
@@ -6560,7 +6606,7 @@ export function renderApp(rootElement: HTMLElement) {
   }
 
   async function handleCopyPromptFromLayer() {
-    const generatedText = elements.promptLayerGeneratedText.value.trim();
+    const generatedText = readTextareaValue(elements.promptLayerGeneratedText).trim();
 
     if (!generatedText) {
       setPromptLayerError(elements, "No generated prompt text to copy yet.");
@@ -6578,7 +6624,7 @@ export function renderApp(rootElement: HTMLElement) {
   }
 
   function handleSendPromptToTextToImage() {
-    const generatedText = elements.promptLayerGeneratedText.value.trim();
+    const generatedText = readTextareaValue(elements.promptLayerGeneratedText).trim();
 
     if (!generatedText) {
       setPromptLayerError(elements, "No generated prompt text to send yet.");
@@ -6607,7 +6653,7 @@ export function renderApp(rootElement: HTMLElement) {
       return;
     }
 
-    const prompt = elements.livePrompt.value.trim();
+    const prompt = readTextareaValue(elements.livePrompt).trim();
 
     if (!prompt) {
       setLiveStatus("Enter a prompt before starting the live session.");
@@ -6626,7 +6672,7 @@ export function renderApp(rootElement: HTMLElement) {
       {
         checkpointName,
         prompt,
-        negativePrompt: elements.liveNegativePrompt.value,
+        negativePrompt: readTextareaValue(elements.liveNegativePrompt),
         denoise: Number.isFinite(denoise) ? denoise : 0.6,
         autoRefineOnPause: liveAutoRefine,
         refineDenoise: 0.45,
@@ -7225,6 +7271,12 @@ function updateLiveNegativePromptDisclosure(elements: AppElements, isOpen: boole
   elements.liveNegativePromptToggle.textContent = isOpen ? "Hide Negative Prompt" : "Show Negative Prompt";
   elements.liveNegativePromptToggle.setAttribute("aria-expanded", String(isOpen));
   elements.liveNegativePromptToggle.classList.toggle("is-active", isOpen);
+}
+
+function updateTransparentBackgroundToggle(elements: AppElements, isEnabled: boolean) {
+  elements.transparentBackgroundToggle.textContent = isEnabled ? "Transparent Background On" : "Transparent Background Off";
+  elements.transparentBackgroundToggle.setAttribute("aria-pressed", String(isEnabled));
+  elements.transparentBackgroundToggle.classList.toggle("is-active", isEnabled);
 }
 
 function updateAutoImportToggle(elements: AppElements, isEnabled: boolean) {
@@ -7983,6 +8035,24 @@ function readSelectValue(select: HTMLSelectElement, fallback = "") {
   const optionValue = option?.value?.trim() || option?.textContent?.trim() || "";
 
   return optionValue || fallback;
+}
+
+/**
+ * Everything on the Multi-Reference screen that belongs to the selected preset
+ * rather than to the tool: recommended steps/CFG and the one-line hint under
+ * the model picker. The hint goes in as textContent, never markup, because the
+ * Qwen-Image 2.1 hint quotes the literal `<image1>` prompt syntax.
+ */
+function syncMultiReferencePresetUi(elements: AppElements) {
+  applyRecommendedPresetSettings(
+    elements.multiReferenceWorkflow,
+    DEFAULT_MULTI_REFERENCE_WORKFLOW,
+    elements.multiReferenceSteps,
+    elements.multiReferenceCfg
+  );
+
+  const preset = getWorkflowPreset(readSelectValue(elements.multiReferenceWorkflow, DEFAULT_MULTI_REFERENCE_WORKFLOW));
+  elements.multiReferenceCompatibilityNote.textContent = preset.capability?.uiHints.screenHint ?? "";
 }
 
 function applyRecommendedPresetSettings(

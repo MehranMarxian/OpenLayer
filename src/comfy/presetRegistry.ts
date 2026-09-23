@@ -41,6 +41,20 @@ const FLUX2_DEV_LICENSE: WorkflowModelLicenseGate = {
     "Black Forest Labs restricts these weights to non-commercial use. Read the licence before downloading them or publishing work made with them."
 };
 
+// Stricter than the FLUX dev licences above: "non-commercial" is defined as
+// research or evaluation purposes only, so personal client work is out too.
+// Every earlier Qwen image release OpenLayer touches (Qwen-Image-Layered, the
+// Krea-2 encoder) is Apache-2.0; 2.1 is the first that is not. The whole
+// Comfy-Org repackaging carries this licence, VAE and text encoder included,
+// which is why all three files in QWEN_IMAGE_21_STACK are gated -- unlike
+// Flux.2, whose VAE is published separately and ungated.
+const QWEN_IMAGE_21_LICENSE: WorkflowModelLicenseGate = {
+  name: "Qwen Research License Agreement",
+  url: "https://huggingface.co/Qwen/Qwen-Image-2.1/blob/main/LICENSE",
+  summary:
+    "Qwen restricts these weights to research and evaluation use; commercial use needs a separate licence from Qwen. Read the licence before downloading them or publishing work made with them."
+};
+
 const COMFY_ORG_FLUX1_DEV_REPO = "https://huggingface.co/Comfy-Org/flux1-dev";
 const COMFY_ORG_FLUX2_DEV_REPO = "https://huggingface.co/Comfy-Org/flux2-dev";
 const CITY96_FLUX2_DEV_GGUF_REPO = "https://huggingface.co/city96/FLUX.2-dev-gguf";
@@ -52,6 +66,7 @@ const BFL_FLUX2_KLEIN_4B_FP8_REPO = "https://huggingface.co/black-forest-labs/FL
 const COMFY_ORG_KREA2_REPO = "https://huggingface.co/Comfy-Org/Krea-2";
 const COMFY_ORG_QWEN_IMAGE_LAYERED_REPO = "https://huggingface.co/Comfy-Org/Qwen-Image-Layered_ComfyUI";
 const COMFY_ORG_QWEN_IMAGE_REPO = "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI";
+const COMFY_ORG_QWEN_IMAGE_21_REPO = "https://huggingface.co/Comfy-Org/Qwen-Image-2.1";
 const FLUX_TEXT_ENCODERS_REPO = "https://huggingface.co/comfyanonymous/flux_text_encoders";
 const ALIBABA_PAI_ZIMAGE_FUN_CONTROLNET_REPO =
   "https://huggingface.co/alibaba-pai/Z-Image-Turbo-Fun-Controlnet-Union-2.1";
@@ -368,6 +383,63 @@ const KREA2_TURBO_STACK = [
     downloadUrl: `${COMFY_ORG_KREA2_REPO}/resolve/main/vae/qwen_image_vae.safetensors`,
     sourcePageUrl: COMFY_ORG_KREA2_REPO,
     downloadSizeBytes: 253806246
+  }
+] as const;
+
+/**
+ * Qwen-Image 2.1: one model for text-to-image, instruction editing and
+ * multi-image composition. All three files come from Comfy-Org's public
+ * repackaging (verified 200 without a token, sizes by HEAD on 2026-09-23) and
+ * run on a 12 GB card -- measured on the dev rig's 4070 Ti at 14-22 s per
+ * 1 MP image.
+ *
+ * The text encoder is deliberately w4a8, not the int8_convrot file the
+ * official template names: both are in the same repo, w4a8 is 3 GB smaller,
+ * and it produced every measured result. Its VAE is four-channel, so every
+ * decode is RGBA -- see the SplitImageWithAlpha note on the node maps below.
+ */
+const QWEN_IMAGE_21_STACK = [
+  {
+    kind: "diffusion-model-stack",
+    objectInfoNode: "UNETLoader",
+    inputName: "unet_name",
+    label: "Qwen-Image 2.1 diffusion model",
+    modelName: "qwen_image_2.1_int8_convrot.safetensors",
+    setupHint: "Install qwen_image_2.1_int8_convrot.safetensors in ComfyUI models/diffusion_models. Needs ComfyUI 0.37.0 or newer.",
+    downloadUrl: `${COMFY_ORG_QWEN_IMAGE_21_REPO}/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors`,
+    sourcePageUrl: COMFY_ORG_QWEN_IMAGE_21_REPO,
+    downloadSizeBytes: 7256783064,
+    licenseGate: QWEN_IMAGE_21_LICENSE
+  },
+  {
+    kind: "clip",
+    objectInfoNode: "CLIPLoader",
+    inputName: "clip_name",
+    label: "Qwen-Image 2.1 text encoder (Qwen3-VL 8B)",
+    modelName: "qwen3vl_8b_w4a8.safetensors",
+    // No acceptedModelNames, although qwen3vl_8b_int8_convrot and
+    // qwen3vl_8b_fp8_scaled both load here: only the sketch builder substitutes
+    // an accepted name into the graph, so on the text-to-image and edit paths
+    // an alternative would report "installed" and then fail inside ComfyUI.
+    setupHint:
+      "Install qwen3vl_8b_w4a8.safetensors in ComfyUI models/text_encoders. Krea-2's qwen3vl_4b encoder is a different model and will not work here.",
+    downloadUrl: `${COMFY_ORG_QWEN_IMAGE_21_REPO}/resolve/main/text_encoders/qwen3vl_8b_w4a8.safetensors`,
+    sourcePageUrl: COMFY_ORG_QWEN_IMAGE_21_REPO,
+    downloadSizeBytes: 6312105364,
+    licenseGate: QWEN_IMAGE_21_LICENSE
+  },
+  {
+    kind: "vae",
+    objectInfoNode: "VAELoader",
+    inputName: "vae_name",
+    label: "Qwen-Image 2.1 VAE",
+    modelName: "qwen_image_2.1_vae_bf16.safetensors",
+    setupHint:
+      "Install qwen_image_2.1_vae_bf16.safetensors in ComfyUI models/vae. Not qwen_image_vae.safetensors (Krea-2) or qwen_image_layered_vae.safetensors (Unflatten).",
+    downloadUrl: `${COMFY_ORG_QWEN_IMAGE_21_REPO}/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors`,
+    sourcePageUrl: COMFY_ORG_QWEN_IMAGE_21_REPO,
+    downloadSizeBytes: 675509688,
+    licenseGate: QWEN_IMAGE_21_LICENSE
   }
 ] as const;
 
@@ -785,6 +857,61 @@ const FLUX2_KLEIN_EDIT_NODES = {
   sampler: "3",
   decode: "8",
   outputScale: "17",
+  saveImage: "9"
+} as const;
+
+/**
+ * Qwen-Image 2.1's VAE is four-channel, so every decode is RGBA -- including
+ * ordinary opaque pictures, which come back with alpha 248-252 on roughly a
+ * tenth of their pixels. Imported as-is, that is a faintly see-through layer.
+ * `dropAlpha` (SplitImageWithAlpha, output 0) turns it into a true RGB PNG
+ * before SaveImage. The transparent-background option rewires SaveImage past
+ * it, straight to `decode`, rather than shipping a second graph.
+ *
+ * Positive and negative prompts are two inputs on ONE node,
+ * TextEncodeQwenImage21, and its third output is the latent the sampler starts
+ * from when there is a reference: sized from image_1, because sampling at any
+ * other size shifts the edit.
+ */
+const QWEN_IMAGE_21_TXT2IMG_NODES = {
+  diffusionModelLoader: "20",
+  clipLoader: "21",
+  vaeLoader: "22",
+  textEncode: "6",
+  latentImage: "5",
+  sampler: "3",
+  decode: "8",
+  dropAlpha: "30",
+  saveImage: "9"
+} as const;
+
+const QWEN_IMAGE_21_EDIT_NODES = {
+  diffusionModelLoader: "20",
+  clipLoader: "21",
+  vaeLoader: "22",
+  loadImage: "10",
+  // LoadImage splits a PNG into RGB and an inverted mask; this rejoins them so
+  // a cut-out layer reaches the encoder with its transparency intact.
+  keepAlpha: "11",
+  originalSize: "16",
+  textEncode: "6",
+  sampler: "3",
+  decode: "8",
+  outputScale: "17",
+  dropAlpha: "30",
+  saveImage: "9"
+} as const;
+
+const QWEN_IMAGE_21_MULTI_REFERENCE_NODES = {
+  diffusionModelLoader: "20",
+  clipLoader: "21",
+  vaeLoader: "22",
+  loadImage: "30",
+  keepAlpha: "31",
+  textEncode: "6",
+  sampler: "3",
+  decode: "8",
+  dropAlpha: "40",
   saveImage: "9"
 } as const;
 
@@ -1384,6 +1511,41 @@ const KREA2_TURBO_IMG2IMG_INJECTIONS = {
   denoise: target(KREA2_TURBO_IMG2IMG_NODES.sampler, "denoise")
 } as const;
 
+const QWEN_IMAGE_21_TXT2IMG_INJECTIONS = {
+  checkpoint: target(QWEN_IMAGE_21_TXT2IMG_NODES.diffusionModelLoader, "unet_name"),
+  positivePrompt: target(QWEN_IMAGE_21_TXT2IMG_NODES.textEncode, "prompt"),
+  negativePrompt: target(QWEN_IMAGE_21_TXT2IMG_NODES.textEncode, "negative_prompt"),
+  width: target(QWEN_IMAGE_21_TXT2IMG_NODES.latentImage, "width"),
+  height: target(QWEN_IMAGE_21_TXT2IMG_NODES.latentImage, "height"),
+  seed: target(QWEN_IMAGE_21_TXT2IMG_NODES.sampler, "seed"),
+  steps: target(QWEN_IMAGE_21_TXT2IMG_NODES.sampler, "steps"),
+  cfg: target(QWEN_IMAGE_21_TXT2IMG_NODES.sampler, "cfg")
+} as const;
+
+const QWEN_IMAGE_21_EDIT_INJECTIONS = {
+  checkpoint: target(QWEN_IMAGE_21_EDIT_NODES.diffusionModelLoader, "unet_name"),
+  sourceImage: target(QWEN_IMAGE_21_EDIT_NODES.loadImage, "image"),
+  positivePrompt: target(QWEN_IMAGE_21_EDIT_NODES.textEncode, "prompt"),
+  negativePrompt: target(QWEN_IMAGE_21_EDIT_NODES.textEncode, "negative_prompt"),
+  seed: target(QWEN_IMAGE_21_EDIT_NODES.sampler, "seed"),
+  steps: target(QWEN_IMAGE_21_EDIT_NODES.sampler, "steps"),
+  cfg: target(QWEN_IMAGE_21_EDIT_NODES.sampler, "cfg")
+  // No denoise, as with edit-flux2-klein: the sampler starts from the
+  // encoder's empty latent at denoise 1, and that is the technique.
+} as const;
+
+const QWEN_IMAGE_21_MULTI_REFERENCE_INJECTIONS = {
+  checkpoint: target(QWEN_IMAGE_21_MULTI_REFERENCE_NODES.diffusionModelLoader, "unet_name"),
+  // Reference 1 only; references 2..n are wired into images.image_2 onwards
+  // by applyEncoderImageSlots in workflowBuilder.ts.
+  sourceImage: target(QWEN_IMAGE_21_MULTI_REFERENCE_NODES.loadImage, "image"),
+  positivePrompt: target(QWEN_IMAGE_21_MULTI_REFERENCE_NODES.textEncode, "prompt"),
+  negativePrompt: target(QWEN_IMAGE_21_MULTI_REFERENCE_NODES.textEncode, "negative_prompt"),
+  seed: target(QWEN_IMAGE_21_MULTI_REFERENCE_NODES.sampler, "seed"),
+  steps: target(QWEN_IMAGE_21_MULTI_REFERENCE_NODES.sampler, "steps"),
+  cfg: target(QWEN_IMAGE_21_MULTI_REFERENCE_NODES.sampler, "cfg")
+} as const;
+
 // `width`/`height` target ImageScale rather than any latent: they are the
 // captured source's own dimensions, pinning the map to the pixels it describes.
 // `checkpoint` is the estimator size on the depth preset only -- line art and
@@ -1905,8 +2067,34 @@ const FLUX2_KLEIN_MULTI_REFERENCE_CAPABILITY: WorkflowCapability = {
     modelSelectorLabel: "Klein model",
     primaryActionLabel: "Compose",
     hiddenControls: ["denoise", "width", "height"],
+    screenHint:
+      "Clothing, props, setting and lighting carry across from your layers. Faces do not: a person in a reference comes back as a plausible stranger, so this cannot place a specific person in a picture.",
     experimentalNote:
       "Composes one picture out of several layers. Clothing, props, setting and lighting all carry across; faces do not -- a person in a reference comes back as a plausible stranger rather than themselves, so this cannot place a specific person. Reference 1 sets the output size. Order matters: if an object behind the subjects comes out duplicated or stretched, move it earlier in the list."
+  }
+};
+
+const QWEN_IMAGE_21_MULTI_REFERENCE_CAPABILITY: WorkflowCapability = {
+  toolType: "multi-reference",
+  loaderType: "diffusion-model-stack",
+  artistLabel: "Multi-Reference Composition",
+  technicalLabel: "multi-reference-qwen-image-21",
+  requiredPhotoshopInputs: [],
+  controls: ["prompt", "negativePrompt", "steps", "cfg", "seed"],
+  output: {
+    kind: "full-image",
+    size: "first-reference",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Qwen-Image 2.1 model",
+    primaryActionLabel: "Compose",
+    hiddenControls: ["denoise", "width", "height"],
+    screenHint:
+      "Name your layers in the prompt as <image1>, <image2> and so on, in list order; reference 1 is the scene. About 30 seconds per reference. Research licence: research and evaluation use only.",
+    experimentalNote:
+      "Research licence: Qwen allows these weights for research and evaluation only, not commercial work. Name the layers in the prompt as <image1>, <image2> and so on, in list order -- for example \"put the teapot from <image2> on the table in <image1>\". Reference 1 is the scene and sets the output size. Transparent layers keep their cut-out edges. Each reference adds about 30 seconds on a 12 GB card, so six take about three minutes."
   }
 };
 
@@ -2009,6 +2197,49 @@ const KREA2_TURBO_IMG2IMG_CAPABILITY: WorkflowCapability = {
     primaryActionLabel: "Generate Image to Image",
     experimentalNote:
       "Krea-2 Turbo Image to Image runs 8 steps at CFG 1. Use denoise around 0.6-0.8 to balance the source against the prompt."
+  }
+};
+
+const QWEN_IMAGE_21_TXT2IMG_CAPABILITY: WorkflowCapability = {
+  toolType: "txt2img",
+  loaderType: "diffusion-model-stack",
+  artistLabel: "Text to Image",
+  technicalLabel: "txt2img-qwen-image-21",
+  requiredPhotoshopInputs: [],
+  controls: ["prompt", "negativePrompt", "width", "height", "steps", "cfg", "seed"],
+  output: {
+    kind: "full-image",
+    size: "preset",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Qwen-Image 2.1 model",
+    primaryActionLabel: "Generate",
+    experimentalNote:
+      "Research licence: Qwen allows these weights for research and evaluation only, not commercial work. Strong at lettering -- put the exact words in quotes. Native up to 2048 x 2048 (about 90 s on a 12 GB card; 1024 x 1024 takes about 20 s). Runs 25 steps at CFG 1, so the negative prompt has no effect."
+  }
+};
+
+const QWEN_IMAGE_21_EDIT_CAPABILITY: WorkflowCapability = {
+  toolType: "img2img",
+  loaderType: "diffusion-model-stack",
+  artistLabel: "Image to Image",
+  technicalLabel: "edit-qwen-image-21",
+  requiredPhotoshopInputs: [{ anyOf: ["active-layer", "canvas"], label: "an active layer or captured canvas" }],
+  controls: ["prompt", "negativePrompt", "steps", "cfg", "seed"],
+  output: {
+    kind: "source-sized-image",
+    size: "source",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Qwen-Image 2.1 model",
+    primaryActionLabel: "Generate Edit",
+    hiddenControls: ["denoise"],
+    experimentalNote:
+      "Research licence: Qwen allows these weights for research and evaluation only, not commercial work. Write what you want CHANGED -- \"change the sign to read OPEN\", \"make it a rainy evening\", \"replace the cart with a bicycle\". Objects stay where they are, but the whole picture is repainted and can come back slightly darker, so compare before you keep it. About 25 s per edit at CFG 1; the negative prompt has no effect."
   }
 };
 
@@ -3744,6 +3975,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     requiredModels: [...FLUX2_KLEIN_4B_STACK],
     injections: FLUX2_KLEIN_MULTI_REFERENCE_INJECTIONS,
     referenceChain: {
+      kind: "reference-latent",
       loadImage: FLUX2_KLEIN_MULTI_REFERENCE_NODES.loadImage,
       scale: FLUX2_KLEIN_MULTI_REFERENCE_NODES.referenceScale,
       encode: FLUX2_KLEIN_MULTI_REFERENCE_NODES.vaeEncode,
@@ -3840,6 +4072,91 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     ],
     compatibilityNote:
       "Same Klein 4B stack as the other Flux.2 Klein presets, so it downloads nothing extra for anyone who already has them, and every node is core ComfyUI -- ReferenceLatent, ImageScaleToTotalPixels and GetImageSize all ship with ComfyUI itself. The graph is the one validated in docs/multi-reference-gate-findings.md: each reference is normalised to 1 MP, VAE-encoded, and chained onto BOTH conditioning branches, sampled at denoise 1 from an empty latent sized by reference 1. Gate testing across 48 live runs found no reference count at which identity degrades, so the maximumReferences of 8 is a sanity bound and not a quality cliff. It also found the limits worth stating plainly: faces are not carried, and a wide thin object that must sit behind the subjects can duplicate unless it is moved earlier in the chain.",
+  },
+  {
+    id: "multi-reference-qwen-image-21",
+    // The panel's workflow dropdowns show `label`, so the licence goes here.
+    label: "multi-reference-qwen-image-21 (research licence)",
+    displayName: "Qwen-Image 2.1 (composition, research licence)",
+    mode: "multi-reference",
+    description:
+      "Composes several captured layers with Qwen-Image 2.1: each layer is a numbered image input on one encoder, addressed in the prompt by number. Transparent layers keep their alpha. Research-licensed weights.",
+    workflowFile: "workflows/api/multi-reference-qwen-image-21.json",
+    sourceWorkflowFile: "workflows/source/multi-reference-qwen-image-21.workflow.json",
+    status: "experimental",
+    recommendedSettings: { steps: 25, cfg: 1 },
+    supportedModelFamilies: ["unknown"],
+    experimentalModelFamilies: ["sd1", "sdxl", "sd3", "flux", "flux2", "zImage"],
+    modelSource: DIFFUSION_MODEL_SOURCE,
+    capability: QWEN_IMAGE_21_MULTI_REFERENCE_CAPABILITY,
+    modelStack: [...QWEN_IMAGE_21_STACK],
+    requiredModels: [...QWEN_IMAGE_21_STACK],
+    injections: QWEN_IMAGE_21_MULTI_REFERENCE_INJECTIONS,
+    referenceChain: {
+      kind: "encoder-image-slots",
+      loadImage: QWEN_IMAGE_21_MULTI_REFERENCE_NODES.loadImage,
+      keepAlpha: QWEN_IMAGE_21_MULTI_REFERENCE_NODES.keepAlpha,
+      encoder: QWEN_IMAGE_21_MULTI_REFERENCE_NODES.textEncode,
+      inputPrefix: "images.image_",
+      // Every shipped id is numeric, as in the Klein graph.
+      generatedNodeIdPrefix: "ref",
+      maximumReferences: 6
+    },
+    requiredNodes: [
+      {
+        id: QWEN_IMAGE_21_MULTI_REFERENCE_NODES.diffusionModelLoader,
+        classType: "UNETLoader",
+        requiredInputs: ["unet_name", "weight_dtype"]
+      },
+      {
+        id: QWEN_IMAGE_21_MULTI_REFERENCE_NODES.clipLoader,
+        classType: "CLIPLoader",
+        requiredInputs: ["clip_name", "type"]
+      },
+      {
+        id: QWEN_IMAGE_21_MULTI_REFERENCE_NODES.vaeLoader,
+        classType: "VAELoader",
+        requiredInputs: ["vae_name"]
+      },
+      {
+        id: QWEN_IMAGE_21_MULTI_REFERENCE_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: QWEN_IMAGE_21_MULTI_REFERENCE_NODES.keepAlpha,
+        classType: "JoinImageWithAlpha",
+        requiredInputs: ["image", "alpha"]
+      },
+      {
+        // See txt2img-qwen-image-21 on why `images` is never listed.
+        id: QWEN_IMAGE_21_MULTI_REFERENCE_NODES.textEncode,
+        classType: "TextEncodeQwenImage21",
+        requiredInputs: ["clip", "vae", "prompt", "negative_prompt", "resolution"]
+      },
+      {
+        id: QWEN_IMAGE_21_MULTI_REFERENCE_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["model", "seed", "steps", "cfg", "sampler_name", "scheduler", "positive", "negative", "latent_image", "denoise"]
+      },
+      {
+        id: QWEN_IMAGE_21_MULTI_REFERENCE_NODES.decode,
+        classType: "VAEDecode",
+        requiredInputs: ["samples", "vae"]
+      },
+      {
+        id: QWEN_IMAGE_21_MULTI_REFERENCE_NODES.dropAlpha,
+        classType: "SplitImageWithAlpha",
+        requiredInputs: ["image"]
+      },
+      {
+        id: QWEN_IMAGE_21_MULTI_REFERENCE_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images", "filename_prefix"]
+      }
+    ],
+    compatibilityNote:
+      "multi-reference-qwen-image-21 is the official Qwen-Image 2.1 image-edit template with more than one image, flattened out of its subgraph. Every reference is a LoadImage rejoined with its own alpha and plugged into the next numbered image input of TextEncodeQwenImage21; the encoder resizes each to about 1 megapixel, encodes it as a reference latent, and sizes the sampling latent from image_1. Measured on a 12 GB 4070 Ti: 1 reference 23 s, 2 references 54 s, 3 references 82 s, with a scene, a person and a transparent product composed correctly in one run. The ceiling of 6 is a time bound, not a quality cliff; the encoder accepts sixteen. Research-licensed weights; see txt2img-qwen-image-21."
   },
   {
     // Deliberately not named img2img-*: it sits in the Image to Image tool and
@@ -4268,6 +4585,89 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
       "txt2img-flux2-dev-gguf follows the Flux.2 dev template that ships with ComfyUI, and is the first OpenLayer preset built on the advanced sampler chain rather than KSampler: RandomNoise, KSamplerSelect, Flux2Scheduler and BasicGuider feed SamplerCustomAdvanced. There is no negative prompt, because the reference graph has none. Width and height are written to both EmptyFlux2LatentImage and Flux2Scheduler, which derives its shift from the same dimensions. The diffusion model loads through ComfyUI-GGUF, which needs the gguf Python package installed in ComfyUI's environment or it registers no nodes at all."
   },
   {
+    id: "txt2img-qwen-image-21",
+    // The panel's workflow dropdowns show `label`, so the licence goes here.
+    label: "txt2img-qwen-image-21 (research licence)",
+    displayName: "Qwen-Image 2.1 (research licence)",
+    mode: "txt2img",
+    description:
+      "Text to image with Qwen-Image 2.1: strong lettering and native 2K. Research-licensed weights, gated behind their licence.",
+    workflowFile: "workflows/api/txt2img-qwen-image-21.json",
+    sourceWorkflowFile: "workflows/source/txt2img-qwen-image-21.workflow.json",
+    status: "experimental",
+    recommendedSettings: { steps: 25, cfg: 1 },
+    supportedModelFamilies: ["unknown"],
+    experimentalModelFamilies: ["sd1", "sdxl", "sd3", "flux", "flux2", "zImage"],
+    modelSource: DIFFUSION_MODEL_SOURCE,
+    capability: QWEN_IMAGE_21_TXT2IMG_CAPABILITY,
+    modelStack: [...QWEN_IMAGE_21_STACK],
+    requiredModels: [...QWEN_IMAGE_21_STACK],
+    injections: QWEN_IMAGE_21_TXT2IMG_INJECTIONS,
+    // The wrapper is the Comfy template's own documented phrasing. Measured with
+    // it: a studio teapot came back 69% fully clear with a clean handle hole and
+    // a soft contact shadow, straight from the model with no matting step.
+    transparentOutput: {
+      saveImage: target(QWEN_IMAGE_21_TXT2IMG_NODES.saveImage, "images"),
+      rgbaSource: QWEN_IMAGE_21_TXT2IMG_NODES.decode,
+      promptWrapper: {
+        prefix: "This is an RGBA format image with transparency. ",
+        suffix: " The image has an alpha channel and a transparent background."
+      }
+    },
+    requiredNodes: [
+      {
+        id: QWEN_IMAGE_21_TXT2IMG_NODES.diffusionModelLoader,
+        classType: "UNETLoader",
+        requiredInputs: ["unet_name", "weight_dtype"]
+      },
+      {
+        id: QWEN_IMAGE_21_TXT2IMG_NODES.clipLoader,
+        classType: "CLIPLoader",
+        requiredInputs: ["clip_name", "type"]
+      },
+      {
+        id: QWEN_IMAGE_21_TXT2IMG_NODES.vaeLoader,
+        classType: "VAELoader",
+        requiredInputs: ["vae_name"]
+      },
+      {
+        // Never list `images` or `images.image_1` here. /object_info declares
+        // only the autogrow parent `images`, the API graph carries only the
+        // dotted child, and this list is checked against both.
+        id: QWEN_IMAGE_21_TXT2IMG_NODES.textEncode,
+        classType: "TextEncodeQwenImage21",
+        requiredInputs: ["clip", "prompt", "negative_prompt", "resolution"]
+      },
+      {
+        id: QWEN_IMAGE_21_TXT2IMG_NODES.latentImage,
+        classType: "EmptyLatentImage",
+        requiredInputs: ["width", "height", "batch_size"]
+      },
+      {
+        id: QWEN_IMAGE_21_TXT2IMG_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["model", "seed", "steps", "cfg", "sampler_name", "scheduler", "positive", "negative", "latent_image", "denoise"]
+      },
+      {
+        id: QWEN_IMAGE_21_TXT2IMG_NODES.decode,
+        classType: "VAEDecode",
+        requiredInputs: ["samples", "vae"]
+      },
+      {
+        id: QWEN_IMAGE_21_TXT2IMG_NODES.dropAlpha,
+        classType: "SplitImageWithAlpha",
+        requiredInputs: ["image"]
+      },
+      {
+        id: QWEN_IMAGE_21_TXT2IMG_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images", "filename_prefix"]
+      }
+    ],
+    compatibilityNote:
+      "txt2img-qwen-image-21 follows the official ComfyUI Qwen-Image 2.1 template, flattened out of its subgraph so OpenLayer can address each node: UNETLoader with the int8_convrot diffusion model, CLIPLoader in qwen_image mode with the Qwen3-VL 8B w4a8 encoder, the 2.1 VAE, TextEncodeQwenImage21 for both prompts, and a 25-step CFG 1 euler/simple KSampler. The VAE decodes RGBA, so the graph ends in SplitImageWithAlpha to hand Photoshop a genuinely opaque layer. Every node is core ComfyUI, first shipped in ComfyUI 0.37.0. The weights are under the Qwen Research License (research and evaluation only), so all three files are licence-gated and never downloaded automatically."
+  },
+  {
     id: "img2img-krea2-turbo",
     label: "img2img-krea2-turbo",
     displayName: "Krea-2 Turbo",
@@ -4338,6 +4738,99 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     ],
     compatibilityNote:
       "img2img-krea2-turbo uses the Krea-2 Turbo stack plus PNG source upload and VAE encoding. Denoise balances the captured source against the prompt."
+  },
+  {
+    id: "edit-qwen-image-21",
+    // The panel's workflow dropdowns show `label`, so the licence goes here.
+    label: "edit-qwen-image-21 (research licence)",
+    displayName: "Qwen-Image 2.1 (edit, research licence)",
+    mode: "img2img",
+    description:
+      "Instruction editing with Qwen-Image 2.1: the layer goes in as image_1 and the instruction is applied at denoise 1. A cut-out layer comes back as a cut-out. Research-licensed weights.",
+    workflowFile: "workflows/api/edit-qwen-image-21.json",
+    sourceWorkflowFile: "workflows/source/edit-qwen-image-21.workflow.json",
+    status: "experimental",
+    recommendedSettings: { steps: 25, cfg: 1 },
+    supportedModelFamilies: ["unknown"],
+    experimentalModelFamilies: ["sd1", "sdxl", "sd3", "flux", "flux2", "zImage"],
+    modelSource: DIFFUSION_MODEL_SOURCE,
+    capability: QWEN_IMAGE_21_EDIT_CAPABILITY,
+    modelStack: [...QWEN_IMAGE_21_STACK],
+    requiredModels: [...QWEN_IMAGE_21_STACK],
+    injections: QWEN_IMAGE_21_EDIT_INJECTIONS,
+    // Taken only when the captured layer is a cut-out. The source-size restore
+    // (ImageScale) sits before the alpha drop, so it is the RGBA source here.
+    transparentOutput: {
+      saveImage: target(QWEN_IMAGE_21_EDIT_NODES.saveImage, "images"),
+      rgbaSource: QWEN_IMAGE_21_EDIT_NODES.outputScale
+    },
+    requiredNodes: [
+      {
+        id: QWEN_IMAGE_21_EDIT_NODES.diffusionModelLoader,
+        classType: "UNETLoader",
+        requiredInputs: ["unet_name", "weight_dtype"]
+      },
+      {
+        id: QWEN_IMAGE_21_EDIT_NODES.clipLoader,
+        classType: "CLIPLoader",
+        requiredInputs: ["clip_name", "type"]
+      },
+      {
+        id: QWEN_IMAGE_21_EDIT_NODES.vaeLoader,
+        classType: "VAELoader",
+        requiredInputs: ["vae_name"]
+      },
+      {
+        id: QWEN_IMAGE_21_EDIT_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: QWEN_IMAGE_21_EDIT_NODES.keepAlpha,
+        classType: "JoinImageWithAlpha",
+        requiredInputs: ["image", "alpha"]
+      },
+      {
+        id: QWEN_IMAGE_21_EDIT_NODES.originalSize,
+        classType: "GetImageSize",
+        requiredInputs: ["image"]
+      },
+      {
+        // `vae` is optional on this node and is what turns image_1 into a
+        // reference latent; without it the model only "sees" the picture
+        // through the text encoder. See the txt2img entry on `images`.
+        id: QWEN_IMAGE_21_EDIT_NODES.textEncode,
+        classType: "TextEncodeQwenImage21",
+        requiredInputs: ["clip", "vae", "prompt", "negative_prompt", "resolution"]
+      },
+      {
+        id: QWEN_IMAGE_21_EDIT_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["model", "seed", "steps", "cfg", "sampler_name", "scheduler", "positive", "negative", "latent_image", "denoise"]
+      },
+      {
+        id: QWEN_IMAGE_21_EDIT_NODES.decode,
+        classType: "VAEDecode",
+        requiredInputs: ["samples", "vae"]
+      },
+      {
+        id: QWEN_IMAGE_21_EDIT_NODES.outputScale,
+        classType: "ImageScale",
+        requiredInputs: ["image", "upscale_method", "width", "height", "crop"]
+      },
+      {
+        id: QWEN_IMAGE_21_EDIT_NODES.dropAlpha,
+        classType: "SplitImageWithAlpha",
+        requiredInputs: ["image"]
+      },
+      {
+        id: QWEN_IMAGE_21_EDIT_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images", "filename_prefix"]
+      }
+    ],
+    compatibilityNote:
+      "edit-qwen-image-21 is the official Qwen-Image 2.1 image-edit template flattened out of its subgraph. The captured layer is rejoined with its own alpha and passed as image_1 to TextEncodeQwenImage21, which resizes it to about 1 megapixel on a 32-pixel grid, encodes it as a reference latent, and returns the empty latent the sampler starts from -- sampling at any other size shifts the edit. The result is scaled back to the captured layer's exact pixel size. Measured on real photographs: objects stay within a pixel of where they were, but the whole frame is repainted and untouched areas come back 6-12 levels darker, so this is a whole-layer edit. Research-licensed weights; see txt2img-qwen-image-21."
   },
   {
     id: "style-reference-sd15",

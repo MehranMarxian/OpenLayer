@@ -23,6 +23,9 @@ import outpaintFluxFillBasicWorkflow from "../workflows/api/outpaint-flux-fill-b
 import upscaleBasicWorkflow from "../workflows/api/upscale-basic.json";
 import styleReferenceSd15Workflow from "../workflows/api/style-reference-sd15.json";
 import multiReferenceFlux2KleinWorkflow from "../workflows/api/multi-reference-flux2-klein.json";
+import txt2imgQwenImage21Workflow from "../workflows/api/txt2img-qwen-image-21.json";
+import editQwenImage21Workflow from "../workflows/api/edit-qwen-image-21.json";
+import multiReferenceQwenImage21Workflow from "../workflows/api/multi-reference-qwen-image-21.json";
 import {
   BuildInpaintWorkflowOptions,
   BuildImageToImageWorkflowOptions,
@@ -43,7 +46,9 @@ import {
   WorkflowLoraSelection,
   WorkflowPreset,
   WorkflowPresetDefinition,
-  WorkflowInjectionTargetList
+  WorkflowEncoderImageSlots,
+  WorkflowInjectionTargetList,
+  WorkflowTransparentOutput
 } from "./types";
 import { getPresetInputTarget, getWorkflowPreset, validateWorkflowForPreset } from "./presetRegistry";
 import { createRequiredModelSelectionKey } from "./workflowModelRequirements";
@@ -76,7 +81,10 @@ const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
   "outpaint-flux-fill-basic": outpaintFluxFillBasicWorkflow as ComfyWorkflow,
   "upscale-basic": upscaleBasicWorkflow as ComfyWorkflow,
   "style-reference-sd15": styleReferenceSd15Workflow as ComfyWorkflow,
-  "multi-reference-flux2-klein": multiReferenceFlux2KleinWorkflow as ComfyWorkflow
+  "multi-reference-flux2-klein": multiReferenceFlux2KleinWorkflow as ComfyWorkflow,
+  "txt2img-qwen-image-21": txt2imgQwenImage21Workflow as ComfyWorkflow,
+  "edit-qwen-image-21": editQwenImage21Workflow as ComfyWorkflow,
+  "multi-reference-qwen-image-21": multiReferenceQwenImage21Workflow as ComfyWorkflow
 };
 
 export async function buildTxt2ImgWorkflow(options: BuildWorkflowOptions): Promise<BuildWorkflowResult> {
@@ -94,7 +102,12 @@ export async function buildTxt2ImgWorkflow(options: BuildWorkflowOptions): Promi
     setPresetInput(workflow, preset, "checkpoint", options.checkpointName, true);
   }
 
-  setPresetInput(workflow, preset, "positivePrompt", options.prompt, true);
+  const transparent = resolveTransparentOutput(preset, options.transparentBackground === true, true);
+  const prompt = transparent?.promptWrapper
+    ? `${transparent.promptWrapper.prefix}${options.prompt}${transparent.promptWrapper.suffix}`
+    : options.prompt;
+
+  setPresetInput(workflow, preset, "positivePrompt", prompt, true);
   setPresetInput(workflow, preset, "negativePrompt", options.negativePrompt ?? "");
   setPresetInput(workflow, preset, "width", options.width, true);
   setPresetInput(workflow, preset, "height", options.height, true);
@@ -103,6 +116,7 @@ export async function buildTxt2ImgWorkflow(options: BuildWorkflowOptions): Promi
   setPresetInput(workflow, preset, "cfg", options.cfg, true);
 
   applyLoraSelection(workflow, preset, options.lora);
+  applyTransparentOutput(workflow, transparent);
 
   validateWorkflowForPreset(workflow, preset);
 
@@ -151,6 +165,9 @@ export async function buildImg2ImgWorkflow(
   );
 
   applyLoraSelection(workflow, preset, options.lora);
+  // Not required: a cut-out edited by a preset without an alpha channel still
+  // comes back as a correct, opaque edit.
+  applyTransparentOutput(workflow, resolveTransparentOutput(preset, options.keepTransparency === true, false));
 
   validateWorkflowForPreset(workflow, preset);
 
@@ -676,6 +693,58 @@ function applyLoraSelection(
 }
 
 /**
+ * Returns the preset's transparency rewiring when it was asked for, or null.
+ *
+ * `required` separates the two callers. Text to Image only offers the option on
+ * presets that have it, so a request anywhere else is a bug and fails loudly;
+ * an edit asks whenever the captured layer happens to be a cut-out, and a
+ * preset without an alpha channel simply returns an opaque edit.
+ */
+function resolveTransparentOutput(preset: WorkflowPresetDefinition, requested: boolean, required: boolean) {
+  if (!requested) {
+    return null;
+  }
+
+  if (!preset.transparentOutput) {
+    if (required) {
+      throw createOpenLayerError(
+        "WORKFLOW_INVALID",
+        `The ${preset.id} preset cannot return a transparent background.`,
+        `Turn Transparent Background off, or choose a preset with a transparentOutput entry in src/comfy/presetRegistry.ts.`
+      );
+    }
+
+    return null;
+  }
+
+  return preset.transparentOutput;
+}
+
+/**
+ * Points SaveImage past the alpha-dropping step, back at the node that still
+ * carries the decode's alpha. Runs after the value injections for the same
+ * reason the LoRA splice does: nothing later may overwrite the rewired input.
+ */
+function applyTransparentOutput(workflow: ComfyWorkflow, transparent: WorkflowTransparentOutput | null) {
+  if (!transparent) {
+    return;
+  }
+
+  requireNodeId(workflow, transparent.rgbaSource);
+  setInput(workflow, transparent.saveImage.nodeId, transparent.saveImage.inputName, [transparent.rgbaSource, 0]);
+}
+
+function requireNodeId(workflow: ComfyWorkflow, nodeId: string) {
+  if (!workflow[nodeId]) {
+    throw createOpenLayerError(
+      "WORKFLOW_INVALID",
+      `Workflow node ${nodeId} was not found.`,
+      "Update presetRegistry.ts to match the exported ComfyUI workflow."
+    );
+  }
+}
+
+/**
  * Grows the shipped single reference slot into a chain, one link per captured
  * layer, and points the sampler at the end of it.
  *
@@ -719,6 +788,11 @@ function applyReferenceChain(
       `Multi-reference composition accepts at most ${chain.maximumReferences} references, but ${referenceImageNames.length} were supplied.`,
       "Remove a reference from the list, or raise maximumReferences in src/comfy/presetRegistry.ts."
     );
+  }
+
+  if (chain.kind === "encoder-image-slots") {
+    applyEncoderImageSlots(workflow, preset, chain, referenceImageNames);
+    return;
   }
 
   const templates = {
@@ -785,6 +859,53 @@ function applyReferenceChain(
 
   setInput(workflow, chain.positiveConsumer.nodeId, chain.positiveConsumer.inputName, [positiveTail, 0]);
   setInput(workflow, chain.negativeConsumer.nodeId, chain.negativeConsumer.inputName, [negativeTail, 0]);
+}
+
+/**
+ * The Qwen-Image 2.1 shape: no conditioning chain, just numbered image inputs
+ * on one encoder. Slot 1 ships wired; each further reference clones slot 1's
+ * `LoadImage -> JoinImageWithAlpha` pair and plugs it into the next slot, so a
+ * transparent layer reaches the encoder with its alpha exactly as reference 1
+ * does. Nothing downstream changes -- the encoder already feeds the sampler.
+ */
+function applyEncoderImageSlots(
+  workflow: ComfyWorkflow,
+  preset: WorkflowPresetDefinition,
+  slots: WorkflowEncoderImageSlots,
+  referenceImageNames: readonly string[]
+) {
+  const templates = {
+    load: requireNode(workflow, slots.loadImage, preset),
+    keepAlpha: requireNode(workflow, slots.keepAlpha, preset)
+  };
+  requireNode(workflow, slots.encoder, preset);
+
+  for (let index = 1; index < referenceImageNames.length; index += 1) {
+    const slot = index + 1;
+    const ids = {
+      load: `${slots.generatedNodeIdPrefix}${slot}load`,
+      keepAlpha: `${slots.generatedNodeIdPrefix}${slot}alpha`
+    };
+
+    for (const id of Object.values(ids)) {
+      if (workflow[id]) {
+        throw createOpenLayerError(
+          "WORKFLOW_INVALID",
+          `The ${preset.id} workflow already uses node ${id}.`,
+          `Give ${preset.id}'s referenceChain an unused generatedNodeIdPrefix in src/comfy/presetRegistry.ts.`
+        );
+      }
+    }
+
+    workflow[ids.load] = cloneNode(templates.load, `Load Reference ${slot}`);
+    workflow[ids.load].inputs.image = referenceImageNames[index];
+
+    workflow[ids.keepAlpha] = cloneNode(templates.keepAlpha, `Keep Reference ${slot} Transparency`);
+    workflow[ids.keepAlpha].inputs.image = [ids.load, 0];
+    workflow[ids.keepAlpha].inputs.alpha = [ids.load, 1];
+
+    setInput(workflow, slots.encoder, `${slots.inputPrefix}${slot}`, [ids.keepAlpha, 0]);
+  }
 }
 
 function requireNode(workflow: ComfyWorkflow, nodeId: string, preset: WorkflowPresetDefinition) {

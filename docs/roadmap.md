@@ -16,7 +16,8 @@ honest rather than short: Inpaint, Outpaint, Multi-Reference and Unflatten. What
 does not do is in [known limitations](known-limitations.md), which is the document to read before
 this one.
 
-The foundations under all of it: a preset registry every other surface is derived from, a workflow
+The foundations under all of it: a preset registry nearly every other surface is derived from (Live
+Painting's graphs and the hardware advisor's text are the two exceptions), a workflow
 health check, GPU-aware model recommendations, LoRA support, results imported as real named layers
 with masks and alignment, generation history, cancellation, themes, and an optional MCP bridge that
 lets an agent drive the panel.
@@ -30,6 +31,12 @@ lets an agent drive the panel.
   not. Raising the resolution makes it worse, so the likely route is a masked inpaint pass over the
   background using the crop-and-stitch stacks already shipped.
 - **First-run friction.** Every step between downloading the plugin and seeing it work once.
+- **Editing just a selection with Qwen-Image 2.1.** Built for v0.35 and cut: the join is invisible on
+  busy content but shows in a smooth sky, because the model repaints untouched areas a few levels
+  darker. Matching colour across the whole crop made it worse; the next thing to try is matching from
+  the untouched ring around the selection only.
+- **Structure.** Moving the pure helper functions out of `App.ts` (about a quarter of its 9,500 lines),
+  splitting the preset registry by model family, and giving the Agent Bridge a per-session token.
 
 ## Still ahead, roughly in order of appetite
 

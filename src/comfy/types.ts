@@ -10,6 +10,9 @@ export type WorkflowPreset =
   | "img2img-z-image-turbo"
   | "txt2img-krea2-turbo"
   | "img2img-krea2-turbo"
+  | "txt2img-qwen-image-21"
+  | "edit-qwen-image-21"
+  | "multi-reference-qwen-image-21"
   | "prompt-from-layer-florence2"
   | "sketch2img-linecn-basic"
   | "sketch2img-scribble-basic"
@@ -113,6 +116,12 @@ export type WorkflowCapabilityUiHints = {
   primaryActionLabel: string;
   warning?: string;
   experimentalNote?: string;
+  /**
+   * One line shown on the tool screen itself, beside the model picker, and
+   * swapped when the preset changes. Written with textContent, so literal
+   * prompt syntax such as `<image1>` is safe here.
+   */
+  screenHint?: string;
   hiddenControls?: readonly WorkflowControlId[];
 };
 
@@ -189,6 +198,12 @@ export type BuildWorkflowOptions = {
   cfg: number;
   seed: number;
   lora?: WorkflowLoraSelection;
+  /**
+   * Keep the decode's alpha and ask the model for a transparent background.
+   * Only presets with `transparentOutput` honour it; the builder refuses it
+   * elsewhere rather than quietly returning an opaque picture.
+   */
+  transparentBackground?: boolean;
 };
 
 export type BuildImageToImageWorkflowOptions = {
@@ -203,6 +218,12 @@ export type BuildImageToImageWorkflowOptions = {
   denoise: number;
   requiredModelSelections?: Record<string, string>;
   lora?: WorkflowLoraSelection;
+  /**
+   * The captured layer is a cut-out. Presets with `transparentOutput` then
+   * return the model's alpha instead of flattening it; others ignore this,
+   * because an opaque edit of a cut-out is still a correct edit.
+   */
+  keepTransparency?: boolean;
 };
 
 export type BuildSketchToImageWorkflowOptions = BuildImageToImageWorkflowOptions & {
@@ -499,7 +520,11 @@ export type WorkflowLoraSelection = {
  * real quality lever -- see `docs/multi-reference-gate-findings.md`, where
  * moving a bicycle ahead of a dog fixed a reproducible duplication.
  */
-export type WorkflowReferenceChain = {
+export type WorkflowReferenceChain = WorkflowReferenceLatentChain | WorkflowEncoderImageSlots;
+
+/** FLUX.2 Klein: one `ReferenceLatent` per reference, chained on both branches. */
+export type WorkflowReferenceLatentChain = {
+  kind: "reference-latent";
   /** Slot-1 nodes cloned once per additional reference. */
   loadImage: string;
   scale: string;
@@ -521,6 +546,56 @@ export type WorkflowReferenceChain = {
    * caller cannot build a thousand-node graph.
    */
   maximumReferences: number;
+};
+
+/**
+ * Qwen-Image 2.1: every reference is an image input on the ONE text-encode
+ * node, `images.image_1` .. `images.image_16` (an autogrow input -- /object_info
+ * declares only the parent, `images`). There is no conditioning chain to grow;
+ * each extra reference is a cloned `LoadImage -> JoinImageWithAlpha` pair
+ * plugged into the next numbered slot. The artist addresses them in the prompt
+ * as `<image1>`, `<image2>` ..., so list order is prompt order, and image_1 is
+ * the canvas: the encoder sizes the sampling latent from it.
+ */
+export type WorkflowEncoderImageSlots = {
+  kind: "encoder-image-slots";
+  /** Slot-1 `LoadImage`, cloned once per additional reference. */
+  loadImage: string;
+  /** Slot-1 `JoinImageWithAlpha`, cloned alongside it so cut-outs stay cut out. */
+  keepAlpha: string;
+  /** The node whose numbered image inputs receive the references. */
+  encoder: string;
+  /** Slot *k* is written to `${inputPrefix}${k}`. */
+  inputPrefix: string;
+  /** Same contract as the reference-latent chain's prefix. */
+  generatedNodeIdPrefix: string;
+  /**
+   * Measured to three on a 12 GB card, at about +29 s per reference. The
+   * encoder accepts sixteen; the bound is time, not quality.
+   */
+  maximumReferences: number;
+};
+
+/**
+ * How a preset hands Photoshop a transparent layer instead of an opaque one.
+ *
+ * Qwen-Image 2.1's VAE decodes RGBA for every picture, so its shipped graphs
+ * end in SplitImageWithAlpha to make ordinary results genuinely opaque. Keeping
+ * transparency is therefore a rewire, not a second graph: SaveImage is pointed
+ * back at the node that still carries the alpha.
+ */
+export type WorkflowTransparentOutput = {
+  /** The SaveImage input to rewire. */
+  saveImage: WorkflowInputTarget;
+  /** The node whose IMAGE output (slot 0) still has the decode's alpha. */
+  rgbaSource: string;
+  /**
+   * Wraps the artist's prompt when generating from nothing -- the phrasing the
+   * model was trained to answer with an alpha channel. Absent for edits, where
+   * a cut-out source carries its own transparency through (measured: 69% clear
+   * in, 69% clear out, with no mention of it in the instruction).
+   */
+  promptWrapper?: { prefix: string; suffix: string };
 };
 
 export type WorkflowInjectionTargets = Partial<Record<WorkflowInjectionName, WorkflowInjectionTargetList>>;
@@ -657,6 +732,8 @@ export type WorkflowPresetDefinition = {
   loraInsertion?: WorkflowLoraInsertion;
   /** Present only on presets that compose a variable number of references. */
   referenceChain?: WorkflowReferenceChain;
+  /** Present only on presets whose model can return a real alpha channel. */
+  transparentOutput?: WorkflowTransparentOutput;
   compatibilityNote?: string;
   disabledReason?: string;
 };

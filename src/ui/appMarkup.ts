@@ -132,7 +132,6 @@ export type AppElements = {
   detectHardwareButton: HTMLElement;
   checkWorkflowHealthButton: HTMLElement;
   copyDiagnosticsButton: HTMLElement;
-  spikeModelDownloadButton: HTMLElement;
   saveSettingsButton: HTMLElement;
   resetSettingsButton: HTMLElement;
   generateButton: HTMLElement;
@@ -221,6 +220,8 @@ export type AppElements = {
   upscaleAutoImportToggle: HTMLElement;
   imgAutoImportToggle: HTMLElement;
   experimentalCheckpointToggle: HTMLElement;
+  transparentBackgroundField: HTMLElement;
+  transparentBackgroundToggle: HTMLElement;
   negativePromptToggle: HTMLElement;
   negativePromptField: HTMLElement;
   clearHistoryButton: HTMLElement;
@@ -668,8 +669,6 @@ export function createAppMarkup() {
             <button class="button action-control" id="detect-gpu" data-openlayer-action="detectHardware" type="button">Detect GPU &amp; Recommend Models</button>
             <button class="button action-control" id="check-workflow-health" data-openlayer-action="checkWorkflowHealth" type="button">Check Workflow Health</button>
             <button class="button action-control" id="copy-diagnostics" data-openlayer-action="copyDiagnostics" type="button">Copy Diagnostics</button>
-            <!-- SPIKE, delete with src/ui/spikeModelDownload.ts once model acquisition is decided. -->
-            <button class="button action-control" id="spike-model-download" data-openlayer-action="spikeModelDownload" type="button">Spike: Model Download</button>
             <button class="button action-control" id="save-settings" data-openlayer-action="saveSettings" type="button">Save Settings</button>
             <button class="button action-control" id="reset-settings" data-openlayer-action="resetSettings" type="button">Reset Defaults</button>
           </div>
@@ -797,6 +796,16 @@ export function createAppMarkup() {
             </label>
             <div class="diagnostics-line" id="lora-note" hidden></div>
           </section>
+          <!--
+            Shown only for presets with a transparentOutput entry. The toggle
+            reuses the Image to Image "Experimental Checkpoints" button styling,
+            already verified in Photoshop, so this adds no CSS. The wrapper
+            carries [hidden] because the compact theme forces that button to
+            display:flex !important.
+          -->
+          <div id="transparent-background-field" hidden>
+            <button class="button experimental-toggle action-control" id="transparent-background-toggle" data-openlayer-action="toggleTransparentBackground" type="button" aria-pressed="false">Transparent Background Off</button>
+          </div>
           <div class="settings-grid" aria-label="Generation settings">
             <label class="field">
               <span class="label">Width</span>
@@ -1246,7 +1255,7 @@ export function createAppMarkup() {
             </select>
           </div>
           <div class="field img2img-field">
-            <span class="label">Klein model</span>
+            <span class="label">Model</span>
             <select class="select" id="multi-reference-checkpoint">
               ${createMultiReferenceModelOptionsMarkup()}
             </select>
@@ -1259,7 +1268,7 @@ export function createAppMarkup() {
               warning you have to go looking for is not a warning, which is the
               same conclusion Unflatten's hint reached.
             -->
-            <div class="diagnostics-line multi-reference-hint" id="multi-reference-compatibility-note">Clothing, props, setting and lighting carry across from your layers. Faces do not: a person in a reference comes back as a plausible stranger, so this cannot place a specific person in a picture.</div>
+            <div class="diagnostics-line multi-reference-hint" id="multi-reference-compatibility-note">${createMultiReferenceInitialHint()}</div>
           </div>
           <div class="settings-grid img2img-settings-grid" aria-label="Multi-Reference settings">
             <div class="field">
@@ -2190,6 +2199,16 @@ function createUnflattenModelOptionsMarkup() {
   return modelName ? `<option value="${modelName}">${modelName}</option>` : "";
 }
 
+/**
+ * The first preset's screen hint, so the panel opens with it before any script
+ * runs; changing preset swaps it via textContent. This one IS interpolated into
+ * markup, which is why multiReferencePreset.test.ts requires the first preset's
+ * hint to be free of `<` and `&`.
+ */
+function createMultiReferenceInitialHint() {
+  return listRunnableWorkflowPresets("multi-reference")[0]?.capability?.uiHints.screenHint ?? "";
+}
+
 function createMultiReferenceModelOptionsMarkup() {
   const preset = getWorkflowPreset("multi-reference-flux2-klein");
   const modelName = preset.modelStack?.find((model) => model.kind === preset.modelSource.kind)?.modelName;
@@ -2373,7 +2392,6 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     detectHardwareButton: getElement<HTMLElement>(rootElement, "detect-gpu"),
     checkWorkflowHealthButton: getElement<HTMLElement>(rootElement, "check-workflow-health"),
     copyDiagnosticsButton: getElement<HTMLElement>(rootElement, "copy-diagnostics"),
-    spikeModelDownloadButton: getElement<HTMLElement>(rootElement, "spike-model-download"),
     saveSettingsButton: getElement<HTMLElement>(rootElement, "save-settings"),
     resetSettingsButton: getElement<HTMLElement>(rootElement, "reset-settings"),
     generateButton: getElement<HTMLElement>(rootElement, "generate"),
@@ -2462,6 +2480,8 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     upscaleAutoImportToggle: getElement<HTMLElement>(rootElement, "upscale-auto-import-toggle"),
     imgAutoImportToggle: getElement<HTMLElement>(rootElement, "img2img-auto-import-toggle"),
     experimentalCheckpointToggle: getElement<HTMLElement>(rootElement, "experimental-checkpoint-toggle"),
+    transparentBackgroundField: getElement<HTMLElement>(rootElement, "transparent-background-field"),
+    transparentBackgroundToggle: getElement<HTMLElement>(rootElement, "transparent-background-toggle"),
     negativePromptToggle: getElement<HTMLElement>(rootElement, "negative-prompt-toggle"),
     negativePromptField: getElement<HTMLElement>(rootElement, "negative-prompt-field"),
     clearHistoryButton: getElement<HTMLElement>(rootElement, "clear-history"),

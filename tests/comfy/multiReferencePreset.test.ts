@@ -84,4 +84,47 @@ describe("multi-reference composition preset", () => {
     expect(hidden).toContain("height");
     expect(preset.capability?.controls ?? []).not.toContain("denoise");
   });
+
+  it("lets the Qwen-Image 2.1 preset grow numbered encoder slots instead of a conditioning chain", () => {
+    const qwen = getWorkflowPreset("multi-reference-qwen-image-21");
+    const chain = qwen.referenceChain;
+
+    expect(chain?.kind).toBe("encoder-image-slots");
+
+    if (chain?.kind !== "encoder-image-slots") {
+      return;
+    }
+
+    const shippedNodeIds = qwen.requiredNodes.map((node) => node.id);
+    expect(shippedNodeIds).toContain(chain.loadImage);
+    expect(shippedNodeIds).toContain(chain.keepAlpha);
+    expect(shippedNodeIds).toContain(chain.encoder);
+    expect(chain.inputPrefix).toBe("images.image_");
+
+    for (const nodeId of shippedNodeIds) {
+      expect(nodeId.startsWith(chain.generatedNodeIdPrefix)).toBe(false);
+    }
+
+    // TextEncodeQwenImage21 accepts sixteen images; the ceiling is a time bound.
+    expect(chain.maximumReferences).toBeLessThanOrEqual(16);
+  });
+
+  it("opens the screen on a hint that is safe to write into markup", () => {
+    // appMarkup.ts interpolates the first preset's hint into HTML before any
+    // script runs; every later swap is textContent. Only the first must be safe.
+    const firstHint = listRunnableWorkflowPresets("multi-reference")[0]?.capability?.uiHints.screenHint ?? "";
+
+    expect(firstHint.length).toBeGreaterThan(0);
+    expect(firstHint).not.toMatch(/[<&]/);
+  });
+
+  it("gives every composition preset its own screen hint, and only Klein's names faces", () => {
+    for (const entry of listRunnableWorkflowPresets("multi-reference")) {
+      const hint = entry.capability?.uiHints.screenHint ?? "";
+
+      expect(hint.length, `${entry.id} has no screen hint`).toBeGreaterThan(0);
+      // A likeness is never promised; Klein's hint is the one that warns about it.
+      expect(hint.toLowerCase()).not.toMatch(/keeps? (their|the|your) faces?|likeness/);
+    }
+  });
 });

@@ -1,5 +1,84 @@
 # Changelog
 
+## v0.35.0-alpha - unreleased
+
+Qwen-Image 2.1 arrives as three opt-in presets in tools you already have: Text to Image, Image to
+Image and Multi-Reference. It brings transparent layers straight from the model, exact lettering,
+native 2K and composition from up to six layers. **Its weights are under the Qwen Research
+License — research and evaluation only, not commercial work** — so every 2.1 preset says so in its
+name, and none of them is a default. The release also fixes four bugs an architecture audit
+found in the shipped panel.
+
+### Added
+
+- **Transparent Background, in Text to Image.** With the Qwen-Image 2.1 preset selected, a new
+  toggle under Model makes the result a cut-out layer with a real alpha channel — generated that
+  way, not matted afterwards. Measured on a 12 GB 4070 Ti: a studio teapot came back 69% fully clear
+  with a clean hole through its handle and a soft contact shadow, and a desk lamp kept its thin pull
+  chain. About 15 seconds at 1024². The toggle only appears for presets that can do it, and your
+  prompt stays exactly as you typed it; the RGBA phrasing the model expects is added at submit time.
+- **Qwen-Image 2.1 in Text to Image** (`txt2img-qwen-image-21`). Strong lettering: a poster reading
+  "OPENLAYER LIVE / Friday 26 September - Stockholm" and a handwritten note at 2048² both came back
+  spelled exactly. Native up to 2048 x 2048. About 15–20 s at 1024², 86 s at 2048².
+- **Qwen-Image 2.1 editing in Image to Image** (`edit-qwen-image-21`). Write what should change —
+  "change the sign to read CAFE OPENLAYER 35", "make it a rainy evening", "replace the cart with a
+  bicycle" — and objects stay within a pixel of where they were. **Edit a cut-out layer and you get a
+  cut-out back**: a transparent teapot went in 69% clear and came out 69% clear with no mention of
+  transparency in the instruction. About 25 s per edit.
+- **Qwen-Image 2.1 in Multi-Reference** (`multi-reference-qwen-image-21`). Name your layers in the
+  prompt as `<image1>`, `<image2>` and so on, in list order — "the woman from `<image2>` pours tea
+  from the teapot in `<image3>`". Transparent layers keep their cut-out edges. Six references
+  composed a scene, a person, a teapot, a character and two framed pictures in one run. Each
+  reference adds about 30 seconds (1 → 23 s, 3 → 82 s, 6 → 179 s), which is why the list stops at six
+  for this preset; the model accepts sixteen.
+
+  Setup: ComfyUI **0.37.0 or newer**, three files, **14.2 GB**, all from Comfy-Org's public
+  repackaging and every node core ComfyUI. Because of the licence, Setup gives you the links and
+  never downloads them itself.
+
+### Fixed
+
+- **Remove Background and Layer Maps results land on their layer again.** Both captured the layer
+  trimmed to its own bounds but imported to the centre of the canvas, so a cut-out of an off-centre
+  subject landed in the middle of the document. They now go back where they came from, as Image to
+  Image always has.
+- **The Preview panel's Import button works for Multi-Reference and Unflatten.** It was enabled for
+  both and did nothing at all.
+- **Generate with an empty prompt says so, instead of doing nothing.** In Photoshop an empty text box
+  reads as `null`, not as empty text, and 43 places in the panel assumed otherwise; the error they
+  threw was swallowed before any message could appear.
+- **Setup's note on licence-gated models was wrong.** It said those files need a sign-in. They
+  don't — they come from public mirrors — and what actually happens is that OpenLayer never
+  downloads them for you. It now says that.
+- **Switching Multi-Reference presets applies that preset's steps and CFG**, and the hint under the
+  model picker follows the preset instead of always describing FLUX.2 Klein.
+
+### Changed
+
+- **The "Spike: Model Download" button is gone from Settings.** It was a measurement probe from
+  before in-panel downloads existed, and wrote a test file to a folder on one developer's machine.
+- **Agent Bridge:** `text_to_image` accepts `transparentBackground`, and the `multi_reference`
+  description names both workflows and which one the faces limitation belongs to.
+
+### Known limitations
+
+- **Research licence.** Qwen-Image 2.1 may be used for research and evaluation only; commercial use
+  needs a separate licence from Qwen. Every other model family OpenLayer ships is unaffected.
+- **Qwen-Image 2.1 background removal was tested and not adopted.** It works on the vendor's sample
+  image and returned an empty frame on a real photograph of a person in a street, four times out of
+  four. Remove Background stays on BiRefNet.
+- **Qwen-Image 2.1 edits repaint the whole frame.** Positions hold, but untouched areas can come back
+  slightly darker (6–12 levels measured on photographs), so compare before you keep an edit.
+  Editing *only a selection* was built and cut: on busy content the join was invisible, but in
+  smooth sky it left a visible edge, and feathering only softened it into a darker patch.
+- **Lettering is strong, not guaranteed.** Clean type came back exact every time; stylised
+  hand-painted lettering on a wooden sign came back misspelled.
+- **2K is slightly off the model's own sampling schedule** until ComfyUI fixes
+  [#16447](https://github.com/comfy-org/ComfyUI/issues/16447). The 2048² results looked right in
+  testing.
+- Whether Qwen-Image 2.1 carries **a real person's face** through Multi-Reference is untested. It kept
+  a generated person's hair and clothing; do not assume likeness.
+
 ## v0.30.0-alpha - 2026-09-10
 
 Two additions, both of which take something OpenLayer already had inside it and hand it to the

@@ -267,6 +267,209 @@ describe("workflowBuilder", () => {
     expect(result.workflow["9"].inputs.images).toEqual(["17", 0]);
   });
 
+  it("writes both Qwen-Image 2.1 prompts into the one encoder and saves an alpha-free image", async () => {
+    const result = await buildTxt2ImgWorkflow({
+      presetId: "txt2img-qwen-image-21",
+      prompt: 'a poster that reads "OPENLAYER LIVE"',
+      negativePrompt: "blurry",
+      checkpointName: "qwen_image_2.1_int8_convrot.safetensors",
+      width: 2048,
+      height: 1024,
+      steps: 25,
+      cfg: 1,
+      seed: 21
+    });
+    const workflow = result.workflow;
+
+    // Positive and negative are two inputs on ONE node, not two CLIPTextEncodes.
+    expect(workflow["6"].class_type).toBe("TextEncodeQwenImage21");
+    expect(workflow["6"].inputs.prompt).toBe('a poster that reads "OPENLAYER LIVE"');
+    expect(workflow["6"].inputs.negative_prompt).toBe("blurry");
+    expect(workflow["3"].inputs.positive).toEqual(["6", 0]);
+    expect(workflow["3"].inputs.negative).toEqual(["6", 1]);
+    expect(workflow["5"].inputs.width).toBe(2048);
+    expect(workflow["5"].inputs.height).toBe(1024);
+    expect(workflow["20"].inputs.unet_name).toBe("qwen_image_2.1_int8_convrot.safetensors");
+
+    // The 2.1 VAE decodes RGBA even for opaque pictures (alpha 248-252 on
+    // about a tenth of the pixels, measured). Saving the decode directly would
+    // import a faintly see-through layer, so SaveImage must read the split.
+    expect(workflow["30"].class_type).toBe("SplitImageWithAlpha");
+    expect(workflow["30"].inputs.image).toEqual(["8", 0]);
+    expect(workflow["9"].inputs.images).toEqual(["30", 0]);
+  });
+
+  it("passes the Qwen-Image 2.1 edit source in as image_1 with its alpha and never injects denoise", async () => {
+    const result = await buildImg2ImgWorkflow({
+      presetId: "edit-qwen-image-21",
+      prompt: "replace the cart with a red bicycle",
+      negativePrompt: "",
+      checkpointName: "qwen_image_2.1_int8_convrot.safetensors",
+      sourceImageName: "openlayer-source.png",
+      steps: 25,
+      cfg: 1,
+      seed: 22,
+      denoise: 0.35
+    });
+    const workflow = result.workflow;
+
+    expect(workflow["10"].inputs.image).toBe("openlayer-source.png");
+    // LoadImage splits off the alpha as an inverted mask; JoinImageWithAlpha
+    // puts it back so a cut-out layer reaches the encoder as a cut-out.
+    expect(workflow["11"].class_type).toBe("JoinImageWithAlpha");
+    expect(workflow["11"].inputs.alpha).toEqual(["10", 1]);
+    expect(workflow["6"].inputs["images.image_1"]).toEqual(["11", 0]);
+    expect(workflow["6"].inputs.vae).toEqual(["22", 0]);
+    expect(workflow["6"].inputs.prompt).toBe("replace the cart with a red bicycle");
+
+    // The sampler starts from the encoder's own latent, sized from image_1,
+    // at denoise 1 whatever the panel's slider says.
+    expect(workflow["3"].inputs.latent_image).toEqual(["6", 2]);
+    expect(workflow["3"].inputs.denoise).toBe(1);
+
+    // Returned at the captured layer's exact size, then made opaque.
+    expect(workflow["17"].inputs.width).toEqual(["16", 0]);
+    expect(workflow["16"].inputs.image).toEqual(["10", 0]);
+    expect(workflow["30"].inputs.image).toEqual(["17", 0]);
+    expect(workflow["9"].inputs.images).toEqual(["30", 0]);
+  });
+
+  it("keeps the alpha and wraps the prompt when Qwen-Image 2.1 is asked for a transparent background", async () => {
+    const result = await buildTxt2ImgWorkflow({
+      presetId: "txt2img-qwen-image-21",
+      prompt: "A red ceramic teapot.",
+      negativePrompt: "",
+      width: 1024,
+      height: 1024,
+      steps: 25,
+      cfg: 1,
+      seed: 5,
+      transparentBackground: true
+    });
+    const workflow = result.workflow;
+
+    // SaveImage reads the RGBA decode directly, skipping the alpha drop.
+    expect(workflow["9"].inputs.images).toEqual(["8", 0]);
+    // The wrapper is the template's documented phrasing; the artist's words sit inside it.
+    expect(workflow["6"].inputs.prompt).toBe(
+      "This is an RGBA format image with transparency. A red ceramic teapot. The image has an alpha channel and a transparent background."
+    );
+  });
+
+  it("leaves the prompt alone and the alpha dropped when transparency is not asked for", async () => {
+    const result = await buildTxt2ImgWorkflow({
+      presetId: "txt2img-qwen-image-21",
+      prompt: "A red ceramic teapot.",
+      width: 1024,
+      height: 1024,
+      steps: 25,
+      cfg: 1,
+      seed: 5
+    });
+
+    expect(result.workflow["6"].inputs.prompt).toBe("A red ceramic teapot.");
+    expect(result.workflow["9"].inputs.images).toEqual(["30", 0]);
+  });
+
+  it("refuses a transparent background on a preset that has no alpha channel", async () => {
+    await expect(
+      buildTxt2ImgWorkflow({
+        presetId: "txt2img-flux2-klein",
+        prompt: "a teapot",
+        width: 1024,
+        height: 1024,
+        steps: 4,
+        cfg: 1,
+        seed: 5,
+        transparentBackground: true
+      })
+    ).rejects.toThrow(/cannot return a transparent background/);
+  });
+
+  it("returns a Qwen-Image 2.1 edit of a cut-out layer as a cut-out, at the source size", async () => {
+    const result = await buildImg2ImgWorkflow({
+      presetId: "edit-qwen-image-21",
+      prompt: "make the teapot cobalt blue",
+      sourceImageName: "teapot.png",
+      steps: 25,
+      cfg: 1,
+      seed: 6,
+      denoise: 1,
+      keepTransparency: true
+    });
+
+    // The restored-size RGBA image, not the alpha drop that follows it.
+    expect(result.workflow["9"].inputs.images).toEqual(["17", 0]);
+    // No prompt wrapper for edits: the source's alpha carries through on its own.
+    expect(result.workflow["6"].inputs.prompt).toBe("make the teapot cobalt blue");
+  });
+
+  it("gives a cut-out an ordinary opaque edit on a preset without an alpha channel", async () => {
+    const result = await buildImg2ImgWorkflow({
+      presetId: "edit-flux2-klein",
+      prompt: "make the teapot cobalt blue",
+      sourceImageName: "teapot.png",
+      steps: 4,
+      cfg: 1,
+      seed: 6,
+      denoise: 1,
+      keepTransparency: true
+    });
+
+    expect(result.workflow["9"].inputs.images).toEqual(["17", 0]);
+    expect(result.workflow["6"].inputs.text).toBe("make the teapot cobalt blue");
+  });
+
+  it("plugs each extra Qwen-Image 2.1 reference into the next numbered encoder slot, alpha intact", async () => {
+    const result = await buildMultiReferenceWorkflow({
+      presetId: "multi-reference-qwen-image-21",
+      prompt: "put the teapot from <image2> on the table in <image1>",
+      negativePrompt: "",
+      checkpointName: "qwen_image_2.1_int8_convrot.safetensors",
+      referenceImageNames: ["scene.png", "teapot.png", "person.png"],
+      steps: 25,
+      cfg: 1,
+      seed: 24
+    });
+    const workflow = result.workflow;
+
+    // Reference 1 is the shipped slot.
+    expect(workflow["30"].inputs.image).toBe("scene.png");
+    expect(workflow["6"].inputs["images.image_1"]).toEqual(["31", 0]);
+
+    // References 2 and 3 are cloned LoadImage + JoinImageWithAlpha pairs.
+    expect(workflow.ref2load.inputs.image).toBe("teapot.png");
+    expect(workflow.ref2alpha.class_type).toBe("JoinImageWithAlpha");
+    expect(workflow.ref2alpha.inputs.alpha).toEqual(["ref2load", 1]);
+    expect(workflow["6"].inputs["images.image_2"]).toEqual(["ref2alpha", 0]);
+    expect(workflow.ref3load.inputs.image).toBe("person.png");
+    expect(workflow["6"].inputs["images.image_3"]).toEqual(["ref3alpha", 0]);
+
+    // No conditioning chain: the sampler still reads the encoder directly.
+    expect(workflow["3"].inputs.positive).toEqual(["6", 0]);
+    expect(workflow["3"].inputs.negative).toEqual(["6", 1]);
+    expect(workflow["3"].inputs.latent_image).toEqual(["6", 2]);
+    expect(Object.values(workflow).some((node) => node.class_type === "ReferenceLatent")).toBe(false);
+    expect(workflow["9"].inputs.images).toEqual(["40", 0]);
+  });
+
+  it("refuses more Qwen-Image 2.1 references than its ceiling", async () => {
+    const ceiling = getWorkflowPreset("multi-reference-qwen-image-21").referenceChain?.maximumReferences ?? 0;
+
+    await expect(
+      buildMultiReferenceWorkflow({
+        presetId: "multi-reference-qwen-image-21",
+        prompt: "compose",
+        negativePrompt: "",
+        checkpointName: "qwen_image_2.1_int8_convrot.safetensors",
+        referenceImageNames: Array.from({ length: ceiling + 1 }, (_, index) => `ref${index}.png`),
+        steps: 25,
+        cfg: 1,
+        seed: 1
+      })
+    ).rejects.toThrow(/at most/);
+  });
+
   it("chains one ReferenceLatent pair per reference and samples from the end of both chains", async () => {
     const result = await buildMultiReferenceWorkflow({
       prompt: "the man and the woman standing on the beach at sunset",
