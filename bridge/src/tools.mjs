@@ -274,7 +274,9 @@ export const MCP_TOOLS = [
       "Change the layer or canvas already captured for Image to Image in the OpenLayer panel by " +
       "describing the change (\"make the jacket red\", \"remove the parked car\"). Requires a source " +
       "captured in the panel first — this tool cannot capture one. The rest of the picture stays " +
-      "where it is, and the result is the source's size. Only the parameters you pass are changed. " +
+      "where it is, and the result is the source's size. With edit-qwen-image-21 the edit also uses any " +
+      "reference layers the artist added in the panel, named <image2>, <image3>... in the prompt (the " +
+      "edited layer is <image1>); this tool cannot add them. Only the parameters you pass are changed. " +
       "Returns the panel's own status message.",
     schema: EDIT_IMAGE_SCHEMA,
     timeoutMs: GENERATION_TIMEOUT_MS

@@ -15,7 +15,7 @@ import { OpenLayerTheme } from "../utils/preferences";
  * and `COMFY_PORT_CANDIDATES` still covers 8190 and the rest.
  */
 export const DEFAULT_SERVER_URL = "http://127.0.0.1:8188";
-export const APP_VERSION = "0.36.0";
+export const APP_VERSION = "0.37.0";
 export const DEVELOPER_GITHUB = "https://github.com/MehranMarxian";
 export const HISTORY_LIMIT = 5;
 /**

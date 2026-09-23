@@ -47,7 +47,7 @@ a GPU with 8 GB VRAM or more (12 GB is what this project targets).
 OpenLayer is the Photoshop panel that talks to it — you work in Photoshop, ComfyUI does the
 generating in the background, and every result comes back as a layer.
 
-> **Alpha.** `v0.36.0-alpha` is a public testing checkpoint, not production software. It is stable
+> **Alpha.** `v0.37.0-alpha` is a public testing checkpoint, not production software. It is stable
 > enough to work with, and honest about where it stops — see [what works and what does
 > not](docs/known-limitations.md).
 
@@ -60,7 +60,7 @@ anywhere; ComfyUI runs on your own machine.
 | :--- | :--- |
 | **Text to Image** | Generate a new layer from a prompt — or a transparent cut-out |
 | **Image to Image** | Use the active layer as visual input |
-| **Edit Image** | Change a layer, or just a selection, by describing the change — "make the jacket red" |
+| **Edit Image** | Change a layer or a selection by describing it — "make the jacket red", or bring in a second layer: "put the teapot from `<image2>` here" |
 | **Sketch to Image** | Guide generation with your line art |
 | **Inpaint** | Repaint a Photoshop selection in place |
 | **Outpaint** | Extend canvas content beyond the edges |

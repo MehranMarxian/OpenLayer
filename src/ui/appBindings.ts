@@ -44,6 +44,8 @@ export type ActionName =
   | "captureImageSource"
   | "captureCanvasSource"
   | "captureImageSelection"
+  | "addEditReferenceLayer"
+  | "addEditReferenceCanvas"
   | "toggleExperimentalCheckpoints"
   | "generateImg2Img"
   | "importImg2Img"
