@@ -549,6 +549,12 @@ export function renderApp(rootElement: HTMLElement) {
   // than wherever placeEvent would drop it. Re-reading imageSource at import
   // time would use whatever the artist has captured since.
   let imageImportBounds: NormalizedSelectionBounds | null = null;
+  // Same contract as imageImportBounds: where the captured layer sat, recorded
+  // when the result is made so the import lands on it. Both tools shipped
+  // without this and centred every result on the canvas, so a cutout of an
+  // off-centre layer landed somewhere the artist then had to drag it back from.
+  let removeBackgroundImportBounds: NormalizedSelectionBounds | null = null;
+  let layerMapsImportBounds: NormalizedSelectionBounds | null = null;
   let sketchSource: ImageSourceState | null = null;
   let sketchResult: AppGeneratedImageResult | null = null;
   let inpaintSource: InpaintSourceState | null = null;
@@ -3666,6 +3672,7 @@ export function renderApp(rootElement: HTMLElement) {
 
       // A const, not the mutable field: the commit closure runs after awaits.
       const capturedSource = removeBackgroundSource;
+      removeBackgroundImportBounds = capturedSource.captureBounds ?? null;
       const generatedResult = await generation.runPipeline({
         toolType: "remove-background",
         client,
@@ -3744,6 +3751,7 @@ export function renderApp(rootElement: HTMLElement) {
         blob: removeBackgroundResult.blob,
         originatingDocument: removeBackgroundResult.originatingDocument,
         layerName,
+        targetBounds: removeBackgroundImportBounds ?? undefined,
         onProgress: (message) => {
           setRemoveBackgroundStatus(elements, message, "idle");
           setRemoveBackgroundDiagnostics(elements, message);
@@ -3897,6 +3905,7 @@ export function renderApp(rootElement: HTMLElement) {
 
       // A const, not the mutable field: the commit closure runs after awaits.
       const capturedSource = layerMapsSource;
+      layerMapsImportBounds = capturedSource.captureBounds ?? null;
       const passLabel = capability.artistLabel.toLowerCase();
       const generatedResult = await generation.runPipeline({
         toolType: "layer-maps",
@@ -3978,6 +3987,7 @@ export function renderApp(rootElement: HTMLElement) {
         blob: layerMapsResult.blob,
         originatingDocument: layerMapsResult.originatingDocument,
         layerName,
+        targetBounds: layerMapsImportBounds ?? undefined,
         onProgress: (message) => {
           setLayerMapsStatus(elements, message, "idle");
           setLayerMapsDiagnostics(elements, message);
