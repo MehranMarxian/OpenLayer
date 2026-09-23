@@ -3415,6 +3415,7 @@ export function renderApp(rootElement: HTMLElement) {
     renderReferenceRows(elements.imgReferenceList, editReferenceSources, {
       firstNumber: 2,
       emptyText: "No reference layers yet",
+      removeOnly: true,
       noteForRow: (entry) => `${createSourceMetaText(entry)} - <image${editReferenceSources.indexOf(entry) + 2}>`
     });
     elements.imgReferenceCount.textContent =
@@ -8476,7 +8477,18 @@ function applyValidatedMultiReferenceSettings(elements: AppElements, settings: {
 function renderReferenceRows(
   list: HTMLElement,
   entries: readonly MultiReferenceEntry[],
-  options: { firstNumber: number; emptyText: string; noteForRow: (entry: MultiReferenceEntry, index: number) => string }
+  options: {
+    firstNumber: number;
+    emptyText: string;
+    noteForRow: (entry: MultiReferenceEntry, index: number) => string;
+    /**
+     * Remove only, no Up/Down. Edit Image's source panel is narrower than
+     * Multi-Reference's, and three buttons clipped the last one to "R" in
+     * Photoshop (2026-09-24). With four references at most, remove and re-add
+     * covers reordering.
+     */
+    removeOnly?: boolean;
+  }
 ) {
   list.innerHTML = "";
 
@@ -8519,8 +8531,11 @@ function renderReferenceRows(
 
     const actions = document.createElement("div");
     actions.className = "reference-actions";
-    actions.appendChild(createReferenceButton("Up", "moveUp", entry.id, index === 0));
-    actions.appendChild(createReferenceButton("Down", "moveDown", entry.id, index === entries.length - 1));
+    if (!options.removeOnly) {
+      actions.appendChild(createReferenceButton("Up", "moveUp", entry.id, index === 0));
+      actions.appendChild(createReferenceButton("Down", "moveDown", entry.id, index === entries.length - 1));
+    }
+
     actions.appendChild(createReferenceButton("Remove", "remove", entry.id, false));
     row.appendChild(actions);
 
