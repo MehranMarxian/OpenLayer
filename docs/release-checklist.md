@@ -89,5 +89,16 @@ error, because the URL still resolves. There is no automated check for this yet.
 - Test Outpaint only as experimental.
 - Test Z_image_Turbo and Flux1-dev fp8 Text to Image if the required local models are installed.
 - Test Prompt from Layer if the Florence-2 PromptGen workflow is installed.
+- If the Qwen-Image 2.1 stack is installed (ComfyUI 0.37+): Text to Image with
+  `txt2img-qwen-image-21 (research licence)` renders quoted words correctly and imports **fully opaque**;
+  with **Transparent Background On** the same preset imports a cut-out layer over a checkerboard; the
+  toggle disappears on every other preset.
+- Image to Image `edit-qwen-image-21`: an instruction edit of a photo layer lands aligned over it; an
+  edit of a transparent cut-out layer comes back as a cut-out.
+- Multi-Reference `multi-reference-qwen-image-21`: switching to it sets Steps 25 / CFG 1 and swaps the
+  hint to the `<image1>` instructions; three layers including a transparent one compose in one run.
+- Remove Background and Layer Maps on an **off-centre** layer: the result lands exactly over it.
+- Generate with an empty prompt on Text to Image: the panel says a prompt is needed.
+- Preview panel: Import works for Multi-Reference and Unflatten results.
 - Start and cancel one longer generation, then confirm the next generation still works.
 - Open History and confirm prompt, model, workflow, seed, dimensions, source mode, tool type, timestamp, and import status are recorded where available.

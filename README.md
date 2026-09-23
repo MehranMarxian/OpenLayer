@@ -51,7 +51,7 @@ anywhere; ComfyUI runs on your own machine.
 
 | Tool | What it does |
 | :--- | :--- |
-| **Text to Image** | Generate a new layer from a prompt |
+| **Text to Image** | Generate a new layer from a prompt — or a transparent cut-out |
 | **Image to Image** | Use the active layer as visual input |
 | **Sketch to Image** | Guide generation with your line art |
 | **Inpaint** | Repaint a Photoshop selection in place |
@@ -70,8 +70,8 @@ anywhere; ComfyUI runs on your own machine.
 
 <sub>✦ experimental</sub>
 
-**An AI assistant can drive it too.** Every generation tool is reachable over the Model Context
-Protocol, so Claude or Codex can work the panel's own buttons in your open document — "generate a
+**An AI assistant can drive it too.** Every generation tool except Live Painting is reachable over
+the Model Context Protocol, so Claude or Codex can work the panel's own buttons in your open document — "generate a
 foggy forest, then upscale it" instead of eleven clicks. Off by default, and it runs entirely on your
 machine: see [Agent Bridge (MCP)](#agent-bridge-mcp) for what it is and how to start it.
 
@@ -210,7 +210,7 @@ you have ever used ComfyUI or Automatic1111 before, you almost certainly have on
 
 **Two tools need nothing at all:** Layer Tools works with ComfyUI stopped, and Upscale costs 67 MB.
 
-### The four stacks
+### The five stacks
 
 Almost every preset is one of these. Install a stack once and every tool that uses it lights up.
 
@@ -220,6 +220,7 @@ Almost every preset is one of these. Install a stack once and every tool that us
 | **Z_image_Turbo** | `z_image_turbo_bf16` + `qwen_3_4b` + `ae` | 20.7 GB | ungated |
 | **Krea-2 Turbo** | Krea-2 fp8 + `qwen3vl_4b_fp8` + `qwen_image_vae` | 18.6 GB | ungated |
 | **Flux Fill** | `flux1-fill-dev` + `clip_l` + `t5xxl_fp16` + `ae` | 34.2 GB | **non-commercial** |
+| **Qwen-Image 2.1** | 2.1 int8 + `qwen3vl_8b_w4a8` + `qwen_image_2.1_vae` | 14.2 GB | **research only** · ComfyUI 0.37+ |
 
 `qwen_3_4b.safetensors` (8.04 GB) is shared by Klein *and* Z_image_Turbo — if you have one, the other
 costs 12.3 GB, not 20.7 GB. `ae.safetensors` is shared by Z_image_Turbo and Flux Fill.
@@ -233,6 +234,7 @@ costs 12.3 GB, not 20.7 GB. `ae.safetensors` is shared by Z_image_Turbo and Flux
 | FLUX.2 Klein | **Klein stack** | — |
 | Z_image_Turbo | **Z_image_Turbo stack** | — |
 | Krea-2 Turbo | **Krea-2 Turbo stack** | — |
+| Qwen-Image 2.1 | **Qwen-Image 2.1 stack** | research licence · the one preset with **Transparent Background** · native 2K |
 | Flux1-dev fp8 | `flux1-dev-fp8.safetensors` → `models/checkpoints/` (17.3 GB) | non-commercial licence |
 | Flux.2 dev (GGUF) | `flux2-dev-Q4_K_M.gguf` (20.1 GB) + `mistral_3_small_flux2_fp8.safetensors` (18.0 GB) + `full_encoder_small_decoder.safetensors` (250 MB) | add-on: [ComfyUI-GGUF](https://github.com/city96/ComfyUI-GGUF) · non-commercial · **also needs the `gguf` Python package inside ComfyUI's environment — without it the add-on registers no nodes and gives no error at all** |
 
@@ -242,7 +244,8 @@ costs 12.3 GB, not 20.7 GB. `ae.safetensors` is shared by Z_image_Turbo and Flux
 <summary><b>Image to Image</b> — nothing new if you did Text to Image</summary>
 
 Every Image to Image preset reuses a stack you may already have: **Klein** (both image-to-image and
-instruction editing), **Z_image_Turbo**, **Krea-2 Turbo**, or your own SD 1.x / SDXL checkpoint.
+instruction editing), **Z_image_Turbo**, **Krea-2 Turbo**, **Qwen-Image 2.1** (instruction editing
+that keeps a cut-out layer a cut-out; research licence), or your own SD 1.x / SDXL checkpoint.
 
 No add-ons. **0 extra GB** if the matching Text to Image preset already runs.
 
@@ -329,6 +332,9 @@ despite the near-identical name. About two minutes for four layers on a 12 GB ca
 **Klein stack**, and nothing else. No add-on — `ReferenceLatent` and the rest are core ComfyUI.
 **0 extra GB** if any Klein preset already runs.
 
+Or the **Qwen-Image 2.1 stack** (research licence), which names references in the prompt as
+`<image1>`, `<image2>`, keeps transparent layers' edges, and takes about 30 seconds per reference.
+
 </details>
 
 <details>
@@ -365,11 +371,12 @@ folder, and works with ComfyUI stopped.
 
 ### If you eventually want everything
 
-Roughly **177 GB**, deduplicated. Installing every preset's stack separately, ignoring the sharing,
-would be about 384 GB — that gap is why the stacks above are worth understanding. Four files carry a
-non-commercial licence: `flux1-dev-fp8`, `flux1-fill-dev`, `flux2-dev-Q4_K_M.gguf`, and
-`mistral_3_small_flux2_fp8`. The panel will not fetch those for you; use the link and read the licence
-before selling anything made with them.
+Roughly **192 GB**, deduplicated. Installing every preset's stack separately, ignoring the sharing,
+would be about 427 GB — that gap is why the stacks above are worth understanding. Seven files are
+licence-restricted: four are non-commercial (`flux1-dev-fp8`, `flux1-fill-dev`,
+`flux2-dev-Q4_K_M.gguf`, `mistral_3_small_flux2_fp8`), and the three Qwen-Image 2.1 files are for
+research and evaluation only. The panel will not fetch those for you; use the link and read the
+licence before selling anything made with them.
 
 </details>
 
@@ -388,10 +395,11 @@ same document binding, the same transactional import, the same one-run-at-a-time
 second generation mid-run and it is refused with "OpenLayer is busy", exactly as a second click would
 be.
 
-All **ten** generation tools are reachable:
+**Twelve** generation tools are reachable — every one except Live Painting:
 
 `text_to_image` · `image_to_image` · `sketch_to_image` · `inpaint` · `outpaint` · `upscale` ·
-`prompt_from_layer` · `style_reference` · `multi_reference` · `unflatten`
+`prompt_from_layer` · `style_reference` · `multi_reference` · `unflatten` · `remove_background` ·
+`layer_maps`
 
 Plus `get_panel_state`, which answers instantly without touching Photoshop — ask for that first if
 anything seems wrong.
