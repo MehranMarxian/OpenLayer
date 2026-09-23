@@ -157,6 +157,8 @@ export const BUSY_ALLOWED_ACTIONS: readonly ActionElementKey[] = [
   "captureLayerButton",
   "captureCanvasButton",
   "captureImageSelectionButton",
+  "addEditReferenceLayerButton",
+  "addEditReferenceCanvasButton",
   "experimentalCheckpointToggle",
   "captureSketchLayerButton",
   "captureSketchCanvasButton",

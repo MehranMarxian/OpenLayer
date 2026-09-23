@@ -157,6 +157,11 @@ export type AppElements = {
   imgDenoise: HTMLInputElement;
   imgDenoiseField: HTMLElement;
   imgSelectionCaptureField: HTMLElement;
+  imgReferenceField: HTMLElement;
+  imgReferenceCount: HTMLElement;
+  imgReferenceList: HTMLElement;
+  addEditReferenceLayerButton: HTMLElement;
+  addEditReferenceCanvasButton: HTMLElement;
   captureImageSelectionButton: HTMLElement;
   imgExperimentalField: HTMLElement;
   imgEditHint: HTMLElement;
@@ -901,6 +906,21 @@ export function createAppMarkup() {
             <div class="source-action-row" aria-label="Selection capture">
               <button class="button source-action-button action-control" id="capture-image-selection" data-openlayer-action="captureImageSelection" type="button">Capture Selection</button>
             </div>
+          </div>
+          <!-- v0.37: reference layers inside an edit. Same [hidden]-on-a-plain-wrapper rule as above. -->
+          <div id="img-reference-field" hidden>
+            <div class="section-heading">
+              <span class="label">Reference layers</span>
+              <span class="muted-label" id="img-reference-count">None added</span>
+            </div>
+            <div class="source-action-row" aria-label="Reference capture actions">
+              <button class="button source-action-button action-control" id="add-edit-reference-layer" data-openlayer-action="addEditReferenceLayer" type="button">Add Active Layer</button>
+              <button class="button source-action-button action-control" id="add-edit-reference-canvas" data-openlayer-action="addEditReferenceCanvas" type="button">Add Canvas</button>
+            </div>
+            <div class="reference-list" id="img-reference-list">
+              <span class="source-empty">No reference layers yet</span>
+            </div>
+            <div class="diagnostics-line" id="img-reference-hint">Optional. Name them in the prompt as &lt;image2&gt;, &lt;image3&gt;... in list order; the layer you are editing is &lt;image1&gt;.</div>
           </div>
           <div class="source-card">
             <div class="source-thumb-frame" id="image-source-preview-panel">
@@ -2442,6 +2462,11 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     imgDenoise: getElement<HTMLInputElement>(rootElement, "img-denoise"),
     imgDenoiseField: getElement<HTMLElement>(rootElement, "img-denoise-field"),
     imgSelectionCaptureField: getElement<HTMLElement>(rootElement, "img-selection-capture-field"),
+    imgReferenceField: getElement<HTMLElement>(rootElement, "img-reference-field"),
+    imgReferenceCount: getElement<HTMLElement>(rootElement, "img-reference-count"),
+    imgReferenceList: getElement<HTMLElement>(rootElement, "img-reference-list"),
+    addEditReferenceLayerButton: getElement<HTMLElement>(rootElement, "add-edit-reference-layer"),
+    addEditReferenceCanvasButton: getElement<HTMLElement>(rootElement, "add-edit-reference-canvas"),
     captureImageSelectionButton: getElement<HTMLElement>(rootElement, "capture-image-selection"),
     imgExperimentalField: getElement<HTMLElement>(rootElement, "img-experimental-field"),
     imgEditHint: getElement<HTMLElement>(rootElement, "img-edit-hint"),

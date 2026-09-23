@@ -73,3 +73,17 @@ describe("Edit Image selection capture", () => {
     expect(elements.imgSelectionCaptureField.contains(elements.captureImageSelectionButton)).toBe(true);
   });
 });
+
+describe("Edit Image reference layers (v0.37)", () => {
+  it("starts hidden on a plain wrapper and tells the artist how to name the layers", () => {
+    const root = document.createElement("div");
+    root.innerHTML = createAppMarkup();
+    const elements = getAppElements(root);
+
+    expect(elements.imgReferenceField.hidden).toBe(true);
+    expect(elements.imgReferenceField.classList.contains("source-action-row")).toBe(false);
+    expect(elements.imgReferenceField.contains(elements.addEditReferenceLayerButton)).toBe(true);
+    // Escaped in the markup, so it reads as literal prompt syntax, not a tag.
+    expect(root.querySelector("#img-reference-hint")?.textContent).toContain("<image2>");
+  });
+});

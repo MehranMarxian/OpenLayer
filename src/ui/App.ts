@@ -558,6 +558,9 @@ export function renderApp(rootElement: HTMLElement) {
   // Each mode remembers its own last preset, so hopping between the two cards
   // does not reset either one's choice.
   let imageScreenMode: ImageScreenMode = "transform";
+  // v0.37: layers an edit can name as <image2>, <image3>... Kept across mode
+  // switches like the source, and only used in Edit Image.
+  let editReferenceSources: MultiReferenceEntry[] = [];
   const imageScreenPresetByMode: Record<ImageScreenMode, string> = {
     transform: DEFAULT_IMAGE_WORKFLOW,
     edit: DEFAULT_EDIT_WORKFLOW
@@ -1706,6 +1709,12 @@ export function renderApp(rootElement: HTMLElement) {
     captureImageSource: createActionRunner(elements, "captureImageSource", handleCaptureImageSource),
     captureCanvasSource: createActionRunner(elements, "captureCanvasSource", handleCaptureCanvasSource),
     captureImageSelection: createActionRunner(elements, "captureImageSelection", handleCaptureImageSelection),
+    addEditReferenceLayer: createActionRunner(elements, "addEditReferenceLayer", () =>
+      addEditReference(exportActiveLayerForImageToImage, "Capturing active Photoshop layer as a reference...")
+    ),
+    addEditReferenceCanvas: createActionRunner(elements, "addEditReferenceCanvas", () =>
+      addEditReference(exportCanvasForImageToImage, "Capturing Photoshop canvas as a reference...")
+    ),
     toggleExperimentalCheckpoints: createActionRunner(
       elements,
       "toggleExperimentalCheckpoints",
@@ -1812,6 +1821,23 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.captureLayerButton, actionHandlers.captureImageSource);
   bindActionControl(elements.captureCanvasButton, actionHandlers.captureCanvasSource);
   bindActionControl(elements.captureImageSelectionButton, actionHandlers.captureImageSelection);
+  bindActionControl(elements.addEditReferenceLayerButton, actionHandlers.addEditReferenceLayer);
+  bindActionControl(elements.addEditReferenceCanvasButton, actionHandlers.addEditReferenceCanvas);
+  bindReferenceListActions(elements.imgReferenceList, {
+    remove: (id) => {
+      const { references, removed } = removeReference(editReferenceSources, id);
+
+      if (removed) {
+        objectUrls.revoke(removed.previewUrl);
+        editReferenceSources = references;
+        renderEditReferenceList();
+      }
+    },
+    move: (id, direction) => {
+      editReferenceSources = moveReference(editReferenceSources, id, direction === "up" ? -1 : 1).references;
+      renderEditReferenceList();
+    }
+  });
   bindActionControl(elements.experimentalCheckpointToggle, actionHandlers.toggleExperimentalCheckpoints);
   bindActionControl(elements.transparentBackgroundToggle, actionHandlers.toggleTransparentBackground);
   bindActionControl(elements.generateImg2ImgButton, actionHandlers.generateImg2Img);
@@ -3338,6 +3364,64 @@ export function renderApp(rootElement: HTMLElement) {
     });
   }
 
+  /** References beside the edited layer: the preset's ceiling minus the layer itself. */
+  function getEditReferenceCeiling() {
+    const chain = getWorkflowPreset(readSelectValue(elements.imgWorkflow, DEFAULT_EDIT_WORKFLOW)).referenceChain;
+    return chain?.kind === "encoder-image-slots" ? Math.max(0, chain.maximumReferences - 1) : 0;
+  }
+
+  async function addEditReference(capture: () => Promise<ExportedSourceImage>, progressMessage: string) {
+    const ceiling = getEditReferenceCeiling();
+
+    if (!canAddReference(editReferenceSources, ceiling)) {
+      setImageError(elements, `This preset takes at most ${ceiling} reference layers. Remove one before adding another.`);
+      setImageStatus(elements, "Reference list full.", "error");
+      return;
+    }
+
+    setImageDiagnostics(elements, progressMessage);
+    setImageError(elements, "");
+    setImageStatus(elements, "Capturing reference...", "idle");
+    busyTool = "image-to-image";
+    isBusy = true;
+    syncBusy();
+
+    try {
+      const exportedSource = await capture();
+      editReferenceSources = [
+        ...editReferenceSources,
+        {
+          ...exportedSource,
+          previewUrl: objectUrls.create(exportedSource.blob),
+          id: `edit-reference-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+        }
+      ];
+      renderEditReferenceList();
+      setImageStatus(elements, `Reference <image${editReferenceSources.length + 1}> added.`, "ready");
+    } catch (caughtError) {
+      setImageStatus(elements, "Reference capture failed.", "error");
+      setImageError(elements, getErrorMessage(caughtError));
+      setImageDiagnostics(elements, getTechnicalErrorDetails(caughtError));
+    } finally {
+      isBusy = false;
+      busyTool = null;
+      syncBusy();
+    }
+  }
+
+  function renderEditReferenceList() {
+    // Badges read 2, 3...: the edited layer is <image1>, so the number on each
+    // row is the number to type in the prompt.
+    renderReferenceRows(elements.imgReferenceList, editReferenceSources, {
+      firstNumber: 2,
+      emptyText: "No reference layers yet",
+      noteForRow: (entry) => `${createSourceMetaText(entry)} - <image${editReferenceSources.indexOf(entry) + 2}>`
+    });
+    elements.imgReferenceCount.textContent =
+      editReferenceSources.length === 0 ? "None added" : `${editReferenceSources.length} of ${getEditReferenceCeiling()}`;
+    syncBusy();
+  }
+
   async function captureImageToImageSource(options: {
     progressMessage: string;
     statusMessage: string;
@@ -3473,6 +3557,27 @@ export function renderApp(rootElement: HTMLElement) {
         );
       }
 
+      const wantsReferences = imageScreenMode === "edit" && editReferenceSources.length > 0;
+
+      if (wantsReferences && preset.referenceChain?.kind !== "encoder-image-slots") {
+        throw createOpenLayerError(
+          "WORKFLOW_INVALID",
+          `${preset.displayName} cannot take reference layers.`,
+          "Choose Qwen-Image 2.1 (edit), or remove the reference layers."
+        );
+      }
+
+      const referenceImageNames: string[] = [];
+
+      if (wantsReferences) {
+        for (const [index, entry] of editReferenceSources.entries()) {
+          setImageStatus(elements, `Uploading reference <image${index + 2}>...`, "idle");
+          referenceImageNames.push(
+            await client.uploadImage(entry.blob, createReferenceUploadName(entry.filename, entry.id))
+          );
+        }
+      }
+
       const upload = selectionEdit
         ? await createFluxFillEmbeddedMaskSource(imageSource.blob, selectionEdit.maskBlob, "openlayer-edit-selection.png")
         : { blob: imageSource.blob, filename: imageSource.filename };
@@ -3489,7 +3594,8 @@ export function renderApp(rootElement: HTMLElement) {
         denoise: settings.denoise,
         lora: readLoraSelection(getImageLoraControls(elements)),
         keepTransparency: imageSource.hasTransparency === true,
-        selectionEdit: selectionEdit ? { strength: selectionEditStrength(selectionEdit.selectedFraction) } : undefined
+        selectionEdit: selectionEdit ? { strength: selectionEditStrength(selectionEdit.selectedFraction) } : undefined,
+        referenceImageNames
       });
 
       // The commit closure runs after awaits; a const keeps the null-checked
@@ -7479,8 +7585,10 @@ function paintImageScreenHint(elements: AppElements, mode: ImageScreenMode) {
   const preset = getWorkflowPreset(readSelectValue(elements.imgWorkflow, mode === "edit" ? DEFAULT_EDIT_WORKFLOW : DEFAULT_IMAGE_WORKFLOW));
   const hint = mode === "edit" ? preset.capability?.uiHints.screenHint ?? "" : "";
 
-  // Capture Selection belongs to Edit Image and to presets that can use it.
+  // Capture Selection and reference layers belong to Edit Image and to
+  // presets that can use them.
   elements.imgSelectionCaptureField.hidden = !(mode === "edit" && preset.selectionEdit);
+  elements.imgReferenceField.hidden = !(mode === "edit" && preset.referenceChain?.kind === "encoder-image-slots");
 
   // textContent: the hints quote prompt text, and one day may quote <image1>.
   elements.imgEditHint.textContent = hint;
@@ -8360,6 +8468,99 @@ function applyValidatedMultiReferenceSettings(elements: AppElements, settings: {
  * reference after a reorder, and the reorder buttons are the ones most likely
  * to be pressed twice in a row.
  */
+/**
+ * One reference row per entry, shared by Multi-Reference and Edit Image. Built
+ * with createElement and textContent only; the Up/Down/Remove buttons carry
+ * data attributes that bindReferenceListActions reads.
+ */
+function renderReferenceRows(
+  list: HTMLElement,
+  entries: readonly MultiReferenceEntry[],
+  options: { firstNumber: number; emptyText: string; noteForRow: (entry: MultiReferenceEntry, index: number) => string }
+) {
+  list.innerHTML = "";
+
+  if (entries.length === 0) {
+    const empty = document.createElement("span");
+    empty.className = "source-empty";
+    empty.textContent = options.emptyText;
+    list.appendChild(empty);
+    return;
+  }
+
+  entries.forEach((entry, index) => {
+    const row = document.createElement("div");
+    row.className = "reference-row";
+
+    const badge = document.createElement("span");
+    badge.className = "reference-index";
+    badge.textContent = String(index + options.firstNumber);
+    row.appendChild(badge);
+
+    const thumb = document.createElement("div");
+    thumb.className = "reference-thumb";
+    const image = document.createElement("img");
+    image.src = entry.previewUrl;
+    image.alt = `Reference ${index + options.firstNumber}: ${entry.sourceName}`;
+    thumb.appendChild(image);
+    row.appendChild(thumb);
+
+    const body = document.createElement("div");
+    body.className = "reference-body";
+    const title = document.createElement("span");
+    title.className = "reference-title";
+    title.textContent = entry.sourceName;
+    const meta = document.createElement("span");
+    meta.className = "reference-meta";
+    meta.textContent = options.noteForRow(entry, index);
+    body.appendChild(title);
+    body.appendChild(meta);
+    row.appendChild(body);
+
+    const actions = document.createElement("div");
+    actions.className = "reference-actions";
+    actions.appendChild(createReferenceButton("Up", "moveUp", entry.id, index === 0));
+    actions.appendChild(createReferenceButton("Down", "moveDown", entry.id, index === entries.length - 1));
+    actions.appendChild(createReferenceButton("Remove", "remove", entry.id, false));
+    row.appendChild(actions);
+
+    list.appendChild(row);
+  });
+}
+
+function bindReferenceListActions(
+  list: HTMLElement,
+  handlers: { remove: (id: string) => void; move: (id: string, direction: "up" | "down") => void }
+) {
+  let lastRunAt = 0;
+
+  list.addEventListener("click", (event) => {
+    const target = event.target as HTMLElement | null;
+    const button = target?.closest?.("[data-openlayer-reference-action]") as HTMLElement | null;
+
+    if (!button || (button as HTMLButtonElement).disabled) {
+      return;
+    }
+
+    const action = button.getAttribute("data-openlayer-reference-action");
+    const referenceId = button.getAttribute("data-openlayer-reference-id");
+    const now = Date.now();
+
+    if (!action || !referenceId || now - lastRunAt < 350) {
+      return;
+    }
+
+    lastRunAt = now;
+    event.preventDefault();
+
+    if (action === "remove") {
+      handlers.remove(referenceId);
+    } else {
+      handlers.move(referenceId, action === "moveUp" ? "up" : "down");
+    }
+  });
+}
+
 function createReferenceButton(
   label: string,
   action: "moveUp" | "moveDown" | "remove",

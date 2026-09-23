@@ -131,11 +131,11 @@ describe("busy-state tables", () => {
       ...BUSY_GATED_ACTIONS.map(({ button }) => button)
     ];
 
-    // 42 since v0.36.0 added Edit Image's Capture Selection (41 after v0.35.0
-    // removed the model-download spike button).
+    // 44 since v0.37.0 added Edit Image's two reference buttons (42 in
+    // v0.36.0 with Capture Selection; 41 after v0.35.0 removed the spike).
     // The per-feature breakdown that used to sit here had drifted two behind
     // the assertion, so it is not repeated; the list above is the record.
-    expect(plainActions).toHaveLength(42);
+    expect(plainActions).toHaveLength(44);
     // 22 = 20, plus Layer Maps' Generate and Import.
     expect(BUSY_GATED_ACTIONS).toHaveLength(22);
     expect(new Set(allActions).size).toBe(allActions.length);
@@ -150,6 +150,8 @@ describe("busy-state tables", () => {
       "captureLayerButton",
       "captureCanvasButton",
       "captureImageSelectionButton",
+      "addEditReferenceLayerButton",
+      "addEditReferenceCanvasButton",
       "experimentalCheckpointToggle",
       "captureSketchLayerButton",
       "captureSketchCanvasButton",
