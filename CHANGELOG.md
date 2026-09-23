@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.37.0-alpha - unreleased
+
+### Added
+
+- **Reference layers inside an edit** (Qwen-Image 2.1). Edit Image gets a Reference layers list with
+  Add Active Layer and Add Canvas. Name them in the prompt as `<image2>`, `<image3>`… — the layer you
+  are editing is `<image1>` — and bring their content in: *"put the woman from `<image2>` into the
+  mountain scene"*, *"replace the cart with the teapot from `<image2>`"*. Up to four references; each
+  keeps its own transparency, and it works with a captured layer, the canvas or a selection. A
+  selection edit with one reference took about 70 s on a 12 GB card. Research licence, as with every
+  Qwen-Image 2.1 preset.
+
 ## v0.36.0-alpha - 2026-09-24
 
 Editing by instruction gets its own place on the Home screen.
