@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.36.0-alpha - unreleased
+## v0.36.0-alpha - 2026-09-24
 
 Editing by instruction gets its own place on the Home screen.
 
