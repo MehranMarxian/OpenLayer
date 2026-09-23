@@ -167,6 +167,21 @@ export async function buildImg2ImgWorkflow(
 
   applyLoraSelection(workflow, preset, options.lora);
 
+  if (options.referenceImageNames && options.referenceImageNames.length > 0) {
+    if (preset.referenceChain?.kind !== "encoder-image-slots") {
+      throw createOpenLayerError(
+        "WORKFLOW_INVALID",
+        `The ${preset.id} preset cannot take reference layers.`,
+        "Choose Qwen-Image 2.1 (edit), or clear the reference list."
+      );
+    }
+
+    // The source is slot 1 (already injected), so the chain grows from slot 2.
+    // A selection edit's LoadImage carries the selection in its alpha; clones
+    // for references take a fresh image name, so that never leaks into them.
+    applyReferenceChain(workflow, preset, [options.sourceImageName, ...options.referenceImageNames]);
+  }
+
   if (options.selectionEdit) {
     // A selection edit owns the output: its alpha is the feathered selection,
     // so the cut-out rewiring below must not also claim SaveImage.

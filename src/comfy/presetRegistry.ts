@@ -4771,6 +4771,19 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
       saveImage: target(QWEN_IMAGE_21_EDIT_NODES.saveImage, "images"),
       rgbaSource: QWEN_IMAGE_21_EDIT_NODES.outputScale
     },
+    // v0.37: reference layers inside an edit. Slot 1 is the layer being
+    // edited, so the builder passes [source, ...references] and references
+    // land on images.image_2 onwards, each rejoined with its own alpha.
+    // Four is a time bound (~30 s per reference, measured in v0.35).
+    referenceChain: {
+      kind: "encoder-image-slots",
+      loadImage: QWEN_IMAGE_21_EDIT_NODES.loadImage,
+      keepAlpha: QWEN_IMAGE_21_EDIT_NODES.keepAlpha,
+      encoder: QWEN_IMAGE_21_EDIT_NODES.textEncode,
+      inputPrefix: "images.image_",
+      generatedNodeIdPrefix: "ref",
+      maximumReferences: 5
+    },
     selectionEdit: {
       loadImage: QWEN_IMAGE_21_EDIT_NODES.loadImage,
       encoderImage: target(QWEN_IMAGE_21_EDIT_NODES.textEncode, "images.image_1"),

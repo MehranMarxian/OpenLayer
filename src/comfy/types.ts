@@ -230,6 +230,12 @@ export type BuildImageToImageWorkflowOptions = {
    * `selectionEditStrength` in selectionEdit.ts.
    */
   selectionEdit?: { strength: number };
+  /**
+   * Extra layers the instruction can name as <image2>, <image3>...; the
+   * captured source is always <image1>. Only presets with an
+   * `encoder-image-slots` referenceChain accept them.
+   */
+  referenceImageNames?: readonly string[];
 };
 
 export type BuildSketchToImageWorkflowOptions = BuildImageToImageWorkflowOptions & {
