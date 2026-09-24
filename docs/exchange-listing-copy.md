@@ -201,28 +201,21 @@ captured. Full notes: https://github.com/MehranMarxian/OpenLayer/blob/main/CHANG
 ## Note to Adobe Reviewers  (max 1000 — hard limit, the full version in `docs/exchange-reviewer-notes.md` is longer and must be trimmed to fit)
 
 ```
-OpenLayer is a client for ComfyUI, a free local AI image server. It does not bundle ComfyUI or any
-model — a Photoshop plugin cannot run a server process, so ComfyUI is installed and started
-separately.
+OpenLayer is a client for ComfyUI, a free local AI image server. It bundles neither ComfyUI nor any model: a Photoshop plugin cannot run a server, so ComfyUI is installed and started separately.
 
-Fastest path to one working generation (~10–15 min, mostly one download):
-1. Install ComfyUI (portable build, Windows). Start with its default command.
+Fastest path to one generation (~10-15 min, mostly one download):
+1. Install ComfyUI (Windows portable build) and start it.
 2. Put any SD 1.5 checkpoint (~2 GB, no login) in ComfyUI/models/checkpoints/.
-3. Install OpenLayer, open it from Plugins > OpenLayer.
-4. Settings > Find ComfyUI Active Port (auto-detects the server).
-5. Text to Image > pick the checkpoint > prompt > Generate. ~seconds on any GPU.
-6. Import to Layers — result lands as a layer.
+3. Open Plugins > OpenLayer. The welcome screen finds ComfyUI on its default port.
+4. Text to Image > pick the checkpoint > prompt > Generate > Import to Layers.
 
-Opening the panel with ComfyUI off or no models installed is an expected, labelled state (the Setup
-screen), not a failure.
+With ComfyUI off or no models, the panel shows a labelled Setup screen. That is expected, not a failure.
 
-Permissions: this plugin talks only to a server you point it at (ComfyUI's address is user-entered,
-not fixed) and to model-download hosts you confirm; it needs silent read/write to ComfyUI's own
-models/ folder, which is outside plugin storage. No telemetry, no accounts. Full permission
-rationale on request.
+Permissions: network access reaches only the ComfyUI address you enter and model hosts you confirm. File access reads ComfyUI's models/ folder. No telemetry, no accounts.
 
-Known: tested on Windows only so far; inpaint/outpaint are marked experimental in-panel.
+Tested on Windows only so far.
 ```
+`[870]` (the 2026-09-10 draft was 1210 and over the limit; trimmed 2026-09-24)
 `[~990]` — **at the limit.** If Adobe's field rejects it, cut the numbered list to prose. The
 untrimmed version stays in `docs/exchange-reviewer-notes.md`.
 

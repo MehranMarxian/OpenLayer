@@ -1,0 +1,38 @@
+OpenLayer is a free, open-source Photoshop plugin that connects Photoshop to a ComfyUI server running on your own machine. Generate with Stable Diffusion, SDXL, and Flux models, and every result arrives as an editable Photoshop layer — named, positioned, and yours to keep working on, not a flattened PNG you paste in and hope for.
+
+It runs entirely on your computer. ComfyUI runs locally, on your own checkpoints and LoRAs. Nothing is uploaded, there is no account, no metering, no credits, and no telemetry. If you retouch client work or cannot send artwork to a hosted service, that is the whole point of this plugin.
+
+WHAT IT DOES
+
+- Text to Image — generate a new layer from a prompt
+- Image to Image — reinterpret the active layer with a prompt
+- Edit Image — change a layer by describing the change ("make the jacket red") while the rest of the picture stays where it is
+- Sketch to Image — guide generation with your line art through a ControlNet
+- Inpaint (experimental) — repaint a Photoshop selection in place
+- Outpaint (experimental) — extend canvas content beyond the edges
+- Upscale — enhance layers with local upscale models
+- Remove Background — cut the subject onto its own layer with real alpha, in about two seconds, with no diffusion in the graph, so the pixels come back unchanged
+- Layer Maps — read a depth, line-art or normal pass off any layer, returned at the layer's exact pixel size
+- Prompt from Layer — describe a layer back into editable prompt text
+- Multi-Reference (experimental) — compose one image from several reference layers
+- Unflatten (experimental) — split one flat layer into separate layers, each with real transparency
+- Live Painting (experimental) — paint and watch the model respond
+- Layer Tools — export layers, selections, and masks back out to ComfyUI
+
+Model licences are the models' own. Most presets use openly licensed models; the Qwen-Image 2.1 presets are opt-in, never the default, say "research licence" in their names, and are for research and evaluation only — OpenLayer never downloads those weights for you.
+
+An AI assistant can also drive the panel over the Model Context Protocol: Claude or Codex can work the panel's own buttons in your open document. It is off by default and runs entirely on your machine.
+
+WHAT YOU NEED
+
+- Photoshop 2024 or newer
+- A local ComfyUI server (https://github.com/comfyanonymous/ComfyUI) — installed and started separately, the same way you would start any local server before connecting a client to it. OpenLayer does not bundle ComfyUI or any model; a Photoshop plugin cannot run a separate server process.
+- A GPU with 8 GB of VRAM or more (12 GB is what the project targets)
+
+The plugin's Setup screen lists every model and custom node its presets use, whether each is installed, and where it goes — and it works before ComfyUI is even running.
+
+STATUS
+
+OpenLayer is an alpha: a public testing checkpoint, not production software. It is stable enough to work with and candid about where it stops. Tools marked experimental above are labelled the same way in the panel itself. The full, current list of what works and what does not is at https://github.com/MehranMarxian/OpenLayer/blob/main/docs/known-limitations.md
+
+Free and MIT-licensed. Source, issues, and discussion: https://github.com/MehranMarxian/OpenLayer
