@@ -1,5 +1,14 @@
 # Adobe Exchange Readiness Audit (v0.16.0-alpha)
 
+> **SUBMITTED 2026-09-24** — v0.37.0-alpha, listing `1e827d3d`, publisher profile submitted the same
+> day. Windows only (Mac never tested), "manually publish later" chosen so launch day is ours.
+> Adobe aims to review within ~10 business days. The 27.9 cold-launch pass (B1) was **not** run
+> before submitting — if the review bounces on a launch error, start there.
+>
+> Corrections learned in the live portal: the Media tab takes **screenshots only** (no listing
+> icons — the D1 icon task below was wrong; icons come from the package manifest). "Requires
+> another application" = Yes (ComfyUI); "requires 3rd-party login" = No.
+
 Audited against `src/manifest.json`, `scripts/package.mjs`, `SECURITY.md`, `LICENSE`, CI config,
 and Adobe's current Developer Distribution / UXP manifest docs (checked live 2026-08-23; sources
 linked inline where a claim is load-bearing). Scope: everything that could make an Adobe reviewer
@@ -146,16 +155,16 @@ Scoped as discrete tasks in the project's usual one-task-at-a-time flow. Ordered
 
 ### D. Listing content (can run in parallel with B/C)
 
-- [x] **D1.** Listing icons 48/96/192 + 250×250 publisher logo, downscaled from the 1254px master: `docs/exchange-assets/`.
-- [ ] **D2.** Screenshots (4–6) and a short demo video.
+- [x] **D1.** ~~Listing icons~~ not asked for by the portal. 250×250 publisher logo: `docs/exchange-assets/openlayer-250.png`.
+- [x] **D2.** Four screenshots in `docs/exchange-assets/`; videos are the two existing YouTube demos.
 - [ ] **D3.** Listing copy — drafted in [docs/exchange-listing-copy.md](exchange-listing-copy.md); waiting on support email, name, and alpha/beta decisions.
 
 ### E. Submission
 
 - [ ] **E1.** Bump to v0.17.0 through the normal release process (memory: `release/vX.Y.Z` branch, version bump ×4 sites, CHANGELOG/README/landing page).
-- [ ] **E2.** `npm run package` and upload the **`.ccx`** from `packages/` (corrected — see 2.2).
+- [x] **E2.** `npm run package` and upload the **`.ccx`** from `packages/` (corrected — see 2.2).
 - [ ] **E3.** Run the existing `docs/release-checklist.md` in full, plus the new cold-start pass from B2.
-- [ ] **E4.** Submit via Developer Distribution with the justification (C1) and reviewer notes (C2) attached.
+- [x] **E4.** Submit via Developer Distribution with the justification (C1) and reviewer notes (C2) attached.
 - [ ] **E5.** Be ready to turn around review feedback quickly — first Exchange submissions often bounce once on something minor.
 
 ---
