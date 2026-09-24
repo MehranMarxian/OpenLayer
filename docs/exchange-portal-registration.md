@@ -23,9 +23,10 @@ You'll be asked for:
 EU-based, Adobe's docs (per their Feb 2025 policy update) require additional information beyond
 the individual path:
 
-- Business address
-- Phone number
-- D-U-N-S number
+- Business email
+- Phone number (with country code)
+- Street address or P.O. box, city, region, postal code, country
+- D-U-N-S number — **optional** (re-checked 2026-09-10; earlier versions of this doc said required)
 
 If you're registering as an individual outside the EU, none of that extra info applies — just the
 four items above.
@@ -33,6 +34,11 @@ four items above.
 Adobe's own docs warn that publisher-profile changes historically weren't trivial to make after
 the fact, so get the public name and marketing site right the first time rather than treating them
 as placeholders.
+
+> **Status (2026-09-24): Steps 1–2 are done.** The listing exists and its ID, `1e827d3d`, has been
+> in `src/manifest.json` since commit `8a0b2c4` (2026-08-23). Still worth confirming in the portal
+> that the publisher profile was *submitted*, not just saved — Adobe requires it before, or with,
+> the first listing submission.
 
 ## Step 2 — Create the Photoshop plugin listing
 
@@ -62,10 +68,11 @@ filled in over time before you actually hit Submit.
 
 ## Package format
 
-Upload the **zip** `npm run package` produces (in `packages/`), not the `.ccx` also produced
-alongside it. The portal does its own signing/packaging against the listing ID — see
-[docs/exchange-readiness-audit.md](exchange-readiness-audit.md) section 2.2 for why the `.ccx` in
-this repo is for direct sideload distribution, not the Exchange submission itself.
+Upload the **`.ccx`** `npm run package` produces (in `packages/`). Adobe's current submission docs
+(re-checked 2026-09-10) take a `.ccx` by drag-and-drop — it is a plain zip with the manifest at the
+root and no wrapping folder, which is exactly what this repo builds — and Adobe signs it
+server-side. One package per version, 300 MB max. An earlier version of this doc said to upload the
+bare zip; that was wrong.
 
 ## Screenshots, when you get to that field
 
