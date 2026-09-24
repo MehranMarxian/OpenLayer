@@ -107,7 +107,7 @@ https://github.com/MehranMarxian/OpenLayer/blob/main/docs/known-limitations.md
 Free and MIT-licensed. Source, issues, and discussion:
 https://github.com/MehranMarxian/OpenLayer
 ```
-`[~1930]` — **decision needed (D3 / audit 6.2):** this draft keeps the word "alpha". If the listing
+`[~1930]` — **decided 2026-09-24: keep "alpha".** (Was D3 / audit 6.2.) If the listing
 should soften to "beta", change the STATUS paragraph's first sentence only; the repo voice stays as
 is.
 
