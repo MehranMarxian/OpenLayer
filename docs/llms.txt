@@ -1,0 +1,46 @@
+# OpenLayer
+
+> OpenLayer is a free, open-source (MIT) Adobe Photoshop plugin for ComfyUI. It is a UXP panel that connects Photoshop to a ComfyUI server running on your own computer, so you can generate and edit images with local AI models and get every result back as a real, editable Photoshop layer. No cloud, no subscription, no account, no credits, and nothing is uploaded.
+
+OpenLayer is for anyone who uses Photoshop and wants AI image generation without Adobe Firefly's generative credits or a hosted service: photographers, designers, digital artists, retouchers, and ComfyUI users who are tired of moving images between ComfyUI and Photoshop by hand. It works as a free, local alternative to Photoshop Generative Fill.
+
+It is alpha software. It is tested on Windows 11 with Photoshop 2025; macOS is untested.
+
+Requirements: Photoshop 2024 or newer, a local ComfyUI server, and a GPU with 8 GB VRAM or more (12 GB recommended).
+
+Installation: download openlayer-latest.ccx from the GitHub releases and double-click it; the Adobe Creative Cloud desktop app installs it. Building from source and loading it with the Adobe UXP Developer Tool is the alternative.
+
+## Tools
+
+- Text to Image: generate a new layer from a prompt, including transparent cut-out layers
+- Image to Image: use the active layer as visual input
+- Edit Image: change a layer or a selection by describing the change in words
+- Sketch to Image: guide generation with your own line art (ControlNet)
+- Inpaint: repaint a Photoshop selection in place
+- Outpaint: extend the canvas beyond its edges
+- Upscale: enhance a layer
+- Remove Background: cut the subject onto its own layer with real alpha
+- Layer Maps: depth, line-art and normal maps from a layer
+- Prompt from Layer: describe a layer as prompt text
+- Unflatten (experimental): split one flat image into separate layers with transparency, using Qwen-Image-Layered
+- Live Painting: paint and watch the model respond in real time
+- Style Reference and Multi-Reference: borrow a reference layer's mood, or compose one image from several layers
+- Agent Bridge (MCP): lets AI agents drive the panel's tools
+
+## Supported models
+
+FLUX.2 Klein 4B (Apache-2.0), Qwen-Image 2.1, Qwen-Image-Layered, Krea-2 Turbo, Z-Image Turbo, Flux Fill, and Stable Diffusion 1.5 checkpoints with your own LoRAs. Qwen-Image 2.1 weights are licensed for research and evaluation only, and Flux Fill is non-commercial, so those presets are opt-in and labelled. Check each model's licence before commercial use.
+
+## Links
+
+- [GitHub repository](https://github.com/MehranMarxian/OpenLayer): source code, README, and issue tracker
+- [Download (.ccx)](https://github.com/MehranMarxian/OpenLayer/releases/latest/download/openlayer-latest.ccx)
+- [Releases and changelog](https://github.com/MehranMarxian/OpenLayer/releases)
+- [Getting started](https://github.com/MehranMarxian/OpenLayer/blob/main/docs/getting-started.md)
+- [Known limitations](https://github.com/MehranMarxian/OpenLayer/blob/main/docs/known-limitations.md)
+- [Discussions](https://github.com/MehranMarxian/OpenLayer/discussions)
+- [Website](https://mehran-ahmadi.com/OpenLayer/)
+
+## Author
+
+Built by Mehran Ahmadi, a photographer and digital artist. GitHub: MehranMarxian.
