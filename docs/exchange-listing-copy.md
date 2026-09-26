@@ -48,7 +48,7 @@ ComfyUI AI layers, on your GPU
 ### Description  (max 5000)
 
 ```
-OpenLayer is a free, open-source Photoshop plugin that connects Photoshop to a ComfyUI server
+OpenLayer is a free, open-source plugin for Photoshop that connects Photoshop to a ComfyUI server
 running on your own machine. Generate with Stable Diffusion, SDXL, and Flux models, and every
 result arrives as an editable Photoshop layer — named, positioned, and yours to keep working on,
 not a flattened PNG you paste in and hope for.
@@ -90,7 +90,7 @@ WHAT YOU NEED
 - Photoshop 2024 or newer
 - A local ComfyUI server (https://github.com/comfyanonymous/ComfyUI) — installed and started
   separately, the same way you would start any local server before connecting a client to it.
-  OpenLayer does not bundle ComfyUI or any model; a Photoshop plugin cannot run a separate server
+  OpenLayer does not bundle ComfyUI or any model; plugins inside Photoshop cannot run a separate server
   process.
 - A GPU with 8 GB of VRAM or more (12 GB is what the project targets)
 
@@ -201,21 +201,21 @@ captured. Full notes: https://github.com/MehranMarxian/OpenLayer/blob/main/CHANG
 ## Note to Adobe Reviewers  (max 1000 — hard limit, the full version in `docs/exchange-reviewer-notes.md` is longer and must be trimmed to fit)
 
 ```
-OpenLayer is a client for ComfyUI, a free local AI image server. It bundles neither ComfyUI nor any model: a Photoshop plugin cannot run a server, so ComfyUI is installed and started separately.
+OpenLayer is a client for ComfyUI, a free local AI image server. It bundles neither ComfyUI nor any model: plugins inside Photoshop cannot run a server, so ComfyUI is installed and started separately.
 
-Fastest path to one generation (~10-15 min, mostly one download):
-1. Install ComfyUI (Windows portable build) and start it.
-2. Put any SD 1.5 checkpoint (~2 GB, no login) in ComfyUI/models/checkpoints/.
-3. Open Plugins > OpenLayer. The welcome screen finds ComfyUI on its default port.
-4. Text to Image > pick the checkpoint > prompt > Generate > Import to Layers.
+To test (~15 min):
+1. Download ComfyUI_windows_portable_nvidia.7z from https://github.com/comfy-org/ComfyUI/releases/latest , extract, run run_nvidia_gpu.bat. Address: http://127.0.0.1:8188
+2. Put this 2 GB model (no login) in ComfyUI/models/checkpoints/: https://huggingface.co/Comfy-Org/stable-diffusion-v1-5-archive/resolve/main/v1-5-pruned-emaonly-fp16.safetensors
+3. Open Plugins > OpenLayer. It finds ComfyUI automatically.
+4. Text to Image > pick the model > prompt > Generate > Import to Layers.
 
-With ComfyUI off or no models, the panel shows a labelled Setup screen. That is expected, not a failure.
+With ComfyUI off or no model, the panel shows a labelled Setup screen, not a failure.
 
-Permissions: network access reaches only the ComfyUI address you enter and model hosts you confirm. File access reads ComfyUI's models/ folder. No telemetry, no accounts.
+Permissions: network reaches only the ComfyUI address and model hosts you confirm; file access reads ComfyUI's models/ folder. No telemetry, no accounts.
 
-Tested on Windows only so far.
+Tested on Windows only.
 ```
-`[870]` (the 2026-09-10 draft was 1210 and over the limit; trimmed 2026-09-24)
+`[972]` (rewritten 2026-09-26 after Adobe's first review asked for the ComfyUI download link)
 `[~990]` — **at the limit.** If Adobe's field rejects it, cut the numbered list to prose. The
 untrimmed version stays in `docs/exchange-reviewer-notes.md`.
 
