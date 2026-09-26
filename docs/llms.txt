@@ -1,6 +1,6 @@
 # OpenLayer
 
-> OpenLayer is a free, open-source (MIT) Adobe Photoshop plugin for ComfyUI. It is a UXP panel that connects Photoshop to a ComfyUI server running on your own computer, so you can generate and edit images with local AI models and get every result back as a real, editable Photoshop layer. No cloud, no subscription, no account, no credits, and nothing is uploaded.
+> OpenLayer is a free, open-source (MIT) ComfyUI plugin for Adobe Photoshop. It is a UXP panel that connects Photoshop to a ComfyUI server running on your own computer, so you can generate and edit images with local AI models and get every result back as a real, editable Photoshop layer. No cloud, no subscription, no account, no credits, and nothing is uploaded.
 
 OpenLayer is for anyone who uses Photoshop and wants AI image generation without Adobe Firefly's generative credits or a hosted service: photographers, designers, digital artists, retouchers, and ComfyUI users who are tired of moving images between ComfyUI and Photoshop by hand. It works as a free, local alternative to Photoshop Generative Fill.
 

@@ -4,14 +4,14 @@
     <meta charset="utf-8">
     <meta name="msvalidate.01" content="84F39C4C7661C344CCAA921241DECF21" />
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>OpenLayer — Free Photoshop Plugin for ComfyUI · Local AI Image Generation</title>
+    <title>OpenLayer — Free ComfyUI Plugin for Photoshop · Local AI Image Generation</title>
     <meta
       name="description"
       content="OpenLayer is a free, open-source Photoshop UXP plugin that connects to your local ComfyUI server. Generate with Stable Diffusion, SDXL, and Flux inside Photoshop: text to image, image to image, sketch to image, inpaint, outpaint, and upscale — 100% local, no cloud, no subscription."
     >
     <link rel="canonical" href="https://mehran-ahmadi.com/OpenLayer/">
     <meta name="theme-color" content="#000000">
-    <meta property="og:title" content="OpenLayer — Free Photoshop Plugin for ComfyUI">
+    <meta property="og:title" content="OpenLayer — Free ComfyUI Plugin for Photoshop">
     <meta property="og:description" content="Local AI layers for Photoshop. Generate with Stable Diffusion, SDXL, and Flux through your own ComfyUI server — text to image, inpaint, outpaint, upscale. Open source, no cloud, no subscription.">
     <meta property="og:image" content="https://mehran-ahmadi.com/OpenLayer/assets/openlayer-v0120-social.jpg">
     <meta property="og:image:width" content="1200">
@@ -20,7 +20,7 @@
     <meta property="og:url" content="https://mehran-ahmadi.com/OpenLayer/">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="OpenLayer — Free Photoshop Plugin for ComfyUI">
+    <meta name="twitter:title" content="OpenLayer — Free ComfyUI Plugin for Photoshop">
     <meta name="twitter:description" content="Local AI layers for Photoshop. Stable Diffusion, SDXL, and Flux through your own ComfyUI server. Open source, no cloud.">
     <meta name="twitter:image" content="https://mehran-ahmadi.com/OpenLayer/assets/openlayer-v0120-social.jpg">
     <link rel="icon" href="assets/openlayer-icon-152.png">
@@ -33,7 +33,7 @@
       "name": "OpenLayer",
       "operatingSystem": "Windows, macOS",
       "applicationCategory": "DesignApplication",
-      "applicationSubCategory": "Adobe Photoshop plugin",
+      "applicationSubCategory": "Plugin for Adobe Photoshop",
       "softwareVersion": "0.37.0-alpha",
       "description": "Open-source Photoshop UXP plugin that connects to a local ComfyUI server for AI image generation: text to image, image to image, sketch to image, inpaint, outpaint, and upscale with Stable Diffusion, SDXL, and Flux models.",
       "url": "https://mehran-ahmadi.com/OpenLayer/",
@@ -484,7 +484,7 @@
               <li>Progress is shown in the generation status panel rather than pinned to the screen header, so it scrolls with the form.</li>
               <li>The ComfyUI setup pack ships the requirements list and a downloader, not the model weights. An internet connection is required.</li>
               <li>The Setup screen downloads models but not custom node packages, which keep Copy Link and go through ComfyUI-Manager. It also refuses to fetch licence-gated weights, because an unauthenticated download saves a sign-in page under the model's filename rather than a model.</li>
-              <li>The Agent Bridge is not part of the <code>.ccx</code>/<code>.zip</code> download &mdash; a Photoshop plugin package cannot start a Node program, so it lives in the repository. The panel asking the assistant for a prompt additionally depends on the AI client supporting MCP sampling, which is optional in the protocol.</li>
+              <li>The Agent Bridge is not part of the <code>.ccx</code>/<code>.zip</code> download &mdash; a plugin package inside Photoshop cannot start a Node program, so it lives in the repository. The panel asking the assistant for a prompt additionally depends on the AI client supporting MCP sampling, which is optional in the protocol.</li>
               <li>Multi-Reference's list is capped at 8 references, a sanity bound rather than a measured limit &mdash; testing found no reference count, up to 6, at which composition quality fell off. Reference order matters more than count: an object that has to sit behind the other subjects renders more reliably earlier in the list.</li>
             </ul>
           </details>
