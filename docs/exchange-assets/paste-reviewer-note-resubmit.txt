@@ -1,0 +1,13 @@
+Updated per your review: brand wording fixed (privacy policy, terms, website, description, version details); ComfyUI link and address added below.
+
+OpenLayer is a client for ComfyUI, a free local AI image server. Plugins inside Photoshop cannot run a server, so ComfyUI is installed and started separately.
+
+To test (15 min):
+1. Download ComfyUI_windows_portable_nvidia.7z from https://github.com/comfy-org/ComfyUI/releases/latest , extract, run run_nvidia_gpu.bat. Address: http://127.0.0.1:8188
+2. Put this 2 GB model (no login) in ComfyUI/models/checkpoints/: https://huggingface.co/Comfy-Org/stable-diffusion-v1-5-archive/resolve/main/v1-5-pruned-emaonly-fp16.safetensors
+3. Open Plugins > OpenLayer. It finds ComfyUI automatically.
+4. Text to Image > pick the model > prompt > Generate > Import to Layers.
+
+With ComfyUI off, the panel shows a labelled Setup screen, not a failure.
+
+No telemetry, no accounts. Network reaches only ComfyUI and model hosts you confirm.

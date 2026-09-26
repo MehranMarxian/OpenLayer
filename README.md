@@ -5,7 +5,7 @@
 <h1 align="center">OpenLayer</h1>
 
 <p align="center">
-  <b>The free, open-source Photoshop plugin for ComfyUI.</b><br>
+  <b>The free, open-source ComfyUI plugin for Photoshop.</b><br>
   Local AI layers, inside Photoshop.
 </p>
 
@@ -502,7 +502,7 @@ anything seems wrong.
 
 ### Running it
 
-**It is not in the `.ccx` download.** A Photoshop plugin package cannot install or start a Node
+**It is not in the `.ccx` download.** A plugin package inside Photoshop cannot install or start a Node
 program, so the bridge lives in this repository and is off by default at both ends. Clone or download
 the repo, then:
 
