@@ -1,5 +1,14 @@
 # Adobe Exchange Readiness Audit (v0.16.0-alpha)
 
+> **SUBMITTED 2026-09-24** — v0.37.0-alpha, listing `1e827d3d`, publisher profile submitted the same
+> day. Windows only (Mac never tested), "manually publish later" chosen so launch day is ours.
+> Adobe aims to review within ~10 business days. The 27.9 cold-launch pass (B1) was **not** run
+> before submitting — if the review bounces on a launch error, start there.
+>
+> Corrections learned in the live portal: the Media tab takes **screenshots only** (no listing
+> icons — the D1 icon task below was wrong; icons come from the package manifest). "Requires
+> another application" = Yes (ComfyUI); "requires 3rd-party login" = No.
+
 Audited against `src/manifest.json`, `scripts/package.mjs`, `SECURITY.md`, `LICENSE`, CI config,
 and Adobe's current Developer Distribution / UXP manifest docs (checked live 2026-08-23; sources
 linked inline where a claim is load-bearing). Scope: everything that could make an Adobe reviewer
@@ -24,7 +33,7 @@ This is an audit + plan, not a task list someone else already agreed to. Items m
 
 | # | Finding | Severity | Detail |
 |---|---|---|---|
-| 1.1 | `id: "com.openlayer.photoshop"` is self-assigned, not issued by Adobe | **BLOCKER** | Adobe's Developer Distribution docs state the manifest `id` must match the ID the portal issues when you create the listing, "or the plugin will not pass the validation step." There is currently no publisher profile or listing, so there is no real ID yet — this has to happen before packaging the submission build. |
+| 1.1 | ~~`id: "com.openlayer.photoshop"` is self-assigned, not issued by Adobe~~ **Resolved 2026-08-23** — real ID `1e827d3d` wired in by commit `8a0b2c4` | ~~BLOCKER~~ | Adobe's Developer Distribution docs state the manifest `id` must match the ID the portal issues when you create the listing, "or the plugin will not pass the validation step." There is currently no publisher profile or listing, so there is no real ID yet — this has to happen before packaging the submission build. |
 | 1.2 | `network.domains: "all"` | **HIGH** | Valid syntax (verified against Adobe's manifest v5 docs — `"all"` is a supported literal, distinct from an array of specific domains), so this won't fail *validation*. But it's the broadest possible grant, and a human reviewer will ask why. The honest reason is legitimate but has to be stated explicitly in the submission's permission-justification field, not left implicit: the ComfyUI host is user-configured and can be any LAN IP:port (not a fixed domain OpenLayer controls), and model downloads (`src/comfy/setupManifest.ts`, `src/comfy/modelDownload.ts`) point at whatever URL the registry or the user pastes — Hugging Face, Civitai, GitHub, etc. — with no fixed set. There's no realistic narrowing available; the fix here is documentation, not code. |
 | 1.3 | `localFileSystem: fullAccess` | **HIGH** → justified (verified 2026-08-23) | Confirmed against Adobe's docs: `fullAccess` explicitly triggers an extra install/update consent prompt beyond the normal install flow ("the user will be required to consent before installation or update"). Traced the actual need: `modelFolderAccess.ts` calls `getEntryWithUrl()` on an absolute `file:` path to silently locate the user's arbitrary-location ComfyUI `models/` folder — that specific API is what requires `fullAccess`, and there's no picker-based substitute for a silent, repeated background check. Checked the other two filesystem call sites and neither needs `fullAccess`: `saveFile.ts` uses a real OS save dialog (`getFileForSaving`) and `fileUtils.ts` uses the plugin's own sandboxed temp folder (`getTemporaryFolder`) — both already minimal. Nothing to narrow; `fullAccess` stays, now with a specific code-backed justification instead of a general one. |
 | 1.4 | `clipboard: readAndWrite` | OK (verified 2026-08-23) | Confirmed: all 4 call sites in `App.ts` are `navigator.clipboard.writeText` — Copy Diagnostics, Copy Link, and copying a generated prompt. No read call exists anywhere. But the UXP manifest schema only offers `"read"` or `"readAndWrite"` for this permission — there is no write-only value — so `readAndWrite` is already the minimum available grant. Nothing to narrow. |
@@ -43,7 +52,7 @@ This is an audit + plan, not a task list someone else already agreed to. Items m
 | # | Finding | Severity | Detail |
 |---|---|---|---|
 | 2.1 | Zip structure is already correct | OK | `collectEntries()` walks `dist/` and writes archive paths with no wrapping folder; `manifest.json` sits at the archive root and packaging throws if it doesn't. This is exactly Adobe's stated requirement ("compress the contents of the parent folder... not the parent folder itself") and was already fixed for a real macOS bug in v0.10.0. Nothing to do here. |
-| 2.2 | The `.ccx` files in `packages/` are hand-built, unsigned, and built for **sideloading**, not for the Exchange submission itself | **HIGH — clarify workflow** | For an actual Exchange listing, you don't hand-upload a `.ccx`: the Developer Distribution portal takes your plugin **zip** and does its own packaging/signing against the registered listing ID. The `.ccx` this repo builds is for direct/manual distribution (UDT sideload, GitHub release asset) — valuable and should keep existing, but it is not the submission artifact. Don't confuse "we have a working `.ccx`" with "we're ready to submit" — the submission input is the `npm run package` **zip**, built *after* the manifest `id` from 1.1 is real. |
+| 2.2 | **Corrected 2026-09-10: the submission artifact IS the `.ccx`.** Adobe's current docs take a `.ccx` upload (a renamed zip) and sign it server-side. The original finding below said the opposite and is kept only for history. | ~~HIGH~~ OK | For an actual Exchange listing, you don't hand-upload a `.ccx`: the Developer Distribution portal takes your plugin **zip** and does its own packaging/signing against the registered listing ID. The `.ccx` this repo builds is for direct/manual distribution (UDT sideload, GitHub release asset) — valuable and should keep existing, but it is not the submission artifact. Don't confuse "we have a working `.ccx`" with "we're ready to submit" — the submission input is the `npm run package` **zip**, built *after* the manifest `id` from 1.1 is real. |
 | 2.3 | The open question from `DISTRIBUTION_SPIKE.md` — "does an unsigned third-party `.ccx` even install on a machine that never had UDT" — is still unanswered | MODERATE | Irrelevant to Exchange submission (Adobe signs what you submit), but still relevant to the direct-distribution path this project also uses. Not a submission blocker; don't let it block v0.17.0. |
 
 ---
@@ -73,7 +82,7 @@ This is an audit + plan, not a task list someone else already agreed to. Items m
 |---|---|---|---|
 | 5.1 | No privacy policy | **BLOCKER** | Confirmed directly against Adobe's Developer Distribution submission docs: a listing requires both a **privacy policy** and **terms of service**. Neither exists in this repo. `SECURITY.md`'s "Local Network Guidance" section is a solid factual seed (no telemetry, no cloud calls, local-only diagnostics) but is not a published, linkable policy page. |
 | 5.2 | No terms of service | **BLOCKER** | Same requirement, separate document. MIT `LICENSE` covers the *code*; Exchange wants a ToS covering the *listing/usage relationship* (support expectations, no-warranty language, etc. — much of this can be adapted from the MIT disclaimer plus SECURITY.md). |
-| 5.3 | Publisher profile — EU seller info | **[decision needed]** | Adobe's docs note EU-based publishers must supply business address, phone, and D-U-N-S number as of Feb 16 2025 — this is a live requirement, not a future one. Need to know whether Mehran is submitting as an individual/EU entity, since it changes what the publisher profile needs before a listing can even be created. |
+| 5.3 | Publisher profile — EU seller info | **[decision needed]** | Adobe's docs note EU-based publishers must supply trader details (business email, phone, address) as of Feb 16 2025; **D-U-N-S is optional** (corrected 2026-09-10) — this is a live requirement, not a future one. Need to know whether Mehran is submitting as an individual/EU entity, since it changes what the publisher profile needs before a listing can even be created. |
 | 5.4 | No data-collection surprises found in code | OK | Grep across `src/` for network calls turned up only: the user's configured ComfyUI host, ComfyUI's own `/system_stats` and Manager API, and model-download URLs the registry/user supplies. Nothing phones home. This makes the privacy policy easy to write honestly — "we don't collect anything" is true, not aspirational. |
 
 ---
@@ -102,13 +111,15 @@ This is an audit + plan, not a task list someone else already agreed to. Items m
 
 ## Summary: what actually blocks submission today
 
-1. No registered manifest `id` (1.1) — need a Developer Distribution publisher profile + listing first. **Still open — requires Mehran's Adobe account.**
+1. ~~No registered manifest `id` (1.1).~~ **Resolved 2026-08-23** — `1e827d3d`, commit `8a0b2c4`.
 2. ~~No privacy policy (5.1).~~ **Resolved 2026-08-23** — [docs/privacy.html](privacy.html).
 3. ~~No terms of service (5.2).~~ **Resolved 2026-08-23** — [docs/terms.html](terms.html).
 
-So exactly one hard blocker remains, and it can only be cleared by Mehran creating the publisher
-profile and listing in the Developer Distribution portal (A1/A2 below) — that step needs an Adobe
-account and can't be done from this repo.
+**No hard blockers remain (2026-09-24).** What's left before submitting: confirm the publisher
+profile was submitted, three listing decisions (support email, alpha/beta wording, name), the
+Photoshop 27.9 cold-launch pass (B1), and at least one 1360×800 screenshot. Listing copy is drafted
+in [docs/exchange-listing-copy.md](exchange-listing-copy.md); listing icons (48/96/192) and the
+250×250 publisher logo are in `docs/exchange-assets/`. Submit from a released tag on `main`.
 
 Everything else is either a strong risk-reduction item (cold-start reliability, Mac testing) or
 listing content that has to exist but isn't a validation-time blocker. Of the risk-reduction items,
@@ -124,7 +135,7 @@ Scoped as discrete tasks in the project's usual one-task-at-a-time flow. Ordered
 ### A. Paperwork (do first — nothing else can complete without these)
 
 - [ ] **A1.** Create the Adobe publisher profile (public name, marketing site, description, logo). **[decision needed from Mehran]**: individual vs. business entity, and EU seller info (5.3) if applicable. Walkthrough: [docs/exchange-portal-registration.md](exchange-portal-registration.md).
-- [ ] **A2.** Create the plugin listing in Developer Distribution to obtain the real manifest `id`. Update `src/manifest.json` (`id` field) and re-run the version-consistency test to confirm nothing else needs to change. Same walkthrough covers this step.
+- [x] **A2.** Create the plugin listing in Developer Distribution to obtain the real manifest `id`. Update `src/manifest.json` (`id` field) and re-run the version-consistency test to confirm nothing else needs to change. Same walkthrough covers this step.
 - [x] **A3.** Privacy policy published: [docs/privacy.html](privacy.html), linked from `docs/index.html`, `docs/become-a-tester.html`, and README footers.
 - [x] **A4.** Terms of service published: [docs/terms.html](terms.html), same linking.
 - [ ] **A5.** **[decision needed]** Confirm listing framing: alpha/beta language for the *Exchange listing copy* specifically (6.2).
@@ -144,16 +155,16 @@ Scoped as discrete tasks in the project's usual one-task-at-a-time flow. Ordered
 
 ### D. Listing content (can run in parallel with B/C)
 
-- [ ] **D1.** 3 required listing icon sizes (separate from the in-panel UXP icons already in `src/icons/`).
-- [ ] **D2.** Screenshots (4–6) and a short demo video.
-- [ ] **D3.** Listing copy: public name, subtitle, description, help URL, support email.
+- [x] **D1.** ~~Listing icons~~ not asked for by the portal. 250×250 publisher logo: `docs/exchange-assets/openlayer-250.png`.
+- [x] **D2.** Four screenshots in `docs/exchange-assets/`; videos are the two existing YouTube demos.
+- [ ] **D3.** Listing copy — drafted in [docs/exchange-listing-copy.md](exchange-listing-copy.md); waiting on support email, name, and alpha/beta decisions.
 
 ### E. Submission
 
 - [ ] **E1.** Bump to v0.17.0 through the normal release process (memory: `release/vX.Y.Z` branch, version bump ×4 sites, CHANGELOG/README/landing page).
-- [ ] **E2.** `npm run package` to produce the submission zip — confirm it's the zip (not the `.ccx`) that gets uploaded to the portal (2.2).
+- [x] **E2.** `npm run package` and upload the **`.ccx`** from `packages/` (corrected — see 2.2).
 - [ ] **E3.** Run the existing `docs/release-checklist.md` in full, plus the new cold-start pass from B2.
-- [ ] **E4.** Submit via Developer Distribution with the justification (C1) and reviewer notes (C2) attached.
+- [x] **E4.** Submit via Developer Distribution with the justification (C1) and reviewer notes (C2) attached.
 - [ ] **E5.** Be ready to turn around review feedback quickly — first Exchange submissions often bounce once on something minor.
 
 ---
