@@ -54,3 +54,15 @@ Notes from OP (the OpenLayer Painter agent) working through the real panel via t
 1. **Automatically tag the names of layers made by research-licensed presets** (for example, a "[research licence]" suffix). The licence warning currently lives only in the dropdown, and an artist building a composite has no way to see later which layers can't ship.
 2. **A way to set or rename a layer's name from the tool call or panel** (the preset and seed would do). Seventeen variations named by import order is not a usable stack.
 3. **An "open as new document at generated size" option** for Text to Image, so a portrait poster doesn't land in a landscape hero document.
+
+## 2026-09-27 — Hero screenshot set-up (found by the orchestrating assistant, not OP)
+
+**Bugs (reproduced):**
+- **`text_to_image` over the bridge does not import when the panel's Auto Import is off**, even though the tool's
+  description says it "imports it as a new layer". OP's 17 generations all existed in ComfyUI's output folder and
+  none was in the Photoshop document; the status said "Generation complete." while the panel showed an unpressed
+  "Import Result as New Layer". With Auto Import on, the status becomes "Imported layer: …" and it works. An agent
+  can't see the toggle, so the bridge should either import regardless or return an explicit "not imported" status.
+- **A freshly imported full-canvas result landed ~40 px right of the canvas edge** in a new 1344×896 document,
+  leaving a strip of the layer beneath visible down the left side. Fixed for the shot with Align Layers to
+  Selection (left + top). Worth checking the import placement for results exactly the size of the canvas.
