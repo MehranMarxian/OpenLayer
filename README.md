@@ -16,7 +16,9 @@
   <img alt="License MIT" src="https://img.shields.io/badge/license-MIT-blue">
   <a href="https://github.com/MehranMarxian/OpenLayer/stargazers"><img alt="Star this repo" src="https://img.shields.io/badge/%E2%AD%90-Star%20this%20repo-f5c518"></a>
   <br>
-  <a href="https://github.com/MehranMarxian/OpenLayer/releases/latest/download/openlayer-latest.ccx"><b>Download for Photoshop (.ccx)</b></a>
+  <a href="https://exchange.adobe.com/apps/cc/1e827d3d"><b>Get it on Adobe Exchange</b></a>
+  ·
+  <a href="https://github.com/MehranMarxian/OpenLayer/releases/latest/download/openlayer-latest.ccx">Download the latest .ccx</a>
   ·
   <a href="https://mehran-ahmadi.com/OpenLayer/">Website</a>
   ·
@@ -174,14 +176,16 @@ document as an ordinary layer. **Click any picture to see it full size.**
 <details>
 <summary><h3>Installation</h3></summary>
 
-**Download the `.ccx`, double-click it, start ComfyUI.** That is the whole process — the details
+**Install from [Adobe Exchange](https://exchange.adobe.com/apps/cc/1e827d3d) (Install button, Creative Cloud does the rest), or download the `.ccx` and double-click it. Then start ComfyUI.** That is the whole process — the details
 below are for when something does not go that way, and for building from source.
 
 You will also need the Adobe Creative Cloud desktop app, which is what installs the `.ccx`.
 
 ### 1. Install the plugin
 
-Use the **Download** button above, or grab
+**Option A, Adobe Exchange:** open the [OpenLayer listing](https://exchange.adobe.com/apps/cc/1e827d3d) and click **Install**. Creative Cloud installs it and Photoshop lists it under **Plugins › OpenLayer**. The listing carries the version Adobe approved (v0.37.0) and can trail the latest GitHub release. It is not yet shown to visitors in the EU, so use Option B there.
+
+**Option B, the latest alpha:** use the **Download** button above, or grab
 [`openlayer-latest.ccx`](https://github.com/MehranMarxian/OpenLayer/releases/latest/download/openlayer-latest.ccx)
 directly, and **double-click it**. Creative Cloud installs the panel. Photoshop then lists it under
 **Plugins › OpenLayer**. Release notes for the version you just got are on the
@@ -189,8 +193,8 @@ directly, and **double-click it**. Creative Cloud installs the panel. Photoshop 
 
 Two things worth knowing:
 
-- The plugin is **not signed and not from Adobe Exchange**, so Creative Cloud shows a "not verified by
-  Adobe" prompt. That is expected — click through it.
+- The Exchange install is Adobe-reviewed. The direct `.ccx` is **not signed**, so Creative Cloud shows a
+  "not verified by Adobe" prompt for it. That is expected — click through it.
 - Keep the `.ccx` on the **same drive as Photoshop**. The installer only searches the drive the file
   is sitting on, so a `.ccx` on `D:` with Photoshop on `C:` fails silently.
 
