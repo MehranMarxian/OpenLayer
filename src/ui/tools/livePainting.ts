@@ -604,6 +604,7 @@ export class LivePaintingSessionV2 {
 
     this.currentPromptId = promptId;
 
+    let finishedInComfy = false;
     const wake = this.createCompletionWake();
     const watcher = this.client.watchProgress?.(promptId, { onCompleted: wake.signal }) ?? null;
 
@@ -616,9 +617,17 @@ export class LivePaintingSessionV2 {
         waitForWake: watcher ? wake.waitForWake : undefined
       });
       const observedCompleteAt = Date.now();
+      // Finished in ComfyUI, so from here on there is nothing a stop or a
+      // restarted refine could cancel; only the download remains, and that is
+      // ours to drop.
+      finishedInComfy = true;
+      this.currentPromptId = null;
 
+      // pollUntilComplete only returns for a finished prompt (a cancel during
+      // polling throws into the catch below, which does cancel). Asking
+      // ComfyUI to cancel a prompt that has finished is never useful, and
+      // before cancels were targeted it stopped whoever ran next.
       if (isCancelled()) {
-        this.cancelPrompt(promptId);
         return null;
       }
 
@@ -628,7 +637,6 @@ export class LivePaintingSessionV2 {
       const downloadedAt = Date.now();
 
       if (isCancelled()) {
-        this.cancelPrompt(promptId);
         return null;
       }
 
@@ -647,7 +655,7 @@ export class LivePaintingSessionV2 {
       };
     } catch (caughtError) {
       if (isCancelled()) {
-        this.cancelPrompt(promptId);
+        if (!finishedInComfy) this.cancelPrompt(promptId);
         return null;
       }
 

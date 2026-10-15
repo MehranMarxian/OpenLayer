@@ -426,3 +426,110 @@ describe("ComfyClient preset setup validation", () => {
     expect(JSON.stringify(failure)).toContain("not_a_real_input");
   });
 });
+
+describe("ComfyClient.cancelPrompt on a shared ComfyUI", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const entry = (id: string) => [3, id, {}, {}, []];
+
+  // A fake ComfyUI that answers /queue from a script of snapshots (one per
+  // read) and records every request, so a test can assert what was NOT sent.
+  function stubComfy(options: {
+    queues: Array<{ queue_running: unknown[]; queue_pending: unknown[] } | "fail">;
+    deleteFails?: boolean;
+  }) {
+    const requests: Array<{ url: string; method: string; body: unknown }> = [];
+    let queueReads = 0;
+
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+      requests.push({ url, method, body });
+
+      if (url.endsWith("/queue") && method === "GET") {
+        const snapshot = options.queues[Math.min(queueReads, options.queues.length - 1)];
+        queueReads += 1;
+        return snapshot === "fail"
+          ? new Response("down", { status: 500 })
+          : new Response(JSON.stringify(snapshot), { status: 200 });
+      }
+
+      if (url.endsWith("/queue") && method === "POST") {
+        return new Response("", { status: options.deleteFails ? 500 : 200 });
+      }
+
+      return new Response("", { status: 200 });
+    });
+
+    return {
+      requests,
+      interrupts: () => requests.filter((request) => request.url.endsWith("/interrupt"))
+    };
+  }
+
+  it("sends nothing to ComfyUI when there is no prompt id yet", async () => {
+    const comfy = stubComfy({ queues: [] });
+
+    await expect(new ComfyClient("http://127.0.0.1:8188").cancelPrompt()).resolves.toBe("not-submitted");
+    expect(comfy.requests).toEqual([]);
+  });
+
+  it("leaves someone else's running job alone when ours has already finished", async () => {
+    const comfy = stubComfy({ queues: [{ queue_running: [entry("someone-else")], queue_pending: [] }] });
+
+    await expect(new ComfyClient("http://127.0.0.1:8188").cancelPrompt("ours")).resolves.toBe("not-active");
+    expect(comfy.interrupts()).toEqual([]);
+  });
+
+  it("removes our waiting prompt from the queue without interrupting the running one", async () => {
+    const comfy = stubComfy({ queues: [{ queue_running: [entry("someone-else")], queue_pending: [entry("ours")] }] });
+
+    await expect(new ComfyClient("http://127.0.0.1:8188").cancelPrompt("ours")).resolves.toBe("dequeued");
+    expect(comfy.interrupts()).toEqual([]);
+    expect(comfy.requests.at(-1)).toMatchObject({ method: "POST", body: { delete: ["ours"] } });
+  });
+
+  it("interrupts our running prompt by name", async () => {
+    const comfy = stubComfy({ queues: [{ queue_running: [entry("ours")], queue_pending: [] }] });
+
+    await expect(new ComfyClient("http://127.0.0.1:8188").cancelPrompt("ours")).resolves.toBe("interrupted");
+    expect(comfy.interrupts()).toEqual([
+      { url: "http://127.0.0.1:8188/interrupt", method: "POST", body: { prompt_id: "ours" } }
+    ]);
+  });
+
+  it("sends nothing when the queue cannot be read", async () => {
+    const comfy = stubComfy({ queues: ["fail"] });
+
+    await expect(new ComfyClient("http://127.0.0.1:8188").cancelPrompt("ours")).resolves.toBe("unconfirmed");
+    expect(comfy.interrupts()).toEqual([]);
+  });
+
+  it("interrupts by name if ours started between the queue read and the delete", async () => {
+    const comfy = stubComfy({
+      queues: [
+        { queue_running: [entry("someone-else")], queue_pending: [entry("ours")] },
+        { queue_running: [entry("ours")], queue_pending: [] }
+      ],
+      deleteFails: true
+    });
+
+    await expect(new ComfyClient("http://127.0.0.1:8188").cancelPrompt("ours")).resolves.toBe("interrupted");
+    expect(comfy.interrupts().map((request) => request.body)).toEqual([{ prompt_id: "ours" }]);
+  });
+
+  it("does not interrupt if ours vanished between the queue read and the delete", async () => {
+    const comfy = stubComfy({
+      queues: [
+        { queue_running: [], queue_pending: [entry("ours")] },
+        { queue_running: [entry("someone-else")], queue_pending: [] }
+      ],
+      deleteFails: true
+    });
+
+    await expect(new ComfyClient("http://127.0.0.1:8188").cancelPrompt("ours")).resolves.toBe("not-active");
+    expect(comfy.interrupts()).toEqual([]);
+  });
+});

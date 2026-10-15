@@ -508,6 +508,38 @@ describe("LivePaintingSessionV2", () => {
     expect(harness.callbacks.onPreviewBlob).toHaveBeenCalledTimes(1);
   });
 
+  it("does not cancel a prompt ComfyUI has already finished when stopped during the download", async () => {
+    const download = createDeferred<{ blob: Blob }>();
+    const harness = createHarness({}, {
+      retrieveFirstOutputImage: vi.fn(() => download.promise)
+    });
+    await harness.session.start();
+    await vi.waitFor(() => expect(harness.client.retrieveFirstOutputImage).toHaveBeenCalledTimes(1));
+
+    harness.session.stop();
+    download.resolve({ blob: new Blob(["late"], { type: "image/png" }) });
+    await Promise.resolve();
+
+    // On a shared ComfyUI, a cancel here used to land on whoever ran next.
+    expect(harness.client.cancelPrompt).not.toHaveBeenCalled();
+    expect(harness.callbacks.onPreviewBlob).not.toHaveBeenCalled();
+  });
+
+  it("does not cancel a finished prompt when its download fails after a stop", async () => {
+    const download = createDeferred<{ blob: Blob }>();
+    const harness = createHarness({}, {
+      retrieveFirstOutputImage: vi.fn(() => download.promise)
+    });
+    await harness.session.start();
+    await vi.waitFor(() => expect(harness.client.retrieveFirstOutputImage).toHaveBeenCalledTimes(1));
+
+    harness.session.stop();
+    download.reject(new Error("socket closed"));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(harness.client.cancelPrompt).not.toHaveBeenCalled();
+  });
+
   it("cancels a prompt ID that arrives after the session has stopped", async () => {
     const submittedPrompt = createDeferred<string>();
     const harness = createHarness({}, {
