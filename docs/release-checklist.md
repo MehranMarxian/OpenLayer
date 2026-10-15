@@ -75,6 +75,10 @@ error, because the URL still resolves. There is no automated check for this yet.
 
 ## Manual Smoke Test
 
+Run the whole [UXP smoke checklist](uxp-smoke-checklist.md) first, on the newest Photoshop and on
+Photoshop 2024, and add a row to its Results table. The steps below are the longer, model-heavy
+pass that goes beyond it.
+
 - Load `dist/manifest.json` in Adobe UXP Developer Tool.
 - Open Photoshop and launch OpenLayer.
 - Run `Check ComfyUI`.

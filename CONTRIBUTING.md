@@ -21,6 +21,8 @@ npm run build
 
 The browser dev server is useful for layout work, but Photoshop APIs only run inside Photoshop's UXP runtime.
 
+A change to the panel, its styles or anything that calls Photoshop also needs the ten-minute [UXP smoke checklist](docs/uxp-smoke-checklist.md) in real Photoshop: block 0 plus the blocks for the area you changed, ticked in the pull request.
+
 ## Scope Guidelines
 
 - Keep pull requests focused.
