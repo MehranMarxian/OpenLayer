@@ -27,6 +27,7 @@ import {
   GenerationCancelResult
 } from "./generationCancel";
 import { createOpenLayerError, getNestedErrorMessage } from "../utils/errors";
+import { ComfyRequestKind, fetchWithTimeout, isComfyNotRespondingError } from "./requestTimeout";
 import { createMultipartBoundary, createMultipartRequestBody } from "../utils/multipart";
 
 /**
@@ -150,14 +151,25 @@ export class ComfyClient {
     return this.serverUrl;
   }
 
+  // Every HTTP request to ComfyUI goes through here, so none can wait forever.
+  // fetch is wrapped rather than passed: a function pulled off a host object
+  // can lose its binding in UXP.
+  private request(kind: ComfyRequestKind, url: string, init?: RequestInit) {
+    return fetchWithTimeout((target, options) => fetch(target, options), url, init, kind);
+  }
+
   async checkOnline() {
     try {
-      const response = await fetch(`${this.serverUrl}/system_stats`);
+      const response = await this.request("status", `${this.serverUrl}/system_stats`);
 
       if (!response.ok) {
         throw createOpenLayerError("COMFY_HTTP", `ComfyUI responded with HTTP ${response.status}.`);
       }
     } catch (caughtError) {
+      // Running but not answering is a different problem from not running,
+      // and the fix is different too, so it keeps its own message.
+      if (isComfyNotRespondingError(caughtError)) throw caughtError;
+
       throw createOpenLayerError(
         "COMFY_OFFLINE",
         `ComfyUI is offline or unreachable at ${this.serverUrl}.`,
@@ -168,7 +180,7 @@ export class ComfyClient {
 
   async getSystemStats(): Promise<ComfySystemStats> {
     try {
-      const response = await fetch(`${this.serverUrl}/system_stats`);
+      const response = await this.request("status", `${this.serverUrl}/system_stats`);
 
       if (!response.ok) {
         throw createOpenLayerError("COMFY_HTTP", `ComfyUI responded with HTTP ${response.status}.`);
@@ -176,6 +188,8 @@ export class ComfyClient {
 
       return readComfySystemStats(await response.json());
     } catch (caughtError) {
+      if (isComfyNotRespondingError(caughtError)) throw caughtError;
+
       throw createOpenLayerError(
         "COMFY_OFFLINE",
         `Could not detect GPU information because ComfyUI is offline or unreachable at ${this.serverUrl}.`,
@@ -369,7 +383,7 @@ export class ComfyClient {
   }
 
   private async getObjectInfo(objectInfoNode: string): Promise<ComfyObjectInfoResponse> {
-    const response = await fetch(`${this.serverUrl}/object_info/${encodeURIComponent(objectInfoNode)}`);
+    const response = await this.request("objectInfo", `${this.serverUrl}/object_info/${encodeURIComponent(objectInfoNode)}`);
 
     if (!response.ok) {
       throw createOpenLayerError(
@@ -421,7 +435,7 @@ export class ComfyClient {
       ]
     );
 
-    const response = await fetch(`${this.serverUrl}/upload/image`, {
+    const response = await this.request("upload", `${this.serverUrl}/upload/image`, {
       method: "POST",
       headers: {
         "Content-Type": `multipart/form-data; boundary=${boundary}`
@@ -449,7 +463,7 @@ export class ComfyClient {
   }
 
   async submitPrompt(workflow: ComfyWorkflow): Promise<string> {
-    const response = await fetch(`${this.serverUrl}/prompt`, {
+    const response = await this.request("submit", `${this.serverUrl}/prompt`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -532,7 +546,7 @@ export class ComfyClient {
 
   private async interruptPrompt(promptId: string) {
     const request = createComfyInterruptRequest(this.serverUrl, promptId);
-    const response = await fetch(request.url, request.init);
+    const response = await this.request("control", request.url, request.init);
 
     if (!response.ok) {
       const message = await readResponseText(response);
@@ -554,7 +568,7 @@ export class ComfyClient {
 
   private async deleteQueuedPrompt(promptId: string) {
     const request = createComfyQueueDeleteRequest(this.serverUrl, promptId);
-    const response = await fetch(request.url, request.init);
+    const response = await this.request("control", request.url, request.init);
 
     if (!response.ok) {
       const message = await readResponseText(response);
@@ -570,14 +584,16 @@ export class ComfyClient {
     const intervalMs = options.intervalMs ?? 1500;
     const timeoutMs = options.timeoutMs ?? 10 * 60 * 1000;
     const startedAt = Date.now();
+    let missedPolls = 0;
 
     while (Date.now() - startedAt < timeoutMs) {
       if (options.isCancelled?.()) {
         throw createGenerationCancelledError();
       }
 
-      const history = await this.getHistory(promptId);
-      const item = history[promptId];
+      const history = await this.readHistoryWhilePolling(promptId, missedPolls);
+      missedPolls = history ? 0 : missedPolls + 1;
+      const item = history?.[promptId];
 
       if (item?.status?.status_str === "error") {
         throw createOpenLayerError(
@@ -614,14 +630,16 @@ export class ComfyClient {
     const intervalMs = options.intervalMs ?? 1500;
     const timeoutMs = options.timeoutMs ?? 10 * 60 * 1000;
     const startedAt = Date.now();
+    let missedPolls = 0;
 
     while (Date.now() - startedAt < timeoutMs) {
       if (options.isCancelled?.()) {
         throw createGenerationCancelledError();
       }
 
-      const history = await this.getHistory(promptId);
-      const item = history[promptId];
+      const history = await this.readHistoryWhilePolling(promptId, missedPolls);
+      missedPolls = history ? 0 : missedPolls + 1;
+      const item = history?.[promptId];
 
       if (item?.status?.status_str === "error") {
         throw createOpenLayerError(
@@ -730,7 +748,7 @@ export class ComfyClient {
 
   private async downloadOutputImage(image: ComfyImageOutput): Promise<GeneratedImageResult> {
     const imageUrl = this.createViewUrl(image);
-    const response = await fetch(imageUrl);
+    const response = await this.request("download", imageUrl);
 
     if (!response.ok) {
       throw createOpenLayerError(
@@ -822,8 +840,27 @@ export class ComfyClient {
     };
   }
 
+  /**
+   * One history read inside a poll loop. A single unanswered read while
+   * ComfyUI loads a large model should not fail a generation that is otherwise
+   * fine, so up to MAX_MISSED_POLLS in a row count as "not finished yet". After
+   * that ComfyUI is treated as not responding, which beats waiting out the
+   * whole generation timeout in silence.
+   */
+  private async readHistoryWhilePolling(promptId: string, missedSoFar: number): Promise<ComfyHistoryResponse | null> {
+    try {
+      return await this.getHistory(promptId);
+    } catch (caughtError) {
+      if (isComfyNotRespondingError(caughtError) && missedSoFar + 1 < MAX_MISSED_POLLS) {
+        return null;
+      }
+
+      throw caughtError;
+    }
+  }
+
   private async getHistory(promptId: string): Promise<ComfyHistoryResponse> {
-    const response = await fetch(`${this.serverUrl}/history/${encodeURIComponent(promptId)}`);
+    const response = await this.request("status", `${this.serverUrl}/history/${encodeURIComponent(promptId)}`);
 
     if (!response.ok) {
       throw createOpenLayerError("COMFY_HTTP", `Could not read ComfyUI history. HTTP ${response.status}.`);
@@ -833,7 +870,7 @@ export class ComfyClient {
   }
 
   private async getQueue(): Promise<ComfyQueueResponse> {
-    const response = await fetch(`${this.serverUrl}/queue`);
+    const response = await this.request("status", `${this.serverUrl}/queue`);
 
     if (!response.ok) {
       throw createOpenLayerError("COMFY_HTTP", `Could not read ComfyUI queue. HTTP ${response.status}.`);
@@ -1222,6 +1259,10 @@ async function readResponseText(response: Response) {
     return "";
   }
 }
+
+// Consecutive unanswered history reads tolerated while polling (about 30 s at
+// the status request limit) before a generation reports ComfyUI as not responding.
+const MAX_MISSED_POLLS = 3;
 
 export function findPromptIndex(entries: unknown[] | undefined, promptId: string) {
   if (!Array.isArray(entries)) {
