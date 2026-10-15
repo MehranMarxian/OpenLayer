@@ -17,17 +17,27 @@
 
 export const COMFY_ONLINE_STATUS = "ComfyUI is online. Models loaded.";
 
-export const NO_CHECKPOINTS_NOTE =
-  "No checkpoints in models/checkpoints yet. FLUX.2 Klein and the other diffusion model workflows do not need one; SD 1.5 and SDXL workflows do.";
+/**
+ * The status bar is one line and clips at about 48 characters in the panel
+ * (measured in Photoshop 2025: the first wording read "...No checkpoints in"
+ * and stopped). So the bar says only what happened, and the reason goes on the
+ * diagnostics line under it.
+ */
+export const COMFY_ONLINE_NO_CHECKPOINTS_STATUS = "ComfyUI is online. No SD checkpoints yet.";
+
+export const NO_CHECKPOINTS_NOTE = "FLUX.2 Klein needs no checkpoint; only SD 1.5 and SDXL workflows do.";
 
 /** The status line after a successful check, given how many checkpoints ComfyUI listed. */
 export function getComfyOnlineStatus(checkpointCount: number): string {
-  return checkpointCount > 0 ? COMFY_ONLINE_STATUS : `${COMFY_ONLINE_STATUS} ${NO_CHECKPOINTS_NOTE}`;
+  return checkpointCount > 0 ? COMFY_ONLINE_STATUS : COMFY_ONLINE_NO_CHECKPOINTS_STATUS;
 }
 
 /** The status line after Find ComfyUI port selected a server. */
-export function getComfyFoundStatus(url: string, checkpointCount: number): string {
-  const found = `Found ComfyUI at ${url}.`;
+export function getComfyFoundStatus(url: string, _checkpointCount: number): string {
+  return `Found ComfyUI at ${url}.`;
+}
 
-  return checkpointCount > 0 ? found : `${found} ${NO_CHECKPOINTS_NOTE}`;
+/** What goes on the diagnostics line under the status, or null to leave it. */
+export function getNoCheckpointsDiagnostics(checkpointCount: number): string | null {
+  return checkpointCount > 0 ? null : NO_CHECKPOINTS_NOTE;
 }
