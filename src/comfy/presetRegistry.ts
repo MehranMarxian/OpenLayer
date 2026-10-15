@@ -198,7 +198,8 @@ const FLUX2_KLEIN_4B_STACK = [
     setupHint: "Install flux-2-klein-4b-fp8.safetensors where ComfyUI's UNETLoader can find it.",
     downloadUrl: `${BFL_FLUX2_KLEIN_4B_FP8_REPO}/resolve/main/flux-2-klein-4b-fp8.safetensors`,
     sourcePageUrl: BFL_FLUX2_KLEIN_4B_FP8_REPO,
-    downloadSizeBytes: 4070624520
+    downloadSizeBytes: 4070624520,
+    sha256: "97ed34fe0567e436200f2faee3939b88f2b5d99f8af2a4dc16532c4245c0ccb6"
   },
   {
     // Byte-identical to the Z_image_Turbo stack's encoder, and named identically
@@ -213,7 +214,8 @@ const FLUX2_KLEIN_4B_STACK = [
     setupHint: "Install qwen_3_4b.safetensors where ComfyUI's CLIPLoader can find it.",
     downloadUrl: `${COMFY_ORG_Z_IMAGE_TURBO_REPO}/resolve/main/split_files/text_encoders/qwen_3_4b.safetensors`,
     sourcePageUrl: COMFY_ORG_Z_IMAGE_TURBO_REPO,
-    downloadSizeBytes: 8044982048
+    downloadSizeBytes: 8044982048,
+    sha256: "6c671498573ac2f7a5501502ccce8d2b08ea6ca2f661c458e708f36b36edfc5a"
   },
   {
     kind: "vae",
@@ -224,7 +226,8 @@ const FLUX2_KLEIN_4B_STACK = [
     setupHint: "Install flux2-vae.safetensors in ComfyUI models/vae.",
     downloadUrl: `${COMFY_ORG_FLUX2_DEV_REPO}/resolve/main/split_files/vae/flux2-vae.safetensors`,
     sourcePageUrl: COMFY_ORG_FLUX2_DEV_REPO,
-    downloadSizeBytes: 336211292
+    downloadSizeBytes: 336213556,
+    sha256: "d64f3a68e1cc4f9f4e29b6e0da38a0204fe9a49f2d4053f0ec1fa1ca02f9c4b5"
   }
 ] as const;
 
@@ -238,7 +241,8 @@ const QWEN_IMAGE_LAYERED_STACK = [
     setupHint: "Install qwen_image_layered_fp8mixed.safetensors where ComfyUI's UNETLoader can find it.",
     downloadUrl: `${COMFY_ORG_QWEN_IMAGE_LAYERED_REPO}/resolve/main/split_files/diffusion_models/qwen_image_layered_fp8mixed.safetensors`,
     sourcePageUrl: COMFY_ORG_QWEN_IMAGE_LAYERED_REPO,
-    downloadSizeBytes: 20533591821
+    downloadSizeBytes: 20533591821,
+    sha256: "e68c406b1bc08c97382a46dce6ed46699bc18a0f50422d97952ee4e8b63ad50a"
   },
   {
     // NOT in the layered repository. That repo has no text_encoders folder at
@@ -252,7 +256,8 @@ const QWEN_IMAGE_LAYERED_STACK = [
     setupHint: "Install qwen_2.5_vl_7b_fp8_scaled.safetensors where ComfyUI's CLIPLoader can find it.",
     downloadUrl: `${COMFY_ORG_QWEN_IMAGE_REPO}/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors`,
     sourcePageUrl: COMFY_ORG_QWEN_IMAGE_REPO,
-    downloadSizeBytes: 9384670680
+    downloadSizeBytes: 9384670680,
+    sha256: "cb5636d852a0ea6a9075ab1bef496c0db7aef13c02350571e388aea959c5c0b4"
   },
   {
     // Not qwen_image_vae.safetensors, which is Krea-2's and sits in the same
@@ -266,7 +271,8 @@ const QWEN_IMAGE_LAYERED_STACK = [
     setupHint: "Install qwen_image_layered_vae.safetensors in ComfyUI models/vae. This is the layered VAE, not qwen_image_vae.safetensors.",
     downloadUrl: `${COMFY_ORG_QWEN_IMAGE_LAYERED_REPO}/resolve/main/split_files/vae/qwen_image_layered_vae.safetensors`,
     sourcePageUrl: COMFY_ORG_QWEN_IMAGE_LAYERED_REPO,
-    downloadSizeBytes: 253816616
+    downloadSizeBytes: 253816616,
+    sha256: "c5320595fc61859ccdd0282184208f7b781c983b8ce4c6bc3e7723a807d3d28d"
   }
 ] as const;
 
@@ -280,7 +286,8 @@ const Z_IMAGE_TURBO_STACK = [
     setupHint: "Install z_image_turbo_bf16.safetensors where ComfyUI's UNETLoader can find it.",
     downloadUrl: `${COMFY_ORG_Z_IMAGE_TURBO_REPO}/resolve/main/split_files/diffusion_models/z_image_turbo_bf16.safetensors`,
     sourcePageUrl: COMFY_ORG_Z_IMAGE_TURBO_REPO,
-    downloadSizeBytes: 12309866400
+    downloadSizeBytes: 12309866400,
+    sha256: "2407613050b809ffdff18a4ac99af83ea6b95443ecebdf80e064a79c825574a6"
   },
   {
     kind: "clip",
@@ -291,7 +298,8 @@ const Z_IMAGE_TURBO_STACK = [
     setupHint: "Install qwen_3_4b.safetensors where ComfyUI's CLIPLoader can find it.",
     downloadUrl: `${COMFY_ORG_Z_IMAGE_TURBO_REPO}/resolve/main/split_files/text_encoders/qwen_3_4b.safetensors`,
     sourcePageUrl: COMFY_ORG_Z_IMAGE_TURBO_REPO,
-    downloadSizeBytes: 8044982048
+    downloadSizeBytes: 8044982048,
+    sha256: "6c671498573ac2f7a5501502ccce8d2b08ea6ca2f661c458e708f36b36edfc5a"
   },
   {
     // The same 335 MB autoencoder the Flux Fill stack loads. Comfy-Org
@@ -305,7 +313,8 @@ const Z_IMAGE_TURBO_STACK = [
     setupHint: "Install ae.safetensors where ComfyUI's VAELoader can find it.",
     downloadUrl: `${COMFY_ORG_Z_IMAGE_TURBO_REPO}/resolve/main/split_files/vae/ae.safetensors`,
     sourcePageUrl: COMFY_ORG_Z_IMAGE_TURBO_REPO,
-    downloadSizeBytes: 335304388
+    downloadSizeBytes: 335304388,
+    sha256: "afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38"
   }
 ] as const;
 
@@ -335,7 +344,8 @@ const Z_IMAGE_FUN_CONTROLNET_UNION_LITE_MODEL = {
     "Install Z-Image-Turbo-Fun-Controlnet-Union-2.1-lite-2602-8steps.safetensors where ComfyUI's ModelPatchLoader can find it.",
   downloadUrl: `${ALIBABA_PAI_ZIMAGE_FUN_CONTROLNET_REPO}/resolve/main/Z-Image-Turbo-Fun-Controlnet-Union-2.1-lite-2602-8steps.safetensors`,
   sourcePageUrl: ALIBABA_PAI_ZIMAGE_FUN_CONTROLNET_REPO,
-  downloadSizeBytes: 2016627488
+  downloadSizeBytes: 2016627488,
+  sha256: "3ea098db9bd145be525c7e2366920b6d76c5ffd46b3d7aa8169bbc943fdaee35"
 } as const;
 
 const Z_IMAGE_FUN_CONTROLNET_UNION_FULL_MODEL = {
@@ -347,7 +357,8 @@ const Z_IMAGE_FUN_CONTROLNET_UNION_FULL_MODEL = {
   setupHint: "Install Z-Image-Turbo-Fun-Controlnet-Union-2.1.safetensors where ComfyUI's ModelPatchLoader can find it.",
   downloadUrl: `${ALIBABA_PAI_ZIMAGE_FUN_CONTROLNET_REPO}/resolve/main/Z-Image-Turbo-Fun-Controlnet-Union-2.1.safetensors`,
   sourcePageUrl: ALIBABA_PAI_ZIMAGE_FUN_CONTROLNET_REPO,
-  downloadSizeBytes: 6712485600
+  downloadSizeBytes: 6712485600,
+  sha256: "7f611e6d52b133f64b84bef2549fcb84589a766b8255954f96ea34684f52b633"
 } as const;
 
 const KREA2_TURBO_STACK = [
@@ -360,7 +371,8 @@ const KREA2_TURBO_STACK = [
     setupHint: "Install krea2_turbo_fp8_scaled.safetensors where ComfyUI's UNETLoader can find it.",
     downloadUrl: `${COMFY_ORG_KREA2_REPO}/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors`,
     sourcePageUrl: COMFY_ORG_KREA2_REPO,
-    downloadSizeBytes: 13141730784
+    downloadSizeBytes: 13141730784,
+    sha256: "eb4dd8c612cfd10f64f25b057e6e6bbcb5737c94a7372177e456dbf7579502f1"
   },
   {
     kind: "clip",
@@ -371,7 +383,8 @@ const KREA2_TURBO_STACK = [
     setupHint: "Install qwen3vl_4b_fp8_scaled.safetensors in ComfyUI models/text_encoders.",
     downloadUrl: `${COMFY_ORG_KREA2_REPO}/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors`,
     sourcePageUrl: COMFY_ORG_KREA2_REPO,
-    downloadSizeBytes: 5242467968
+    downloadSizeBytes: 5242467968,
+    sha256: "54bd5144df0bbc25dd6ccadfcb826b521445a1b06ae5a42570bdd2974ca87094"
   },
   {
     kind: "vae",
@@ -382,7 +395,8 @@ const KREA2_TURBO_STACK = [
     setupHint: "Install qwen_image_vae.safetensors where ComfyUI's VAELoader can find it.",
     downloadUrl: `${COMFY_ORG_KREA2_REPO}/resolve/main/vae/qwen_image_vae.safetensors`,
     sourcePageUrl: COMFY_ORG_KREA2_REPO,
-    downloadSizeBytes: 253806246
+    downloadSizeBytes: 253806246,
+    sha256: "a70580f0213e67967ee9c95f05bb400e8fb08307e017a924bf3441223e023d1f"
   }
 ] as const;
 
@@ -409,6 +423,7 @@ const QWEN_IMAGE_21_STACK = [
     downloadUrl: `${COMFY_ORG_QWEN_IMAGE_21_REPO}/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors`,
     sourcePageUrl: COMFY_ORG_QWEN_IMAGE_21_REPO,
     downloadSizeBytes: 7256783064,
+    sha256: "cb74113cb03faecd79611b01fd7fd642f0aa60d6f0b95086abee214d75eaa57d",
     licenseGate: QWEN_IMAGE_21_LICENSE
   },
   {
@@ -426,6 +441,7 @@ const QWEN_IMAGE_21_STACK = [
     downloadUrl: `${COMFY_ORG_QWEN_IMAGE_21_REPO}/resolve/main/text_encoders/qwen3vl_8b_w4a8.safetensors`,
     sourcePageUrl: COMFY_ORG_QWEN_IMAGE_21_REPO,
     downloadSizeBytes: 6312105364,
+    sha256: "7754425e55e7bea2bfde4dde59a4cc236cb44e5ee9c215ea66ef8d47012824eb",
     licenseGate: QWEN_IMAGE_21_LICENSE
   },
   {
@@ -439,6 +455,7 @@ const QWEN_IMAGE_21_STACK = [
     downloadUrl: `${COMFY_ORG_QWEN_IMAGE_21_REPO}/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors`,
     sourcePageUrl: COMFY_ORG_QWEN_IMAGE_21_REPO,
     downloadSizeBytes: 675509688,
+    sha256: "bb21f7473051e1ac368515dd3f2e15cd44d7a11748ee8823e1ddca3e4876b7c9",
     licenseGate: QWEN_IMAGE_21_LICENSE
   }
 ] as const;
@@ -458,6 +475,7 @@ const FLUX2_DEV_GGUF_STACK = [
     downloadUrl: `${CITY96_FLUX2_DEV_GGUF_REPO}/resolve/main/flux2-dev-Q4_K_M.gguf`,
     sourcePageUrl: CITY96_FLUX2_DEV_GGUF_REPO,
     downloadSizeBytes: 20082414560,
+    sha256: "fca680c7b221a713b5cf7db6cf6b33474875320ee61f4c585bc33fe391dab9a6",
     licenseGate: FLUX2_DEV_LICENSE
   },
   {
@@ -474,6 +492,7 @@ const FLUX2_DEV_GGUF_STACK = [
     downloadUrl: `${COMFY_ORG_FLUX2_DEV_REPO}/resolve/main/split_files/text_encoders/mistral_3_small_flux2_fp8.safetensors`,
     sourcePageUrl: COMFY_ORG_FLUX2_DEV_REPO,
     downloadSizeBytes: 18034640095,
+    sha256: "e3467b7d912a234fb929cdf215dc08efdb011810b44bc21081c4234cc75b370e",
     licenseGate: FLUX2_DEV_LICENSE
   },
   {
@@ -490,7 +509,8 @@ const FLUX2_DEV_GGUF_STACK = [
     downloadUrl:
       "https://huggingface.co/black-forest-labs/FLUX.2-small-decoder/resolve/main/full_encoder_small_decoder.safetensors",
     sourcePageUrl: "https://huggingface.co/black-forest-labs/FLUX.2-small-decoder",
-    downloadSizeBytes: 249519092
+    downloadSizeBytes: 249519092,
+    sha256: "ea4273f02d1fafbf8e1d1c2cf6018ed8748652eb0bf34f2dd91171f16f15ab62"
   }
 ] as const;
 
@@ -507,6 +527,7 @@ const FLUX1_DEV_FP8_CHECKPOINT = {
   downloadUrl: `${COMFY_ORG_FLUX1_DEV_REPO}/resolve/main/flux1-dev-fp8.safetensors`,
   sourcePageUrl: "https://huggingface.co/black-forest-labs/FLUX.1-dev",
   downloadSizeBytes: 17246524772,
+  sha256: "8e91b68084b53a7fc44ed2a3756d821e355ac1a7b6fe29be760c1db532f3d88a",
   licenseGate: FLUX1_DEV_LICENSE
 } as const;
 
@@ -533,7 +554,8 @@ const UPSCALE_BASIC_MODEL = {
   setupHint: "Install 4x-UltraSharp.pth or RealESRGAN_x4plus.pth where ComfyUI's UpscaleModelLoader can find it.",
   downloadUrl: "https://huggingface.co/Kim2091/UltraSharp/resolve/main/4x-UltraSharp.pth",
   sourcePageUrl: "https://huggingface.co/Kim2091/UltraSharp",
-  downloadSizeBytes: 66961958
+  downloadSizeBytes: 66961958,
+  sha256: "a5812231fc936b42af08a5edba784195495d303d5b3248c24489ef0c4021fe01"
 } as const;
 
 const REMOVE_BACKGROUND_BIREFNET_MODEL = {
@@ -550,7 +572,8 @@ const REMOVE_BACKGROUND_BIREFNET_MODEL = {
   downloadUrl:
     "https://huggingface.co/Comfy-Org/BiRefNet/resolve/main/background_removal/birefnet.safetensors",
   sourcePageUrl: "https://huggingface.co/Comfy-Org/BiRefNet",
-  downloadSizeBytes: 444473596
+  downloadSizeBytes: 444473596,
+  sha256: "9ab37426bf4de0567af6b5d21b16151357149139362e6e8992021b8ce356a154"
 } as const;
 
 const TXT2IMG_BASIC_NODES = {
@@ -1619,7 +1642,8 @@ const STYLE_REFERENCE_SD15_REQUIRED_MODELS = [
     setupHint: "Install ip-adapter-plus_sd15.safetensors in ComfyUI's models/ipadapter folder.",
     downloadUrl: `${H94_IP_ADAPTER_REPO}/resolve/main/models/ip-adapter-plus_sd15.safetensors`,
     sourcePageUrl: H94_IP_ADAPTER_REPO,
-    downloadSizeBytes: 98183288
+    downloadSizeBytes: 98183288,
+    sha256: "a1c250be40455cc61a43da1201ec3f1edaea71214865fb47f57927e06cbe4996"
   },
   {
     kind: "clip-vision",
@@ -1630,7 +1654,8 @@ const STYLE_REFERENCE_SD15_REQUIRED_MODELS = [
     setupHint: "Install the CLIP-ViT-H image encoder in ComfyUI's models/clip_vision folder.",
     downloadUrl: `${H94_IP_ADAPTER_REPO}/resolve/main/models/image_encoder/model.safetensors`,
     sourcePageUrl: H94_IP_ADAPTER_REPO,
-    downloadSizeBytes: 2528373448
+    downloadSizeBytes: 2528373448,
+    sha256: "6ca9667da1ca9e0b0f75e46bb030f7e011f44f86cbfb8d5a36590fcd7507b030"
   }
 ] as const;
 
@@ -1645,6 +1670,7 @@ const FLUX_FILL_STACK = [
     downloadUrl: `${COMFY_ORG_FLUX1_DEV_REPO}/resolve/main/split_files/diffusion_models/flux1-fill-dev.safetensors`,
     sourcePageUrl: "https://huggingface.co/black-forest-labs/FLUX.1-Fill-dev",
     downloadSizeBytes: 23804922408,
+    sha256: "03e289f530df51d014f48e675a9ffa2141bc003259bf5f25d75b957e920a41ca",
     licenseGate: FLUX1_DEV_LICENSE
   },
   // The working Flux Fill reference maps CLIP-L to clip_name1 and T5 to
@@ -1659,7 +1685,8 @@ const FLUX_FILL_STACK = [
     setupHint: "Install clip_l.safetensors in ComfyUI models/text_encoders.",
     downloadUrl: `${FLUX_TEXT_ENCODERS_REPO}/resolve/main/clip_l.safetensors`,
     sourcePageUrl: FLUX_TEXT_ENCODERS_REPO,
-    downloadSizeBytes: 246144152
+    downloadSizeBytes: 246144152,
+    sha256: "660c6f5b1abae9dc498ac2d21e1347d2abdb0cf6c0c0c8576cd796491d9a6cdd"
   },
   {
     kind: "clip",
@@ -1672,7 +1699,8 @@ const FLUX_FILL_STACK = [
       "Install t5xxl_fp16.safetensors in ComfyUI models/text_encoders. t5xxl_fp8_e4m3fn.safetensors is accepted as a local fallback when available.",
     downloadUrl: `${FLUX_TEXT_ENCODERS_REPO}/resolve/main/t5xxl_fp16.safetensors`,
     sourcePageUrl: FLUX_TEXT_ENCODERS_REPO,
-    downloadSizeBytes: 9787841024
+    downloadSizeBytes: 9787841024,
+    sha256: "6e480b09fae049a72d2a8c5fbccb8d3e92febeb233bbe9dfe7256958a9167635"
   },
   {
     // Same file as the Z_image_Turbo stack's VAE entry, so the setup pack
@@ -1685,7 +1713,8 @@ const FLUX_FILL_STACK = [
     setupHint: "Install ae.safetensors where ComfyUI's VAELoader can find it.",
     downloadUrl: `${COMFY_ORG_Z_IMAGE_TURBO_REPO}/resolve/main/split_files/vae/ae.safetensors`,
     sourcePageUrl: COMFY_ORG_Z_IMAGE_TURBO_REPO,
-    downloadSizeBytes: 335304388
+    downloadSizeBytes: 335304388,
+    sha256: "afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38"
   }
 ] as const;
 
@@ -2910,7 +2939,8 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
         downloadUrl:
           "https://huggingface.co/comfyanonymous/ControlNet-v1-1_fp16_safetensors/resolve/main/control_v11p_sd15_lineart_fp16.safetensors",
         sourcePageUrl: "https://huggingface.co/comfyanonymous/ControlNet-v1-1_fp16_safetensors",
-        downloadSizeBytes: 722601100
+        downloadSizeBytes: 722601100,
+        sha256: "10559106d1bb8196298b7a81565ede9279295d2b2df15165b9dbe189994def56"
       }
     ],
     requiredNodes: [
@@ -2995,7 +3025,8 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
         downloadUrl:
           "https://huggingface.co/comfyanonymous/ControlNet-v1-1_fp16_safetensors/resolve/main/control_v11p_sd15_scribble_fp16.safetensors",
         sourcePageUrl: "https://huggingface.co/comfyanonymous/ControlNet-v1-1_fp16_safetensors",
-        downloadSizeBytes: 722601100
+        downloadSizeBytes: 722601100,
+        sha256: "99edfd25b54c18c0ab19fba8c5618f741aac1f8c3101e7fa62cce925ad87ae68"
       }
     ],
     requiredNodes: [
@@ -3080,7 +3111,8 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
         downloadUrl:
           "https://huggingface.co/comfyanonymous/ControlNet-v1-1_fp16_safetensors/resolve/main/control_v11f1p_sd15_depth_fp16.safetensors",
         sourcePageUrl: "https://huggingface.co/comfyanonymous/ControlNet-v1-1_fp16_safetensors",
-        downloadSizeBytes: 722601100
+        downloadSizeBytes: 722601100,
+        sha256: "1c4a79aa52fb63f607cb9ff479ea5aa1923b6ceb21267bd14b69bd05d7b617be"
       }
     ],
     requiredNodes: [

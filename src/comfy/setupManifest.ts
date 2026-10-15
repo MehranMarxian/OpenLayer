@@ -156,6 +156,7 @@ export type SetupManifestModel = {
   downloadUrl?: string;
   sourcePageUrl?: string;
   sizeBytes?: number;
+  sha256?: string;
   layout: "file" | "repo-folder";
   licenseGate?: WorkflowModelLicenseGate;
   acceptedModelNames?: string[];
@@ -224,6 +225,7 @@ function toManifestModel(model: WorkflowRequiredModel, usedByPresets: string[]):
     downloadUrl: model.downloadUrl,
     sourcePageUrl: model.sourcePageUrl,
     sizeBytes: model.downloadSizeBytes,
+    sha256: model.sha256,
     layout: model.downloadLayout ?? "file",
     licenseGate: model.licenseGate,
     acceptedModelNames: model.acceptedModelNames ? [...model.acceptedModelNames] : undefined,
