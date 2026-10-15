@@ -30,7 +30,9 @@ OpenLayer's Photoshop UXP manifest currently requests local filesystem access an
   preset registry pins (Hugging Face) after a confirmation naming the size, folder and host. Nothing is
   downloaded without that click, and licence-gated files are never downloaded at all.
 - When you turn on the **Agent Bridge** (off by default), the panel connects to a WebSocket hub on
-  `127.0.0.1:8199` that you start yourself from the repository. The hub accepts loopback connections only,
-  but it has **no authentication token yet**: while it is running, any program on your own machine can
-  connect to it and ask the panel to run a tool. Leave the bridge off when you are not using it.
+  `127.0.0.1:8199` that you start yourself from the repository. The hub accepts loopback connections only
+  and refuses web pages: a handshake carrying a website's `Origin` (including pages served from localhost,
+  and the `null` origin of sandboxed frames) is rejected with HTTP 403 and logged. It has **no
+  authentication token yet**, so while it is running, a program on your own machine that is not a browser
+  can still connect and ask the panel to run a tool. Leave the bridge off when you are not using it.
 - Settings diagnostics and Copy Diagnostics are local only. OpenLayer does not upload diagnostics automatically.

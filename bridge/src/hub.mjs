@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { WebSocketServer } from "ws";
 
 import { createHubRouter } from "./hubRouter.mjs";
+import { describeOrigin, judgeOrigin } from "./originPolicy.mjs";
 import { DEFAULT_PORT } from "./protocol.mjs";
 
 /**
@@ -56,10 +57,28 @@ const router = createHubRouter({ log, hubVersion: version });
 // `host` is not a default worth leaving to convention. Bound to 0.0.0.0 this
 // would offer "run arbitrary generations in this person's Photoshop" to every
 // machine on the network, including coffee-shop wifi. Loopback only, stated.
-const wss = new WebSocketServer({ host: "127.0.0.1", port });
+//
+// `verifyClient` refuses web pages during the handshake itself (HTTP 403), so a
+// page never holds an open socket even for a moment. See originPolicy.mjs.
+const wss = new WebSocketServer({
+  host: "127.0.0.1",
+  port,
+  verifyClient: ({ req }, done) => {
+    const verdict = judgeOrigin(req.headers.origin);
+
+    if (!verdict.allowed) {
+      log(`Refused a connection from ${verdict.reason}: web pages may not drive the panel.`);
+      done(false, 403, "Web pages may not connect to the OpenLayer hub.");
+      return;
+    }
+
+    done(true);
+  }
+});
 
 wss.on("connection", (socket, request) => {
   const origin = request.socket.remoteAddress ?? "unknown";
+  log(`Accepted a connection (${describeOrigin(request.headers.origin)}).`);
 
   // Belt and braces behind the loopback bind: a proxy or an SSH tunnel can
   // present a remote peer to a loopback listener, and this refuses it rather
