@@ -45,7 +45,7 @@ Text to Image, the generation controller, the progress bar, cancel, import.
 - [ ] 1.1 Home › **Text to Image**. Workflow: **Standard checkpoint**, model
       `epicrealism_naturalSinRC1VAE.safetensors`, 512 × 512, a short prompt. **Generate**.
       **See:** progress moves, a preview appears in the panel and in OpenLayer Preview.
-- [ ] 1.2 **Import to Layers**. **See:** a new named layer in the document, at the right size.
+- [ ] 1.2 **Import Result as New Layer** (Text to Image's own label; the other tools say **Import to Layers**). **See:** a new named layer in the document, at the right size.
 - [ ] 1.3 **Generate** again and click **Cancel Generation** while it runs. **See:** "Generation
       cancelled", no layer added. Then **Generate** once more and it completes.
 - [ ] 1.4 Clear the prompt and **Generate**. **See:** a message that a prompt is needed, nothing sent.
@@ -58,7 +58,8 @@ Layer and canvas capture, a selection, alignment on import.
       preview of that layer. **Generate**, then **Import to Layers**. **See:** the result sits exactly
       over the source.
 - [ ] 2.2 Draw a rectangular selection on part of the layer. Home › **Inpaint** › **Capture
-      Selection**. **See:** the source and mask previews match the selection. (Generating is
+      Visible**. **See:** the source and mask previews match the selection, and the status reads
+      "Selection captured". (Generating is
       optional here: Inpaint needs heavier models.)
 - [ ] 2.3 Home › **Upscale** › **Capture Active Layer**, then **Generate Upscale** and **Import to
       Layers**. **See:** a larger layer named as an upscale.
@@ -67,8 +68,8 @@ Layer and canvas capture, a selection, alignment on import.
 
 - [ ] 3.1 Home › **Remove Background** › **Capture Active Layer**, then generate and import.
       **See:** a cut-out layer with transparency over the original, original untouched.
-- [ ] 3.2 Home › **Layer Maps** › capture the layer, choose Line art, generate and import.
-      **See:** a line-art layer aligned to the source.
+- [ ] 3.2 Home › **Layer Maps** › capture the layer and **Generate Depth Map** (Depth is the default
+      map type), then **Import to Layers**. **See:** a depth layer aligned to the source.
 
 ## Block 4: screens with lists and controls (2 minutes)
 
@@ -107,4 +108,4 @@ One row per full run. Partial runs for a PR go in that PR, not here.
 
 | Date | Photoshop | OS | OpenLayer | Blocks | Result | Notes |
 |---|---|---|---|---|---|---|
-| | | | | | | |
+| 2026-10-15 | 2025 (26.x), current build | Windows 11 | main at 7e34843 (footer 0.37.1) | 0-5 (4.3 and 4.6 not run) | Pass, with two findings | Run by Claude driving Photoshop. Findings: a finished Setup check and Workflow Health keep a "Working" badge (and the Health status bleeds onto tool screens until the next action); importing the first result into a new document's empty Layer 1 leaves only the new layer. |
