@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.37.1-alpha - 2026-10-15
+
+A fix for Photoshop 2024, with nothing else in it.
+
+### Fixed
+
+- **The panel did nothing on Photoshop 2024.** It opened and looked normal, but no button
+  responded, not even Settings, and no error appeared
+  ([issue 127](https://github.com/MehranMarxian/OpenLayer/issues/127)). Photoshop 2024 runs an
+  older version of Adobe's plugin runtime (UXP 7) that lacks a few commands for adding elements to
+  the panel; Adobe added them in UXP 8, with Photoshop 2025. OpenLayer used one of them while
+  starting up, so startup stopped after the panel was drawn and before any button was connected.
+  It now uses only commands every version has, and a lint check stops the newer ones from coming
+  back. Nothing changes on Photoshop 2025 or later.
+
+### Known limitations
+
+- **Not yet confirmed on Photoshop 2024 itself.** The cause matches the report exactly, and the
+  build was checked on a current Photoshop, but nobody has run it on 2024 yet. If you are on
+  Photoshop 2024, a report either way in issue 127 is the most useful thing you can send.
+- The Adobe Exchange listing still serves v0.37.0 until Adobe approves an update. On Photoshop
+  2024, install the `.ccx` from this release instead.
+
 ## v0.37.0-alpha - 2026-09-23
 
 ### Added
