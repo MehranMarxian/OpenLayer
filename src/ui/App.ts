@@ -155,8 +155,7 @@ import {
   createInstallStatusLine,
   describeDownloadVerification,
   describeInstallResult,
-  getInstallOffer,
-  InstallStep
+  getInstallOffer
 } from "./setupInstallModel";
 import type { WorkflowPhotoshopInputAvailability } from "../comfy/workflowCompatibility";
 import { GeneratedImageResult, GeneratedImageSet, WorkflowLoraSelection, WorkflowPresetDefinition } from "../comfy/types";
@@ -186,14 +185,23 @@ import {
 } from "../photoshop/photoshopAdapter";
 import {
   downloadModelFile,
+  DownloadVerification,
   formatBytesForDownload,
   formatDownloadProgress
 } from "../comfy/modelDownload";
 import {
   acquireModelsFolder,
-  describeFolderMismatch,
   FolderAccessDeps
 } from "../photoshop/modelFolderAccess";
+import { resolveModelSubfolder } from "../photoshop/modelSubfolder";
+import { evaluateStarter } from "../comfy/starterKit";
+import {
+  createStarterCardView,
+  getStarterDownloadItems,
+  StarterCardButton,
+  StarterCardPhase,
+  StarterCardView
+} from "./starterCardModel";
 import {
   createFolderDestination,
   UxpFolderLike
@@ -472,6 +480,16 @@ type LiveGeneratedImageResult = DocumentContextBound<{ blob: Blob }>;
 // that folders moving or permissions changing can invalidate one.
 const MODELS_FOLDER_TOKEN_KEY = "openlayer.modelsFolderToken";
 
+// Holds the single download slot while the Start here card runs, so no row can
+// start a second download beside it. Not a requirement key, so no row mistakes
+// itself for the one downloading.
+const STARTER_INSTALL_KEY = "starter";
+
+type ModelDownloadRun =
+  | { kind: "done"; verifiedBy: DownloadVerification }
+  | { kind: "stopped" }
+  | { kind: "failed" };
+
 function createFolderAccessDeps(): FolderAccessDeps {
   const uxp = require("uxp") as {
     storage: {
@@ -659,6 +677,8 @@ export function renderApp(rootElement: HTMLElement) {
   // Polled between chunks by the download engine. A partial file is resumable,
   // so stopping is always safe.
   let setupDownloadCancelled = false;
+  // The Start here card's own step: idle, asking, or downloading file n of N.
+  let starterPhase: StarterCardPhase = { kind: "idle" };
   const historyEntries: HistoryEntry[] = [];
   const objectUrls = createObjectUrlRegistry();
 
@@ -2431,8 +2451,10 @@ export function renderApp(rootElement: HTMLElement) {
     }
   }
 
-  async function handleCheckSetup() {
-    setSetupStatus(elements, "Checking what is installed...", "idle");
+  async function handleCheckSetup(options: { keepStatus?: boolean } = {}) {
+    if (!options.keepStatus) {
+      setSetupStatus(elements, "Checking what is installed...", "idle");
+    }
 
     try {
       const presets = listWorkflowPresets();
@@ -2462,6 +2484,10 @@ export function renderApp(rootElement: HTMLElement) {
       hasCheckedSetup = true;
       setupCheckedAtLabel = `Checked ${formatClockTime(new Date())}`;
       renderSetupTab();
+
+      if (options.keepStatus) {
+        return;
+      }
 
       const outstanding = setupReport.counts.missing + setupReport.counts["wrong-folder"];
       // "ready" even with something outstanding: the check has finished, and
@@ -2502,6 +2528,15 @@ export function renderApp(rootElement: HTMLElement) {
       activeToolLabel: setupActiveToolLabel
     });
 
+    const starter = evaluateStarter(setupReport);
+    renderStarterCard(
+      elements.setupStarter,
+      createStarterCardView(starter, getStarterDownloadItems(starter, setupInstallPlan), starterPhase, {
+        busyElsewhere: setupInstallingKey !== null && setupInstallingKey !== STARTER_INSTALL_KEY
+      }),
+      handleStarterAction
+    );
+
     elements.setupCheckedLabel.textContent = view.checkedLabel;
     elements.setupSummaryLine.textContent = view.summaryLine;
     elements.setupDownloadLine.textContent = view.downloadLine;
@@ -2519,6 +2554,7 @@ export function renderApp(rootElement: HTMLElement) {
       busy: setupInstallingKey !== null,
       onRequest: (requirementKey) => {
         setupConfirmingKey = requirementKey;
+        starterPhase = { kind: "idle" };
         renderSetupTab();
       },
       onCancel: () => {
@@ -2552,55 +2588,176 @@ export function renderApp(rootElement: HTMLElement) {
   }
 
   /**
-   * Installs exactly the one model the user confirmed, and nothing else.
-   *
-   * The order matters and is the whole safety story. The queue precondition is
-   * checked BEFORE anything is enqueued, because ComfyUI-Manager's queue is
-   * shared with its own web UI: starting a queue that already holds items would
-   * run somebody else's downloads on their behalf without being asked. Only
-   * after that does one item go in, and only that item.
+   * Installs exactly the one model the user confirmed from its Setup row, and
+   * nothing else.
    */
   async function handleInstallModel(item: AssistedInstallItem) {
-    let verificationNote: string | undefined;
     if (setupInstallingKey) {
       return;
     }
 
     setupConfirmingKey = null;
+    starterPhase = { kind: "idle" };
     setupInstallingKey = item.key;
     setupDownloadCancelled = false;
     renderSetupTab();
 
-    const report = (step: InstallStep) => {
-      setSetupStatus(elements, createInstallStatusLine(step, item.modelName), "idle");
-    };
+    let outcome: ModelDownloadRun;
 
     try {
-      report("resolving-folder");
+      outcome = await downloadOneModel(item, "");
+    } finally {
+      setupInstallingKey = null;
+      setupDownloadCancelled = false;
+    }
 
-      const access = await acquireModelsFolder(item.targetPath, createFolderAccessDeps(), {
-        // The picker is opened only because the artist just pressed Download on
-        // this specific model, never speculatively.
-        allowPicker: true
-      });
+    if (outcome.kind !== "done") {
+      // The status bar keeps the reason; this only gives the row its Download
+      // button back in place of Stop.
+      renderSetupTab();
+      return;
+    }
 
-      if (access.kind !== "ready") {
-        setSetupStatus(elements, access.note, access.kind === "failed" ? "error" : "idle");
-        return;
+    setSetupStatus(elements, createInstallStatusLine("verifying", item.modelName), "idle");
+
+    // The claim that it worked comes from re-reading ComfyUI's own inventory,
+    // never from the download reporting success. Those are different facts,
+    // and only the second one is what the artist needs.
+    await handleCheckSetup();
+
+    const stillMissing =
+      setupReport?.models.find((model) => model.key === item.key)?.status !== "installed";
+    const verificationNote = describeDownloadVerification(outcome.verifiedBy, Boolean(item.sha256));
+
+    const result = describeInstallResult(item.modelName, stillMissing);
+    setSetupStatus(elements, verificationNote ? `${result.message} ${verificationNote}` : result.message, result.tone);
+  }
+
+  /**
+   * The Start here card's one button: every missing starter file, one after
+   * another, through the same download as a row's. Stops at the first file that
+   * fails or is stopped, because the next one would meet the same folder or
+   * network problem.
+   */
+  async function handleDownloadStarter() {
+    if (setupInstallingKey || !setupReport) {
+      return;
+    }
+
+    const items = getStarterDownloadItems(evaluateStarter(setupReport), setupInstallPlan);
+
+    if (items.length === 0) {
+      return;
+    }
+
+    setupConfirmingKey = null;
+    setupInstallingKey = STARTER_INSTALL_KEY;
+    setupDownloadCancelled = false;
+
+    let finished = true;
+    const verifiedBy: DownloadVerification[] = [];
+
+    try {
+      for (const [index, item] of items.entries()) {
+        starterPhase = { kind: "downloading", index: index + 1, total: items.length, modelName: item.modelName };
+        renderSetupTab();
+
+        const outcome = await downloadOneModel(item, `File ${index + 1} of ${items.length}. `);
+
+        if (outcome.kind !== "done") {
+          finished = false;
+          break;
+        }
+
+        verifiedBy.push(outcome.verifiedBy);
+      }
+    } finally {
+      setupInstallingKey = null;
+      setupDownloadCancelled = false;
+      starterPhase = { kind: "idle" };
+    }
+
+    if (!finished) {
+      // Re-read what is on disk so a second press fetches only what is still
+      // missing, but leave the status bar saying why it stopped.
+      await handleCheckSetup({ keepStatus: true });
+      return;
+    }
+
+    setSetupStatus(elements, "Downloads finished. Re-checking what ComfyUI can see...", "idle");
+    await handleCheckSetup();
+
+    const starter = setupReport ? evaluateStarter(setupReport) : null;
+
+    if (starter?.state === "ready") {
+      const checksums = verifiedBy.every((method) => method === "sha256")
+        ? " Every file matches the checksum Hugging Face publishes."
+        : "";
+      setSetupStatus(elements, `${starter.summary}${checksums}`, "ready");
+    } else {
+      setSetupStatus(
+        elements,
+        "The downloads finished, but ComfyUI still cannot see every starter file. Refresh ComfyUI, then check again.",
+        "error"
+      );
+    }
+  }
+
+  /**
+   * One file, from finding the folder to the last verified byte. Reports on the
+   * Setup status bar as it goes and returns how it ended; re-checking ComfyUI is
+   * the caller's job, because the starter does it once for all its files.
+   */
+  async function downloadOneModel(item: AssistedInstallItem, prefix: string): Promise<ModelDownloadRun> {
+    const say = (message: string, tone: "idle" | "ready" | "error") =>
+      setSetupStatus(elements, `${prefix}${message}`, tone);
+
+    try {
+      say(createInstallStatusLine("resolving-folder", item.modelName), "idle");
+
+      const deps = createFolderAccessDeps();
+      let target: { folder: unknown; note: string | null } | null = null;
+
+      // Twice at most. A remembered folder that is a different model folder
+      // (granted for an upscaler, say, and now asked for a VAE) is forgotten,
+      // and the artist is asked once, for ComfyUI's models folder, which then
+      // serves every later download.
+      for (let attempt = 0; attempt < 2 && !target; attempt += 1) {
+        const access = await acquireModelsFolder(item.targetPath, deps, {
+          // The picker is opened only because the artist just pressed Download,
+          // never speculatively.
+          allowPicker: true
+        });
+
+        if (access.kind !== "ready") {
+          say(access.note, access.kind === "failed" ? "error" : "idle");
+          return { kind: access.kind === "failed" ? "failed" : "stopped" };
+        }
+
+        const resolution = await resolveModelSubfolder(access.folder, item.targetFolder);
+
+        if (resolution.kind === "use") {
+          target = resolution;
+        } else if (attempt === 0) {
+          deps.writeStoredToken(null);
+          say(resolution.note, "idle");
+        } else {
+          say(resolution.note, "error");
+          return { kind: "failed" };
+        }
       }
 
-      const mismatch = describeFolderMismatch(
-        (access.folder as { nativePath?: string }).nativePath ?? null,
-        item.targetFolder
-      );
+      if (!target) {
+        return { kind: "failed" };
+      }
 
-      if (mismatch) {
+      if (target.note) {
         // Warned, not refused: extra_model_paths.yaml can make an unexpected
         // folder correct, and OpenLayer cannot see that file.
-        setSetupStatus(elements, mismatch, "idle");
+        say(target.note, "idle");
       }
 
-      report("downloading");
+      say(createInstallStatusLine("downloading", item.modelName), "idle");
 
       const outcome = await downloadModelFile(
         {
@@ -2611,60 +2768,57 @@ export function renderApp(rootElement: HTMLElement) {
         {
           fetch: (...args) => fetch(...args),
           destination: createFolderDestination({
-            folder: access.folder as UxpFolderLike,
+            folder: target.folder as UxpFolderLike,
             fileName: item.modelName,
             binaryFormat: (require("uxp") as { storage: { formats: { binary: unknown } } }).storage.formats.binary,
             statSize: readNativeFileSize
           }),
           isCancelled: () => setupDownloadCancelled,
           onProgress: (progress) => {
-            setSetupStatus(
-              elements,
-              `${item.modelName}: ${formatDownloadProgress(progress)}`,
-              "idle"
-            );
+            say(`${item.modelName}: ${formatDownloadProgress(progress)}`, "idle");
           }
         }
       );
 
       if (outcome.kind === "cancelled") {
-        setSetupStatus(
-          elements,
+        say(
           `Download stopped at ${formatBytesForDownload(outcome.receivedBytes)}. Pressing Download again resumes from there.`,
           "idle"
         );
-        return;
+        return { kind: "stopped" };
       }
 
       if (outcome.kind === "failed") {
-        setSetupStatus(elements, `Could not download ${item.modelName}. ${outcome.reason}`, "error");
-        return;
+        say(`Could not download ${item.modelName}. ${outcome.reason}`, "error");
+        return { kind: "failed" };
       }
 
-      verificationNote = describeDownloadVerification(outcome.verifiedBy, Boolean(item.sha256));
-      report("verifying");
+      return { kind: "done", verifiedBy: outcome.verifiedBy };
     } catch (caughtError) {
-      setSetupStatus(
-        elements,
-        `Could not download ${item.modelName}. ${getErrorMessage(caughtError)}`,
-        "error"
-      );
-      return;
-    } finally {
-      setupInstallingKey = null;
-      setupDownloadCancelled = false;
+      say(`Could not download ${item.modelName}. ${getErrorMessage(caughtError)}`, "error");
+      return { kind: "failed" };
     }
+  }
 
-    // The claim that it worked comes from re-reading ComfyUI's own inventory,
-    // never from ComfyUI-Manager reporting that its queue item finished. Those
-    // are different facts, and only the second one is what the artist needs.
-    await handleCheckSetup();
-
-    const stillMissing =
-      setupReport?.models.find((model) => model.key === item.key)?.status !== "installed";
-
-    const outcome = describeInstallResult(item.modelName, stillMissing);
-    setSetupStatus(elements, verificationNote ? `${outcome.message} ${verificationNote}` : outcome.message, outcome.tone);
+  function handleStarterAction(action: StarterCardButton["action"]) {
+    switch (action) {
+      case "request":
+        setupConfirmingKey = null;
+        starterPhase = { kind: "confirming" };
+        renderSetupTab();
+        break;
+      case "cancel":
+        starterPhase = { kind: "idle" };
+        renderSetupTab();
+        break;
+      case "confirm":
+        void handleDownloadStarter();
+        break;
+      case "stop":
+        setupDownloadCancelled = true;
+        setSetupStatus(elements, "Stopping after the current chunk...", "idle");
+        break;
+    }
   }
 
   /**
@@ -9506,6 +9660,104 @@ function createSetupRowElement(
   }
 
   return rowElement;
+}
+
+// Built from the same classes as a Setup section and a row's download
+// confirmation, so the card needs no CSS of its own and looks like the screen
+// it sits on in both themes.
+function renderStarterCard(
+  container: HTMLElement,
+  view: StarterCardView,
+  onAction: (action: StarterCardButton["action"]) => void
+) {
+  while (container.firstChild) {
+    container.removeChild(container.firstChild);
+  }
+
+  if (view.hidden) {
+    return;
+  }
+
+  const section = document.createElement("section");
+  section.className = "panel-section settings-panel diagnostic-section diagnostic-scroll-safe";
+  section.setAttribute("aria-label", view.title);
+
+  const heading = document.createElement("div");
+  heading.className = "section-heading";
+  const title = document.createElement("span");
+  title.className = "label";
+  title.textContent = view.title;
+  heading.appendChild(title);
+  const meta = document.createElement("span");
+  meta.className = "muted-label";
+  meta.textContent = view.meta;
+  heading.appendChild(meta);
+  section.appendChild(heading);
+
+  const summary = document.createElement("div");
+  summary.className = "diagnostics-line setup-paragraph";
+  summary.textContent = view.summary;
+  section.appendChild(summary);
+
+  const actions = document.createElement("div");
+  actions.className = "setup-row-actions";
+
+  for (const button of view.buttons) {
+    const element = document.createElement("button");
+    element.type = "button";
+    element.className =
+      button.action === "request" || button.action === "confirm"
+        ? "button setup-row-action is-install"
+        : "button setup-row-action";
+    element.textContent = button.label;
+    element.addEventListener("click", () => onAction(button.action));
+    actions.appendChild(element);
+  }
+
+  if (view.confirm) {
+    const confirm = document.createElement("div");
+    confirm.className = "setup-install-confirm";
+
+    const headline = document.createElement("div");
+    headline.className = "setup-install-headline";
+    headline.textContent = view.confirm.headline;
+    confirm.appendChild(headline);
+
+    for (const file of view.confirm.files) {
+      const fields = document.createElement("div");
+      fields.className = "setup-row-fields";
+
+      for (const field of file) {
+        const fieldRow = document.createElement("div");
+        fieldRow.className = "setup-row-field";
+        const label = document.createElement("span");
+        label.className = "setup-row-field-label";
+        label.textContent = field.label;
+        fieldRow.appendChild(label);
+        const value = document.createElement("span");
+        value.className = "setup-row-field-value";
+        value.textContent = field.value;
+        fieldRow.appendChild(value);
+        fields.appendChild(fieldRow);
+      }
+
+      confirm.appendChild(fields);
+    }
+
+    const note = document.createElement("div");
+    note.className = "setup-row-note";
+    note.textContent = view.confirm.note;
+    confirm.appendChild(note);
+
+    // The buttons answer the question, so they sit inside its box, as they do
+    // in a row's confirmation.
+    confirm.appendChild(actions);
+    section.appendChild(confirm);
+  } else if (view.buttons.length > 0) {
+    section.appendChild(actions);
+  }
+
+  container.appendChild(section);
 }
 
 function createInstallConfirmationElement(
