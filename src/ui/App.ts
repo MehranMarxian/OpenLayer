@@ -2386,7 +2386,8 @@ export function renderApp(rootElement: HTMLElement) {
 
       workflowHealthReport = report;
       renderWorkflowHealthReport(elements, workflowHealthReport);
-      setGlobalStatus(elements, "Workflow health checked.", report.issueCount > 0 ? "idle" : "ready");
+      // Finished either way; the cards list any issues. See the Setup check.
+      setGlobalStatus(elements, "Workflow health checked.", "ready");
       setGlobalDiagnostics(elements, report.summary);
     } catch (caughtError) {
       workflowHealthReport = null;
@@ -2432,10 +2433,13 @@ export function renderApp(rootElement: HTMLElement) {
       renderSetupTab();
 
       const outstanding = setupReport.counts.missing + setupReport.counts["wrong-folder"];
+      // "ready" even with something outstanding: the check has finished, and
+      // the counts above say what needs attention. "idle" is the in-progress
+      // tone, and its pill read "Working" for as long as the result stayed up.
       setSetupStatus(
         elements,
         outstanding === 0 ? "Everything OpenLayer needs is installed." : setupReport.summaryLine,
-        outstanding === 0 ? "ready" : "idle"
+        "ready"
       );
     } catch (caughtError) {
       // An unreachable server is not an error state for this screen. The list is
