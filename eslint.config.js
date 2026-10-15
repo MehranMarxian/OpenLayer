@@ -43,6 +43,32 @@ const UXP_MISSING_GLOBALS = [
   }
 ];
 
+/**
+ * DOM methods that exist in Photoshop 2025's UXP but not in Photoshop 2024's.
+ * The manifest declares Photoshop 25.0 (2024) as the minimum, so `src/` has to
+ * run on UXP 7.x, where these are simply absent.
+ *
+ * `append`, `prepend` and `replaceChildren` arrived on elements in UXP 8.0
+ * (Photoshop 26.0), per Adobe's UXP changelog. Before that, one
+ * `select.append(option)` in the startup path threw inside `renderApp`, after
+ * the markup was on screen but before a single click handler was attached: a
+ * panel that looks normal and where no button does anything (issue 127).
+ * `before`, `after` and `replaceWith` are listed with them because no UXP
+ * changelog says they exist at all. `appendChild` and `insertBefore` work on
+ * every version.
+ *
+ * The rule matches by method name, so a non-DOM `append` would trip it too.
+ * The one in the tree, the model-download destination's file writer, is
+ * excluded by its receiver's name rather than by a disable comment.
+ */
+const UXP8_ONLY_DOM_METHODS = {
+  selector:
+    "CallExpression[callee.property.name=/^(append|prepend|replaceChildren|before|after|replaceWith)$/]" +
+    ":not([callee.object.property.name='destination'])",
+  message:
+    "Photoshop 2024 (UXP 7) has no Element.append/prepend/replaceChildren/before/after/replaceWith. Use appendChild or insertBefore."
+};
+
 export default tseslint.config(
   {
     ignores: ["dist/**", "packages/**", "node_modules/**", "src/workflows/**"]
@@ -98,6 +124,7 @@ export default tseslint.config(
     },
     rules: {
       "no-restricted-globals": ["error", ...UXP_MISSING_GLOBALS],
+      "no-restricted-syntax": ["error", UXP8_ONLY_DOM_METHODS],
       eqeqeq: ["error", "always", { null: "ignore" }]
     }
   },

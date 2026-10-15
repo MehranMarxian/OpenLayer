@@ -7119,7 +7119,7 @@ export function renderApp(rootElement: HTMLElement) {
       elements.liveResultPreviewPanel.innerHTML = "";
       livePreviewImage = document.createElement("img");
       livePreviewImage.alt = "Live Painting preview";
-      elements.liveResultPreviewPanel.append(livePreviewImage);
+      elements.liveResultPreviewPanel.appendChild(livePreviewImage);
     }
 
     const previousUrl = livePreviewObjectUrl;
@@ -7554,7 +7554,7 @@ function fillImageScreenWorkflowOptions(elements: AppElements, mode: ImageScreen
     const option = document.createElement("option");
     option.value = preset.id;
     option.textContent = preset.label;
-    select.append(option);
+    select.appendChild(option);
   }
 
   const fallback = presets[0]?.id ?? "";
@@ -8131,7 +8131,7 @@ function fillSingleCheckpointSelect(select: HTMLSelectElement, checkpoints: stri
     const option = document.createElement("option");
     option.value = checkpoint;
     option.textContent = checkpoint;
-    select.append(option);
+    select.appendChild(option);
   }
 
   if (preferredValue && checkpoints.includes(preferredValue)) {
@@ -8283,7 +8283,7 @@ function fillLoraSelect(
   const none = document.createElement("option");
   none.value = NO_LORA_VALUE;
   none.textContent = "None";
-  select.append(none);
+  select.appendChild(none);
 
   // Likely matches first, then unlabelled, then the ones whose names point at
   // another model -- so the entry most likely to work is nearest the top
@@ -8297,7 +8297,7 @@ function fillLoraSelect(
     const option = document.createElement("option");
     option.value = loraName;
     option.textContent = loraName + formatLoraHintSuffix(getLoraFamilyHint(loraName, preset));
-    select.append(option);
+    select.appendChild(option);
   }
 
   select.value = preferredValue && loraNames.includes(preferredValue) ? preferredValue : NO_LORA_VALUE;
@@ -8339,7 +8339,7 @@ function ensureSelectOption(select: HTMLSelectElement, value: string, label = va
     const option = document.createElement("option");
     option.value = value;
     option.textContent = label;
-    select.append(option);
+    select.appendChild(option);
   }
 
   if (!readSelectValue(select)) {
@@ -8876,7 +8876,7 @@ function renderWorkflowHealthReport(elements: AppElements, report: WorkflowHealt
     const empty = document.createElement("div");
     empty.className = "diagnostics-line";
     empty.textContent = "Click Check Workflow Health to inspect local workflow readiness.";
-    elements.settingsWorkflowHealthList.append(empty);
+    elements.settingsWorkflowHealthList.appendChild(empty);
     return;
   }
 
@@ -8887,13 +8887,13 @@ function renderWorkflowHealthReport(elements: AppElements, report: WorkflowHealt
     const groupTitle = document.createElement("div");
     groupTitle.className = "workflow-health-group-title";
     groupTitle.textContent = `${group.label} (${group.items.length})`;
-    groupElement.append(groupTitle);
+    groupElement.appendChild(groupTitle);
 
     for (const item of group.items) {
-      groupElement.append(createWorkflowHealthCard(item));
+      groupElement.appendChild(createWorkflowHealthCard(item));
     }
 
-    elements.settingsWorkflowHealthList.append(groupElement);
+    elements.settingsWorkflowHealthList.appendChild(groupElement);
   }
 }
 
@@ -8920,13 +8920,13 @@ function renderWorkflowHealthSummary(elements: AppElements, report: WorkflowHeal
 
     const label = document.createElement("span");
     label.textContent = card.label;
-    cardElement.append(label);
+    cardElement.appendChild(label);
 
     const value = document.createElement("strong");
     value.textContent = report ? String(card.value) : "-";
-    cardElement.append(value);
+    cardElement.appendChild(value);
 
-    elements.settingsWorkflowHealthSummary.append(cardElement);
+    elements.settingsWorkflowHealthSummary.appendChild(cardElement);
   }
 }
 
@@ -8997,7 +8997,7 @@ function renderSetupOutlook(
     const empty = document.createElement("div");
     empty.className = "diagnostics-line setup-paragraph";
     empty.textContent = "No presets match this filter.";
-    container.append(empty);
+    container.appendChild(empty);
     return;
   }
 
@@ -9014,21 +9014,21 @@ function renderSetupOutlook(
     const title = document.createElement("div");
     title.className = "workflow-health-title";
     title.textContent = outlook.displayName;
-    titleBlock.append(title);
+    titleBlock.appendChild(title);
 
     const tool = document.createElement("div");
     tool.className = "workflow-health-tool";
     tool.textContent = outlook.toolLabel;
-    titleBlock.append(tool);
+    titleBlock.appendChild(tool);
 
-    heading.append(titleBlock);
+    heading.appendChild(titleBlock);
 
     const badge = document.createElement("div");
     badge.className = `workflow-health-state ${SETUP_EXPECTATION_TONES[outlook.expectation]}`.trim();
     badge.textContent = outlook.expectationLabel;
-    heading.append(badge);
+    heading.appendChild(badge);
 
-    row.append(heading);
+    row.appendChild(heading);
 
     const fields = document.createElement("div");
     fields.className = "setup-row-fields";
@@ -9040,24 +9040,24 @@ function renderSetupOutlook(
       const label = document.createElement("span");
       label.className = "setup-row-field-label";
       label.textContent = field.label;
-      fieldRow.append(label);
+      fieldRow.appendChild(label);
 
       const value = document.createElement("span");
       value.className = "setup-row-field-value";
       value.textContent = field.value;
-      fieldRow.append(value);
+      fieldRow.appendChild(value);
 
-      fields.append(fieldRow);
+      fields.appendChild(fieldRow);
     }
 
-    row.append(fields);
+    row.appendChild(fields);
 
     const note = document.createElement("div");
     note.className = "setup-row-note";
     note.textContent = outlook.expectationNote;
-    row.append(note);
+    row.appendChild(note);
 
-    container.append(row);
+    container.appendChild(row);
   }
 }
 
@@ -9074,13 +9074,13 @@ function renderSetupTallies(container: HTMLElement, tallies: readonly SetupTally
 
     const label = document.createElement("span");
     label.textContent = tally.label;
-    cell.append(label);
+    cell.appendChild(label);
 
     const value = document.createElement("strong");
     value.textContent = tally.value;
-    cell.append(value);
+    cell.appendChild(value);
 
-    container.append(cell);
+    container.appendChild(cell);
   }
 }
 
@@ -9098,7 +9098,7 @@ function renderSetupFilters(
     chip.textContent = filter.toolLabel;
     chip.setAttribute("aria-pressed", filter.active ? "true" : "false");
     chip.addEventListener("click", () => onSelect(filter.toolLabel));
-    container.append(chip);
+    container.appendChild(chip);
   }
 }
 
@@ -9142,14 +9142,14 @@ function renderWorkflowPresets(elements: AppElements) {
     const title = document.createElement("span");
     title.className = "label";
     title.textContent = group.toolLabel;
-    heading.append(title);
+    heading.appendChild(title);
 
     const count = document.createElement("span");
     count.className = "muted-label";
     count.textContent = group.rows.length === 1 ? "1 preset" : `${group.rows.length} presets`;
-    heading.append(count);
+    heading.appendChild(count);
 
-    section.append(heading);
+    section.appendChild(heading);
 
     for (const row of group.rows) {
       const nameLine = document.createElement("div");
@@ -9158,19 +9158,19 @@ function renderWorkflowPresets(elements: AppElements) {
       const name = document.createElement("span");
       name.className = "label";
       name.textContent = row.displayName;
-      nameLine.append(name);
+      nameLine.appendChild(name);
 
       const status = document.createElement("span");
       status.className = `status-pill ${row.statusTone === "stable" ? "ready" : "idle"}`;
       status.textContent = row.statusLabel;
-      nameLine.append(status);
+      nameLine.appendChild(status);
 
-      section.append(nameLine);
+      section.appendChild(nameLine);
 
       const description = document.createElement("div");
       description.className = "diagnostics-line setup-paragraph";
       description.textContent = row.description;
-      section.append(description);
+      section.appendChild(description);
 
       const needs = document.createElement("div");
       needs.className = "diagnostics-line setup-paragraph";
@@ -9184,17 +9184,17 @@ function renderWorkflowPresets(elements: AppElements) {
           ? `Custom nodes: ${row.customNodePackages.join(", ")}`
           : "Core ComfyUI nodes only"
       ].join(" | ");
-      section.append(needs);
+      section.appendChild(needs);
 
       if (row.note) {
         const note = document.createElement("div");
         note.className = "diagnostics-line setup-paragraph";
         note.textContent = row.note;
-        section.append(note);
+        section.appendChild(note);
       }
     }
 
-    container.append(section);
+    container.appendChild(section);
   }
 }
 
@@ -9224,21 +9224,21 @@ function renderCustomWorkflowReport(elements: AppElements, report: CustomWorkflo
     const missingTitle = document.createElement("span");
     missingTitle.className = "label";
     missingTitle.textContent = "Not installed here";
-    missingHeading.append(missingTitle);
-    missingSection.append(missingHeading);
+    missingHeading.appendChild(missingTitle);
+    missingSection.appendChild(missingHeading);
 
     const list = document.createElement("div");
     list.className = "diagnostics-line setup-paragraph";
     list.textContent = report.missingNodeClasses.join(", ");
-    missingSection.append(list);
+    missingSection.appendChild(list);
 
     const hint = document.createElement("div");
     hint.className = "diagnostics-line setup-paragraph";
     hint.textContent =
       "Install the node packs that provide these classes, then check again. ComfyUI Manager can search by node name.";
-    missingSection.append(hint);
+    missingSection.appendChild(hint);
 
-    container.append(missingSection);
+    container.appendChild(missingSection);
   }
 
   const section = document.createElement("section");
@@ -9251,13 +9251,13 @@ function renderCustomWorkflowReport(elements: AppElements, report: CustomWorkflo
   const title = document.createElement("span");
   title.className = "label";
   title.textContent = "Nodes";
-  heading.append(title);
+  heading.appendChild(title);
 
   const count = document.createElement("span");
   count.className = "muted-label";
   count.textContent = report.nodeCount === 1 ? "1 node" : `${report.nodeCount} nodes`;
-  heading.append(count);
-  section.append(heading);
+  heading.appendChild(count);
+  section.appendChild(heading);
 
   for (const node of report.nodes) {
     const line = document.createElement("div");
@@ -9272,10 +9272,10 @@ function renderCustomWorkflowReport(elements: AppElements, report: CustomWorkflo
           : `missing required input: ${node.missingInputs.join(", ")}`;
 
     line.textContent = `#${node.nodeId} ${label} - ${verdict}`;
-    section.append(line);
+    section.appendChild(line);
   }
 
-  container.append(section);
+  container.appendChild(section);
 }
 
 function renderSetupSections(
@@ -9297,24 +9297,24 @@ function renderSetupSections(
     const title = document.createElement("span");
     title.className = "label";
     title.textContent = section.title;
-    heading.append(title);
+    heading.appendChild(title);
 
     const meta = document.createElement("span");
     meta.className = "muted-label";
     meta.textContent = section.meta;
-    heading.append(meta);
+    heading.appendChild(meta);
 
-    sectionElement.append(heading);
+    sectionElement.appendChild(heading);
 
     if (section.rows.length === 0 && section.collapsedRows.length === 0) {
       const empty = document.createElement("div");
       empty.className = "diagnostics-line setup-paragraph";
       empty.textContent = section.emptyMessage;
-      sectionElement.append(empty);
+      sectionElement.appendChild(empty);
     }
 
     for (const row of section.rows) {
-      sectionElement.append(createSetupRowElement(row, onCopy, install));
+      sectionElement.appendChild(createSetupRowElement(row, onCopy, install));
     }
 
     if (section.collapsedRows.length > 0) {
@@ -9328,16 +9328,16 @@ function renderSetupSections(
       const summary = document.createElement("summary");
       summary.className = "setup-installed-summary";
       summary.textContent = section.collapsedSummary;
-      details.append(summary);
+      details.appendChild(summary);
 
       for (const row of section.collapsedRows) {
-        details.append(createSetupRowElement(row, onCopy, install));
+        details.appendChild(createSetupRowElement(row, onCopy, install));
       }
 
-      sectionElement.append(details);
+      sectionElement.appendChild(details);
     }
 
-    container.append(sectionElement);
+    container.appendChild(sectionElement);
   }
 }
 
@@ -9361,21 +9361,21 @@ function createSetupRowElement(
   const title = document.createElement("div");
   title.className = "workflow-health-title";
   title.textContent = row.title;
-  titleBlock.append(title);
+  titleBlock.appendChild(title);
 
   const subtitle = document.createElement("div");
   subtitle.className = "workflow-health-tool setup-row-subtitle";
   subtitle.textContent = row.subtitle;
-  titleBlock.append(subtitle);
+  titleBlock.appendChild(subtitle);
 
-  heading.append(titleBlock);
+  heading.appendChild(titleBlock);
 
   const badge = document.createElement("div");
   badge.className = `workflow-health-state is-setup-${row.badgeTone}`;
   badge.textContent = row.badgeLabel;
-  heading.append(badge);
+  heading.appendChild(badge);
 
-  rowElement.append(heading);
+  rowElement.appendChild(heading);
 
   if (row.fields.length > 0) {
     const fields = document.createElement("div");
@@ -9388,24 +9388,24 @@ function createSetupRowElement(
       const label = document.createElement("span");
       label.className = "setup-row-field-label";
       label.textContent = field.label;
-      fieldRow.append(label);
+      fieldRow.appendChild(label);
 
       const value = document.createElement("span");
       value.className = "setup-row-field-value";
       value.textContent = field.value;
-      fieldRow.append(value);
+      fieldRow.appendChild(value);
 
-      fields.append(fieldRow);
+      fields.appendChild(fieldRow);
     }
 
-    rowElement.append(fields);
+    rowElement.appendChild(fields);
   }
 
   for (const note of row.notes) {
     const noteElement = document.createElement("div");
     noteElement.className = "setup-row-note";
     noteElement.textContent = note;
-    rowElement.append(noteElement);
+    rowElement.appendChild(noteElement);
   }
 
   const offer = install.getOffer(row.key);
@@ -9430,7 +9430,7 @@ function createSetupRowElement(
         if (isInstalling) install.onStop();
         else install.onRequest(row.key);
       });
-      actions.append(installButton);
+      actions.appendChild(installButton);
     }
 
     for (const action of row.actions) {
@@ -9450,10 +9450,10 @@ function createSetupRowElement(
         button.addEventListener("click", () => onCopy(action));
       }
 
-      actions.append(button);
+      actions.appendChild(button);
     }
 
-    rowElement.append(actions);
+    rowElement.appendChild(actions);
   }
 
   // The confirmation is drawn inside the row it belongs to, rather than as a
@@ -9461,7 +9461,7 @@ function createSetupRowElement(
   // dialog would separate the question from the row that answers it -- besides
   // which UXP modal dialogs are an unproven surface in this project.
   if (offer.kind === "offered" && install.confirmingKey === row.key && !install.busy) {
-    rowElement.append(createInstallConfirmationElement(offer.item, install));
+    rowElement.appendChild(createInstallConfirmationElement(offer.item, install));
   }
 
   return rowElement;
@@ -9478,7 +9478,7 @@ function createInstallConfirmationElement(
   const headline = document.createElement("div");
   headline.className = "setup-install-headline";
   headline.textContent = view.headline;
-  container.append(headline);
+  container.appendChild(headline);
 
   const fields = document.createElement("div");
   fields.className = "setup-row-fields";
@@ -9490,22 +9490,22 @@ function createInstallConfirmationElement(
     const label = document.createElement("span");
     label.className = "setup-row-field-label";
     label.textContent = field.label;
-    fieldRow.append(label);
+    fieldRow.appendChild(label);
 
     const value = document.createElement("span");
     value.className = "setup-row-field-value";
     value.textContent = field.value;
-    fieldRow.append(value);
+    fieldRow.appendChild(value);
 
-    fields.append(fieldRow);
+    fields.appendChild(fieldRow);
   }
 
-  container.append(fields);
+  container.appendChild(fields);
 
   const note = document.createElement("div");
   note.className = "setup-row-note";
   note.textContent = view.note;
-  container.append(note);
+  container.appendChild(note);
 
   const actions = document.createElement("div");
   actions.className = "setup-row-actions";
@@ -9515,16 +9515,16 @@ function createInstallConfirmationElement(
   confirm.className = "button setup-row-action is-install";
   confirm.textContent = view.confirmLabel;
   confirm.addEventListener("click", () => install.onConfirm(item));
-  actions.append(confirm);
+  actions.appendChild(confirm);
 
   const cancel = document.createElement("button");
   cancel.type = "button";
   cancel.className = "button setup-row-action";
   cancel.textContent = view.cancelLabel;
   cancel.addEventListener("click", () => install.onCancel());
-  actions.append(cancel);
+  actions.appendChild(cancel);
 
-  container.append(actions);
+  container.appendChild(actions);
 
   return container;
 }
@@ -9567,26 +9567,26 @@ function createWorkflowHealthCard(item: WorkflowHealthItem) {
   const title = document.createElement("div");
   title.className = "workflow-health-title";
   title.textContent = item.label;
-  titleBlock.append(title);
+  titleBlock.appendChild(title);
 
   const tool = document.createElement("div");
   tool.className = "workflow-health-tool";
   tool.textContent = item.toolLabel;
-  titleBlock.append(tool);
+  titleBlock.appendChild(tool);
 
-  heading.append(titleBlock);
+  heading.appendChild(titleBlock);
 
   const badge = document.createElement("div");
   badge.className = `workflow-health-state is-${item.state}`;
   badge.textContent = item.stateLabel;
-  heading.append(badge);
+  heading.appendChild(badge);
 
-  row.append(heading);
+  row.appendChild(heading);
 
   const summary = document.createElement("div");
   summary.className = "workflow-health-summary";
   summary.textContent = item.summary;
-  row.append(summary);
+  row.appendChild(summary);
 
   // Sits above the details toggle on purpose: the page that fixes the row is
   // more useful than the paragraph explaining it, and a row with an unread
@@ -9597,7 +9597,7 @@ function createWorkflowHealthCard(item: WorkflowHealthItem) {
     openButton.className = "button setup-row-action is-open-external";
     openButton.textContent = item.link.label;
     openButton.setAttribute("data-openlayer-external", item.link.url);
-    row.append(openButton);
+    row.appendChild(openButton);
   }
 
   if (item.detail) {
@@ -9605,13 +9605,13 @@ function createWorkflowHealthCard(item: WorkflowHealthItem) {
     toggle.className = "button diagnostic-detail-toggle";
     toggle.type = "button";
     toggle.textContent = "Show details";
-    row.append(toggle);
+    row.appendChild(toggle);
 
     const detail = document.createElement("div");
     detail.className = "workflow-health-detail diagnostic-muted";
     detail.textContent = item.detail;
     detail.hidden = true;
-    row.append(detail);
+    row.appendChild(detail);
 
     toggle.addEventListener("click", () => {
       const shouldShow = detail.hidden;
@@ -9793,7 +9793,7 @@ function renderHistory(elements: AppElements, historyEntries: HistoryEntry[]) {
     const empty = document.createElement("div");
     empty.className = "history-empty";
     empty.textContent = "No recent generations yet.";
-    elements.historyList.append(empty);
+    elements.historyList.appendChild(empty);
     return;
   }
 
@@ -9805,7 +9805,7 @@ function renderHistory(elements: AppElements, historyEntries: HistoryEntry[]) {
     image.className = "history-thumb";
     image.src = entry.previewUrl;
     image.alt = "OpenLayer history preview";
-    card.append(image);
+    card.appendChild(image);
 
     const body = document.createElement("div");
     body.className = "history-body";
@@ -9813,7 +9813,7 @@ function renderHistory(elements: AppElements, historyEntries: HistoryEntry[]) {
     const title = document.createElement("div");
     title.className = "history-title";
     title.textContent = entry.prompt;
-    body.append(title);
+    body.appendChild(title);
 
     const meta = document.createElement("div");
     meta.className = "history-meta";
@@ -9822,39 +9822,39 @@ function renderHistory(elements: AppElements, historyEntries: HistoryEntry[]) {
       dimensions: entry.dimensions,
       seed: entry.seed
     });
-    body.append(meta);
+    body.appendChild(meta);
 
     const checkpoint = document.createElement("div");
     checkpoint.className = "history-meta";
     checkpoint.textContent = `${entry.workflowPreset} | ${entry.modelName || entry.checkpointName}`;
-    body.append(checkpoint);
+    body.appendChild(checkpoint);
 
     if (entry.sourceMode) {
       const source = document.createElement("div");
       source.className = "history-meta";
       source.textContent = `Source: ${entry.sourceMode}`;
-      body.append(source);
+      body.appendChild(source);
     }
 
     const importStatus = document.createElement("div");
     importStatus.className = "history-meta";
     importStatus.textContent = formatHistoryImportStatus(entry.importStatus, entry.importedLayerName);
-    body.append(importStatus);
+    body.appendChild(importStatus);
 
     const createdAt = document.createElement("div");
     createdAt.className = "history-time";
     createdAt.textContent = entry.createdAt;
-    body.append(createdAt);
+    body.appendChild(createdAt);
 
     const actions = document.createElement("div");
     actions.className = "history-actions";
-    actions.append(createHistoryButton("Preview", "preview", entry.id));
-    actions.append(createHistoryButton("Import", "import", entry.id));
-    actions.append(createHistoryButton("Reuse Settings", "reuse", entry.id));
-    body.append(actions);
+    actions.appendChild(createHistoryButton("Preview", "preview", entry.id));
+    actions.appendChild(createHistoryButton("Import", "import", entry.id));
+    actions.appendChild(createHistoryButton("Reuse Settings", "reuse", entry.id));
+    body.appendChild(actions);
 
-    card.append(body);
-    elements.historyList.append(card);
+    card.appendChild(body);
+    elements.historyList.appendChild(card);
   }
 }
 

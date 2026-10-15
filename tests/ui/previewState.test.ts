@@ -12,7 +12,7 @@ function createRegistry() {
   return { registry, revokeObjectURL };
 }
 
-// The result-preview panel touches the DOM (createElement/append), which the
+// The result-preview panel touches the DOM (createElement/appendChild), which the
 // node test env does not provide. A minimal stub lets us assert the element
 // reuse that eliminates the flicker, plus the URL ownership around it, without
 // pulling in jsdom.
@@ -32,7 +32,7 @@ function installFakeDom() {
   const panel = {
     innerHTML: "",
     children: [] as FakeElement[],
-    append(child: FakeElement) {
+    appendChild(child: FakeElement) {
       this.children.push(child);
     }
   };

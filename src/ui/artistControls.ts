@@ -190,7 +190,8 @@ function build(input: HTMLInputElement, spec: ArtistControlSpec): void {
   slider.step = String(spec.step);
   slider.setAttribute("aria-label", spec.label);
 
-  row.append(label, slider);
+  row.appendChild(label);
+  row.appendChild(slider);
   field.classList.add(FIELD_CLASS);
   field.insertBefore(row, input);
 

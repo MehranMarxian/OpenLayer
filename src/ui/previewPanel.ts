@@ -92,20 +92,22 @@ export function renderPreviewPanel(
   const followOption = document.createElement("option");
   followOption.value = "";
   followOption.textContent = "Follow active tool";
-  pinSelect.append(followOption);
+  pinSelect.appendChild(followOption);
 
   for (const tool of PREVIEW_TOOLS) {
     const option = document.createElement("option");
     option.value = tool.id;
     option.textContent = tool.label;
-    pinSelect.append(option);
+    pinSelect.appendChild(option);
   }
 
   const fitButton = document.createElement("button");
   fitButton.type = "button";
   fitButton.className = "openlayer-preview-panel-fit";
 
-  header.append(badge, pinSelect, fitButton);
+  header.appendChild(badge);
+  header.appendChild(pinSelect);
+  header.appendChild(fitButton);
 
   const stage = document.createElement("div");
   stage.className = "openlayer-preview-panel-stage";
@@ -142,11 +144,16 @@ export function renderPreviewPanel(
   const importStatus = document.createElement("span");
   importStatus.className = "openlayer-preview-panel-import-status";
 
-  actions.append(importButton, autoImportButton, importStatus);
+  actions.appendChild(importButton);
+  actions.appendChild(autoImportButton);
+  actions.appendChild(importStatus);
 
-  stage.append(emptyMessage, image);
-  shell.append(header, stage, actions);
-  rootElement.append(shell);
+  stage.appendChild(emptyMessage);
+  stage.appendChild(image);
+  shell.appendChild(header);
+  shell.appendChild(stage);
+  shell.appendChild(actions);
+  rootElement.appendChild(shell);
 
   let actualSize = false;
 

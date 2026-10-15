@@ -271,7 +271,7 @@ describe("result preview panels mirroring to the hub", () => {
       revokeObjectURL: (url) => revoked.push(url)
     });
     const hub = createPreviewHub();
-    const panel = { innerHTML: "", append: vi.fn() } as unknown as HTMLElement;
+    const panel = { innerHTML: "", appendChild: vi.fn() } as unknown as HTMLElement;
 
     const resultPanel = createResultPreviewPanel({
       urls,
@@ -336,7 +336,7 @@ describe("result preview panels mirroring to the hub", () => {
       createObjectURL: () => "blob:x",
       revokeObjectURL: () => undefined
     });
-    const panel = { innerHTML: "", append: vi.fn() } as unknown as HTMLElement;
+    const panel = { innerHTML: "", appendChild: vi.fn() } as unknown as HTMLElement;
     const resultPanel = createResultPreviewPanel({
       urls,
       panel,

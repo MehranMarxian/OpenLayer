@@ -328,18 +328,18 @@ export function createPromptWallet(
       entry.name = next || createWalletEntryName(entry.positivePrompt);
       persist();
     });
-    body.append(name);
+    body.appendChild(name);
 
     const positive = document.createElement("div");
     positive.className = "prompt-wallet-text";
     positive.textContent = entry.positivePrompt;
-    body.append(positive);
+    body.appendChild(positive);
 
     if (entry.negativePrompt) {
       const negative = document.createElement("div");
       negative.className = "prompt-wallet-text is-negative";
       negative.textContent = "Negative: " + entry.negativePrompt;
-      body.append(negative);
+      body.appendChild(negative);
     }
 
     const meta = document.createElement("div");
@@ -347,7 +347,7 @@ export function createPromptWallet(
     meta.textContent = [entry.pinned ? "Pinned" : "", formatSavedAt(entry.createdAt)]
       .filter(Boolean)
       .join(" · ");
-    body.append(meta);
+    body.appendChild(meta);
 
     const actions = document.createElement("div");
     actions.className = "history-actions";
@@ -359,7 +359,7 @@ export function createPromptWallet(
       useButton.textContent = "Use";
       const tool = pickingFor;
       useButton.addEventListener("click", () => useEntry(entry, tool));
-      actions.append(useButton);
+      actions.appendChild(useButton);
     }
 
     const copyButton = document.createElement("button");
@@ -373,7 +373,7 @@ export function createPromptWallet(
       void navigator.clipboard?.writeText(text);
       setWalletNote("Prompt copied.");
     });
-    actions.append(copyButton);
+    actions.appendChild(copyButton);
 
     const pinButton = document.createElement("button");
     pinButton.type = "button";
@@ -383,7 +383,7 @@ export function createPromptWallet(
       entry.pinned = !entry.pinned;
       persist();
     });
-    actions.append(pinButton);
+    actions.appendChild(pinButton);
 
     const deleteButton = document.createElement("button");
     deleteButton.type = "button";
@@ -394,10 +394,10 @@ export function createPromptWallet(
       persist();
       setWalletNote("Prompt deleted.");
     });
-    actions.append(deleteButton);
+    actions.appendChild(deleteButton);
 
-    body.append(actions);
-    card.append(body);
+    body.appendChild(actions);
+    card.appendChild(body);
     return card;
   }
 
@@ -439,12 +439,12 @@ export function createPromptWallet(
         entries.length === 0
           ? "No saved prompts yet. Press the green + under any tool's Prompt field to save one."
           : "No prompts match that search.";
-      container.append(empty);
+      container.appendChild(empty);
       return;
     }
 
     for (const entry of visible) {
-      container.append(createCard(entry));
+      container.appendChild(createCard(entry));
     }
   }
 
