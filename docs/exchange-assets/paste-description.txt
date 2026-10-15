@@ -1,4 +1,4 @@
-OpenLayer is a free, open-source plugin for Photoshop that connects Photoshop to a ComfyUI server running on your own machine. Generate with Stable Diffusion, SDXL, and Flux models, and every result arrives as an editable Photoshop layer — named, positioned, and yours to keep working on, not a flattened PNG you paste in and hope for.
+OpenLayer is a free, open-source plugin for Photoshop that connects Photoshop to a ComfyUI server running on your own machine. Generate with Stable Diffusion, SDXL, and Flux models, and every result arrives as an editable layer in Photoshop — named, positioned, and yours to keep working on, not a flattened PNG you paste in and hope for.
 
 It runs entirely on your computer. ComfyUI runs locally, on your own checkpoints and LoRAs. Nothing is uploaded, there is no account, no metering, no credits, and no telemetry. If you retouch client work or cannot send artwork to a hosted service, that is the whole point of this plugin.
 
@@ -8,7 +8,7 @@ WHAT IT DOES
 - Image to Image — reinterpret the active layer with a prompt
 - Edit Image — change a layer by describing the change ("make the jacket red") while the rest of the picture stays where it is
 - Sketch to Image — guide generation with your line art through a ControlNet
-- Inpaint (experimental) — repaint a Photoshop selection in place
+- Inpaint (experimental) — repaint a selection in place
 - Outpaint (experimental) — extend canvas content beyond the edges
 - Upscale — enhance layers with local upscale models
 - Remove Background — cut the subject onto its own layer with real alpha, in about two seconds, with no diffusion in the graph, so the pixels come back unchanged
