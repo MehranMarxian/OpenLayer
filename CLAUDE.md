@@ -90,7 +90,8 @@ Load `dist/` in Photoshop with UXP Developer Tool (Add Plugin → `dist/manifest
 - Compact theme: `.app-shell.theme-compact …` rules, often `!important`, override base rules;
   grep for them and for attribute selectors (`button[aria-pressed]`) before styling.
 - **Anything touching `src/styles.css`, panel markup (`appMarkup.ts`) or Photoshop calls ships as
-  ONE small change per PR and waits for Mehran's real Photoshop screenshot.**
+  ONE small change per PR and waits for Mehran's real Photoshop screenshot.** Such a PR lists the
+  `docs/uxp-smoke-checklist.md` blocks it needs (block 0 plus the area changed) as checkboxes.
 
 ## ComfyUI rules
 
