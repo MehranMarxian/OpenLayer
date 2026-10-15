@@ -26,8 +26,8 @@
  * check every half second backs them all up and only touches the DOM when the
  * shown value is out of date.
  *
- * Kept generic, but used on one dropdown first (Image to Image and Edit Image's
- * Model) so the look can be judged in Photoshop before any other moves over.
+ * Used on every tool's Workflow and Model dropdown (App.ts). The LoRA, theme and
+ * Prompt from Layer task dropdowns are still native and still wheel-prone.
  */
 
 export const PICKER_SYNC_EVENT = "ol-picker-sync";
@@ -91,9 +91,19 @@ export function enhanceSelectAsPicker(
 
   const isOpen = () => !list.hidden;
 
+  // The option the panel will actually use. In UXP a select whose value was
+  // never set reports an empty value and selectedIndex -1, while the native
+  // control still displays its first option and readSelectValue in App.ts falls
+  // back to that same first option. Showing anything else (the field loaded
+  // blank on Remove Background, Layer Maps and Unflatten) would misstate it.
+  const effectiveOption = (): HTMLOptionElement | undefined =>
+    select.options[select.selectedIndex] ??
+    Array.from(select.options).find((option) => option.value === select.value && select.value !== "") ??
+    select.options[0];
+
   const currentText = () => {
-    const option = select.options[select.selectedIndex];
-    return option ? option.textContent ?? option.value : select.value;
+    const option = effectiveOption();
+    return option ? (option.textContent ?? option.value).trim() : select.value;
   };
 
   const renderList = () => {
@@ -105,7 +115,7 @@ export function enhanceSelectAsPicker(
       item.setAttribute("role", "option");
       item.setAttribute("data-value", option.value);
       item.textContent = option.textContent ?? option.value;
-      const selected = option.value === select.value;
+      const selected = option === effectiveOption();
       item.classList.toggle("is-selected", selected);
       item.setAttribute("aria-selected", String(selected));
       list.appendChild(item);

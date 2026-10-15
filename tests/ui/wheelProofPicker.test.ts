@@ -133,4 +133,17 @@ describe("enhanceSelectAsPicker", () => {
       vi.useRealTimers();
     }
   });
+
+  it("shows the first option when nothing is selected, as the panel's readSelectValue assumes", () => {
+    const { select, picker, label, items } = setup();
+
+    // What UXP reports for a select whose value was never set.
+    Object.defineProperty(select, "selectedIndex", { value: -1, configurable: true });
+    Object.defineProperty(select, "value", { value: "", configurable: true, writable: true });
+    picker.sync();
+    picker.open();
+
+    expect(label()).toBe("klein");
+    expect(items()[0].classList.contains("is-selected")).toBe(true);
+  });
 });
