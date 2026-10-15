@@ -215,6 +215,7 @@ import { setArtistControlsEnabled, syncArtistControls } from "./artistControls";
 import { setSeedDiceEnabled } from "./seedDice";
 import { enhanceSelectAsPicker, PICKER_SYNC_EVENT } from "./wheelProofPicker";
 import { pickStarterDefault } from "./starterDefaults";
+import { getComfyFoundStatus, getComfyOnlineStatus } from "./comfyCheckStatus";
 import { bindPromptMemory } from "./promptMemory";
 import { bindPromptWallet, PROMPT_WALLET_TOOLS, PromptWalletTool } from "./promptWallet";
 import {
@@ -2328,7 +2329,11 @@ export function renderApp(rootElement: HTMLElement) {
       // Before the model lists are filled, so they are filled for the
       // workflow the tools actually open on.
       await applyStarterDefaults(client);
-      await loadCheckpoints(client, elements, preferences.checkpointName || readSelectValue(elements.checkpoint));
+      const checkpointCount = await loadCheckpoints(
+        client,
+        elements,
+        preferences.checkpointName || readSelectValue(elements.checkpoint)
+      );
       await refreshTextModelOptionsForSelectedPreset(elements, client);
       await refreshImageModelOptionsForSelectedPreset(elements, client);
       await refreshSketchModelOptionsForSelectedPreset(elements, client);
@@ -2346,7 +2351,7 @@ export function renderApp(rootElement: HTMLElement) {
       updateOutpaintCheckpointCompatibility(elements, outpaintSource);
       updateUpscaleCompatibility(elements, upscaleSource);
       updateStyleReferenceCheckpointCompatibility(elements, styleReferenceSource);
-      setGlobalStatus(elements, "ComfyUI is online. Models loaded.", "ready");
+      setGlobalStatus(elements, getComfyOnlineStatus(checkpointCount), "ready");
       savePreferencesFromElements(elements);
       updateSettingsReport(elements);
     } catch (caughtError) {
@@ -2425,7 +2430,7 @@ export function renderApp(rootElement: HTMLElement) {
     try {
       const client = new ComfyClient(elements.serverUrl.value);
       await client.checkOnline();
-      await loadCheckpoints(client, elements);
+      const checkpointCount = await loadCheckpoints(client, elements);
       await refreshTextModelOptionsForSelectedPreset(elements, client);
       await refreshImageModelOptionsForSelectedPreset(elements, client);
       await refreshSketchModelOptionsForSelectedPreset(elements, client);
@@ -2441,7 +2446,7 @@ export function renderApp(rootElement: HTMLElement) {
       updateOutpaintCheckpointCompatibility(elements, outpaintSource);
       updateUpscaleCompatibility(elements, upscaleSource);
       updateStyleReferenceCheckpointCompatibility(elements, styleReferenceSource);
-      setGlobalStatus(elements, "ComfyUI is online. Models loaded.", "ready");
+      setGlobalStatus(elements, getComfyOnlineStatus(checkpointCount), "ready");
       savePreferencesFromElements(elements);
       updateSettingsReport(elements);
     } catch (caughtError) {
@@ -2471,7 +2476,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     try {
       const client = new ComfyClient(foundUrl);
-      await loadCheckpoints(client, elements);
+      const checkpointCount = await loadCheckpoints(client, elements);
       await refreshTextModelOptionsForSelectedPreset(elements, client);
       await refreshImageModelOptionsForSelectedPreset(elements, client);
       await refreshSketchModelOptionsForSelectedPreset(elements, client);
@@ -2488,7 +2493,7 @@ export function renderApp(rootElement: HTMLElement) {
       updateUpscaleCompatibility(elements, upscaleSource);
       updateStyleReferenceCheckpointCompatibility(elements, styleReferenceSource);
       savePreferencesFromElements(elements);
-      setGlobalStatus(elements, `Found ComfyUI at ${foundUrl}.`, "ready");
+      setGlobalStatus(elements, getComfyFoundStatus(foundUrl, checkpointCount), "ready");
       setGlobalDiagnostics(elements, `Active ComfyUI server selected: ${foundUrl}.`);
     } catch (caughtError) {
       setGlobalStatus(elements, `Found ${foundUrl}, but model loading failed.`, "error");
@@ -8137,14 +8142,25 @@ function formatSourceCaptureLabel(_source: ExportedSourceImage) {
   return "PNG/lossless";
 }
 
-async function loadCheckpoints(client: ComfyClient, elements: AppElements, preferredValue = readSelectValue(elements.checkpoint)) {
+/**
+ * Fills the Checkpoint dropdowns from ComfyUI and returns how many it listed.
+ *
+ * None is not an error: a fresh install with only the FLUX.2 Klein starter has
+ * an empty models/checkpoints. The dropdowns then keep the list they had, as
+ * they do when ComfyUI is offline (comfyCheckStatus.ts).
+ */
+async function loadCheckpoints(
+  client: ComfyClient,
+  elements: AppElements,
+  preferredValue = readSelectValue(elements.checkpoint)
+): Promise<number> {
   const checkpoints = await client.getCheckpointNames();
 
-  if (checkpoints.length === 0) {
-    throw createOpenLayerError("COMFY_CHECKPOINTS_EMPTY", "No ComfyUI checkpoints were found.");
+  if (checkpoints.length > 0) {
+    fillCheckpointOptions(elements, checkpoints, preferredValue);
   }
 
-  fillCheckpointOptions(elements, checkpoints, preferredValue);
+  return checkpoints.length;
 }
 
 async function refreshTextModelOptionsForSelectedPreset(

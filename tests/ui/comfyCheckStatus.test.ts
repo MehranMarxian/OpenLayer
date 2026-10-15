@@ -1,0 +1,51 @@
+import { readFileSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+import {
+  COMFY_ONLINE_STATUS,
+  getComfyFoundStatus,
+  getComfyOnlineStatus,
+  NO_CHECKPOINTS_NOTE
+} from "../../src/ui/comfyCheckStatus";
+
+describe("getComfyOnlineStatus", () => {
+  it("keeps the usual line when ComfyUI lists checkpoints", () => {
+    expect(getComfyOnlineStatus(3)).toBe("ComfyUI is online. Models loaded.");
+  });
+
+  it("still reports ComfyUI online when models/checkpoints is empty", () => {
+    const status = getComfyOnlineStatus(0);
+
+    expect(status.startsWith(COMFY_ONLINE_STATUS)).toBe(true);
+    expect(status).toContain(NO_CHECKPOINTS_NOTE);
+    expect(status).not.toMatch(/failed/i);
+  });
+});
+
+describe("getComfyFoundStatus", () => {
+  it("names the server, and adds the note only without checkpoints", () => {
+    expect(getComfyFoundStatus("http://127.0.0.1:8189", 1)).toBe("Found ComfyUI at http://127.0.0.1:8189.");
+    expect(getComfyFoundStatus("http://127.0.0.1:8189", 0)).toBe(
+      `Found ComfyUI at http://127.0.0.1:8189. ${NO_CHECKPOINTS_NOTE}`
+    );
+  });
+});
+
+describe("no-checkpoints note", () => {
+  it("is plain text for textContent", () => {
+    expect(NO_CHECKPOINTS_NOTE).not.toMatch(/[`*_#]|--/);
+  });
+});
+
+describe("App.ts checkpoint loading", () => {
+  // loadCheckpoints lives in the renderApp module, which needs the UXP host to
+  // import, so its contract is checked against the source: an empty list must
+  // never throw again, or a Klein-only install fails Check ComfyUI.
+  const app = readFileSync(new URL("../../src/ui/App.ts", import.meta.url), "utf8");
+  const body = app.slice(app.indexOf("async function loadCheckpoints("), app.indexOf("async function refreshTextModelOptionsForSelectedPreset("));
+
+  it("does not throw when ComfyUI lists no checkpoints", () => {
+    expect(body.length).toBeGreaterThan(0);
+    expect(body).not.toMatch(/throw\b/);
+    expect(app).not.toContain("No ComfyUI checkpoints were found.");
+  });
+});
