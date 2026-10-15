@@ -8,10 +8,23 @@ import type { DownloadDestination } from "../comfy/modelDownload";
 // the chunked design exists to avoid -- so the size comes from fs.lstat, which
 // the spike confirmed this UXP build exposes. Where lstat is unavailable the
 // answer is 0, which costs a restarted download but never a corrupt one.
+//
+// Every byte goes to "<model>.part", a name ComfyUI never lists, and the file
+// takes the model's real name only in finalize(), after the engine has
+// checked it. An interrupted download therefore cannot appear in ComfyUI's
+// model list as a truncated model.
+
+export const PARTIAL_DOWNLOAD_SUFFIX = ".part";
+
+export function partialFileName(fileName: string): string {
+  return `${fileName}${PARTIAL_DOWNLOAD_SUFFIX}`;
+}
 
 export type UxpFileLike = {
   write: (data: ArrayBuffer, options: Record<string, unknown>) => Promise<void>;
   delete: () => Promise<void>;
+  // UXP's Entry.moveTo, used here only to rename within the same folder.
+  moveTo?: (folder: UxpFolderLike, options: { newName: string; overwrite: boolean }) => Promise<void>;
 };
 
 export type UxpFolderLike = {
@@ -35,15 +48,16 @@ export function createFolderDestination(deps: DestinationDeps): DownloadDestinat
   // file we just decided to abandon, and replacing on a resumed download would
   // destroy the bytes we just decided to keep.
   let appendNext = false;
+  const partName = partialFileName(deps.fileName);
 
   const openFile = async (): Promise<UxpFileLike> => {
     if (file) return file;
 
     const existing = typeof deps.folder.getEntry === "function"
-      ? await deps.folder.getEntry(deps.fileName).catch(() => null)
+      ? await deps.folder.getEntry(partName).catch(() => null)
       : null;
 
-    file = existing ?? await deps.folder.createFile(deps.fileName, { overwrite: true });
+    file = existing ?? await deps.folder.createFile(partName, { overwrite: true });
     return file;
   };
 
@@ -51,7 +65,7 @@ export function createFolderDestination(deps: DestinationDeps): DownloadDestinat
     // The engine always asks this before writing, so it is also the honest
     // place to decide whether writing continues a file or starts one.
     existingBytes: async () => {
-      const bytes = await measureExistingBytes(deps);
+      const bytes = await measureExistingBytes(deps, partName);
       appendNext = bytes > 0;
       return bytes;
     },
@@ -71,18 +85,30 @@ export function createFolderDestination(deps: DestinationDeps): DownloadDestinat
 
       file = null;
       appendNext = false;
+    },
+
+    finalize: async () => {
+      const target = await openFile();
+
+      if (typeof target.moveTo !== "function") {
+        throw new Error(`This version of Photoshop cannot rename files, so ${partName} was left as it is. Rename it to ${deps.fileName} by hand.`);
+      }
+
+      await target.moveTo(deps.folder, { newName: deps.fileName, overwrite: true });
+      file = null;
+      appendNext = false;
     }
   };
 }
 
-async function measureExistingBytes(deps: DestinationDeps): Promise<number> {
+async function measureExistingBytes(deps: DestinationDeps, fileName: string): Promise<number> {
   if (typeof deps.statSize !== "function") return 0;
 
   const folderPath = deps.folder.nativePath;
   if (!folderPath) return 0;
 
   try {
-    const size = await deps.statSize(joinNativePath(folderPath, deps.fileName));
+    const size = await deps.statSize(joinNativePath(folderPath, fileName));
     return typeof size === "number" && Number.isFinite(size) && size > 0 ? size : 0;
   } catch {
     // No file yet, or a build that cannot stat. Either way, start at zero:

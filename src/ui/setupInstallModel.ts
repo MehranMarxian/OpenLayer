@@ -125,6 +125,26 @@ export function createInstallStatusLine(step: InstallStep, modelName: string): s
  * fact as ComfyUI being able to see a usable model in the folder its loader
  * reads, and only the second one is what the artist needs.
  */
+/**
+ * One sentence on how a finished download was checked, so the artist knows
+ * whether "installed" means "byte for byte what Hugging Face publishes" or
+ * only "the right size". Empty when nothing more can be said.
+ */
+export function describeDownloadVerification(
+  verifiedBy: "sha256" | "size" | "none",
+  hadPublishedHash: boolean
+): string {
+  if (verifiedBy === "sha256") {
+    return "It matches the checksum Hugging Face publishes.";
+  }
+
+  if (verifiedBy === "size" && hadPublishedHash) {
+    return "It resumed from an earlier session, so only its size was checked, not its checksum.";
+  }
+
+  return "";
+}
+
 export function describeInstallResult(
   modelName: string,
   stillMissing: boolean

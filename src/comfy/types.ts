@@ -704,6 +704,15 @@ export type WorkflowRequiredModel = WorkflowModelSource & {
   sourcePageUrl?: string;
   /** Content-Length observed when the URL was verified. Used to warn about disk cost. */
   downloadSizeBytes?: number;
+  /**
+   * SHA-256 Hugging Face publishes for the file (the X-Linked-Etag of the
+   * un-followed HEAD response, which is the LFS object id). A download that
+   * runs start to finish in one session is checked against it before it gets
+   * the model's name. Recorded with `downloadSizeBytes`; when upstream
+   * re-uploads a file both change, and the download refuses rather than
+   * installing a file that is not the one recorded.
+   */
+  sha256?: string;
   /** `repo-folder` models are a directory of files, not a single download. */
   downloadLayout?: WorkflowModelDownloadLayout;
   /** Set when a person must accept terms before the file may be fetched. */

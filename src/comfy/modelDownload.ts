@@ -8,6 +8,8 @@
 // it looks: a connection that drops at 17 GiB resumes from 17 GiB instead of
 // starting over.
 
+import { Sha256 } from "../utils/sha256";
+
 export const DEFAULT_CHUNK_BYTES = 8 * 1024 * 1024;
 
 export type DownloadProgress = Readonly<{
@@ -22,12 +24,20 @@ export type DownloadProgress = Readonly<{
 // The destination is an interface rather than a UXP file so the engine is
 // testable without a host, and so the two access routes the spike found (direct
 // path, or a folder the artist granted) are interchangeable here.
+//
+// Bytes are written to a partial file (the model's name plus ".part") that
+// ComfyUI never lists, and only `finalize` gives it the model's real name.
+// Before this, an interrupted download left a truncated file under the real
+// name, which ComfyUI listed as a model and failed to load, the hardest
+// failure for an artist to diagnose (codebase review finding 6).
 export type DownloadDestination = Readonly<{
-  // Bytes already on disk for this file, or 0 if it does not exist yet.
+  // Bytes already in the partial file, or 0 if it does not exist yet.
   existingBytes: () => Promise<number>;
   append: (chunk: ArrayBuffer) => Promise<void>;
   // Called when a partial file must be thrown away rather than resumed.
   discard: () => Promise<void>;
+  // Renames the complete partial file to the model's real name.
+  finalize: () => Promise<void>;
 }>;
 
 export type DownloadRequest = Readonly<{
@@ -35,6 +45,8 @@ export type DownloadRequest = Readonly<{
   // From the registry. Null when the registry does not publish one; the
   // download still runs, it just cannot be size-verified at the end.
   expectedBytes: number | null;
+  // Lowercase hex SHA-256 the registry recorded from Hugging Face, or null.
+  expectedSha256?: string | null;
   chunkBytes?: number;
 }>;
 
@@ -47,8 +59,14 @@ export type DownloadDeps = Readonly<{
   isCancelled?: () => boolean;
 }>;
 
+// What the finished file was checked against. A download that resumed from a
+// partial file left by an earlier session can only be size-checked: hashing it
+// would mean reading back gigabytes already on disk, which UXP has no proven
+// way to do in pieces.
+export type DownloadVerification = "sha256" | "size" | "none";
+
 export type DownloadOutcome =
-  | { kind: "completed"; totalBytes: number; resumedFromBytes: number }
+  | { kind: "completed"; totalBytes: number; resumedFromBytes: number; verifiedBy: DownloadVerification }
   | { kind: "cancelled"; receivedBytes: number }
   | { kind: "failed"; reason: string; receivedBytes: number };
 
@@ -82,11 +100,16 @@ export async function downloadModelFile(
     }
   }
 
+  // A complete partial file: an earlier session finished the bytes but stopped
+  // before the rename. Size is all that can be checked now.
   if (request.expectedBytes !== null && received === request.expectedBytes) {
-    return { kind: "completed", totalBytes: received, resumedFromBytes: received };
+    return finalizeDownload(deps, { kind: "completed", totalBytes: received, resumedFromBytes: received, verifiedBy: "size" });
   }
 
   const resumedFrom = received;
+  const expectedSha256 = request.expectedSha256?.toLowerCase() ?? null;
+  // Only a download that starts from byte 0 in this session sees every byte.
+  const hash = expectedSha256 && resumedFrom === 0 ? new Sha256() : null;
   let total: number | null = request.expectedBytes;
 
   report(deps, received, total, resumedFrom);
@@ -133,8 +156,23 @@ export async function downloadModelFile(
       return { kind: "failed", reason: describeHttpFailure(response.status), receivedBytes: received };
     }
 
+    const servedTotal = parseTotalFromContentRange(response.headers?.get?.("content-range") ?? null);
+
+    // The server says how big the whole file is on every ranged response. If
+    // that disagrees with the registry, the file upstream is not the one the
+    // registry recorded (Hugging Face repos do re-upload). Stopping at the
+    // registry's size would quietly save a cut-off file as a success, which is
+    // exactly what happened to flux2-vae.safetensors before this check.
+    if (request.expectedBytes !== null && servedTotal !== null && servedTotal !== request.expectedBytes) {
+      return {
+        kind: "failed",
+        reason: `The file on the server is ${servedTotal} bytes but OpenLayer expects ${request.expectedBytes}, so it has changed upstream since OpenLayer recorded it. Nothing was installed. Download it from the model page instead, or update OpenLayer.`,
+        receivedBytes: received
+      };
+    }
+
     if (total === null) {
-      total = parseTotalFromContentRange(response.headers?.get?.("content-range") ?? null);
+      total = servedTotal;
     }
 
     let chunk: ArrayBuffer;
@@ -148,6 +186,8 @@ export async function downloadModelFile(
     if (chunk.byteLength === 0) {
       return { kind: "failed", reason: `The server returned an empty chunk at byte ${received}, so the download cannot progress.`, receivedBytes: received };
     }
+
+    hash?.update(chunk);
 
     try {
       await deps.destination.append(chunk);
@@ -167,7 +207,44 @@ export async function downloadModelFile(
     };
   }
 
-  return { kind: "completed", totalBytes: received, resumedFromBytes: resumedFrom };
+  if (hash && expectedSha256) {
+    const actual = hash.digestHex();
+
+    if (actual !== expectedSha256) {
+      // Never give a file that is known to be wrong the model's name. It is
+      // deleted rather than kept for resuming, because resuming would only add
+      // to bytes that are already wrong.
+      await deps.destination.discard().catch(() => undefined);
+      return {
+        kind: "failed",
+        reason: `The downloaded file does not match the checksum Hugging Face publishes for it, so it was deleted rather than installed. Press Download to try again.`,
+        receivedBytes: 0
+      };
+    }
+  }
+
+  return finalizeDownload(deps, {
+    kind: "completed",
+    totalBytes: received,
+    resumedFromBytes: resumedFrom,
+    verifiedBy: hash ? "sha256" : request.expectedBytes !== null ? "size" : "none"
+  });
+}
+
+async function finalizeDownload(
+  deps: DownloadDeps,
+  outcome: Extract<DownloadOutcome, { kind: "completed" }>
+): Promise<DownloadOutcome> {
+  try {
+    await deps.destination.finalize();
+    return outcome;
+  } catch (caughtError) {
+    return {
+      kind: "failed",
+      reason: `The download finished but its partial file could not be renamed to the model's name. ${messageOf(caughtError)}`,
+      receivedBytes: outcome.totalBytes
+    };
+  }
 }
 
 // Licence-gated weights sit behind an account agreement. Sending an anonymous

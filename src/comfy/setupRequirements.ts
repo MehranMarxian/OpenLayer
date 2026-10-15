@@ -27,6 +27,7 @@ export type SetupModelRequirement = {
   downloadUrl?: string;
   sourcePageUrl?: string;
   sizeBytes?: number;
+  sha256?: string;
   formattedSize: string;
   layout: "file" | "repo-folder";
   licenseGated: boolean;
@@ -208,6 +209,7 @@ function evaluateModelRequirement(
     downloadUrl: manifestModel.downloadUrl,
     sourcePageUrl: manifestModel.sourcePageUrl,
     sizeBytes: manifestModel.sizeBytes,
+    sha256: manifestModel.sha256,
     formattedSize:
       manifestModel.sizeBytes === undefined ? "Size not published" : formatBytes(manifestModel.sizeBytes),
     layout: manifestModel.layout,

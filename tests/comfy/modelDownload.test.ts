@@ -9,16 +9,21 @@ import {
 } from "../../src/comfy/modelDownload";
 
 function memoryDestination(startingBytes = 0) {
-  const state = { bytes: startingBytes, discarded: 0, writes: [] as number[] };
+  const state = { bytes: startingBytes, discarded: 0, finalized: 0, writes: [] as number[], content: [] as Uint8Array[] };
   const destination: DownloadDestination = {
     existingBytes: async () => state.bytes,
     append: async (chunk) => {
       state.writes.push(chunk.byteLength);
+      state.content.push(new Uint8Array(chunk.slice(0)));
       state.bytes += chunk.byteLength;
     },
     discard: async () => {
       state.discarded += 1;
       state.bytes = 0;
+      state.content = [];
+    },
+    finalize: async () => {
+      state.finalized += 1;
     }
   };
 
@@ -59,7 +64,7 @@ describe("chunked model download", () => {
       { fetch: serverFetch, destination }
     );
 
-    expect(outcome).toEqual({ kind: "completed", totalBytes: 1000, resumedFromBytes: 0 });
+    expect(outcome).toEqual({ kind: "completed", totalBytes: 1000, resumedFromBytes: 0, verifiedBy: "size" });
     expect(calls).toEqual(["bytes=0-399", "bytes=400-799", "bytes=800-999"]);
     expect(state.writes).toEqual([400, 400, 200]);
   });
@@ -74,7 +79,7 @@ describe("chunked model download", () => {
     );
 
     expect(calls).toEqual(["bytes=800-999"]);
-    expect(outcome).toEqual({ kind: "completed", totalBytes: 1000, resumedFromBytes: 800 });
+    expect(outcome).toEqual({ kind: "completed", totalBytes: 1000, resumedFromBytes: 800, verifiedBy: "size" });
     expect(state.writes).toEqual([200]);
   });
 
@@ -103,7 +108,7 @@ describe("chunked model download", () => {
     );
 
     expect(state.discarded).toBe(1);
-    expect(outcome).toEqual({ kind: "completed", totalBytes: 1000, resumedFromBytes: 0 });
+    expect(outcome).toEqual({ kind: "completed", totalBytes: 1000, resumedFromBytes: 0, verifiedBy: "size" });
   });
 
   it("learns the total from Content-Range when the registry publishes no size", async () => {
@@ -115,7 +120,7 @@ describe("chunked model download", () => {
       { fetch: serverFetch, destination }
     );
 
-    expect(outcome).toEqual({ kind: "completed", totalBytes: 900, resumedFromBytes: 0 });
+    expect(outcome).toEqual({ kind: "completed", totalBytes: 900, resumedFromBytes: 0, verifiedBy: "none" });
   });
 });
 
@@ -180,7 +185,7 @@ describe("download refusals", () => {
     );
 
     expect(outcome.kind).toBe("failed");
-    expect(outcome.kind === "failed" && outcome.reason).toContain("incomplete or the source changed");
+    expect(outcome.kind === "failed" && outcome.reason).toContain("changed upstream");
   });
 
   it("keeps the partial file's byte count on a network failure so it can resume", async () => {

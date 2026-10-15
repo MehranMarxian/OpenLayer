@@ -153,6 +153,7 @@ import {
 import {
   createInstallConfirmationView,
   createInstallStatusLine,
+  describeDownloadVerification,
   describeInstallResult,
   getInstallOffer,
   InstallStep
@@ -2525,6 +2526,7 @@ export function renderApp(rootElement: HTMLElement) {
    * after that does one item go in, and only that item.
    */
   async function handleInstallModel(item: AssistedInstallItem) {
+    let verificationNote: string | undefined;
     if (setupInstallingKey) {
       return;
     }
@@ -2568,7 +2570,8 @@ export function renderApp(rootElement: HTMLElement) {
       const outcome = await downloadModelFile(
         {
           url: item.downloadUrl,
-          expectedBytes: typeof item.sizeBytes === "number" ? item.sizeBytes : null
+          expectedBytes: typeof item.sizeBytes === "number" ? item.sizeBytes : null,
+          expectedSha256: item.sha256 ?? null
         },
         {
           fetch: (...args) => fetch(...args),
@@ -2603,6 +2606,7 @@ export function renderApp(rootElement: HTMLElement) {
         return;
       }
 
+      verificationNote = describeDownloadVerification(outcome.verifiedBy, Boolean(item.sha256));
       report("verifying");
     } catch (caughtError) {
       setSetupStatus(
@@ -2625,7 +2629,7 @@ export function renderApp(rootElement: HTMLElement) {
       setupReport?.models.find((model) => model.key === item.key)?.status !== "installed";
 
     const outcome = describeInstallResult(item.modelName, stillMissing);
-    setSetupStatus(elements, outcome.message, outcome.tone);
+    setSetupStatus(elements, verificationNote ? `${outcome.message} ${verificationNote}` : outcome.message, outcome.tone);
   }
 
   /**
