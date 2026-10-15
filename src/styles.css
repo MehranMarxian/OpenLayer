@@ -8789,3 +8789,125 @@ body.theme-artist,
 #img-reference-field {
   margin-top: 10px !important;
 }
+
+/* Wheel-proof picker (src/ui/wheelProofPicker.ts). The native <select> it
+   replaces stays in the document as the source of truth, hidden here with a
+   class because the compact theme forces .select to display:block !important.
+   These rules sit at the end of the file on purpose: they must win over the
+   compact theme's earlier !important .select rules at equal specificity.
+   Flex gap is inert in the compact panel, so spacing uses margins. */
+.app-shell .ol-picker-native,
+.app-shell.theme-compact .ol-picker-native {
+  display: none !important;
+}
+
+.app-shell .ol-picker {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+.app-shell .ol-picker-field,
+.app-shell.theme-compact .ol-picker-field {
+  display: flex !important;
+  flex-direction: row;
+  align-items: center;
+  cursor: pointer;
+}
+
+.app-shell .ol-picker-field.is-disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.app-shell .ol-picker-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.app-shell .ol-picker-caret {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 5px;
+  margin-left: 6px;
+}
+
+.app-shell .ol-picker-list {
+  margin-top: 2px;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--ol-border);
+  border-radius: 5px;
+  background: var(--ol-field-bg);
+}
+
+.app-shell .ol-picker-list[hidden] {
+  display: none !important;
+}
+
+.app-shell .ol-picker-item {
+  padding: 4px 8px;
+  color: var(--ol-text);
+  font-size: var(--fs-sm);
+  line-height: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.app-shell .ol-picker-item:hover {
+  background: #2f2f2f;
+}
+
+.app-shell .ol-picker-item.is-selected {
+  background: var(--ol-accent-soft);
+  color: var(--ol-accent-bright);
+}
+
+/* Match the native dropdown as Photoshop draws it, measured from a capture of
+   the Workflow dropdown beside this one (Photoshop 2025, compact theme): the
+   native control is drawn about 7px in from its box on the left and about 6px
+   past it on the right, 26px tall as measured against this field, #444 with a
+   #363636 border, and its text is normal weight, 9px in. The text colour is
+   brighter than the native text's measured peak (#adadad) because thin strokes
+   never reach their full colour; #e2e2e2 matched its brightness in a capture. Photoshop paints the native control itself
+   and ignores most of the .select rules, which is why these values are taken
+   from pixels rather than from the stylesheet. */
+.app-shell .ol-picker {
+  width: auto;
+  margin-left: 7px;
+  margin-right: -9px;
+}
+
+.app-shell .ol-picker-field,
+.app-shell.theme-compact .ol-picker-field {
+  height: 26px !important;
+  min-height: 26px !important;
+  max-height: 26px !important;
+  box-sizing: border-box !important;
+  padding: 3px 6px 3px 9px !important;
+  border: 1px solid #363636 !important;
+  border-radius: 4px !important;
+  background: #444444 !important;
+  background-color: #444444 !important;
+  color: #e2e2e2 !important;
+  -webkit-text-fill-color: #e2e2e2;
+  font-weight: 400 !important;
+  line-height: 18px !important;
+}
+
+/* Breathing room under the picker. The native dropdown drew itself smaller
+   than its box, which left a sliver of space above the info box beneath it;
+   the picker fills its box, so without this the info box touches it. */
+.app-shell .ol-picker + *,
+.app-shell.theme-compact .ol-picker + *,
+.app-shell.theme-compact .ol-picker + .compatibility-note.info-panel,
+.app-shell.theme-compact .ol-picker + .compatibility-note.info-panel.is-warning {
+  /* The last two out-rank the compact theme's
+     .compatibility-note.info-panel.is-warning { margin: 0 0 8px !important }. */
+  margin-top: 6px !important;
+}

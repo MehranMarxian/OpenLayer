@@ -200,6 +200,7 @@ import {
 } from "../photoshop/modelFileDestination";
 import { setArtistControlsEnabled, syncArtistControls } from "./artistControls";
 import { setSeedDiceEnabled } from "./seedDice";
+import { enhanceSelectAsPicker, PICKER_SYNC_EVENT } from "./wheelProofPicker";
 import { bindPromptMemory } from "./promptMemory";
 import { bindPromptWallet, PROMPT_WALLET_TOOLS, PromptWalletTool } from "./promptWallet";
 import {
@@ -1428,6 +1429,9 @@ export function renderApp(rootElement: HTMLElement) {
   rootElement.innerHTML = createAppMarkup();
 
   const elements = getAppElements(rootElement);
+  // Spike: the one dropdown moved off the native <select>, so the mouse wheel
+  // cannot change the model mid-scroll. See wheelProofPicker.ts.
+  enhanceSelectAsPicker(elements.imgCheckpoint);
   const resultPanel = createResultPreviewPanel({
     urls: objectUrls,
     panel: elements.previewPanel,
@@ -8417,6 +8421,8 @@ function setSelectValueIfPresent(select: HTMLSelectElement, value: string) {
   }
 
   select.value = value;
+  // Setting .value fires no event; a picker showing this select needs telling.
+  select.dispatchEvent(new Event(PICKER_SYNC_EVENT));
   return true;
 }
 
