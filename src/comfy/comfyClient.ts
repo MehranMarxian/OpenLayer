@@ -28,6 +28,15 @@ import {
 } from "./generationCancel";
 import { createOpenLayerError, getNestedErrorMessage } from "../utils/errors";
 import { ComfyRequestKind, fetchWithTimeout, isComfyNotRespondingError } from "./requestTimeout";
+import {
+  ComfyRejectionBody,
+  explainWorkflowRejection,
+  markExplainedRejection,
+  parseComfyRejectionBody,
+  WorkflowRejectionExplanation
+} from "./workflowRejection";
+import { findMisplacedModel, formatMisplacedModelMessage, MisplacedModel } from "./modelPlacementDiagnostics";
+import { isMappedModelLoaderNode } from "./modelFolders";
 import { createMultipartBoundary, createMultipartRequestBody } from "../utils/multipart";
 
 /**
@@ -476,6 +485,14 @@ export class ComfyClient {
 
     if (!response.ok) {
       const message = await readResponseText(response);
+      const explanation = explainWorkflowRejection(parseComfyRejectionBody(message));
+
+      if (explanation) {
+        throw markExplainedRejection(
+          createOpenLayerError("COMFY_REJECTED_WORKFLOW", await this.addWrongFolderFindings(explanation), message)
+        );
+      }
+
       throw createOpenLayerError(
         "COMFY_REJECTED_WORKFLOW",
         `ComfyUI rejected the workflow with HTTP ${response.status}.`,
@@ -486,6 +503,18 @@ export class ComfyClient {
     const data = (await response.json()) as ComfyPromptResponse;
 
     if (data.node_errors && Object.keys(data.node_errors).length > 0) {
+      const explanation = explainWorkflowRejection({ node_errors: data.node_errors as ComfyRejectionBody["node_errors"] });
+
+      if (explanation) {
+        throw markExplainedRejection(
+          createOpenLayerError(
+            "COMFY_REJECTED_WORKFLOW",
+            await this.addWrongFolderFindings(explanation),
+            JSON.stringify(data.node_errors)
+          )
+        );
+      }
+
       throw createOpenLayerError(
         "COMFY_REJECTED_WORKFLOW",
         "ComfyUI found node errors in the workflow JSON.",
@@ -498,6 +527,39 @@ export class ComfyClient {
     }
 
     return data.prompt_id;
+  }
+
+  /**
+   * A model ComfyUI could not find is, more often than not, on disk in the
+   * wrong models/ subfolder. When the rejection names a missing model, look
+   * for it in every folder and say where it is and where it belongs.
+   * Best-effort: if the inventory cannot be read, the explanation stands alone.
+   */
+  private async addWrongFolderFindings(explanation: WorkflowRejectionExplanation): Promise<string> {
+    if (explanation.missingModels.length === 0) {
+      return explanation.message;
+    }
+
+    try {
+      const inventory = await this.getModelInventory();
+      const findings = explanation.missingModels
+        .filter((missing) => isMappedModelLoaderNode(missing.loaderNode))
+        .map((missing) =>
+          findMisplacedModel(inventory, {
+            kind: "checkpoint",
+            objectInfoNode: missing.loaderNode,
+            inputName: missing.inputName,
+            label: missing.modelName,
+            modelName: missing.modelName
+          })
+        )
+        .filter((finding): finding is MisplacedModel => finding !== null)
+        .map(formatMisplacedModelMessage);
+
+      return [explanation.message, ...findings].join(" ");
+    } catch {
+      return explanation.message;
+    }
   }
 
   /**

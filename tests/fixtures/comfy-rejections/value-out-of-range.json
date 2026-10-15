@@ -1,0 +1,41 @@
+{
+  "status": 400,
+  "comfyuiVersion": "0.37.0",
+  "body": {
+    "error": {
+      "type": "prompt_outputs_failed_validation",
+      "message": "Prompt outputs failed validation",
+      "details": "",
+      "extra_info": {}
+    },
+    "node_errors": {
+      "4": {
+        "errors": [
+          {
+            "type": "value_smaller_than_min",
+            "message": "Value 2 smaller than min of 16",
+            "details": "width",
+            "extra_info": {
+              "input_name": "width",
+              "input_config": [
+                "INT",
+                {
+                  "default": 1024,
+                  "min": 16,
+                  "max": 16384,
+                  "step": 8,
+                  "tooltip": "The width of the latent images in pixels."
+                }
+              ],
+              "received_value": 2
+            }
+          }
+        ],
+        "dependent_outputs": [
+          "7"
+        ],
+        "class_type": "EmptyLatentImage"
+      }
+    }
+  }
+}

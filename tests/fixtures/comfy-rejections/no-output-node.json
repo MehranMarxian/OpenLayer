@@ -1,0 +1,13 @@
+{
+  "status": 400,
+  "comfyuiVersion": "0.37.0",
+  "body": {
+    "error": {
+      "type": "prompt_no_outputs",
+      "message": "Prompt has no outputs",
+      "details": "",
+      "extra_info": {}
+    },
+    "node_errors": {}
+  }
+}
