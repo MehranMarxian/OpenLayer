@@ -1,7 +1,7 @@
 # openlayer-mcp-bridge
 
 Lets an MCP client — Claude first, any MCP-speaking client eventually — drive the OpenLayer
-Photoshop panel's existing tools from natural language.
+panel's existing tools in Photoshop from natural language.
 
 Status: **Phases 1–3 complete.** All ten generation tools are wired up: `text_to_image`,
 `image_to_image`, `sketch_to_image`, `inpaint`, `outpaint`, `upscale`, `prompt_from_layer`,
@@ -29,7 +29,7 @@ you paste the config differs between them; the command is always the same.
 **Two processes**, because they need different lifetimes:
 
 ```
-Photoshop panel ──────────────┐
+panel in Photoshop ───────────┐
                                ├──▶ openlayer-hub  (long-lived, owns 127.0.0.1:8199)
 Claude ──stdio──▶ openlayer-mcp ┘
 Codex  ──stdio──▶ openlayer-mcp ┘
@@ -67,7 +67,7 @@ mid-run hits the same busy lockout an extra click would, because it goes through
 
 ## Running it
 
-Not installed by the `.ccx` — a Photoshop plugin package has no way to install or start a Node
+Not installed by the `.ccx` — a plugin package for Photoshop has no way to install or start a Node
 process — so this is a separate step, and the feature is off by default at both ends.
 
 **1. Install once:**

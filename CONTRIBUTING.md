@@ -1,6 +1,6 @@
 # Contributing To OpenLayer
 
-OpenLayer is an early alpha Photoshop UXP plugin for local ComfyUI workflows. Contributions should keep the project stable, artist-friendly, and easy to understand.
+OpenLayer is an early alpha UXP plugin for Photoshop that runs local ComfyUI workflows. Contributions should keep the project stable, artist-friendly, and easy to understand.
 
 ## Development Setup
 
@@ -19,7 +19,7 @@ npm test
 npm run build
 ```
 
-The browser dev server is useful for layout work, but Photoshop APIs only run inside Photoshop UXP.
+The browser dev server is useful for layout work, but Photoshop APIs only run inside Photoshop's UXP runtime.
 
 ## Scope Guidelines
 

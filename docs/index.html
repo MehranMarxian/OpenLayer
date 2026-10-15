@@ -7,7 +7,7 @@
     <title>OpenLayer — Free ComfyUI Plugin for Photoshop · Local AI Image Generation</title>
     <meta
       name="description"
-      content="OpenLayer is a free, open-source Photoshop UXP plugin that connects to your local ComfyUI server. Generate with Stable Diffusion, SDXL, and Flux inside Photoshop: text to image, image to image, sketch to image, inpaint, outpaint, and upscale — 100% local, no cloud, no subscription."
+      content="OpenLayer is a free, open-source plugin for Photoshop that connects to your local ComfyUI server. Generate with Stable Diffusion, SDXL, and Flux inside Photoshop: text to image, image to image, sketch to image, inpaint, outpaint, and upscale — 100% local, no cloud, no subscription."
     >
     <link rel="canonical" href="https://mehran-ahmadi.com/OpenLayer/">
     <meta name="theme-color" content="#000000">
@@ -35,7 +35,7 @@
       "applicationCategory": "DesignApplication",
       "applicationSubCategory": "Plugin for Adobe Photoshop",
       "softwareVersion": "0.37.1-alpha",
-      "description": "Open-source Photoshop UXP plugin that connects to a local ComfyUI server for AI image generation: text to image, image to image, sketch to image, inpaint, outpaint, and upscale with Stable Diffusion, SDXL, and Flux models.",
+      "description": "Open-source plugin for Photoshop that connects to a local ComfyUI server for AI image generation: text to image, image to image, sketch to image, inpaint, outpaint, and upscale with Stable Diffusion, SDXL, and Flux models.",
       "url": "https://mehran-ahmadi.com/OpenLayer/",
       "downloadUrl": "https://github.com/MehranMarxian/OpenLayer/releases/tag/v0.37.1-alpha",
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
@@ -89,7 +89,7 @@
         </div>
         <figure class="hero-shot">
           <img src="assets/v037/hero-paper-valley.webp" alt="OpenLayer v0.37 Text to Image in Adobe Photoshop: a paper-cut mountain valley at dawn on the canvas, with a stack of generated variations in the Layers panel." width="1920" height="1108" loading="eager" decoding="async" fetchpriority="high">
-          <figcaption><strong>Text to Image, where the work happens.</strong> Generate locally, preview in OpenLayer, and keep every result as an editable Photoshop layer.</figcaption>
+          <figcaption><strong>Text to Image, where the work happens.</strong> Generate locally, preview in OpenLayer, and keep every result as an editable layer in Photoshop.</figcaption>
         </figure>
       </section>
 
@@ -139,7 +139,7 @@
             <article class="tool-card">
               <span class="tool-icon"><img src="assets/tools/inpaint.png" alt=""></span>
               <div><h3>Inpaint</h3><span class="chip chip-exp">Experimental</span></div>
-              <p>Make a Photoshop selection, capture source and mask, repaint just that region with SD inpainting or Flux Fill, and import aligned to your selection.</p>
+              <p>Make a selection in Photoshop, capture source and mask, repaint just that region with SD inpainting or Flux Fill, and import aligned to your selection.</p>
             </article>
             <article class="tool-card">
               <span class="tool-icon"><img src="assets/tools/outpaint.png" alt=""></span>
@@ -222,7 +222,7 @@
           </div>
           <div class="shot-grid shot-grid-v0200">
             <figure class="shot-wide">
-              <img src="assets/v0200/unflatten-hiker.webp" alt="Unflatten splitting a mountain photograph into three separate Photoshop layers." width="1400" height="787" loading="lazy" decoding="async">
+              <img src="assets/v0200/unflatten-hiker.webp" alt="Unflatten splitting a mountain photograph into three separate layers in Photoshop." width="1400" height="787" loading="lazy" decoding="async">
               <figcaption><strong>Unflatten, in the document</strong> <span class="chip chip-exp">Experimental</span><span>One flat photograph in; a group of three ordinary layers out &mdash; the repainted background, and two cut-outs above it wearing their own masks. This is it working: it needs a subject standing clear of a background, and says so when it cannot separate one.</span></figcaption>
             </figure>
             <figure class="shot-narrow">
@@ -257,7 +257,7 @@
         <div class="section-inner">
           <div class="section-heading">
             <p class="eyebrow">Interface shots · v0.6</p>
-            <h2 id="showcase-title">Proof from the real Photoshop panel</h2>
+            <h2 id="showcase-title">Proof from the real panel in Photoshop</h2>
             <p class="section-lede">Each view below is a real local workflow, compressed for the web and loaded only when it approaches the viewport.</p>
           </div>
           <div class="shot-grid shot-grid-v060">
@@ -271,15 +271,15 @@
             </figure>
             <figure class="shot-wide">
               <img src="assets/v060/upscale-photoshop.webp" alt="OpenLayer Upscale result displayed in Photoshop with generated layers visible in the Layers panel." width="1200" height="778" loading="lazy" decoding="async">
-              <figcaption><strong>Upscale stays layer-native</strong><span>Local model upscaling returns to the active document as a named Photoshop layer instead of a detached download.</span></figcaption>
+              <figcaption><strong>Upscale stays layer-native</strong><span>Local model upscaling returns to the active document as a named layer instead of a detached download.</span></figcaption>
             </figure>
             <figure class="shot-wide">
-              <img src="assets/v060/sticky-live-painting.webp" alt="OpenLayer Live Painting with a sticky tool header and preview beside the active Photoshop canvas." width="1000" height="920" loading="lazy" decoding="async">
+              <img src="assets/v060/sticky-live-painting.webp" alt="OpenLayer Live Painting with a sticky tool header and preview beside the active canvas in Photoshop." width="1000" height="920" loading="lazy" decoding="async">
               <figcaption><strong>Context that stays pinned</strong><span>The v0.6 tool header keeps Back to Tools and the current workflow visible while longer panels scroll beneath it.</span></figcaption>
             </figure>
             <figure class="shot-wide">
               <img src="assets/v060/live-painting-child.webp" alt="A simple painted figure in Photoshop transformed into a local AI preview through OpenLayer Live Painting." width="1200" height="811" loading="lazy" decoding="async">
-              <figcaption><strong>Paint, capture, respond</strong><span>The Live Painting spike turns rough color blocking into a local preview while preserving the Photoshop document as the source of truth.</span></figcaption>
+              <figcaption><strong>Paint, capture, respond</strong><span>The Live Painting spike turns rough color blocking into a local preview while keeping your document in Photoshop as the source of truth.</span></figcaption>
             </figure>
           </div>
         </div>
@@ -376,7 +376,7 @@
             <li><strong>Open the panel</strong> in Photoshop and click Check ComfyUI.</li>
             <li><strong>Pick a tool</strong> — capture a layer, canvas, or selection where needed.</li>
             <li><strong>Generate</strong> and watch live sampler previews in the panel.</li>
-            <li><strong>Import</strong> the result as a new named Photoshop layer.</li>
+            <li><strong>Import</strong> the result as a new named layer in Photoshop.</li>
           </ol>
         </div>
       </section>
@@ -430,7 +430,7 @@
           <div class="status-grid">
             <article class="status-card status-card-ready">
               <h3>Separated preview panel is ready to test</h3>
-              <p>A second dockable panel shows the current generation at any size, mirroring every tool including Live Painting. It can be pinned to one tool, and it imports the result into your document without going back to the dashboard. It has passed a real Photoshop UXP smoke test.</p>
+              <p>A second dockable panel shows the current generation at any size, mirroring every tool including Live Painting. It can be pinned to one tool, and it imports the result into your document without going back to the dashboard. It has passed a real smoke test in Photoshop.</p>
             </article>
             <article class="status-card status-card-ready">
               <h3>An AI assistant can drive the panel</h3>
@@ -477,7 +477,7 @@
               <li>Inpaint and Outpaint should be tested on duplicate layers first.</li>
               <li>Prompt from Layer requires the local Florence-2 PromptGen model and the comfyui-florence2 nodes. The custom-scripts pack is no longer needed.</li>
               <li>Upscale uses pixel/model upscale only. Generative upscale, tiled diffusion, and creative enhancement are future work.</li>
-              <li>Custom workflow import, batch variants, and true persistent Photoshop AI layer metadata are future work. v0.37.1 keeps the shared metadata foundation and session-history wiring.</li>
+              <li>Custom workflow import, batch variants, and generation metadata stored on the layer itself are future work. v0.37.1 keeps the shared metadata foundation and session-history wiring.</li>
               <li>The LoRA list cannot be filtered by which model a LoRA suits: ComfyUI reports only a name and size. Entries are labelled from their filenames and likely matches sorted first, but a mismatched LoRA loads without error and quietly does nothing.</li>
               <li>CI does not run Photoshop, UXP, or ComfyUI integration tests.</li>
               <li>Live sampler previews require ComfyUI to be started with <code>--preview-method auto</code>.</li>

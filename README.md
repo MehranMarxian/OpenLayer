@@ -33,7 +33,7 @@
 
 - **Free, with no subscription.** No credits, no metering, no account, no upload quota.
 - **Nothing leaves your computer.** ComfyUI runs on your own machine, on your own models.
-- **Results arrive as real Photoshop layers** — named, positioned, and editable. Not a flattened PNG
+- **Results arrive as real layers in Photoshop** — named, positioned, and editable. Not a flattened PNG
   you paste in and hope for.
 - **Fourteen generation tools**, from text-to-image and editing by instruction through inpainting and background removal to
   multi-image composition and depth/line-art/normal passes, plus an experimental one that splits a
@@ -46,7 +46,7 @@
 a GPU with 8 GB VRAM or more (12 GB is what this project targets).
 
 **How it fits together:** ComfyUI is a free app that runs AI image models on your own graphics card.
-OpenLayer is the Photoshop panel that talks to it — you work in Photoshop, ComfyUI does the
+OpenLayer is the panel inside Photoshop that talks to it — you work in Photoshop, ComfyUI does the
 generating in the background, and every result comes back as a layer.
 
 > **Alpha.** `v0.37.1-alpha` is a public testing checkpoint, not production software. It is stable
@@ -64,7 +64,7 @@ anywhere; ComfyUI runs on your own machine.
 | **Image to Image** | Use the active layer as visual input |
 | **Edit Image** | Change a layer or a selection by describing it — "make the jacket red", or bring in a second layer: "put the teapot from `<image2>` here" |
 | **Sketch to Image** | Guide generation with your line art |
-| **Inpaint** | Repaint a Photoshop selection in place |
+| **Inpaint** | Repaint a selection in place |
 | **Outpaint** | Extend canvas content beyond the edges |
 | **Upscale** | Enhance generated or selected layers |
 | **Remove Background** | Cut the subject out onto its own layer, with real alpha |
@@ -593,7 +593,7 @@ visible but are marked experimental for this preset — they usually need a dedi
 
 **Import Result as New Layer fails**
 
-Open a Photoshop document before importing. OpenLayer imports into the *active* document.
+Open a document in Photoshop before importing. OpenLayer imports into the *active* document.
 
 **The plugin does not appear in Photoshop**
 
@@ -638,7 +638,7 @@ photographed or generated.
 └── vite.config.ts
 ```
 
-The panel is TypeScript built with Vite into a Photoshop UXP plugin. Presets are declared in
+The panel is TypeScript built with Vite into a UXP plugin for Photoshop. Presets are declared in
 `src/comfy/presetRegistry.ts`; each one points at an API-format graph in `src/workflows/api/` and an
 editable twin in `src/workflows/source/`, and a checker keeps the pair in sync.
 
