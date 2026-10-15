@@ -45,16 +45,22 @@ brackets). Sizes: **S** is one small PR, **M** is one larger PR or two small one
 PRs. Each item ships as its own branch and PR, and anything touching panel markup, CSS or
 Photoshop calls waits for a real Photoshop check before merge.
 
+### Done in v0.38.0
+
+R1 (cancel only our own prompt), R2's first half (the hub refuses web pages), R3 (safe model
+downloads with SHA-256), R4 (timeouts), R7 (the [UXP smoke checklist](uxp-smoke-checklist.md)),
+E1 (wording, with a test) and E2 (plain-language rejections). The issue 127 fix for Photoshop
+2024 shipped first, as v0.37.1.
+
 ### Do next, in this order
 
-1. **Cancel only our own prompt** (R1). It is the one way OpenLayer can break someone else's work.
-2. **Close the Agent Bridge to web pages** (R2). A small change that removes the only remote-ish
-   attack path.
-3. **Fix the landing-page and README wording, with a test that keeps it fixed** (E1). Blocks the
-   Exchange resubmission and is what LLMs quote.
-4. **Explain rejected workflows in plain words** (E2). The most common first-run failure.
-5. **Safe model downloads** (R3). A truncated file that looks like a model is the hardest failure
-   for an artist to diagnose.
+1. **First-run path to one working image** (E3): FLUX.2 Klein 4B as the one-download starter
+   for five tools, timed on a fresh Comfy Desktop.
+2. **CPU-safe defaults** when ComfyUI reports no GPU, and port 8000 in the port scan for older
+   Comfy Desktop installs.
+3. **Record `object_info` and test the presets against it** (U2).
+4. **The Agent Bridge session token** (R2, second half).
+5. **One macOS tester run.**
 
 ### Reliability
 

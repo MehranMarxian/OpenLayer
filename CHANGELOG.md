@@ -1,5 +1,64 @@
 # Changelog
 
+## v0.38.0-alpha - 2026-10-15
+
+A release with no new tools. Everything in it makes OpenLayer safer on a shared ComfyUI, clearer
+when something goes wrong, and harder to break by accident.
+
+### Fixed
+
+- **Cancel stops only OpenLayer's own job.** Cancel Generation used to fall back to an interrupt
+  that stops whatever ComfyUI is running, including a job someone queued from the ComfyUI web
+  page. Now OpenLayer removes its own job from the queue if it is still waiting, interrupts it
+  by name if it is the one running, and otherwise sends nothing. Live Painting no longer cancels
+  jobs that have already finished. Checked live against ComfyUI 0.37.0: a job queued from
+  outside finished every time.
+- **A frozen ComfyUI no longer freezes the panel.** Every request to ComfyUI now has a time limit
+  (10 seconds for status checks, up to 2 minutes for uploading a picture or downloading a
+  result). Check ComfyUI says "ComfyUI did not answer a status check within 10 seconds" instead
+  of waiting forever, and keeps that separate from "offline". During a generation, one or two
+  slow answers are tolerated; a third in a row ends the run with that message.
+- **Model downloads cannot leave a broken model behind.** The Setup screen's Download writes
+  to `<model>.part`, which ComfyUI never lists, and gives the file its real name only once it
+  is complete. A download that runs start to finish is checked against the SHA-256 Hugging Face
+  publishes and deleted if it does not match; one resumed from an earlier session is checked by
+  size, and the finished message says which.
+- **`flux2-vae.safetensors` downloaded cut short.** Hugging Face re-uploaded it at a new size,
+  and the old downloader stopped at the size OpenLayer had recorded and reported success. The
+  registry now has its current size and checksum, and a file whose size has changed upstream is
+  refused instead of truncated. It is the VAE every FLUX.2 Klein preset uses; if you downloaded
+  it from Setup recently and Klein misbehaves, delete it and download it again.
+- **A finished Setup or Workflow Health check said "Working".** It now says Ready; the counts and
+  cards still show what needs attention.
+
+### Changed
+
+- **A rejected workflow is explained in plain words** instead of "ComfyUI rejected the workflow
+  with HTTP 400". For example: "The model x.safetensors is not in ComfyUI's
+  models/diffusion_models/ folder, which is where UNETLoader looks. Found x.safetensors in
+  models/checkpoints/, … Move the file, then refresh ComfyUI." It covers missing models and
+  LoRAs, missing nodes (naming the node pack when OpenLayer knows it), unset inputs and values
+  out of range, on every tool. The raw reply is still in Copy Diagnostics.
+- **The Agent Bridge refuses web pages.** While the hub runs, a website open in your browser
+  could connect to it and drive the panel. Connections from any web page are now refused and
+  logged. A local program that is not a browser can still connect; a per-session token is the
+  next step.
+- **Wording.** The landing page, README and other public text no longer use "Photoshop" as an
+  adjective, and a test keeps it that way.
+
+### Added
+
+- **A ten-minute smoke checklist** for testing the panel in Photoshop
+  (`docs/uxp-smoke-checklist.md`), and a pull request template that asks for it. Its first run
+  passed and found the Working badge above.
+
+### Known limitations
+
+- The cancel, timeout and download changes were proven against a live ComfyUI and Hugging Face
+  from outside the panel, and the smoke checklist passed in Photoshop 2025. They have not been
+  run on Photoshop 2024 or macOS.
+- The Adobe Exchange listing still serves v0.37.0 until Adobe approves an update.
+
 ## v0.37.1-alpha - 2026-10-15
 
 A fix for Photoshop 2024, with nothing else in it.
