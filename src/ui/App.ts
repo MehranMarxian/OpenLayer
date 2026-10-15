@@ -209,6 +209,7 @@ import {
 import { setArtistControlsEnabled, syncArtistControls } from "./artistControls";
 import { setSeedDiceEnabled } from "./seedDice";
 import { enhanceSelectAsPicker, PICKER_SYNC_EVENT } from "./wheelProofPicker";
+import { pickStarterDefault } from "./starterDefaults";
 import { bindPromptMemory } from "./promptMemory";
 import { bindPromptWallet, PROMPT_WALLET_TOOLS, PromptWalletTool } from "./promptWallet";
 import {
@@ -485,6 +486,10 @@ const MODELS_FOLDER_TOKEN_KEY = "openlayer.modelsFolderToken";
 // itself for the one downloading.
 const STARTER_INSTALL_KEY = "starter";
 
+// Set on the Text to Image workflow select once the artist picks a workflow
+// from it, and saved with the preferences. See OpenLayerPreferences.workflowChosen.
+const WORKFLOW_CHOSEN_ATTRIBUTE = "data-workflow-chosen";
+
 type ModelDownloadRun =
   | { kind: "done"; verifiedBy: DownloadVerification }
   | { kind: "stopped" }
@@ -579,6 +584,9 @@ export function renderApp(rootElement: HTMLElement) {
   // Each mode remembers its own last preset, so hopping between the two cards
   // does not reset either one's choice.
   let imageScreenMode: ImageScreenMode = "transform";
+  // Image to Image does not save its workflow between sessions, so its
+  // "picked by the artist" lasts the session too.
+  let imageWorkflowChosen = false;
   // v0.37: layers an edit can name as <image2>, <image3>... Kept across mode
   // switches like the source, and only used in Edit Image.
   let editReferenceSources: MultiReferenceEntry[] = [];
@@ -2030,6 +2038,10 @@ export function renderApp(rootElement: HTMLElement) {
   syncTransparentBackgroundField();
 
   elements.workflow.addEventListener("change", () => {
+    // Only the dropdown fires change here; the starter default and a history
+    // reuse set the value in code, so this is always the artist's own pick.
+    elements.workflow.setAttribute(WORKFLOW_CHOSEN_ATTRIBUTE, "true");
+    savePreferencesFromElements(elements);
     applyRecommendedPresetSettings(elements.workflow, DEFAULT_WORKFLOW, elements.steps, elements.cfg);
     syncTransparentBackgroundField();
     void refreshTextModelOptionsForSelectedPreset(elements).then(() => updateTextCheckpointCompatibility(elements));
@@ -2053,6 +2065,10 @@ export function renderApp(rootElement: HTMLElement) {
   });
 
   elements.imgWorkflow.addEventListener("change", () => {
+    if (imageScreenMode === "transform") {
+      imageWorkflowChosen = true;
+    }
+
     handleImageWorkflowChanged();
   });
 
@@ -2277,6 +2293,9 @@ export function renderApp(rootElement: HTMLElement) {
     try {
       const client = new ComfyClient(elements.serverUrl.value);
       await client.checkOnline();
+      // Before the model lists are filled, so they are filled for the
+      // workflow the tools actually open on.
+      await applyStarterDefaults(client);
       await loadCheckpoints(client, elements, preferences.checkpointName || readSelectValue(elements.checkpoint));
       await refreshTextModelOptionsForSelectedPreset(elements, client);
       await refreshImageModelOptionsForSelectedPreset(elements, client);
@@ -2310,6 +2329,59 @@ export function renderApp(rootElement: HTMLElement) {
       setGlobalStatus(elements, "Ready.", "idle");
       setGlobalError(elements, `Using fallback model list. ${getErrorMessage(caughtError)}`);
       updateSettingsReport(elements);
+    }
+  }
+
+  /**
+   * Text to Image and Image to Image open on FLUX.2 Klein 4B when the starter
+   * is installed and the artist has not picked a workflow (starterDefaults.ts).
+   * Best effort: if the inventory cannot be read, the tools keep their usual
+   * default and loading carries on.
+   */
+  async function applyStarterDefaults(client: ComfyClient) {
+    let report: SetupRequirementsReport;
+
+    try {
+      report = evaluateSetupRequirements({ pluginVersion: APP_VERSION, inventory: await client.getModelInventory() });
+    } catch {
+      return;
+    }
+
+    const textPreset = pickStarterDefault({
+      report,
+      tool: "Text to Image",
+      current: readSelectValue(elements.workflow, DEFAULT_WORKFLOW),
+      oldDefault: DEFAULT_WORKFLOW,
+      chosen: elements.workflow.getAttribute(WORKFLOW_CHOSEN_ATTRIBUTE) === "true"
+    });
+
+    if (textPreset && setSelectValueIfPresent(elements.workflow, textPreset)) {
+      applyRecommendedPresetSettings(elements.workflow, DEFAULT_WORKFLOW, elements.steps, elements.cfg);
+      syncTransparentBackgroundField();
+      setTextToImageDiagnostics(
+        elements,
+        "Opened on FLUX.2 Klein 4B because it is installed. Pick another workflow any time and OpenLayer keeps it."
+      );
+    }
+
+    const imagePreset = pickStarterDefault({
+      report,
+      tool: "Image to Image",
+      current:
+        imageScreenMode === "transform"
+          ? readSelectValue(elements.imgWorkflow, DEFAULT_IMAGE_WORKFLOW)
+          : imageScreenPresetByMode.transform,
+      oldDefault: DEFAULT_IMAGE_WORKFLOW,
+      chosen: imageWorkflowChosen
+    });
+
+    if (imagePreset) {
+      imageScreenPresetByMode.transform = imagePreset;
+
+      if (imageScreenMode === "transform" && setSelectValueIfPresent(elements.imgWorkflow, imagePreset)) {
+        applyRecommendedPresetSettings(elements.imgWorkflow, DEFAULT_IMAGE_WORKFLOW, elements.imgSteps, elements.imgCfg);
+        paintImageScreenHint(elements, imageScreenMode);
+      }
     }
   }
 
@@ -8849,6 +8921,10 @@ function applyPreferences(elements: AppElements, preferences: Partial<OpenLayerP
     elements.workflow.value = preferences.workflow;
   }
 
+  if (preferences.workflowChosen) {
+    elements.workflow.setAttribute(WORKFLOW_CHOSEN_ATTRIBUTE, "true");
+  }
+
   elements.imgWorkflow.value = DEFAULT_IMAGE_WORKFLOW;
   elements.sketchWorkflow.value = DEFAULT_SKETCH_WORKFLOW;
   elements.inpaintWorkflow.value = DEFAULT_INPAINT_WORKFLOW;
@@ -8936,6 +9012,7 @@ function savePreferencesFromElements(
   return saveOpenLayerPreferences({
     serverUrl: elements.serverUrl.value.trim() || DEFAULT_SERVER_URL,
     workflow: readSelectValue(elements.workflow, DEFAULT_WORKFLOW),
+    workflowChosen: elements.workflow.getAttribute(WORKFLOW_CHOSEN_ATTRIBUTE) === "true",
     checkpointName: readSelectValue(elements.checkpoint),
     width: elements.width.value,
     height: elements.height.value,

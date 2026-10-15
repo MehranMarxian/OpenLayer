@@ -19,6 +19,13 @@ export function normalizeTheme(value: unknown): OpenLayerTheme {
 export type OpenLayerPreferences = {
   serverUrl: string;
   workflow: string;
+  /**
+   * The artist picked the Text to Image workflow from the dropdown. The stored
+   * workflow alone cannot say so: it is saved on every startup, defaults
+   * included, so an untouched SD 1.5 default and a deliberate SD 1.5 choice
+   * looked the same. Only a choice keeps the starter from becoming the default.
+   */
+  workflowChosen: boolean;
   checkpointName: string;
   width: string;
   height: string;
@@ -446,6 +453,7 @@ function sanitizePreferences(value: unknown): Partial<OpenLayerPreferences> {
   return {
     serverUrl: readString(input.serverUrl),
     workflow: readString(input.workflow),
+    workflowChosen: input.workflowChosen === true,
     checkpointName: readString(input.checkpointName),
     width: readString(input.width),
     height: readString(input.height),
