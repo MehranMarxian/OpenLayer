@@ -51,8 +51,9 @@ Inpaint and Multi-Reference. From v0.39 the panel downloads it for you:
 3. Click **Download starter (12.5 GB)**. The box that opens lists each file, its size, the folder it
    goes in, and where it comes from (`huggingface.co`). Click **Download**.
 4. If OpenLayer asks for a folder, choose ComfyUI's **`models`** folder, the one with
-   `diffusion_models`, `text_encoders` and `vae` inside. It asks once and remembers, and each file
-   goes into its own folder inside it.
+   `diffusion_models`, `text_encoders` and `vae` inside. It asks once for each ComfyUI address in
+   Settings and remembers, and each file goes into its own folder inside it. Point Settings at a
+   second ComfyUI and it asks again, for that one's `models` folder.
 5. The files download one after another, smallest first, each checked against the size and checksum
    Hugging Face publishes. **Stop** is safe: pressing **Download starter** again resumes.
 6. When the last file is in, the card disappears and the status line says which tools can run now.
