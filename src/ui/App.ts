@@ -1429,9 +1429,36 @@ export function renderApp(rootElement: HTMLElement) {
   rootElement.innerHTML = createAppMarkup();
 
   const elements = getAppElements(rootElement);
-  // Spike: the one dropdown moved off the native <select>, so the mouse wheel
-  // cannot change the model mid-scroll. See wheelProofPicker.ts.
-  enhanceSelectAsPicker(elements.imgCheckpoint);
+  // Every Workflow and Model dropdown moves off the native <select>, so the
+  // mouse wheel cannot change a workflow or model mid-scroll (it did, silently,
+  // in Photoshop). See wheelProofPicker.ts. The LoRA, theme and Prompt from
+  // Layer task dropdowns are not converted yet.
+  for (const select of [
+    elements.workflow,
+    elements.checkpoint,
+    elements.imgWorkflow,
+    elements.imgCheckpoint,
+    elements.sketchWorkflow,
+    elements.sketchCheckpoint,
+    elements.styleReferenceWorkflow,
+    elements.styleReferenceCheckpoint,
+    elements.multiReferenceWorkflow,
+    elements.multiReferenceCheckpoint,
+    elements.unflattenWorkflow,
+    elements.unflattenCheckpoint,
+    elements.inpaintWorkflow,
+    elements.inpaintCheckpoint,
+    elements.outpaintWorkflow,
+    elements.outpaintCheckpoint,
+    elements.upscaleWorkflow,
+    elements.upscaleModel,
+    elements.removeBackgroundWorkflow,
+    elements.removeBackgroundModel,
+    elements.layerMapsWorkflow,
+    elements.layerMapsModel
+  ]) {
+    enhanceSelectAsPicker(select);
+  }
   const resultPanel = createResultPreviewPanel({
     urls: objectUrls,
     panel: elements.previewPanel,
