@@ -69,6 +69,7 @@ export type AppElements = {
   upscaleView: HTMLElement;
   settingsView: HTMLElement;
   setupView: HTMLElement;
+  setupStarter: HTMLElement;
   setupCheckedLabel: HTMLElement;
   setupTallies: HTMLElement;
   setupSummaryLine: HTMLElement;
@@ -2052,6 +2053,8 @@ export function createAppMarkup() {
           </div>
         </div>
 
+        <div id="setup-starter"></div>
+
         <section class="panel-section settings-panel diagnostic-section diagnostic-scroll-safe" aria-label="Setup requirements">
           <div class="section-heading">
             <span class="label">Requirements</span>
@@ -2374,6 +2377,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     upscaleView: getElement<HTMLElement>(rootElement, "upscale-view"),
     settingsView: getElement<HTMLElement>(rootElement, "settings-view"),
     setupView: getElement<HTMLElement>(rootElement, "setup-view"),
+    setupStarter: getElement<HTMLElement>(rootElement, "setup-starter"),
     setupCheckedLabel: getElement<HTMLElement>(rootElement, "setup-checked-label"),
     setupTallies: getElement<HTMLElement>(rootElement, "setup-tallies"),
     setupSummaryLine: getElement<HTMLElement>(rootElement, "setup-summary-line"),
