@@ -60,10 +60,14 @@ export function enhanceSelectAsPicker(
 
   const label = doc.createElement("span");
   label.className = "ol-picker-label";
-  // Drawn with borders: a glyph such as a chevron character may have no font
-  // in UXP and render blank.
-  const caret = doc.createElement("span");
+  // A PNG, drawn to match the native dropdown's own chevron. Neither of the
+  // cheaper routes works in UXP: a chevron glyph may have no font and render
+  // blank, and a CSS border triangle drew as a flat bar (transparent side
+  // borders are not honoured).
+  const caret = doc.createElement("img");
   caret.className = "ol-picker-caret";
+  caret.setAttribute("src", "icons/picker-chevron.png");
+  caret.setAttribute("alt", "");
   caret.setAttribute("aria-hidden", "true");
   field.appendChild(label);
   field.appendChild(caret);
