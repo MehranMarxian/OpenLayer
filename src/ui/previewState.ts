@@ -34,7 +34,7 @@ export function renderPreviewImage(panel: HTMLElement, src: string, alt: string)
   const image = document.createElement("img");
   image.src = src;
   image.alt = alt;
-  panel.append(image);
+  panel.appendChild(image);
 }
 
 export function renderPreviewMessage(panel: HTMLElement, className: string, text: string) {
@@ -42,7 +42,7 @@ export function renderPreviewMessage(panel: HTMLElement, className: string, text
   const message = document.createElement("span");
   message.className = className;
   message.textContent = text;
-  panel.append(message);
+  panel.appendChild(message);
 }
 
 export type SourcePreviewContent = {
@@ -153,7 +153,7 @@ export function createResultPreviewPanel(options: {
           options.panel.innerHTML = "";
           liveImage = document.createElement("img");
           liveImage.alt = options.liveAlt;
-          options.panel.append(liveImage);
+          options.panel.appendChild(liveImage);
         }
 
         // createFrom revokes the previous frame's URL before returning the new

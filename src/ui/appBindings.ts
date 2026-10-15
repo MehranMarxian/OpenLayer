@@ -504,7 +504,7 @@ export function bindStickyProgress(rootElement: HTMLElement) {
 
     const head = document.createElement("div");
     head.className = "screen-head";
-    nav.before(head);
+    view.insertBefore(head, nav);
     head.appendChild(nav);
 
     // Everything below the header becomes one scrolling body, so the header

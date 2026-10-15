@@ -91,7 +91,8 @@ function build(input: HTMLInputElement): void {
 
   field.classList.add(FIELD_CLASS);
   field.insertBefore(row, input);
-  row.append(input, button);
+  row.appendChild(input);
+  row.appendChild(button);
 
   button.addEventListener("click", () => {
     input.value = String(rollSeed());
