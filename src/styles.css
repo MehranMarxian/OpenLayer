@@ -8789,3 +8789,84 @@ body.theme-artist,
 #img-reference-field {
   margin-top: 10px !important;
 }
+
+/* Wheel-proof picker (src/ui/wheelProofPicker.ts). The native <select> it
+   replaces stays in the document as the source of truth, hidden here with a
+   class because the compact theme forces .select to display:block !important.
+   These rules sit at the end of the file on purpose: they must win over the
+   compact theme's earlier !important .select rules at equal specificity.
+   Flex gap is inert in the compact panel, so spacing uses margins. */
+.app-shell .ol-picker-native,
+.app-shell.theme-compact .ol-picker-native {
+  display: none !important;
+}
+
+.app-shell .ol-picker {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+.app-shell .ol-picker-field,
+.app-shell.theme-compact .ol-picker-field {
+  display: flex !important;
+  flex-direction: row;
+  align-items: center;
+  cursor: pointer;
+}
+
+.app-shell .ol-picker-field.is-disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.app-shell .ol-picker-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.app-shell .ol-picker-caret {
+  flex: 0 0 auto;
+  width: 0;
+  height: 0;
+  margin-left: 6px;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--ol-muted);
+}
+
+.app-shell .ol-picker-list {
+  margin-top: 2px;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--ol-border);
+  border-radius: 5px;
+  background: var(--ol-field-bg);
+}
+
+.app-shell .ol-picker-list[hidden] {
+  display: none !important;
+}
+
+.app-shell .ol-picker-item {
+  padding: 4px 8px;
+  color: var(--ol-text);
+  font-size: var(--fs-sm);
+  line-height: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.app-shell .ol-picker-item:hover {
+  background: #2f2f2f;
+}
+
+.app-shell .ol-picker-item.is-selected {
+  background: var(--ol-accent-soft);
+  color: var(--ol-accent-bright);
+}
