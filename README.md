@@ -238,11 +238,17 @@ python main.py --listen 127.0.0.1 --port 8188 --preview-method auto
 `--preview-method auto` is optional but recommended: it streams live sampler previews into the panel
 while generating.
 
-### 3. Generate
+### 3. Get the starter model
 
-Open a document, open the panel, click **Check ComfyUI**, pick a workflow, type a prompt, press
-**Generate**. Full first-run walkthroughs for each tool are in
-[**Getting started**](docs/getting-started.md).
+On a fresh ComfyUI, open **Setup** in the panel. From v0.39, its **Start here** card downloads
+**FLUX.2 Klein 4B** (Apache-2.0, three files, 12.5 GB, no sign-in) with one button, into the right
+ComfyUI folders, and checks each file against the checksum Hugging Face publishes. Once it is in,
+Text to Image and Image to Image open on Klein. [What it runs and why](#start-here--125-gb-and-five-tools-work).
+
+### 4. Generate
+
+Open a document, open the panel, open a tool, type a prompt, press **Generate**. Full first-run
+walkthroughs for each tool are in [**Getting started**](docs/getting-started.md).
 
 <details>
 <summary>Building from source instead</summary>
@@ -281,7 +287,8 @@ you install once through ComfyUI-Manager, not something you download into a mode
 
 The **FLUX.2 Klein 4B** stack is the best ratio in the whole list. Apache-2.0, ungated, no add-ons,
 and every node it uses is core ComfyUI. It generates a 1024×1024 image in about 12 seconds on a
-4070 Ti.
+4070 Ti. From v0.39, the **Start here** card at the top of **Setup** downloads all three files with
+one button, and Text to Image and Image to Image open on Klein once they are in.
 
 | File | Folder | Size |
 | :--- | :--- | ---: |
@@ -289,8 +296,11 @@ and every node it uses is core ComfyUI. It generates a 1024×1024 image in about
 | `qwen_3_4b.safetensors` | `models/text_encoders/` | 8.04 GB |
 | `flux2-vae.safetensors` | `models/vae/` | 336 MB |
 
-That is **Text to Image, Image to Image, instruction editing, and Multi-Reference**. Add
-`4x-UltraSharp.pth` (67 MB, `models/upscale_models/`) and **Upscale** works too — five tools, 12.5 GB.
+That is **Text to Image, Image to Image, Edit Image, Inpaint and Multi-Reference** — five tools,
+12.5 GB. Inpaint also needs the
+[comfyui-inpaint-cropandstitch](https://github.com/lquesada/ComfyUI-Inpaint-CropAndStitch) add-on,
+and Inpaint and Multi-Reference are experimental. Add `4x-UltraSharp.pth` (67 MB,
+`models/upscale_models/`) and **Upscale** works too.
 
 ### Also get an SD 1.5 checkpoint
 
