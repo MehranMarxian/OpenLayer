@@ -193,6 +193,11 @@ import {
   acquireModelsFolder,
   FolderAccessDeps
 } from "../photoshop/modelFolderAccess";
+import {
+  createModelsFolderTokenStore,
+  GrantStorage,
+  migrateLegacyModelsFolderToken
+} from "../photoshop/modelsFolderGrants";
 import { resolveModelSubfolder } from "../photoshop/modelSubfolder";
 import { evaluateStarter } from "../comfy/starterKit";
 import {
@@ -476,11 +481,6 @@ type UpscaleResizeSource = Readonly<{
 type AppUpscaleImportContext = InpaintImportContext<UpscaleResizeSource, AppGeneratedImageResult>;
 type LiveGeneratedImageResult = DocumentContextBound<{ blob: Blob }>;
 
-// Where a granted models folder is remembered between sessions. A token that
-// stops working is treated as "ask again", never as an error -- Adobe documents
-// that folders moving or permissions changing can invalidate one.
-const MODELS_FOLDER_TOKEN_KEY = "openlayer.modelsFolderToken";
-
 // Holds the single download slot while the Start here card runs, so no row can
 // start a second download beside it. Not a requirement key, so no row mistakes
 // itself for the one downloading.
@@ -495,7 +495,37 @@ type ModelDownloadRun =
   | { kind: "stopped" }
   | { kind: "failed" };
 
-function createFolderAccessDeps(): FolderAccessDeps {
+// Where granted models folders are remembered between sessions, or null where
+// localStorage cannot be reached. A token that stops working is treated as "ask
+// again", never as an error -- Adobe documents that folders moving or
+// permissions changing can invalidate one.
+function grantStorage(): GrantStorage | null {
+  try {
+    return typeof localStorage === "undefined" ? null : localStorage;
+  } catch {
+    return null;
+  }
+}
+
+// Files the one grant older builds kept under the server saved in preferences.
+// Called at startup, before Settings can change the address: see
+// migrateLegacyModelsFolderToken for why it must not wait for a download.
+function migrateModelsFolderGrant(savedServerUrl: string) {
+  const storage = grantStorage();
+  if (!storage) return;
+
+  try {
+    migrateLegacyModelsFolderToken(storage, savedServerUrl);
+  } catch {
+    // The old key is only removed after the new one is written, so a failure
+    // here leaves it to be carried over on the next start.
+  }
+}
+
+// `serverUrl` is the ComfyUI Setup is checking. The grant is remembered for that
+// server only, so a second ComfyUI is asked for its own models folder instead of
+// receiving files meant for it in the first one's.
+function createFolderAccessDeps(serverUrl: string): FolderAccessDeps {
   const uxp = require("uxp") as {
     storage: {
       formats: { binary: unknown };
@@ -503,6 +533,8 @@ function createFolderAccessDeps(): FolderAccessDeps {
     };
   };
   const lfs = uxp.storage.localFileSystem;
+  const storage = grantStorage();
+  const tokens = storage ? createModelsFolderTokenStore(storage, serverUrl) : null;
 
   // Every one of these must stay bound to localFileSystem. Passing the bare
   // function reference loses `this`, and UXP's implementations use it -- the
@@ -519,15 +551,14 @@ function createFolderAccessDeps(): FolderAccessDeps {
     getEntryForPersistentToken: bound<(token: string) => Promise<unknown>>(lfs.getEntryForPersistentToken),
     readStoredToken: () => {
       try {
-        return localStorage.getItem(MODELS_FOLDER_TOKEN_KEY);
+        return tokens?.read() ?? null;
       } catch {
         return null;
       }
     },
     writeStoredToken: (token) => {
       try {
-        if (token === null) localStorage.removeItem(MODELS_FOLDER_TOKEN_KEY);
-        else localStorage.setItem(MODELS_FOLDER_TOKEN_KEY, token);
+        tokens?.write(token);
       } catch {
         // Not remembering is survivable; it costs one extra picker next time.
       }
@@ -1737,6 +1768,7 @@ export function renderApp(rootElement: HTMLElement) {
     }
   });
   const preferences = loadOpenLayerPreferences();
+  migrateModelsFolderGrant(preferences.serverUrl || DEFAULT_SERVER_URL);
   applyPreferences(elements, preferences);
   applyTheme(elements, preferences.theme || DEFAULT_THEME);
   fillCheckpointOptions(elements, FALLBACK_CHECKPOINTS, preferences.checkpointName || FALLBACK_CHECKPOINTS[0]);
@@ -2787,7 +2819,7 @@ export function renderApp(rootElement: HTMLElement) {
     try {
       say(createInstallStatusLine("resolving-folder", item.modelName), "idle");
 
-      const deps = createFolderAccessDeps();
+      const deps = createFolderAccessDeps(elements.serverUrl.value.trim() || DEFAULT_SERVER_URL);
       let target: { folder: unknown; note: string | null } | null = null;
 
       // Twice at most. A remembered folder that is a different model folder
