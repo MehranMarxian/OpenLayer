@@ -95,8 +95,9 @@ Load `dist/` in Photoshop with UXP Developer Tool (Add Plugin → `dist/manifest
 ## ComfyUI rules
 
 - Shared instance on `127.0.0.1:8188`. **Never interrupt globally, never clear the queue, never
-  reboot or reset.** Cancel only our own prompt id. (Today `ComfyClient.cancelPrompt` still falls
-  back to a global `/interrupt`: see codebase-review finding 1. Don't copy that pattern.)
+  reboot or reset.** Cancel only our own prompt id: `ComfyClient.cancelPrompt` dequeues it if
+  pending, sends `/interrupt` with its `prompt_id` only if `/queue` shows it running, and otherwise
+  sends nothing. Build interrupts through `createComfyInterruptRequest`; a test fails on any other.
 - Read-only queries (`/object_info`, `/system_stats`, `/queue`) are fine for checking facts.
 - Models in the wrong folder are the most common "bug": `CheckpointLoaderSimple` reads
   `models/checkpoints/`, `UNETLoader` reads `models/diffusion_models/`. `modelFolders.ts` maps them.

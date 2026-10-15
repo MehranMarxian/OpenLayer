@@ -21,6 +21,7 @@ import {
 } from "./workflowModelRequirements";
 import {
   createComfyInterruptRequest,
+  decideCancelAction,
   createComfyQueueDeleteRequest,
   createGenerationCancelledError,
   GenerationCancelResult
@@ -485,8 +486,52 @@ export class ComfyClient {
     return data.prompt_id;
   }
 
-  async interruptGeneration() {
-    const request = createComfyInterruptRequest(this.serverUrl);
+  /**
+   * Stops one of OpenLayer's own prompts and nothing else. See
+   * `GenerationCancelResult` for why there is no global interrupt anywhere in
+   * the plugin: ComfyUI may be shared, and a POST to /interrupt without a prompt id
+   * stops whoever happens to be running.
+   */
+  async cancelPrompt(promptId?: string): Promise<GenerationCancelResult> {
+    if (!promptId) {
+      return "not-submitted";
+    }
+
+    const queue = await this.readQueueOrNull();
+    const action = decideCancelAction(queue, promptId);
+
+    if (action === "dequeue") {
+      try {
+        await this.deleteQueuedPrompt(promptId);
+        return "dequeued";
+      } catch {
+        // ComfyUI may have started the prompt between the queue read and the
+        // delete. Look again rather than guess.
+        return this.interruptIfRunning(promptId);
+      }
+    }
+
+    if (action === "interrupt") {
+      await this.interruptPrompt(promptId);
+      return "interrupted";
+    }
+
+    return queue === null ? "unconfirmed" : "not-active";
+  }
+
+  private async interruptIfRunning(promptId: string): Promise<GenerationCancelResult> {
+    const queue = await this.readQueueOrNull();
+
+    if (decideCancelAction(queue, promptId) !== "interrupt") {
+      return queue === null ? "unconfirmed" : "not-active";
+    }
+
+    await this.interruptPrompt(promptId);
+    return "interrupted";
+  }
+
+  private async interruptPrompt(promptId: string) {
+    const request = createComfyInterruptRequest(this.serverUrl, promptId);
     const response = await fetch(request.url, request.init);
 
     if (!response.ok) {
@@ -499,31 +544,12 @@ export class ComfyClient {
     }
   }
 
-  async cancelPrompt(promptId?: string): Promise<GenerationCancelResult> {
-    if (!promptId) {
-      await this.interruptGeneration();
-      return "interrupted";
-    }
-
-    let queue: ComfyQueueResponse | null = null;
-
+  private async readQueueOrNull(): Promise<ComfyQueueResponse | null> {
     try {
-      queue = await this.getQueue();
+      return await this.getQueue();
     } catch {
-      // Queue inspection is best-effort; interrupt below still cancels a running prompt.
+      return null;
     }
-
-    if (queue && findPromptIndex(queue.queue_pending, promptId) >= 0) {
-      try {
-        await this.deleteQueuedPrompt(promptId);
-        return "dequeued";
-      } catch {
-        // ComfyUI may have started the prompt between the queue read and the delete.
-      }
-    }
-
-    await this.interruptGeneration();
-    return "interrupted";
   }
 
   private async deleteQueuedPrompt(promptId: string) {
