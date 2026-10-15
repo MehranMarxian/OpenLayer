@@ -148,6 +148,9 @@ acceptable, since it's the already-trusted validation path.
 ### 3.3 Transport and safety model
 
 - Loopback-only bind (`127.0.0.1`), never `0.0.0.0` — no LAN exposure.
+- Web pages refused at the handshake: any `http:`/`https:` or `null` `Origin` gets HTTP 403
+  (`bridge/src/originPolicy.mjs`). Browsers do not apply CORS to WebSockets, so without this any
+  site open in the artist's browser could drive the panel while the hub runs.
 - Bridge connection is **off by default**; enabling it is an explicit Setup-screen toggle.
 - No raw `batchPlay` or direct `photoshopAdapter` access is ever exposed to the bridge — the
   only surface is "trigger this existing, already-safe handler" and "read this already-computed

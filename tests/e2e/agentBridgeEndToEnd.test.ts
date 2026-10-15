@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { spawn, ChildProcessWithoutNullStreams } from "node:child_process";
+import { randomBytes } from "node:crypto";
+import { request as httpRequest } from "node:http";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -29,6 +31,7 @@ let hub: ChildProcessWithoutNullStreams;
 let child: ChildProcessWithoutNullStreams;
 const responses = new Map<number, Record<string, unknown>>();
 const stderr: string[] = [];
+const hubLog: string[] = [];
 let corruptedStdout: string | null = null;
 
 function send(message: Record<string, unknown>) {
@@ -51,6 +54,7 @@ beforeAll(async () => {
     cwd: bridgeDir,
     stdio: ["ignore", "pipe", "pipe"]
   }) as ChildProcessWithoutNullStreams;
+  hub.stderr.on("data", (chunk) => hubLog.push(String(chunk)));
 
   await new Promise((done) => setTimeout(done, 600));
 
@@ -504,4 +508,45 @@ describe("agent bridge end to end", () => {
       orphan.kill();
     }
   }, 30_000);
+
+  it("refuses a WebSocket handshake from a web page, and says so in the hub log", async () => {
+    // What a page in the artist's browser does when it opens ws://127.0.0.1:8199:
+    // a real upgrade request that carries the page's Origin.
+    const handshake = (origin?: string) =>
+      new Promise<number>((resolve, reject) => {
+        const req = httpRequest({
+          host: "127.0.0.1",
+          port: PORT,
+          headers: {
+            Connection: "Upgrade",
+            Upgrade: "websocket",
+            "Sec-WebSocket-Version": "13",
+            "Sec-WebSocket-Key": randomBytes(16).toString("base64"),
+            ...(origin === undefined ? {} : { Origin: origin })
+          }
+        });
+        req.on("upgrade", (_res, socket) => {
+          socket.destroy();
+          resolve(101);
+        });
+        req.on("response", (res) => {
+          res.resume();
+          resolve(res.statusCode ?? 0);
+        });
+        req.on("error", reject);
+        req.end();
+      });
+
+    expect(await handshake("https://evil.example")).toBe(403);
+    expect(await handshake("http://localhost:5173")).toBe(403);
+    expect(await handshake("null")).toBe(403);
+    // A client that is not a browser sends no Origin, and still gets in.
+    expect(await handshake()).toBe(101);
+
+    await vi.waitFor(() =>
+      expect(hubLog.join("")).toContain("Refused a connection from a web page (https://evil.example)")
+    );
+    // The earlier tests' panel and agent connected without being refused.
+    expect(hubLog.join("")).toMatch(/Accepted a connection \(/);
+  });
 });
