@@ -1,0 +1,30 @@
+{
+  "status": 400,
+  "comfyuiVersion": "0.37.0",
+  "body": {
+    "error": {
+      "type": "prompt_outputs_failed_validation",
+      "message": "Prompt outputs failed validation",
+      "details": "",
+      "extra_info": {}
+    },
+    "node_errors": {
+      "5": {
+        "errors": [
+          {
+            "type": "required_input_missing",
+            "message": "Required input is missing",
+            "details": "seed",
+            "extra_info": {
+              "input_name": "seed"
+            }
+          }
+        ],
+        "dependent_outputs": [
+          "7"
+        ],
+        "class_type": "KSampler"
+      }
+    }
+  }
+}

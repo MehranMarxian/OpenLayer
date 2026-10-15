@@ -1,3 +1,4 @@
+import { isExplainedRejection } from "../comfy/workflowRejection";
 import { getErrorMessage, getTechnicalErrorDetails } from "../utils/errors";
 
 /**
@@ -16,6 +17,9 @@ import { getErrorMessage, getTechnicalErrorDetails } from "../utils/errors";
  */
 
 export function getImageToImageFailureHint(error: unknown) {
+  const explained = getExplainedRejection(error);
+  if (explained) return explained;
+
   const details = getTechnicalErrorDetails(error).toLowerCase();
 
   if (
@@ -40,6 +44,9 @@ export function getImageToImageFailureHint(error: unknown) {
 }
 
 export function getFriendlyImageToImageErrorMessage(error: unknown) {
+  const explained = getExplainedRejection(error);
+  if (explained) return explained;
+
   const details = getTechnicalErrorDetails(error).toLowerCase();
 
   if (
@@ -63,6 +70,9 @@ export function getFriendlyImageToImageErrorMessage(error: unknown) {
 }
 
 export function getSketchFailureHint(error: unknown) {
+  const explained = getExplainedRejection(error);
+  if (explained) return explained;
+
   const details = getTechnicalErrorDetails(error).toLowerCase();
 
   if (details.includes("sketch2img-linecn-basic.json") || details.includes("linecn workflow json")) {
@@ -101,6 +111,9 @@ export function getSketchFailureHint(error: unknown) {
 }
 
 export function getFriendlySketchErrorMessage(error: unknown) {
+  const explained = getExplainedRejection(error);
+  if (explained) return explained;
+
   const details = getTechnicalErrorDetails(error).toLowerCase();
 
   if (details.includes("sketch2img-linecn-basic.json") || details.includes("linecn workflow json")) {
@@ -134,6 +147,9 @@ export function getFriendlySketchErrorMessage(error: unknown) {
 }
 
 export function getStyleReferenceFailureHint(error: unknown) {
+  const explained = getExplainedRejection(error);
+  if (explained) return explained;
+
   const details = getTechnicalErrorDetails(error).toLowerCase();
 
   if (details.includes("style-reference-sd15.json")) {
@@ -166,6 +182,9 @@ export function getStyleReferenceFailureHint(error: unknown) {
 }
 
 export function getFriendlyStyleReferenceErrorMessage(error: unknown) {
+  const explained = getExplainedRejection(error);
+  if (explained) return explained;
+
   const details = getTechnicalErrorDetails(error).toLowerCase();
 
   if (details.includes("style-reference-sd15.json")) {
@@ -193,6 +212,9 @@ export function getFriendlyStyleReferenceErrorMessage(error: unknown) {
 }
 
 export function getInpaintFailureHint(error: unknown) {
+  const explained = getExplainedRejection(error);
+  if (explained) return explained;
+
   const details = getTechnicalErrorDetails(error).toLowerCase();
 
   if (details.includes("inpaint-basic.json") || details.includes("inpaint workflow json")) {
@@ -226,6 +248,9 @@ export function getInpaintFailureHint(error: unknown) {
 }
 
 export function getFriendlyInpaintErrorMessage(error: unknown) {
+  const explained = getExplainedRejection(error);
+  if (explained) return explained;
+
   const details = getTechnicalErrorDetails(error).toLowerCase();
 
   if (details.includes("inpaint-basic.json") || details.includes("inpaint workflow json")) {
@@ -254,6 +279,9 @@ export function getFriendlyInpaintErrorMessage(error: unknown) {
 }
 
 export function getOutpaintFailureHint(error: unknown) {
+  const explained = getExplainedRejection(error);
+  if (explained) return explained;
+
   const details = getTechnicalErrorDetails(error).toLowerCase();
 
   if (details.includes("outpaint-flux-fill-basic.json") || details.includes("outpaint workflow json")) {
@@ -286,6 +314,9 @@ export function getOutpaintFailureHint(error: unknown) {
 }
 
 export function getFriendlyOutpaintErrorMessage(error: unknown) {
+  const explained = getExplainedRejection(error);
+  if (explained) return explained;
+
   const details = getTechnicalErrorDetails(error).toLowerCase();
 
   if (details.includes("outpaint-flux-fill-basic.json") || details.includes("outpaint workflow json")) {
@@ -307,6 +338,9 @@ export function getFriendlyOutpaintErrorMessage(error: unknown) {
 }
 
 export function getUpscaleFailureHint(error: unknown) {
+  const explained = getExplainedRejection(error);
+  if (explained) return explained;
+
   const details = getTechnicalErrorDetails(error).toLowerCase();
 
   if (details.includes("upscale-basic.json") || details.includes("workflow file")) {
@@ -336,6 +370,9 @@ export function getUpscaleFailureHint(error: unknown) {
 }
 
 export function getFriendlyUpscaleErrorMessage(error: unknown) {
+  const explained = getExplainedRejection(error);
+  if (explained) return explained;
+
   const details = getTechnicalErrorDetails(error).toLowerCase();
 
   if (
@@ -356,4 +393,16 @@ export function getFriendlyUpscaleErrorMessage(error: unknown) {
   }
 
   return getErrorMessage(error);
+}
+
+/**
+ * A workflow ComfyUI rejected may arrive already explained, by
+ * `explainWorkflowRejection` in the client. Its raw JSON still sits in the
+ * technical details, and that JSON contains words like "loader" and "vae", so
+ * the keyword checks above would swap a precise sentence ("The model x is not
+ * in models/checkpoints/") for a generic one. Pass it through instead.
+ * Rejections the decoder could not explain keep the keyword path.
+ */
+function getExplainedRejection(error: unknown): string | null {
+  return isExplainedRejection(error) ? getErrorMessage(error) : null;
 }

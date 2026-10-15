@@ -1,0 +1,17 @@
+{
+  "status": 400,
+  "comfyuiVersion": "0.37.0",
+  "body": {
+    "error": {
+      "type": "missing_node_type",
+      "message": "Node 'OpenLayerNoSuchNode' not found. The custom node may not be installed.",
+      "details": "Node ID '#9'",
+      "extra_info": {
+        "node_id": "9",
+        "class_type": "OpenLayerNoSuchNode",
+        "node_title": "OpenLayerNoSuchNode"
+      }
+    },
+    "node_errors": {}
+  }
+}

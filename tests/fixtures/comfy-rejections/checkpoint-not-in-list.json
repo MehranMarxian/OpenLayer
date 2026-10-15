@@ -1,0 +1,40 @@
+{
+  "status": 400,
+  "comfyuiVersion": "0.37.0",
+  "body": {
+    "error": {
+      "type": "prompt_outputs_failed_validation",
+      "message": "Prompt outputs failed validation",
+      "details": "",
+      "extra_info": {}
+    },
+    "node_errors": {
+      "1": {
+        "errors": [
+          {
+            "type": "value_not_in_list",
+            "message": "Value not in list",
+            "details": "ckpt_name: 'not-on-disk.safetensors' not in ['epicrealism_naturalSinRC1VAE.safetensors', 'sd_xl_base_1.0.safetensors']",
+            "extra_info": {
+              "input_name": "ckpt_name",
+              "input_config": [
+                [
+                  "epicrealism_naturalSinRC1VAE.safetensors",
+                  "sd_xl_base_1.0.safetensors"
+                ],
+                {
+                  "tooltip": "The name of the checkpoint (model) to load."
+                }
+              ],
+              "received_value": "not-on-disk.safetensors"
+            }
+          }
+        ],
+        "dependent_outputs": [
+          "7"
+        ],
+        "class_type": "CheckpointLoaderSimple"
+      }
+    }
+  }
+}

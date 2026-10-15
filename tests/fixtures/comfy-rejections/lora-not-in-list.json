@@ -1,0 +1,40 @@
+{
+  "status": 400,
+  "comfyuiVersion": "0.37.0",
+  "body": {
+    "error": {
+      "type": "prompt_outputs_failed_validation",
+      "message": "Prompt outputs failed validation",
+      "details": "",
+      "extra_info": {}
+    },
+    "node_errors": {
+      "10": {
+        "errors": [
+          {
+            "type": "value_not_in_list",
+            "message": "Value not in list",
+            "details": "lora_name: 'missing-style.safetensors' not in ['example-style.safetensors', 'example-detail.safetensors']",
+            "extra_info": {
+              "input_name": "lora_name",
+              "input_config": [
+                [
+                  "example-style.safetensors",
+                  "example-detail.safetensors"
+                ],
+                {
+                  "tooltip": "The name of the LoRA."
+                }
+              ],
+              "received_value": "missing-style.safetensors"
+            }
+          }
+        ],
+        "dependent_outputs": [
+          "7"
+        ],
+        "class_type": "LoraLoader"
+      }
+    }
+  }
+}
