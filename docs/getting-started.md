@@ -40,19 +40,47 @@ python main.py --listen 127.0.0.1 --port 8188 --preview-method auto
 
 Click `Check ComfyUI` before generating.
 
+## Start here: FLUX.2 Klein 4B
+
+On a fresh ComfyUI, start with **FLUX.2 Klein 4B**. It is three files, 12.5 GB, Apache-2.0 (fine for
+client work), with no sign-in and no add-ons, and it runs Text to Image, Image to Image, Edit Image,
+Inpaint and Multi-Reference. From v0.39 the panel downloads it for you:
+
+1. Start ComfyUI, open a Photoshop document, and open the OpenLayer panel.
+2. Open **Setup**. The **Start here** card at the top checks what ComfyUI already has.
+3. Click **Download starter (12.5 GB)**. The box that opens lists each file, its size, the folder it
+   goes in, and where it comes from (`huggingface.co`). Click **Download**.
+4. If OpenLayer asks for a folder, choose ComfyUI's **`models`** folder, the one with
+   `diffusion_models`, `text_encoders` and `vae` inside. It asks once and remembers, and each file
+   goes into its own folder inside it.
+5. The files download one after another, smallest first, each checked against the size and checksum
+   Hugging Face publishes. **Stop** is safe: pressing **Download starter** again resumes.
+6. When the last file is in, the card disappears and the status line says which tools can run now.
+
+Already have some of the files? The card counts only what is missing. The text encoder,
+`qwen_3_4b.safetensors`, is shared with Z-Image Turbo. If a file is on disk in the wrong folder, the
+card says to move it rather than download it again.
+
+Two honest caveats: **Inpaint** also needs the `comfyui-inpaint-cropandstitch` node pack, which you
+install through ComfyUI-Manager, and **Inpaint** and **Multi-Reference** are experimental.
+
 ## First Image
 
 1. Open a Photoshop document.
-2. Open the OpenLayer panel.
-3. Open Settings and click `Find ComfyUI Active Port` or `Check ComfyUI` to load the available checkpoints.
-4. Optional: click `Detect GPU & Recommend Models` to see hardware-aware model suggestions.
-5. Choose a checkpoint.
-6. Enter a prompt.
-7. Optionally enter a negative prompt.
-8. Keep the workflow preset set to `txt2img-basic`.
-9. Click `Generate`.
-10. Wait for the preview.
-11. Click `Import Result as New Layer`, or enable `Import Result Automatically` before generating.
+2. Open the OpenLayer panel and choose `Text to Image`.
+3. Once the starter is installed, the workflow is already `txt2img-flux2-klein` and the model
+   `flux-2-klein-4b-fp8.safetensors`. Without it, the workflow is `txt2img-basic`, which needs an
+   SD 1.x checkpoint.
+4. Enter a prompt.
+5. Optionally enter a negative prompt.
+6. Click `Generate`.
+7. Wait for the preview.
+8. Click `Import Result as New Layer`, or enable `Import Result Automatically` before generating.
+
+If ComfyUI is not found, open Settings and click `Find ComfyUI Active Port` or `Check ComfyUI`.
+
+Picking a different workflow is always yours to make: choose it from **Workflow** and OpenLayer
+keeps it, the next time too, instead of switching back to Klein.
 
 The imported layer is named like:
 
@@ -68,7 +96,8 @@ OpenLayer_Generated_YYYYMMDD_HHMM
 4. Click `Capture Active Layer`, or click `Capture Canvas` to use the visible document.
 5. Confirm the source preview appears.
 6. Enter a prompt describing how to reinterpret the source.
-7. Choose a checkpoint and keep the workflow set to `img2img-basic`.
+7. Keep the workflow OpenLayer opens on: `img2img-flux2-klein` once the starter is installed,
+   otherwise `img2img-basic` with an SD 1.x checkpoint.
 8. Click `Generate Image to Image`.
 9. Wait for the result preview.
 10. Click `Import to Layers`.
