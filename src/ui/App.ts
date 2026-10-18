@@ -216,7 +216,7 @@ import { setSeedDiceEnabled } from "./seedDice";
 import { enhanceSelectAsPicker, PICKER_SYNC_EVENT } from "./wheelProofPicker";
 import { pickStarterDefault } from "./starterDefaults";
 import { shouldRefreshToolModels } from "./setupInventoryChange";
-import { getComfyFoundStatus, getComfyOnlineStatus } from "./comfyCheckStatus";
+import { getComfyFoundStatus, getComfyOnlineStatus, getNoCheckpointsDiagnostics } from "./comfyCheckStatus";
 import { bindPromptMemory } from "./promptMemory";
 import { bindPromptWallet, PROMPT_WALLET_TOOLS, PromptWalletTool } from "./promptWallet";
 import {
@@ -2353,6 +2353,7 @@ export function renderApp(rootElement: HTMLElement) {
       updateUpscaleCompatibility(elements, upscaleSource);
       updateStyleReferenceCheckpointCompatibility(elements, styleReferenceSource);
       setGlobalStatus(elements, getComfyOnlineStatus(checkpointCount), "ready");
+      setNoCheckpointsDiagnostics(checkpointCount);
       savePreferencesFromElements(elements);
       updateSettingsReport(elements);
     } catch (caughtError) {
@@ -2460,6 +2461,16 @@ export function renderApp(rootElement: HTMLElement) {
     }
   }
 
+  // Only when there is something to say: a check that found checkpoints keeps
+  // whatever the diagnostics line already reads ("Check ComfyUI pressed.").
+  function setNoCheckpointsDiagnostics(checkpointCount: number) {
+    const note = getNoCheckpointsDiagnostics(checkpointCount);
+
+    if (note) {
+      setGlobalDiagnostics(elements, note);
+    }
+  }
+
   async function handleCheckComfy() {
     setGlobalDiagnostics(elements, "Check ComfyUI pressed.");
     setGlobalError(elements, "");
@@ -2485,6 +2496,7 @@ export function renderApp(rootElement: HTMLElement) {
       updateUpscaleCompatibility(elements, upscaleSource);
       updateStyleReferenceCheckpointCompatibility(elements, styleReferenceSource);
       setGlobalStatus(elements, getComfyOnlineStatus(checkpointCount), "ready");
+      setNoCheckpointsDiagnostics(checkpointCount);
       savePreferencesFromElements(elements);
       updateSettingsReport(elements);
     } catch (caughtError) {
@@ -2532,7 +2544,7 @@ export function renderApp(rootElement: HTMLElement) {
       updateStyleReferenceCheckpointCompatibility(elements, styleReferenceSource);
       savePreferencesFromElements(elements);
       setGlobalStatus(elements, getComfyFoundStatus(foundUrl, checkpointCount), "ready");
-      setGlobalDiagnostics(elements, `Active ComfyUI server selected: ${foundUrl}.`);
+      setGlobalDiagnostics(elements, [`Active ComfyUI server selected: ${foundUrl}.`, getNoCheckpointsDiagnostics(checkpointCount)].filter(Boolean).join(" "));
     } catch (caughtError) {
       setGlobalStatus(elements, `Found ${foundUrl}, but model loading failed.`, "error");
       setGlobalError(elements, getErrorMessage(caughtError));
