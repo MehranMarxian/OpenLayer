@@ -38,7 +38,11 @@
 - **Fourteen generation tools**, from text-to-image and editing by instruction through inpainting and background removal to
   multi-image composition and depth/line-art/normal passes, plus an experimental one that splits a
   flat picture back into layers.
-- **Now with Qwen-Image 2.1** — transparent cut-out layers straight from the model, lettering that
+- **New in v0.39: one button to a working setup.** On a fresh ComfyUI, the **Start here** card in
+  Setup downloads FLUX.2 Klein 4B (Apache-2.0, 12.5 GB) into the right folders, and Text to Image
+  opens on it at 1024 × 1024: seven clicks from an empty ComfyUI to your first layer, plus choosing
+  ComfyUI's models folder once.
+- **Also with Qwen-Image 2.1** — transparent cut-out layers straight from the model, lettering that
   comes out spelled right at native 2K, and instruction editing. Its weights are for research and
   evaluation only, so the 2.1 presets are opt-in, never a default, and labelled "(research licence)".
 
@@ -49,7 +53,7 @@ a GPU with 8 GB VRAM or more (12 GB is what this project targets).
 OpenLayer is the panel inside Photoshop that talks to it — you work in Photoshop, ComfyUI does the
 generating in the background, and every result comes back as a layer.
 
-> **Alpha.** `v0.38.0-alpha` is a public testing checkpoint, not production software. It is stable
+> **Alpha.** `v0.39.0-alpha` is a public testing checkpoint, not production software. It is stable
 > enough to work with, and honest about where it stops — see [what works and what does
 > not](docs/known-limitations.md).
 
@@ -240,7 +244,7 @@ while generating.
 
 ### 3. Get the starter model
 
-On a fresh ComfyUI, open **Setup** in the panel. From v0.39, its **Start here** card downloads
+On a fresh ComfyUI, open **Setup** in the panel. Its **Start here** card downloads
 **FLUX.2 Klein 4B** (Apache-2.0, three files, 12.5 GB, no sign-in) with one button, into the right
 ComfyUI folders, and checks each file against the checksum Hugging Face publishes. Once it is in,
 Text to Image and Image to Image open on Klein. [What it runs and why](#start-here--125-gb-and-five-tools-work).
@@ -287,7 +291,7 @@ you install once through ComfyUI-Manager, not something you download into a mode
 
 The **FLUX.2 Klein 4B** stack is the best ratio in the whole list. Apache-2.0, ungated, no add-ons,
 and every node it uses is core ComfyUI. It generates a 1024×1024 image in about 12 seconds on a
-4070 Ti. From v0.39, the **Start here** card at the top of **Setup** downloads all three files with
+4070 Ti. The **Start here** card at the top of **Setup** downloads all three files with
 one button, and Text to Image and Image to Image open on Klein once they are in.
 
 | File | Folder | Size |

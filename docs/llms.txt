@@ -10,7 +10,7 @@ Requirements: Photoshop 2024 or newer, a local ComfyUI server, and a GPU with 8 
 
 Installation: download openlayer-latest.ccx from the GitHub releases and double-click it; the Adobe Creative Cloud desktop app installs it. Building from source and loading it with the Adobe UXP Developer Tool is the alternative.
 
-First run: start with FLUX.2 Klein 4B (Apache-2.0, three files, 12.5 GB, no sign-in). From v0.39, the panel's Setup screen has a Start here card that downloads all three files with one button, into the right ComfyUI folders, checked against the published checksums. It runs Text to Image, Image to Image, Edit Image, Inpaint and Multi-Reference; Inpaint also needs the comfyui-inpaint-cropandstitch node pack from ComfyUI-Manager. Once it is installed, Text to Image and Image to Image open on Klein unless you picked another workflow.
+First run: start with FLUX.2 Klein 4B (Apache-2.0, three files, 12.5 GB, no sign-in). The panel's Setup screen has a Start here card that downloads all three files with one button, into the right ComfyUI folders, checked against the published checksums. It runs Text to Image, Image to Image, Edit Image, Inpaint and Multi-Reference; Inpaint also needs the comfyui-inpaint-cropandstitch node pack from ComfyUI-Manager. Once it is installed, Text to Image and Image to Image open on Klein unless you picked another workflow.
 
 ## Tools
 
