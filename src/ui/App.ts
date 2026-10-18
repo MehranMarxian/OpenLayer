@@ -215,6 +215,7 @@ import { setArtistControlsEnabled, syncArtistControls } from "./artistControls";
 import { setSeedDiceEnabled } from "./seedDice";
 import { enhanceSelectAsPicker, PICKER_SYNC_EVENT } from "./wheelProofPicker";
 import { pickStarterDefault } from "./starterDefaults";
+import { shouldRefreshToolModels } from "./setupInventoryChange";
 import { getComfyFoundStatus, getComfyOnlineStatus, getNoCheckpointsDiagnostics } from "./comfyCheckStatus";
 import { bindPromptMemory } from "./promptMemory";
 import { bindPromptWallet, PROMPT_WALLET_TOOLS, PromptWalletTool } from "./promptWallet";
@@ -2423,6 +2424,43 @@ export function renderApp(rootElement: HTMLElement) {
     }
   }
 
+  /**
+   * The tool half of loading models, for a Setup check that found the
+   * installed models changed: the starter default first, then every tool's
+   * model list, as at panel load. Quiet on purpose: the panel-wide status bar
+   * belongs to Check ComfyUI, and Setup reports on its own bar. A failure here
+   * leaves the lists as they were and never turns a finished Setup check into
+   * an error; Check ComfyUI is still there to diagnose it.
+   */
+  async function refreshToolModelLists(client: ComfyClient) {
+    try {
+      await applyStarterDefaults(client);
+      await loadCheckpoints(client, elements);
+      await refreshTextModelOptionsForSelectedPreset(elements, client);
+      await refreshImageModelOptionsForSelectedPreset(elements, client);
+      await refreshSketchModelOptionsForSelectedPreset(elements, client);
+      await refreshInpaintModelOptionsForSelectedPreset(elements, client);
+      await refreshOutpaintModelOptionsForSelectedPreset(elements, client);
+      await refreshUpscaleModelOptionsForSelectedPreset(elements, client);
+      await refreshRemoveBackgroundModelOptionsForSelectedPreset(elements, client);
+      await refreshLayerMapsModelOptionsForSelectedPreset(elements, client);
+      await refreshStyleReferenceModelOptionsForSelectedPreset(elements, client);
+      await refreshMultiReferenceModelOptionsForSelectedPreset(elements, client);
+      await refreshAllLoraOptions(elements, client);
+      updateTextCheckpointCompatibility(elements);
+      updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
+      updateSketchCheckpointCompatibility(elements, sketchSource);
+      updateInpaintCheckpointCompatibility(elements, inpaintSource);
+      updateOutpaintCheckpointCompatibility(elements, outpaintSource);
+      updateUpscaleCompatibility(elements, upscaleSource);
+      updateStyleReferenceCheckpointCompatibility(elements, styleReferenceSource);
+      savePreferencesFromElements(elements);
+      updateSettingsReport(elements);
+    } catch {
+      // Keep the lists already on screen.
+    }
+  }
+
   // Only when there is something to say: a check that found checkpoints keeps
   // whatever the diagnostics line already reads ("Check ComfyUI pressed.").
   function setNoCheckpointsDiagnostics(checkpointCount: number) {
@@ -2597,6 +2635,7 @@ export function renderApp(rootElement: HTMLElement) {
         setupVramTotalBytes = null;
       }
 
+      const previousReport = setupReport;
       setupReport = evaluateSetupRequirements({
         pluginVersion: APP_VERSION,
         inventory,
@@ -2605,6 +2644,12 @@ export function renderApp(rootElement: HTMLElement) {
       hasCheckedSetup = true;
       setupCheckedAtLabel = `Checked ${formatClockTime(new Date())}`;
       renderSetupTab();
+
+      // Before the status line below, so by the time Setup says the starter is
+      // ready, Text to Image already lists it (setupInventoryChange.ts).
+      if (shouldRefreshToolModels(previousReport, setupReport)) {
+        await refreshToolModelLists(client);
+      }
 
       if (options.keepStatus) {
         return;
