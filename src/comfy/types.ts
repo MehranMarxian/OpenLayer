@@ -735,6 +735,15 @@ export type WorkflowRecommendedSettings = {
    * to hold a sketch where 0.8 barely controls at all -- measured, not guessed.
    */
   controlStrength?: number;
+  /**
+   * The size the preset is made for, when the panel's size fields should move
+   * to it on selecting the preset. Only FLUX.2 Klein declares one: the panel's
+   * 512 x 512 default is an SD 1.5 size, and Klein sampled at 512 looks soft
+   * next to the 1024 it is trained for (the 2026-10-16 fresh-install
+   * walkthrough opened on Klein at 512). Absent means "leave the size alone".
+   */
+  width?: number;
+  height?: number;
 };
 
 export type WorkflowPresetDefinition = {
