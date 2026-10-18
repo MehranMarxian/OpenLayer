@@ -3857,7 +3857,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     description: "Fast text-to-image preset for the distilled FLUX.2 Klein 4B diffusion model stack.",
     workflowFile: "workflows/api/txt2img-flux2-klein.json",
     status: "stable",
-    recommendedSettings: { steps: 4, cfg: 1 },
+    recommendedSettings: { steps: 4, cfg: 1, width: 1024, height: 1024 },
     supportedModelFamilies: ["flux2"],
     experimentalModelFamilies: ["unknown"],
     modelSource: DIFFUSION_MODEL_SOURCE,
@@ -5140,6 +5140,9 @@ export type RecommendedPresetSettings = {
    * than resetting whatever the artist last dialled in.
    */
   controlStrength?: number;
+  /** Absent unless the preset declares a size, for the same reason. */
+  width?: number;
+  height?: number;
 };
 
 const FALLBACK_RECOMMENDED_PRESET_SETTINGS = {
@@ -5153,7 +5156,9 @@ export function getRecommendedPresetSettings(presetId: string): RecommendedPrese
   return {
     steps: preset?.recommendedSettings?.steps ?? FALLBACK_RECOMMENDED_PRESET_SETTINGS.steps,
     cfg: preset?.recommendedSettings?.cfg ?? FALLBACK_RECOMMENDED_PRESET_SETTINGS.cfg,
-    controlStrength: preset?.recommendedSettings?.controlStrength
+    controlStrength: preset?.recommendedSettings?.controlStrength,
+    width: preset?.recommendedSettings?.width,
+    height: preset?.recommendedSettings?.height
   };
 }
 

@@ -261,6 +261,17 @@ describe("presetRegistry", () => {
     }
   });
 
+  it("gives FLUX.2 Klein text-to-image its 1024 size, and no other preset a size", () => {
+    expect(getRecommendedPresetSettings("txt2img-flux2-klein")).toEqual({ steps: 4, cfg: 1, width: 1024, height: 1024 });
+
+    for (const preset of listRunnableWorkflowPresets().filter((candidate) => candidate.id !== "txt2img-flux2-klein")) {
+      const recommended = getRecommendedPresetSettings(preset.id);
+
+      expect(recommended.width, preset.id).toBeUndefined();
+      expect(recommended.height, preset.id).toBeUndefined();
+    }
+  });
+
   it("returns preset-specific recommended settings for checkpoint, Flux, and turbo workflows", () => {
     expect(getRecommendedPresetSettings("txt2img-basic")).toEqual({ steps: 20, cfg: 7 });
     expect(getRecommendedPresetSettings("img2img-basic")).toEqual({ steps: 20, cfg: 7 });

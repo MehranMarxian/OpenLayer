@@ -935,7 +935,7 @@ export function renderApp(rootElement: HTMLElement) {
       },
       leadingParams: ["workflow"],
       settle: async () => {
-        applyRecommendedPresetSettings(elements.workflow, DEFAULT_WORKFLOW, elements.steps, elements.cfg);
+        applyRecommendedPresetSettings(elements.workflow, DEFAULT_WORKFLOW, elements.steps, elements.cfg, undefined, textSizeInputs(elements));
         syncTransparentBackgroundField();
         await refreshTextModelOptionsForSelectedPreset(elements);
         updateTextCheckpointCompatibility(elements);
@@ -2076,7 +2076,7 @@ export function renderApp(rootElement: HTMLElement) {
     // reuse set the value in code, so this is always the artist's own pick.
     elements.workflow.setAttribute(WORKFLOW_CHOSEN_ATTRIBUTE, "true");
     savePreferencesFromElements(elements);
-    applyRecommendedPresetSettings(elements.workflow, DEFAULT_WORKFLOW, elements.steps, elements.cfg);
+    applyRecommendedPresetSettings(elements.workflow, DEFAULT_WORKFLOW, elements.steps, elements.cfg, undefined, textSizeInputs(elements));
     syncTransparentBackgroundField();
     void refreshTextModelOptionsForSelectedPreset(elements).then(() => updateTextCheckpointCompatibility(elements));
     void refreshLoraOptions(getTextLoraControls(elements), elements);
@@ -2395,7 +2395,7 @@ export function renderApp(rootElement: HTMLElement) {
     });
 
     if (textPreset && setSelectValueIfPresent(elements.workflow, textPreset)) {
-      applyRecommendedPresetSettings(elements.workflow, DEFAULT_WORKFLOW, elements.steps, elements.cfg);
+      applyRecommendedPresetSettings(elements.workflow, DEFAULT_WORKFLOW, elements.steps, elements.cfg, undefined, textSizeInputs(elements));
       syncTransparentBackgroundField();
       setTextToImageDiagnostics(
         elements,
@@ -8749,12 +8749,17 @@ function syncMultiReferencePresetUi(elements: AppElements) {
   elements.multiReferenceCompatibilityNote.textContent = preset.capability?.uiHints.screenHint ?? "";
 }
 
+function textSizeInputs(elements: AppElements) {
+  return { width: elements.width, height: elements.height };
+}
+
 function applyRecommendedPresetSettings(
   workflowSelect: HTMLSelectElement,
   defaultPresetId: string,
   stepsInput: HTMLInputElement,
   cfgInput: HTMLInputElement,
-  controlStrengthInput?: HTMLInputElement
+  controlStrengthInput?: HTMLInputElement,
+  sizeInputs?: { width: HTMLInputElement; height: HTMLInputElement }
 ) {
   const recommended = getRecommendedPresetSettings(readSelectValue(workflowSelect, defaultPresetId));
 
@@ -8764,6 +8769,13 @@ function applyRecommendedPresetSettings(
   // Only when the preset actually declares one -- see RecommendedPresetSettings.
   if (controlStrengthInput && recommended.controlStrength !== undefined) {
     controlStrengthInput.value = String(recommended.controlStrength);
+  }
+
+  // Likewise only when declared (FLUX.2 Klein): other presets keep the size the
+  // artist set.
+  if (sizeInputs && recommended.width !== undefined && recommended.height !== undefined) {
+    sizeInputs.width.value = String(recommended.width);
+    sizeInputs.height.value = String(recommended.height);
   }
 }
 
