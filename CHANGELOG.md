@@ -1,5 +1,68 @@
 # Changelog
 
+## v0.39.0-alpha - 2026-10-19
+
+The first-run release. On an empty ComfyUI, one button in Setup fetches a model that runs five
+tools, and Text to Image opens ready to use it: seven clicks to a first layer, plus choosing
+ComfyUI's models folder once.
+
+### Added
+
+- **A Start here card at the top of Setup.** On a ComfyUI without the FLUX.2 Klein 4B starter it
+  offers one button, Download starter (12.5 GB): three files, Apache-2.0, no sign-in. It asks
+  once, listing every file with its size, the folder it goes in and the host it comes from, then
+  downloads them one after another, smallest first, through the same resumable, checksum-checked
+  download as a single row. Stop is safe, and pressing the button again resumes. Already have some
+  of the files? It counts only what is missing, and asks you to move a file that is in the wrong
+  folder rather than download it again. Once the starter is installed, the card hides. The
+  starter runs Text to Image, Image to Image, Edit Image, Inpaint and Multi-Reference; Inpaint also
+  needs the comfyui-inpaint-cropandstitch node pack, and Inpaint and Multi-Reference are
+  experimental.
+
+### Changed
+
+- **Text to Image and Image to Image open on Klein** once the starter is installed, instead of on
+  an SD 1.5 workflow, unless you picked a workflow yourself. Text to Image now remembers that you
+  picked one. Someone who deliberately chose `txt2img-basic` before this version is moved to Klein
+  once, because until now that choice looked the same as never touching the dropdown; picking it
+  again sticks.
+- **Klein's Text to Image opens at 1024 × 1024**, the size it is made for, instead of the panel's
+  SD 1.5 default of 512 × 512. Other workflows keep the size you set.
+- **The mouse wheel no longer changes a Workflow or Model dropdown.** One wheel notch over a closed
+  dropdown, while scrolling the panel, used to switch the model without anyone noticing. All 22
+  Workflow and Model dropdowns are now a field you click to open; the wheel scrolls the panel. The
+  LoRA, theme and Prompt from Layer task dropdowns are not converted yet.
+- **Getting started, the README, `llms.txt` and the model guide** say to start with Klein and walk
+  through the card.
+
+### Fixed
+
+- **Downloads now land in the right folder.** OpenLayer remembered one granted folder and wrote
+  every model into it, so a grant made for an upscaler would have put a VAE among the upscalers.
+  Grant ComfyUI's `models` folder once and each file goes into the right folder inside it; a
+  remembered folder that is plainly a different model folder is asked about again.
+- **The folder grant is remembered per ComfyUI address.** Pointing the panel at a second ComfyUI
+  used to send its downloads into the first one's folder. An existing grant carries over to the
+  address you already use, so nobody is asked again.
+- **Check ComfyUI no longer fails on a ComfyUI with no SD checkpoints**, which is exactly what an
+  install with only the Klein starter looks like. It now reads "ComfyUI is online. No SD
+  checkpoints yet.", with the reason on the line below.
+- **The first Generate after the starter arrived failed.** Text to Image kept a model list from
+  before the files existed and asked for an SD 1.5 model this ComfyUI did not have. A Setup check
+  that finds new models now refills every tool's Model list and moves Text to Image and Image to
+  Image to Klein.
+
+### Known limitations
+
+- Timed on Windows 11 with Photoshop 2025 and an RTX 4070 Ti, against an empty ComfyUI: seven
+  clicks plus the folder choice, and 11.7 seconds for the first 1024 × 1024 image including
+  loading the model. The 12.5 GB download was not timed; at about 7.5 MB/s it takes about 28
+  minutes. Not run on Photoshop 2024 or macOS.
+- The folder picker opens in Documents rather than near ComfyUI, and Setup's total ("191.6 GB
+  left to download" on a fresh install) counts every preset, not just the starter.
+- Comfy Desktop's default port, 8000, is not in the port scan yet.
+- The Adobe Exchange listing still serves v0.37.0 until Adobe approves an update.
+
 ## v0.38.0-alpha - 2026-10-15
 
 A release with no new tools. Everything in it makes OpenLayer safer on a shared ComfyUI, clearer

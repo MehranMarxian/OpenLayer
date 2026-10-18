@@ -44,7 +44,7 @@ Click `Check ComfyUI` before generating.
 
 On a fresh ComfyUI, start with **FLUX.2 Klein 4B**. It is three files, 12.5 GB, Apache-2.0 (fine for
 client work), with no sign-in and no add-ons, and it runs Text to Image, Image to Image, Edit Image,
-Inpaint and Multi-Reference. From v0.39 the panel downloads it for you:
+Inpaint and Multi-Reference. The panel downloads it for you:
 
 1. Start ComfyUI, open a Photoshop document, and open the OpenLayer panel.
 2. Open **Setup**. The **Start here** card at the top checks what ComfyUI already has.
