@@ -73,7 +73,7 @@ Future placeholders are included for regional import alignment and selection pre
 - Outpaint is experimental and currently uses `outpaint-flux-fill-basic` with `flux1-fill-dev.safetensors`, `clip_l.safetensors`, `t5xxl_fp16.safetensors` or the accepted T5 fp8 fallback, and `ae.safetensors`.
 - Upscale currently uses a simple pixel/model upscale path. It does not use prompts, latent upscale, tiled diffusion, or creative enhancement.
 - Upscale needs ComfyUI's `UpscaleModelLoader` and `ImageUpscaleWithModel` nodes plus an installed upscale model such as `4x-UltraSharp.pth` or `RealESRGAN_x4plus.pth`.
-- The setup pack contains no model weights. Every registered preset's files come to roughly 192 GB deduplicated, and seven of them are licence-restricted, so it ships the requirements list and a downloader instead. An internet connection is required.
+- The setup pack contains no model weights. Every registered preset's files come to roughly 196 GB deduplicated, and seven of them are licence-restricted, so it ships the requirements list and a downloader instead. An internet connection is required.
 - Inpaint and Outpaint remain experimental and should be tested on duplicate layers or disposable documents.
 - CI covers pure TypeScript behavior but does not run Photoshop, UXP Developer Tool, or ComfyUI integration tests.
 - Panel-wide diagnostics such as the port scan, the GPU report, and workflow health are reported on the Settings screen rather than on every tool screen. Each tool's own diagnostics line also mirrors to Settings, which is the panel-wide log.

@@ -178,3 +178,29 @@ describe("nothing is invented when the failure is not recognised", () => {
     }
   });
 });
+
+describe("SeedVR2 upscale failures", () => {
+  it("does not send a SeedVR2 user off to install 4x-UltraSharp", () => {
+    const hint = getUpscaleFailureHint(
+      createOpenLayerError(
+        "CHECKPOINT_REQUIRED",
+        'The diffusion model "seedvr2_3b_int8_convrot.safetensors" was not found in ComfyUI.'
+      )
+    );
+
+    expect(hint).toContain("seedvr2_ema_vae_fp16.safetensors");
+    expect(hint).not.toContain("4x-UltraSharp");
+  });
+
+  it("names the ComfyUI version when the core SeedVR2 nodes are absent", () => {
+    expect(getUpscaleFailureHint(comfyRejection("SeedVR2Preprocess missing node"))).toContain("0.25.0");
+  });
+
+  it("shows the whole size refusal, not a truncated one", () => {
+    const message = `${"x".repeat(200)} Crop or reduce the source to about 2560 x 1920.`;
+    const hint = getUpscaleFailureHint(createOpenLayerError("UPSCALE_SOURCE_TOO_LARGE", message, message));
+
+    expect(hint).toBe(message);
+    expect(getFriendlyUpscaleErrorMessage(createOpenLayerError("UPSCALE_SOURCE_TOO_LARGE", message, message))).toBe(message);
+  });
+});

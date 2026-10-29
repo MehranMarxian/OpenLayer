@@ -52,7 +52,7 @@ Load `dist/` in Photoshop with UXP Developer Tool (Add Plugin → `dist/manifest
   Don't grow it: new tools go in `src/ui/tools/<name>.ts` (see `livePainting.ts`, `layerTools.ts`).
 - `src/ui/generationController.ts`: the only way to run a generation (submit → WS progress →
   poll `/history` → fetch `/view` → commit). Exactly one active run; stale runs cannot commit.
-- `src/comfy/presetRegistry.ts`: source of truth for every preset (34): API workflow file, node
+- `src/comfy/presetRegistry.ts`: source of truth for every preset (35): API workflow file, node
   ids + `class_type` + required inputs, injection targets, model loader, required models with
   download URL/size/licence gate. Setup screen, health checks, setup pack and hardware advisor
   derive from it (Live Painting graphs are the exception).

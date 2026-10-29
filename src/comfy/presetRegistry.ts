@@ -73,6 +73,9 @@ const ALIBABA_PAI_ZIMAGE_FUN_CONTROLNET_REPO =
 // Apache-2.0, ungated, no licenseGate needed -- both files verified by live HEAD
 // request against h94/IP-Adapter and installed byte-for-byte on the dev rig.
 const H94_IP_ADAPTER_REPO = "https://huggingface.co/h94/IP-Adapter";
+// Apache-2.0 and ungated (Hub API: license:apache-2.0, gated false, checked
+// 2026-10-29), so SEEDVR2_3B_STACK carries no licenseGate.
+const COMFY_ORG_SEEDVR2_REPO = "https://huggingface.co/Comfy-Org/SeedVR2";
 
 const CHECKPOINT_MODEL_SOURCE = {
   kind: "checkpoint",
@@ -228,6 +231,43 @@ const FLUX2_KLEIN_4B_STACK = [
     sourcePageUrl: COMFY_ORG_FLUX2_DEV_REPO,
     downloadSizeBytes: 336213556,
     sha256: "d64f3a68e1cc4f9f4e29b6e0da38a0204fe9a49f2d4053f0ec1fa1ca02f9c4b5"
+  }
+] as const;
+
+/**
+ * SeedVR2 3B, the generative restorer behind the second Upscale preset.
+ *
+ * Only the int8 convrot build is listed. It is what ComfyUI's own template
+ * (utility_seedvr2_3b_int8_upscale_image) loads, and it is the only build
+ * measured on a 12 GB card: the fp8_e4m3fn file (3,392,794,232 bytes, same repo)
+ * was never downloaded or run, so it is not offered as an accepted name either.
+ * Sizes and sha256 are the Hub's own LFS records, and both files on the dev rig
+ * hash to exactly those values.
+ */
+const SEEDVR2_3B_STACK = [
+  {
+    kind: "diffusion-model-stack",
+    objectInfoNode: "UNETLoader",
+    inputName: "unet_name",
+    label: "SeedVR2 3B restoration model",
+    modelName: "seedvr2_3b_int8_convrot.safetensors",
+    setupHint: "Install seedvr2_3b_int8_convrot.safetensors in ComfyUI models/diffusion_models.",
+    downloadUrl: `${COMFY_ORG_SEEDVR2_REPO}/resolve/main/diffusion_models/seedvr2_3b_int8_convrot.safetensors`,
+    sourcePageUrl: COMFY_ORG_SEEDVR2_REPO,
+    downloadSizeBytes: 3458259704,
+    sha256: "c3dec8bcc5916843a8a858572970597462e1f2dc598d6dfd818f6cd40f53a157"
+  },
+  {
+    kind: "vae",
+    objectInfoNode: "VAELoader",
+    inputName: "vae_name",
+    label: "SeedVR2 VAE",
+    modelName: "seedvr2_ema_vae_fp16.safetensors",
+    setupHint: "Install seedvr2_ema_vae_fp16.safetensors in ComfyUI models/vae.",
+    downloadUrl: `${COMFY_ORG_SEEDVR2_REPO}/resolve/main/vae/seedvr2_ema_vae_fp16.safetensors`,
+    sourcePageUrl: COMFY_ORG_SEEDVR2_REPO,
+    downloadSizeBytes: 501324814,
+    sha256: "20678548f420d98d26f11442d3528f8b8c94e57ee046ef93dbb7633da8612ca1"
   }
 ] as const;
 
@@ -1162,6 +1202,46 @@ const UPSCALE_BASIC_NODES = {
 } as const;
 
 /**
+ * Node ids match src/workflows/api/upscale-seedvr2-3b.json exactly. The graph is
+ * a flat copy of the core-node subgraph inside ComfyUI's own template
+ * (utility_seedvr2_3b_int8_upscale_image, templates 0.11.66), built and exported
+ * in the ComfyUI 0.37.0 editor and run there on a 4070 Ti before this was
+ * written. No custom nodes: SeedVR2 has been core since ComfyUI 0.25.0.
+ *
+ * Two departures from the template, both measured:
+ * - the multiplier is 2, not 4. Time and memory follow OUTPUT pixels (about 3 s
+ *   per megapixel, 11.0 GiB peak at 5120 x 3840), and 4x of an ordinary 2048
+ *   canvas would be 67 MP, three times past the largest size that ran. 4x stays
+ *   the job of upscale-basic.
+ * - color correction is lab, ComfyUI's own default, where the template uses
+ *   none. The model brightens and de-hazes; lab pulls the colours back toward
+ *   the source without undoing the restored detail.
+ *
+ * JoinImageWithAlpha before the resize is the template's: SeedVR2Preprocess
+ * drops alpha and SeedVR2PostProcessing re-applies it from the resized image, so
+ * a transparent layer capture comes back transparent (measured: mean alpha error
+ * 0.5 of 255, at the edges only). An opaque source gets a fully opaque alpha.
+ *
+ * SeedVR2PostProcessing trims odd widths and heights to even. A whole-number
+ * multiplier always lands on even dimensions, so the result stays an exact 2x
+ * and the canvas-resize import accepts it; a fractional one would not.
+ */
+const UPSCALE_SEEDVR2_NODES = {
+  loadImage: "10",
+  diffusionModelLoader: "11",
+  vaeLoader: "12",
+  joinAlpha: "13",
+  resize: "14",
+  preprocess: "15",
+  encode: "16",
+  conditioning: "17",
+  sampler: "18",
+  decode: "19",
+  postProcess: "20",
+  saveImage: "9"
+} as const;
+
+/**
  * Node ids match src/workflows/api/layer-maps-*.json exactly. All three graphs
  * were hand-built and run against a live ComfyUI 0.30.0 before this was
  * written: a generated terrace photograph through each preset, warm timings of
@@ -1613,6 +1693,11 @@ const REMOVE_BACKGROUND_BIREFNET_INJECTIONS = {
 const UPSCALE_BASIC_INJECTIONS = {
   sourceImage: target(UPSCALE_BASIC_NODES.loadImage, "image"),
   checkpoint: target(UPSCALE_BASIC_NODES.upscaleModelLoader, "model_name")
+} as const;
+
+const UPSCALE_SEEDVR2_INJECTIONS = {
+  sourceImage: target(UPSCALE_SEEDVR2_NODES.loadImage, "image"),
+  checkpoint: target(UPSCALE_SEEDVR2_NODES.diffusionModelLoader, "unet_name")
 } as const;
 
 const STYLE_REFERENCE_SD15_INJECTIONS = {
@@ -2442,6 +2527,29 @@ const UPSCALE_BASIC_CAPABILITY: WorkflowCapability = {
   }
 };
 
+const UPSCALE_SEEDVR2_CAPABILITY: WorkflowCapability = {
+  toolType: "upscale",
+  loaderType: "diffusion-model-stack",
+  artistLabel: "Upscale",
+  technicalLabel: "upscale-seedvr2-3b",
+  requiredPhotoshopInputs: [{ anyOf: ["active-layer", "canvas"], label: "an active layer or captured canvas" }],
+  controls: [],
+  output: {
+    kind: "upscaled-image",
+    size: "upscaled",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Upscale model",
+    primaryActionLabel: "Generate Upscale",
+    warning:
+      "SeedVR2 is a generative restorer: it redraws fine detail and can invent texture, lettering or faces that were not in the source. Compare the result with the original before you rely on it.",
+    experimentalNote:
+      "Fixed 2x upscale with SeedVR2 3B. No prompt is used. Sources larger than about 4.9 megapixels (for example 2560 x 1920) are refused, because the result would pass the largest size measured on a 12 GB card."
+  }
+};
+
 export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
   {
     id: "txt2img-basic",
@@ -2685,6 +2793,93 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
       },
       {
         id: UPSCALE_BASIC_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images", "filename_prefix"]
+      }
+    ]
+  },
+  {
+    id: "upscale-seedvr2-3b",
+    label: "upscale-seedvr2-3b",
+    displayName: "SeedVR2 3B restorer (2x)",
+    mode: "upscale",
+    description:
+      "Generative 2x upscale with SeedVR2 3B. It restores and redraws detail rather than only enlarging pixels, so it can invent texture that was not in the source.",
+    workflowFile: "workflows/api/upscale-seedvr2-3b.json",
+    sourceWorkflowFile: "workflows/source/upscale-seedvr2-3b.workflow.json",
+    status: "stable",
+    supportedModelFamilies: ["unknown"],
+    experimentalModelFamilies: ["sd1", "sdxl", "sd3", "flux", "flux2", "zImage"],
+    modelSource: DIFFUSION_MODEL_SOURCE,
+    capability: UPSCALE_SEEDVR2_CAPABILITY,
+    modelStack: [...SEEDVR2_3B_STACK],
+    requiredModels: [...SEEDVR2_3B_STACK],
+    injections: UPSCALE_SEEDVR2_INJECTIONS,
+    // Measured on a 4070 Ti 12 GB, ComfyUI 0.37.0: 5120 x 3840 out (19.7 MP)
+    // ran in 59.7 s at 11.0 GiB peak, of 12.0 GiB, with the desktop holding
+    // ~1.8 GiB. That is the largest output that was run, so it is the limit; a
+    // bigger source is refused before submit rather than left to offload or OOM.
+    upscaleOutputLimit: { scale: 2, maxOutputPixels: 5120 * 3840 },
+    compatibilityNote:
+      "SeedVR2 3B is a one-step diffusion restorer on core ComfyUI nodes (0.25.0 or later): UNETLoader, VAELoader, SeedVR2Preprocess, VAEEncodeTiled, SeedVR2Conditioning, KSampler at 1 step and CFG 1, VAEDecodeTiled and SeedVR2PostProcessing. Apache-2.0 and ungated. It invents plausible detail, so treat the result as a repaint, not a measurement.",
+    requiredNodes: [
+      {
+        id: UPSCALE_SEEDVR2_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: UPSCALE_SEEDVR2_NODES.diffusionModelLoader,
+        classType: "UNETLoader",
+        requiredInputs: ["unet_name", "weight_dtype"]
+      },
+      {
+        id: UPSCALE_SEEDVR2_NODES.vaeLoader,
+        classType: "VAELoader",
+        requiredInputs: ["vae_name"]
+      },
+      {
+        id: UPSCALE_SEEDVR2_NODES.joinAlpha,
+        classType: "JoinImageWithAlpha",
+        requiredInputs: ["image", "alpha"]
+      },
+      {
+        id: UPSCALE_SEEDVR2_NODES.resize,
+        classType: "ResizeImageMaskNode",
+        requiredInputs: ["input", "resize_type", "scale_method"]
+      },
+      {
+        id: UPSCALE_SEEDVR2_NODES.preprocess,
+        classType: "SeedVR2Preprocess",
+        requiredInputs: ["resized_images"]
+      },
+      {
+        id: UPSCALE_SEEDVR2_NODES.encode,
+        classType: "VAEEncodeTiled",
+        requiredInputs: ["pixels", "vae", "tile_size", "overlap", "temporal_size", "temporal_overlap"]
+      },
+      {
+        id: UPSCALE_SEEDVR2_NODES.conditioning,
+        classType: "SeedVR2Conditioning",
+        requiredInputs: ["model", "vae_conditioning"]
+      },
+      {
+        id: UPSCALE_SEEDVR2_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["model", "seed", "steps", "cfg", "sampler_name", "scheduler", "positive", "negative", "latent_image", "denoise"]
+      },
+      {
+        id: UPSCALE_SEEDVR2_NODES.decode,
+        classType: "VAEDecodeTiled",
+        requiredInputs: ["samples", "vae", "tile_size", "overlap", "temporal_size", "temporal_overlap"]
+      },
+      {
+        id: UPSCALE_SEEDVR2_NODES.postProcess,
+        classType: "SeedVR2PostProcessing",
+        requiredInputs: ["images", "original_resized_images", "color_correction_method"]
+      },
+      {
+        id: UPSCALE_SEEDVR2_NODES.saveImage,
         classType: "SaveImage",
         requiredInputs: ["images", "filename_prefix"]
       }

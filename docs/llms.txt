@@ -20,7 +20,7 @@ First run: start with FLUX.2 Klein 4B (Apache-2.0, three files, 12.5 GB, no sign
 - Sketch to Image: guide generation with your own line art (ControlNet)
 - Inpaint: repaint a selection in place
 - Outpaint: extend the canvas beyond its edges
-- Upscale: enhance a layer
+- Upscale: enlarge a layer 4x with 4x-UltraSharp, or restore it 2x with SeedVR2 3B (generative: it can invent detail)
 - Remove Background: cut the subject onto its own layer with real alpha
 - Layer Maps: depth, line-art and normal maps from a layer
 - Prompt from Layer: describe a layer as prompt text
@@ -31,7 +31,7 @@ First run: start with FLUX.2 Klein 4B (Apache-2.0, three files, 12.5 GB, no sign
 
 ## Supported models
 
-FLUX.2 Klein 4B (Apache-2.0), Qwen-Image 2.1, Qwen-Image-Layered, Krea-2 Turbo, Z-Image Turbo, Flux Fill, and Stable Diffusion 1.5 checkpoints with your own LoRAs. Qwen-Image 2.1 weights are licensed for research and evaluation only, and Flux Fill is non-commercial, so those presets are opt-in and labelled. Check each model's licence before commercial use.
+FLUX.2 Klein 4B (Apache-2.0), SeedVR2 3B for generative upscale (Apache-2.0), Qwen-Image 2.1, Qwen-Image-Layered, Krea-2 Turbo, Z-Image Turbo, Flux Fill, and Stable Diffusion 1.5 checkpoints with your own LoRAs. Qwen-Image 2.1 weights are licensed for research and evaluation only, and Flux Fill is non-commercial, so those presets are opt-in and labelled. Check each model's licence before commercial use.
 
 ## Links
 

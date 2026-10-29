@@ -21,6 +21,7 @@ import inpaintFluxFillCropStitchWorkflow from "../workflows/api/inpaint-flux-fil
 import inpaintFlux2KleinWorkflow from "../workflows/api/inpaint-flux2-klein.json";
 import outpaintFluxFillBasicWorkflow from "../workflows/api/outpaint-flux-fill-basic.json";
 import upscaleBasicWorkflow from "../workflows/api/upscale-basic.json";
+import upscaleSeedvr2Workflow from "../workflows/api/upscale-seedvr2-3b.json";
 import styleReferenceSd15Workflow from "../workflows/api/style-reference-sd15.json";
 import multiReferenceFlux2KleinWorkflow from "../workflows/api/multi-reference-flux2-klein.json";
 import txt2imgQwenImage21Workflow from "../workflows/api/txt2img-qwen-image-21.json";
@@ -56,6 +57,7 @@ import { createRequiredModelSelectionKey } from "./workflowModelRequirements";
 import { applyFluxFillReferenceDefaults, isFluxFillPreset } from "./fluxFillDefaults";
 import { presetUsesEmbeddedMaskAlpha } from "./fluxFillMaskBridge";
 import { createOpenLayerError } from "../utils/errors";
+import { getUpscaleOutputLimitProblem } from "./upscaleOutputLimit";
 
 const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
   "txt2img-basic": txt2imgBasicWorkflow as ComfyWorkflow,
@@ -81,6 +83,7 @@ const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
   "inpaint-flux2-klein": inpaintFlux2KleinWorkflow as ComfyWorkflow,
   "outpaint-flux-fill-basic": outpaintFluxFillBasicWorkflow as ComfyWorkflow,
   "upscale-basic": upscaleBasicWorkflow as ComfyWorkflow,
+  "upscale-seedvr2-3b": upscaleSeedvr2Workflow as ComfyWorkflow,
   "style-reference-sd15": styleReferenceSd15Workflow as ComfyWorkflow,
   "multi-reference-flux2-klein": multiReferenceFlux2KleinWorkflow as ComfyWorkflow,
   "txt2img-qwen-image-21": txt2imgQwenImage21Workflow as ComfyWorkflow,
@@ -600,6 +603,15 @@ export async function buildUpscaleWorkflow(options: BuildUpscaleWorkflowOptions)
   const preset = getWorkflowPreset(options.presetId ?? "upscale-basic");
   assertPresetMode(preset, "upscale");
   assertPresetRunnable(preset);
+
+  const sizeProblem = options.sourceDimensions
+    ? getUpscaleOutputLimitProblem(preset, options.sourceDimensions)
+    : null;
+
+  if (sizeProblem) {
+    throw createOpenLayerError("UPSCALE_SOURCE_TOO_LARGE", sizeProblem, sizeProblem);
+  }
+
   const workflow = await cloneWorkflowTemplate(preset);
 
   validateWorkflowForPreset(workflow, preset);

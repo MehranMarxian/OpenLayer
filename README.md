@@ -70,7 +70,7 @@ anywhere; ComfyUI runs on your own machine.
 | **Sketch to Image** | Guide generation with your line art |
 | **Inpaint** | Repaint a selection in place |
 | **Outpaint** | Extend canvas content beyond the edges |
-| **Upscale** | Enhance generated or selected layers |
+| **Upscale** | Enlarge a layer 4x with an upscale model, or restore it 2x with SeedVR2 (generative) |
 | **Remove Background** | Cut the subject out onto its own layer, with real alpha |
 | **Layer Maps** | Read a depth, line-art or normal pass off a layer, at its exact size |
 | **Prompt from Layer** | Describe a layer back into prompt text |
@@ -414,6 +414,20 @@ Fill preset already runs — it is the same four files.
 
 This is a pixel/model upscale, not a generative one — no prompt, no tiled diffusion.
 
+**SeedVR2 3B restorer (2x)** is the second preset, and it *is* generative: a one-step diffusion
+restorer on core ComfyUI nodes (0.25.0 or later, no add-on). It sharpens, de-hazes and redraws fine
+detail, so it can invent texture, lettering or faces that were not in the source — compare it with
+the original before you rely on it. Apache-2.0, ungated, 3.96 GB:
+
+| File | Folder | Size |
+| :--- | :--- | ---: |
+| `seedvr2_3b_int8_convrot.safetensors` | `models/diffusion_models/` | 3.46 GB |
+| `seedvr2_ema_vae_fp16.safetensors` | `models/vae/` | 501 MB |
+
+Always 2x. On a 12 GB RTX 4070 Ti a 1024 × 768 layer took 10 s and a 2560 × 1920 one 60 s; bigger
+sources are refused, because 5120 × 3840 is the largest result measured to fit. For 4x, use
+4x-UltraSharp.
+
 </details>
 
 <details>
@@ -485,8 +499,8 @@ folder, and works with ComfyUI stopped.
 
 ### If you eventually want everything
 
-Roughly **192 GB**, deduplicated. Installing every preset's stack separately, ignoring the sharing,
-would be about 427 GB — that gap is why the stacks above are worth understanding. Seven files are
+Roughly **196 GB**, deduplicated. Installing every preset's stack separately, ignoring the sharing,
+would be about 431 GB — that gap is why the stacks above are worth understanding. Seven files are
 licence-restricted: four are non-commercial (`flux1-dev-fp8`, `flux1-fill-dev`,
 `flux2-dev-Q4_K_M.gguf`, `mistral_3_small_flux2_fp8`), and the three Qwen-Image 2.1 files are for
 research and evaluation only. The panel will not fetch those for you; use the link and read the
