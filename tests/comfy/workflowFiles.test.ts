@@ -53,11 +53,16 @@ const EXPECTED_CUSTOM_NODE_CLASSES = [
   // than the Inpaint tool.
   "InpaintCropImproved",
   "InpaintStitchImproved",
+  // Remove object (inpaint-lama), comfyui-art-venture. Picked over Acly's
+  // comfyui-inpaint-nodes because Acly's LaMa node works at 256 x 256 and
+  // returned a block mosaic in every measured fill.
+  "LaMaInpaint",
   // Layer Maps' line art. Distinct from AnyLineArtPreprocessor_aux above: this
   // one is the classic detector, chosen because the map is the deliverable
   // here rather than a control image, and its output inverts to clean black
   // lines on white.
   "LineArtPreprocessor",
+  "LoadLaMaModel",
   "Scribble_PiDiNet_Preprocessor",
   // Enhance Prompt (v0.30). Two classes from ComfyUI-KJNodes, and the only
   // reason that package is a dependency at all. StringConstantMultiline is not

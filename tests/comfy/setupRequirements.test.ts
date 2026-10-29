@@ -272,6 +272,7 @@ function createEmptyInventory(): ComfyModelInventory {
     clipVisionModels: [],
     ipAdapterModels: [],
     backgroundRemovalModels: [],
+    inpaintModels: [],
     missingSources: []
   };
 }
@@ -315,6 +316,8 @@ function getInventoryBucket(
       return inventory.ipAdapterModels;
     case "background-removal":
       return inventory.backgroundRemovalModels;
+    case "inpaint-model":
+      return inventory.inpaintModels;
   }
 }
 

@@ -116,6 +116,20 @@ const UPSCALE_MODEL_SOURCE = {
   label: "Upscale model"
 } as const;
 
+/**
+ * comfyui-art-venture's LaMa loader. Its model_name list is hard-coded to
+ * include big-lama.pt and anime-manga-big-lama.pt whether or not either file is
+ * on disk, and selecting a missing one downloads it (sha-checked) into
+ * models/lama on first run -- the same shape as the Depth Anything picker. So a
+ * health check that reads this list always sees big-lama.pt as present.
+ */
+const LAMA_MODEL_SOURCE = {
+  kind: "inpaint-model",
+  objectInfoNode: "LoadLaMaModel",
+  inputName: "model_name",
+  label: "LaMa model"
+} as const;
+
 const BACKGROUND_REMOVAL_MODEL_SOURCE = {
   kind: "background-removal",
   objectInfoNode: "LoadBackgroundRemovalModel",
@@ -584,6 +598,27 @@ const FLORENCE2_PROMPTGEN_MODEL = {
   downloadLayout: "repo-folder"
 } as const;
 
+/**
+ * LaMa (advimman/lama) is Apache-2.0. The file itself is Sanster's TorchScript
+ * conversion ("convert from torch==1.8.2"), published as a release asset of
+ * Sanster/models, a repo with no licence file of its own -- the URL every LaMa
+ * node pack points at, Acly's and art-venture's alike. Size from GitHub's
+ * release API; sha256 matches the pin in art-venture's own loader and the file
+ * on the dev rig. No licenseGate: nothing restricts its use.
+ */
+const LAMA_BIG_MODEL = {
+  kind: "inpaint-model",
+  objectInfoNode: "LoadLaMaModel",
+  inputName: "model_name",
+  label: "LaMa model",
+  modelName: "big-lama.pt",
+  setupHint: "Install big-lama.pt in ComfyUI models/lama. The LaMa node also downloads it there by itself on first use.",
+  downloadUrl: "https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt",
+  sourcePageUrl: "https://github.com/advimman/lama",
+  downloadSizeBytes: 205669692,
+  sha256: "344c77bbcb158f17dd143070d1e789f38a66c04202311ae3a258ef66667a9ea9"
+} as const;
+
 const UPSCALE_BASIC_MODEL = {
   kind: "upscale",
   objectInfoNode: "UpscaleModelLoader",
@@ -701,6 +736,32 @@ const INPAINT_BASIC_NODES = {
   inpaintConditioning: "11",
   sampler: "3",
   compositeMasked: "14",
+  saveImage: "9"
+} as const;
+
+/**
+ * Node ids match src/workflows/api/inpaint-lama.json exactly. Built and
+ * exported in the ComfyUI 0.37.0 editor, run on a 4070 Ti before this was
+ * written. Same source/mask contract as inpaint-basic (two LoadImage nodes,
+ * mask from the red channel) and the same ImageCompositeMasked at the end, so
+ * every pixel outside the selection comes back byte-identical -- measured: max
+ * difference 0 on four masks.
+ *
+ * The LaMa node is comfyui-art-venture's LaMaInpaint, chosen over Acly's
+ * comfyui-inpaint-nodes after both ran on the same masks: Acly's node always
+ * resizes LaMa's input to 256 x 256 and stretches the fill back up (it is a
+ * pre-fill for diffusion in Krita AI), which left a visible block mosaic in
+ * every fill; art-venture's runs LaMa at full resolution. Detail inside the
+ * mask, Laplacian spread: 37.8 against 7.0 on the umbrella, 29.6 against 4.8
+ * on the paving.
+ */
+const INPAINT_LAMA_NODES = {
+  loadImage: "10",
+  lamaLoader: "11",
+  loadMaskImage: "12",
+  imageToMask: "13",
+  compositeMasked: "14",
+  lamaInpaint: "15",
   saveImage: "9"
 } as const;
 
@@ -1412,6 +1473,14 @@ const INPAINT_BASIC_INJECTIONS = {
   denoise: target(INPAINT_BASIC_NODES.sampler, "denoise")
 } as const;
 
+// No prompt, seed, steps, CFG or denoise: LaMa takes an image and a mask and
+// nothing else, and the builder and readiness check key off these absences.
+const INPAINT_LAMA_INJECTIONS = {
+  checkpoint: target(INPAINT_LAMA_NODES.lamaLoader, "model_name"),
+  sourceImage: target(INPAINT_LAMA_NODES.loadImage, "image"),
+  maskImage: target(INPAINT_LAMA_NODES.loadMaskImage, "image")
+} as const;
+
 const INPAINT_FLUX_FILL_BASIC_INJECTIONS = {
   checkpoint: target(INPAINT_FLUX_FILL_BASIC_NODES.diffusionModelLoader, "unet_name"),
   sourceImage: target(INPAINT_FLUX_FILL_BASIC_NODES.loadImage, "image"),
@@ -1984,6 +2053,28 @@ const INPAINT_BASIC_CAPABILITY: WorkflowCapability = {
     showModelSelector: true,
     modelSelectorLabel: "Checkpoint",
     primaryActionLabel: "Generate Inpaint"
+  }
+};
+
+const INPAINT_LAMA_CAPABILITY: WorkflowCapability = {
+  toolType: "inpaint",
+  loaderType: "inpaint-model",
+  artistLabel: "Inpaint",
+  technicalLabel: "inpaint-lama",
+  requiredPhotoshopInputs: ["selection", "selection-mask"],
+  controls: ["contextPadding"],
+  output: {
+    kind: "selection-patch",
+    size: "selection-context",
+    importBehavior: "aligned-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "LaMa model",
+    primaryActionLabel: "Generate Inpaint",
+    warning:
+      "Remove object fills the selection from its surroundings with LaMa. It ignores the prompt, seed, steps, CFG and denoise fields. Select a little more than the object, shadow included; very large selections come back smeared.",
+    hiddenControls: ["prompt", "negativePrompt", "steps", "cfg", "denoise", "seed"]
   }
 };
 
@@ -3973,6 +4064,62 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
       "inpaint-flux2-klein reuses the FLUX.2 Klein 4B stack already installed for Text to Image and Image to Image, so it costs no extra download; its only extra requirement is lquesada's comfyui-inpaint-cropandstitch, shared with inpaint-flux-fill-cropstitch. OpenLayer uploads one PNG with the Photoshop mask in its alpha channel, exactly as the Flux Fill presets do, and InpaintCropImproved takes both the image and the mask from that single LoadImage. The stitched output is the size of the uploaded context, which is what keeps the aligned Photoshop import valid -- a 1024px result means SaveImage is reading the VAEDecode rather than the stitcher. ReferenceLatent declares latent as an optional input, so a setup check reading only ComfyUI's required bucket reports this graph as missing setup on a machine where it runs. Sampler settings are Klein's distilled operating point: 4 steps, CFG 1, er_sde, simple, ModelSamplingAuraFlow shift 3."
   },
   {
+    id: "inpaint-lama",
+    label: "inpaint-lama",
+    displayName: "Remove object (LaMa)",
+    mode: "inpaint",
+    description:
+      "Removes the selected object and fills the area from its surroundings with LaMa. No prompt is used; best for objects up to about a fifth of the selection context.",
+    workflowFile: "workflows/api/inpaint-lama.json",
+    sourceWorkflowFile: "workflows/source/inpaint-lama.workflow.json",
+    status: "stable",
+    supportedModelFamilies: ["unknown"],
+    experimentalModelFamilies: ["sd1", "sdxl", "sd3", "flux", "flux2", "zImage"],
+    modelSource: LAMA_MODEL_SOURCE,
+    capability: INPAINT_LAMA_CAPABILITY,
+    requiredModels: [LAMA_BIG_MODEL],
+    injections: INPAINT_LAMA_INJECTIONS,
+    compatibilityNote:
+      "inpaint-lama needs the comfyui-art-venture node pack (MIT) for LoadLaMaModel and LaMaInpaint, and big-lama.pt (205.7 MB, Apache-2.0 LaMa) in models/lama, which the node downloads itself on first run if it is missing. It runs no diffusion: 2 to 4 s and under 3.5 GB of VRAM at 1024 x 768 on a 4070 Ti, rising to 5.6 GB at 2048 x 1536.",
+    requiredNodes: [
+      {
+        id: INPAINT_LAMA_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: INPAINT_LAMA_NODES.loadMaskImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: INPAINT_LAMA_NODES.imageToMask,
+        classType: "ImageToMask",
+        requiredInputs: ["image", "channel"]
+      },
+      {
+        id: INPAINT_LAMA_NODES.lamaLoader,
+        classType: "LoadLaMaModel",
+        requiredInputs: ["model_name"]
+      },
+      {
+        id: INPAINT_LAMA_NODES.lamaInpaint,
+        classType: "LaMaInpaint",
+        requiredInputs: ["image", "mask", "lama_model"]
+      },
+      {
+        id: INPAINT_LAMA_NODES.compositeMasked,
+        classType: "ImageCompositeMasked",
+        requiredInputs: ["destination", "source", "x", "y", "resize_source", "mask"]
+      },
+      {
+        id: INPAINT_LAMA_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images", "filename_prefix"]
+      }
+    ]
+  },
+  {
     id: "outpaint-flux-fill-basic",
     label: "outpaint-flux-fill-basic",
     displayName: "Flux Fill",
@@ -5370,6 +5517,18 @@ export function getRecommendedPresetSettings(presetId: string): RecommendedPrese
     width: preset?.recommendedSettings?.width,
     height: preset?.recommendedSettings?.height
   };
+}
+
+/**
+ * Whether a preset's graph reads a prompt at all. inpaint-lama does not: LaMa
+ * fills a mask from its surroundings and has no prompt, seed or sampler. Its
+ * registry entry simply declares no positivePrompt target, and readiness and
+ * the Inpaint builder key off that absence -- so every preset that does take a
+ * prompt keeps requiring one, and keeps failing loudly if its own prompt or
+ * sampler target goes missing.
+ */
+export function presetTakesPrompt(preset: Pick<WorkflowPresetDefinition, "injections">): boolean {
+  return Boolean(preset.injections.positivePrompt);
 }
 
 export function getPresetInputTarget(

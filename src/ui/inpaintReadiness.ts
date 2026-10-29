@@ -3,6 +3,7 @@ import type { PixelDimensions } from "../photoshop/exactInpaintMask";
 import type { NormalizedSelectionBounds } from "../photoshop/selectionUtils";
 import type { WorkflowPresetDefinition } from "../comfy/types";
 import { isFluxFillPreset } from "../comfy/fluxFillDefaults";
+import { presetTakesPrompt } from "../comfy/presetRegistry";
 import {
   evaluateWorkflowCompatibility,
   WorkflowCompatibilityContext
@@ -99,7 +100,8 @@ export function evaluateInpaintReadiness(input: InpaintReadinessInput): InpaintR
     );
   }
 
-  if (isGenerate && !(input.prompt ?? "").trim()) {
+  // Remove object (inpaint-lama) has no prompt to ask for.
+  if (isGenerate && input.preset && presetTakesPrompt(input.preset) && !(input.prompt ?? "").trim()) {
     return blocked("prompt-missing", "Enter a prompt before generating Inpaint.", warnings);
   }
 

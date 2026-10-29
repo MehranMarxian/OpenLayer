@@ -120,6 +120,19 @@ export const CUSTOM_NODE_PACKAGES: Record<string, { name: string; repoUrl: strin
     name: "comfyui-inpaint-cropandstitch",
     repoUrl: "https://github.com/lquesada/ComfyUI-Inpaint-CropAndStitch"
   },
+  // Remove object (inpaint-lama). Chosen over Acly's comfyui-inpaint-nodes,
+  // whose LaMa node always works at 256 x 256 and returned a block mosaic in
+  // every fill; this one runs LaMa at full resolution. MIT. Its requirements.txt
+  // is unpinned, but its pyproject.toml pins timm==0.6.13, so an install that
+  // reads pyproject could downgrade timm under other packs.
+  LoadLaMaModel: {
+    name: "comfyui-art-venture",
+    repoUrl: "https://github.com/sipherxyz/comfyui-art-venture"
+  },
+  LaMaInpaint: {
+    name: "comfyui-art-venture",
+    repoUrl: "https://github.com/sipherxyz/comfyui-art-venture"
+  },
   // Style Reference. CLIPVisionLoader is core ComfyUI and needs no entry here;
   // these two classes are cubiq's IPAdapter Plus reference implementation.
   IPAdapterModelLoader: {

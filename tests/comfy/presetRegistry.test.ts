@@ -56,13 +56,15 @@ describe("presetRegistry", () => {
       "inpaint-basic",
       "inpaint-flux-fill-basic",
       "inpaint-flux-fill-cropstitch",
-      "inpaint-flux2-klein"
+      "inpaint-flux2-klein",
+      "inpaint-lama"
     ]);
     expect(runnableInpaintIds).toEqual([
       "inpaint-basic",
       "inpaint-flux-fill-basic",
       "inpaint-flux-fill-cropstitch",
-      "inpaint-flux2-klein"
+      "inpaint-flux2-klein",
+      "inpaint-lama"
     ]);
     expect(allOutpaintIds).toEqual(["outpaint-flux-fill-basic"]);
     expect(runnableOutpaintIds).toEqual(["outpaint-flux-fill-basic"]);
@@ -93,6 +95,29 @@ describe("presetRegistry", () => {
       vramBytesPerOutputPixel: 185,
       minOutputPixels: 2048 * 2048
     });
+  });
+
+  it("registers inpaint-lama as a promptless Remove object preset on art-venture", () => {
+    const preset = getWorkflowPreset("inpaint-lama");
+
+    expect(preset.mode).toBe("inpaint");
+    expect(preset.displayName).toBe("Remove object (LaMa)");
+    expect(preset.modelSource).toMatchObject({ objectInfoNode: "LoadLaMaModel", inputName: "model_name" });
+    expect(preset.injections.positivePrompt).toBeUndefined();
+    expect(preset.injections.checkpoint).toEqual({ nodeId: "11", inputName: "model_name" });
+    expect(preset.requiredModels?.map((model) => [model.modelName, model.downloadSizeBytes, model.licenseGate])).toEqual([
+      ["big-lama.pt", 205669692, undefined]
+    ]);
+    // art-venture's full-resolution LaMa, not Acly's 256 px one.
+    expect(preset.requiredNodes.map((node) => node.classType)).toContain("LaMaInpaint");
+    expect(preset.requiredNodes.map((node) => node.classType)).not.toContain("INPAINT_InpaintWithModel");
+  });
+
+  it("tells the artist the LaMa preset ignores the prompt, in plain text", () => {
+    const warning = getWorkflowPreset("inpaint-lama").capability?.uiHints.warning ?? "";
+
+    expect(warning).toMatch(/ignores the prompt/);
+    expect(warning).not.toMatch(/`|--|\*\*|Photoshop plugin/);
   });
 
   it("says plainly that the SeedVR2 preset invents detail", () => {

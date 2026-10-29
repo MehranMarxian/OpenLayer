@@ -1,0 +1,99 @@
+{
+  "9": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "OpenLayer_Inpaint_LaMa",
+      "images": [
+        "14",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Save Inpaint Result"
+    }
+  },
+  "10": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "openlayer-inpaint-source.png"
+    },
+    "_meta": {
+      "title": "Load Source Image"
+    }
+  },
+  "11": {
+    "class_type": "LoadLaMaModel",
+    "inputs": {
+      "model_name": "big-lama.pt"
+    },
+    "_meta": {
+      "title": "Load LaMa Model"
+    }
+  },
+  "12": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "openlayer-inpaint-mask.png"
+    },
+    "_meta": {
+      "title": "Load Mask Image"
+    }
+  },
+  "13": {
+    "class_type": "ImageToMask",
+    "inputs": {
+      "channel": "red",
+      "image": [
+        "12",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Mask From Red Channel"
+    }
+  },
+  "14": {
+    "class_type": "ImageCompositeMasked",
+    "inputs": {
+      "x": 0,
+      "y": 0,
+      "resize_source": false,
+      "destination": [
+        "10",
+        0
+      ],
+      "source": [
+        "15",
+        0
+      ],
+      "mask": [
+        "13",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Keep Pixels Outside The Selection"
+    }
+  },
+  "15": {
+    "class_type": "LaMaInpaint",
+    "inputs": {
+      "device_mode": "AUTO",
+      "image": [
+        "10",
+        0
+      ],
+      "mask": [
+        "13",
+        0
+      ],
+      "lama_model": [
+        "11",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "LaMa Remove Object"
+    }
+  }
+}

@@ -69,6 +69,8 @@ function getModelBucket(inventory: Partial<ComfyModelInventory>, kind: WorkflowR
       return inventory.ipAdapterModels ?? [];
     case "background-removal":
       return inventory.backgroundRemovalModels ?? [];
+    case "inpaint-model":
+      return inventory.inpaintModels ?? [];
     default:
       return [];
   }

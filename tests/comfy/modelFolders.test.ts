@@ -52,7 +52,8 @@ describe("model folder mapping", () => {
       CLIPVisionLoader: "clip_vision",
       IPAdapterModelLoader: "ipadapter",
       IPAdapterUnifiedLoader: "ipadapter",
-      LoadBackgroundRemovalModel: "background_removal"
+      LoadBackgroundRemovalModel: "background_removal",
+      LoadLaMaModel: "lama"
     });
   });
 
@@ -68,7 +69,8 @@ describe("model folder mapping", () => {
       modelPatches: "model_patches",
       clipVisionModels: "clip_vision",
       ipAdapterModels: "ipadapter",
-      backgroundRemovalModels: "background_removal"
+      backgroundRemovalModels: "background_removal",
+      inpaintModels: "lama"
     });
 
     const loaderFolders = Object.values(MODEL_FOLDER_BY_OBJECT_INFO_NODE);
@@ -157,6 +159,7 @@ describe("required model inventory", () => {
         "diffusion_models/z_image_turbo_bf16.safetensors",
         "clip_vision/CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors",
         "ipadapter/ip-adapter-plus_sd15.safetensors",
+        "lama/big-lama.pt",
         "model_patches/Z-Image-Turbo-Fun-Controlnet-Union-2.1-lite-2602-8steps.safetensors",
         "model_patches/Z-Image-Turbo-Fun-Controlnet-Union-2.1.safetensors",
         "text_encoders/clip_l.safetensors",

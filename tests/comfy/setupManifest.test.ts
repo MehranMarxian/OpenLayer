@@ -78,7 +78,7 @@ describe("setup manifest", () => {
     expect(sharedVae?.usedByPresets).toContain("txt2img-z-image-turbo");
   });
 
-  it("requires only the six custom node packages that are left", () => {
+  it("requires only the seven custom node packages that are left", () => {
     const manifest = build();
 
     // ComfyUI-GGUF joined when the Flux.2 preset landed. It is worth naming
@@ -91,6 +91,11 @@ describe("setup manifest", () => {
     expect(manifest.customNodes.map((node) => node.name)).toEqual([
       "comfyui_controlnet_aux",
       "ComfyUI_IPAdapter_plus",
+      // comfyui-art-venture joined for Remove object (inpaint-lama). OpenLayer
+      // uses two classes from it; it was preferred to Acly's lighter
+      // comfyui-inpaint-nodes only because that pack's LaMa node works at
+      // 256 x 256 and returned a block mosaic in every measured fill.
+      "comfyui-art-venture",
       "ComfyUI-Florence2",
       "ComfyUI-GGUF",
       "comfyui-inpaint-cropandstitch",

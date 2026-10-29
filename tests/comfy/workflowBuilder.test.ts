@@ -10,7 +10,7 @@ import {
   buildUpscaleWorkflow
 } from "../../src/comfy/workflowBuilder";
 import { FLUX_FILL_REFERENCE_DEFAULTS } from "../../src/comfy/fluxFillDefaults";
-import { getWorkflowPreset } from "../../src/comfy/presetRegistry";
+import { getWorkflowPreset, listRunnableWorkflowPresets, presetTakesPrompt } from "../../src/comfy/presetRegistry";
 import { createRequiredModelSelectionKey } from "../../src/comfy/workflowModelRequirements";
 
 describe("workflowBuilder", () => {
@@ -232,6 +232,47 @@ describe("workflowBuilder", () => {
     expect(result.workflow["14"].inputs.source).toEqual(["8", 0]);
     expect(result.workflow["14"].inputs.mask).toEqual(["13", 0]);
     expect(result.workflow["9"].inputs.images).toEqual(["14", 0]);
+  });
+
+  it("builds inpaint-lama from the source, mask and model alone", async () => {
+    // The panel still sends its prompt and sampler fields; LaMa has nowhere to
+    // put them, and the build must neither fail nor invent a target for them.
+    const result = await buildInpaintWorkflow({
+      presetId: "inpaint-lama",
+      prompt: "",
+      checkpointName: "big-lama.pt",
+      sourceImageName: "openlayer-inpaint-source.png",
+      maskImageName: "openlayer-inpaint-mask.png",
+      steps: 16,
+      cfg: 7,
+      denoise: 0.75,
+      seed: 2026
+    });
+
+    expect(result.preset.id).toBe("inpaint-lama");
+    expect(result.workflow["11"].inputs.model_name).toBe("big-lama.pt");
+    expect(result.workflow["10"].inputs.image).toBe("openlayer-inpaint-source.png");
+    expect(result.workflow["12"].inputs.image).toBe("openlayer-inpaint-mask.png");
+    expect(result.workflow["15"].class_type).toBe("LaMaInpaint");
+    expect(result.workflow["15"].inputs).toMatchObject({ image: ["10", 0], mask: ["13", 0], lama_model: ["11", 0] });
+    // Pixels outside the selection come from the source, untouched.
+    expect(result.workflow["14"].inputs).toMatchObject({ destination: ["10", 0], source: ["15", 0], mask: ["13", 0] });
+    expect(result.workflow["9"].inputs.images).toEqual(["14", 0]);
+    expect(JSON.stringify(result.workflow)).not.toMatch(/"seed"|"steps"|"denoise"|"text"/);
+  });
+
+  it("lets only inpaint-lama go without a prompt and a seed", () => {
+    // The builder and readiness relax prompt and sampler targets for any preset
+    // without a prompt target. That must stay exactly one preset: every other
+    // Inpaint preset keeps both, so a dropped target still fails the build.
+    const promptless = listRunnableWorkflowPresets("inpaint").filter((preset) => !presetTakesPrompt(preset));
+
+    expect(promptless.map((preset) => preset.id)).toEqual(["inpaint-lama"]);
+    for (const preset of listRunnableWorkflowPresets("inpaint")) {
+      if (preset.id !== "inpaint-lama") {
+        expect(preset.injections.seed, `${preset.id} lost its seed target`).toBeDefined();
+      }
+    }
   });
 
   it("keeps the Klein distilled operating point and its Flux.2 latent", async () => {
