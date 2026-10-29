@@ -7654,6 +7654,7 @@ body,
 .app-shell.theme-compact .unflatten-hint,
 .app-shell.theme-compact .multi-reference-hint,
 .app-shell.theme-compact .remove-background-hint,
+.app-shell.theme-compact .select-by-text-hint,
 .app-shell.theme-compact .setup-paragraph {
   max-height: none !important;
   overflow: visible !important;
@@ -7677,7 +7678,8 @@ body,
    this one has to land before the run starts. */
 .app-shell.theme-compact .unflatten-hint,
 .app-shell.theme-compact .multi-reference-hint,
-.app-shell.theme-compact .remove-background-hint {
+.app-shell.theme-compact .remove-background-hint,
+.app-shell.theme-compact .select-by-text-hint {
   margin-bottom: 8px !important;
 }
 

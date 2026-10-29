@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { getWorkflowPreset } from "../../src/comfy/presetRegistry";
-import { keepsPreferredModel, listUpscaleModelOptions } from "../../src/ui/modelPreference";
+import {
+  keepsPreferredModel,
+  listModelOptionsForPreset,
+  listUpscaleModelOptions,
+  withoutSegmentationModels
+} from "../../src/ui/modelPreference";
 
 const unetList = [
   "flux-2-klein-4b-fp8.safetensors",
@@ -59,5 +64,38 @@ describe("listUpscaleModelOptions", () => {
     expect(listUpscaleModelOptions([...sharedUnetList, "seedvr2_ema_vae_fp16.safetensors"], seedvr2)).not.toContain(
       "seedvr2_ema_vae_fp16.safetensors"
     );
+  });
+});
+
+describe("listModelOptionsForPreset", () => {
+  // What CheckpointLoaderSimple lists on the dev rig once SAM 3.1 is installed.
+  const checkpointList = [
+    "epicrealism_naturalSinRC1VAE.safetensors",
+    "sam3.1_multiplex_fp16.safetensors",
+    "flux1-dev-fp8.safetensors"
+  ];
+
+  it("keeps SAM 3.1 out of the image tools' checkpoint pickers", () => {
+    const options = listModelOptionsForPreset(checkpointList, getWorkflowPreset("inpaint-basic"));
+
+    expect(options).toEqual(["epicrealism_naturalSinRC1VAE.safetensors", "flux1-dev-fp8.safetensors"]);
+    expect(withoutSegmentationModels(checkpointList)).toEqual(options);
+  });
+
+  it("offers Select by Text only its own file", () => {
+    const select = getWorkflowPreset("select-sam31");
+
+    expect(listModelOptionsForPreset(checkpointList, select)).toEqual(["sam3.1_multiplex_fp16.safetensors"]);
+    // Not installed: the file it needs, so running reports it missing rather
+    // than loading an image checkpoint into SAM.
+    expect(listModelOptionsForPreset(["epicrealism_naturalSinRC1VAE.safetensors"], select)).toEqual([
+      "sam3.1_multiplex_fp16.safetensors"
+    ]);
+  });
+
+  it("leaves presets on other loaders alone", () => {
+    const names = ["birefnet.safetensors"];
+
+    expect(listModelOptionsForPreset(names, getWorkflowPreset("remove-background-birefnet"))).toEqual(names);
   });
 });

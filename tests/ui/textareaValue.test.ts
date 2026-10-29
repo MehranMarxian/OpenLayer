@@ -21,6 +21,7 @@ const TEXTAREA_ELEMENTS = [
   "outpaintPrompt",
   "prompt",
   "promptLayerGeneratedText",
+  "selectByTextPrompt",
   "settingsDiagnosticsReport",
   "sketchNegativePrompt",
   "sketchPrompt",

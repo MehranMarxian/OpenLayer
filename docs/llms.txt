@@ -22,6 +22,7 @@ First run: start with FLUX.2 Klein 4B (Apache-2.0, three files, 12.5 GB, no sign
 - Outpaint: extend the canvas beyond its edges
 - Upscale: enlarge a layer 4x with 4x-UltraSharp, or restore it 2x with SeedVR2 3B (generative: it can invent detail)
 - Remove Background: cut the subject onto its own layer with real alpha
+- Select by Text: name something ("backpack", "chair, table") and get it as a live selection, using Meta's SAM 3.1 (about 2 seconds, no diffusion, commercial use allowed under the SAM License)
 - Layer Maps: depth, line-art and normal maps from a layer
 - Prompt from Layer: describe a layer as prompt text
 - Unflatten (experimental): split one flat image into separate layers with transparency, using Qwen-Image-Layered

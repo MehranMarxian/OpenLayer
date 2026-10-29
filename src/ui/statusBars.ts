@@ -311,6 +311,17 @@ export function setRemoveBackgroundStatus(elements: AppElements, status: string,
   );
 }
 
+export function setSelectByTextStatus(elements: AppElements, status: string, tone: StatusTone) {
+  applyToolStatus(
+    elements,
+    elements.selectByTextStatusText,
+    elements.selectByTextStatusPill,
+    elements.selectByTextStatusProgress,
+    status,
+    tone
+  );
+}
+
 export function setLayerMapsStatus(elements: AppElements, status: string, tone: StatusTone) {
   applyToolStatus(
     elements,
@@ -407,6 +418,10 @@ export function setRemoveBackgroundError(elements: AppElements, message: string)
   applyToolError(elements.removeBackgroundErrorMessage, message);
 }
 
+export function setSelectByTextError(elements: AppElements, message: string) {
+  applyToolError(elements.selectByTextErrorMessage, message);
+}
+
 export function setLayerMapsError(elements: AppElements, message: string) {
   applyToolError(elements.layerMapsErrorMessage, message);
 }
@@ -486,6 +501,11 @@ export function setUpscaleDiagnostics(elements: AppElements, message: string) {
 
 export function setRemoveBackgroundDiagnostics(elements: AppElements, message: string) {
   elements.removeBackgroundDiagnosticsText.textContent = message;
+  elements.settingsDiagnosticsText.textContent = message;
+}
+
+export function setSelectByTextDiagnostics(elements: AppElements, message: string) {
+  elements.selectByTextDiagnosticsText.textContent = message;
   elements.settingsDiagnosticsText.textContent = message;
 }
 

@@ -157,6 +157,11 @@
               <p>One button, and the subject comes back on its own layer with real alpha &mdash; about two seconds, no prompt and no checkpoint, because there is no diffusion in the graph at all. The pixels are your own at full resolution with only an alpha channel added, so nothing is re-rendered or softened.</p>
             </article>
             <article class="tool-card">
+              <span class="tool-icon"><img src="assets/tools/select-by-text.png" alt=""></span>
+              <div><h3>Select by Text</h3><span class="chip chip-ready">Stable</span></div>
+              <p>Type what you want &mdash; <em>backpack</em>, <em>chair, table</em> &mdash; and it becomes a live selection in your document, ready for a mask, an adjustment or Inpaint. Meta&rsquo;s SAM 3.1 runs locally in about two seconds; no diffusion, and nothing in the document changes except the selection. If nothing matches, it says so and leaves your selection alone.</p>
+            </article>
+            <article class="tool-card">
               <span class="tool-icon"><img src="assets/tools/layer-maps.png" alt=""></span>
               <div><h3>Layer Maps</h3><span class="chip chip-ready">Stable</span></div>
               <p>Read a <strong>depth</strong>, <strong>line-art</strong> or <strong>normal</strong> pass off any layer, returned at that layer&rsquo;s exact pixel size so it sits straight over it. Photoshop has no normal-map or line-art export, and its Depth Blur filter needs an internet connection &mdash; this runs on your machine. A few seconds per map, no prompt and no checkpoint &mdash; there is no diffusion in the graph. Line art comes back black on white, ready to ink or colour over.</p>

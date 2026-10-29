@@ -838,6 +838,140 @@ export async function importImageAlignedToSelectionWithLayerMask(
   }
 }
 
+export type MaskSelectionOptions = {
+  /** A black-and-white PNG, white where the selection should be. */
+  blob: Blob;
+  originatingDocument: PhotoshopDocumentIdentity | null;
+  /** Where the mask belongs: the bounds of the layer or canvas it was made from. */
+  targetBounds: SelectionBounds;
+  onProgress?: ImportProgress;
+};
+
+/**
+ * Turns a mask image into the document's live selection, for Select by Text.
+ *
+ * The same sandwich the Inpaint layer-mask import uses, for the same reason:
+ * Photoshop has no "load this PNG as a selection" call, but it can load the
+ * composite as one. So a full-canvas black layer goes on top of the stack, the
+ * mask goes above it, the composite is loaded as the selection, and both
+ * temporary layers are removed. Nothing else in the document changes and no
+ * layer is left behind -- the selection is the whole result.
+ *
+ * The mask is fitted to the target bounds rather than only moved there. A
+ * capture can be smaller than the region it came from, and a mask the size of
+ * the capture must still cover the whole region.
+ *
+ * The caller is responsible for not sending an empty mask: an all-black
+ * composite loaded as a selection raises Photoshop's own "No pixels are
+ * selected" dialog, which is the failure this tool exists to avoid.
+ */
+export async function selectFromMaskImage(options: MaskSelectionOptions): Promise<void> {
+  const photoshop = getPhotoshop();
+  let maskFile: UxpFile | undefined;
+
+  try {
+    assertActiveDocumentMatchesOrigin(photoshop, options.originatingDocument);
+
+    if (!options.blob || options.blob.size === 0) {
+      throw new Error("The selection mask is empty.");
+    }
+
+    const bounds = normalizeSelectionBounds(options.targetBounds);
+    const maskLayerName = `__OpenLayer_SelectMask_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    options.onProgress?.("Saving the mask to a temporary PNG...");
+    maskFile = await saveBlobForPlacement(options.blob, `${maskLayerName}.png`);
+    const maskToken = await getUxp().storage.localFileSystem.createSessionToken(maskFile);
+
+    options.onProgress?.("Turning the mask into a selection...");
+    await photoshop.core.executeAsModal(
+      async (executionContext) => {
+        assertActiveDocumentMatchesOrigin(photoshop, options.originatingDocument);
+        const transactionDocument = getActiveDocument();
+        const previousLayerId = transactionDocument.activeLayers?.[0]?.id;
+        // One history state for the whole run. Without it each step was its
+        // own: in Photoshop on 2026-10-29 a single Ctrl+Z after a selection
+        // brought the temporary black layer back over the artwork. Suspending
+        // also gives a failed run an exact rollback, previous selection included.
+        const hostControl = executionContext?.hostControl;
+        const canSuspendHistory = typeof transactionDocument.id === "number" &&
+          typeof hostControl?.suspendHistory === "function" &&
+          typeof hostControl?.resumeHistory === "function";
+        const suspensionId = canSuspendHistory
+          ? await hostControl!.suspendHistory!({ documentID: transactionDocument.id!, name: "OpenLayer Select by Text" })
+          : null;
+        let maskLayerId: number | undefined;
+        let blackLayerId: number | undefined;
+        let operationError: unknown;
+
+        try {
+          // placeEvent centres on an active selection, and the selection is
+          // about to be replaced anyway.
+          await deselectActiveSelection(photoshop);
+          await selectTopmostLayer(photoshop);
+          blackLayerId = await createTemporaryMaskLayer(photoshop);
+          await selectEntireCanvas(photoshop);
+          await fillActiveSelection(photoshop, "black");
+          await deselectActiveSelection(photoshop);
+          await placeFileAsLayer(photoshop, maskToken);
+          maskLayerId = getActiveDocument().activeLayers?.[0]?.id;
+          if (maskLayerId === undefined) throw new Error("Photoshop did not expose the temporary mask layer ID.");
+          await renameActiveLayer(photoshop, maskLayerName);
+          // The mask is opaque, so its bounds are the whole image and the fit
+          // is exact.
+          await fitActiveLayerToBounds(photoshop, bounds);
+          await assertMaskSandwichIsTopmost(maskLayerId, blackLayerId);
+          await loadSelectionFromCompositeChannel(photoshop);
+        } catch (caughtError) {
+          operationError = caughtError;
+        }
+
+        // The selection belongs to the document, not to a layer, so it
+        // survives the temporary layers being deleted.
+        const cleanupFailures = await runCleanupTasks([
+          ...(maskLayerId !== undefined
+            ? [{ label: "remove temporary mask layer", run: () => deleteLayerById(photoshop, maskLayerId!, false) }]
+            : []),
+          ...(blackLayerId !== undefined
+            ? [{ label: "remove temporary black layer", run: () => deleteLayerById(photoshop, blackLayerId!, false) }]
+            : []),
+          ...(previousLayerId !== undefined
+            ? [{ label: "restore previously active layer", run: () => selectLayerById(photoshop, previousLayerId, false) }]
+            : [])
+        ]);
+
+        if (suspensionId !== null) {
+          // false reverts the document to before the run: the previous
+          // selection comes back and nothing temporary survives.
+          await hostControl!.resumeHistory!(suspensionId, !operationError);
+        } else if (operationError) {
+          await deselectActiveSelection(photoshop);
+        }
+
+        if (operationError) {
+          const cleanupDetails = cleanupFailures.length > 0
+            ? ` Cleanup also reported: ${formatCleanupFailures(cleanupFailures)}`
+            : "";
+          throw new Error(`${getErrorMessage(operationError)}${cleanupDetails}`);
+        }
+
+        if (cleanupFailures.length > 0) {
+          throw new Error(`The selection was made, but ${formatCleanupFailures(cleanupFailures)}`);
+        }
+      },
+      { commandName: "OpenLayer Select by Text" }
+    );
+
+    options.onProgress?.("Selection ready.");
+  } catch (caughtError) {
+    throw createOpenLayerError(
+      "PHOTOSHOP_IMPORT_FAILED",
+      `Could not turn the mask into a selection. ${getErrorMessage(caughtError)}`
+    );
+  } finally {
+    await deleteTemporaryFileBestEffort(maskFile);
+  }
+}
+
 // Captures the active layer's pixels and returns the full source image so its
 // originating Photoshop document remains bound to the PNG instead of being lost with a bare Blob.
 export async function exportActiveLayerAsPNG(): Promise<ExportedSourceImage> {

@@ -31,6 +31,51 @@ export function listUpscaleModelOptions(modelNames: readonly string[], preset: W
 }
 
 /**
+ * Every file a segmentation preset (SAM 3.1) loads. They live in
+ * models/checkpoints because CheckpointLoaderSimple opens them, so ComfyUI
+ * lists them beside the diffusion checkpoints.
+ */
+function listSegmentationModelNames(): Set<string> {
+  return new Set(
+    listRunnableWorkflowPresets()
+      .filter((preset) => preset.modelSource.kind === "segmentation")
+      .flatMap((preset) => preset.requiredModels ?? [])
+      .flatMap((model) => getAcceptedModelNames(model))
+  );
+}
+
+/**
+ * The files a preset's model picker offers, when its loader reads a folder that
+ * other kinds of model share.
+ *
+ * SAM 3.1 is a checkpoint as far as ComfyUI is concerned, so once it was
+ * downloaded it appeared in every image tool's Checkpoint dropdown, where
+ * picking it fails. Image presets now leave segmentation files out, and the
+ * Select by Text picker lists only its own file -- the file it needs when none
+ * is installed, so running reports that file missing instead of trying an image
+ * checkpoint. Every other preset's list passes through untouched.
+ */
+export function listModelOptionsForPreset(modelNames: readonly string[], preset: WorkflowPresetDefinition): string[] {
+  if (preset.modelSource.kind === "segmentation") {
+    const ownNames = (preset.requiredModels ?? []).flatMap((model) => getAcceptedModelNames(model));
+    const installed = ownNames.filter((name) => modelNames.includes(name));
+    return installed.length > 0 ? installed : ownNames;
+  }
+
+  if (preset.modelSource.kind === "checkpoint") {
+    return withoutSegmentationModels(modelNames);
+  }
+
+  return [...modelNames];
+}
+
+/** The plain checkpoint list, for the dropdowns that are filled before a preset is known. */
+export function withoutSegmentationModels(modelNames: readonly string[]): string[] {
+  const segmentationNames = listSegmentationModelNames();
+  return modelNames.filter((name) => !segmentationNames.has(name));
+}
+
+/**
  * Whether a model refresh may keep the model that was selected before.
  *
  * Every diffusion-model preset reads the same UNETLoader list, so after a

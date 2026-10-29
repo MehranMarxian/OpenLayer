@@ -138,7 +138,8 @@ describe("presetRegistry", () => {
       "CLIPTextEncode",
       "SAM3_Detect",
       "MaskToImage",
-      "SaveImage"
+      "SaveImage",
+      "PreviewAny"
     ]);
     expect(preset.compatibilityNote).toMatch(/SAM License, commercial use allowed/);
   });

@@ -117,6 +117,8 @@ export const BUSY_DISABLED_FIELD_GROUPS: Readonly<
   // No prompt, seed or sampler fields: this tool has none. The two selects and
   // the two capture buttons are the whole form.
   "remove-background": ["removeBackgroundWorkflow", "removeBackgroundModel"],
+  // The prompt is the whole question SAM answers; there is no sampler to set.
+  "select-by-text": ["selectByTextPrompt", "selectByTextWorkflow", "selectByTextModel"],
   // Same shape as Remove Background: a preprocessor has no prompt, seed or
   // sampler. The map-type select and the depth model select are the whole form.
   "layer-maps": ["layerMapsWorkflow", "layerMapsModel"]
@@ -202,6 +204,7 @@ export type BusyGateName =
   | "unflattenResult"
   | "removeBackgroundSource"
   | "removeBackgroundResult"
+  | "selectByTextSource"
   | "layerMapsSource"
   | "layerMapsResult";
 
@@ -235,6 +238,8 @@ export const BUSY_GATED_ACTIONS: readonly BusyGatedAction[] = [
   { button: "importUnflattenButton", gate: "unflattenResult" },
   { button: "generateRemoveBackgroundButton", gate: "removeBackgroundSource" },
   { button: "importRemoveBackgroundButton", gate: "removeBackgroundResult" },
+  // No import gate: the selection is applied as part of the run.
+  { button: "runSelectByTextButton", gate: "selectByTextSource" },
   { button: "generateLayerMapsButton", gate: "layerMapsSource" },
   { button: "importLayerMapsButton", gate: "layerMapsResult" }
 ];

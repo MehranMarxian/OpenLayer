@@ -28,7 +28,7 @@ import { previewHub, PreviewPublicationKind, PreviewToolId } from "./previewHub"
 import { importBridge } from "./importBridge";
 import { agentBridge, createAgentChoiceField, createAgentToggleField } from "./agentBridge";
 import { readTextareaValue } from "./textareaValue";
-import { keepsPreferredModel, listUpscaleModelOptions } from "./modelPreference";
+import { keepsPreferredModel, listModelOptionsForPreset, listUpscaleModelOptions, withoutSegmentationModels } from "./modelPreference";
 import { measureSelectionFraction, selectionEditStrength } from "../comfy/selectionEdit";
 import { decodeRgbaPng } from "../utils/png";
 import { AgentConnectionStatus, createAgentConnection, openWebSocket } from "./agentConnection";
@@ -114,6 +114,7 @@ import {
   buildStyleReferenceWorkflow,
   buildTxt2ImgWorkflow,
   buildRemoveBackgroundWorkflow,
+  buildSelectWorkflow,
   buildLayerMapsWorkflow,
   buildEnhancePromptWorkflow,
   buildUpscaleWorkflow
@@ -179,6 +180,7 @@ import {
   getActiveDocumentIdentity,
   getActiveDocumentInfo,
   importGeneratedImageAsLayer,
+  selectFromMaskImage,
   importUnflattenLayerStack,
   importImageAlignedToSelectionWithLayerMask,
   importOutpaintResultExpandingCanvas,
@@ -252,6 +254,8 @@ import {
   LayerExportKind,
   runLayerExport
 } from "./tools/layerTools";
+import { decideSelectionOutcome, parseSelectionReport } from "./tools/selectByText";
+import { normalizeSelectionPrompt } from "../comfy/selectionPrompt";
 import {
   getFriendlyImageToImageErrorMessage,
   getFriendlyInpaintErrorMessage,
@@ -340,6 +344,7 @@ import {
   DEFAULT_PROMPT_LAYER_NUM_BEAMS,
   DEFAULT_PROMPT_LAYER_TASK,
   DEFAULT_REMOVE_BACKGROUND_WORKFLOW,
+  DEFAULT_SELECT_BY_TEXT_WORKFLOW,
   DEFAULT_LAYER_MAPS_WORKFLOW,
   DEFAULT_DEPTH_MAP_MODEL,
   UNAVAILABLE_DEPTH_MAP_MODELS,
@@ -389,6 +394,9 @@ import {
   setRemoveBackgroundStatus,
   setRemoveBackgroundDiagnostics,
   setRemoveBackgroundError,
+  setSelectByTextStatus,
+  setSelectByTextDiagnostics,
+  setSelectByTextError,
   setLayerMapsStatus,
   setLayerMapsDiagnostics,
   setLayerMapsError,
@@ -647,6 +655,7 @@ export function renderApp(rootElement: HTMLElement) {
   let upscaleResult: AppGeneratedImageResult | null = null;
   let removeBackgroundSource: ImageSourceState | null = null;
   let removeBackgroundResult: AppGeneratedImageResult | null = null;
+  let selectByTextSource: ImageSourceState | null = null;
   let styleReferenceSource: ImageSourceState | null = null;
   let styleReferenceResult: AppGeneratedImageResult | null = null;
   // An ordered list rather than a single source, which is the whole difference
@@ -747,6 +756,7 @@ export function renderApp(rootElement: HTMLElement) {
       unflattenResult,
       removeBackgroundSource,
       removeBackgroundResult,
+      selectByTextSource,
       layerMapsSource,
       layerMapsResult
     });
@@ -1664,6 +1674,13 @@ export function renderApp(rootElement: HTMLElement) {
     metaElement: elements.removeBackgroundSourceMeta,
     imageAlt: "Captured Photoshop source for Remove Background"
   });
+  const selectByTextSourcePanel = createSourcePreviewPanel({
+    urls: objectUrls,
+    panel: elements.selectByTextSourcePreviewPanel,
+    titleElement: elements.selectByTextSourceTitle,
+    metaElement: elements.selectByTextSourceMeta,
+    imageAlt: "Captured Photoshop source for Select by Text"
+  });
   const layerMapsSourcePanel = createSourcePreviewPanel({
     urls: objectUrls,
     panel: elements.layerMapsSourcePreviewPanel,
@@ -1858,6 +1875,9 @@ export function renderApp(rootElement: HTMLElement) {
     generateRemoveBackground: createActionRunner(elements, "generateRemoveBackground", handleGenerateRemoveBackground),
     importRemoveBackground: createActionRunner(elements, "importRemoveBackground", handleImportRemoveBackground),
     toggleRemoveBackgroundAutoImport: createActionRunner(elements, "toggleRemoveBackgroundAutoImport", handleToggleRemoveBackgroundAutoImport),
+    captureSelectByTextSource: createActionRunner(elements, "captureSelectByTextSource", handleCaptureSelectByTextSource),
+    captureSelectByTextCanvasSource: createActionRunner(elements, "captureSelectByTextCanvasSource", handleCaptureSelectByTextCanvasSource),
+    runSelectByText: createActionRunner(elements, "runSelectByText", handleRunSelectByText),
     captureLayerMapsSource: createActionRunner(elements, "captureLayerMapsSource", handleCaptureLayerMapsSource),
     captureLayerMapsCanvasSource: createActionRunner(elements, "captureLayerMapsCanvasSource", handleCaptureLayerMapsCanvasSource),
     generateLayerMaps: createActionRunner(elements, "generateLayerMaps", handleGenerateLayerMaps),
@@ -2343,6 +2363,7 @@ export function renderApp(rootElement: HTMLElement) {
       await refreshOutpaintModelOptionsForSelectedPreset(elements, client);
       await refreshUpscaleModelOptionsForSelectedPreset(elements, client);
       await refreshRemoveBackgroundModelOptionsForSelectedPreset(elements, client);
+      await refreshSelectByTextModelOptions(elements, client);
       await refreshLayerMapsModelOptionsForSelectedPreset(elements, client);
       await refreshStyleReferenceModelOptionsForSelectedPreset(elements, client);
       await refreshMultiReferenceModelOptionsForSelectedPreset(elements, client);
@@ -2444,6 +2465,7 @@ export function renderApp(rootElement: HTMLElement) {
       await refreshOutpaintModelOptionsForSelectedPreset(elements, client);
       await refreshUpscaleModelOptionsForSelectedPreset(elements, client);
       await refreshRemoveBackgroundModelOptionsForSelectedPreset(elements, client);
+      await refreshSelectByTextModelOptions(elements, client);
       await refreshLayerMapsModelOptionsForSelectedPreset(elements, client);
       await refreshStyleReferenceModelOptionsForSelectedPreset(elements, client);
       await refreshMultiReferenceModelOptionsForSelectedPreset(elements, client);
@@ -2488,6 +2510,7 @@ export function renderApp(rootElement: HTMLElement) {
       await refreshOutpaintModelOptionsForSelectedPreset(elements, client);
       await refreshUpscaleModelOptionsForSelectedPreset(elements, client);
       await refreshRemoveBackgroundModelOptionsForSelectedPreset(elements, client);
+      await refreshSelectByTextModelOptions(elements, client);
       await refreshStyleReferenceModelOptionsForSelectedPreset(elements, client);
       await refreshMultiReferenceModelOptionsForSelectedPreset(elements, client);
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
@@ -2535,6 +2558,7 @@ export function renderApp(rootElement: HTMLElement) {
       await refreshOutpaintModelOptionsForSelectedPreset(elements, client);
       await refreshUpscaleModelOptionsForSelectedPreset(elements, client);
       await refreshRemoveBackgroundModelOptionsForSelectedPreset(elements, client);
+      await refreshSelectByTextModelOptions(elements, client);
       await refreshStyleReferenceModelOptionsForSelectedPreset(elements, client);
       await refreshMultiReferenceModelOptionsForSelectedPreset(elements, client);
       updateImageCheckpointCompatibility(elements, allowExperimentalCheckpoints, imageSource);
@@ -3219,6 +3243,11 @@ export function renderApp(rootElement: HTMLElement) {
       diagnostics: setRemoveBackgroundDiagnostics,
       error: setRemoveBackgroundError,
       progress: setRemoveBackgroundProgressPreview
+    },
+    "select-by-text": {
+      status: setSelectByTextStatus,
+      diagnostics: setSelectByTextDiagnostics,
+      error: setSelectByTextError
     },
     "layer-maps": {
       status: setLayerMapsStatus,
@@ -4315,6 +4344,185 @@ export function renderApp(rootElement: HTMLElement) {
       setRemoveBackgroundStatus(elements, "Cutout failed.", "error");
       setRemoveBackgroundError(elements, getErrorMessage(caughtError));
       console.error("[OpenLayer] Remove Background failed", getTechnicalErrorDetails(caughtError));
+    } finally {
+      isBusy = false;
+      busyTool = null;
+      syncBusy();
+    }
+  }
+
+  async function handleCaptureSelectByTextSource() {
+    await captureSelectByTextSourceImage("Capturing active layer...", "Source captured.", exportActiveLayerForImageToImage);
+  }
+
+  async function handleCaptureSelectByTextCanvasSource() {
+    await captureSelectByTextSourceImage("Capturing canvas...", "Canvas captured.", exportCanvasForImageToImage);
+  }
+
+  async function captureSelectByTextSourceImage(
+    statusMessage: string,
+    successMessage: string,
+    capture: () => Promise<ExportedSourceImage>
+  ) {
+    setSelectByTextError(elements, "");
+    setSelectByTextStatus(elements, statusMessage, "idle");
+
+    try {
+      const exportedSource = await capture();
+      setSelectByTextSource({ ...exportedSource, previewUrl: objectUrls.create(exportedSource.blob) });
+      setSelectByTextStatus(elements, successMessage, "ready");
+      setSelectByTextDiagnostics(
+        elements,
+        `${createSourceCaptureMessage(exportedSource, " for Select by Text")} Name what to select, then click Select.`
+      );
+    } catch (caughtError) {
+      setSelectByTextSource(null);
+      setSelectByTextStatus(elements, "Capture failed.", "error");
+      setSelectByTextError(elements, getErrorMessage(caughtError));
+    }
+  }
+
+  function setSelectByTextSource(nextSource: ImageSourceState | null) {
+    selectByTextSource = nextSource;
+    selectByTextSourcePanel.show(selectByTextSource && {
+      previewUrl: selectByTextSource.previewUrl,
+      title: selectByTextSource.sourceName,
+      meta: createSourceMetaText(selectByTextSource)
+    });
+    syncBusy();
+  }
+
+  /**
+   * Runs SAM 3.1 and turns the mask into the document's live selection. There
+   * is no import step: the selection is the result, so it is applied as soon
+   * as the run finishes -- unless SAM found nothing, in which case Photoshop is
+   * never touched (see tools/selectByText.ts).
+   */
+  async function handleRunSelectByText() {
+    if (blockRegularGenerationDuringLivePainting((message) => setSelectByTextStatus(elements, message, "error"))) {
+      return;
+    }
+
+    if (!selectByTextSource) {
+      setSelectByTextError(elements, "Capture the active Photoshop layer or canvas before selecting.");
+      setSelectByTextStatus(elements, "Source required.", "error");
+      return;
+    }
+
+    const prompt = readTextareaValue(elements.selectByTextPrompt);
+    setSelectByTextError(elements, "");
+    busyTool = "select-by-text";
+    isBusy = true;
+    syncBusy();
+    setSelectByTextStatus(elements, "Preparing selection workflow...", "idle");
+
+    try {
+      const preset = getWorkflowPreset(readSelectValue(elements.selectByTextWorkflow, DEFAULT_SELECT_BY_TEXT_WORKFLOW));
+      const modelName = readSelectValue(elements.selectByTextModel);
+      const client = new ComfyClient(elements.serverUrl.value);
+
+      setSelectByTextDiagnostics(
+        elements,
+        createWorkflowDiagnostics(preset, modelName, createSourceInputAvailability(selectByTextSource))
+      );
+      await client.checkOnline();
+
+      if (!modelName) {
+        throw createOpenLayerError("CHECKPOINT_REQUIRED", "Choose a segmentation model before selecting.");
+      }
+
+      if (!(await client.hasModelForPreset(modelName, preset))) {
+        throw createOpenLayerError(
+          "CHECKPOINT_REQUIRED",
+          `The segmentation model "${modelName}" was not found in ComfyUI. Open Setup to download it, then click Check ComfyUI.`
+        );
+      }
+
+      // Checked before the upload so an empty prompt sends nothing.
+      const samPrompt = normalizeSelectionPrompt(prompt);
+
+      if (!samPrompt) {
+        throw createOpenLayerError("PROMPT_REQUIRED", "Name what to select before clicking Select.");
+      }
+
+      const capturedSource = selectByTextSource;
+
+      setSelectByTextStatus(elements, "Uploading source image to ComfyUI...", "idle");
+      const sourceImageName = await client.uploadImage(capturedSource.blob, capturedSource.filename);
+      const buildResult = await buildSelectWorkflow({ presetId: preset.id, sourceImageName, modelName, prompt });
+      const reportNodeId = buildResult.preset.requiredNodes.find((node) => node.classType === "PreviewAny")?.id;
+
+      const generated = await generation.runPipeline({
+        toolType: "select-by-text",
+        client,
+        workflow: buildResult.workflow,
+        preferredNodeId: getSaveImageNodeId(buildResult.preset),
+        originatingDocument: capturedSource.originatingDocument,
+        ui: createPipelineUi("select-by-text", elements.selectByTextStatusProgress),
+        messages: {
+          submitStatus: "Submitting selection prompt...",
+          submitPreview: "Submitting prompt to ComfyUI...",
+          generateStatus: "Looking for what you named...",
+          generatePreview: "Looking for what you named...",
+          retrieveStatus: "Retrieving the mask...",
+          retrievePreview: "Retrieving the mask...",
+          livePreview: "Live ComfyUI preview..."
+        },
+        retrieve: async (promptId, history, retrieveOptions) => {
+          const mask = await client.retrieveFirstOutputImage(promptId, history, retrieveOptions);
+          let reportText: string | null = null;
+
+          try {
+            reportText = reportNodeId
+              ? await client.retrieveFirstOutputText(promptId, history, { preferredNodeId: reportNodeId })
+              : null;
+          } catch {
+            // An unreadable report still selects; see decideSelectionOutcome.
+          }
+
+          return { mask, reportText };
+        },
+        commit: () => undefined
+      });
+
+      if (!generated) {
+        return;
+      }
+
+      const outcome = decideSelectionOutcome(parseSelectionReport(generated.reportText), prompt);
+
+      if (outcome.kind === "nothing-found") {
+        setSelectByTextStatus(elements, "Nothing found.", "error");
+        setSelectByTextError(elements, outcome.message);
+        return;
+      }
+
+      setSelectByTextStatus(elements, "Making the selection in Photoshop...", "idle");
+      await selectFromMaskImage({
+        blob: generated.mask.blob,
+        originatingDocument: capturedSource.originatingDocument,
+        targetBounds: capturedSource.captureBounds ?? {
+          left: 0,
+          top: 0,
+          right: capturedSource.width,
+          bottom: capturedSource.height
+        },
+        onProgress: (message) => setSelectByTextStatus(elements, message, "idle")
+      });
+      setSelectByTextStatus(elements, outcome.message, "ready");
+      setSelectByTextDiagnostics(
+        elements,
+        `${outcome.message} Prompt sent to SAM: ${samPrompt}. Workflow: ${buildResult.preset.id}.`
+      );
+    } catch (caughtError) {
+      if (isGenerationCancelledError(caughtError)) {
+        showGenerationCancelled("select-by-text");
+        return;
+      }
+
+      setSelectByTextStatus(elements, "Select failed.", "error");
+      setSelectByTextError(elements, getErrorMessage(caughtError));
+      console.error("[OpenLayer] Select by Text failed", getTechnicalErrorDetails(caughtError));
     } finally {
       isBusy = false;
       busyTool = null;
@@ -7778,6 +7986,7 @@ export function renderApp(rootElement: HTMLElement) {
     elements.promptFromLayerView.hidden = currentView !== "prompt-from-layer";
     elements.upscaleView.hidden = currentView !== "upscale";
     elements.removeBackgroundView.hidden = currentView !== "remove-background";
+    elements.selectByTextView.hidden = currentView !== "select-by-text";
     elements.layerMapsView.hidden = currentView !== "layer-maps";
     elements.styleReferenceView.hidden = currentView !== "style-reference";
     elements.multiReferenceView.hidden = currentView !== "multi-reference";
@@ -8214,7 +8423,7 @@ async function loadCheckpoints(
   elements: AppElements,
   preferredValue = readSelectValue(elements.checkpoint)
 ): Promise<number> {
-  const checkpoints = await client.getCheckpointNames();
+  const checkpoints = withoutSegmentationModels(await client.getCheckpointNames());
 
   if (checkpoints.length > 0) {
     fillCheckpointOptions(elements, checkpoints, preferredValue);
@@ -8261,7 +8470,7 @@ async function refreshModelOptionsForSelectedPreset(
   const preset = getWorkflowPreset(readSelectValue(workflowSelect, defaultPresetId));
 
   try {
-    const modelNames = await client.getModelNamesForPreset(preset);
+    const modelNames = listModelOptionsForPreset(await client.getModelNamesForPreset(preset), preset);
 
     if (modelNames.length > 0) {
       const preferredPresetModel = preset.modelStack?.find(
@@ -8284,7 +8493,7 @@ async function refreshSketchModelOptionsForSelectedPreset(
   const preset = getWorkflowPreset(readSelectValue(elements.sketchWorkflow, DEFAULT_SKETCH_WORKFLOW));
 
   try {
-    const modelNames = await client.getModelNamesForPreset(preset);
+    const modelNames = listModelOptionsForPreset(await client.getModelNamesForPreset(preset), preset);
 
     if (modelNames.length > 0) {
       const preferredPresetModel = preset.modelStack?.find(
@@ -8309,7 +8518,7 @@ async function refreshInpaintModelOptionsForSelectedPreset(
   const preset = getWorkflowPreset(readSelectValue(elements.inpaintWorkflow, DEFAULT_INPAINT_WORKFLOW));
 
   try {
-    const modelNames = await client.getModelNamesForPreset(preset);
+    const modelNames = listModelOptionsForPreset(await client.getModelNamesForPreset(preset), preset);
 
     if (modelNames.length > 0) {
       const preferredPresetModel = preset.modelStack?.find(
@@ -8334,7 +8543,7 @@ async function refreshOutpaintModelOptionsForSelectedPreset(
   const preset = getWorkflowPreset(readSelectValue(elements.outpaintWorkflow, DEFAULT_OUTPAINT_WORKFLOW));
 
   try {
-    const modelNames = await client.getModelNamesForPreset(preset);
+    const modelNames = listModelOptionsForPreset(await client.getModelNamesForPreset(preset), preset);
 
     if (modelNames.length > 0) {
       const preferredPresetModel = preset.modelStack?.find(
@@ -8419,6 +8628,23 @@ async function refreshRemoveBackgroundModelOptionsForSelectedPreset(
   }
 }
 
+async function refreshSelectByTextModelOptions(
+  elements: AppElements,
+  client = new ComfyClient(elements.serverUrl.value)
+) {
+  const preset = getWorkflowPreset(readSelectValue(elements.selectByTextWorkflow, DEFAULT_SELECT_BY_TEXT_WORKFLOW));
+
+  try {
+    const modelNames = listModelOptionsForPreset(await client.getModelNamesForPreset(preset), preset);
+
+    if (modelNames.length > 0) {
+      fillSingleCheckpointSelect(elements.selectByTextModel, modelNames, modelNames[0]);
+    }
+  } catch {
+    // Keep the fallback entry if ComfyUI is offline.
+  }
+}
+
 async function refreshUpscaleModelOptionsForSelectedPreset(
   elements: AppElements,
   client = new ComfyClient(elements.serverUrl.value),
@@ -8466,7 +8692,7 @@ async function refreshStyleReferenceModelOptionsForSelectedPreset(
   const preset = getWorkflowPreset(readSelectValue(elements.styleReferenceWorkflow, DEFAULT_STYLE_REFERENCE_WORKFLOW));
 
   try {
-    const modelNames = await client.getModelNamesForPreset(preset);
+    const modelNames = listModelOptionsForPreset(await client.getModelNamesForPreset(preset), preset);
 
     if (modelNames.length > 0) {
       const preferredModel = keepsPreferredModel(preferredValue, modelNames, preset)
