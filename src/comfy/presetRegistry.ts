@@ -928,6 +928,44 @@ const INPAINT_FLUX2_KLEIN_NODES = {
   saveImage: "9"
 } as const;
 
+/**
+ * Node ids match src/workflows/api/inpaint-lama-klein.json exactly: the
+ * inpaint-lama graph (ids 10-15) feeding the inpaint-flux2-klein graph, whose
+ * nodes were renumbered where they collided (VAEEncode 11 -> 31, the two
+ * ReferenceLatents 14/15 -> 34/35). Klein's single alpha-masked LoadImage is
+ * gone: its crop node reads LaMa's composite and the uploaded mask instead.
+ *
+ * Why two stages, measured on 2026-10-30 on a standing person (19% mask):
+ * LaMa alone smears, and Klein alone redraws the person, because its graph
+ * feeds the source in as a ReferenceLatent and the model paints back what it
+ * sees. LaMa's fill hides the person first; Klein then repaints that fill with
+ * real detail. With an empty prompt Klein repaints toward the smear, so the
+ * prompt is required and describes what should be there.
+ */
+const INPAINT_LAMA_KLEIN_NODES = {
+  loadImage: "10",
+  lamaLoader: "11",
+  loadMaskImage: "12",
+  imageToMask: "13",
+  compositeMasked: "14",
+  lamaInpaint: "15",
+  diffusionModelLoader: "20",
+  clipLoader: "21",
+  vaeLoader: "22",
+  modelSampling: "23",
+  inpaintCrop: "50",
+  vaeEncode: "31",
+  setLatentNoiseMask: "30",
+  positivePrompt: "6",
+  negativePrompt: "7",
+  referenceIntoPositive: "34",
+  referenceIntoNegative: "35",
+  sampler: "3",
+  decode: "8",
+  inpaintStitch: "51",
+  saveImage: "9"
+} as const;
+
 const OUTPAINT_FLUX_FILL_BASIC_NODES = {
   diffusionModelLoader: "31",
   differentialDiffusion: "39",
@@ -1688,6 +1726,18 @@ const INPAINT_FLUX2_KLEIN_INJECTIONS = {
   // technique rather than something the artist picks per generation.
 } as const;
 
+const INPAINT_LAMA_KLEIN_INJECTIONS = {
+  checkpoint: target(INPAINT_LAMA_KLEIN_NODES.diffusionModelLoader, "unet_name"),
+  sourceImage: target(INPAINT_LAMA_KLEIN_NODES.loadImage, "image"),
+  maskImage: target(INPAINT_LAMA_KLEIN_NODES.loadMaskImage, "image"),
+  positivePrompt: target(INPAINT_LAMA_KLEIN_NODES.positivePrompt, "text"),
+  negativePrompt: target(INPAINT_LAMA_KLEIN_NODES.negativePrompt, "text"),
+  seed: target(INPAINT_LAMA_KLEIN_NODES.sampler, "seed"),
+  steps: target(INPAINT_LAMA_KLEIN_NODES.sampler, "steps"),
+  cfg: target(INPAINT_LAMA_KLEIN_NODES.sampler, "cfg"),
+  denoise: target(INPAINT_LAMA_KLEIN_NODES.sampler, "denoise")
+} as const;
+
 const OUTPAINT_FLUX_FILL_BASIC_INJECTIONS = {
   checkpoint: target(OUTPAINT_FLUX_FILL_BASIC_NODES.diffusionModelLoader, "unet_name"),
   sourceImage: target(OUTPAINT_FLUX_FILL_BASIC_NODES.loadImage, "image"),
@@ -2304,6 +2354,27 @@ const INPAINT_FLUX2_KLEIN_CAPABILITY: WorkflowCapability = {
     primaryActionLabel: "Generate Inpaint",
     experimentalNote:
       "Needs the comfyui-inpaint-cropandstitch node pack, the same one the Flux Fill crop & stitch preset uses. Reuses the FLUX.2 Klein 4B stack already installed for Text to Image, so it costs no extra download. Four steps, and the mask travels in the source PNG's alpha channel."
+  }
+};
+
+const INPAINT_LAMA_KLEIN_CAPABILITY: WorkflowCapability = {
+  toolType: "inpaint",
+  loaderType: "diffusion-model-stack",
+  artistLabel: "Inpaint",
+  technicalLabel: "inpaint-lama-klein",
+  requiredPhotoshopInputs: ["selection", "selection-mask"],
+  controls: ["prompt", "negativePrompt", "steps", "cfg", "denoise", "seed", "contextPadding", "maskBlur"],
+  output: {
+    kind: "selection-patch",
+    size: "selection-context",
+    importBehavior: "aligned-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Klein model",
+    primaryActionLabel: "Generate Inpaint",
+    warning:
+      "For removing large things, such as a person. LaMa first fills the selection from its surroundings, then FLUX.2 Klein repaints that fill. Describe what should be there instead, not what you are removing, for example dry hillside with mountains behind. With an empty prompt the fill stays a smear. Select the whole object, shadow included. For small objects the faster Remove object (LaMa) preset is enough."
   }
 };
 
@@ -4440,6 +4511,62 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
         classType: "SaveImage",
         requiredInputs: ["images", "filename_prefix"]
       }
+    ]
+  },
+  {
+    id: "inpaint-lama-klein",
+    label: "inpaint-lama-klein",
+    displayName: "Remove object (LaMa + Klein)",
+    mode: "inpaint",
+    description:
+      "Removes large objects such as a person: LaMa fills the selection from its surroundings, then FLUX.2 Klein repaints the fill with real detail. The prompt describes what should be there instead.",
+    workflowFile: "workflows/api/inpaint-lama-klein.json",
+    sourceWorkflowFile: "workflows/source/inpaint-lama-klein.workflow.json",
+    status: "experimental",
+    recommendedSettings: { steps: 4, cfg: 1 },
+    supportedModelFamilies: ["flux2"],
+    experimentalModelFamilies: ["unknown"],
+    modelSource: DIFFUSION_MODEL_SOURCE,
+    capability: INPAINT_LAMA_KLEIN_CAPABILITY,
+    modelStack: [...FLUX2_KLEIN_4B_STACK],
+    requiredModels: [...FLUX2_KLEIN_4B_STACK, LAMA_BIG_MODEL],
+    injections: INPAINT_LAMA_KLEIN_INJECTIONS,
+    compatibilityNote:
+      "inpaint-lama-klein chains the inpaint-lama graph into the inpaint-flux2-klein graph, so it needs what both need: the comfyui-art-venture node pack and big-lama.pt for LaMa, the comfyui-inpaint-cropandstitch pack, and the FLUX.2 Klein 4B stack. No new download if both presets already run. Measured on a 4070 Ti on a 1672 x 1280 context with a 19 percent person mask: 20 s cold, about 16 s warm, and no pixel more than 40 px outside the mask changed.",
+    requiredNodes: [
+      { id: INPAINT_LAMA_KLEIN_NODES.loadImage, classType: "LoadImage", requiredInputs: ["image"] },
+      { id: INPAINT_LAMA_KLEIN_NODES.loadMaskImage, classType: "LoadImage", requiredInputs: ["image"] },
+      { id: INPAINT_LAMA_KLEIN_NODES.imageToMask, classType: "ImageToMask", requiredInputs: ["image", "channel"] },
+      { id: INPAINT_LAMA_KLEIN_NODES.lamaLoader, classType: "LoadLaMaModel", requiredInputs: ["model_name"] },
+      { id: INPAINT_LAMA_KLEIN_NODES.lamaInpaint, classType: "LaMaInpaint", requiredInputs: ["image", "mask", "lama_model"] },
+      {
+        id: INPAINT_LAMA_KLEIN_NODES.compositeMasked,
+        classType: "ImageCompositeMasked",
+        requiredInputs: ["destination", "source", "x", "y", "resize_source", "mask"]
+      },
+      { id: INPAINT_LAMA_KLEIN_NODES.diffusionModelLoader, classType: "UNETLoader", requiredInputs: ["unet_name", "weight_dtype"] },
+      { id: INPAINT_LAMA_KLEIN_NODES.clipLoader, classType: "CLIPLoader", requiredInputs: ["clip_name", "type"] },
+      { id: INPAINT_LAMA_KLEIN_NODES.vaeLoader, classType: "VAELoader", requiredInputs: ["vae_name"] },
+      { id: INPAINT_LAMA_KLEIN_NODES.modelSampling, classType: "ModelSamplingAuraFlow", requiredInputs: ["model", "shift"] },
+      {
+        id: INPAINT_LAMA_KLEIN_NODES.inpaintCrop,
+        classType: "InpaintCropImproved",
+        requiredInputs: ["image", "mask", "context_from_mask_extend_factor", "output_resize_to_target_size", "output_target_width", "output_target_height", "mask_blend_pixels"]
+      },
+      { id: INPAINT_LAMA_KLEIN_NODES.vaeEncode, classType: "VAEEncode", requiredInputs: ["pixels", "vae"] },
+      { id: INPAINT_LAMA_KLEIN_NODES.setLatentNoiseMask, classType: "SetLatentNoiseMask", requiredInputs: ["samples", "mask"] },
+      { id: INPAINT_LAMA_KLEIN_NODES.positivePrompt, classType: "CLIPTextEncode", requiredInputs: ["text", "clip"] },
+      { id: INPAINT_LAMA_KLEIN_NODES.negativePrompt, classType: "CLIPTextEncode", requiredInputs: ["text", "clip"] },
+      { id: INPAINT_LAMA_KLEIN_NODES.referenceIntoPositive, classType: "ReferenceLatent", requiredInputs: ["conditioning"] },
+      { id: INPAINT_LAMA_KLEIN_NODES.referenceIntoNegative, classType: "ReferenceLatent", requiredInputs: ["conditioning"] },
+      {
+        id: INPAINT_LAMA_KLEIN_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["model", "seed", "steps", "cfg", "sampler_name", "scheduler", "positive", "negative", "latent_image", "denoise"]
+      },
+      { id: INPAINT_LAMA_KLEIN_NODES.decode, classType: "VAEDecode", requiredInputs: ["samples", "vae"] },
+      { id: INPAINT_LAMA_KLEIN_NODES.inpaintStitch, classType: "InpaintStitchImproved", requiredInputs: ["stitcher", "inpainted_image"] },
+      { id: INPAINT_LAMA_KLEIN_NODES.saveImage, classType: "SaveImage", requiredInputs: ["images", "filename_prefix"] }
     ]
   },
   {

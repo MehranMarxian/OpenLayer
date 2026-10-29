@@ -68,7 +68,7 @@ live selection. Nothing is uploaded anywhere; ComfyUI runs on your own machine.
 | **Image to Image** | Use the active layer as visual input |
 | **Edit Image** | Change a layer or a selection by describing it — "make the jacket red", or bring in a second layer: "put the teapot from `<image2>` here" |
 | **Sketch to Image** | Guide generation with your line art |
-| **Inpaint** | Repaint a selection in place, or remove the object in it with LaMa |
+| **Inpaint** | Repaint a selection in place, or remove the object in it — LaMa for small things, LaMa + Klein for a whole person |
 | **Outpaint** | Extend canvas content beyond the edges |
 | **Upscale** | Enlarge a layer 4x with an upscale model, or restore it 2x with SeedVR2 (generative) |
 | **Remove Background** | Cut the subject out onto its own layer, with real alpha |
@@ -395,6 +395,7 @@ weights hold bold sparse line art that the full weights flatten into a filled sh
 | Flux Fill (crop & stitch) | **Flux Fill stack** — 0 extra GB | [comfyui-inpaint-cropandstitch](https://github.com/lquesada/ComfyUI-Inpaint-CropAndStitch) |
 | Standard checkpoint | your own SD 1.x **inpaint** checkpoint | — |
 | Remove object (LaMa) | `big-lama.pt` → `models/lama/` (206 MB, Apache-2.0 LaMa; the node downloads it on first run if missing) | [comfyui-art-venture](https://github.com/sipherxyz/comfyui-art-venture) |
+| Remove object (LaMa + Klein) | `big-lama.pt` + **Klein stack** — 0 extra GB if both of the above run | comfyui-art-venture + comfyui-inpaint-cropandstitch |
 
 Crop-and-stitch samples the masked area at a fixed 1024 and blends the patch back, so a small mask on
 a large document no longer samples a few hundred pixels.
@@ -405,6 +406,13 @@ for small things: a chair or a folded umbrella covering about 4% of the captured
 in testing, while a tree or a standing person covering 17–22% came back as a smear. Select a little
 more than the object, shadow included. It needs no diffusion model at all, but its add-on is a heavy
 one (twelve Python dependencies).
+
+**Remove object (LaMa + Klein)** is for the large things LaMa smears, such as a standing person. LaMa
+fills the selection first, then FLUX.2 Klein repaints that fill with real detail — about 16 seconds on
+a 12 GB card. Klein alone does not work for this: it redraws the person, because it sees the original
+layer as its reference. The prompt matters: **describe what should be there instead**, not what you
+are removing ("dry hillside with mountains behind"); with an empty prompt the fill stays a smear.
+Select the whole object — Select by Text with `person` is the quickest way.
 
 </details>
 

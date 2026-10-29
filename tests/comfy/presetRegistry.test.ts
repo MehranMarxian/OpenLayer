@@ -57,14 +57,16 @@ describe("presetRegistry", () => {
       "inpaint-flux-fill-basic",
       "inpaint-flux-fill-cropstitch",
       "inpaint-flux2-klein",
-      "inpaint-lama"
+      "inpaint-lama",
+      "inpaint-lama-klein"
     ]);
     expect(runnableInpaintIds).toEqual([
       "inpaint-basic",
       "inpaint-flux-fill-basic",
       "inpaint-flux-fill-cropstitch",
       "inpaint-flux2-klein",
-      "inpaint-lama"
+      "inpaint-lama",
+      "inpaint-lama-klein"
     ]);
     expect(allOutpaintIds).toEqual(["outpaint-flux-fill-basic"]);
     expect(runnableOutpaintIds).toEqual(["outpaint-flux-fill-basic"]);
@@ -170,6 +172,26 @@ describe("presetRegistry", () => {
 
     expect(hint).toMatch(/chair:20/);
     expect(hint).not.toMatch(/`|--|\*\*|Photoshop plugin/);
+  });
+
+  it("registers inpaint-lama-klein as LaMa feeding the Klein crop-and-stitch graph", () => {
+    const preset = getWorkflowPreset("inpaint-lama-klein");
+
+    expect(preset.mode).toBe("inpaint");
+    expect(preset.displayName).toBe("Remove object (LaMa + Klein)");
+    // It needs a prompt: with an empty one Klein repaints toward LaMa's smear.
+    expect(preset.injections.positivePrompt).toEqual({ nodeId: "6", inputName: "text" });
+    expect(preset.injections.maskImage).toEqual({ nodeId: "12", inputName: "image" });
+    expect(preset.requiredModels?.map((model) => model.modelName)).toEqual([
+      ...(getWorkflowPreset("inpaint-flux2-klein").requiredModels ?? []).map((model) => model.modelName),
+      "big-lama.pt"
+    ]);
+    const classes = preset.requiredNodes.map((node) => node.classType);
+    for (const classType of ["LaMaInpaint", "InpaintCropImproved", "InpaintStitchImproved", "ReferenceLatent"]) {
+      expect(classes).toContain(classType);
+    }
+    expect(preset.capability?.uiHints.warning ?? "").toMatch(/Describe what should be there instead/);
+    expect(preset.capability?.uiHints.warning ?? "").not.toMatch(/`|--|\*\*|Photoshop plugin/);
   });
 
   it("tells the artist the LaMa preset ignores the prompt, in plain text", () => {

@@ -27,6 +27,7 @@ export type WorkflowPreset =
   | "upscale-basic"
   | "upscale-seedvr2-3b"
   | "inpaint-lama"
+  | "inpaint-lama-klein"
   | "style-reference-sd15"
   | "multi-reference-flux2-klein"
   | "unflatten-qwen-layered"
