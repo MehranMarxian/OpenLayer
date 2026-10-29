@@ -172,7 +172,7 @@
   "20": {
     "class_type": "SeedVR2PostProcessing",
     "inputs": {
-      "color_correction_method": "lab",
+      "color_correction_method": "none",
       "images": [
         "19",
         0

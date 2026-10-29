@@ -135,6 +135,8 @@ describe("workflowBuilder", () => {
     // One-step distilled restorer: anything else is a different model.
     expect(result.workflow["18"].inputs).toMatchObject({ steps: 1, cfg: 1, denoise: 1 });
     expect(result.workflow["20"].inputs.original_resized_images).toEqual(["14", 0]);
+    // Mehran's call after #151: the model's own colours, not lab's pull back to the source.
+    expect(result.workflow["20"].inputs.color_correction_method).toBe("none");
     expect(result.workflow["9"].inputs.images).toEqual(["20", 0]);
   });
 

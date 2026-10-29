@@ -1208,14 +1208,18 @@ const UPSCALE_BASIC_NODES = {
  * in the ComfyUI 0.37.0 editor and run there on a 4070 Ti before this was
  * written. No custom nodes: SeedVR2 has been core since ComfyUI 0.25.0.
  *
- * Two departures from the template, both measured:
- * - the multiplier is 2, not 4. Time and memory follow OUTPUT pixels (about 3 s
- *   per megapixel, 11.0 GiB peak at 5120 x 3840), and 4x of an ordinary 2048
- *   canvas would be 67 MP, three times past the largest size that ran. 4x stays
- *   the job of upscale-basic.
- * - color correction is lab, ComfyUI's own default, where the template uses
- *   none. The model brightens and de-hazes; lab pulls the colours back toward
- *   the source without undoing the restored detail.
+ * One departure from the template, measured: the multiplier is 2, not 4. Time
+ * and memory follow OUTPUT pixels (about 3 s per megapixel), and 4x of an
+ * ordinary 2048 canvas would be 67 MP, far past what a 12 GB card ran. 4x stays
+ * the job of upscale-basic. The size limit is in upscaleOutputLimit.ts.
+ *
+ * Color correction is none, as in the template, and by Mehran's choice after
+ * PR #151 shipped with ComfyUI's default lab. Measured on the spike images:
+ * lab holds the result within one level of the source's mean colour, while
+ * none keeps the model's own look -- greener and punchier on a hazy photo
+ * (mean G +6, luminance spread 66 to 78), darker and warmer on a paper-cut
+ * illustration. The artist is asking for SeedVR2's restoration, so they get
+ * its colours too.
  *
  * JoinImageWithAlpha before the resize is the template's: SeedVR2Preprocess
  * drops alpha and SeedVR2PostProcessing re-applies it from the resized image, so
