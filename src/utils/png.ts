@@ -22,6 +22,71 @@ export function encodeRgbaPng(options: RgbaPngOptions): Uint8Array {
   return concatUint8Arrays([PNG_SIGNATURE, ihdr, idat, iend]);
 }
 
+const METRES_PER_INCH = 0.0254;
+
+/**
+ * Stamps a PNG with a physical resolution (a pHYs chunk) so Photoshop places it
+ * at one image pixel per document pixel.
+ *
+ * `placeEvent` keeps a placed image's physical size, not its pixel size. A PNG
+ * without pHYs counts as 72 ppi, so in a 240 ppi document every placed result
+ * arrived 3.33 times too large, and the import paths beside it only translate.
+ * Confirmed in Photoshop 2025 on 2026-10-29: an Inpaint import in a 240 ppi
+ * document lost its whole mask off the canvas, while the same pixels at 72 ppi
+ * imported exactly.
+ *
+ * Any existing pHYs is replaced and the new one goes straight after IHDR, where
+ * the PNG spec requires it (before IDAT). Bytes that are not a PNG, or a
+ * resolution that is not a positive number, come back untouched: leaving
+ * Photoshop's default is better than guessing.
+ */
+export function setPngResolution(bytes: Uint8Array, pixelsPerInch: number): Uint8Array {
+  if (!hasPngSignature(bytes) || !Number.isFinite(pixelsPerInch) || pixelsPerInch <= 0) {
+    return bytes;
+  }
+
+  const pixelsPerMetre = Math.round(pixelsPerInch / METRES_PER_INCH);
+  const phys = new Uint8Array(9);
+  writeUint32(phys, 0, pixelsPerMetre);
+  writeUint32(phys, 4, pixelsPerMetre);
+  phys[8] = 1;
+
+  const parts: Uint8Array[] = [PNG_SIGNATURE];
+  let offset = PNG_SIGNATURE.byteLength;
+  let wrotePhys = false;
+
+  while (offset + 12 <= bytes.byteLength) {
+    const length = readUint32(bytes, offset);
+    const type = String.fromCharCode(...bytes.subarray(offset + 4, offset + 8));
+    const chunkEnd = offset + 12 + length;
+
+    if (chunkEnd > bytes.byteLength) {
+      throw new Error("PNG chunk length is invalid.");
+    }
+
+    if (type !== "pHYs") {
+      parts.push(bytes.subarray(offset, chunkEnd));
+    }
+
+    if (type === "IHDR") {
+      parts.push(createChunk("pHYs", phys));
+      wrotePhys = true;
+    }
+
+    offset = chunkEnd;
+
+    if (type === "IEND") {
+      break;
+    }
+  }
+
+  if (!wrotePhys) {
+    throw new Error("PNG IHDR chunk was not found.");
+  }
+
+  return concatUint8Arrays(parts);
+}
+
 export function decodeRgbaPng(bytes: Uint8Array): DecodedRgbaPng {
   if (!hasPngSignature(bytes)) {
     throw new Error("PNG signature was not found.");
