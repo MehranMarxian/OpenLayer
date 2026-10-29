@@ -57,7 +57,11 @@ export const MODEL_FOLDER_BY_OBJECT_INFO_NODE = {
   // folder none of the others share. Verified live on 0.30.0: dropping
   // birefnet.safetensors into models/background_removal/ made it appear in
   // this loader's combo without a restart.
-  LoadBackgroundRemovalModel: "background_removal"
+  LoadBackgroundRemovalModel: "background_removal",
+  // comfyui-art-venture's LaMa loader registers models/lama/ itself (verified
+  // in its source, modules/inpaint/lama/__init__.py) and downloads big-lama.pt
+  // there on first use when the file is missing.
+  LoadLaMaModel: "lama"
 } as const satisfies Record<string, WorkflowModelFolder>;
 
 export type ComfyModelInventoryBucket = Exclude<keyof ComfyModelInventory, "missingSources">;
@@ -74,7 +78,8 @@ export const MODEL_FOLDER_BY_INVENTORY_BUCKET = {
   modelPatches: "model_patches",
   clipVisionModels: "clip_vision",
   ipAdapterModels: "ipadapter",
-  backgroundRemovalModels: "background_removal"
+  backgroundRemovalModels: "background_removal",
+  inpaintModels: "lama"
 } as const satisfies Record<ComfyModelInventoryBucket, WorkflowModelFolder>;
 
 export type MappedModelLoaderNode = keyof typeof MODEL_FOLDER_BY_OBJECT_INFO_NODE;

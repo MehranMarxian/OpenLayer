@@ -97,6 +97,11 @@ export const MODEL_INVENTORY_SOURCES = {
   ],
   backgroundRemovalModels: [
     { objectInfoNode: "LoadBackgroundRemovalModel", inputName: "bg_removal_name", label: "background removal loader" }
+  ],
+  // comfyui-art-venture always lists big-lama.pt here, downloaded or not (the
+  // node fetches it on first run), so this reads present even before it is.
+  inpaintModels: [
+    { objectInfoNode: "LoadLaMaModel", inputName: "model_name", label: "LaMa loader" }
   ]
 } as const;
 
@@ -220,6 +225,7 @@ export class ComfyClient {
       clipVisionModels: [],
       ipAdapterModels: [],
       backgroundRemovalModels: [],
+      inpaintModels: [],
       missingSources: []
     };
 
@@ -238,6 +244,7 @@ export class ComfyClient {
       "backgroundRemovalModels",
       MODEL_INVENTORY_SOURCES.backgroundRemovalModels
     );
+    await this.collectInventoryNames(inventory, "inpaintModels", MODEL_INVENTORY_SOURCES.inpaintModels);
 
     return inventory;
   }

@@ -358,3 +358,50 @@ describe("Inpaint readiness contract", () => {
     expect(diagnostic).toContain("128 x 96");
   });
 });
+
+describe("Remove object (inpaint-lama) readiness", () => {
+  const lamaPreset = getWorkflowPreset("inpaint-lama");
+
+  function evaluateLama(overrides: Partial<InpaintReadinessInput> = {}) {
+    return evaluateInpaintReadiness({
+      mode: "generate",
+      source: createSource(),
+      preset: lamaPreset,
+      presetId: "inpaint-lama",
+      checkpointName: "big-lama.pt",
+      prompt: "",
+      compatibilityContext: {
+        selectedModelName: "big-lama.pt",
+        availableNodes: createAvailableNodes(lamaPreset)
+      },
+      installedModelNames: ["anime-manga-big-lama.pt", "big-lama.pt"],
+      ...overrides
+    });
+  }
+
+  it("is ready with no prompt, because LaMa has none to read", () => {
+    expect(evaluateLama()).toMatchObject({ ok: true });
+    expect(evaluateLama({ prompt: undefined })).toMatchObject({ ok: true });
+  });
+
+  it("still blocks every prompt-taking preset without a prompt", () => {
+    // The relaxation is keyed to the LaMa preset declaring no prompt target,
+    // not to an id list, so this is the line that would catch it leaking.
+    expect(evaluateBasic({ prompt: "" })).toMatchObject({ ok: false, reason: "prompt-missing" });
+  });
+
+  it("keeps every capture and geometry check a prompt-taking preset has", () => {
+    expect(evaluateLama({ source: null })).toMatchObject({ ok: false, reason: "source-missing" });
+
+    const source = createSource();
+    expect(evaluateLama({ source: createSource({ mask: { ...source.mask!, width: 128 } }) })).toMatchObject({
+      ok: false,
+      reason: "mask-dimension-mismatch"
+    });
+  });
+
+  it("still requires a LaMa model to be chosen and installed", () => {
+    expect(evaluateLama({ checkpointName: "" })).toMatchObject({ ok: false, reason: "checkpoint-missing" });
+    expect(evaluateLama({ checkpointName: "gone.pt" })).toMatchObject({ ok: false, reason: "checkpoint-not-installed" });
+  });
+});

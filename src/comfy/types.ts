@@ -26,6 +26,7 @@ export type WorkflowPreset =
   | "outpaint-flux-fill-basic"
   | "upscale-basic"
   | "upscale-seedvr2-3b"
+  | "inpaint-lama"
   | "style-reference-sd15"
   | "multi-reference-flux2-klein"
   | "unflatten-qwen-layered"
@@ -62,7 +63,9 @@ export type WorkflowLoaderType =
    * and expose no picker at all.
    */
   | "layer-map"
-  | "prompt-expander";
+  | "prompt-expander"
+  /** An object-removal model that fills a mask from its surroundings (LaMa). */
+  | "inpaint-model";
 export type WorkflowControlId =
   | "prompt"
   | "negativePrompt"
@@ -175,6 +178,7 @@ export type ComfyModelInventory = {
   clipVisionModels: string[];
   ipAdapterModels: string[];
   backgroundRemovalModels: string[];
+  inpaintModels: string[];
   missingSources: string[];
 };
 
@@ -663,7 +667,9 @@ export type WorkflowModelSourceKind =
   /** Depth/normal/line-art annotator weights, loaded by the preprocessor itself. */
   | "layer-map"
   /** A text-to-text prompt expander, loaded by its own node. */
-  | "prompt-expander";
+  | "prompt-expander"
+  /** An object-removal model that fills a mask from its surroundings (LaMa). */
+  | "inpaint-model";
 
 export type WorkflowModelSource = {
   kind: WorkflowModelSourceKind;
@@ -689,7 +695,8 @@ export type WorkflowModelFolder =
   | "model_patches"
   | "clip_vision"
   | "ipadapter"
-  | "background_removal";
+  | "background_removal"
+  | "lama";
 
 /**
  * A model whose terms have to be accepted by a person before it is fetched.

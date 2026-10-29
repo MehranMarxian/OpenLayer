@@ -22,6 +22,7 @@ import inpaintFlux2KleinWorkflow from "../workflows/api/inpaint-flux2-klein.json
 import outpaintFluxFillBasicWorkflow from "../workflows/api/outpaint-flux-fill-basic.json";
 import upscaleBasicWorkflow from "../workflows/api/upscale-basic.json";
 import upscaleSeedvr2Workflow from "../workflows/api/upscale-seedvr2-3b.json";
+import inpaintLamaWorkflow from "../workflows/api/inpaint-lama.json";
 import styleReferenceSd15Workflow from "../workflows/api/style-reference-sd15.json";
 import multiReferenceFlux2KleinWorkflow from "../workflows/api/multi-reference-flux2-klein.json";
 import txt2imgQwenImage21Workflow from "../workflows/api/txt2img-qwen-image-21.json";
@@ -52,7 +53,7 @@ import {
   WorkflowInputTarget,
   WorkflowTransparentOutput
 } from "./types";
-import { getPresetInputTarget, getWorkflowPreset, validateWorkflowForPreset } from "./presetRegistry";
+import { getPresetInputTarget, getWorkflowPreset, presetTakesPrompt, validateWorkflowForPreset } from "./presetRegistry";
 import { createRequiredModelSelectionKey } from "./workflowModelRequirements";
 import { applyFluxFillReferenceDefaults, isFluxFillPreset } from "./fluxFillDefaults";
 import { presetUsesEmbeddedMaskAlpha } from "./fluxFillMaskBridge";
@@ -84,6 +85,7 @@ const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
   "outpaint-flux-fill-basic": outpaintFluxFillBasicWorkflow as ComfyWorkflow,
   "upscale-basic": upscaleBasicWorkflow as ComfyWorkflow,
   "upscale-seedvr2-3b": upscaleSeedvr2Workflow as ComfyWorkflow,
+  "inpaint-lama": inpaintLamaWorkflow as ComfyWorkflow,
   "style-reference-sd15": styleReferenceSd15Workflow as ComfyWorkflow,
   "multi-reference-flux2-klein": multiReferenceFlux2KleinWorkflow as ComfyWorkflow,
   "txt2img-qwen-image-21": txt2imgQwenImage21Workflow as ComfyWorkflow,
@@ -380,16 +382,19 @@ export async function buildInpaintWorkflow(
   // separate mask target to inject into. Every Flux Fill preset does this, and
   // so does inpaint-flux2-klein.
   setPresetInput(workflow, preset, "maskImage", options.maskImageName, !presetUsesEmbeddedMaskAlpha(preset.id));
-  setPresetInput(workflow, preset, "positivePrompt", options.prompt, true);
+  // A preset without a prompt (inpaint-lama) has no sampler either; every other
+  // Inpaint preset still has each of these targets required, as before.
+  const takesPrompt = presetTakesPrompt(preset);
+  setPresetInput(workflow, preset, "positivePrompt", options.prompt, takesPrompt);
   setPresetInput(workflow, preset, "negativePrompt", options.negativePrompt ?? "");
-  setPresetInput(workflow, preset, "seed", seed, true);
+  setPresetInput(workflow, preset, "seed", seed, takesPrompt);
 
   if (isFluxFillPreset(preset.id)) {
     applyFluxFillReferenceDefaults(workflow);
   } else {
-    setPresetInput(workflow, preset, "steps", options.steps, true);
-    setPresetInput(workflow, preset, "cfg", options.cfg, true);
-    setPresetInput(workflow, preset, "denoise", options.denoise, true);
+    setPresetInput(workflow, preset, "steps", options.steps, takesPrompt);
+    setPresetInput(workflow, preset, "cfg", options.cfg, takesPrompt);
+    setPresetInput(workflow, preset, "denoise", options.denoise, takesPrompt);
   }
 
   setPresetInput(workflow, preset, "width", options.width);
