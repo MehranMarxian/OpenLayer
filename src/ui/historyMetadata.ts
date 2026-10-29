@@ -10,6 +10,7 @@ export type HistoryToolType =
   | "multi-reference"
   | "unflatten"
   | "remove-background"
+  | "select-by-text"
   | "layer-maps";
 
 export type HistoryImportStatus = "not-imported" | "imported";
@@ -26,6 +27,7 @@ const TOOL_LABELS: Record<HistoryToolType, string> = {
   "multi-reference": "Multi-Reference Composition",
   unflatten: "Unflatten",
   "remove-background": "Remove Background",
+  "select-by-text": "Select by Text",
   "layer-maps": "Layer Maps"
 };
 

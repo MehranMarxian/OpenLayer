@@ -416,6 +416,21 @@ export type AppElements = {
   multiReferenceErrorMessage: HTMLElement;
   multiReferenceResultPreviewPanel: HTMLElement;
   unflattenView: HTMLElement;
+  selectByTextView: HTMLElement;
+  captureSelectByTextSourceButton: HTMLElement;
+  captureSelectByTextCanvasSourceButton: HTMLElement;
+  selectByTextSourcePreviewPanel: HTMLElement;
+  selectByTextSourceTitle: HTMLElement;
+  selectByTextSourceMeta: HTMLElement;
+  selectByTextPrompt: HTMLTextAreaElement;
+  selectByTextWorkflow: HTMLSelectElement;
+  selectByTextModel: HTMLSelectElement;
+  runSelectByTextButton: HTMLElement;
+  selectByTextStatusText: HTMLElement;
+  selectByTextStatusPill: HTMLElement;
+  selectByTextStatusProgress: HTMLElement;
+  selectByTextDiagnosticsText: HTMLElement;
+  selectByTextErrorMessage: HTMLElement;
   removeBackgroundView: HTMLElement;
   captureRemoveBackgroundSourceButton: HTMLElement;
   captureRemoveBackgroundCanvasSourceButton: HTMLElement;
@@ -1854,6 +1869,72 @@ export function createAppMarkup() {
         </section>
       </section>
 
+      <section class="select-by-text-view image-to-image-view" id="select-by-text-view" aria-label="Select by Text" hidden>
+        <div class="screen-nav">
+          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
+          <div class="screen-title-block">
+            ${createScreenIconMarkup("selectByText", "Select by Text")}
+            <span class="screen-title">Select by Text</span>
+          </div>
+        </div>
+
+        <section class="panel-section generator-panel source-panel" aria-label="Select by Text source">
+          <div class="section-heading">
+            <span class="label">Source layer</span>
+            <span class="muted-label">What to search</span>
+          </div>
+          <div class="source-action-row" aria-label="Select by Text source capture actions">
+            <button class="button source-action-button action-control" id="capture-select-by-text-source" data-openlayer-action="captureSelectByTextSource" type="button">Capture Active Layer</button>
+            <button class="button source-action-button action-control" id="capture-select-by-text-canvas-source" data-openlayer-action="captureSelectByTextCanvasSource" type="button">Capture Canvas</button>
+          </div>
+          <div class="source-card">
+            <div class="source-thumb-frame" id="select-by-text-source-preview-panel">
+              <span class="source-empty">None</span>
+            </div>
+            <div class="source-card-body">
+              <span class="source-title" id="select-by-text-source-title">No source captured</span>
+              <span class="source-card-meta" id="select-by-text-source-meta">Choose active layer or full canvas.</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel-section generator-panel img2img-form-panel" aria-label="Select by Text settings">
+          <div class="section-heading">
+            <span class="label">Select</span>
+            <span class="muted-label">What to look for</span>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">What to select</span>
+            <textarea maxlength="500" class="textarea compact-textarea" id="select-by-text-prompt" placeholder="For example: chair, the red car"></textarea>
+            <div class="diagnostics-line select-by-text-hint" id="select-by-text-hint">Name what to select, for example chair or the red car. Separate several things with commas. OpenLayer selects up to 10 of each; write chair:20 to allow more. The selection has hard edges; feather it or use Select and Mask if you need a soft one.</div>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Workflow</span>
+            <select class="select" id="select-by-text-workflow">
+              ${listRunnableWorkflowPresets("select").map((preset) => `<option value="${preset.id}">${preset.label}</option>`).join("")}
+            </select>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Segmentation model</span>
+            <select class="select" id="select-by-text-model">
+              <option value="sam3.1_multiplex_fp16.safetensors">sam3.1_multiplex_fp16.safetensors</option>
+            </select>
+          </div>
+          <button class="button button-primary button-generate button-wide action-control" id="run-select-by-text" data-openlayer-action="runSelectByText" type="button">Select</button>
+          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
+        </section>
+
+        <section class="generation-status-panel img2img-status-panel" aria-label="Select by Text status">
+          <div class="status-bar" role="status">
+            <span class="status-text" id="select-by-text-status-text">Ready.</span>
+            <span class="status-pill idle" id="select-by-text-status-pill">Status</span>
+          </div>
+          <div class="status-progress" id="select-by-text-status-progress" hidden><span></span></div>
+          <div class="diagnostics-line" id="select-by-text-diagnostics-text">Capture a layer, name what to select, then click Select.</div>
+          <div class="error-message" id="select-by-text-error-message" hidden></div>
+        </section>
+      </section>
+
       <section class="layer-maps-view image-to-image-view" id="layer-maps-view" aria-label="Layer Maps" hidden>
         <div class="screen-nav">
           <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
@@ -2286,6 +2367,7 @@ function createToolIconMarkup(icon: ToolIconName) {
     multiReference: "multi-reference.png",
     unflatten: "unflatten.png",
     removeBackground: "remove-background.png",
+    selectByText: "select-by-text.png",
     layerMaps: "layer-maps.png",
     control: "workflow-presets.png",
     workflow: "workflow.png",
@@ -2724,6 +2806,21 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     multiReferenceErrorMessage: getElement<HTMLElement>(rootElement, "multi-reference-error-message"),
     multiReferenceResultPreviewPanel: getElement<HTMLElement>(rootElement, "multi-reference-result-preview-panel"),
     unflattenView: getElement<HTMLElement>(rootElement, "unflatten-view"),
+    selectByTextView: getElement<HTMLElement>(rootElement, "select-by-text-view"),
+    captureSelectByTextSourceButton: getElement<HTMLElement>(rootElement, "capture-select-by-text-source"),
+    captureSelectByTextCanvasSourceButton: getElement<HTMLElement>(rootElement, "capture-select-by-text-canvas-source"),
+    selectByTextSourcePreviewPanel: getElement<HTMLElement>(rootElement, "select-by-text-source-preview-panel"),
+    selectByTextSourceTitle: getElement<HTMLElement>(rootElement, "select-by-text-source-title"),
+    selectByTextSourceMeta: getElement<HTMLElement>(rootElement, "select-by-text-source-meta"),
+    selectByTextPrompt: getElement<HTMLTextAreaElement>(rootElement, "select-by-text-prompt"),
+    selectByTextWorkflow: getElement<HTMLSelectElement>(rootElement, "select-by-text-workflow"),
+    selectByTextModel: getElement<HTMLSelectElement>(rootElement, "select-by-text-model"),
+    runSelectByTextButton: getElement<HTMLElement>(rootElement, "run-select-by-text"),
+    selectByTextStatusText: getElement<HTMLElement>(rootElement, "select-by-text-status-text"),
+    selectByTextStatusPill: getElement<HTMLElement>(rootElement, "select-by-text-status-pill"),
+    selectByTextStatusProgress: getElement<HTMLElement>(rootElement, "select-by-text-status-progress"),
+    selectByTextDiagnosticsText: getElement<HTMLElement>(rootElement, "select-by-text-diagnostics-text"),
+    selectByTextErrorMessage: getElement<HTMLElement>(rootElement, "select-by-text-error-message"),
     removeBackgroundView: getElement<HTMLElement>(rootElement, "remove-background-view"),
     captureRemoveBackgroundSourceButton: getElement<HTMLElement>(rootElement, "capture-remove-background-source"),
     captureRemoveBackgroundCanvasSourceButton: getElement<HTMLElement>(rootElement, "capture-remove-background-canvas-source"),

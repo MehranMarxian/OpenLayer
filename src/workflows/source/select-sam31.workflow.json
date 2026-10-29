@@ -1,14 +1,14 @@
 {
   "id": "00000000-0000-0000-0000-000000000000",
   "revision": 0,
-  "last_node_id": 14,
-  "last_link_id": 12,
+  "last_node_id": 15,
+  "last_link_id": 14,
   "nodes": [
     {
       "id": 9,
       "type": "SaveImage",
       "pos": [
-        1646.0767578125,
+        1662.798828125,
         130
       ],
       "size": [
@@ -16,14 +16,14 @@
         58
       ],
       "flags": {},
-      "order": 5,
+      "order": 6,
       "mode": 0,
       "inputs": [
         {
           "localized_name": "images",
           "name": "images",
           "type": "IMAGE",
-          "link": 7
+          "link": 8
         },
         {
           "localized_name": "filename_prefix",
@@ -100,7 +100,7 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            10
+            11
           ]
         },
         {
@@ -118,12 +118,7 @@
         },
         "cnr_id": "comfy-core",
         "ver": "0.37.0",
-        "Node name for S&R": "LoadImage",
-        "#sdppp_variant": "default",
-        "#sdppp_simple_content": "canvas",
-        "#sdppp_simple_mask": "canvas",
-        "#sdppp_simple_boundary": "canvas",
-        "#sdppp_label": ""
+        "Node name for S&R": "LoadImage"
       },
       "widgets_values": [
         "openlayer-select-source.png",
@@ -165,7 +160,7 @@
           "name": "MODEL",
           "type": "MODEL",
           "links": [
-            9
+            10
           ]
         },
         {
@@ -173,7 +168,7 @@
           "name": "CLIP",
           "type": "CLIP",
           "links": [
-            8
+            9
           ]
         },
         {
@@ -219,7 +214,7 @@
           "localized_name": "clip",
           "name": "clip",
           "type": "CLIP",
-          "link": 8
+          "link": 9
         },
         {
           "localized_name": "text",
@@ -237,7 +232,7 @@
           "name": "CONDITIONING",
           "type": "CONDITIONING",
           "links": [
-            11
+            12
           ]
         }
       ],
@@ -277,20 +272,20 @@
           "localized_name": "model",
           "name": "model",
           "type": "MODEL",
-          "link": 9
+          "link": 10
         },
         {
           "localized_name": "image",
           "name": "image",
           "type": "IMAGE",
-          "link": 10
+          "link": 11
         },
         {
           "localized_name": "conditioning",
           "name": "conditioning",
           "shape": 7,
           "type": "CONDITIONING",
-          "link": 11
+          "link": 12
         },
         {
           "localized_name": "bboxes",
@@ -347,14 +342,16 @@
           "name": "masks",
           "type": "MASK",
           "links": [
-            12
+            13
           ]
         },
         {
           "localized_name": "bboxes",
           "name": "bboxes",
           "type": "BOUNDING_BOX",
-          "links": null
+          "links": [
+            14
+          ]
         }
       ],
       "properties": {
@@ -396,7 +393,7 @@
           "localized_name": "mask",
           "name": "mask",
           "type": "MASK",
-          "link": 12
+          "link": 13
         }
       ],
       "outputs": [
@@ -405,7 +402,7 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            7
+            8
           ]
         }
       ],
@@ -419,11 +416,54 @@
         "ver": "0.37.0",
         "Node name for S&R": "MaskToImage"
       }
+    },
+    {
+      "id": 15,
+      "type": "PreviewAny",
+      "pos": [
+        1352.798828125,
+        286
+      ],
+      "size": [
+        210,
+        122
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "source",
+          "name": "source",
+          "type": "*",
+          "link": 14
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "STRING",
+          "name": "STRING",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "title": "Report What Was Found",
+      "properties": {
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        },
+        "cnr_id": "comfy-core",
+        "ver": "0.37.0",
+        "Node name for S&R": "PreviewAny"
+      },
+      "widgets_values": [],
+      "widgets_values_named": {}
     }
   ],
   "links": [
     [
-      7,
+      8,
       14,
       0,
       9,
@@ -431,7 +471,7 @@
       "IMAGE"
     ],
     [
-      8,
+      9,
       11,
       1,
       12,
@@ -439,7 +479,7 @@
       "CLIP"
     ],
     [
-      9,
+      10,
       11,
       0,
       13,
@@ -447,7 +487,7 @@
       "MODEL"
     ],
     [
-      10,
+      11,
       10,
       0,
       13,
@@ -455,7 +495,7 @@
       "IMAGE"
     ],
     [
-      11,
+      12,
       12,
       0,
       13,
@@ -463,12 +503,20 @@
       "CONDITIONING"
     ],
     [
-      12,
+      13,
       13,
       0,
       14,
       0,
       "MASK"
+    ],
+    [
+      14,
+      13,
+      1,
+      15,
+      0,
+      "BOUNDING_BOX"
     ]
   ],
   "groups": [],

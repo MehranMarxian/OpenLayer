@@ -27,6 +27,7 @@ export const HISTORY_LIMIT = 5;
 export const COMFY_PORT_CANDIDATES = [8188, 8190, 8189, 8191, 8192, 8193, 7860];
 export const DEFAULT_WORKFLOW = "txt2img-basic";
 export const DEFAULT_REMOVE_BACKGROUND_WORKFLOW = "remove-background-birefnet";
+export const DEFAULT_SELECT_BY_TEXT_WORKFLOW = "select-sam31";
 export const DEFAULT_IMAGE_WORKFLOW = "img2img-basic";
 export const DEFAULT_SKETCH_WORKFLOW = "sketch2img-linecn-basic";
 export const DEFAULT_INPAINT_WORKFLOW = "inpaint-basic";
@@ -147,6 +148,7 @@ export type AppView =
   | "layer-tools"
   | "prompt-wallet"
   | "remove-background"
+  | "select-by-text"
   | "layer-maps";
 export type ToolCardStatus = "available" | "experimental" | "coming-soon";
 
@@ -174,6 +176,7 @@ export type ToolIconName =
   | "multiReference"
   | "unflatten"
   | "removeBackground"
+  | "selectByText"
   | "layerMaps"
   | "control"
   | "workflow"
@@ -256,6 +259,16 @@ export const TOOL_CARDS: ToolCard[] = [
     icon: "removeBackground",
     status: "available",
     view: "remove-background"
+  },
+  {
+    id: "select-by-text",
+    title: "Select by Text",
+    // The result is a live selection, not a layer, which is the one thing that
+    // sets this card apart from every other tool on the screen.
+    subtitle: "Name something and get it as a selection",
+    icon: "selectByText",
+    status: "available",
+    view: "select-by-text"
   },
   {
     id: "layer-maps",
@@ -372,7 +385,7 @@ export const TOOL_CARDS: ToolCard[] = [
 export const HOME_TOOL_SECTIONS = [
   {
     title: "Generate",
-    toolIds: ["text-to-image", "image-to-image", "edit-image", "lineart", "inpaint", "outpaint", "upscale", "remove-background", "layer-maps", "prompt-from-layer", "unflatten", "live-painting", "style-reference", "multi-reference"]
+    toolIds: ["text-to-image", "image-to-image", "edit-image", "lineart", "inpaint", "outpaint", "upscale", "remove-background", "select-by-text", "layer-maps", "prompt-from-layer", "unflatten", "live-painting", "style-reference", "multi-reference"]
   },
   {
     title: "Workflow",

@@ -59,8 +59,8 @@ generating in the background, and every result comes back as a layer.
 
 ## The tools
 
-Every tool reads from your open document and writes back to it as a layer. Nothing is uploaded
-anywhere; ComfyUI runs on your own machine.
+Every tool reads from your open document and writes back to it, as a layer or (Select by Text) as a
+live selection. Nothing is uploaded anywhere; ComfyUI runs on your own machine.
 
 | Tool | What it does |
 | :--- | :--- |
@@ -72,6 +72,7 @@ anywhere; ComfyUI runs on your own machine.
 | **Outpaint** | Extend canvas content beyond the edges |
 | **Upscale** | Enlarge a layer 4x with an upscale model, or restore it 2x with SeedVR2 (generative) |
 | **Remove Background** | Cut the subject out onto its own layer, with real alpha |
+| **Select by Text** | Name something — "backpack", "chair, table" — and get it as a live selection (SAM 3.1) |
 | **Layer Maps** | Read a depth, line-art or normal pass off a layer, at its exact size |
 | **Prompt from Layer** | Describe a layer back into prompt text |
 | **Unflatten** ✦ | Split one flat layer into separate layers, each with real transparency |
@@ -446,6 +447,16 @@ size of the result: on a 12 GB RTX 4070 Ti a 2048 × 1536 result took 10 s and a
 
 `Florence-2-base-PromptGen-v2.0` → `models/LLM/` (the whole repo folder, about 1.1 GB).
 Add-on: [ComfyUI-Florence2](https://github.com/kijai/ComfyUI-Florence2).
+
+</details>
+
+<details>
+<summary><b>Select by Text</b> — 1.7 GB, no add-on</summary>
+
+`sam3.1_multiplex_fp16.safetensors` → `models/checkpoints/` (1.7 GB). Core ComfyUI nodes only
+(ComfyUI 0.37+). Meta's SAM License: commercial use is allowed, with use restrictions (no military,
+weapons or export-controlled use). About 2 seconds per selection on a 12 GB card once the model is
+loaded. The selection has hard edges; feather it or use Select and Mask for a soft one.
 
 </details>
 

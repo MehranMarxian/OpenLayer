@@ -29,6 +29,7 @@ describe("busy-state tables", () => {
       "multi-reference",
       "unflatten",
       "remove-background",
+      "select-by-text",
       "layer-maps"
     ]);
     expect(fieldGroups.every((fields) => fields.length > 0)).toBe(true);
@@ -88,6 +89,9 @@ describe("busy-state tables", () => {
       "promptLayerTask",
       "removeBackgroundModel",
       "removeBackgroundWorkflow",
+      "selectByTextPrompt",
+      "selectByTextWorkflow",
+      "selectByTextModel",
       "layerMapsModel",
       "layerMapsWorkflow",
       "promptLayerNumBeams",
@@ -136,8 +140,9 @@ describe("busy-state tables", () => {
     // The per-feature breakdown that used to sit here had drifted two behind
     // the assertion, so it is not repeated; the list above is the record.
     expect(plainActions).toHaveLength(44);
-    // 22 = 20, plus Layer Maps' Generate and Import.
-    expect(BUSY_GATED_ACTIONS).toHaveLength(22);
+    // 23 = 20, plus Layer Maps' Generate and Import, plus Select by Text's
+    // Select (it has no Import: the selection is applied by the run).
+    expect(BUSY_GATED_ACTIONS).toHaveLength(23);
     expect(new Set(allActions).size).toBe(allActions.length);
   });
 
@@ -182,6 +187,7 @@ describe("busy-state tables", () => {
 
     expect(lockedActions).toEqual(new Set([
       "generateButton",
+      "runSelectByTextButton",
       "generateImg2ImgButton",
       "generateSketchButton",
       "generateInpaintButton",

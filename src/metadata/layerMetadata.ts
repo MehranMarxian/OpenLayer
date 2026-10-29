@@ -10,6 +10,7 @@ export type OpenLayerMetadataToolType =
   | "multi-reference"
   | "unflatten"
   | "remove-background"
+  | "select-by-text"
   | "layer-maps";
 
 export type OpenLayerLayerBounds = {

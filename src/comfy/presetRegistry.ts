@@ -1312,7 +1312,13 @@ const SELECT_SAM31_NODES = {
   textEncode: "12",
   detect: "13",
   maskToImage: "14",
-  saveImage: "9"
+  saveImage: "9",
+  // PreviewAny on SAM3_Detect's bounding boxes. The panel cannot decode
+  // ComfyUI's compressed PNGs, so this text is how it learns whether anything
+  // was found before it touches Photoshop: "[[]]" for nothing, one entry per
+  // object otherwise. An all-black mask loaded as a selection is exactly the
+  // "No pixels are selected" dialog.
+  boxReport: "15"
 } as const;
 
 const UPSCALE_BASIC_NODES = {
@@ -3349,6 +3355,11 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
         id: SELECT_SAM31_NODES.saveImage,
         classType: "SaveImage",
         requiredInputs: ["images", "filename_prefix"]
+      },
+      {
+        id: SELECT_SAM31_NODES.boxReport,
+        classType: "PreviewAny",
+        requiredInputs: ["source"]
       }
     ]
   },
