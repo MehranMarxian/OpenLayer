@@ -4654,7 +4654,8 @@ export function renderApp(rootElement: HTMLElement) {
       const buildResult = await buildUpscaleWorkflow({
         presetId: preset.id,
         sourceImageName,
-        modelName
+        modelName,
+        sourceDimensions: { width: upscaleSource.width, height: upscaleSource.height }
       });
 
       // The commit closure runs after awaits; a const keeps the null-checked
@@ -8090,7 +8091,7 @@ function updateUpscaleCompatibility(elements: AppElements, source: ImageSourceSt
     photoshopInputs: createSourceInputAvailability(source)
   });
 
-  elements.upscaleCompatibilityNote.textContent = `${formatWorkflowDiagnosticMessage(message)} Pixel/model upscale only; prompts are not used.`;
+  elements.upscaleCompatibilityNote.textContent = `${formatWorkflowDiagnosticMessage(message)} ${preset.capability?.uiHints.experimentalNote ?? ""}`.trim();
   elements.upscaleCompatibilityNote.classList.toggle("is-warning", message.isWarning || preset.status === "experimental");
   updateSettingsReport(elements);
 }

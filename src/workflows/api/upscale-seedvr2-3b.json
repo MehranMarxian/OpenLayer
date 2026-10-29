@@ -1,0 +1,189 @@
+{
+  "9": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "OpenLayer_Upscale_SeedVR2",
+      "images": [
+        "20",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Save Upscaled Image"
+    }
+  },
+  "10": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "openlayer-upscale-source.png"
+    },
+    "_meta": {
+      "title": "Load Source Image"
+    }
+  },
+  "11": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "seedvr2_3b_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "Load SeedVR2 Model"
+    }
+  },
+  "12": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "seedvr2_ema_vae_fp16.safetensors"
+    },
+    "_meta": {
+      "title": "Load SeedVR2 VAE"
+    }
+  },
+  "13": {
+    "class_type": "JoinImageWithAlpha",
+    "inputs": {
+      "image": [
+        "10",
+        0
+      ],
+      "alpha": [
+        "10",
+        1
+      ]
+    },
+    "_meta": {
+      "title": "Keep Source Alpha"
+    }
+  },
+  "14": {
+    "class_type": "ResizeImageMaskNode",
+    "inputs": {
+      "resize_type": "scale by multiplier",
+      "resize_type.multiplier": 2,
+      "scale_method": "lanczos",
+      "input": [
+        "13",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Resize To Output Size"
+    }
+  },
+  "15": {
+    "class_type": "SeedVR2Preprocess",
+    "inputs": {
+      "resized_images": [
+        "14",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "SeedVR2 Preprocess"
+    }
+  },
+  "16": {
+    "class_type": "VAEEncodeTiled",
+    "inputs": {
+      "tile_size": 512,
+      "overlap": 128,
+      "temporal_size": 4096,
+      "temporal_overlap": 8,
+      "pixels": [
+        "15",
+        0
+      ],
+      "vae": [
+        "12",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Encode (Tiled)"
+    }
+  },
+  "17": {
+    "class_type": "SeedVR2Conditioning",
+    "inputs": {
+      "model": [
+        "11",
+        0
+      ],
+      "vae_conditioning": [
+        "16",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "SeedVR2 Conditioning"
+    }
+  },
+  "18": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 42,
+      "steps": 1,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": [
+        "11",
+        0
+      ],
+      "positive": [
+        "17",
+        0
+      ],
+      "negative": [
+        "17",
+        1
+      ],
+      "latent_image": [
+        "16",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Restore (1 step)"
+    }
+  },
+  "19": {
+    "class_type": "VAEDecodeTiled",
+    "inputs": {
+      "tile_size": 512,
+      "overlap": 128,
+      "temporal_size": 4096,
+      "temporal_overlap": 8,
+      "samples": [
+        "18",
+        0
+      ],
+      "vae": [
+        "12",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Decode (Tiled)"
+    }
+  },
+  "20": {
+    "class_type": "SeedVR2PostProcessing",
+    "inputs": {
+      "color_correction_method": "lab",
+      "images": [
+        "19",
+        0
+      ],
+      "original_resized_images": [
+        "14",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "SeedVR2 Post-Process"
+    }
+  }
+}

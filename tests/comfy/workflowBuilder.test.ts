@@ -119,6 +119,45 @@ describe("workflowBuilder", () => {
     expect(result.workflow["9"].inputs.images).toEqual(["12", 0]);
   });
 
+  it("injects source image and model into upscale-seedvr2-3b and keeps the measured settings", async () => {
+    const result = await buildUpscaleWorkflow({
+      presetId: "upscale-seedvr2-3b",
+      sourceImageName: "openlayer-upscale-source.png",
+      modelName: "seedvr2_3b_int8_convrot.safetensors",
+      sourceDimensions: { width: 1024, height: 768 }
+    });
+
+    expect(result.preset.id).toBe("upscale-seedvr2-3b");
+    expect(result.workflow["10"].inputs.image).toBe("openlayer-upscale-source.png");
+    expect(result.workflow["11"].inputs.unet_name).toBe("seedvr2_3b_int8_convrot.safetensors");
+    expect(result.workflow["12"].inputs.vae_name).toBe("seedvr2_ema_vae_fp16.safetensors");
+    expect(result.workflow["14"].inputs["resize_type.multiplier"]).toBe(2);
+    // One-step distilled restorer: anything else is a different model.
+    expect(result.workflow["18"].inputs).toMatchObject({ steps: 1, cfg: 1, denoise: 1 });
+    expect(result.workflow["20"].inputs.original_resized_images).toEqual(["14", 0]);
+    expect(result.workflow["9"].inputs.images).toEqual(["20", 0]);
+  });
+
+  it("refuses an upscale-seedvr2-3b source whose result would pass the measured limit", async () => {
+    await expect(buildUpscaleWorkflow({
+      presetId: "upscale-seedvr2-3b",
+      sourceImageName: "openlayer-upscale-source.png",
+      modelName: "seedvr2_3b_int8_convrot.safetensors",
+      sourceDimensions: { width: 4000, height: 3000 }
+    })).rejects.toMatchObject({ code: "UPSCALE_SOURCE_TOO_LARGE" });
+  });
+
+  it("leaves upscale-basic unlimited whatever the source size", async () => {
+    const result = await buildUpscaleWorkflow({
+      presetId: "upscale-basic",
+      sourceImageName: "openlayer-upscale-source.png",
+      modelName: "4x-UltraSharp.pth",
+      sourceDimensions: { width: 8000, height: 6000 }
+    });
+
+    expect(result.preset.id).toBe("upscale-basic");
+  });
+
   it("injects sketch size and ControlNet strength into the txt2img-style sketch2img-linecn-basic", async () => {
     const result = await buildSketchToImageWorkflow({
       presetId: "sketch2img-linecn-basic",

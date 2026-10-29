@@ -66,7 +66,39 @@ describe("presetRegistry", () => {
     ]);
     expect(allOutpaintIds).toEqual(["outpaint-flux-fill-basic"]);
     expect(runnableOutpaintIds).toEqual(["outpaint-flux-fill-basic"]);
-    expect(runnableUpscaleIds).toEqual(["upscale-basic"]);
+    expect(runnableUpscaleIds).toEqual(["upscale-basic", "upscale-seedvr2-3b"]);
+  });
+
+  it("registers upscale-seedvr2-3b as a core-node 2x generative upscale", () => {
+    const preset = getWorkflowPreset("upscale-seedvr2-3b");
+
+    expect(preset.status).toBe("stable");
+    expect(preset.mode).toBe("upscale");
+    expect(preset.modelSource.objectInfoNode).toBe("UNETLoader");
+    expect(preset.injections.sourceImage).toEqual({ nodeId: "10", inputName: "image" });
+    expect(preset.injections.checkpoint).toEqual({ nodeId: "11", inputName: "unet_name" });
+    expect(preset.requiredModels?.map((model) => [model.modelName, model.downloadSizeBytes])).toEqual([
+      ["seedvr2_3b_int8_convrot.safetensors", 3458259704],
+      ["seedvr2_ema_vae_fp16.safetensors", 501324814]
+    ]);
+    // Apache-2.0 and ungated: nothing to click through.
+    expect(preset.requiredModels?.some((model) => model.licenseGate)).toBe(false);
+    for (const classType of ["SeedVR2Preprocess", "SeedVR2Conditioning", "SeedVR2PostProcessing"]) {
+      expect(preset.requiredNodes.some((node) => node.classType === classType)).toBe(true);
+    }
+    expect(preset.upscaleOutputLimit).toEqual({ scale: 2, maxOutputPixels: 5120 * 3840 });
+  });
+
+  it("says plainly that the SeedVR2 preset invents detail", () => {
+    // A generative restorer is not a pixel upscale. The artist reads this on the
+    // Upscale screen, through textContent, so it must also be plain text.
+    const preset = getWorkflowPreset("upscale-seedvr2-3b");
+    const shown = [preset.description, preset.capability?.uiHints.warning, preset.capability?.uiHints.experimentalNote]
+      .join(" ");
+
+    expect(preset.description).toMatch(/invent/);
+    expect(preset.capability?.uiHints.warning).toMatch(/invent/);
+    expect(shown).not.toMatch(/`|--|\*\*|Photoshop plugin/);
   });
 
   it("registers upscale-basic as a stable pixel upscale workflow", () => {

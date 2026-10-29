@@ -153,6 +153,7 @@ describe("required model inventory", () => {
         "diffusion_models/krea2_turbo_fp8_scaled.safetensors",
         "diffusion_models/qwen_image_2.1_int8_convrot.safetensors",
         "diffusion_models/qwen_image_layered_fp8mixed.safetensors",
+        "diffusion_models/seedvr2_3b_int8_convrot.safetensors",
         "diffusion_models/z_image_turbo_bf16.safetensors",
         "clip_vision/CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors",
         "ipadapter/ip-adapter-plus_sd15.safetensors",
@@ -171,7 +172,8 @@ describe("required model inventory", () => {
         "vae/full_encoder_small_decoder.safetensors",
         "vae/qwen_image_2.1_vae_bf16.safetensors",
         "vae/qwen_image_layered_vae.safetensors",
-        "vae/qwen_image_vae.safetensors"
+        "vae/qwen_image_vae.safetensors",
+        "vae/seedvr2_ema_vae_fp16.safetensors"
       ].sort()
     );
   });

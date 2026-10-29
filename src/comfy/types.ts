@@ -25,6 +25,7 @@ export type WorkflowPreset =
   | "inpaint-flux2-klein"
   | "outpaint-flux-fill-basic"
   | "upscale-basic"
+  | "upscale-seedvr2-3b"
   | "style-reference-sd15"
   | "multi-reference-flux2-klein"
   | "unflatten-qwen-layered"
@@ -387,6 +388,13 @@ export type BuildUpscaleWorkflowOptions = {
   presetId?: string;
   sourceImageName: string;
   modelName: string;
+  /** The captured source size, checked against the preset's upscaleOutputLimit. */
+  sourceDimensions?: { width: number; height: number };
+};
+
+export type WorkflowUpscaleOutputLimit = {
+  scale: number;
+  maxOutputPixels: number;
 };
 
 export type BuildEnhancePromptWorkflowOptions = {
@@ -791,6 +799,13 @@ export type WorkflowPresetDefinition = {
    * its corners; see anchorPlacementCorners in workflowBuilder.ts.
    */
   placementAnchor?: WorkflowInputTarget;
+  /**
+   * Present only on upscale presets whose cost grows with the output size and
+   * that therefore refuse an oversized source before submitting it. `scale` must
+   * equal the multiplier baked into the bundled graph (a test holds them
+   * together); `maxOutputPixels` is the largest output actually measured to run.
+   */
+  upscaleOutputLimit?: WorkflowUpscaleOutputLimit;
   compatibilityNote?: string;
   disabledReason?: string;
 };
