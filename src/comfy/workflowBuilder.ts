@@ -605,7 +605,7 @@ export async function buildUpscaleWorkflow(options: BuildUpscaleWorkflowOptions)
   assertPresetRunnable(preset);
 
   const sizeProblem = options.sourceDimensions
-    ? getUpscaleOutputLimitProblem(preset, options.sourceDimensions)
+    ? getUpscaleOutputLimitProblem(preset, options.sourceDimensions, options.vramTotalBytes ?? null)
     : null;
 
   if (sizeProblem) {

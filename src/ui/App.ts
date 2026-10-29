@@ -7,6 +7,7 @@ import {
   HardwareRecommendationReport
 } from "../comfy/hardwareAdvisor";
 import { createFluxFillInpaintDebugSummary } from "../comfy/inpaintValidation";
+import { readComfyVramTotalBytes } from "../comfy/upscaleOutputLimit";
 import {
   createFluxFillEmbeddedMaskSource,
   presetUsesEmbeddedMaskAlpha
@@ -4655,7 +4656,8 @@ export function renderApp(rootElement: HTMLElement) {
         presetId: preset.id,
         sourceImageName,
         modelName,
-        sourceDimensions: { width: upscaleSource.width, height: upscaleSource.height }
+        sourceDimensions: { width: upscaleSource.width, height: upscaleSource.height },
+        vramTotalBytes: preset.upscaleOutputLimit ? await readComfyVramTotalBytes(client) : null
       });
 
       // The commit closure runs after awaits; a const keeps the null-checked

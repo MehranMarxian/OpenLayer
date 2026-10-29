@@ -2,10 +2,81 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { getWorkflowPreset, listRunnableWorkflowPresets } from "../../src/comfy/presetRegistry";
-import { getLargestAllowedSource, getUpscaleOutputLimitProblem } from "../../src/comfy/upscaleOutputLimit";
-import { ComfyWorkflow } from "../../src/comfy/types";
+import {
+  getLargestAllowedSource,
+  getUpscaleMaxOutputPixels,
+  getUpscaleOutputLimitProblem,
+  readComfyVramTotalBytes
+} from "../../src/comfy/upscaleOutputLimit";
+import { ComfySystemStats, ComfyWorkflow, WorkflowUpscaleOutputLimit } from "../../src/comfy/types";
 
 const seedvr2 = getWorkflowPreset("upscale-seedvr2-3b");
+const limit = seedvr2.upscaleOutputLimit as WorkflowUpscaleOutputLimit;
+const GIB = 1024 ** 3;
+/** What /system_stats reported for the 4070 Ti the limit was measured on. */
+const DEV_RIG_VRAM = 12878086144;
+
+describe("getUpscaleMaxOutputPixels", () => {
+  it("is exactly the measured 5120 x 3840 on the card it was measured on", () => {
+    expect(getUpscaleMaxOutputPixels(limit, DEV_RIG_VRAM)).toBe(5120 * 3840);
+  });
+
+  it("falls back to the measured card when VRAM is unknown", () => {
+    for (const unknown of [null, 0, -1, Number.NaN]) {
+      expect(getUpscaleMaxOutputPixels(limit, unknown)).toBe(5120 * 3840);
+    }
+  });
+
+  it("grows with VRAM by the measured cost of an output pixel", () => {
+    const at16 = getUpscaleMaxOutputPixels(limit, 16 * GIB);
+    const at24 = getUpscaleMaxOutputPixels(limit, 24 * GIB);
+
+    expect(at16 / 1e6).toBeCloseTo(42.9, 0);
+    expect(at24 / 1e6).toBeCloseTo(89.3, 0);
+    expect(at24).toBeGreaterThan(at16);
+  });
+
+  it("shrinks on a smaller card but never below a 2048 x 2048 result", () => {
+    expect(getUpscaleMaxOutputPixels(limit, 10 * GIB) / 1e6).toBeCloseTo(8.1, 0);
+    // The arithmetic goes negative on 8 GB; a 1024 layer must still be allowed.
+    expect(getUpscaleMaxOutputPixels(limit, 8 * GIB)).toBe(2048 * 2048);
+    expect(getUpscaleOutputLimitProblem(seedvr2, { width: 1024, height: 1024 }, 8 * GIB)).toBeNull();
+  });
+
+  it("refuses the 6144 x 4608 result that ran 2.7x slower on the measured card", () => {
+    // 28.3 MP filled the 12 GB card and ComfyUI fell back to offloading.
+    expect(getUpscaleOutputLimitProblem(seedvr2, { width: 3072, height: 2304 }, DEV_RIG_VRAM)).not.toBeNull();
+    expect(getUpscaleOutputLimitProblem(seedvr2, { width: 3072, height: 2304 }, 16 * GIB)).toBeNull();
+  });
+});
+
+describe("the VRAM in the refusal", () => {
+  it("names the VRAM and the scaled limit when ComfyUI reported it", () => {
+    const problem = getUpscaleOutputLimitProblem(seedvr2, { width: 4000, height: 3000 }, 10 * GIB) ?? "";
+
+    expect(problem).toContain("10.0 GB of VRAM");
+    expect(problem).toContain("19.7 megapixels measured on 12.0 GB, scaled by VRAM");
+  });
+
+  it("says the measured limit applies when it did not", () => {
+    const problem = getUpscaleOutputLimitProblem(seedvr2, { width: 4000, height: 3000 }, null) ?? "";
+
+    expect(problem).toContain("did not report its VRAM");
+    expect(problem).toContain("19.7 megapixels measured on 12.0 GB");
+  });
+});
+
+describe("readComfyVramTotalBytes", () => {
+  it("reads the primary device", async () => {
+    const stats = { devices: [{ name: "cuda:0", type: "cuda", vramTotalBytes: DEV_RIG_VRAM }] } as ComfySystemStats;
+
+    expect(await readComfyVramTotalBytes({ getSystemStats: async () => stats })).toBe(DEV_RIG_VRAM);
+  });
+
+  it("returns null instead of failing the upscale when the read fails", async () => {
+    expect(await readComfyVramTotalBytes({ getSystemStats: async () => { throw new Error("offline"); } })).toBeNull();
+  });
+});
 
 describe("getUpscaleOutputLimitProblem", () => {
   it("lets through every size the spike actually ran", () => {

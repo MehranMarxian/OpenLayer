@@ -149,6 +149,22 @@ describe("workflowBuilder", () => {
     })).rejects.toMatchObject({ code: "UPSCALE_SOURCE_TOO_LARGE" });
   });
 
+  it("moves the upscale-seedvr2-3b limit with the VRAM ComfyUI reports", async () => {
+    const options = {
+      presetId: "upscale-seedvr2-3b",
+      sourceImageName: "openlayer-upscale-source.png",
+      modelName: "seedvr2_3b_int8_convrot.safetensors",
+      sourceDimensions: { width: 3072, height: 2304 }
+    };
+
+    await expect(buildUpscaleWorkflow({ ...options, vramTotalBytes: 12878086144 })).rejects.toMatchObject({
+      code: "UPSCALE_SOURCE_TOO_LARGE"
+    });
+    await expect(buildUpscaleWorkflow({ ...options, vramTotalBytes: 16 * 1024 ** 3 })).resolves.toMatchObject({
+      preset: { id: "upscale-seedvr2-3b" }
+    });
+  });
+
   it("leaves upscale-basic unlimited whatever the source size", async () => {
     const result = await buildUpscaleWorkflow({
       presetId: "upscale-basic",
