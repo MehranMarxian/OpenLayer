@@ -399,9 +399,11 @@ Crop-and-stitch samples the masked area at a fixed 1024 and blends the patch bac
 a large document no longer samples a few hundred pixels.
 
 **Remove object (LaMa)** is the one Inpaint preset with no prompt: it fills the selection from what
-surrounds it, in 2 to 4 seconds, and every pixel outside the selection comes back unchanged. Select
-a little more than the object, shadow included. Large selections come back smeared. It needs no
-diffusion model at all, but its add-on is a heavy one (twelve Python dependencies).
+surrounds it, in 2 to 4 seconds, and every pixel outside the selection comes back unchanged. It is
+for small things: a chair or a folded umbrella covering about 4% of the captured area filled cleanly
+in testing, while a tree or a standing person covering 17–22% came back as a smear. Select a little
+more than the object, shadow included. It needs no diffusion model at all, but its add-on is a heavy
+one (twelve Python dependencies).
 
 </details>
 

@@ -2073,7 +2073,7 @@ const INPAINT_LAMA_CAPABILITY: WorkflowCapability = {
     modelSelectorLabel: "LaMa model",
     primaryActionLabel: "Generate Inpaint",
     warning:
-      "Remove object fills the selection from its surroundings with LaMa. It ignores the prompt, seed, steps, CFG and denoise fields. Select a little more than the object, shadow included; very large selections come back smeared.",
+      "Remove object fills the selection from its surroundings with LaMa. It ignores the prompt, seed, steps, CFG and denoise fields. It works on small objects: in tests a chair or a folded umbrella filling about 4 percent of the captured area came out clean, while a tree or a standing person filling 17 to 22 percent came back as a smear. Select a little more than the object, shadow included.",
     hiddenControls: ["prompt", "negativePrompt", "steps", "cfg", "denoise", "seed"]
   }
 };
@@ -4069,7 +4069,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     displayName: "Remove object (LaMa)",
     mode: "inpaint",
     description:
-      "Removes the selected object and fills the area from its surroundings with LaMa. No prompt is used; best for objects up to about a fifth of the selection context.",
+      "Removes the selected object and fills the area from its surroundings with LaMa. No prompt is used. Best on small objects against simple surroundings; a person or anything large comes back as a smear.",
     workflowFile: "workflows/api/inpaint-lama.json",
     sourceWorkflowFile: "workflows/source/inpaint-lama.workflow.json",
     status: "stable",
