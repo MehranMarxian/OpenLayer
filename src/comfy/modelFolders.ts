@@ -61,7 +61,8 @@ export const MODEL_FOLDER_BY_OBJECT_INFO_NODE = {
   // comfyui-art-venture's LaMa loader registers models/lama/ itself (verified
   // in its source, modules/inpaint/lama/__init__.py) and downloads big-lama.pt
   // there on first use when the file is missing.
-  LoadLaMaModel: "lama"
+  LoadLaMaModel: "lama",
+  LoraLoaderModelOnly: "loras"
 } as const satisfies Record<string, WorkflowModelFolder>;
 
 export type ComfyModelInventoryBucket = Exclude<keyof ComfyModelInventory, "missingSources">;
@@ -79,7 +80,8 @@ export const MODEL_FOLDER_BY_INVENTORY_BUCKET = {
   clipVisionModels: "clip_vision",
   ipAdapterModels: "ipadapter",
   backgroundRemovalModels: "background_removal",
-  inpaintModels: "lama"
+  inpaintModels: "lama",
+  loraModels: "loras"
 } as const satisfies Record<ComfyModelInventoryBucket, WorkflowModelFolder>;
 
 export type MappedModelLoaderNode = keyof typeof MODEL_FOLDER_BY_OBJECT_INFO_NODE;

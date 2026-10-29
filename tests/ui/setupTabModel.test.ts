@@ -344,6 +344,7 @@ function createEmptyInventory(): ComfyModelInventory {
     ipAdapterModels: [],
     backgroundRemovalModels: [],
     inpaintModels: [],
+    loraModels: [],
     missingSources: []
   };
 }
@@ -391,6 +392,8 @@ function getInventoryBucket(
       return inventory.inpaintModels;
     case "segmentation":
       return inventory.checkpoints;
+    case "lora":
+      return inventory.loraModels;
   }
 }
 

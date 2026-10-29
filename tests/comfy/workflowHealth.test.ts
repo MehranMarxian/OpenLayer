@@ -248,7 +248,8 @@ describe("workflow health", () => {
     // is that it wins anyway, because "the workflow does not exist yet" is a
     // more useful answer than a list of things to download for it.
     expect(item.state).toBe("missing-workflow");
-    expect(item.stateLabel).toBe("Needs workflow JSON");
+    expect(item.stateLabel).toBe("Not runnable yet");
+    expect(item.summary).toBe("No validated OpenLayer API workflow JSON exists yet for this preset.");
     expect(item.canRun).toBe(false);
   });
 
@@ -261,7 +262,7 @@ describe("workflow health", () => {
       })
     });
 
-    expect(report.summary).toContain("need workflow JSON");
+    expect(report.summary).toContain("not runnable yet");
     expect(report.stateCounts["missing-workflow"]).toBe(1);
   });
 
@@ -282,10 +283,12 @@ describe("workflow health", () => {
 
     expect(report.items).toHaveLength(presets.length);
     expect(report.summary).toContain("workflow presets");
-    // Every shipped preset now has an authored workflow. The missing-workflow
-    // state is exercised on a fixture above rather than on whatever the registry
-    // happens to contain, which is what tied these tests to two preset ids.
-    expect(report.stateCounts["missing-workflow"]).toBe(0);
+    // Every shipped preset has an authored workflow. The one `todo` preset is
+    // camera-angle-qwen-edit-2511, waiting for its first measured run, and its
+    // row says so in its own words rather than asking for a workflow JSON.
+    expect(report.stateCounts["missing-workflow"]).toBe(1);
+    const cameraAngle = report.items.find((item) => item.presetId === "camera-angle-qwen-edit-2511");
+    expect(cameraAngle?.summary).toMatch(/first measured run/);
   });
 });
 

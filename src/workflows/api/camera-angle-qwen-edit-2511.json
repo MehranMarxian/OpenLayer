@@ -1,0 +1,286 @@
+{
+  "10": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "openlayer-camera-angle-source.png"
+    },
+    "_meta": {
+      "title": "Load Source Image"
+    }
+  },
+  "11": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "qwen_image_edit_2511_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "Load Qwen-Image-Edit 2511"
+    }
+  },
+  "12": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "type": "qwen_image",
+      "device": "default"
+    },
+    "_meta": {
+      "title": "Load Qwen2.5-VL Text Encoder"
+    }
+  },
+  "13": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "qwen_image_vae.safetensors"
+    },
+    "_meta": {
+      "title": "Load Qwen Image VAE"
+    }
+  },
+  "14": {
+    "class_type": "ModelSamplingAuraFlow",
+    "inputs": {
+      "shift": 3.1,
+      "sampling": "flow",
+      "model": [
+        "11",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Model Sampling"
+    }
+  },
+  "15": {
+    "class_type": "CFGNorm",
+    "inputs": {
+      "strength": 1,
+      "pre_cfg": false,
+      "model": [
+        "14",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "CFG Norm"
+    }
+  },
+  "16": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "lora_name": "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors",
+      "strength_model": 1,
+      "model": [
+        "15",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Lightning 4-Step LoRA"
+    }
+  },
+  "17": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "lora_name": "qwen-image-edit-2511-multiple-angles-lora.safetensors",
+      "strength_model": 0.9,
+      "model": [
+        "16",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Multiple Angles LoRA"
+    }
+  },
+  "18": {
+    "class_type": "FluxKontextImageScale",
+    "inputs": {
+      "image": [
+        "10",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Scale To Edit Size"
+    }
+  },
+  "19": {
+    "class_type": "TextEncodeQwenImageEditPlus",
+    "inputs": {
+      "prompt": "<sks> front-right quarter view eye-level shot medium shot",
+      "clip": [
+        "12",
+        0
+      ],
+      "vae": [
+        "13",
+        0
+      ],
+      "image1": [
+        "18",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Camera Pose"
+    }
+  },
+  "20": {
+    "class_type": "TextEncodeQwenImageEditPlus",
+    "inputs": {
+      "prompt": "",
+      "clip": [
+        "12",
+        0
+      ],
+      "vae": [
+        "13",
+        0
+      ],
+      "image1": [
+        "18",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Empty Negative"
+    }
+  },
+  "21": {
+    "class_type": "FluxKontextMultiReferenceLatentMethod",
+    "inputs": {
+      "reference_latents_method": "index_timestep_zero",
+      "conditioning": [
+        "19",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Reference Method (Positive)"
+    }
+  },
+  "22": {
+    "class_type": "FluxKontextMultiReferenceLatentMethod",
+    "inputs": {
+      "reference_latents_method": "index_timestep_zero",
+      "conditioning": [
+        "20",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Reference Method (Negative)"
+    }
+  },
+  "23": {
+    "class_type": "VAEEncode",
+    "inputs": {
+      "pixels": [
+        "18",
+        0
+      ],
+      "vae": [
+        "13",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Encode Source"
+    }
+  },
+  "24": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 2026,
+      "steps": 4,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": [
+        "17",
+        0
+      ],
+      "positive": [
+        "21",
+        0
+      ],
+      "negative": [
+        "22",
+        0
+      ],
+      "latent_image": [
+        "23",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "25": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "24",
+        0
+      ],
+      "vae": [
+        "13",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Decode"
+    }
+  },
+  "26": {
+    "class_type": "GetImageSize",
+    "inputs": {
+      "image": [
+        "10",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Source Size"
+    }
+  },
+  "27": {
+    "class_type": "ImageScale",
+    "inputs": {
+      "image": [
+        "25",
+        0
+      ],
+      "upscale_method": "lanczos",
+      "width": [
+        "26",
+        0
+      ],
+      "height": [
+        "26",
+        1
+      ],
+      "crop": "disabled"
+    },
+    "_meta": {
+      "title": "Back To Source Size"
+    }
+  },
+  "9": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "27",
+        0
+      ],
+      "filename_prefix": "OpenLayer_Camera_Angle"
+    },
+    "_meta": {
+      "title": "Save Image"
+    }
+  }
+}

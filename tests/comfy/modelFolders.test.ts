@@ -53,7 +53,8 @@ describe("model folder mapping", () => {
       IPAdapterModelLoader: "ipadapter",
       IPAdapterUnifiedLoader: "ipadapter",
       LoadBackgroundRemovalModel: "background_removal",
-      LoadLaMaModel: "lama"
+      LoadLaMaModel: "lama",
+      LoraLoaderModelOnly: "loras"
     });
   });
 
@@ -70,7 +71,8 @@ describe("model folder mapping", () => {
       clipVisionModels: "clip_vision",
       ipAdapterModels: "ipadapter",
       backgroundRemovalModels: "background_removal",
-      inpaintModels: "lama"
+      inpaintModels: "lama",
+      loraModels: "loras"
     });
 
     const loaderFolders = Object.values(MODEL_FOLDER_BY_OBJECT_INFO_NODE);

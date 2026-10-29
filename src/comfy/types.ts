@@ -32,6 +32,7 @@ export type WorkflowPreset =
   | "unflatten-qwen-layered"
   | "remove-background-birefnet"
   | "select-sam31"
+  | "camera-angle-qwen-edit-2511"
   | "layer-maps-depth"
   | "layer-maps-lineart"
   | "layer-maps-normal"
@@ -50,7 +51,8 @@ export type WorkflowMode =
   | "remove-background"
   | "layer-maps"
   | "enhance-prompt"
-  | "select";
+  | "select"
+  | "camera-angle";
 export type ModelFamily = "sd1" | "sdxl" | "sd3" | "flux" | "flux2" | "zImage" | "unknown";
 export type WorkflowToolType = WorkflowMode | "realtime";
 export type WorkflowLoaderType =
@@ -185,6 +187,7 @@ export type ComfyModelInventory = {
   ipAdapterModels: string[];
   backgroundRemovalModels: string[];
   inpaintModels: string[];
+  loraModels: string[];
   missingSources: string[];
 };
 
@@ -400,6 +403,15 @@ export type BuildSelectWorkflowOptions = {
   modelName: string;
   /** What the artist typed. The builder adds SAM's `:N` count where it is missing. */
   prompt: string;
+};
+
+export type BuildCameraAngleWorkflowOptions = {
+  presetId?: WorkflowPreset;
+  sourceImageName: string;
+  direction: string;
+  height: string;
+  distance: string;
+  seed: number;
 };
 
 export type BuildUpscaleWorkflowOptions = {
@@ -685,7 +697,9 @@ export type WorkflowModelSourceKind =
   /** An object-removal model that fills a mask from its surroundings (LaMa). */
   | "inpaint-model"
   /** A text-prompted segmentation model (SAM 3.1), loaded as a checkpoint. */
-  | "segmentation";
+  | "segmentation"
+  /** A LoRA the graph cannot run without, loaded by LoraLoaderModelOnly. */
+  | "lora";
 
 export type WorkflowModelSource = {
   kind: WorkflowModelSourceKind;
@@ -712,7 +726,8 @@ export type WorkflowModelFolder =
   | "clip_vision"
   | "ipadapter"
   | "background_removal"
-  | "lama";
+  | "lama"
+  | "loras";
 
 /**
  * A model whose terms have to be accepted by a person before it is fetched.

@@ -47,7 +47,9 @@ const STATE_LABELS: Record<WorkflowHealthState, string> = {
   experimental: "Experimental",
   "missing-model": "Missing model",
   "missing-node": "Missing ComfyUI node",
-  "missing-workflow": "Needs workflow JSON",
+  // Covers both reasons a preset is `todo`: no authored workflow, or one that
+  // has not had its first measured run (camera-angle-qwen-edit-2511).
+  "missing-workflow": "Not runnable yet",
   "setup-required": "Setup required"
 };
 
@@ -128,7 +130,7 @@ function createHealthSummary(
     case "experimental":
       return "Experimental but available for testing. Duplicate important layers before production work.";
     case "missing-workflow":
-      return `A validated OpenLayer API workflow is not ready yet.${nextStep ? ` ${nextStep}` : ""}`;
+      return preset.disabledReason ?? `A validated OpenLayer API workflow is not ready yet.${nextStep ? ` ${nextStep}` : ""}`;
     case "missing-node":
     case "missing-model":
     case "setup-required":
@@ -164,7 +166,7 @@ function createReportSummary(
   stateCounts: Record<WorkflowHealthState, number>
 ) {
   const details = [
-    stateCounts["missing-workflow"] > 0 ? `${stateCounts["missing-workflow"]} need workflow JSON` : "",
+    stateCounts["missing-workflow"] > 0 ? `${stateCounts["missing-workflow"]} not runnable yet` : "",
     stateCounts["missing-model"] > 0 ? `${stateCounts["missing-model"]} missing model setup` : "",
     stateCounts["missing-node"] > 0 ? `${stateCounts["missing-node"]} missing ComfyUI nodes` : "",
     stateCounts["setup-required"] > 0 ? `${stateCounts["setup-required"]} need setup` : ""

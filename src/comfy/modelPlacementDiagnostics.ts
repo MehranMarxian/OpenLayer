@@ -27,7 +27,8 @@ const MODEL_INVENTORY_BUCKET_ORDER = [
   "clipVisionModels",
   "ipAdapterModels",
   "backgroundRemovalModels",
-  "inpaintModels"
+  "inpaintModels",
+  "loraModels"
 ] as const satisfies readonly ComfyModelInventoryBucket[];
 
 export type MisplacedModel = {

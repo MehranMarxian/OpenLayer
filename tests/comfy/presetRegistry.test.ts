@@ -144,6 +144,27 @@ describe("presetRegistry", () => {
     expect(preset.compatibilityNote).toMatch(/SAM License, commercial use allowed/);
   });
 
+  it("registers the camera-angle preset as not runnable until its spike", () => {
+    const preset = getWorkflowPreset("camera-angle-qwen-edit-2511");
+
+    expect(preset.mode).toBe("camera-angle");
+    // Flipped to "experimental" only by the PR that records a measured run.
+    expect(preset.status).toBe("todo");
+    expect(preset.disabledReason).toMatch(/first measured run/);
+    expect(listRunnableWorkflowPresets().map((runnable) => runnable.id)).not.toContain("camera-angle-qwen-edit-2511");
+    expect(preset.requiredModels?.map((model) => [model.modelName, model.kind, model.downloadSizeBytes, model.licenseGate])).toEqual([
+      ["qwen_image_edit_2511_int8_convrot.safetensors", "diffusion-model-stack", 20499083824, undefined],
+      ["qwen_2.5_vl_7b_fp8_scaled.safetensors", "clip", 9384670680, undefined],
+      ["qwen_image_vae.safetensors", "vae", 253806246, undefined],
+      ["Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors", "lora", 849608296, undefined],
+      ["qwen-image-edit-2511-multiple-angles-lora.safetensors", "lora", 295140688, undefined]
+    ]);
+    // The encoder and VAE are the very records Qwen-Image-Layered and Krea-2
+    // use, so the setup pack counts each file once.
+    expect(preset.requiredModels?.[1]).toBe(getWorkflowPreset("unflatten-qwen-layered").requiredModels?.[1]);
+    expect(preset.requiredModels?.[2]).toBe(getWorkflowPreset("txt2img-krea2-turbo").modelStack?.[2]);
+  });
+
   it("keeps the Select by Text hint plain text", () => {
     const hint = getWorkflowPreset("select-sam31").capability?.uiHints.screenHint ?? "";
 

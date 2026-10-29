@@ -469,6 +469,66 @@ const KREA2_TURBO_STACK = [
 ] as const;
 
 /**
+ * Qwen-Image-Edit-2511 with fal's 96-pose camera LoRA. Built from ComfyUI's own
+ * image_qwen_image_edit_2511_int8 template (templates 0.11.66) with its
+ * Lightning switch fixed on, so 4 steps at CFG 1. Everything here is
+ * Apache-2.0 and ungated; sizes and sha256 from the X-Linked headers on
+ * 2026-10-29.
+ *
+ * The text encoder and VAE are files other stacks already list: the Qwen2.5-VL
+ * encoder from Qwen-Image-Layered and the Qwen image VAE from Krea-2. They are
+ * reused by reference so the setup pack counts each file once.
+ *
+ * NOT YET RUN. The 20.5 GB diffusion model has not been downloaded to the dev
+ * rig, so nothing about speed, memory or quality on a 12 GB card is known; the
+ * preset stays `todo` until it has been.
+ */
+const QWEN_IMAGE_EDIT_2511_DIFFUSION_MODEL = {
+  kind: "diffusion-model-stack",
+  objectInfoNode: "UNETLoader",
+  inputName: "unet_name",
+  label: "Qwen-Image-Edit 2511 diffusion model",
+  modelName: "qwen_image_edit_2511_int8_convrot.safetensors",
+  setupHint: "Install qwen_image_edit_2511_int8_convrot.safetensors in ComfyUI models/diffusion_models.",
+  downloadUrl: "https://huggingface.co/Comfy-Org/Qwen-Image-Edit/resolve/main/split_files/diffusion_models/qwen_image_edit_2511_int8_convrot.safetensors",
+  sourcePageUrl: "https://huggingface.co/Comfy-Org/Qwen-Image-Edit",
+  downloadSizeBytes: 20499083824,
+  sha256: "11b5af5ac601821d73930c84846c9a158e67177356daf927ce1c8d10f3963829"
+} as const;
+
+const QWEN_IMAGE_EDIT_2511_LIGHTNING_LORA = {
+  kind: "lora",
+  objectInfoNode: "LoraLoaderModelOnly",
+  inputName: "lora_name",
+  label: "Qwen-Image-Edit 2511 Lightning 4-step LoRA",
+  modelName: "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors",
+  setupHint: "Install Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors in ComfyUI models/loras.",
+  downloadUrl: "https://huggingface.co/lightx2v/Qwen-Image-Edit-2511-Lightning/resolve/main/Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors",
+  sourcePageUrl: "https://huggingface.co/lightx2v/Qwen-Image-Edit-2511-Lightning",
+  downloadSizeBytes: 849608296,
+  sha256: "22226e8d05d354bb356627d428809f5afd7819399b077238a2b70a82883a904f"
+} as const;
+
+const QWEN_IMAGE_EDIT_2511_ANGLES_LORA = {
+  kind: "lora",
+  objectInfoNode: "LoraLoaderModelOnly",
+  inputName: "lora_name",
+  label: "Multiple-angles camera LoRA",
+  modelName: "qwen-image-edit-2511-multiple-angles-lora.safetensors",
+  setupHint: "Install qwen-image-edit-2511-multiple-angles-lora.safetensors in ComfyUI models/loras.",
+  downloadUrl: "https://huggingface.co/fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA/resolve/main/qwen-image-edit-2511-multiple-angles-lora.safetensors",
+  sourcePageUrl: "https://huggingface.co/fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA",
+  downloadSizeBytes: 295140688,
+  sha256: "42426ded4e25fd22879d9e198b857556445ef4ca56e8da3246d0345155bb6765"
+} as const;
+
+const QWEN_IMAGE_EDIT_2511_STACK = [
+  QWEN_IMAGE_EDIT_2511_DIFFUSION_MODEL,
+  QWEN_IMAGE_LAYERED_STACK[1],
+  KREA2_TURBO_STACK[2]
+] as const;
+
+/**
  * Qwen-Image 2.1: one model for text-to-image, instruction editing and
  * multi-image composition. All three files come from Comfy-Org's public
  * repackaging (verified 200 without a token, sizes by HEAD on 2026-09-23) and
@@ -1321,6 +1381,35 @@ const SELECT_SAM31_NODES = {
   boxReport: "15"
 } as const;
 
+/**
+ * Node ids match src/workflows/api/camera-angle-qwen-edit-2511.json exactly,
+ * exported from the ComfyUI 0.37.0 editor. Departures from the template: the
+ * Lightning switch is gone (always on), the angles LoRA follows the Lightning
+ * LoRA at the card's suggested 0.9, and GetImageSize + ImageScale return the
+ * result at the captured layer's size, as edit-qwen-image-21 does.
+ */
+const CAMERA_ANGLE_QWEN_EDIT_2511_NODES = {
+  loadImage: "10",
+  diffusionModelLoader: "11",
+  clipLoader: "12",
+  vaeLoader: "13",
+  modelSampling: "14",
+  cfgNorm: "15",
+  lightningLora: "16",
+  anglesLora: "17",
+  editScale: "18",
+  positiveEncode: "19",
+  negativeEncode: "20",
+  positiveReference: "21",
+  negativeReference: "22",
+  sourceEncode: "23",
+  sampler: "24",
+  decode: "25",
+  sourceSize: "26",
+  outputScale: "27",
+  saveImage: "9"
+} as const;
+
 const UPSCALE_BASIC_NODES = {
   loadImage: "10",
   upscaleModelLoader: "11",
@@ -1545,6 +1634,13 @@ const SELECT_SAM31_INJECTIONS = {
   checkpoint: target(SELECT_SAM31_NODES.samLoader, "ckpt_name"),
   sourceImage: target(SELECT_SAM31_NODES.loadImage, "image"),
   positivePrompt: target(SELECT_SAM31_NODES.textEncode, "text")
+} as const;
+
+const CAMERA_ANGLE_QWEN_EDIT_2511_INJECTIONS = {
+  checkpoint: target(CAMERA_ANGLE_QWEN_EDIT_2511_NODES.diffusionModelLoader, "unet_name"),
+  sourceImage: target(CAMERA_ANGLE_QWEN_EDIT_2511_NODES.loadImage, "image"),
+  positivePrompt: target(CAMERA_ANGLE_QWEN_EDIT_2511_NODES.positiveEncode, "prompt"),
+  seed: target(CAMERA_ANGLE_QWEN_EDIT_2511_NODES.sampler, "seed")
 } as const;
 
 const INPAINT_LAMA_INJECTIONS = {
@@ -2609,6 +2705,25 @@ const SELECT_SAM31_CAPABILITY: WorkflowCapability = {
   }
 };
 
+const CAMERA_ANGLE_QWEN_EDIT_2511_CAPABILITY: WorkflowCapability = {
+  toolType: "camera-angle",
+  loaderType: "diffusion-model-stack",
+  artistLabel: "Camera Angle",
+  technicalLabel: "camera-angle-qwen-edit-2511",
+  requiredPhotoshopInputs: [{ anyOf: ["active-layer", "canvas"], label: "an active layer or captured canvas" }],
+  controls: ["seed"],
+  output: {
+    kind: "source-sized-image",
+    size: "source",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: false,
+    modelSelectorLabel: "Diffusion model",
+    primaryActionLabel: "Change Camera Angle"
+  }
+};
+
 const ENHANCE_PROMPT_SUPERPROMPT_CAPABILITY: WorkflowCapability = {
   toolType: "enhance-prompt",
   loaderType: "prompt-expander",
@@ -3361,6 +3476,62 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
         classType: "PreviewAny",
         requiredInputs: ["source"]
       }
+    ]
+  },
+  {
+    id: "camera-angle-qwen-edit-2511",
+    label: "camera-angle-qwen-edit-2511",
+    displayName: "Qwen-Image-Edit 2511 + angles LoRA",
+    mode: "camera-angle",
+    description:
+      "Re-shoots the captured layer from another camera position: one of 8 directions, 4 heights and 3 distances, with Qwen-Image-Edit 2511 and fal's multiple-angles LoRA.",
+    workflowFile: "workflows/api/camera-angle-qwen-edit-2511.json",
+    sourceWorkflowFile: "workflows/source/camera-angle-qwen-edit-2511.workflow.json",
+    // Not runnable until the 20.5 GB model has been run on a 12 GB card. Flip
+    // to "experimental" in the PR that records that spike.
+    status: "todo",
+    disabledReason:
+      "Camera Angle is waiting for its first measured run: the 20.5 GB Qwen-Image-Edit 2511 model has not been tested on a 12 GB card yet.",
+    recommendedSettings: { steps: 4, cfg: 1 },
+    supportedModelFamilies: ["unknown"],
+    experimentalModelFamilies: ["sd1", "sdxl", "sd3", "flux", "flux2", "zImage"],
+    modelSource: DIFFUSION_MODEL_SOURCE,
+    capability: CAMERA_ANGLE_QWEN_EDIT_2511_CAPABILITY,
+    modelStack: [...QWEN_IMAGE_EDIT_2511_STACK],
+    requiredModels: [...QWEN_IMAGE_EDIT_2511_STACK, QWEN_IMAGE_EDIT_2511_LIGHTNING_LORA, QWEN_IMAGE_EDIT_2511_ANGLES_LORA],
+    injections: CAMERA_ANGLE_QWEN_EDIT_2511_INJECTIONS,
+    compatibilityNote:
+      "camera-angle-qwen-edit-2511 is ComfyUI's own Qwen-Image-Edit 2511 int8 template with the Lightning 4-step LoRA always on and fal's multiple-angles LoRA after it. Core nodes only, ComfyUI 0.37. All files Apache-2.0: the 20.5 GB int8 diffusion model, the Qwen2.5-VL encoder and Qwen image VAE that Qwen-Image-Layered and Krea-2 already use, and two LoRAs (0.85 GB and 0.3 GB) in models/loras.",
+    requiredNodes: [
+      { id: CAMERA_ANGLE_QWEN_EDIT_2511_NODES.loadImage, classType: "LoadImage", requiredInputs: ["image"] },
+      { id: CAMERA_ANGLE_QWEN_EDIT_2511_NODES.diffusionModelLoader, classType: "UNETLoader", requiredInputs: ["unet_name", "weight_dtype"] },
+      { id: CAMERA_ANGLE_QWEN_EDIT_2511_NODES.clipLoader, classType: "CLIPLoader", requiredInputs: ["clip_name", "type"] },
+      { id: CAMERA_ANGLE_QWEN_EDIT_2511_NODES.vaeLoader, classType: "VAELoader", requiredInputs: ["vae_name"] },
+      { id: CAMERA_ANGLE_QWEN_EDIT_2511_NODES.modelSampling, classType: "ModelSamplingAuraFlow", requiredInputs: ["model", "shift"] },
+      { id: CAMERA_ANGLE_QWEN_EDIT_2511_NODES.cfgNorm, classType: "CFGNorm", requiredInputs: ["model", "strength"] },
+      { id: CAMERA_ANGLE_QWEN_EDIT_2511_NODES.lightningLora, classType: "LoraLoaderModelOnly", requiredInputs: ["model", "lora_name", "strength_model"] },
+      { id: CAMERA_ANGLE_QWEN_EDIT_2511_NODES.anglesLora, classType: "LoraLoaderModelOnly", requiredInputs: ["model", "lora_name", "strength_model"] },
+      { id: CAMERA_ANGLE_QWEN_EDIT_2511_NODES.editScale, classType: "FluxKontextImageScale", requiredInputs: ["image"] },
+      {
+        // vae and image1 are optional in the schema, but they are what make the
+        // layer a reference latent rather than only something the encoder read.
+        id: CAMERA_ANGLE_QWEN_EDIT_2511_NODES.positiveEncode,
+        classType: "TextEncodeQwenImageEditPlus",
+        requiredInputs: ["clip", "prompt", "vae", "image1"]
+      },
+      { id: CAMERA_ANGLE_QWEN_EDIT_2511_NODES.negativeEncode, classType: "TextEncodeQwenImageEditPlus", requiredInputs: ["clip", "prompt", "vae", "image1"] },
+      { id: CAMERA_ANGLE_QWEN_EDIT_2511_NODES.positiveReference, classType: "FluxKontextMultiReferenceLatentMethod", requiredInputs: ["conditioning", "reference_latents_method"] },
+      { id: CAMERA_ANGLE_QWEN_EDIT_2511_NODES.negativeReference, classType: "FluxKontextMultiReferenceLatentMethod", requiredInputs: ["conditioning", "reference_latents_method"] },
+      { id: CAMERA_ANGLE_QWEN_EDIT_2511_NODES.sourceEncode, classType: "VAEEncode", requiredInputs: ["pixels", "vae"] },
+      {
+        id: CAMERA_ANGLE_QWEN_EDIT_2511_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["model", "seed", "steps", "cfg", "sampler_name", "scheduler", "positive", "negative", "latent_image", "denoise"]
+      },
+      { id: CAMERA_ANGLE_QWEN_EDIT_2511_NODES.decode, classType: "VAEDecode", requiredInputs: ["samples", "vae"] },
+      { id: CAMERA_ANGLE_QWEN_EDIT_2511_NODES.sourceSize, classType: "GetImageSize", requiredInputs: ["image"] },
+      { id: CAMERA_ANGLE_QWEN_EDIT_2511_NODES.outputScale, classType: "ImageScale", requiredInputs: ["image", "upscale_method", "width", "height", "crop"] },
+      { id: CAMERA_ANGLE_QWEN_EDIT_2511_NODES.saveImage, classType: "SaveImage", requiredInputs: ["images", "filename_prefix"] }
     ]
   },
   {
