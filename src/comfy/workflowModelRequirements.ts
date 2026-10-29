@@ -71,6 +71,10 @@ function getModelBucket(inventory: Partial<ComfyModelInventory>, kind: WorkflowR
       return inventory.backgroundRemovalModels ?? [];
     case "inpaint-model":
       return inventory.inpaintModels ?? [];
+    // SAM 3.1 is opened by CheckpointLoaderSimple, so it is listed with the
+    // checkpoints rather than in a bucket of its own.
+    case "segmentation":
+      return inventory.checkpoints ?? [];
     default:
       return [];
   }

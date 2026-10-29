@@ -146,6 +146,7 @@ describe("required model inventory", () => {
         "LLM/Florence-2-base-PromptGen-v2.0",
         "background_removal/birefnet.safetensors",
         "checkpoints/flux1-dev-fp8.safetensors",
+        "checkpoints/sam3.1_multiplex_fp16.safetensors",
         "controlnet/control_v11f1p_sd15_depth_fp16.safetensors",
         "controlnet/control_v11p_sd15_lineart_fp16.safetensors",
         "controlnet/control_v11p_sd15_scribble_fp16.safetensors",

@@ -31,6 +31,7 @@ export type WorkflowPreset =
   | "multi-reference-flux2-klein"
   | "unflatten-qwen-layered"
   | "remove-background-birefnet"
+  | "select-sam31"
   | "layer-maps-depth"
   | "layer-maps-lineart"
   | "layer-maps-normal"
@@ -48,7 +49,8 @@ export type WorkflowMode =
   | "unflatten"
   | "remove-background"
   | "layer-maps"
-  | "enhance-prompt";
+  | "enhance-prompt"
+  | "select";
 export type ModelFamily = "sd1" | "sdxl" | "sd3" | "flux" | "flux2" | "zImage" | "unknown";
 export type WorkflowToolType = WorkflowMode | "realtime";
 export type WorkflowLoaderType =
@@ -65,7 +67,9 @@ export type WorkflowLoaderType =
   | "layer-map"
   | "prompt-expander"
   /** An object-removal model that fills a mask from its surroundings (LaMa). */
-  | "inpaint-model";
+  | "inpaint-model"
+  /** A text-prompted segmentation model that returns a mask (SAM 3.1). */
+  | "segmentation";
 export type WorkflowControlId =
   | "prompt"
   | "negativePrompt"
@@ -103,7 +107,9 @@ export type WorkflowOutputKind =
   | "prompt-text"
   | "upscaled-image"
   /** The source's own pixels, unchanged, carrying a new alpha channel. */
-  | "cutout-image";
+  | "cutout-image"
+  /** A black-and-white mask of the source's size, white where the subject is. */
+  | "selection-mask";
 export type WorkflowOutputSize =
   | "preset"
   | "source"
@@ -112,7 +118,7 @@ export type WorkflowOutputSize =
   | "upscaled"
   /** Derived from the first reference after it is normalised to 1 MP. */
   | "first-reference";
-export type WorkflowImportBehavior = "new-layer" | "aligned-layer" | "future-layer-mask" | "none";
+export type WorkflowImportBehavior = "new-layer" | "aligned-layer" | "future-layer-mask" | "selection" | "none";
 
 export type WorkflowCapabilityUiHints = {
   showModelSelector: boolean;
@@ -386,6 +392,14 @@ export type BuildRemoveBackgroundWorkflowOptions = {
   presetId?: WorkflowPreset;
   sourceImageName: string;
   modelName: string;
+};
+
+export type BuildSelectWorkflowOptions = {
+  presetId?: WorkflowPreset;
+  sourceImageName: string;
+  modelName: string;
+  /** What the artist typed. The builder adds SAM's `:N` count where it is missing. */
+  prompt: string;
 };
 
 export type BuildUpscaleWorkflowOptions = {
@@ -669,7 +683,9 @@ export type WorkflowModelSourceKind =
   /** A text-to-text prompt expander, loaded by its own node. */
   | "prompt-expander"
   /** An object-removal model that fills a mask from its surroundings (LaMa). */
-  | "inpaint-model";
+  | "inpaint-model"
+  /** A text-prompted segmentation model (SAM 3.1), loaded as a checkpoint. */
+  | "segmentation";
 
 export type WorkflowModelSource = {
   kind: WorkflowModelSourceKind;

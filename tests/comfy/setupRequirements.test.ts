@@ -318,6 +318,8 @@ function getInventoryBucket(
       return inventory.backgroundRemovalModels;
     case "inpaint-model":
       return inventory.inpaintModels;
+    case "segmentation":
+      return inventory.checkpoints;
   }
 }
 
