@@ -1,6 +1,6 @@
 import { createLayerName, deleteTemporaryFileBestEffort, saveBlobToTemporaryFile } from "../utils/fileUtils";
 import { createOpenLayerError, getErrorMessage } from "../utils/errors";
-import { encodeRgbaPng } from "../utils/png";
+import { encodeRgbaPng, setPngResolution } from "../utils/png";
 import { calculatePlacementOffset, createOpaqueGrayscaleMaskPng, PixelDimensions } from "./exactInpaintMask";
 import { OutpaintExpansionPlan } from "./outpaintExpansion";
 import { UpscaleResizePlan } from "./upscaleResize";
@@ -77,6 +77,8 @@ type PhotoshopDocument = {
   name?: string;
   width?: number;
   height?: number;
+  // Pixels per inch. Placed PNGs are stamped with it (saveBlobForPlacement).
+  resolution?: number;
   // Top-level layers, topmost first. Used to build the mask sandwich above the
   // whole stack so the composite selection cannot read the artist's artwork.
   layers?: PhotoshopLayer[];
@@ -312,7 +314,7 @@ export async function importGeneratedImageAsLayer(
     }
 
     options.onProgress?.("Saving generated image to a temporary PNG...");
-    file = await saveBlobToTemporaryFile(options.blob, `${layerName}.png`);
+    file = await saveBlobForPlacement(options.blob, `${layerName}.png`);
     const uxp = getUxp();
     options.onProgress?.("Creating Photoshop file token...");
     const token = await uxp.storage.localFileSystem.createSessionToken(file);
@@ -614,9 +616,9 @@ export async function importImageAlignedToSelectionWithLayerMask(
     });
 
     options.onProgress?.("Saving inpaint result to a temporary PNG...");
-    file = await saveBlobToTemporaryFile(options.blob, `${layerName}.png`);
+    file = await saveBlobForPlacement(options.blob, `${layerName}.png`);
     const maskLayerName = `__OpenLayer_InpaintMask_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-    maskFile = await saveBlobToTemporaryFile(opaqueMaskBlob, `${maskLayerName}.png`);
+    maskFile = await saveBlobForPlacement(opaqueMaskBlob, `${maskLayerName}.png`);
     const uxp = getUxp();
     options.onProgress?.("Creating Photoshop file token...");
     const token = await uxp.storage.localFileSystem.createSessionToken(file);
@@ -988,7 +990,7 @@ export async function importImageAlignedToSelection(options: AlignedRegionalImpo
     const layerName = options.layerName ?? createLayerName("OpenLayer_Inpaint");
 
     options.onProgress?.("Saving inpaint result to a temporary PNG...");
-    file = await saveBlobToTemporaryFile(options.blob, `${layerName}.png`);
+    file = await saveBlobForPlacement(options.blob, `${layerName}.png`);
     const uxp = getUxp();
     options.onProgress?.("Creating Photoshop file token...");
     const token = await uxp.storage.localFileSystem.createSessionToken(file);
@@ -1048,7 +1050,7 @@ export async function importOutpaintResultExpandingCanvas(
     }
 
     options.onProgress?.("Saving outpaint result to a temporary PNG...");
-    file = await saveBlobToTemporaryFile(options.blob, `${layerName}.png`);
+    file = await saveBlobForPlacement(options.blob, `${layerName}.png`);
     const uxp = getUxp();
     options.onProgress?.("Creating Photoshop file token...");
     const token = await uxp.storage.localFileSystem.createSessionToken(file);
@@ -1179,7 +1181,7 @@ export async function importUpscaleResultResizingDocument(
     }
 
     options.onProgress?.("Saving upscale result to a temporary PNG...");
-    file = await saveBlobToTemporaryFile(options.blob, `${layerName}.png`);
+    file = await saveBlobForPlacement(options.blob, `${layerName}.png`);
     const uxp = getUxp();
     options.onProgress?.("Creating Photoshop file token...");
     const token = await uxp.storage.localFileSystem.createSessionToken(file);
@@ -1458,7 +1460,7 @@ export async function importUnflattenLayerStack(
 
     for (const placement of plan.placements) {
       options.onProgress?.(`Saving ${placement.layerName} to a temporary PNG...`);
-      const file = await saveBlobToTemporaryFile(
+      const file = await saveBlobForPlacement(
         options.images[placement.imageIndex].blob,
         `OpenLayer_Unflatten_${stamp}_${placement.depth}.png`
       );
@@ -1470,7 +1472,7 @@ export async function importUnflattenLayerStack(
 
     if (options.sourceBlob && options.sourceBlob.size > 0) {
       options.onProgress?.("Saving the captured source for masking...");
-      const sourceFile = await saveBlobToTemporaryFile(
+      const sourceFile = await saveBlobForPlacement(
         options.sourceBlob,
         `OpenLayer_Unflatten_${stamp}_source.png`
       );
@@ -2621,6 +2623,26 @@ function assertActiveDocumentMatchesOrigin(
   if (!validation.ok) {
     throw createOpenLayerError("PHOTOSHOP_IMPORT_FAILED", validation.message);
   }
+}
+
+/**
+ * Saves a PNG that is about to be placed, stamped with the active document's
+ * resolution. `placeEvent` preserves physical size, so an unstamped PNG (72 ppi
+ * by default) arrived 3.33 times too large in a 240 ppi document, and every
+ * import path here only translates what it placed. See `setPngResolution`.
+ * The caller has already asserted the active document is the originating one.
+ */
+async function saveBlobForPlacement(blob: Blob, fileName: string) {
+  const pixelsPerInch = Number(getPhotoshop().app.activeDocument?.resolution ?? 0);
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const stamped = setPngResolution(bytes, pixelsPerInch);
+
+  if (stamped === bytes) {
+    return saveBlobToTemporaryFile(blob, fileName);
+  }
+
+  const buffer = stamped.buffer.slice(stamped.byteOffset, stamped.byteOffset + stamped.byteLength) as ArrayBuffer;
+  return saveBlobToTemporaryFile(new Blob([buffer], { type: "image/png" }), fileName);
 }
 
 async function placeFileAsLayer(photoshop: PhotoshopModule, token: string) {
