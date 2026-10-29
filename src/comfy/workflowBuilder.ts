@@ -24,6 +24,7 @@ import upscaleBasicWorkflow from "../workflows/api/upscale-basic.json";
 import upscaleSeedvr2Workflow from "../workflows/api/upscale-seedvr2-3b.json";
 import inpaintLamaWorkflow from "../workflows/api/inpaint-lama.json";
 import selectSam31Workflow from "../workflows/api/select-sam31.json";
+import cameraAngleQwenEdit2511Workflow from "../workflows/api/camera-angle-qwen-edit-2511.json";
 import styleReferenceSd15Workflow from "../workflows/api/style-reference-sd15.json";
 import multiReferenceFlux2KleinWorkflow from "../workflows/api/multi-reference-flux2-klein.json";
 import txt2imgQwenImage21Workflow from "../workflows/api/txt2img-qwen-image-21.json";
@@ -40,6 +41,7 @@ import {
   BuildUnflattenWorkflowOptions,
   BuildRemoveBackgroundWorkflowOptions,
   BuildSelectWorkflowOptions,
+  BuildCameraAngleWorkflowOptions,
   BuildLayerMapsWorkflowOptions,
   BuildEnhancePromptWorkflowOptions,
   BuildUpscaleWorkflowOptions,
@@ -62,6 +64,7 @@ import { presetUsesEmbeddedMaskAlpha } from "./fluxFillMaskBridge";
 import { createOpenLayerError } from "../utils/errors";
 import { getUpscaleOutputLimitProblem } from "./upscaleOutputLimit";
 import { normalizeSelectionPrompt } from "./selectionPrompt";
+import { buildCameraAnglePrompt } from "./cameraAngle";
 
 const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
   "txt2img-basic": txt2imgBasicWorkflow as ComfyWorkflow,
@@ -90,6 +93,7 @@ const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
   "upscale-seedvr2-3b": upscaleSeedvr2Workflow as ComfyWorkflow,
   "inpaint-lama": inpaintLamaWorkflow as ComfyWorkflow,
   "select-sam31": selectSam31Workflow as ComfyWorkflow,
+  "camera-angle-qwen-edit-2511": cameraAngleQwenEdit2511Workflow as ComfyWorkflow,
   "style-reference-sd15": styleReferenceSd15Workflow as ComfyWorkflow,
   "multi-reference-flux2-klein": multiReferenceFlux2KleinWorkflow as ComfyWorkflow,
   "txt2img-qwen-image-21": txt2imgQwenImage21Workflow as ComfyWorkflow,
@@ -672,6 +676,46 @@ export async function buildUpscaleWorkflow(options: BuildUpscaleWorkflowOptions)
     seed: 0,
     preset
   };
+}
+
+/**
+ * Camera Angle. The pose comes from three lists, never from free text: the
+ * angles LoRA was trained on 96 exact phrases and buildCameraAnglePrompt
+ * writes one of them. Steps and CFG are not injected -- 4 and 1 are the
+ * Lightning LoRA's operating point and are fixed in the graph.
+ */
+export async function buildCameraAngleWorkflow(options: BuildCameraAngleWorkflowOptions): Promise<BuildWorkflowResult> {
+  const preset = getWorkflowPreset(options.presetId ?? "camera-angle-qwen-edit-2511");
+  assertPresetMode(preset, "camera-angle");
+  assertPresetRunnable(preset);
+  const workflow = await cloneWorkflowTemplate(preset);
+
+  return { workflow: injectCameraAngle(workflow, preset, options), seed: options.seed, preset };
+}
+
+/**
+ * The injection step on its own, so the graph wiring can be tested while the
+ * preset is still `todo` (and buildCameraAngleWorkflow refuses to run it).
+ */
+export function injectCameraAngle(
+  workflow: ComfyWorkflow,
+  preset: WorkflowPresetDefinition,
+  options: BuildCameraAngleWorkflowOptions
+): ComfyWorkflow {
+  validateWorkflowForPreset(workflow, preset);
+
+  setPresetInput(workflow, preset, "sourceImage", options.sourceImageName, true);
+  setPresetInput(
+    workflow,
+    preset,
+    "positivePrompt",
+    buildCameraAnglePrompt({ direction: options.direction, height: options.height, distance: options.distance }),
+    true
+  );
+  setPresetInput(workflow, preset, "seed", options.seed, true);
+
+  validateWorkflowForPreset(workflow, preset);
+  return workflow;
 }
 
 async function cloneWorkflowTemplate(preset: WorkflowPresetDefinition): Promise<ComfyWorkflow> {

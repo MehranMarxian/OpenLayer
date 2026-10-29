@@ -75,6 +75,8 @@ function getModelBucket(inventory: Partial<ComfyModelInventory>, kind: WorkflowR
     // checkpoints rather than in a bucket of its own.
     case "segmentation":
       return inventory.checkpoints ?? [];
+    case "lora":
+      return inventory.loraModels ?? [];
     default:
       return [];
   }

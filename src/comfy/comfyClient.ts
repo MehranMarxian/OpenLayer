@@ -102,6 +102,11 @@ export const MODEL_INVENTORY_SOURCES = {
   // node fetches it on first run), so this reads present even before it is.
   inpaintModels: [
     { objectInfoNode: "LoadLaMaModel", inputName: "model_name", label: "LaMa loader" }
+  ],
+  // LoRAs a preset cannot run without (the camera-angle LoRAs), as opposed to
+  // the optional style LoRAs the panel splices in, which read LoraLoader.
+  loraModels: [
+    { objectInfoNode: "LoraLoaderModelOnly", inputName: "lora_name", label: "LoRA loader" }
   ]
 } as const;
 
@@ -226,6 +231,7 @@ export class ComfyClient {
       ipAdapterModels: [],
       backgroundRemovalModels: [],
       inpaintModels: [],
+      loraModels: [],
       missingSources: []
     };
 
@@ -245,6 +251,7 @@ export class ComfyClient {
       MODEL_INVENTORY_SOURCES.backgroundRemovalModels
     );
     await this.collectInventoryNames(inventory, "inpaintModels", MODEL_INVENTORY_SOURCES.inpaintModels);
+    await this.collectInventoryNames(inventory, "loraModels", MODEL_INVENTORY_SOURCES.loraModels);
 
     return inventory;
   }

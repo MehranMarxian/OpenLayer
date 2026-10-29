@@ -5,7 +5,9 @@ import {
   buildMultiReferenceWorkflow,
   buildOutpaintWorkflow,
   buildPromptFromLayerWorkflow,
+  buildCameraAngleWorkflow,
   buildSelectWorkflow,
+  injectCameraAngle,
   buildSketchToImageWorkflow,
   buildTxt2ImgWorkflow,
   buildUpscaleWorkflow
@@ -13,6 +15,8 @@ import {
 import { FLUX_FILL_REFERENCE_DEFAULTS } from "../../src/comfy/fluxFillDefaults";
 import { getWorkflowPreset, listRunnableWorkflowPresets, presetTakesPrompt } from "../../src/comfy/presetRegistry";
 import { createRequiredModelSelectionKey } from "../../src/comfy/workflowModelRequirements";
+import cameraAngleTemplate from "../../src/workflows/api/camera-angle-qwen-edit-2511.json";
+import type { ComfyWorkflow } from "../../src/comfy/types";
 
 describe("workflowBuilder", () => {
   it("injects text-to-image settings into txt2img-basic", async () => {
@@ -295,6 +299,40 @@ describe("workflowBuilder", () => {
         prompt: " , "
       })
     ).rejects.toMatchObject({ code: "PROMPT_REQUIRED" });
+  });
+
+  it("writes the chosen pose, source and seed into the camera-angle graph", () => {
+    const workflow = JSON.parse(JSON.stringify(cameraAngleTemplate)) as ComfyWorkflow;
+    const result = injectCameraAngle(workflow, getWorkflowPreset("camera-angle-qwen-edit-2511"), {
+      sourceImageName: "openlayer-camera-angle-source.png",
+      direction: "back-left",
+      height: "high",
+      distance: "close-up",
+      seed: 77
+    });
+
+    expect(result["10"].inputs.image).toBe("openlayer-camera-angle-source.png");
+    expect(result["19"].inputs.prompt).toBe("<sks> back-left quarter view high-angle shot close-up");
+    expect(result["20"].inputs.prompt).toBe("");
+    expect(result["24"].inputs).toMatchObject({ seed: 77, steps: 4, cfg: 1, model: ["17", 0] });
+    // Lightning first, then the angles LoRA at the card's 0.9.
+    expect(result["16"].inputs).toMatchObject({ lora_name: "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors", strength_model: 1 });
+    expect(result["17"].inputs).toMatchObject({ lora_name: "qwen-image-edit-2511-multiple-angles-lora.safetensors", strength_model: 0.9, model: ["16", 0] });
+    // Back to the captured layer's own size.
+    expect(result["27"].inputs).toMatchObject({ image: ["25", 0], width: ["26", 0], height: ["26", 1] });
+    expect(result["9"].inputs.images).toEqual(["27", 0]);
+  });
+
+  it("refuses to run the camera-angle preset before its first measured run", async () => {
+    await expect(
+      buildCameraAngleWorkflow({
+        sourceImageName: "openlayer-camera-angle-source.png",
+        direction: "front",
+        height: "eye-level",
+        distance: "medium",
+        seed: 1
+      })
+    ).rejects.toMatchObject({ code: "WORKFLOW_PRESET_UNSUPPORTED" });
   });
 
   it("lets only inpaint-lama go without a prompt and a seed", () => {
