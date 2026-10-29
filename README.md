@@ -68,7 +68,7 @@ anywhere; ComfyUI runs on your own machine.
 | **Image to Image** | Use the active layer as visual input |
 | **Edit Image** | Change a layer or a selection by describing it — "make the jacket red", or bring in a second layer: "put the teapot from `<image2>` here" |
 | **Sketch to Image** | Guide generation with your line art |
-| **Inpaint** | Repaint a selection in place |
+| **Inpaint** | Repaint a selection in place, or remove the object in it with LaMa |
 | **Outpaint** | Extend canvas content beyond the edges |
 | **Upscale** | Enlarge a layer 4x with an upscale model, or restore it 2x with SeedVR2 (generative) |
 | **Remove Background** | Cut the subject out onto its own layer, with real alpha |
@@ -393,9 +393,15 @@ weights hold bold sparse line art that the full weights flatten into a filled sh
 | Flux Fill | **Flux Fill stack** (34.2 GB, non-commercial) | — |
 | Flux Fill (crop & stitch) | **Flux Fill stack** — 0 extra GB | [comfyui-inpaint-cropandstitch](https://github.com/lquesada/ComfyUI-Inpaint-CropAndStitch) |
 | Standard checkpoint | your own SD 1.x **inpaint** checkpoint | — |
+| Remove object (LaMa) | `big-lama.pt` → `models/lama/` (206 MB, Apache-2.0 LaMa; the node downloads it on first run if missing) | [comfyui-art-venture](https://github.com/sipherxyz/comfyui-art-venture) |
 
 Crop-and-stitch samples the masked area at a fixed 1024 and blends the patch back, so a small mask on
 a large document no longer samples a few hundred pixels.
+
+**Remove object (LaMa)** is the one Inpaint preset with no prompt: it fills the selection from what
+surrounds it, in 2 to 4 seconds, and every pixel outside the selection comes back unchanged. Select
+a little more than the object, shadow included. Large selections come back smeared. It needs no
+diffusion model at all, but its add-on is a heavy one (twelve Python dependencies).
 
 </details>
 
