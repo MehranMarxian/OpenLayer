@@ -1,5 +1,5 @@
 import { isExplainedRejection } from "../comfy/workflowRejection";
-import { getErrorMessage, getTechnicalErrorDetails } from "../utils/errors";
+import { OpenLayerError, getErrorMessage, getTechnicalErrorDetails } from "../utils/errors";
 
 /**
  * Artist-facing failure copy for the generating tools.
@@ -343,6 +343,17 @@ export function getUpscaleFailureHint(error: unknown) {
 
   const details = getTechnicalErrorDetails(error).toLowerCase();
 
+  // The size refusal already says exactly what to do; the 180-character
+  // fallback below would cut it off before the size that would work.
+  if (error instanceof OpenLayerError && error.code === "UPSCALE_SOURCE_TOO_LARGE") {
+    return error.message;
+  }
+
+  // Ahead of the generic branches below, which all assume the ESRGAN preset and
+  // would send a SeedVR2 user off to install 4x-UltraSharp.
+  const seedvr2Hint = getSeedvr2UpscaleHint(details);
+  if (seedvr2Hint) return seedvr2Hint;
+
   if (details.includes("upscale-basic.json") || details.includes("workflow file")) {
     return "The bundled upscale-basic workflow file was not found in this build. Rebuild OpenLayer and reload the plugin.";
   }
@@ -367,6 +378,26 @@ export function getUpscaleFailureHint(error: unknown) {
 
   const message = getTechnicalErrorDetails(error);
   return message.length > 180 ? `${message.slice(0, 180)}...` : message;
+}
+
+function getSeedvr2UpscaleHint(details: string): string | null {
+  if (details.includes("upscale-seedvr2-3b.json")) {
+    return "The bundled upscale-seedvr2-3b workflow file was not found in this build. Rebuild OpenLayer and reload the plugin.";
+  }
+
+  if (
+    details.includes("seedvr2preprocess") ||
+    details.includes("seedvr2conditioning") ||
+    details.includes("seedvr2postprocessing")
+  ) {
+    return "The SeedVR2 upscale preset needs ComfyUI 0.25.0 or later, which added the SeedVR2 nodes. Update ComfyUI, then click Check ComfyUI again.";
+  }
+
+  if (details.includes("seedvr2_")) {
+    return "Install seedvr2_3b_int8_convrot.safetensors in ComfyUI models/diffusion_models and seedvr2_ema_vae_fp16.safetensors in models/vae, then click Check ComfyUI again.";
+  }
+
+  return null;
 }
 
 export function getFriendlyUpscaleErrorMessage(error: unknown) {
