@@ -18,7 +18,8 @@ const MODE_LABELS: Record<WorkflowPresetDefinition["mode"], string> = {
   unflatten: "Unflatten",
   "remove-background": "Remove Background",
   "layer-maps": "Layer Maps",
-  "enhance-prompt": "Enhance Prompt"
+  "enhance-prompt": "Enhance Prompt",
+  select: "Select by Text"
 };
 
 const DEFAULT_CONTROLS: Record<WorkflowPresetDefinition["mode"], readonly WorkflowControlId[]> = {
@@ -58,7 +59,10 @@ const DEFAULT_CONTROLS: Record<WorkflowPresetDefinition["mode"], readonly Workfl
   // Empty for a different reason from the two above: this preset does have
   // knobs (the instruction and a length cap), but the panel drives them from
   // one button rather than offering them as fields.
-  "enhance-prompt": []
+  "enhance-prompt": [],
+  // Only the prompt. SAM reads the image and what to look for; it has no
+  // sampler, so there is no seed, steps or CFG to offer.
+  select: ["prompt"]
 };
 
 export function getWorkflowCapability(preset: WorkflowPresetDefinition): WorkflowCapability {

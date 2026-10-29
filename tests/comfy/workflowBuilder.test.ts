@@ -5,6 +5,7 @@ import {
   buildMultiReferenceWorkflow,
   buildOutpaintWorkflow,
   buildPromptFromLayerWorkflow,
+  buildSelectWorkflow,
   buildSketchToImageWorkflow,
   buildTxt2ImgWorkflow,
   buildUpscaleWorkflow
@@ -259,6 +260,41 @@ describe("workflowBuilder", () => {
     expect(result.workflow["14"].inputs).toMatchObject({ destination: ["10", 0], source: ["15", 0], mask: ["13", 0] });
     expect(result.workflow["9"].inputs.images).toEqual(["14", 0]);
     expect(JSON.stringify(result.workflow)).not.toMatch(/"seed"|"steps"|"denoise"|"text"/);
+  });
+
+  it("builds select-sam31 with a count on every subject and no sampler", async () => {
+    const result = await buildSelectWorkflow({
+      sourceImageName: "openlayer-select-source.png",
+      modelName: "sam3.1_multiplex_fp16.safetensors",
+      prompt: "chair, umbrella:3"
+    });
+
+    expect(result.preset.id).toBe("select-sam31");
+    expect(result.seed).toBe(0);
+    expect(result.workflow["10"].inputs.image).toBe("openlayer-select-source.png");
+    expect(result.workflow["11"].inputs.ckpt_name).toBe("sam3.1_multiplex_fp16.safetensors");
+    // A bare "chair" would select one chair; the builder adds the ceiling.
+    expect(result.workflow["12"].inputs.text).toBe("chair:10, umbrella:3");
+    expect(result.workflow["13"].inputs).toMatchObject({
+      model: ["11", 0],
+      image: ["10", 0],
+      conditioning: ["12", 0],
+      individual_masks: false
+    });
+    expect(result.workflow["14"].inputs.mask).toEqual(["13", 0]);
+    expect(result.workflow["9"].inputs.images).toEqual(["14", 0]);
+  });
+
+  it("refuses to run select-sam31 with nothing to look for", async () => {
+    // An empty prompt would come back as an all-black mask, which reads as
+    // "nothing found" when the problem is that nothing was asked.
+    await expect(
+      buildSelectWorkflow({
+        sourceImageName: "openlayer-select-source.png",
+        modelName: "sam3.1_multiplex_fp16.safetensors",
+        prompt: " , "
+      })
+    ).rejects.toMatchObject({ code: "PROMPT_REQUIRED" });
   });
 
   it("lets only inpaint-lama go without a prompt and a seed", () => {

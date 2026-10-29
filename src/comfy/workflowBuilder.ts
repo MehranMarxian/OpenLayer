@@ -23,6 +23,7 @@ import outpaintFluxFillBasicWorkflow from "../workflows/api/outpaint-flux-fill-b
 import upscaleBasicWorkflow from "../workflows/api/upscale-basic.json";
 import upscaleSeedvr2Workflow from "../workflows/api/upscale-seedvr2-3b.json";
 import inpaintLamaWorkflow from "../workflows/api/inpaint-lama.json";
+import selectSam31Workflow from "../workflows/api/select-sam31.json";
 import styleReferenceSd15Workflow from "../workflows/api/style-reference-sd15.json";
 import multiReferenceFlux2KleinWorkflow from "../workflows/api/multi-reference-flux2-klein.json";
 import txt2imgQwenImage21Workflow from "../workflows/api/txt2img-qwen-image-21.json";
@@ -38,6 +39,7 @@ import {
   BuildStyleReferenceWorkflowOptions,
   BuildUnflattenWorkflowOptions,
   BuildRemoveBackgroundWorkflowOptions,
+  BuildSelectWorkflowOptions,
   BuildLayerMapsWorkflowOptions,
   BuildEnhancePromptWorkflowOptions,
   BuildUpscaleWorkflowOptions,
@@ -59,6 +61,7 @@ import { applyFluxFillReferenceDefaults, isFluxFillPreset } from "./fluxFillDefa
 import { presetUsesEmbeddedMaskAlpha } from "./fluxFillMaskBridge";
 import { createOpenLayerError } from "../utils/errors";
 import { getUpscaleOutputLimitProblem } from "./upscaleOutputLimit";
+import { normalizeSelectionPrompt } from "./selectionPrompt";
 
 const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
   "txt2img-basic": txt2imgBasicWorkflow as ComfyWorkflow,
@@ -86,6 +89,7 @@ const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
   "upscale-basic": upscaleBasicWorkflow as ComfyWorkflow,
   "upscale-seedvr2-3b": upscaleSeedvr2Workflow as ComfyWorkflow,
   "inpaint-lama": inpaintLamaWorkflow as ComfyWorkflow,
+  "select-sam31": selectSam31Workflow as ComfyWorkflow,
   "style-reference-sd15": styleReferenceSd15Workflow as ComfyWorkflow,
   "multi-reference-flux2-klein": multiReferenceFlux2KleinWorkflow as ComfyWorkflow,
   "txt2img-qwen-image-21": txt2imgQwenImage21Workflow as ComfyWorkflow,
@@ -492,6 +496,43 @@ export async function buildRemoveBackgroundWorkflow(
   if (preset.placementAnchor) {
     anchorSavedImage(workflow, preset.placementAnchor, "anchor");
   }
+
+  validateWorkflowForPreset(workflow, preset);
+
+  return {
+    workflow,
+    seed: 0,
+    preset
+  };
+}
+
+/**
+ * Select by Text. Seed is 0 and stays 0: SAM 3.1 has no sampler, so the same
+ * image and prompt return the same mask every time.
+ *
+ * The prompt is rewritten before it reaches the graph, because a bare subject
+ * makes SAM return a single object (see selectionPrompt.ts). An empty prompt is
+ * refused here rather than sent: SAM would look for nothing and return an
+ * all-black mask, which reads as "nothing found" when the real problem is that
+ * nothing was asked.
+ */
+export async function buildSelectWorkflow(options: BuildSelectWorkflowOptions): Promise<BuildWorkflowResult> {
+  const preset = getWorkflowPreset(options.presetId ?? "select-sam31");
+  assertPresetMode(preset, "select");
+  assertPresetRunnable(preset);
+  const prompt = normalizeSelectionPrompt(options.prompt);
+
+  if (!prompt) {
+    throw createOpenLayerError("PROMPT_REQUIRED", "Name what to select before running Select by Text.");
+  }
+
+  const workflow = await cloneWorkflowTemplate(preset);
+
+  validateWorkflowForPreset(workflow, preset);
+
+  setPresetInput(workflow, preset, "sourceImage", options.sourceImageName, true);
+  setPresetInput(workflow, preset, "checkpoint", options.modelName, true);
+  setPresetInput(workflow, preset, "positivePrompt", prompt, true);
 
   validateWorkflowForPreset(workflow, preset);
 

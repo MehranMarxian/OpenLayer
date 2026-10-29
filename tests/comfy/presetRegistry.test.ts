@@ -113,6 +113,43 @@ describe("presetRegistry", () => {
     expect(preset.requiredNodes.map((node) => node.classType)).not.toContain("INPAINT_InpaintWithModel");
   });
 
+  it("registers select-sam31 as a core-node SAM 3.1 selection preset", () => {
+    const preset = getWorkflowPreset("select-sam31");
+
+    expect(preset.status).toBe("stable");
+    expect(preset.mode).toBe("select");
+    expect(preset.modelSource).toMatchObject({
+      kind: "segmentation",
+      objectInfoNode: "CheckpointLoaderSimple",
+      inputName: "ckpt_name"
+    });
+    expect(preset.injections.positivePrompt).toEqual({ nodeId: "12", inputName: "text" });
+    expect(preset.injections.seed).toBeUndefined();
+    // SAM License allows commercial use; it is not gated like the research-only
+    // and non-commercial weights.
+    expect(preset.requiredModels?.map((model) => [model.modelName, model.downloadSizeBytes, model.licenseGate])).toEqual([
+      ["sam3.1_multiplex_fp16.safetensors", 1745546848, undefined]
+    ]);
+    expect(preset.requiredModels?.[0]?.sha256).toBe("9ba99c92703c2e8b4f47de2d34a539bb8e18923049e238b780d70dbe6368eb03");
+    expect(preset.capability?.output).toEqual({ kind: "selection-mask", size: "source", importBehavior: "selection" });
+    expect(preset.requiredNodes.map((node) => node.classType)).toEqual([
+      "LoadImage",
+      "CheckpointLoaderSimple",
+      "CLIPTextEncode",
+      "SAM3_Detect",
+      "MaskToImage",
+      "SaveImage"
+    ]);
+    expect(preset.compatibilityNote).toMatch(/SAM License, commercial use allowed/);
+  });
+
+  it("keeps the Select by Text hint plain text", () => {
+    const hint = getWorkflowPreset("select-sam31").capability?.uiHints.screenHint ?? "";
+
+    expect(hint).toMatch(/chair:20/);
+    expect(hint).not.toMatch(/`|--|\*\*|Photoshop plugin/);
+  });
+
   it("tells the artist the LaMa preset ignores the prompt, in plain text", () => {
     const warning = getWorkflowPreset("inpaint-lama").capability?.uiHints.warning ?? "";
 

@@ -130,6 +130,20 @@ const LAMA_MODEL_SOURCE = {
   label: "LaMa model"
 } as const;
 
+/**
+ * SAM 3.1 ships as a single checkpoint that ComfyUI's own CheckpointLoaderSimple
+ * opens: its MODEL output is the detector and its CLIP output is SAM's text
+ * encoder. So it lives in models/checkpoints and is read from the same
+ * inventory bucket as every diffusion checkpoint. The separate kind exists so
+ * nothing treats it as an image model, and so the picker can be filtered to it.
+ */
+const SEGMENTATION_MODEL_SOURCE = {
+  kind: "segmentation",
+  objectInfoNode: "CheckpointLoaderSimple",
+  inputName: "ckpt_name",
+  label: "Segmentation model"
+} as const;
+
 const BACKGROUND_REMOVAL_MODEL_SOURCE = {
   kind: "background-removal",
   objectInfoNode: "LoadBackgroundRemovalModel",
@@ -617,6 +631,35 @@ const LAMA_BIG_MODEL = {
   sourcePageUrl: "https://github.com/advimman/lama",
   downloadSizeBytes: 205669692,
   sha256: "344c77bbcb158f17dd143070d1e789f38a66c04202311ae3a258ef66667a9ea9"
+} as const;
+
+/**
+ * Meta's SAM License (19 November 2025), read in full from the copy beside the
+ * file (https://huggingface.co/Comfy-Org/sam3.1/blob/main/LICENSE). It is NOT a
+ * non-commercial licence: the grant is royalty-free and covers use,
+ * reproduction and distribution. Its conditions are acceptable-use ones --
+ * no military, weapons or export-controlled use, credit in research
+ * publications, the licence travels with any redistribution -- the same shape
+ * as the OpenRAIL terms on the SD 1.5 ControlNet v1.1 weights, which are not
+ * gated either.
+ * A licenseGate here would keep the in-panel download from fetching it and file
+ * it beside the research-only Qwen and non-commercial FLUX weights, which would
+ * misdescribe it. The licence is named in the preset's compatibility note.
+ *
+ * Comfy-Org's ungated mirror, the URL in ComfyUI's own SAM 3 template
+ * (utility_image_segment_sam3, templates 0.11.66). facebook/sam3.1 itself is
+ * gated behind a manual approval. Size and sha256 from the X-Linked headers,
+ * and both matched the downloaded file on the dev rig on 2026-10-29.
+ */
+const SAM31_MODEL = {
+  ...SEGMENTATION_MODEL_SOURCE,
+  label: "SAM 3.1 model",
+  modelName: "sam3.1_multiplex_fp16.safetensors",
+  setupHint: "Install sam3.1_multiplex_fp16.safetensors in ComfyUI models/checkpoints.",
+  downloadUrl: "https://huggingface.co/Comfy-Org/sam3.1/resolve/main/checkpoints/sam3.1_multiplex_fp16.safetensors",
+  sourcePageUrl: "https://huggingface.co/Comfy-Org/sam3.1",
+  downloadSizeBytes: 1745546848,
+  sha256: "9ba99c92703c2e8b4f47de2d34a539bb8e18923049e238b780d70dbe6368eb03"
 } as const;
 
 const UPSCALE_BASIC_MODEL = {
@@ -1255,6 +1298,23 @@ const REMOVE_BACKGROUND_BIREFNET_NODES = {
   saveImage: "9"
 } as const;
 
+/**
+ * Node ids match src/workflows/api/select-sam31.json exactly. The graph is
+ * ComfyUI's own SAM 3 image template (utility_image_segment_sam3) with a
+ * MaskToImage and SaveImage on the end so the mask comes back as a PNG, built
+ * and exported in the ComfyUI 0.37.0 editor. Core nodes only. Measured on a
+ * 4070 Ti: 9.4 s cold, 1.3 to 2.2 s warm, 3.5 GiB peak at 1024 x 768 and
+ * 4.4 GiB at 2048 x 1536.
+ */
+const SELECT_SAM31_NODES = {
+  loadImage: "10",
+  samLoader: "11",
+  textEncode: "12",
+  detect: "13",
+  maskToImage: "14",
+  saveImage: "9"
+} as const;
+
 const UPSCALE_BASIC_NODES = {
   loadImage: "10",
   upscaleModelLoader: "11",
@@ -1475,6 +1535,12 @@ const INPAINT_BASIC_INJECTIONS = {
 
 // No prompt, seed, steps, CFG or denoise: LaMa takes an image and a mask and
 // nothing else, and the builder and readiness check key off these absences.
+const SELECT_SAM31_INJECTIONS = {
+  checkpoint: target(SELECT_SAM31_NODES.samLoader, "ckpt_name"),
+  sourceImage: target(SELECT_SAM31_NODES.loadImage, "image"),
+  positivePrompt: target(SELECT_SAM31_NODES.textEncode, "text")
+} as const;
+
 const INPAINT_LAMA_INJECTIONS = {
   checkpoint: target(INPAINT_LAMA_NODES.lamaLoader, "model_name"),
   sourceImage: target(INPAINT_LAMA_NODES.loadImage, "image"),
@@ -2516,6 +2582,27 @@ const REMOVE_BACKGROUND_BIREFNET_CAPABILITY: WorkflowCapability = {
   }
 };
 
+const SELECT_SAM31_CAPABILITY: WorkflowCapability = {
+  toolType: "select",
+  loaderType: "segmentation",
+  artistLabel: "Select by Text",
+  technicalLabel: "select-sam31",
+  requiredPhotoshopInputs: [{ anyOf: ["active-layer", "canvas"], label: "an active layer or captured canvas" }],
+  controls: ["prompt"],
+  output: {
+    kind: "selection-mask",
+    size: "source",
+    importBehavior: "selection"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "Segmentation model",
+    primaryActionLabel: "Select",
+    screenHint:
+      "Name what to select, for example chair or the red car. Separate several things with commas. OpenLayer selects up to 10 of each; write chair:20 to allow more."
+  }
+};
+
 const ENHANCE_PROMPT_SUPERPROMPT_CAPABILITY: WorkflowCapability = {
   toolType: "enhance-prompt",
   loaderType: "prompt-expander",
@@ -3206,6 +3293,60 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
       },
       {
         id: REMOVE_BACKGROUND_BIREFNET_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images", "filename_prefix"]
+      }
+    ]
+  },
+  {
+    id: "select-sam31",
+    label: "select-sam31",
+    displayName: "SAM 3.1",
+    mode: "select",
+    description:
+      "Finds what you name in a layer or the canvas with Meta's SAM 3.1 and returns it as a selection mask. No diffusion: the pixels are not changed.",
+    workflowFile: "workflows/api/select-sam31.json",
+    sourceWorkflowFile: "workflows/source/select-sam31.workflow.json",
+    status: "stable",
+    supportedModelFamilies: ["unknown"],
+    experimentalModelFamilies: ["sd1", "sdxl", "sd3", "flux", "flux2", "zImage"],
+    modelSource: SEGMENTATION_MODEL_SOURCE,
+    capability: SELECT_SAM31_CAPABILITY,
+    requiredModels: [SAM31_MODEL],
+    injections: SELECT_SAM31_INJECTIONS,
+    compatibilityNote:
+      "select-sam31 runs on ComfyUI's own SAM 3 nodes, core in ComfyUI 0.37, and needs one file: sam3.1_multiplex_fp16.safetensors (1.75 GB, Meta's SAM License, commercial use allowed) in models/checkpoints. The mask is hard-edged, 0 or 255 with nothing between, and a subject that is not in the picture returns an all-black mask.",
+    requiredNodes: [
+      {
+        id: SELECT_SAM31_NODES.loadImage,
+        classType: "LoadImage",
+        requiredInputs: ["image"]
+      },
+      {
+        id: SELECT_SAM31_NODES.samLoader,
+        classType: "CheckpointLoaderSimple",
+        requiredInputs: ["ckpt_name"]
+      },
+      {
+        id: SELECT_SAM31_NODES.textEncode,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        // conditioning is optional in SAM3_Detect's own schema (boxes and
+        // points are the other ways to prompt it), but this graph depends on
+        // it: without text SAM has nothing to look for.
+        id: SELECT_SAM31_NODES.detect,
+        classType: "SAM3_Detect",
+        requiredInputs: ["model", "image", "conditioning", "threshold", "refine_iterations", "individual_masks"]
+      },
+      {
+        id: SELECT_SAM31_NODES.maskToImage,
+        classType: "MaskToImage",
+        requiredInputs: ["mask"]
+      },
+      {
+        id: SELECT_SAM31_NODES.saveImage,
         classType: "SaveImage",
         requiredInputs: ["images", "filename_prefix"]
       }
