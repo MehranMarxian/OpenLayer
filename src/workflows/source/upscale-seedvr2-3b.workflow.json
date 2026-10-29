@@ -813,10 +813,10 @@
         "Node name for S&R": "SeedVR2PostProcessing"
       },
       "widgets_values": [
-        "lab"
+        "none"
       ],
       "widgets_values_named": {
-        "color_correction_method": "lab"
+        "color_correction_method": "none"
       }
     },
     {

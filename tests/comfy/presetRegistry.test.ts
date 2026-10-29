@@ -86,7 +86,13 @@ describe("presetRegistry", () => {
     for (const classType of ["SeedVR2Preprocess", "SeedVR2Conditioning", "SeedVR2PostProcessing"]) {
       expect(preset.requiredNodes.some((node) => node.classType === classType)).toBe(true);
     }
-    expect(preset.upscaleOutputLimit).toEqual({ scale: 2, maxOutputPixels: 5120 * 3840 });
+    expect(preset.upscaleOutputLimit).toEqual({
+      scale: 2,
+      measuredMaxOutputPixels: 5120 * 3840,
+      measuredVramTotalBytes: 12878086144,
+      vramBytesPerOutputPixel: 185,
+      minOutputPixels: 2048 * 2048
+    });
   });
 
   it("says plainly that the SeedVR2 preset invents detail", () => {

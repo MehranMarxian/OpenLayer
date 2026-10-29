@@ -390,11 +390,20 @@ export type BuildUpscaleWorkflowOptions = {
   modelName: string;
   /** The captured source size, checked against the preset's upscaleOutputLimit. */
   sourceDimensions?: { width: number; height: number };
+  /** Total VRAM ComfyUI reports, or null when it could not be read. */
+  vramTotalBytes?: number | null;
 };
 
 export type WorkflowUpscaleOutputLimit = {
+  /** Must equal the multiplier baked into the bundled graph. */
   scale: number;
-  maxOutputPixels: number;
+  /** The largest output measured to run at full speed, and the card it ran on. */
+  measuredMaxOutputPixels: number;
+  measuredVramTotalBytes: number;
+  /** Measured VRAM growth per output pixel; moves the limit to other cards. */
+  vramBytesPerOutputPixel: number;
+  /** Never refused below this, whatever the VRAM arithmetic says. */
+  minOutputPixels: number;
 };
 
 export type BuildEnhancePromptWorkflowOptions = {
@@ -803,7 +812,8 @@ export type WorkflowPresetDefinition = {
    * Present only on upscale presets whose cost grows with the output size and
    * that therefore refuse an oversized source before submitting it. `scale` must
    * equal the multiplier baked into the bundled graph (a test holds them
-   * together); `maxOutputPixels` is the largest output actually measured to run.
+   * together); the limit itself moves with the card's VRAM, see
+   * upscaleOutputLimit.ts.
    */
   upscaleOutputLimit?: WorkflowUpscaleOutputLimit;
   compatibilityNote?: string;

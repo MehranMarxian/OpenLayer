@@ -1208,14 +1208,18 @@ const UPSCALE_BASIC_NODES = {
  * in the ComfyUI 0.37.0 editor and run there on a 4070 Ti before this was
  * written. No custom nodes: SeedVR2 has been core since ComfyUI 0.25.0.
  *
- * Two departures from the template, both measured:
- * - the multiplier is 2, not 4. Time and memory follow OUTPUT pixels (about 3 s
- *   per megapixel, 11.0 GiB peak at 5120 x 3840), and 4x of an ordinary 2048
- *   canvas would be 67 MP, three times past the largest size that ran. 4x stays
- *   the job of upscale-basic.
- * - color correction is lab, ComfyUI's own default, where the template uses
- *   none. The model brightens and de-hazes; lab pulls the colours back toward
- *   the source without undoing the restored detail.
+ * One departure from the template, measured: the multiplier is 2, not 4. Time
+ * and memory follow OUTPUT pixels (about 3 s per megapixel), and 4x of an
+ * ordinary 2048 canvas would be 67 MP, far past what a 12 GB card ran. 4x stays
+ * the job of upscale-basic. The size limit is in upscaleOutputLimit.ts.
+ *
+ * Color correction is none, as in the template, and by Mehran's choice after
+ * PR #151 shipped with ComfyUI's default lab. Measured on the spike images:
+ * lab holds the result within one level of the source's mean colour, while
+ * none keeps the model's own look -- greener and punchier on a hazy photo
+ * (mean G +6, luminance spread 66 to 78), darker and warmer on a paper-cut
+ * illustration. The artist is asking for SeedVR2's restoration, so they get
+ * its colours too.
  *
  * JoinImageWithAlpha before the resize is the template's: SeedVR2Preprocess
  * drops alpha and SeedVR2PostProcessing re-applies it from the resized image, so
@@ -2546,7 +2550,7 @@ const UPSCALE_SEEDVR2_CAPABILITY: WorkflowCapability = {
     warning:
       "SeedVR2 is a generative restorer: it redraws fine detail and can invent texture, lettering or faces that were not in the source. Compare the result with the original before you rely on it.",
     experimentalNote:
-      "Fixed 2x upscale with SeedVR2 3B. No prompt is used. Sources larger than about 4.9 megapixels (for example 2560 x 1920) are refused, because the result would pass the largest size measured on a 12 GB card."
+      "Fixed 2x upscale with SeedVR2 3B. No prompt is used. Sources whose result would not fit your card's VRAM are refused: about 19.7 megapixels of result on 12 GB, scaled up or down with the VRAM ComfyUI reports."
   }
 };
 
@@ -2815,11 +2819,22 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     modelStack: [...SEEDVR2_3B_STACK],
     requiredModels: [...SEEDVR2_3B_STACK],
     injections: UPSCALE_SEEDVR2_INJECTIONS,
-    // Measured on a 4070 Ti 12 GB, ComfyUI 0.37.0: 5120 x 3840 out (19.7 MP)
-    // ran in 59.7 s at 11.0 GiB peak, of 12.0 GiB, with the desktop holding
-    // ~1.8 GiB. That is the largest output that was run, so it is the limit; a
-    // bigger source is refused before submit rather than left to offload or OOM.
-    upscaleOutputLimit: { scale: 2, maxOutputPixels: 5120 * 3840 },
+    // Measured on a 4070 Ti, ComfyUI 0.37.0, desktop holding ~1.8 GiB:
+    // 5120 x 3840 out (19.7 MP) ran at full speed, 59.7 s, 11.0 GiB peak of
+    // 12.0. 6144 x 4608 (28.3 MP) filled the card and ran 2.7x slower per
+    // pixel (232.7 s), so the knee lies between them and 19.7 MP is the anchor.
+    // 185 bytes per output pixel is the least-squares slope of peak VRAM over
+    // the six runs from 3.1 to 19.7 MP (177 MiB per MP); it predicts 12.8 GiB
+    // for 28.3 MP, which is the cliff that was observed. The 2048 x 2048 floor
+    // keeps a 1024 layer always allowed: below ~10 GB the arithmetic refuses
+    // everything, and there ComfyUI's own offloading is the better judge.
+    upscaleOutputLimit: {
+      scale: 2,
+      measuredMaxOutputPixels: 5120 * 3840,
+      measuredVramTotalBytes: 12878086144,
+      vramBytesPerOutputPixel: 185,
+      minOutputPixels: 2048 * 2048
+    },
     compatibilityNote:
       "SeedVR2 3B is a one-step diffusion restorer on core ComfyUI nodes (0.25.0 or later): UNETLoader, VAELoader, SeedVR2Preprocess, VAEEncodeTiled, SeedVR2Conditioning, KSampler at 1 step and CFG 1, VAEDecodeTiled and SeedVR2PostProcessing. Apache-2.0 and ungated. It invents plausible detail, so treat the result as a repaint, not a measurement.",
     requiredNodes: [

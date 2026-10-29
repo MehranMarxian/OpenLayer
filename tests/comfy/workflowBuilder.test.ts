@@ -135,6 +135,8 @@ describe("workflowBuilder", () => {
     // One-step distilled restorer: anything else is a different model.
     expect(result.workflow["18"].inputs).toMatchObject({ steps: 1, cfg: 1, denoise: 1 });
     expect(result.workflow["20"].inputs.original_resized_images).toEqual(["14", 0]);
+    // Mehran's call after #151: the model's own colours, not lab's pull back to the source.
+    expect(result.workflow["20"].inputs.color_correction_method).toBe("none");
     expect(result.workflow["9"].inputs.images).toEqual(["20", 0]);
   });
 
@@ -145,6 +147,22 @@ describe("workflowBuilder", () => {
       modelName: "seedvr2_3b_int8_convrot.safetensors",
       sourceDimensions: { width: 4000, height: 3000 }
     })).rejects.toMatchObject({ code: "UPSCALE_SOURCE_TOO_LARGE" });
+  });
+
+  it("moves the upscale-seedvr2-3b limit with the VRAM ComfyUI reports", async () => {
+    const options = {
+      presetId: "upscale-seedvr2-3b",
+      sourceImageName: "openlayer-upscale-source.png",
+      modelName: "seedvr2_3b_int8_convrot.safetensors",
+      sourceDimensions: { width: 3072, height: 2304 }
+    };
+
+    await expect(buildUpscaleWorkflow({ ...options, vramTotalBytes: 12878086144 })).rejects.toMatchObject({
+      code: "UPSCALE_SOURCE_TOO_LARGE"
+    });
+    await expect(buildUpscaleWorkflow({ ...options, vramTotalBytes: 16 * 1024 ** 3 })).resolves.toMatchObject({
+      preset: { id: "upscale-seedvr2-3b" }
+    });
   });
 
   it("leaves upscale-basic unlimited whatever the source size", async () => {
