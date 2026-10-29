@@ -424,8 +424,11 @@ the original before you rely on it. Apache-2.0, ungated, 3.96 GB:
 | `seedvr2_3b_int8_convrot.safetensors` | `models/diffusion_models/` | 3.46 GB |
 | `seedvr2_ema_vae_fp16.safetensors` | `models/vae/` | 501 MB |
 
-Always 2x. On a 12 GB RTX 4070 Ti a 1024 × 768 layer took 10 s and a 2560 × 1920 one 60 s; bigger
-sources are refused, because 5120 × 3840 is the largest result measured to fit. For 4x, use
+Always 2x, with the model's own colours (no colour correction back to the source). Time follows the
+size of the result: on a 12 GB RTX 4070 Ti a 2048 × 1536 result took 10 s and a 5120 × 3840 one
+60 s, while a 6144 × 4608 one filled the card and took four minutes. So the panel refuses sources whose result would not fit your card: about
+20 megapixels of result on 12 GB, scaled with the VRAM ComfyUI reports (roughly 43 on 16 GB, 89 on
+24 GB). Only the 12 GB card was measured; other sizes are estimated from it. For 4x, use
 4x-UltraSharp.
 
 </details>

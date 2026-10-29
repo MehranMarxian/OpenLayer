@@ -476,7 +476,7 @@
               <li>Layer, canvas, and mask capture is limited to 16 megapixels until a downscale option is added.</li>
               <li>Inpaint and Outpaint should be tested on duplicate layers first.</li>
               <li>Prompt from Layer requires the local Florence-2 PromptGen model and the comfyui-florence2 nodes. The custom-scripts pack is no longer needed.</li>
-              <li>Upscale offers a pixel/model 4x and a generative SeedVR2 3B 2x. SeedVR2 can invent detail, is fixed at 2x, and refuses sources whose result would pass 5120 x 3840, the largest measured on a 12 GB card. Tiled diffusion upscaling is future work.</li>
+              <li>Upscale offers a pixel/model 4x and a generative SeedVR2 3B 2x. SeedVR2 can invent detail, is fixed at 2x, and refuses sources whose result would not fit the card: about 20 megapixels on 12 GB (measured), scaled with the VRAM ComfyUI reports (estimated). Tiled diffusion upscaling is future work.</li>
               <li>Custom workflow import, batch variants, and generation metadata stored on the layer itself are future work. v0.39.0 keeps the shared metadata foundation and session-history wiring.</li>
               <li>The LoRA list cannot be filtered by which model a LoRA suits: ComfyUI reports only a name and size. Entries are labelled from their filenames and likely matches sorted first, but a mismatched LoRA loads without error and quietly does nothing.</li>
               <li>CI does not run Photoshop, UXP, or ComfyUI integration tests.</li>
