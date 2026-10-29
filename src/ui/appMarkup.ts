@@ -1705,7 +1705,7 @@ export function createAppMarkup() {
         </div>
 
         <div class="tool-warning" role="note">
-          Upscale uses pixel/model enlargement only. It does not reinterpret prompts or run diffusion sampling.
+          upscale-basic only enlarges pixels. upscale-seedvr2-3b is generative and can invent detail that was not in the source.
         </div>
 
         <section class="panel-section generator-panel source-panel" aria-label="Upscale source">
