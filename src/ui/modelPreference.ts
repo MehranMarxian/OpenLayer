@@ -1,5 +1,34 @@
 import { listRunnableWorkflowPresets } from "../comfy/presetRegistry";
 import type { WorkflowPresetDefinition } from "../comfy/types";
+import { getAcceptedModelNames } from "../comfy/workflowModelRequirements";
+
+/**
+ * The files the Upscale model picker offers for a preset.
+ *
+ * upscale-basic reads UpscaleModelLoader, whose folder holds nothing but
+ * upscale models, so its list passes through untouched. SeedVR2 reads
+ * UNETLoader, the folder every diffusion model shares, and the picker offered
+ * all of them -- qwen, sd3.5, Klein (Mehran's screenshot, 2026-10-29) -- none of
+ * which its graph can load. A preset on a shared loader now lists only its own
+ * files. When none is installed it lists the file it needs, so Generate reports
+ * that file missing instead of running someone else's model.
+ */
+export function listUpscaleModelOptions(modelNames: readonly string[], preset: WorkflowPresetDefinition): string[] {
+  if (preset.modelSource.kind !== "diffusion-model-stack") {
+    return [...modelNames];
+  }
+
+  const ownNames = (preset.modelStack ?? [])
+    .filter((model) => model.objectInfoNode === preset.modelSource.objectInfoNode)
+    .flatMap((model) => getAcceptedModelNames(model));
+
+  if (ownNames.length === 0) {
+    return [...modelNames];
+  }
+
+  const installed = ownNames.filter((name) => modelNames.includes(name));
+  return installed.length > 0 ? installed : ownNames;
+}
 
 /**
  * Whether a model refresh may keep the model that was selected before.

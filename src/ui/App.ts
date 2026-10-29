@@ -28,7 +28,7 @@ import { previewHub, PreviewPublicationKind, PreviewToolId } from "./previewHub"
 import { importBridge } from "./importBridge";
 import { agentBridge, createAgentChoiceField, createAgentToggleField } from "./agentBridge";
 import { readTextareaValue } from "./textareaValue";
-import { keepsPreferredModel } from "./modelPreference";
+import { keepsPreferredModel, listUpscaleModelOptions } from "./modelPreference";
 import { measureSelectionFraction, selectionEditStrength } from "../comfy/selectionEdit";
 import { decodeRgbaPng } from "../utils/png";
 import { AgentConnectionStatus, createAgentConnection, openWebSocket } from "./agentConnection";
@@ -8427,7 +8427,7 @@ async function refreshUpscaleModelOptionsForSelectedPreset(
   const preset = getWorkflowPreset(readSelectValue(elements.upscaleWorkflow, DEFAULT_UPSCALE_WORKFLOW));
 
   try {
-    const modelNames = await client.getModelNamesForPreset(preset);
+    const modelNames = listUpscaleModelOptions(await client.getModelNamesForPreset(preset), preset);
 
     if (modelNames.length > 0) {
       const preferredPresetModel = preset.requiredModels?.find(
