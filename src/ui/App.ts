@@ -64,6 +64,10 @@ import {
   InpaintReadiness
 } from "./inpaintReadiness";
 import {
+  evaluateInpaintSelectionFreshness,
+  InpaintSelectionFreshness
+} from "./inpaintSelectionFreshness";
+import {
   formatInpaintOutputDiagnostics,
   InpaintImportMode,
   readImageDimensionsFromBlob,
@@ -184,7 +188,8 @@ import {
   importUnflattenLayerStack,
   importImageAlignedToSelectionWithLayerMask,
   importOutpaintResultExpandingCanvas,
-  importUpscaleResultResizingDocument
+  importUpscaleResultResizingDocument,
+  readLiveSelection
 } from "../photoshop/photoshopAdapter";
 import {
   downloadModelFile,
@@ -6878,6 +6883,19 @@ export function renderApp(rootElement: HTMLElement) {
     }
   }
 
+  // A failed read must not stop a valid capture from generating: this check only
+  // exists to catch a visible disagreement, and it cannot see one here.
+  async function checkInpaintSelectionFreshness(
+    source: SelectedRegionSourceImage
+  ): Promise<InpaintSelectionFreshness> {
+    try {
+      return evaluateInpaintSelectionFreshness(source, await readLiveSelection());
+    } catch (caughtError) {
+      console.warn("[OpenLayer] Could not read the live selection", getTechnicalErrorDetails(caughtError));
+      return { stale: false };
+    }
+  }
+
   async function handleGenerateInpaint() {
     if (blockRegularGenerationDuringLivePainting((message) => setInpaintStatus(elements, message, "error"))) {
       return;
@@ -6933,14 +6951,30 @@ export function renderApp(rootElement: HTMLElement) {
     }
 
     setInpaintError(elements, "");
-    setInpaintResult(null);
     busyTool = "inpaint";
     isBusy = true;
     syncBusy();
-    setInpaintStatus(elements, "Preparing Inpaint workflow...", "idle");
-    setInpaintProgressPreview(elements, "Preparing Inpaint workflow...");
 
     try {
+      // Stops rather than recaptures: a recapture would also re-read the pixels
+      // and replace the previews the artist checked, without being asked to.
+      const selectionFreshness = await checkInpaintSelectionFreshness(submittedSource);
+
+      if (selectionFreshness.stale) {
+        reportInpaintNotReady({
+          ok: false,
+          reason: "selection-changed",
+          message: selectionFreshness.message,
+          technicalMessage: selectionFreshness.technicalMessage,
+          warnings: []
+        }, createInpaintWorkflowContext());
+        return;
+      }
+
+      setInpaintResult(null);
+      setInpaintStatus(elements, "Preparing Inpaint workflow...", "idle");
+      setInpaintProgressPreview(elements, "Preparing Inpaint workflow...");
+
       const preset = getWorkflowPreset(presetId);
       const checkpointName = readSelectValue(elements.inpaintCheckpoint);
       const { settings, warnings } = validateImageToImageSettings({

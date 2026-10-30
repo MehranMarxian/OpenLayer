@@ -493,6 +493,29 @@ export async function getActiveSelectionInfo(): Promise<ActiveSelectionInfo> {
   }
 }
 
+// A read-only look at the selection right now, for comparing against a capture.
+// Unlike getActiveSelectionInfo this takes no modal scope and treats "nothing
+// selected" as an answer rather than an error, because Generate calls it with an
+// otherwise valid capture in hand.
+export async function readLiveSelection(): Promise<{
+  documentId: number | null;
+  bounds: NormalizedSelectionBounds | null;
+}> {
+  const photoshop = getPhotoshop();
+  const document = photoshop.app.activeDocument;
+
+  if (!document) {
+    return { documentId: null, bounds: null };
+  }
+
+  const bounds = readSelectionBounds(await getSelectionDescriptor(photoshop));
+
+  return {
+    documentId: typeof document.id === "number" ? document.id : null,
+    bounds: bounds ? normalizeSelectionBounds(bounds) : null
+  };
+}
+
 export async function captureSelectionForInpainting(
   sourceMode: InpaintSourceMode = "visible-canvas"
 ): Promise<SelectedRegionSourceImage> {
