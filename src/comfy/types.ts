@@ -27,6 +27,7 @@ export type WorkflowPreset =
   | "upscale-basic"
   | "upscale-seedvr2-3b"
   | "inpaint-lama"
+  | "inpaint-lama-klein"
   | "style-reference-sd15"
   | "multi-reference-flux2-klein"
   | "unflatten-qwen-layered"
@@ -799,6 +800,12 @@ export type WorkflowRecommendedSettings = {
    */
   width?: number;
   height?: number;
+  /**
+   * Only for Inpaint presets that fail at the panel's default denoise. Remove
+   * object (LaMa + Klein) is one: at 0.75 the LaMa fill stays visible as grain,
+   * while 0.85 and 1 came back clean (measured 2026-10-30).
+   */
+  denoise?: number;
 };
 
 export type WorkflowPresetDefinition = {
@@ -856,6 +863,13 @@ export type WorkflowPresetDefinition = {
   upscaleOutputLimit?: WorkflowUpscaleOutputLimit;
   compatibilityNote?: string;
   disabledReason?: string;
+  /**
+   * Inpaint only: grow the captured selection mask outward by this many pixels
+   * before it is uploaded, and import with the same grown mask. For removal
+   * presets, where a selection that hugs the object leaves its outline just
+   * outside the mask. See src/photoshop/maskGrow.ts.
+   */
+  maskGrowPixels?: number;
 };
 
 export type ComfyPromptResponse = {

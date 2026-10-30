@@ -23,6 +23,7 @@ import outpaintFluxFillBasicWorkflow from "../workflows/api/outpaint-flux-fill-b
 import upscaleBasicWorkflow from "../workflows/api/upscale-basic.json";
 import upscaleSeedvr2Workflow from "../workflows/api/upscale-seedvr2-3b.json";
 import inpaintLamaWorkflow from "../workflows/api/inpaint-lama.json";
+import inpaintLamaKleinWorkflow from "../workflows/api/inpaint-lama-klein.json";
 import selectSam31Workflow from "../workflows/api/select-sam31.json";
 import cameraAngleQwenEdit2511Workflow from "../workflows/api/camera-angle-qwen-edit-2511.json";
 import styleReferenceSd15Workflow from "../workflows/api/style-reference-sd15.json";
@@ -92,6 +93,7 @@ const WORKFLOW_TEMPLATES: Partial<Record<WorkflowPreset, ComfyWorkflow>> = {
   "upscale-basic": upscaleBasicWorkflow as ComfyWorkflow,
   "upscale-seedvr2-3b": upscaleSeedvr2Workflow as ComfyWorkflow,
   "inpaint-lama": inpaintLamaWorkflow as ComfyWorkflow,
+  "inpaint-lama-klein": inpaintLamaKleinWorkflow as ComfyWorkflow,
   "select-sam31": selectSam31Workflow as ComfyWorkflow,
   "camera-angle-qwen-edit-2511": cameraAngleQwenEdit2511Workflow as ComfyWorkflow,
   "style-reference-sd15": styleReferenceSd15Workflow as ComfyWorkflow,

@@ -335,6 +335,31 @@ describe("workflowBuilder", () => {
     ).rejects.toMatchObject({ code: "WORKFLOW_PRESET_UNSUPPORTED" });
   });
 
+  it("builds inpaint-lama-klein with LaMa's fill feeding Klein's crop", async () => {
+    const result = await buildInpaintWorkflow({
+      presetId: "inpaint-lama-klein",
+      prompt: "dry brown hillside with rocky mountains behind",
+      checkpointName: "flux-2-klein-4b-fp8.safetensors",
+      sourceImageName: "openlayer-inpaint-source.png",
+      maskImageName: "openlayer-inpaint-mask.png",
+      steps: 4,
+      cfg: 1,
+      denoise: 1,
+      seed: 2026
+    });
+
+    expect(result.workflow["10"].inputs.image).toBe("openlayer-inpaint-source.png");
+    expect(result.workflow["12"].inputs.image).toBe("openlayer-inpaint-mask.png");
+    expect(result.workflow["6"].inputs.text).toBe("dry brown hillside with rocky mountains behind");
+    expect(result.workflow["20"].inputs.unet_name).toBe("flux-2-klein-4b-fp8.safetensors");
+    expect(result.workflow["3"].inputs).toMatchObject({ seed: 2026, steps: 4, cfg: 1, denoise: 1 });
+    // Klein crops LaMa's composite, not the original layer: that is what hides
+    // the object from Klein's reference latent.
+    expect(result.workflow["50"].inputs).toMatchObject({ image: ["14", 0], mask: ["13", 0] });
+    expect(result.workflow["14"].inputs).toMatchObject({ destination: ["10", 0], source: ["15", 0], mask: ["13", 0] });
+    expect(result.workflow["9"].inputs.images).toEqual(["51", 0]);
+  });
+
   it("lets only inpaint-lama go without a prompt and a seed", () => {
     // The builder and readiness relax prompt and sampler targets for any preset
     // without a prompt target. That must stay exactly one preset: every other
