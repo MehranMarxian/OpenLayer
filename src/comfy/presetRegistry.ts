@@ -4528,6 +4528,9 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     experimentalModelFamilies: ["unknown"],
     modelSource: DIFFUSION_MODEL_SOURCE,
     capability: INPAINT_LAMA_KLEIN_CAPABILITY,
+    // Measured: a Select by Text person mask as captured made Klein paint the
+    // person back from behind; the same mask grown 24 px came back clean.
+    maskGrowPixels: 24,
     modelStack: [...FLUX2_KLEIN_4B_STACK],
     requiredModels: [...FLUX2_KLEIN_4B_STACK, LAMA_BIG_MODEL],
     injections: INPAINT_LAMA_KLEIN_INJECTIONS,

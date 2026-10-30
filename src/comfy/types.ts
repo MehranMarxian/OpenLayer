@@ -857,6 +857,13 @@ export type WorkflowPresetDefinition = {
   upscaleOutputLimit?: WorkflowUpscaleOutputLimit;
   compatibilityNote?: string;
   disabledReason?: string;
+  /**
+   * Inpaint only: grow the captured selection mask outward by this many pixels
+   * before it is uploaded, and import with the same grown mask. For removal
+   * presets, where a selection that hugs the object leaves its outline just
+   * outside the mask. See src/photoshop/maskGrow.ts.
+   */
+  maskGrowPixels?: number;
 };
 
 export type ComfyPromptResponse = {

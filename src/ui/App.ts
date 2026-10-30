@@ -299,6 +299,7 @@ import {
 import {
   createInpaintImportContext,
   createInpaintSourceSnapshot,
+  growInpaintSourceMask,
   InpaintImportContext,
   resolveInpaintImportContext
 } from "./inpaintImportContext";
@@ -6902,7 +6903,19 @@ export function renderApp(rootElement: HTMLElement) {
     // Snapshot the capture the moment it passes the gate. Everything downstream
     // reads this frozen copy, so a selection captured while ComfyUI is still
     // generating cannot pair a new source with this run's result.
-    const submittedSource = createInpaintSourceSnapshot(inpaintSource!);
+    let submittedSource: SelectedRegionSourceImage;
+
+    try {
+      submittedSource = await growInpaintSourceMask(
+        createInpaintSourceSnapshot(inpaintSource!),
+        resolveInpaintPreset(presetId)?.maskGrowPixels
+      );
+    } catch (caughtError) {
+      setInpaintStatus(elements, "Inpaint failed.", "error");
+      setInpaintError(elements, `Could not prepare the selection mask. ${getErrorMessage(caughtError)}`);
+      return;
+    }
+
     const submittedMask = submittedSource.mask;
 
     // Readiness already proved the mask is present; this keeps the compiler
