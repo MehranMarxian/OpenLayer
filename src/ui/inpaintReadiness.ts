@@ -29,6 +29,9 @@ export type InpaintReadinessReason =
   | "context-bounds-unaligned"
   | "source-context-mismatch"
   | "selection-outside-context"
+  // Reported by inpaintSelectionFreshness, which needs a host read this pure
+  // contract cannot make.
+  | "selection-changed"
   | "checkpoint-missing"
   | "checkpoint-not-installed"
   | "flux-fill-mask-bridge-unavailable"
@@ -270,6 +273,7 @@ const READINESS_STATUS_LABELS: Record<InpaintReadinessReason, string> = {
   "context-bounds-unaligned": "Recapture required.",
   "source-context-mismatch": "Recapture required.",
   "selection-outside-context": "Recapture required.",
+  "selection-changed": "Recapture required.",
   "checkpoint-missing": "Checkpoint required.",
   "checkpoint-not-installed": "Checkpoint required.",
   "flux-fill-mask-bridge-unavailable": "Mask required.",
