@@ -174,6 +174,11 @@ describe("presetRegistry", () => {
     expect(hint).not.toMatch(/`|--|\*\*|Photoshop plugin/);
   });
 
+  it("recommends denoise 1 only for inpaint-lama-klein, where 0.75 left the fill as grain", () => {
+    expect(getRecommendedPresetSettings("inpaint-lama-klein").denoise).toBe(1);
+    expect(getRecommendedPresetSettings("inpaint-flux2-klein").denoise).toBeUndefined();
+  });
+
   it("registers inpaint-lama-klein as LaMa feeding the Klein crop-and-stitch graph", () => {
     const preset = getWorkflowPreset("inpaint-lama-klein");
 

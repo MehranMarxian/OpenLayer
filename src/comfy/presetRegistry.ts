@@ -2374,7 +2374,7 @@ const INPAINT_LAMA_KLEIN_CAPABILITY: WorkflowCapability = {
     modelSelectorLabel: "Klein model",
     primaryActionLabel: "Generate Inpaint",
     warning:
-      "For removing large things, such as a person. LaMa first fills the selection from its surroundings, then FLUX.2 Klein repaints that fill. Describe what should be there instead, not what you are removing, for example dry hillside with mountains behind. With an empty prompt the fill stays a smear. Select the whole object, shadow included. For small objects the faster Remove object (LaMa) preset is enough."
+      "For removing large things, such as a person. LaMa first fills the selection from its surroundings, then FLUX.2 Klein repaints that fill. Describe what should be there instead, not what you are removing, for example dry hillside with mountains behind. With an empty prompt the fill stays a smear. Select the whole object, shadow and anything carried included: a Select by Text person selection can leave a backpack out, and what is left outside gets painted back. Press Capture again after changing the selection. For small objects the faster Remove object (LaMa) preset is enough."
   }
 };
 
@@ -4523,7 +4523,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     workflowFile: "workflows/api/inpaint-lama-klein.json",
     sourceWorkflowFile: "workflows/source/inpaint-lama-klein.workflow.json",
     status: "experimental",
-    recommendedSettings: { steps: 4, cfg: 1 },
+    recommendedSettings: { steps: 4, cfg: 1, denoise: 1 },
     supportedModelFamilies: ["flux2"],
     experimentalModelFamilies: ["unknown"],
     modelSource: DIFFUSION_MODEL_SOURCE,
@@ -5953,6 +5953,8 @@ export type RecommendedPresetSettings = {
   /** Absent unless the preset declares a size, for the same reason. */
   width?: number;
   height?: number;
+  /** Absent unless the preset declares one; the Inpaint screen then uses its own default. */
+  denoise?: number;
 };
 
 const FALLBACK_RECOMMENDED_PRESET_SETTINGS = {
@@ -5968,7 +5970,8 @@ export function getRecommendedPresetSettings(presetId: string): RecommendedPrese
     cfg: preset?.recommendedSettings?.cfg ?? FALLBACK_RECOMMENDED_PRESET_SETTINGS.cfg,
     controlStrength: preset?.recommendedSettings?.controlStrength,
     width: preset?.recommendedSettings?.width,
-    height: preset?.recommendedSettings?.height
+    height: preset?.recommendedSettings?.height,
+    denoise: preset?.recommendedSettings?.denoise
   };
 }
 

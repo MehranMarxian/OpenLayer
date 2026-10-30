@@ -1091,6 +1091,7 @@ export function renderApp(rootElement: HTMLElement) {
       leadingParams: ["workflow"],
       settle: async () => {
         applyRecommendedPresetSettings(elements.inpaintWorkflow, DEFAULT_INPAINT_WORKFLOW, elements.inpaintSteps, elements.inpaintCfg);
+        applyRecommendedInpaintDenoise(elements);
         updateInpaintReferenceControlLock(elements);
         await refreshInpaintModelOptionsForSelectedPreset(elements);
         updateInpaintCheckpointCompatibility(elements, inpaintSource);
@@ -2152,6 +2153,7 @@ export function renderApp(rootElement: HTMLElement) {
 
   elements.inpaintWorkflow.addEventListener("change", () => {
     applyRecommendedPresetSettings(elements.inpaintWorkflow, DEFAULT_INPAINT_WORKFLOW, elements.inpaintSteps, elements.inpaintCfg);
+    applyRecommendedInpaintDenoise(elements);
     updateInpaintReferenceControlLock(elements);
     void refreshInpaintModelOptionsForSelectedPreset(elements);
     updateInpaintCheckpointCompatibility(elements, inpaintSource);
@@ -9019,6 +9021,13 @@ function applyRecommendedPresetSettings(
     sizeInputs.width.value = String(recommended.width);
     sizeInputs.height.value = String(recommended.height);
   }
+}
+
+// Moves with the preset like steps and CFG, and back to the screen's default on
+// leaving a preset that declares one, so its 1 does not leak into the next.
+function applyRecommendedInpaintDenoise(elements: AppElements) {
+  const recommended = getRecommendedPresetSettings(readSelectValue(elements.inpaintWorkflow, DEFAULT_INPAINT_WORKFLOW));
+  elements.inpaintDenoise.value = recommended.denoise === undefined ? DEFAULT_INPAINT_DENOISE : String(recommended.denoise);
 }
 
 function setSelectValueIfPresent(select: HTMLSelectElement, value: string) {

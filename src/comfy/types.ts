@@ -800,6 +800,12 @@ export type WorkflowRecommendedSettings = {
    */
   width?: number;
   height?: number;
+  /**
+   * Only for Inpaint presets that fail at the panel's default denoise. Remove
+   * object (LaMa + Klein) is one: at 0.75 the LaMa fill stays visible as grain,
+   * while 0.85 and 1 came back clean (measured 2026-10-30).
+   */
+  denoise?: number;
 };
 
 export type WorkflowPresetDefinition = {
