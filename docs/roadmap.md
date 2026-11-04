@@ -4,9 +4,10 @@ OpenLayer is a local-first UXP plugin for Photoshop that runs artist-friendly Co
 
 ## Where it is now
 
-Fourteen generation tools, all running against a local ComfyUI: Text to Image, Image to Image, Edit Image,
-Sketch to Image, Inpaint, Outpaint, Upscale, Remove Background, Layer Maps, Prompt from Layer,
-Live Painting, Style Reference, Multi-Reference and Unflatten, plus Layer Tools, History, the
+Sixteen tools, all running against a local ComfyUI: Text to Image, Image to Image, Edit Image,
+Camera Angle, Sketch to Image, Inpaint (with Remove object), Outpaint, Upscale, Remove Background,
+Select by Text, Layer Maps, Prompt from Layer, Live Painting, Style Reference, Multi-Reference and
+Unflatten, plus Layer Tools, History, the
 Prompt Wallet, Enhance Prompt beside every prompt field, Workflow Presets, custom workflow checking,
 and a Setup screen that checks what you have against what each preset needs and can download what
 is missing.
@@ -52,15 +53,13 @@ downloads with SHA-256), R4 (timeouts), R7 (the [UXP smoke checklist](uxp-smoke-
 E1 (wording, with a test) and E2 (plain-language rejections). The issue 127 fix for Photoshop
 2024 shipped first, as v0.37.1.
 
-### Do next, in this order
+### Do next: the beta gate
 
-1. **First-run path to one working image** (E3): FLUX.2 Klein 4B as the one-download starter
-   for five tools, timed on a fresh Comfy Desktop.
-2. **CPU-safe defaults** when ComfyUI reports no GPU, and port 8000 in the port scan for older
-   Comfy Desktop installs.
-3. **Record `object_info` and test the presets against it** (U2).
-4. **The Agent Bridge session token** (R2, second half).
-5. **One macOS tester run.**
+Features are frozen until the beta. What the beta needs, how each item is checked and where it
+stands is in [the beta gate](beta-gate.md); work it in the order it gives. The first-run path (E3)
+shipped in v0.39.0. Port 8000, the CPU-only case, the `object_info` snapshot (U2), a full smoke run
+and outside testers on Photoshop 2024 and a clean install are required; one macOS run and the Agent
+Bridge session token (R2, second half) are wanted.
 
 ### Reliability
 
