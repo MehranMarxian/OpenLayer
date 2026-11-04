@@ -67,6 +67,7 @@ live selection. Nothing is uploaded anywhere; ComfyUI runs on your own machine.
 | **Text to Image** | Generate a new layer from a prompt — or a transparent cut-out |
 | **Image to Image** | Use the active layer as visual input |
 | **Edit Image** | Change a layer or a selection by describing it — "make the jacket red", or bring in a second layer: "put the teapot from `<image2>` here" |
+| **Camera Angle** ✦ | See a layer from another viewpoint: pick a direction, a height and a distance (Qwen-Image-Edit 2511) |
 | **Sketch to Image** | Guide generation with your line art |
 | **Inpaint** | Repaint a selection in place, or remove the object in it — LaMa for small things, LaMa + Klein for a whole person |
 | **Outpaint** | Extend canvas content beyond the edges |
@@ -469,9 +470,32 @@ loaded. The selection has hard edges; feather it or use Select and Mask for a so
 </details>
 
 <details>
-<summary><b>Unflatten</b> — 30 GB, and shares nothing</summary>
+<summary><b>Camera Angle</b> ✦ — 31 GB, no add-on</summary>
 
-The one stack that reuses nothing else. Every node it needs is core ComfyUI, so there is no add-on.
+Re-shoots a layer from one of 96 camera positions (8 directions, 4 heights, 3 distances) with
+Qwen-Image-Edit 2511 and fal's multiple-angles LoRA. Core ComfyUI nodes only (ComfyUI 0.37+). All
+files are Apache-2.0.
+
+| File | Folder | Size |
+| :--- | :--- | ---: |
+| `qwen_image_edit_2511_int8_convrot.safetensors` | `models/diffusion_models/` | 20.5 GB |
+| `qwen_2.5_vl_7b_fp8_scaled.safetensors` | `models/text_encoders/` | 9.38 GB |
+| `qwen_image_vae.safetensors` | `models/vae/` | 254 MB |
+| `Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors` | `models/loras/` | 850 MB |
+| `qwen-image-edit-2511-multiple-angles-lora.safetensors` | `models/loras/` | 295 MB |
+
+The text encoder is the one Unflatten uses and the VAE is Krea-2's, so either one already installed
+saves that download. Measured on a 12 GB card with 32 GB of system RAM: about 34 seconds for the
+first run, 20 to 22 seconds after it. The whole picture is redrawn from the new position, background
+included, and a face will not match the original exactly.
+
+</details>
+
+<details>
+<summary><b>Unflatten</b> — 30 GB, shares only its text encoder</summary>
+
+Its text encoder is the one Camera Angle uses; the other two files are its own. Every node it needs
+is core ComfyUI, so there is no add-on.
 
 | File | Folder | Size |
 | :--- | :--- | ---: |

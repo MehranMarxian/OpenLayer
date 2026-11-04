@@ -11,6 +11,8 @@ import {
   MultiReferenceSettingsValidation,
   UnflattenSettingsInput,
   UnflattenSettingsValidation,
+  CameraAngleSettingsInput,
+  CameraAngleSettingsValidation,
   StyleReferenceSettingsInput,
   StyleReferenceSettingsValidation
 } from "./types";
@@ -124,6 +126,18 @@ export function validateUnflattenSettings(input: UnflattenSettingsInput): Unflat
     },
     warnings
   };
+}
+
+/**
+ * Only the seed. Steps and CFG are the Lightning LoRA's operating point (4 and
+ * 1) and are fixed in the graph, and the pose comes from three lists rather
+ * than a typed value.
+ */
+export function validateCameraAngleSettings(input: CameraAngleSettingsInput): CameraAngleSettingsValidation {
+  const warnings: string[] = [];
+  const seed = readSeed(input.seed, warnings);
+
+  return { settings: { seed }, warnings };
 }
 
 export function validateOutpaintSettings(input: OutpaintSettingsInput): OutpaintSettingsValidation {

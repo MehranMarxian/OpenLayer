@@ -28,6 +28,7 @@ export const COMFY_PORT_CANDIDATES = [8188, 8190, 8189, 8191, 8192, 8193, 7860];
 export const DEFAULT_WORKFLOW = "txt2img-basic";
 export const DEFAULT_REMOVE_BACKGROUND_WORKFLOW = "remove-background-birefnet";
 export const DEFAULT_SELECT_BY_TEXT_WORKFLOW = "select-sam31";
+export const DEFAULT_CAMERA_ANGLE_WORKFLOW = "camera-angle-qwen-edit-2511";
 export const DEFAULT_IMAGE_WORKFLOW = "img2img-basic";
 export const DEFAULT_SKETCH_WORKFLOW = "sketch2img-linecn-basic";
 export const DEFAULT_INPAINT_WORKFLOW = "inpaint-basic";
@@ -149,6 +150,7 @@ export type AppView =
   | "prompt-wallet"
   | "remove-background"
   | "select-by-text"
+  | "camera-angle"
   | "layer-maps";
 export type ToolCardStatus = "available" | "experimental" | "coming-soon";
 
@@ -177,6 +179,7 @@ export type ToolIconName =
   | "unflatten"
   | "removeBackground"
   | "selectByText"
+  | "cameraAngle"
   | "layerMaps"
   | "control"
   | "workflow"
@@ -208,6 +211,17 @@ export const TOOL_CARDS: ToolCard[] = [
     icon: "editImage",
     status: "available",
     view: "edit-image"
+  },
+  {
+    id: "camera-angle",
+    title: "Camera Angle",
+    // Says the camera moves, not the subject. Experimental because the whole
+    // picture is redrawn and a face is never kept exactly -- this subtitle must
+    // not grow into a promise about keeping a person's likeness.
+    subtitle: "See a layer from another viewpoint",
+    icon: "cameraAngle",
+    status: "experimental",
+    view: "camera-angle"
   },
   {
     id: "inpaint",
@@ -385,7 +399,7 @@ export const TOOL_CARDS: ToolCard[] = [
 export const HOME_TOOL_SECTIONS = [
   {
     title: "Generate",
-    toolIds: ["text-to-image", "image-to-image", "edit-image", "lineart", "inpaint", "outpaint", "upscale", "remove-background", "select-by-text", "layer-maps", "prompt-from-layer", "unflatten", "live-painting", "style-reference", "multi-reference"]
+    toolIds: ["text-to-image", "image-to-image", "edit-image", "camera-angle", "lineart", "inpaint", "outpaint", "upscale", "remove-background", "select-by-text", "layer-maps", "prompt-from-layer", "unflatten", "live-painting", "style-reference", "multi-reference"]
   },
   {
     title: "Workflow",

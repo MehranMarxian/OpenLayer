@@ -30,6 +30,7 @@ describe("busy-state tables", () => {
       "unflatten",
       "remove-background",
       "select-by-text",
+      "camera-angle",
       "layer-maps"
     ]);
     expect(fieldGroups.every((fields) => fields.length > 0)).toBe(true);
@@ -92,6 +93,10 @@ describe("busy-state tables", () => {
       "selectByTextPrompt",
       "selectByTextWorkflow",
       "selectByTextModel",
+      "cameraAngleDirection",
+      "cameraAngleHeight",
+      "cameraAngleDistance",
+      "cameraAngleSeed",
       "layerMapsModel",
       "layerMapsWorkflow",
       "promptLayerNumBeams",
@@ -140,9 +145,10 @@ describe("busy-state tables", () => {
     // The per-feature breakdown that used to sit here had drifted two behind
     // the assertion, so it is not repeated; the list above is the record.
     expect(plainActions).toHaveLength(44);
-    // 23 = 20, plus Layer Maps' Generate and Import, plus Select by Text's
-    // Select (it has no Import: the selection is applied by the run).
-    expect(BUSY_GATED_ACTIONS).toHaveLength(23);
+    // 25 = 20, plus Layer Maps' Generate and Import, plus Select by Text's
+    // Select (it has no Import: the selection is applied by the run), plus
+    // Camera Angle's Generate and Import.
+    expect(BUSY_GATED_ACTIONS).toHaveLength(25);
     expect(new Set(allActions).size).toBe(allActions.length);
   });
 
@@ -209,6 +215,8 @@ describe("busy-state tables", () => {
       "importUnflattenButton",
       "generateRemoveBackgroundButton",
       "importRemoveBackgroundButton",
+      "generateCameraAngleButton",
+      "importCameraAngleButton",
       "generateLayerMapsButton",
       "importLayerMapsButton",
       "checkButton",

@@ -323,16 +323,22 @@ describe("workflowBuilder", () => {
     expect(result["9"].inputs.images).toEqual(["27", 0]);
   });
 
-  it("refuses to run the camera-angle preset before its first measured run", async () => {
-    await expect(
-      buildCameraAngleWorkflow({
-        sourceImageName: "openlayer-camera-angle-source.png",
-        direction: "front",
-        height: "eye-level",
-        distance: "medium",
-        seed: 1
-      })
-    ).rejects.toMatchObject({ code: "WORKFLOW_PRESET_UNSUPPORTED" });
+  it("builds the camera-angle preset with the pose phrase, source and seed", async () => {
+    const result = await buildCameraAngleWorkflow({
+      sourceImageName: "openlayer-camera-angle-source.png",
+      direction: "back-left",
+      height: "high",
+      distance: "wide",
+      seed: 7
+    });
+
+    expect(result.preset.id).toBe("camera-angle-qwen-edit-2511");
+    expect(result.workflow["10"].inputs.image).toBe("openlayer-camera-angle-source.png");
+    expect(result.workflow["19"].inputs.prompt).toBe("<sks> back-left quarter view high-angle shot wide shot");
+    expect(result.workflow["24"].inputs.seed).toBe(7);
+    // The Lightning operating point stays fixed in the graph.
+    expect(result.workflow["24"].inputs.steps).toBe(4);
+    expect(result.workflow["24"].inputs.cfg).toBe(1);
   });
 
   it("builds inpaint-lama-klein with LaMa's fill feeding Klein's crop", async () => {

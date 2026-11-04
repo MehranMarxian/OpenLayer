@@ -283,12 +283,9 @@ describe("workflow health", () => {
 
     expect(report.items).toHaveLength(presets.length);
     expect(report.summary).toContain("workflow presets");
-    // Every shipped preset has an authored workflow. The one `todo` preset is
-    // camera-angle-qwen-edit-2511, waiting for its first measured run, and its
-    // row says so in its own words rather than asking for a workflow JSON.
-    expect(report.stateCounts["missing-workflow"]).toBe(1);
-    const cameraAngle = report.items.find((item) => item.presetId === "camera-angle-qwen-edit-2511");
-    expect(cameraAngle?.summary).toMatch(/first measured run/);
+    // Every shipped preset has an authored workflow and none is `todo` since
+    // camera-angle-qwen-edit-2511 had its first measured run.
+    expect(report.stateCounts["missing-workflow"] ?? 0).toBe(0);
   });
 });
 

@@ -17,6 +17,7 @@ First run: start with FLUX.2 Klein 4B (Apache-2.0, three files, 12.5 GB, no sign
 - Text to Image: generate a new layer from a prompt, including transparent cut-out layers
 - Image to Image: use the active layer as visual input
 - Edit Image: change a layer or a selection by describing the change in words
+- Camera Angle (experimental): see a layer from another viewpoint by choosing a direction, height and distance (96 positions), using Qwen-Image-Edit 2511 with fal's multiple-angles LoRA (Apache-2.0, about 31 GB of files, about 20 seconds per run on a 12 GB card); the whole picture is redrawn, so faces do not keep an exact likeness
 - Sketch to Image: guide generation with your own line art (ControlNet)
 - Inpaint: repaint a selection in place, or remove a small object in it with LaMa (no prompt, about 2 to 4 seconds). For large objects such as a whole person, Remove object (LaMa + Klein) fills with LaMa and repaints with FLUX.2 Klein (about 16 seconds; the prompt describes what should be there instead)
 - Outpaint: extend the canvas beyond its edges

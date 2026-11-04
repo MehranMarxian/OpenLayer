@@ -11,6 +11,7 @@ export type OpenLayerMetadataToolType =
   | "unflatten"
   | "remove-background"
   | "select-by-text"
+  | "camera-angle"
   | "layer-maps";
 
 export type OpenLayerLayerBounds = {

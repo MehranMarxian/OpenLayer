@@ -322,6 +322,17 @@ export function setSelectByTextStatus(elements: AppElements, status: string, ton
   );
 }
 
+export function setCameraAngleStatus(elements: AppElements, status: string, tone: StatusTone) {
+  applyToolStatus(
+    elements,
+    elements.cameraAngleStatusText,
+    elements.cameraAngleStatusPill,
+    elements.cameraAngleStatusProgress,
+    status,
+    tone
+  );
+}
+
 export function setLayerMapsStatus(elements: AppElements, status: string, tone: StatusTone) {
   applyToolStatus(
     elements,
@@ -422,6 +433,10 @@ export function setSelectByTextError(elements: AppElements, message: string) {
   applyToolError(elements.selectByTextErrorMessage, message);
 }
 
+export function setCameraAngleError(elements: AppElements, message: string) {
+  applyToolError(elements.cameraAngleErrorMessage, message);
+}
+
 export function setLayerMapsError(elements: AppElements, message: string) {
   applyToolError(elements.layerMapsErrorMessage, message);
 }
@@ -506,6 +521,11 @@ export function setRemoveBackgroundDiagnostics(elements: AppElements, message: s
 
 export function setSelectByTextDiagnostics(elements: AppElements, message: string) {
   elements.selectByTextDiagnosticsText.textContent = message;
+  elements.settingsDiagnosticsText.textContent = message;
+}
+
+export function setCameraAngleDiagnostics(elements: AppElements, message: string) {
+  elements.cameraAngleDiagnosticsText.textContent = message;
   elements.settingsDiagnosticsText.textContent = message;
 }
 

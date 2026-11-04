@@ -105,6 +105,7 @@ import {
   validateSketchToImageSettings,
   validateMultiReferenceSettings,
   validateUnflattenSettings,
+  validateCameraAngleSettings,
   validateStyleReferenceSettings
 } from "../comfy/settings";
 import {
@@ -118,6 +119,7 @@ import {
   buildStyleReferenceWorkflow,
   buildTxt2ImgWorkflow,
   buildRemoveBackgroundWorkflow,
+  buildCameraAngleWorkflow,
   buildSelectWorkflow,
   buildLayerMapsWorkflow,
   buildEnhancePromptWorkflow,
@@ -260,6 +262,7 @@ import {
   runLayerExport
 } from "./tools/layerTools";
 import { decideSelectionOutcome, parseSelectionReport } from "./tools/selectByText";
+import { describeCameraAngle, readCameraAngleChoice } from "./tools/cameraAngle";
 import { normalizeSelectionPrompt } from "../comfy/selectionPrompt";
 import {
   getFriendlyImageToImageErrorMessage,
@@ -351,6 +354,7 @@ import {
   DEFAULT_PROMPT_LAYER_TASK,
   DEFAULT_REMOVE_BACKGROUND_WORKFLOW,
   DEFAULT_SELECT_BY_TEXT_WORKFLOW,
+  DEFAULT_CAMERA_ANGLE_WORKFLOW,
   DEFAULT_LAYER_MAPS_WORKFLOW,
   DEFAULT_DEPTH_MAP_MODEL,
   UNAVAILABLE_DEPTH_MAP_MODELS,
@@ -403,6 +407,9 @@ import {
   setSelectByTextStatus,
   setSelectByTextDiagnostics,
   setSelectByTextError,
+  setCameraAngleStatus,
+  setCameraAngleDiagnostics,
+  setCameraAngleError,
   setLayerMapsStatus,
   setLayerMapsDiagnostics,
   setLayerMapsError,
@@ -662,6 +669,11 @@ export function renderApp(rootElement: HTMLElement) {
   let removeBackgroundSource: ImageSourceState | null = null;
   let removeBackgroundResult: AppGeneratedImageResult | null = null;
   let selectByTextSource: ImageSourceState | null = null;
+  let cameraAngleSource: ImageSourceState | null = null;
+  let cameraAngleResult: AppGeneratedImageResult | null = null;
+  // Where the captured layer sat, so the new view lands on it (the same
+  // contract as removeBackgroundImportBounds).
+  let cameraAngleImportBounds: NormalizedSelectionBounds | null = null;
   let styleReferenceSource: ImageSourceState | null = null;
   let styleReferenceResult: AppGeneratedImageResult | null = null;
   // An ordered list rather than a single source, which is the whole difference
@@ -763,6 +775,8 @@ export function renderApp(rootElement: HTMLElement) {
       removeBackgroundSource,
       removeBackgroundResult,
       selectByTextSource,
+      cameraAngleSource,
+      cameraAngleResult,
       layerMapsSource,
       layerMapsResult
     });
@@ -1389,6 +1403,12 @@ export function renderApp(rootElement: HTMLElement) {
       // shipped, but had no handler here, so the Preview panel showed an enabled
       // Import button that did nothing at all.
       {
+        toolId: "camera-angle",
+        run: handleImportCameraAngle,
+        statusText: elements.cameraAngleStatusText,
+        statusPill: elements.cameraAngleStatusPill
+      },
+      {
         toolId: "multi-reference",
         run: handleImportMultiReference,
         statusText: elements.multiReferenceStatusText,
@@ -1488,6 +1508,10 @@ export function renderApp(rootElement: HTMLElement) {
       canImport: canImport(styleReferenceResult),
       auto: null
     });
+    importBridge.publishCapability("camera-angle", {
+      canImport: canImport(cameraAngleResult),
+      auto: null
+    });
     importBridge.publishCapability("multi-reference", {
       canImport: canImport(multiReferenceResult),
       auto: null
@@ -1533,6 +1557,9 @@ export function renderApp(rootElement: HTMLElement) {
     elements.upscaleModel,
     elements.removeBackgroundWorkflow,
     elements.removeBackgroundModel,
+    elements.cameraAngleDirection,
+    elements.cameraAngleHeight,
+    elements.cameraAngleDistance,
     elements.layerMapsWorkflow,
     elements.layerMapsModel
   ]) {
@@ -1600,6 +1627,15 @@ export function renderApp(rootElement: HTMLElement) {
     emptyText: "No cutout yet",
     resultAlt: "Generated cutout preview",
     liveAlt: "Live ComfyUI cutout preview"
+  });
+  const cameraAngleResultPanel = createResultPreviewPanel({
+    urls: objectUrls,
+    panel: elements.cameraAngleResultPreviewPanel,
+    hub: previewHub,
+    toolId: "camera-angle",
+    emptyText: "No new view yet",
+    resultAlt: "Generated Camera Angle preview",
+    liveAlt: "Live ComfyUI Camera Angle preview"
   });
   const layerMapsResultPanel = createResultPreviewPanel({
     urls: objectUrls,
@@ -1680,6 +1716,13 @@ export function renderApp(rootElement: HTMLElement) {
     titleElement: elements.removeBackgroundSourceTitle,
     metaElement: elements.removeBackgroundSourceMeta,
     imageAlt: "Captured Photoshop source for Remove Background"
+  });
+  const cameraAngleSourcePanel = createSourcePreviewPanel({
+    urls: objectUrls,
+    panel: elements.cameraAngleSourcePreviewPanel,
+    titleElement: elements.cameraAngleSourceTitle,
+    metaElement: elements.cameraAngleSourceMeta,
+    imageAlt: "Captured Photoshop source for Camera Angle"
   });
   const selectByTextSourcePanel = createSourcePreviewPanel({
     urls: objectUrls,
@@ -1885,6 +1928,10 @@ export function renderApp(rootElement: HTMLElement) {
     captureSelectByTextSource: createActionRunner(elements, "captureSelectByTextSource", handleCaptureSelectByTextSource),
     captureSelectByTextCanvasSource: createActionRunner(elements, "captureSelectByTextCanvasSource", handleCaptureSelectByTextCanvasSource),
     runSelectByText: createActionRunner(elements, "runSelectByText", handleRunSelectByText),
+    captureCameraAngleSource: createActionRunner(elements, "captureCameraAngleSource", handleCaptureCameraAngleSource),
+    captureCameraAngleCanvasSource: createActionRunner(elements, "captureCameraAngleCanvasSource", handleCaptureCameraAngleCanvasSource),
+    generateCameraAngle: createActionRunner(elements, "generateCameraAngle", handleGenerateCameraAngle),
+    importCameraAngle: createActionRunner(elements, "importCameraAngle", handleImportCameraAngle),
     captureLayerMapsSource: createActionRunner(elements, "captureLayerMapsSource", handleCaptureLayerMapsSource),
     captureLayerMapsCanvasSource: createActionRunner(elements, "captureLayerMapsCanvasSource", handleCaptureLayerMapsCanvasSource),
     generateLayerMaps: createActionRunner(elements, "generateLayerMaps", handleGenerateLayerMaps),
@@ -1993,6 +2040,10 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.generateRemoveBackgroundButton, actionHandlers.generateRemoveBackground);
   bindActionControl(elements.importRemoveBackgroundButton, actionHandlers.importRemoveBackground);
   bindActionControl(elements.removeBackgroundAutoImportToggle, actionHandlers.toggleRemoveBackgroundAutoImport);
+  bindActionControl(elements.captureCameraAngleSourceButton, actionHandlers.captureCameraAngleSource);
+  bindActionControl(elements.captureCameraAngleCanvasSourceButton, actionHandlers.captureCameraAngleCanvasSource);
+  bindActionControl(elements.generateCameraAngleButton, actionHandlers.generateCameraAngle);
+  bindActionControl(elements.importCameraAngleButton, actionHandlers.importCameraAngle);
   bindActionControl(elements.inpaintAutoImportToggle, actionHandlers.toggleInpaintAutoImport);
   bindActionControl(elements.clearHistoryButton, actionHandlers.clearHistory);
   bindActionControl(elements.liveNegativePromptToggle, actionHandlers.toggleLiveNegativePrompt);
@@ -2074,6 +2125,8 @@ export function renderApp(rootElement: HTMLElement) {
   setUpscaleSource(null);
   setRemoveBackgroundSource(null);
   setRemoveBackgroundResult(null);
+  setCameraAngleSource(null);
+  setCameraAngleResult(null);
   updateLayerMapsAutoImportToggle(elements, layerMapsImportAutomatically);
   setLayerMapsSource(null);
   setLayerMapsResult(null);
@@ -3257,6 +3310,12 @@ export function renderApp(rootElement: HTMLElement) {
       diagnostics: setSelectByTextDiagnostics,
       error: setSelectByTextError
     },
+    "camera-angle": {
+      status: setCameraAngleStatus,
+      diagnostics: setCameraAngleDiagnostics,
+      error: setCameraAngleError,
+      progress: setCameraAngleProgressPreview
+    },
     "layer-maps": {
       status: setLayerMapsStatus,
       diagnostics: setLayerMapsDiagnostics,
@@ -4356,6 +4415,197 @@ export function renderApp(rootElement: HTMLElement) {
       isBusy = false;
       busyTool = null;
       syncBusy();
+    }
+  }
+
+  async function handleCaptureCameraAngleSource() {
+    await captureCameraAngleSourceImage("Capturing active layer...", "Source captured.", exportActiveLayerForImageToImage);
+  }
+
+  async function handleCaptureCameraAngleCanvasSource() {
+    await captureCameraAngleSourceImage("Capturing canvas...", "Canvas captured.", exportCanvasForImageToImage);
+  }
+
+  async function captureCameraAngleSourceImage(
+    statusMessage: string,
+    successMessage: string,
+    capture: () => Promise<ExportedSourceImage>
+  ) {
+    setCameraAngleError(elements, "");
+    setCameraAngleStatus(elements, statusMessage, "idle");
+
+    try {
+      const exportedSource = await capture();
+      setCameraAngleSource({ ...exportedSource, previewUrl: objectUrls.create(exportedSource.blob) });
+      setCameraAngleStatus(elements, successMessage, "ready");
+      setCameraAngleDiagnostics(
+        elements,
+        `${createSourceCaptureMessage(exportedSource, " for Camera Angle")} Choose where the camera stands, then click Change Camera Angle.`
+      );
+    } catch (caughtError) {
+      setCameraAngleSource(null);
+      setCameraAngleStatus(elements, "Capture failed.", "error");
+      setCameraAngleError(elements, getErrorMessage(caughtError));
+    }
+  }
+
+  /**
+   * No prompt and no model picker. The pose is three lists the angles LoRA was
+   * trained on, and the five files the graph needs are fixed, so the whole
+   * setup is checked at once with validatePresetSetup rather than through a
+   * model dropdown that would offer nothing to choose.
+   */
+  async function handleGenerateCameraAngle() {
+    if (blockRegularGenerationDuringLivePainting((message) => setCameraAngleStatus(elements, message, "error"))) {
+      return;
+    }
+
+    if (!cameraAngleSource) {
+      setCameraAngleError(elements, "Capture the active Photoshop layer or canvas before changing the camera angle.");
+      setCameraAngleStatus(elements, "Source required.", "error");
+      return;
+    }
+
+    setCameraAngleError(elements, "");
+    setCameraAngleResult(null);
+    busyTool = "camera-angle";
+    isBusy = true;
+    syncBusy();
+    setCameraAngleStatus(elements, "Preparing camera angle workflow...", "idle");
+    setCameraAngleProgressPreview(elements, "Preparing camera angle workflow...");
+
+    try {
+      const preset = getWorkflowPreset(DEFAULT_CAMERA_ANGLE_WORKFLOW);
+      const choice = readCameraAngleChoice({
+        direction: readSelectValue(elements.cameraAngleDirection),
+        height: readSelectValue(elements.cameraAngleHeight),
+        distance: readSelectValue(elements.cameraAngleDistance)
+      });
+      const angleLabel = describeCameraAngle(choice);
+      const { settings, warnings } = validateCameraAngleSettings({ seed: elements.cameraAngleSeed.value });
+      const client = new ComfyClient(elements.serverUrl.value);
+
+      setCameraAngleDiagnostics(
+        elements,
+        warnings.length > 0
+          ? warnings.join(" ")
+          : createWorkflowDiagnostics(preset, "", createSourceInputAvailability(cameraAngleSource))
+      );
+      await client.checkOnline();
+
+      setCameraAngleStatus(elements, "Checking camera angle models...", "idle");
+      setCameraAngleProgressPreview(elements, "Checking camera angle setup...");
+      await client.validatePresetSetup(preset);
+
+      setCameraAngleStatus(elements, "Uploading source image to ComfyUI...", "idle");
+      setCameraAngleProgressPreview(elements, "Uploading source image...");
+      const sourceImageName = await client.uploadImage(cameraAngleSource.blob, cameraAngleSource.filename);
+      const buildResult = await buildCameraAngleWorkflow({
+        presetId: preset.id,
+        sourceImageName,
+        direction: choice.direction,
+        height: choice.height,
+        distance: choice.distance,
+        seed: settings.seed
+      });
+
+      // A const, not the mutable field: the commit closure runs after awaits.
+      const capturedSource = cameraAngleSource;
+      cameraAngleImportBounds = capturedSource.captureBounds ?? null;
+      const generatedResult = await generation.runPipeline({
+        toolType: "camera-angle",
+        client,
+        workflow: buildResult.workflow,
+        preferredNodeId: getSaveImageNodeId(buildResult.preset),
+        originatingDocument: capturedSource.originatingDocument,
+        ui: createPipelineUi("camera-angle", elements.cameraAngleStatusProgress),
+        messages: {
+          submitStatus: "Submitting camera angle prompt...",
+          submitPreview: "Submitting prompt to ComfyUI...",
+          generateStatus: "Moving the camera...",
+          generatePreview: "Moving the camera...",
+          retrieveStatus: "Retrieving the new view...",
+          retrievePreview: "Retrieving final image...",
+          livePreview: "Live ComfyUI preview..."
+        },
+        commit: (generatedResult) => {
+          setCameraAngleResult(generatedResult);
+          addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
+            prompt: `Camera angle: ${angleLabel}`,
+            checkpointName: preset.modelStack?.[0]?.modelName ?? preset.id,
+            modelName: preset.modelStack?.[0]?.modelName ?? preset.id,
+            workflowPreset: buildResult.preset.id,
+            toolType: "camera-angle",
+            seed: settings.seed,
+            sizeLabel: "Camera angle",
+            dimensions: `${capturedSource.width} x ${capturedSource.height}`,
+            sourceMode: capturedSource.sourceName,
+            experimental: buildResult.preset.status === "experimental"
+          });
+        }
+      });
+
+      if (!generatedResult) {
+        return;
+      }
+
+      setCameraAngleStatus(elements, "New view ready.", "ready");
+      setCameraAngleDiagnostics(
+        elements,
+        `Camera: ${angleLabel}. Seed used: ${settings.seed}. Source uploaded as ${sourceImageName}. Workflow: ${buildResult.preset.id}.`
+      );
+    } catch (caughtError) {
+      if (isGenerationCancelledError(caughtError)) {
+        showGenerationCancelled("camera-angle");
+        return;
+      }
+
+      setCameraAngleStatus(elements, "Camera angle failed.", "error");
+      setCameraAngleError(elements, getErrorMessage(caughtError));
+      console.error("[OpenLayer] Camera Angle failed", getTechnicalErrorDetails(caughtError));
+    } finally {
+      isBusy = false;
+      busyTool = null;
+      syncBusy();
+    }
+  }
+
+  async function handleImportCameraAngle() {
+    if (!cameraAngleResult) {
+      setCameraAngleError(elements, "Change the camera angle before importing.");
+      return;
+    }
+
+    setCameraAngleError(elements, "");
+    setCameraAngleStatus(elements, "Importing new view into Photoshop...", "idle");
+
+    try {
+      const layerName = createLayerName("OpenLayer_CameraAngle");
+      const importedLayerName = await importGeneratedImageAsLayer({
+        blob: cameraAngleResult.blob,
+        originatingDocument: cameraAngleResult.originatingDocument,
+        layerName,
+        targetBounds: cameraAngleImportBounds ?? undefined,
+        onProgress: (message) => {
+          setCameraAngleStatus(elements, message, "idle");
+          setCameraAngleDiagnostics(elements, message);
+        }
+      });
+      setCameraAngleStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
+      flashImported(elements.cameraAngleStatusText);
+      markHistoryImported(elements, historyEntries, cameraAngleResult, importedLayerName);
+      const metadataMessage = await writeMetadataForImportedResult(
+        historyEntries,
+        cameraAngleResult,
+        importedLayerName,
+        (message) => {
+          setCameraAngleDiagnostics(elements, message);
+        }
+      );
+      setCameraAngleDiagnostics(elements, `Layer created: ${importedLayerName}. ${metadataMessage}`);
+    } catch (caughtError) {
+      setCameraAngleStatus(elements, "Import failed.", "error");
+      setCameraAngleError(elements, getErrorMessage(caughtError));
     }
   }
 
@@ -7937,6 +8187,26 @@ export function renderApp(rootElement: HTMLElement) {
     removeBackgroundResultPanel.showProgress(message, blob);
   }
 
+  function setCameraAngleSource(nextSource: ImageSourceState | null) {
+    cameraAngleSource = nextSource;
+    cameraAngleSourcePanel.show(cameraAngleSource && {
+      previewUrl: cameraAngleSource.previewUrl,
+      title: cameraAngleSource.sourceName,
+      meta: createSourceMetaText(cameraAngleSource)
+    });
+    syncBusy();
+  }
+
+  function setCameraAngleResult(nextResult: AppGeneratedImageResult | null) {
+    cameraAngleResult = nextResult;
+    cameraAngleResultPanel.showResult(cameraAngleResult?.blob ?? null);
+    syncBusy();
+  }
+
+  function setCameraAngleProgressPreview(elements: AppElements, message: string, blob?: Blob) {
+    cameraAngleResultPanel.showProgress(message, blob);
+  }
+
   function setLayerMapsSource(nextSource: ImageSourceState | null) {
     layerMapsSource = nextSource;
     layerMapsSourcePanel.show(layerMapsSource && {
@@ -8036,6 +8306,7 @@ export function renderApp(rootElement: HTMLElement) {
     elements.upscaleView.hidden = currentView !== "upscale";
     elements.removeBackgroundView.hidden = currentView !== "remove-background";
     elements.selectByTextView.hidden = currentView !== "select-by-text";
+    elements.cameraAngleView.hidden = currentView !== "camera-angle";
     elements.layerMapsView.hidden = currentView !== "layer-maps";
     elements.styleReferenceView.hidden = currentView !== "style-reference";
     elements.multiReferenceView.hidden = currentView !== "multi-reference";
