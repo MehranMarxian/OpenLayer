@@ -1,5 +1,74 @@
 # Changelog
 
+## v0.40.0-alpha - 2026-11-04
+
+Four new things to do with a layer: remove an object, select by naming it, see it from another
+camera position, and restore it with a generative upscaler. Plus a fix for every import into a
+document that is not 72 ppi.
+
+### Added
+
+- **Remove object (LaMa)**, a new Inpaint preset. It fills the selection from its surroundings
+  in about 2 to 4 seconds, with no prompt and no diffusion model. It is for small things: a sign,
+  a cable, a bird in the sky. On large areas and on people it smears. It needs the
+  comfyui-art-venture node pack and `big-lama.pt` (206 MB, Apache-2.0).
+- **Remove object (LaMa + Klein)**, experimental, for large things such as a standing person.
+  LaMa fills the selection first, then FLUX.2 Klein repaints the fill with real detail, in about
+  16 seconds once loaded. The prompt describes what should be there instead ("dry hillside with
+  mountains behind"); with an empty prompt the fill stays a smear. The panel grows the selection
+  by 24 px for this preset, because a selection that hugs the person leaves their outline behind
+  and Klein paints them back from it. Denoise opens at 1. No new download if Remove object (LaMa)
+  and Klein inpaint already run.
+- **Select by Text.** Type what you want, for example `backpack` or `chair, table`, and it
+  becomes a live selection in your document, using Meta's SAM 3.1 in about 2 seconds. Nothing
+  else in the document changes. If nothing matches, it says so and leaves your selection alone.
+  The selection has hard edges; feather it or use Select and Mask for a soft one. One 1.7 GB file,
+  commercial use allowed under Meta's SAM License.
+- **Camera Angle**, experimental. Capture a layer, choose where the camera stands (8 directions,
+  4 heights, 3 distances) and get the picture re-shot from there as a new layer. It uses
+  Qwen-Image-Edit 2511 with fal's multiple-angles LoRA, all Apache-2.0, about 31 GB of files.
+  Measured on a 12 GB card: 34 seconds for the first run, 20 to 22 seconds after it. The whole
+  picture is redrawn from the new position, background included, and a face will not keep an
+  exact likeness.
+- **SeedVR2 3B upscale**, a second Upscale preset. It restores a layer at 2x and can invent
+  detail that was not in the source, unlike 4x-UltraSharp, which only enlarges pixels. Core
+  ComfyUI nodes only, Apache-2.0. It refuses a source whose result would not fit your card's
+  VRAM, instead of running for minutes and failing; the limit scales with the card.
+
+### Fixed
+
+- **Imports into documents that are not 72 ppi.** Every placed result came in at the wrong size
+  in, for example, a 240 ppi document: 3.33 times too large. Inpaint then reported "No pixels are
+  selected" and fell back to an unmasked layer. Results now carry the document's resolution and
+  land at 1:1. Checked in Photoshop at 240 ppi and 72 ppi.
+- **Inpaint no longer generates from a selection you have since changed.** If the live selection's
+  bounds differ from the captured one, Generate stops before anything is sent and asks you to
+  capture again. Deselecting keeps the captured selection.
+- **A failed capture no longer leaves the previous one in place.** In Inpaint, Image to Image,
+  Sketch, Outpaint, Upscale, Style Reference, Unflatten and Prompt from Layer, a failed capture
+  kept showing the old source and left Generate enabled, so the next press ran on a capture you
+  had already replaced.
+- **The Preview panel can import Remove Background and Layer Maps results.** It showed the
+  picture but never offered the Import button for these two tools.
+- **The Preview panel says why Import is unavailable.** It blamed a running generation whenever
+  Import was disabled, including when nothing was running and the picture was simply an older
+  result.
+- **The Upscale picker lists only SeedVR2's own file** for the SeedVR2 preset, instead of every
+  diffusion model on the server.
+
+### Known limitations
+
+- **Camera Angle and memory:** on the 32 GB test machine, system RAM dropped to about 3 GB free
+  during the first run. With 16 GB of RAM the first run may fail or swap.
+- **The Inpaint selection check** compares only the selection's bounding box. A change that stays
+  inside the same box is not caught.
+- **Select by Text, Camera Angle and Remove object** are not on the MCP agent bridge yet.
+- **One unexplained refusal:** in one test, the first Inpaint Generate after loading the panel was
+  refused with "The captured selection sits outside its own context". Capturing the same
+  selection again worked.
+- Tested on Windows 11 with Photoshop 2025 and an RTX 4070 Ti (12 GB). Not run on Photoshop 2024
+  or macOS. The Adobe Exchange listing can trail this release.
+
 ## v0.39.0-alpha - 2026-10-19
 
 The first-run release. On an empty ComfyUI, one button in Setup fetches a model that runs five
