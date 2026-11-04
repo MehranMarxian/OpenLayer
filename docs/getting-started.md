@@ -21,8 +21,8 @@ http://127.0.0.1:8188
 already matches and there is nothing to configure.
 
 **If your ComfyUI is somewhere else, you do not have to move it.** Open **Settings** and click
-**Find ComfyUI Active Port**. OpenLayer scans the common local ports, connects to the server it
-finds, and reports `Ready`. Keep using your normal launch command and leave the server where it is.
+**Find ComfyUI Active Port**. OpenLayer scans the common local ports, including `8000`, where
+Comfy Desktop runs, connects to the server it finds, and reports `Ready`. Keep using your normal launch command and leave the server where it is.
 On a first run with nothing saved yet, the panel does this scan on its own when the default address
 does not answer.
 

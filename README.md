@@ -237,6 +237,7 @@ python main.py --listen 127.0.0.1 --port 8188 --preview-method auto
 
 **You do not have to move your server.** If ComfyUI is already running somewhere else, open
 **Settings › Find ComfyUI Active Port** — OpenLayer scans for it, connects, and reports `Ready`.
+Comfy Desktop's port, `8000`, is part of the scan.
 
 > **Upgrading from v0.20 or earlier? The default port changed from `8190` to `8188`.**
 > OpenLayer used `8190` for twenty releases; it now uses the port ComfyUI itself starts on.
