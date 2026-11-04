@@ -23,8 +23,15 @@ export const HISTORY_LIMIT = 5;
  * ComfyUI is the one it is actually on. `8190` stays second rather than being
  * dropped: it was OpenLayer's own default for twenty releases, so the people
  * most likely to need the scan are the ones already on it.
+ *
+ * `8000` is Comfy Desktop's default, and Comfy Desktop is the install ComfyUI
+ * itself recommends to newcomers, so it comes right after 8188 -- before the
+ * ports only a second instance would use. It was missing until v0.41, which
+ * meant the people least able to type a port into Settings were the ones the
+ * scan could not find (beta gate G2). A different local server on 8000 is
+ * not mistaken for ComfyUI: the scan asks for `/system_stats`.
  */
-export const COMFY_PORT_CANDIDATES = [8188, 8190, 8189, 8191, 8192, 8193, 7860];
+export const COMFY_PORT_CANDIDATES = [8188, 8000, 8190, 8189, 8191, 8192, 8193, 7860];
 export const DEFAULT_WORKFLOW = "txt2img-basic";
 export const DEFAULT_REMOVE_BACKGROUND_WORKFLOW = "remove-background-birefnet";
 export const DEFAULT_SELECT_BY_TEXT_WORKFLOW = "select-sam31";
