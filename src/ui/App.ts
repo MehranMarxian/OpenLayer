@@ -3931,6 +3931,7 @@ export function renderApp(rootElement: HTMLElement) {
         createSourceCaptureMessage(exportedSource)
       );
     } catch (caughtError) {
+      setImageSource(null);
       setImageStatus(elements, "Source capture failed.", "error");
       setImageError(elements, getErrorMessage(caughtError));
       setImageDiagnostics(elements, getTechnicalErrorDetails(caughtError));
@@ -4251,6 +4252,7 @@ export function renderApp(rootElement: HTMLElement) {
         `${createSourceCaptureMessage(exportedSource, " for pixel upscale")} Select an upscale model, then generate.`
       );
     } catch (caughtError) {
+      setUpscaleSource(null);
       setUpscaleStatus(elements, "Source capture failed.", "error");
       setUpscaleError(elements, getErrorMessage(caughtError));
       setUpscaleDiagnostics(elements, getTechnicalErrorDetails(caughtError));
@@ -5384,6 +5386,7 @@ export function renderApp(rootElement: HTMLElement) {
         `${createSourceCaptureMessage(exportedSource, " for Flux Fill outpainting")} Padding will be added in ComfyUI.`
       );
     } catch (caughtError) {
+      setOutpaintSource(null);
       setOutpaintStatus(elements, "Outpaint source capture failed.", "error");
       setOutpaintError(elements, getErrorMessage(caughtError));
       setOutpaintDiagnostics(elements, getTechnicalErrorDetails(caughtError));
@@ -5726,6 +5729,7 @@ export function renderApp(rootElement: HTMLElement) {
         createSourceCaptureMessage(exportedSource, " for LINECN guidance")
       );
     } catch (caughtError) {
+      setSketchSource(null);
       setSketchStatus(elements, "Sketch source capture failed.", "error");
       setSketchError(elements, getErrorMessage(caughtError));
       setSketchDiagnostics(elements, getTechnicalErrorDetails(caughtError));
@@ -5996,6 +6000,7 @@ export function renderApp(rootElement: HTMLElement) {
         createSourceCaptureMessage(exportedSource, " as the style reference")
       );
     } catch (caughtError) {
+      setStyleReferenceSource(null);
       setStyleReferenceStatus(elements, "Style reference capture failed.", "error");
       setStyleReferenceError(elements, getErrorMessage(caughtError));
       setStyleReferenceDiagnostics(elements, getTechnicalErrorDetails(caughtError));
@@ -6640,6 +6645,7 @@ export function renderApp(rootElement: HTMLElement) {
         `${exportedSource.sourceName} captured at ${exportedSource.width} x ${exportedSource.height}.`
       );
     } catch (caughtError) {
+      setUnflattenSource(null);
       setUnflattenStatus(elements, "Capture failed.", "error");
       setUnflattenError(elements, getErrorMessage(caughtError));
     } finally {
@@ -7111,6 +7117,12 @@ export function renderApp(rootElement: HTMLElement) {
         ].filter(Boolean).join(" ")
       );
     } catch (caughtError) {
+      // Clear the previous capture rather than keep it. Keeping it left the old
+      // source preview and an enabled Generate button next to a red "capture
+      // failed", so the next Generate quietly ran on a selection the artist had
+      // already replaced (seen 2026-10-30 with Capture Active Layer on a masked
+      // layer). Every tool added since Remove Background already does this.
+      setInpaintSource(null);
       setInpaintStatus(elements, "Selection capture failed.", "error");
       setInpaintError(elements, getErrorMessage(caughtError));
       setInpaintDiagnostics(elements, getTechnicalErrorDetails(caughtError));
@@ -7659,6 +7671,7 @@ export function renderApp(rootElement: HTMLElement) {
         `${createSourceCaptureMessage(exportedSource)} Ready to generate prompt text with Florence-2 PromptGen.`
       );
     } catch (caughtError) {
+      setPromptLayerSource(null);
       setPromptLayerStatus(elements, "Source capture failed.", "error");
       setPromptLayerError(elements, getErrorMessage(caughtError));
       setPromptLayerDiagnostics(elements, getTechnicalErrorDetails(caughtError));
