@@ -37,6 +37,8 @@ npm run build          tsc + vite build + scripts/copy-uxp-assets.mjs -> dist/
 npm run package        build + zip + .ccx into packages/ (incl. openlayer-latest.*)
 npm run setup-pack     GENERATED from presetRegistry; never hand-edit its output
 npm run audit-css      measures CSS redeclarations
+npm run object-info    record tests/fixtures/comfyui-object-info.json from a live ComfyUI
+                       (`-- --check` diffs a live ComfyUI against it; read-only)
 cd bridge && npm ci    the MCP bridge is a separate package with its own lockfile
 ```
 

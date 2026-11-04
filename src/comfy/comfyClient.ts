@@ -256,6 +256,15 @@ export class ComfyClient {
     return inventory;
   }
 
+  /**
+   * For Workflow Health and Setup: every input each preset node *declares*,
+   * required and optional, because the question is whether the input OpenLayer
+   * wires exists -- the same reading validatePresetSetup uses before Generate.
+   * Reading required inputs only marked 13 working presets "Missing ComfyUI
+   * node" on ComfyUI 0.44, among them every crop-and-stitch Inpaint preset
+   * (InpaintCropImproved's mask), both Remove object presets (LaMaInpaint's
+   * lama_model) and Select by Text (SAM3_Detect's conditioning). Beta gate G1.
+   */
   async getWorkflowNodeAvailability(
     presets: readonly WorkflowPresetDefinition[]
   ): Promise<WorkflowNodeAvailability> {
@@ -267,23 +276,29 @@ export class ComfyClient {
       }
     }
 
-    return this.getNodeAvailability([...nodeClasses]);
+    return this.getNodeAvailability([...nodeClasses], "declared");
   }
 
   /**
    * The same question for an arbitrary list of class types, so a workflow
    * OpenLayer did not author can be checked against this server.
    *
-   * Records only the inputs ComfyUI marks *required*. A caller that treats the
-   * absence of an optional input as a fault repeats the mistake documented on
-   * the Klein edit preset, where it reported a working graph as broken.
+   * By default records only the inputs ComfyUI marks *required*: the custom
+   * workflow check asks whether a graph supplies every one of those, and an
+   * optional input left out is not a fault there. "declared" records required
+   * and optional together, for a caller asking whether an input exists at all
+   * (see getWorkflowNodeAvailability). Mixing the two up is how Workflow
+   * Health came to report working presets as broken.
    *
    * A class that does not exist is left out rather than recorded as empty.
    * That matters more than it looks: `GET /object_info/<ClassName>` answers 200
    * with an empty body for an unknown class, so presence of a *response* proves
    * nothing and only the presence of the schema does.
    */
-  async getNodeAvailability(classTypes: readonly string[]): Promise<WorkflowNodeAvailability> {
+  async getNodeAvailability(
+    classTypes: readonly string[],
+    inputs: "required" | "declared" = "required"
+  ): Promise<WorkflowNodeAvailability> {
     const availability: WorkflowNodeAvailability = {};
 
     for (const classType of classTypes) {
@@ -292,7 +307,11 @@ export class ComfyClient {
         const schema = objectInfo[classType];
 
         if (schema) {
-          availability[classType] = Object.keys(schema.input?.required ?? {});
+          availability[classType] = Object.keys(
+            inputs === "declared"
+              ? { ...(schema.input?.required ?? {}), ...(schema.input?.optional ?? {}) }
+              : schema.input?.required ?? {}
+          );
         }
       } catch {
         // Missing node classes are reported by the caller, not here.
