@@ -1399,15 +1399,32 @@ export function renderApp(rootElement: HTMLElement) {
         statusText: elements.styleReferenceStatusText,
         statusPill: elements.styleReferenceStatusPill
       },
-      // Both of these published canImport from syncImportBridge since they
-      // shipped, but had no handler here, so the Preview panel showed an enabled
-      // Import button that did nothing at all.
       {
         toolId: "camera-angle",
         run: handleImportCameraAngle,
         statusText: elements.cameraAngleStatusText,
         statusPill: elements.cameraAngleStatusPill
       },
+      // These two showed their results in the Preview panel from the day they
+      // shipped but were never registered or published here, so the panel
+      // hid its Import row for them: the picture was there, the button was not.
+      {
+        toolId: "remove-background",
+        run: handleImportRemoveBackground,
+        statusText: elements.removeBackgroundStatusText,
+        statusPill: elements.removeBackgroundStatusPill,
+        toggleAutoImport: handleToggleRemoveBackgroundAutoImport
+      },
+      {
+        toolId: "layer-maps",
+        run: handleImportLayerMaps,
+        statusText: elements.layerMapsStatusText,
+        statusPill: elements.layerMapsStatusPill,
+        toggleAutoImport: handleToggleLayerMapsAutoImport
+      },
+      // Both of these published canImport from syncImportBridge since they
+      // shipped, but had no handler here, so the Preview panel showed an enabled
+      // Import button that did nothing at all.
       {
         toolId: "multi-reference",
         run: handleImportMultiReference,
@@ -1511,6 +1528,14 @@ export function renderApp(rootElement: HTMLElement) {
     importBridge.publishCapability("camera-angle", {
       canImport: canImport(cameraAngleResult),
       auto: null
+    });
+    importBridge.publishCapability("remove-background", {
+      canImport: canImport(removeBackgroundResult),
+      auto: { isEnabled: removeBackgroundImportAutomatically }
+    });
+    importBridge.publishCapability("layer-maps", {
+      canImport: canImport(layerMapsResult),
+      auto: { isEnabled: layerMapsImportAutomatically }
     });
     importBridge.publishCapability("multi-reference", {
       canImport: canImport(multiReferenceResult),

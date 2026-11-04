@@ -53,6 +53,39 @@ describe("App.ts import registrations", () => {
     expect(published.length).toBeGreaterThan(0);
     expect([...new Set(published)].sort()).toEqual([...new Set(registered)].sort());
   });
+
+  it("publishes and registers every tool the Preview panel can show", () => {
+    // The check above passes when a tool is missing from BOTH lists, which is
+    // how Remove Background and Layer Maps shipped: their results showed in
+    // the Preview panel, and the panel hid the Import row because nothing had
+    // published a capability for them.
+    const app = readFileSync(resolve(__dirname, "../../src/ui/App.ts"), "utf8");
+    const published = new Set([...app.matchAll(/importBridge\.publishCapability\("([^"]+)"/g)].map((match) => match[1]));
+    const registrationBlock = app.slice(
+      app.indexOf("const registrations: ImportRegistration[] = ["),
+      app.indexOf("for (const registration of registrations)")
+    );
+    const registered = new Set([...registrationBlock.matchAll(/toolId: "([^"]+)"/g)].map((match) => match[1]));
+
+    for (const tool of PREVIEW_TOOLS) {
+      expect(published.has(tool.id), `${tool.id} publishes an import capability`).toBe(true);
+      expect(registered.has(tool.id), `${tool.id} registers an import handler`).toBe(true);
+    }
+  });
+
+  it("wires an auto-import toggle for every tool whose target says it has one", () => {
+    const app = readFileSync(resolve(__dirname, "../../src/ui/App.ts"), "utf8");
+    const registrationBlock = app.slice(
+      app.indexOf("const registrations: ImportRegistration[] = ["),
+      app.indexOf("for (const registration of registrations)")
+    );
+    const withToggle = [...registrationBlock.matchAll(/toolId: "([^"]+)"[^}]*?toggleAutoImport:/g)].map((match) => match[1]);
+    const wantToggle = Object.entries(IMPORT_TARGETS)
+      .filter(([, target]) => target.hasAutoImport)
+      .map(([toolId]) => toolId);
+
+    expect(withToggle.sort()).toEqual(wantToggle.sort());
+  });
 });
 
 describe("resolveImportAffordance", () => {
