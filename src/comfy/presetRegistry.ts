@@ -3558,11 +3558,10 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
       "Re-shoots the captured layer from another camera position: one of 8 directions, 4 heights and 3 distances, with Qwen-Image-Edit 2511 and fal's multiple-angles LoRA.",
     workflowFile: "workflows/api/camera-angle-qwen-edit-2511.json",
     sourceWorkflowFile: "workflows/source/camera-angle-qwen-edit-2511.workflow.json",
-    // Not runnable until the 20.5 GB model has been run on a 12 GB card. Flip
-    // to "experimental" in the PR that records that spike.
-    status: "todo",
-    disabledReason:
-      "Camera Angle is waiting for its first measured run: the 20.5 GB Qwen-Image-Edit 2511 model has not been tested on a 12 GB card yet.",
+    // Measured 2026-11-04 on a 4070 Ti (12 GB): 34 s cold, 20-22 s warm, all
+    // seven poses tried were honoured. Experimental because the whole picture
+    // is redrawn (background included) and faces drift.
+    status: "experimental",
     recommendedSettings: { steps: 4, cfg: 1 },
     supportedModelFamilies: ["unknown"],
     experimentalModelFamilies: ["sd1", "sdxl", "sd3", "flux", "flux2", "zImage"],
@@ -3572,7 +3571,7 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     requiredModels: [...QWEN_IMAGE_EDIT_2511_STACK, QWEN_IMAGE_EDIT_2511_LIGHTNING_LORA, QWEN_IMAGE_EDIT_2511_ANGLES_LORA],
     injections: CAMERA_ANGLE_QWEN_EDIT_2511_INJECTIONS,
     compatibilityNote:
-      "camera-angle-qwen-edit-2511 is ComfyUI's own Qwen-Image-Edit 2511 int8 template with the Lightning 4-step LoRA always on and fal's multiple-angles LoRA after it. Core nodes only, ComfyUI 0.37. All files Apache-2.0: the 20.5 GB int8 diffusion model, the Qwen2.5-VL encoder and Qwen image VAE that Qwen-Image-Layered and Krea-2 already use, and two LoRAs (0.85 GB and 0.3 GB) in models/loras.",
+      "camera-angle-qwen-edit-2511 is ComfyUI's own Qwen-Image-Edit 2511 int8 template with the Lightning 4-step LoRA always on and fal's multiple-angles LoRA after it. Core nodes only, ComfyUI 0.37. All files Apache-2.0: the 20.5 GB int8 diffusion model, the Qwen2.5-VL encoder and Qwen image VAE that Qwen-Image-Layered and Krea-2 already use, and two LoRAs (0.85 GB and 0.3 GB) in models/loras. Measured on a 4070 Ti (12 GB) with 32 GB of system RAM: 34 s for the first run and 20 to 22 s after it at 1920 x 1280, with about 1.5 GB of VRAM and 3 GB of system RAM left free at the peak. The whole picture is redrawn from the new position, background included, and faces come back softer than the source.",
     requiredNodes: [
       { id: CAMERA_ANGLE_QWEN_EDIT_2511_NODES.loadImage, classType: "LoadImage", requiredInputs: ["image"] },
       { id: CAMERA_ANGLE_QWEN_EDIT_2511_NODES.diffusionModelLoader, classType: "UNETLoader", requiredInputs: ["unet_name", "weight_dtype"] },

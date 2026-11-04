@@ -361,6 +361,17 @@ export type UnflattenSettingsValidation = {
   warnings: string[];
 };
 
+export type CameraAngleSettingsInput = {
+  seed: string;
+};
+
+export type CameraAngleSettingsValidation = {
+  settings: {
+    seed: number;
+  };
+  warnings: string[];
+};
+
 export type MultiReferenceSettingsInput = {
   steps: string;
   cfg: string;

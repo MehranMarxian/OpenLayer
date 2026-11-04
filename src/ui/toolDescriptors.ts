@@ -119,6 +119,9 @@ export const BUSY_DISABLED_FIELD_GROUPS: Readonly<
   "remove-background": ["removeBackgroundWorkflow", "removeBackgroundModel"],
   // The prompt is the whole question SAM answers; there is no sampler to set.
   "select-by-text": ["selectByTextPrompt", "selectByTextWorkflow", "selectByTextModel"],
+  // No prompt and no model picker: the three pose lists and the seed are the
+  // whole form. Steps and CFG are fixed by the Lightning LoRA.
+  "camera-angle": ["cameraAngleDirection", "cameraAngleHeight", "cameraAngleDistance", "cameraAngleSeed"],
   // Same shape as Remove Background: a preprocessor has no prompt, seed or
   // sampler. The map-type select and the depth model select are the whole form.
   "layer-maps": ["layerMapsWorkflow", "layerMapsModel"]
@@ -205,6 +208,8 @@ export type BusyGateName =
   | "removeBackgroundSource"
   | "removeBackgroundResult"
   | "selectByTextSource"
+  | "cameraAngleSource"
+  | "cameraAngleResult"
   | "layerMapsSource"
   | "layerMapsResult";
 
@@ -240,6 +245,8 @@ export const BUSY_GATED_ACTIONS: readonly BusyGatedAction[] = [
   { button: "importRemoveBackgroundButton", gate: "removeBackgroundResult" },
   // No import gate: the selection is applied as part of the run.
   { button: "runSelectByTextButton", gate: "selectByTextSource" },
+  { button: "generateCameraAngleButton", gate: "cameraAngleSource" },
+  { button: "importCameraAngleButton", gate: "cameraAngleResult" },
   { button: "generateLayerMapsButton", gate: "layerMapsSource" },
   { button: "importLayerMapsButton", gate: "layerMapsResult" }
 ];

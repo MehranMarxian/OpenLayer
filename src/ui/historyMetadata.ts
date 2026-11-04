@@ -11,6 +11,7 @@ export type HistoryToolType =
   | "unflatten"
   | "remove-background"
   | "select-by-text"
+  | "camera-angle"
   | "layer-maps";
 
 export type HistoryImportStatus = "not-imported" | "imported";
@@ -28,6 +29,7 @@ const TOOL_LABELS: Record<HistoryToolType, string> = {
   unflatten: "Unflatten",
   "remove-background": "Remove Background",
   "select-by-text": "Select by Text",
+  "camera-angle": "Camera Angle",
   "layer-maps": "Layer Maps"
 };
 

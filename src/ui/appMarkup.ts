@@ -5,6 +5,8 @@ import {
   listWorkflowPresets
 } from "../comfy/presetRegistry";
 import { NO_LORA_VALUE } from "../comfy/loraCompatibility";
+import { CAMERA_DIRECTIONS, CAMERA_DISTANCES, CAMERA_HEIGHTS, DEFAULT_CAMERA_ANGLE } from "../comfy/cameraAngle";
+import { createCameraAngleOptionsMarkup } from "./tools/cameraAngle";
 import {
   APP_VERSION,
   DEFAULT_CFG,
@@ -431,6 +433,24 @@ export type AppElements = {
   selectByTextStatusProgress: HTMLElement;
   selectByTextDiagnosticsText: HTMLElement;
   selectByTextErrorMessage: HTMLElement;
+  cameraAngleView: HTMLElement;
+  captureCameraAngleSourceButton: HTMLElement;
+  captureCameraAngleCanvasSourceButton: HTMLElement;
+  cameraAngleSourcePreviewPanel: HTMLElement;
+  cameraAngleSourceTitle: HTMLElement;
+  cameraAngleSourceMeta: HTMLElement;
+  cameraAngleDirection: HTMLSelectElement;
+  cameraAngleHeight: HTMLSelectElement;
+  cameraAngleDistance: HTMLSelectElement;
+  cameraAngleSeed: HTMLInputElement;
+  generateCameraAngleButton: HTMLElement;
+  cameraAngleStatusText: HTMLElement;
+  cameraAngleStatusPill: HTMLElement;
+  cameraAngleStatusProgress: HTMLElement;
+  cameraAngleDiagnosticsText: HTMLElement;
+  cameraAngleErrorMessage: HTMLElement;
+  cameraAngleResultPreviewPanel: HTMLElement;
+  importCameraAngleButton: HTMLElement;
   removeBackgroundView: HTMLElement;
   captureRemoveBackgroundSourceButton: HTMLElement;
   captureRemoveBackgroundCanvasSourceButton: HTMLElement;
@@ -1869,6 +1889,91 @@ export function createAppMarkup() {
         </section>
       </section>
 
+      <section class="camera-angle-view image-to-image-view" id="camera-angle-view" aria-label="Camera Angle" hidden>
+        <div class="screen-nav">
+          <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
+          <div class="screen-title-block">
+            ${createScreenIconMarkup("cameraAngle", "Camera Angle")}
+            <span class="screen-title">Camera Angle</span>
+          </div>
+        </div>
+
+        <section class="panel-section generator-panel source-panel" aria-label="Camera Angle source">
+          <div class="section-heading">
+            <span class="label">Source layer</span>
+            <span class="muted-label">What to re-shoot</span>
+          </div>
+          <div class="source-action-row" aria-label="Camera Angle source capture actions">
+            <button class="button source-action-button action-control" id="capture-camera-angle-source" data-openlayer-action="captureCameraAngleSource" type="button">Capture Active Layer</button>
+            <button class="button source-action-button action-control" id="capture-camera-angle-canvas-source" data-openlayer-action="captureCameraAngleCanvasSource" type="button">Capture Canvas</button>
+          </div>
+          <div class="source-card">
+            <div class="source-thumb-frame" id="camera-angle-source-preview-panel">
+              <span class="source-empty">None</span>
+            </div>
+            <div class="source-card-body">
+              <span class="source-title" id="camera-angle-source-title">No source captured</span>
+              <span class="source-card-meta" id="camera-angle-source-meta">Choose active layer or full canvas.</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel-section generator-panel img2img-form-panel" aria-label="Camera Angle settings">
+          <div class="section-heading">
+            <span class="label">Camera</span>
+            <span class="muted-label">Where it stands</span>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Direction</span>
+            <select class="select" id="camera-angle-direction">
+              ${createCameraAngleOptionsMarkup(CAMERA_DIRECTIONS, DEFAULT_CAMERA_ANGLE.direction)}
+            </select>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Height</span>
+            <select class="select" id="camera-angle-height">
+              ${createCameraAngleOptionsMarkup(CAMERA_HEIGHTS, DEFAULT_CAMERA_ANGLE.height)}
+            </select>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Distance</span>
+            <select class="select" id="camera-angle-distance">
+              ${createCameraAngleOptionsMarkup(CAMERA_DISTANCES, DEFAULT_CAMERA_ANGLE.distance)}
+            </select>
+            <div class="diagnostics-line camera-angle-hint" id="camera-angle-hint">Moves the camera around what is in the layer. The whole picture is redrawn from the new position, background included, so details change and a face will not match exactly. Experimental. About 20 seconds per run on a 12 GB card after the first, which loads a 20 GB model.</div>
+          </div>
+          <div class="field settings-seed">
+            <span class="label">Seed</span>
+            <input class="input input-compact" id="camera-angle-seed" type="text" inputmode="numeric" placeholder="Random" />
+          </div>
+          <button class="button button-primary button-generate button-wide action-control" id="generate-camera-angle" data-openlayer-action="generateCameraAngle" type="button">Change Camera Angle</button>
+          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
+        </section>
+
+        <section class="generation-status-panel img2img-status-panel" aria-label="Camera Angle status">
+          <div class="status-bar" role="status">
+            <span class="status-text" id="camera-angle-status-text">Ready.</span>
+            <span class="status-pill idle" id="camera-angle-status-pill">Status</span>
+          </div>
+          <div class="status-progress" id="camera-angle-status-progress" hidden><span></span></div>
+          <div class="diagnostics-line" id="camera-angle-diagnostics-text">Capture a layer, choose where the camera stands, then click Change Camera Angle.</div>
+          <div class="error-message" id="camera-angle-error-message" hidden></div>
+        </section>
+
+        <section class="panel-section result-panel img2img-result-panel" aria-label="Camera Angle result">
+          <div class="section-heading">
+            <span class="label">Result preview</span>
+            <span class="muted-label">New view appears here</span>
+          </div>
+          <div class="preview-panel" id="camera-angle-result-preview-panel">
+            <span class="preview-empty">No new view yet</span>
+          </div>
+          <div class="import-actions">
+            <button class="button button-import button-import-blue action-control is-disabled" id="import-camera-angle-result" data-openlayer-action="importCameraAngle" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
+          </div>
+        </section>
+      </section>
+
       <section class="select-by-text-view image-to-image-view" id="select-by-text-view" aria-label="Select by Text" hidden>
         <div class="screen-nav">
           <div class="back-button screen-back-control" role="button" tabindex="0" data-openlayer-view="home">Back to Tools</div>
@@ -2368,6 +2473,7 @@ function createToolIconMarkup(icon: ToolIconName) {
     unflatten: "unflatten.png",
     removeBackground: "remove-background.png",
     selectByText: "select-by-text.png",
+    cameraAngle: "camera-angle.png",
     layerMaps: "layer-maps.png",
     control: "workflow-presets.png",
     workflow: "workflow.png",
@@ -2821,6 +2927,24 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     selectByTextStatusProgress: getElement<HTMLElement>(rootElement, "select-by-text-status-progress"),
     selectByTextDiagnosticsText: getElement<HTMLElement>(rootElement, "select-by-text-diagnostics-text"),
     selectByTextErrorMessage: getElement<HTMLElement>(rootElement, "select-by-text-error-message"),
+    cameraAngleView: getElement<HTMLElement>(rootElement, "camera-angle-view"),
+    captureCameraAngleSourceButton: getElement<HTMLElement>(rootElement, "capture-camera-angle-source"),
+    captureCameraAngleCanvasSourceButton: getElement<HTMLElement>(rootElement, "capture-camera-angle-canvas-source"),
+    cameraAngleSourcePreviewPanel: getElement<HTMLElement>(rootElement, "camera-angle-source-preview-panel"),
+    cameraAngleSourceTitle: getElement<HTMLElement>(rootElement, "camera-angle-source-title"),
+    cameraAngleSourceMeta: getElement<HTMLElement>(rootElement, "camera-angle-source-meta"),
+    cameraAngleDirection: getElement<HTMLSelectElement>(rootElement, "camera-angle-direction"),
+    cameraAngleHeight: getElement<HTMLSelectElement>(rootElement, "camera-angle-height"),
+    cameraAngleDistance: getElement<HTMLSelectElement>(rootElement, "camera-angle-distance"),
+    cameraAngleSeed: getElement<HTMLInputElement>(rootElement, "camera-angle-seed"),
+    generateCameraAngleButton: getElement<HTMLElement>(rootElement, "generate-camera-angle"),
+    cameraAngleStatusText: getElement<HTMLElement>(rootElement, "camera-angle-status-text"),
+    cameraAngleStatusPill: getElement<HTMLElement>(rootElement, "camera-angle-status-pill"),
+    cameraAngleStatusProgress: getElement<HTMLElement>(rootElement, "camera-angle-status-progress"),
+    cameraAngleDiagnosticsText: getElement<HTMLElement>(rootElement, "camera-angle-diagnostics-text"),
+    cameraAngleErrorMessage: getElement<HTMLElement>(rootElement, "camera-angle-error-message"),
+    cameraAngleResultPreviewPanel: getElement<HTMLElement>(rootElement, "camera-angle-result-preview-panel"),
+    importCameraAngleButton: getElement<HTMLElement>(rootElement, "import-camera-angle-result"),
     removeBackgroundView: getElement<HTMLElement>(rootElement, "remove-background-view"),
     captureRemoveBackgroundSourceButton: getElement<HTMLElement>(rootElement, "capture-remove-background-source"),
     captureRemoveBackgroundCanvasSourceButton: getElement<HTMLElement>(rootElement, "capture-remove-background-canvas-source"),

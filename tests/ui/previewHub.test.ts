@@ -222,6 +222,7 @@ describe("PREVIEW_TOOLS inventory", () => {
       "outpaint",
       "upscale",
       "remove-background",
+      "camera-angle",
       "layer-maps",
       "style-reference",
       "multi-reference",

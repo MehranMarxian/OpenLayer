@@ -67,16 +67,16 @@ describe("Unflatten setup requirements", () => {
     expect(outlook?.unknownSizeCount).toBe(0);
   });
 
-  it("shares no file with any other preset, which is what makes it a 30.2 GB addition", () => {
+  it("shares only its text encoder, with Camera Angle, in a 30.2 GB stack", () => {
     const outlook = rankPresetsByVramOutlook({
       pluginVersion: PLUGIN_VERSION,
       vramTotalBytes: TWELVE_GB
     }).find((entry) => entry.presetId === "unflatten-qwen-layered");
 
-    // Not the largest preset TOTAL -- the Flux Fill stack is heavier -- but the
-    // largest addition, because every byte of that stack is already shared with
-    // other presets and none of these three are. Someone who has everything
-    // else installed still downloads all 30.2 GB for this one.
+    // Not the largest preset TOTAL -- the Flux Fill stack is heavier. Until
+    // Camera Angle became runnable none of these three files was shared; now
+    // its Qwen2.5-VL text encoder (9.4 GB) is, so someone who already runs
+    // Camera Angle downloads only the diffusion model and the VAE.
     //
     // Read 28.1 GB until formatBytes was corrected: it divided by 1024³ while
     // labelling the result "GB", so this figure disagreed with the 30.17 GB
@@ -84,7 +84,11 @@ describe("Unflatten setup requirements", () => {
     expect(outlook?.formattedTotal).toBe("30.2 GB");
 
     for (const model of unflattenModels()) {
-      expect(model.usedByPresets).toEqual(["unflatten-qwen-layered"]);
+      expect(model.usedByPresets).toEqual(
+        model.modelName === "qwen_2.5_vl_7b_fp8_scaled.safetensors"
+          ? ["camera-angle-qwen-edit-2511", "unflatten-qwen-layered"]
+          : ["unflatten-qwen-layered"]
+      );
     }
   });
 

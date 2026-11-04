@@ -146,14 +146,16 @@ describe("presetRegistry", () => {
     expect(preset.compatibilityNote).toMatch(/SAM License, commercial use allowed/);
   });
 
-  it("registers the camera-angle preset as not runnable until its spike", () => {
+  it("registers the camera-angle preset as experimental after its measured run", () => {
     const preset = getWorkflowPreset("camera-angle-qwen-edit-2511");
 
     expect(preset.mode).toBe("camera-angle");
-    // Flipped to "experimental" only by the PR that records a measured run.
-    expect(preset.status).toBe("todo");
-    expect(preset.disabledReason).toMatch(/first measured run/);
-    expect(listRunnableWorkflowPresets().map((runnable) => runnable.id)).not.toContain("camera-angle-qwen-edit-2511");
+    // Measured 2026-11-04 on a 12 GB card; experimental because the whole
+    // picture is redrawn and faces drift.
+    expect(preset.status).toBe("experimental");
+    expect(preset.disabledReason).toBeUndefined();
+    expect(preset.compatibilityNote).toMatch(/20 to 22 s/);
+    expect(listRunnableWorkflowPresets().map((runnable) => runnable.id)).toContain("camera-angle-qwen-edit-2511");
     expect(preset.requiredModels?.map((model) => [model.modelName, model.kind, model.downloadSizeBytes, model.licenseGate])).toEqual([
       ["qwen_image_edit_2511_int8_convrot.safetensors", "diffusion-model-stack", 20499083824, undefined],
       ["qwen_2.5_vl_7b_fp8_scaled.safetensors", "clip", 9384670680, undefined],
