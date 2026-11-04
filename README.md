@@ -35,13 +35,17 @@
 - **Nothing leaves your computer.** ComfyUI runs on your own machine, on your own models.
 - **Results arrive as real layers in Photoshop** — named, positioned, and editable. Not a flattened PNG
   you paste in and hope for.
-- **Fourteen generation tools**, from text-to-image and editing by instruction through inpainting and background removal to
+- **Sixteen tools**, from text-to-image and editing by instruction through inpainting and background removal to
   multi-image composition and depth/line-art/normal passes, plus an experimental one that splits a
   flat picture back into layers.
-- **New in v0.39: one button to a working setup.** On a fresh ComfyUI, the **Start here** card in
-  Setup downloads FLUX.2 Klein 4B (Apache-2.0, 12.5 GB) into the right folders, and Text to Image
-  opens on it at 1024 × 1024: seven clicks from an empty ComfyUI to your first layer, plus choosing
-  ComfyUI's models folder once.
+- **New in v0.40: remove, select, re-shoot.** Remove object takes a selected object out (LaMa for
+  small things, LaMa + FLUX.2 Klein for a whole person), Select by Text turns a word into a live
+  selection with SAM 3.1, and the experimental Camera Angle shows a layer from another camera
+  position. Upscale gains SeedVR2, a 2x generative restorer, and results now land at the right size
+  in documents that are not 72 ppi.
+- **One button to a working setup.** On a fresh ComfyUI, the **Start here** card in Setup downloads
+  FLUX.2 Klein 4B (Apache-2.0, 12.5 GB) into the right folders, and Text to Image opens on it at
+  1024 × 1024.
 - **Also with Qwen-Image 2.1** — transparent cut-out layers straight from the model, lettering that
   comes out spelled right at native 2K, and instruction editing. Its weights are for research and
   evaluation only, so the 2.1 presets are opt-in, never a default, and labelled "(research licence)".
@@ -53,7 +57,7 @@ a GPU with 8 GB VRAM or more (12 GB is what this project targets).
 OpenLayer is the panel inside Photoshop that talks to it — you work in Photoshop, ComfyUI does the
 generating in the background, and every result comes back as a layer.
 
-> **Alpha.** `v0.39.0-alpha` is a public testing checkpoint, not production software. It is stable
+> **Alpha.** `v0.40.0-alpha` is a public testing checkpoint, not production software. It is stable
 > enough to work with, and honest about where it stops — see [what works and what does
 > not](docs/known-limitations.md).
 
@@ -577,7 +581,8 @@ same document binding, the same transactional import, the same one-run-at-a-time
 second generation mid-run and it is refused with "OpenLayer is busy", exactly as a second click would
 be.
 
-**Thirteen** generation tools are reachable — every one except Live Painting:
+**Thirteen** generation tools are reachable — every one except Live Painting, Select by Text and
+Camera Angle:
 
 `text_to_image` · `image_to_image` · `edit_image` · `sketch_to_image` · `inpaint` · `outpaint` · `upscale` ·
 `prompt_from_layer` · `style_reference` · `multi_reference` · `unflatten` · `remove_background` ·
