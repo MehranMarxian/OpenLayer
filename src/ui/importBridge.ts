@@ -72,6 +72,16 @@ export type ImportCapability = {
    */
   canImport: boolean;
   /**
+   * Why canImport is false, so the panel can say the true thing. "busy" is a
+   * run in progress somewhere in the panel; "no-result" is a tool that no
+   * longer holds a result -- a new capture or a new run cleared it -- while
+   * the Preview panel still shows the old picture, because the hub keeps a
+   * tool's last publication. The panel used to blame a running generation
+   * for both, which was false whenever nothing was running. Null when
+   * canImport is true.
+   */
+  blockedBy: "busy" | "no-result" | null;
+  /**
    * Auto-import state, or null when the tool has no such control. Null and
    * `{ isEnabled: false }` mean different things — "no toggle exists" versus
    * "the toggle is off" — and the panel renders them differently.
@@ -141,7 +151,14 @@ export function resolveImportAffordance(
   }
 
   if (!capability.canImport) {
-    return { visible: true, enabled: false, reason: "Import is unavailable while a generation is running." };
+    return {
+      visible: true,
+      enabled: false,
+      reason:
+        capability.blockedBy === "no-result"
+          ? "This picture is no longer the tool's current result, so it cannot be imported. Generate again to import."
+          : "Import is unavailable while a generation is running."
+    };
   }
 
   return { visible: true, enabled: true, reason: "" };
@@ -186,6 +203,7 @@ export function createImportBridge(): ImportBridge {
       if (
         previous &&
         previous.canImport === capability.canImport &&
+        previous.blockedBy === capability.blockedBy &&
         previous.auto?.isEnabled === capability.auto?.isEnabled &&
         (previous.auto === null) === (capability.auto === null)
       ) {

@@ -111,11 +111,23 @@ describe("resolveImportAffordance", () => {
   });
 
   it("disables the button while the tool reports it cannot import", () => {
-    const affordance = resolveImportAffordance({ canImport: false, auto: null }, publication("upscale"));
+    const affordance = resolveImportAffordance({ canImport: false, blockedBy: "busy", auto: null }, publication("upscale"));
 
     expect(affordance.visible).toBe(true);
     expect(affordance.enabled).toBe(false);
     expect(affordance.reason).toContain("running");
+  });
+
+  it("does not blame a running generation when the tool simply has no result", () => {
+    // A new capture clears the tool's result while the Preview panel keeps the
+    // old picture. Nothing is running, so "while a generation is running" was
+    // false -- seen 2026-10-30.
+    const affordance = resolveImportAffordance({ canImport: false, blockedBy: "no-result", auto: null }, publication("inpaint"));
+
+    expect(affordance.enabled).toBe(false);
+    expect(affordance.reason).not.toContain("running");
+    expect(affordance.reason).toMatch(/no longer the tool's current result/);
+    expect(affordance.reason).not.toMatch(/`|--|\*\*/);
   });
 
   it("enables the button for a finished result the tool can import", () => {
@@ -209,6 +221,19 @@ describe("createImportBridge", () => {
     bridge.publishCapability("upscale", { canImport: true, auto: { isEnabled: false } });
 
     expect(listener).not.toHaveBeenCalled();
+  });
+
+  it("re-renders when only the reason for a disabled import changes", () => {
+    // A run ending on a tool that holds no result moves busy -> no-result with
+    // canImport false throughout; the panel's sentence must follow.
+    const bridge = createImportBridge();
+    const listener = vi.fn();
+
+    bridge.publishCapability("inpaint", { canImport: false, blockedBy: "busy", auto: null });
+    bridge.subscribe(listener);
+    bridge.publishCapability("inpaint", { canImport: false, blockedBy: "no-result", auto: null });
+
+    expect(listener).toHaveBeenCalledTimes(1);
   });
 
   it("treats a missing auto control as different from a disabled one", () => {

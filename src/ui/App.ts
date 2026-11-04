@@ -1495,61 +1495,68 @@ export function renderApp(rootElement: HTMLElement) {
    * sequence.
    */
   function syncImportBridge() {
-    const canImport = (hasResult: unknown) => !isBusy && Boolean(hasResult);
+    // "no-result" wins over "busy": when another tool is running and this one
+    // holds no result, the picture the panel shows is stale either way, and
+    // that is the thing worth saying.
+    const importState = (hasResult: unknown) => ({
+      canImport: !isBusy && Boolean(hasResult),
+      blockedBy: !hasResult ? ("no-result" as const) : isBusy ? ("busy" as const) : null
+    });
 
     importBridge.publishCapability("text-to-image", {
-      canImport: canImport(result),
+      ...importState(result),
       auto: { isEnabled: importAutomatically }
     });
     importBridge.publishCapability("image-to-image", {
-      canImport: canImport(imageResult),
+      ...importState(imageResult),
       auto: { isEnabled: imageImportAutomatically }
     });
     importBridge.publishCapability("sketch-to-image", {
-      canImport: canImport(sketchResult),
+      ...importState(sketchResult),
       auto: null
     });
     importBridge.publishCapability("inpaint", {
-      canImport: canImport(inpaintResult),
+      ...importState(inpaintResult),
       auto: null
     });
     importBridge.publishCapability("outpaint", {
-      canImport: canImport(outpaintResult),
+      ...importState(outpaintResult),
       auto: null
     });
     importBridge.publishCapability("upscale", {
-      canImport: canImport(upscaleResult),
+      ...importState(upscaleResult),
       auto: null
     });
     importBridge.publishCapability("style-reference", {
-      canImport: canImport(styleReferenceResult),
+      ...importState(styleReferenceResult),
       auto: null
     });
     importBridge.publishCapability("camera-angle", {
-      canImport: canImport(cameraAngleResult),
+      ...importState(cameraAngleResult),
       auto: null
     });
     importBridge.publishCapability("remove-background", {
-      canImport: canImport(removeBackgroundResult),
+      ...importState(removeBackgroundResult),
       auto: { isEnabled: removeBackgroundImportAutomatically }
     });
     importBridge.publishCapability("layer-maps", {
-      canImport: canImport(layerMapsResult),
+      ...importState(layerMapsResult),
       auto: { isEnabled: layerMapsImportAutomatically }
     });
     importBridge.publishCapability("multi-reference", {
-      canImport: canImport(multiReferenceResult),
+      ...importState(multiReferenceResult),
       auto: null
     });
     importBridge.publishCapability("unflatten", {
       canImport: Boolean(unflattenResult),
+      blockedBy: unflattenResult ? null : "no-result",
       auto: null
     });
     // Live Painting's import button is gated on liveLastResult by hand rather
     // than through the busy tables, so its capability is derived the same way
     // here instead of being read off the button.
     importBridge.publishCapability("live-painting", {
-      canImport: canImport(liveLastResult),
+      ...importState(liveLastResult),
       auto: { isEnabled: liveImportAutomatically }
     });
   }
