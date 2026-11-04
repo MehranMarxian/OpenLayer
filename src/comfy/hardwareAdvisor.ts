@@ -45,26 +45,35 @@ const FAMILY_LABELS: Record<ModelFamily, string> = {
   unknown: "Unknown"
 };
 
+/**
+ * Plain text: shown by Check ComfyUI and Detect Hardware through textContent.
+ * It names the cause and what to check rather than a list of tools, because
+ * no tool has been timed on a CPU-only ComfyUI.
+ */
+export const CPU_ONLY_NOTE =
+  "ComfyUI is running on the processor only, with no graphics card. Every tool that generates an image will take minutes per picture instead of seconds, and the large models may not run at all. If this computer has an NVIDIA, AMD or Apple graphics card, ComfyUI was probably started with its CPU-only option or without GPU support.";
+
 export function createHardwareRecommendationReport(
   systemStats: ComfySystemStats,
   inventory: ComfyModelInventory,
   presets: WorkflowPresetDefinition[]
 ): HardwareRecommendationReport {
   const primaryDevice = choosePrimaryDevice(systemStats.devices);
+  const cpuOnly = isCpuOnlyComfy(systemStats);
   const vramTotalBytes = getPrimaryDeviceVramTotalBytes(systemStats) ?? undefined;
-  const vramFreeBytes = primaryDevice?.vramFreeBytes ?? primaryDevice?.torchVramFreeBytes;
+  const vramFreeBytes = cpuOnly ? undefined : primaryDevice?.vramFreeBytes ?? primaryDevice?.torchVramFreeBytes;
   const tier = getHardwareTier(vramTotalBytes);
   const detectedFamilies = summarizeDetectedFamilies(inventory);
   const zImageTurboMessage = getZImageTurboMessage(inventory);
 
   return {
     tier,
-    tierLabel: getHardwareTierLabel(tier),
-    deviceName: primaryDevice?.name ?? "No GPU reported by ComfyUI",
+    tierLabel: cpuOnly ? "No GPU" : getHardwareTierLabel(tier),
+    deviceName: cpuOnly ? "Processor only, no graphics card" : primaryDevice?.name ?? "No GPU reported by ComfyUI",
     deviceType: primaryDevice?.type ?? "unknown",
-    vramTotalLabel: formatBytes(vramTotalBytes),
-    vramFreeLabel: formatBytes(vramFreeBytes),
-    summary: getTierSummary(tier),
+    vramTotalLabel: cpuOnly ? "none" : formatBytes(vramTotalBytes),
+    vramFreeLabel: cpuOnly ? "none" : formatBytes(vramFreeBytes),
+    summary: cpuOnly ? CPU_ONLY_NOTE : getTierSummary(tier),
     detectedFamilies,
     zImageTurboMessage,
     recommendations: createRecommendations(tier, inventory, presets)
@@ -299,6 +308,21 @@ function getZImageTurboMessage(inventory: ComfyModelInventory) {
   return "Z_image_Turbo was not detected in the diffusion model loader. It will not appear in the checkpoint selector because it is not a checkpoint model.";
 }
 
+/**
+ * Whether ComfyUI is generating on the processor alone: it reported at least
+ * one device and every one is type "cpu". That is what ComfyUI started with
+ * `--cpu`, or a PyTorch build without GPU support, reports. Apple's "mps" and
+ * every GPU backend are not CPU. Beta gate G3.
+ */
+export function isCpuOnlyComfy(systemStats: ComfySystemStats): boolean {
+  return systemStats.devices.length > 0
+    && systemStats.devices.every((device) => device.type.toLowerCase() === "cpu");
+}
+
+function isCpuDevice(device: ComfyHardwareDevice | undefined) {
+  return device?.type.toLowerCase() === "cpu";
+}
+
 function choosePrimaryDevice(devices: ComfyHardwareDevice[]) {
   return devices.find((device) => device.type.toLowerCase().includes("cuda"))
     ?? devices.find((device) => Boolean(device.vramTotalBytes ?? device.torchVramTotalBytes))
@@ -307,6 +331,14 @@ function choosePrimaryDevice(devices: ComfyHardwareDevice[]) {
 
 export function getPrimaryDeviceVramTotalBytes(systemStats: ComfySystemStats): number | null {
   const primaryDevice = choosePrimaryDevice(systemStats.devices);
+
+  // ComfyUI reports a CPU device's "vram_total" as the machine's system RAM.
+  // Read as VRAM it ranked a 32 GB CPU-only machine as a workstation card, and
+  // sized VRAM limits and Setup's outlook from it. There is no VRAM here.
+  if (isCpuDevice(primaryDevice)) {
+    return null;
+  }
+
   return primaryDevice?.vramTotalBytes ?? primaryDevice?.torchVramTotalBytes ?? null;
 }
 

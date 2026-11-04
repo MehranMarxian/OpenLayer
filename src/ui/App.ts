@@ -3,6 +3,7 @@ import { findActiveComfyUrl } from "../comfy/comfyPortDiscovery";
 import {
   createHardwareRecommendationReport,
   getPrimaryDeviceVramTotalBytes,
+  isCpuOnlyComfy,
   formatHardwareReport,
   HardwareRecommendationReport
 } from "../comfy/hardwareAdvisor";
@@ -226,7 +227,7 @@ import { setSeedDiceEnabled } from "./seedDice";
 import { enhanceSelectAsPicker, PICKER_SYNC_EVENT } from "./wheelProofPicker";
 import { pickStarterDefault } from "./starterDefaults";
 import { shouldRefreshToolModels } from "./setupInventoryChange";
-import { getComfyFoundStatus, getComfyOnlineStatus, getNoCheckpointsDiagnostics } from "./comfyCheckStatus";
+import { getComfyCheckDiagnostics, getComfyFoundStatus, getComfyOnlineStatus } from "./comfyCheckStatus";
 import { bindPromptMemory } from "./promptMemory";
 import { bindPromptWallet, PROMPT_WALLET_TOOLS, PromptWalletTool } from "./promptWallet";
 import {
@@ -2467,8 +2468,9 @@ export function renderApp(rootElement: HTMLElement) {
       updateOutpaintCheckpointCompatibility(elements, outpaintSource);
       updateUpscaleCompatibility(elements, upscaleSource);
       updateStyleReferenceCheckpointCompatibility(elements, styleReferenceSource);
-      setGlobalStatus(elements, getComfyOnlineStatus(checkpointCount), "ready");
-      setNoCheckpointsDiagnostics(checkpointCount);
+      const cpuOnly = await readCpuOnly(client);
+      setGlobalStatus(elements, getComfyOnlineStatus(checkpointCount, cpuOnly), "ready");
+      setComfyCheckDiagnostics(checkpointCount, cpuOnly);
       savePreferencesFromElements(elements);
       updateSettingsReport(elements);
     } catch (caughtError) {
@@ -2577,13 +2579,24 @@ export function renderApp(rootElement: HTMLElement) {
     }
   }
 
-  // Only when there is something to say: a check that found checkpoints keeps
-  // whatever the diagnostics line already reads ("Check ComfyUI pressed.").
-  function setNoCheckpointsDiagnostics(checkpointCount: number) {
-    const note = getNoCheckpointsDiagnostics(checkpointCount);
+  // Only when there is something to say: a check that found checkpoints on a
+  // GPU keeps whatever the diagnostics line already reads ("Check ComfyUI
+  // pressed.").
+  function setComfyCheckDiagnostics(checkpointCount: number, cpuOnly: boolean) {
+    const note = getComfyCheckDiagnostics(checkpointCount, cpuOnly);
 
     if (note) {
       setGlobalDiagnostics(elements, note);
+    }
+  }
+
+  // A failed read must not fail a check that has already succeeded: this only
+  // adds a warning, and without the stats there is nothing to warn about.
+  async function readCpuOnly(client: ComfyClient) {
+    try {
+      return isCpuOnlyComfy(await client.getSystemStats());
+    } catch {
+      return false;
     }
   }
 
@@ -2612,8 +2625,9 @@ export function renderApp(rootElement: HTMLElement) {
       updateOutpaintCheckpointCompatibility(elements, outpaintSource);
       updateUpscaleCompatibility(elements, upscaleSource);
       updateStyleReferenceCheckpointCompatibility(elements, styleReferenceSource);
-      setGlobalStatus(elements, getComfyOnlineStatus(checkpointCount), "ready");
-      setNoCheckpointsDiagnostics(checkpointCount);
+      const cpuOnly = await readCpuOnly(client);
+      setGlobalStatus(elements, getComfyOnlineStatus(checkpointCount, cpuOnly), "ready");
+      setComfyCheckDiagnostics(checkpointCount, cpuOnly);
       savePreferencesFromElements(elements);
       updateSettingsReport(elements);
     } catch (caughtError) {
@@ -2661,8 +2675,9 @@ export function renderApp(rootElement: HTMLElement) {
       updateUpscaleCompatibility(elements, upscaleSource);
       updateStyleReferenceCheckpointCompatibility(elements, styleReferenceSource);
       savePreferencesFromElements(elements);
-      setGlobalStatus(elements, getComfyFoundStatus(foundUrl, checkpointCount), "ready");
-      setGlobalDiagnostics(elements, [`Active ComfyUI server selected: ${foundUrl}.`, getNoCheckpointsDiagnostics(checkpointCount)].filter(Boolean).join(" "));
+      const cpuOnly = await readCpuOnly(client);
+      setGlobalStatus(elements, cpuOnly ? getComfyOnlineStatus(checkpointCount, true) : getComfyFoundStatus(foundUrl, checkpointCount), "ready");
+      setGlobalDiagnostics(elements, [`Active ComfyUI server selected: ${foundUrl}.`, getComfyCheckDiagnostics(checkpointCount, cpuOnly)].filter(Boolean).join(" "));
     } catch (caughtError) {
       setGlobalStatus(elements, `Found ${foundUrl}, but model loading failed.`, "error");
       setGlobalError(elements, getErrorMessage(caughtError));
