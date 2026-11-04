@@ -47,6 +47,11 @@ export type WorkflowCompatibilityIssue = {
   link?: WorkflowCompatibilityLink;
 };
 
+/**
+ * Node class -> input names. Which inputs depends on who asked: the preset
+ * checks (Workflow Health, Setup) get every declared input, the custom
+ * workflow check gets the required ones. See ComfyClient.getNodeAvailability.
+ */
 export type WorkflowNodeAvailability = Record<string, readonly string[]>;
 
 export type WorkflowPhotoshopInputAvailability = Partial<Record<WorkflowPhotoshopInputKind, boolean>>;
