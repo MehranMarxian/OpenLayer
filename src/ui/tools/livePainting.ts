@@ -18,6 +18,7 @@ import {
   type LiveCycleSample
 } from "../livePaintingTimings";
 import { createOpenLayerError, getErrorMessage } from "../../utils/errors";
+import { detectCheckpointFamily } from "../../comfy/modelCompatibility";
 
 export type LivePaintingState =
   | "idle"
@@ -41,6 +42,59 @@ export function getLivePaintingStateBadgeLabel(state: LivePaintingState): LivePa
     default:
       return "IDLE";
   }
+}
+
+/**
+ * The checkpoint the live tier runs. Its graph is SD 1.5 plus the LCM LoRA
+ * through CheckpointLoaderSimple, so it cannot take whatever the Text to Image
+ * Model dropdown holds: since v0.39 a starter install opens Text to Image on
+ * FLUX.2 Klein, a diffusion model in another folder, and every live cycle
+ * failed with "The model flux-2-klein... ". Beta gate G4, finding 1.
+ *
+ * - The Text to Image model, when ComfyUI lists it as a checkpoint and it is
+ *   not a known non-SD-1.5 family. "unknown" is kept: an SD 1.5 fine-tune with
+ *   an unhelpful file name is the common case, and it ran before.
+ * - Otherwise the recommended SD 1.5 checkpoint, if installed.
+ * - Otherwise the first checkpoint whose name says SD 1.x.
+ * - Otherwise nothing, with a message that names what to install.
+ *
+ * Text to Image's own selection is never changed.
+ */
+export type LivePaintingCheckpointChoice =
+  | Readonly<{ checkpointName: string; substituted: boolean; message: string }>
+  | Readonly<{ checkpointName: null; substituted: false; message: string }>;
+
+export function chooseLivePaintingCheckpoint(
+  textToImageModel: string,
+  installedCheckpoints: readonly string[],
+  preferredCheckpoint: string
+): LivePaintingCheckpointChoice {
+  const family = textToImageModel ? detectCheckpointFamily(textToImageModel) : "unknown";
+
+  if (textToImageModel && installedCheckpoints.includes(textToImageModel) && (family === "sd1" || family === "unknown")) {
+    return { checkpointName: textToImageModel, substituted: false, message: "" };
+  }
+
+  const fallback = installedCheckpoints.includes(preferredCheckpoint)
+    ? preferredCheckpoint
+    : installedCheckpoints.find((name) => detectCheckpointFamily(name) === "sd1");
+
+  if (!fallback) {
+    return {
+      checkpointName: null,
+      substituted: false,
+      message:
+        "Live Painting runs on an SD 1.5 checkpoint, and ComfyUI has none in models/checkpoints. Install one, for example epicrealism_naturalSinRC1VAE.safetensors, then start the session again."
+    };
+  }
+
+  return {
+    checkpointName: fallback,
+    substituted: true,
+    message: textToImageModel
+      ? `Live Painting runs on SD 1.5, so it uses ${fallback} instead of ${textToImageModel}.`
+      : `Live Painting runs on SD 1.5 and uses ${fallback}.`
+  };
 }
 
 export type LivePaintingV2Callbacks = {

@@ -642,11 +642,11 @@ export function createAppMarkup() {
             <span class="muted-label">Two-tier session</span>
           </div>
           <div class="diagnostics-line live-hint">
-            The live tier runs the model picked in the Model dropdown on the Text to Image screen,
-            paired with your local SD 1.5 LCM LoRA. Refine uses Krea-2 Turbo.
-            If no model is selected there yet, open Text to Image, choose a workflow and a model,
-            then come back here. Once the session is running, paint in the document and the preview
-            follows your strokes.
+            The live tier runs an SD 1.5 checkpoint with your local LCM LoRA: the Text to Image
+            model when that is SD 1.5, otherwise the first SD 1.5 checkpoint ComfyUI has. FLUX.2
+            Klein and the other large models are too slow to follow strokes live. Refine uses
+            Krea-2 Turbo. Once the session is running, paint in the document and the preview follows
+            your strokes.
           </div>
           <label class="field">
             <span class="label">Prompt${createPromptWalletControlsMarkup("live-prompt")}</span>

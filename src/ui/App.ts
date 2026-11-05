@@ -302,6 +302,8 @@ import {
 } from "./historyMetadata";
 import {
   getLivePaintingStateBadgeLabel,
+  chooseLivePaintingCheckpoint,
+  type LivePaintingCheckpointChoice,
   LivePaintingSessionV2,
   type LivePaintingState
 } from "./tools/livePainting";
@@ -7845,10 +7847,26 @@ export function renderApp(rootElement: HTMLElement) {
       return;
     }
 
-    const checkpointName = readSelectValue(elements.checkpoint);
+    // The live graph is SD 1.5 only, so the Text to Image model is used only
+    // when it is an SD checkpoint; see chooseLivePaintingCheckpoint.
+    setLiveStatus("Finding an SD 1.5 checkpoint for the live tier...");
+    let checkpointChoice: LivePaintingCheckpointChoice;
+
+    try {
+      checkpointChoice = chooseLivePaintingCheckpoint(
+        readSelectValue(elements.checkpoint),
+        withoutSegmentationModels(await new ComfyClient(elements.serverUrl.value).getCheckpointNames()),
+        RECOMMENDED_SKETCH_CHECKPOINT
+      );
+    } catch (caughtError) {
+      setLiveStatus(getErrorMessage(caughtError));
+      return;
+    }
+
+    const checkpointName = checkpointChoice.checkpointName;
 
     if (!checkpointName) {
-      setLiveStatus("Choose a checkpoint on the Text to Image screen first.");
+      setLiveStatus(checkpointChoice.message);
       return;
     }
 
@@ -7892,6 +7910,11 @@ export function renderApp(rootElement: HTMLElement) {
 
     try {
       await session.start();
+
+      if (checkpointChoice.substituted && livePaintingSession === session && session.isRunning()) {
+        setLiveStatus(checkpointChoice.message);
+      }
+
       void session.checkRefineAvailability()
         .then((gapMessage) => {
           if (gapMessage && livePaintingSession === session && session.isRunning()) {
