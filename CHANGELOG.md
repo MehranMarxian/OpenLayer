@@ -1,5 +1,62 @@
 # Changelog
 
+## v0.41.0-alpha - 2026-11-05
+
+The beta candidate. No new tools: features are frozen until the beta, and this release fixes what
+broke when OpenLayer was checked against the newest ComfyUI and a fresh install. What a beta needs,
+and where each item stands, is in [the beta gate](docs/beta-gate.md). The remaining items need
+testers on Photoshop 2024, on macOS and on a clean install.
+
+### Fixed
+
+- **Live Painting works on a starter install.** Its live tier runs SD 1.5 with the LCM LoRA, but it
+  borrowed the model selected on Text to Image, which is FLUX.2 Klein on every starter install since
+  v0.39, so every live cycle failed. It now uses the Text to Image model only when that is an SD 1.5
+  checkpoint, and otherwise picks epicRealism or the first SD 1.5 checkpoint ComfyUI has, saying
+  which. With no SD 1.5 checkpoint at all, it says what to install instead of starting. Text to
+  Image's own selection is not changed.
+- **Workflow Health no longer hides working presets on current ComfyUI.** Against ComfyUI 0.44 it
+  marked 13 presets "Missing ComfyUI node", among them every crop-and-stitch Inpaint preset, both
+  Remove object presets, Select by Text, the Klein and Qwen edit presets, Layer Maps, Camera Angle,
+  Unflatten and Multi-Reference. Every input it named was there; ComfyUI lists it as optional, and
+  Health only read required inputs. Generating was never affected.
+- **A ComfyUI without a graphics card is no longer read as a high-end one.** ComfyUI reports a CPU
+  device's memory as the machine's system RAM, and OpenLayer read that as VRAM: a 32 GB machine
+  with no graphics card was ranked as a workstation card, and VRAM limits were sized from it.
+
+### Added
+
+- **Comfy Desktop's port, 8000, is part of the port scan**, right after 8188. Find ComfyUI Active
+  Port and the first-run check now find a Comfy Desktop install without typing a port.
+- **A clear message when ComfyUI runs on the processor alone.** Check ComfyUI says "ComfyUI is
+  online, but on CPU only." with the reason underneath, and Detect Hardware reports No GPU.
+  Checked against a real Comfy Desktop instance started with `--cpu`.
+- **Every preset is checked against a recorded ComfyUI.** `npm run object-info` records the parts
+  of ComfyUI's `/object_info` that OpenLayer uses, and a test checks every node, input and fixed
+  choice of all 39 presets against it, so a renamed node fails the build instead of an artist's
+  run. Recorded from ComfyUI 0.44.0: everything matches. `npm run object-info -- --check` compares
+  any running ComfyUI against it.
+
+### Changed
+
+- **The tester report and setup-failure forms describe the `.ccx` install**, and no longer name
+  8190 as the port to check.
+- **[The beta gate](docs/beta-gate.md)** defines what has to pass before the beta, and the full
+  [UXP smoke checklist](docs/uxp-smoke-checklist.md) has a recorded run on this code.
+
+### Known limitations
+
+- Tested on Windows 11 with Photoshop 2025, an RTX 4070 Ti (12 GB) and ComfyUI 0.44.0. Not run on
+  Photoshop 2024 or macOS; that is what the beta tester call asks for.
+- Upscaling a captured layer imports a full-resolution smart object that Photoshop places at 25%,
+  so the layer is not visibly larger.
+- Importing the first result into a new document removes its empty Layer 1.
+- A "Prompt required" message stays on Text to Image after a prompt is loaded from the Prompt
+  Wallet, until the next action.
+- No tool has been timed on a CPU-only ComfyUI, so the CPU-only message names the cause and what to
+  check rather than which tools stay usable.
+- The Adobe Exchange listing can trail this release.
+
 ## v0.40.0-alpha - 2026-11-04
 
 Four new things to do with a layer: remove an object, select by naming it, see it from another
