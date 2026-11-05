@@ -62,7 +62,8 @@ Layer and canvas capture, a selection, alignment on import.
       "Selection captured". (Generating is
       optional here: Inpaint needs heavier models.)
 - [ ] 2.3 Home › **Upscale** › **Capture Active Layer**, then **Generate Upscale** and **Import to
-      Layers**. **See:** a larger layer named as an upscale.
+      Layers**. **See:** a new document at the result's full size (4x the layer with 4x-UltraSharp),
+      holding one layer named as an upscale, at 100%. The original document is unchanged.
 
 ## Block 3: tools that write their own layers (2 minutes)
 

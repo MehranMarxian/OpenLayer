@@ -3,7 +3,7 @@ import { createOpenLayerError, getErrorMessage } from "../utils/errors";
 import { encodeRgbaPng, setPngResolution } from "../utils/png";
 import { calculatePlacementOffset, createOpaqueGrayscaleMaskPng, PixelDimensions } from "./exactInpaintMask";
 import { OutpaintExpansionPlan } from "./outpaintExpansion";
-import { UpscaleResizePlan } from "./upscaleResize";
+import { resolveUpscaleDocumentResolution, UpscaleNewDocumentPlan, UpscaleResizePlan } from "./upscaleResize";
 import {
   classifyPlateSample,
   isPlateRedundant,
@@ -45,6 +45,13 @@ type PhotoshopModule = {
   app: {
     activeDocument?: PhotoshopDocument;
     documents?: PhotoshopDocument[];
+    // Only the Upscale layer-capture import makes a document. Called through
+    // `app` every time: a method pulled off a UXP object loses its `this`.
+    createDocument?: (options: PhotoshopDocumentCreateOptions) => Promise<PhotoshopDocument | null | undefined>;
+  };
+  constants?: {
+    NewDocumentMode?: { RGB?: string };
+    DocumentFill?: { TRANSPARENT?: string };
   };
   action: {
     batchPlay: (commands: unknown[], options: Record<string, unknown>) => Promise<unknown[]>;
@@ -89,6 +96,16 @@ type PhotoshopDocument = {
     save: (name?: string) => Promise<void>;
     load: (channel: PhotoshopChannel) => Promise<void>;
   };
+  closeWithoutSaving?: () => Promise<void> | void;
+};
+
+type PhotoshopDocumentCreateOptions = {
+  name: string;
+  width: number;
+  height: number;
+  resolution: number;
+  mode: string;
+  fill: string;
 };
 
 type PhotoshopChannel = {
@@ -1420,6 +1437,117 @@ export async function importUpscaleResultResizingDocument(
     throw createOpenLayerError(
       "PHOTOSHOP_IMPORT_FAILED",
       `Could not import the upscale result with document resizing. ${getErrorMessage(caughtError)}`
+    );
+  } finally {
+    await deleteTemporaryFileBestEffort(file);
+  }
+}
+
+export type UpscaleNewDocumentImportOptions = {
+  blob: Blob;
+  originatingDocument: PhotoshopDocumentIdentity | null;
+  plan: UpscaleNewDocumentPlan;
+  layerName?: string;
+  onProgress?: ImportProgress;
+};
+
+// Opens a layer capture's upscale as a document of its own, at the result's
+// true size. Why a new document and not the artist's: see
+// `UpscaleNewDocumentPlan` in upscaleResize.ts. In short, their document has no right size for it, and
+// Photoshop's "Resize Image During Place" shrank it back to the layer it came
+// from.
+//
+// The document is made the result's exact size, so the place has nothing to
+// shrink whichever way that preference is set; the bounds check below proves it
+// rather than assuming it. It is transparent so Photoshop's own Place replaces
+// its empty starting layer, leaving the result as the only layer. The artist's
+// own document is never touched: if anything fails after the new document
+// exists, that document is closed unsaved and theirs is exactly as it was.
+export async function importUpscaleResultAsNewDocument(
+  options: UpscaleNewDocumentImportOptions
+): Promise<string> {
+  const photoshop = getPhotoshop();
+  const layerName = options.layerName ?? createLayerName("OpenLayer_Upscale");
+  let file: UxpFile | undefined;
+
+  try {
+    assertActiveDocumentMatchesOrigin(photoshop, options.originatingDocument);
+
+    if (!options.blob || options.blob.size === 0) {
+      throw new Error("The generated upscale image blob is empty.");
+    }
+
+    if (typeof photoshop.app.createDocument !== "function") {
+      throw new Error("This version of Photoshop does not let a plugin create a document.");
+    }
+
+    // Read before the new document exists: saveBlobForPlacement stamps the PNG
+    // with the active document's resolution, and the new document must match.
+    const resolution = resolveUpscaleDocumentResolution(getActiveDocument().resolution);
+    options.onProgress?.("Saving upscale result to a temporary PNG...");
+    file = await saveBlobForPlacement(options.blob, `${layerName}.png`);
+    const uxp = getUxp();
+    options.onProgress?.("Creating Photoshop file token...");
+    const token = await uxp.storage.localFileSystem.createSessionToken(file);
+
+    options.onProgress?.("Opening the upscale result as a new document...");
+    await photoshop.core.executeAsModal(
+      async () => {
+        assertActiveDocumentMatchesOrigin(photoshop, options.originatingDocument);
+        const { width, height } = options.plan;
+        const created = await photoshop.app.createDocument!({
+          name: layerName,
+          width,
+          height,
+          resolution,
+          mode: photoshop.constants?.NewDocumentMode?.RGB ?? "RGBColorMode",
+          fill: photoshop.constants?.DocumentFill?.TRANSPARENT ?? "transparent"
+        });
+        const newDocument = created ?? getActiveDocument();
+
+        try {
+          const madeWidth = Math.round(Number(newDocument.width ?? 0));
+          const madeHeight = Math.round(Number(newDocument.height ?? 0));
+          if (madeWidth !== width || madeHeight !== height) {
+            throw new Error(`Photoshop made a ${madeWidth} x ${madeHeight} document, not ${width} x ${height}.`);
+          }
+
+          await placeFileAsLayer(photoshop, token);
+          await renameActiveLayer(photoshop, layerName);
+          await alignActiveLayerToBounds(
+            photoshop,
+            normalizeSelectionBounds({ left: 0, top: 0, right: width, bottom: height })
+          );
+
+          const placedBounds = await readActiveLayerBounds(photoshop);
+          if (
+            placedBounds.left !== 0 ||
+            placedBounds.top !== 0 ||
+            placedBounds.width !== width ||
+            placedBounds.height !== height
+          ) {
+            throw new Error(
+              `The placed upscale layer covers ${placedBounds.width} x ${placedBounds.height} at ${placedBounds.left}, ${placedBounds.top}, not the ${width} x ${height} document.`
+            );
+          }
+        } catch (caughtError) {
+          try {
+            await newDocument.closeWithoutSaving?.();
+          } catch {
+            // The error that got us here is the one worth reporting.
+          }
+          throw caughtError;
+        }
+      },
+      { commandName: "Open OpenLayer Upscale As New Document" }
+    );
+
+    options.onProgress?.(`Opened ${layerName} as a new document.`);
+    return layerName;
+  } catch (caughtError) {
+    throw createOpenLayerError(
+      "PHOTOSHOP_IMPORT_FAILED",
+      `Could not open the upscale result as a new document. ${getErrorMessage(caughtError)} Your document was not changed.`
     );
   } finally {
     await deleteTemporaryFileBestEffort(file);

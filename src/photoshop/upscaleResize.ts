@@ -79,6 +79,48 @@ export function validateUpscaleResultDimensions(
   return null;
 }
 
+/**
+ * A layer capture's upscale opens as a document of its own, at the result's
+ * true size.
+ *
+ * A layer has no relationship to the canvas, so growing the document (above)
+ * would resample every other layer by a factor that means nothing to them.
+ * Placing the result into the document does not work either: Photoshop's
+ * default "Resize Image During Place" shrinks anything larger than the canvas
+ * to fit, so a 4x result of a full-canvas layer came back at 25% and looked
+ * exactly like the layer it came from (G4 smoke run, 2026-11-05, finding 2).
+ * With that preference off it overflowed the canvas on every side instead
+ * (a3ea019). A document of its own is the one place the artist sees what they
+ * upscaled whichever way the preference is set, and their own document is left
+ * untouched. Canvas captures keep growing the document.
+ */
+export type UpscaleNewDocumentPlan = Readonly<{ width: number; height: number }>;
+
+/** The new document is exactly the result's size; null when that size is unusable. */
+export function createUpscaleNewDocumentPlan(result: PixelDimensions | null): UpscaleNewDocumentPlan | null {
+  if (!result) {
+    return null;
+  }
+
+  const width = Math.round(result.width);
+  const height = Math.round(result.height);
+
+  return isPositiveInteger(width) && isPositiveInteger(height) ? { width, height } : null;
+}
+
+// Photoshop's own default for a new document.
+const DEFAULT_PIXELS_PER_INCH = 72;
+
+/**
+ * The new document takes the source document's resolution. The placed PNG is
+ * stamped with that same value (saveBlobForPlacement), and a mismatch between
+ * the two is what made Photoshop scale placed images by the ppi ratio (#156).
+ */
+export function resolveUpscaleDocumentResolution(sourcePixelsPerInch: number | undefined): number {
+  const value = Number(sourcePixelsPerInch);
+  return Number.isFinite(value) && value > 0 ? value : DEFAULT_PIXELS_PER_INCH;
+}
+
 // "4x" reads better than "4.0000000001x"; a non-integer factor keeps one
 // decimal so an unexpected scale is still visible rather than rounded away.
 export function formatUpscaleScale(scale: number): string {
