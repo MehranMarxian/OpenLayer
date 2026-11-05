@@ -81,7 +81,7 @@ body:
     id: install_succeeded
     attributes:
       label: Did installation succeed?
-      description: The panel loaded in Photoshop through the UXP Developer Tool.
+      description: The panel opened in Photoshop, installed by double-clicking the .ccx or loaded through the UXP Developer Tool.
       options:
         - "Yes"
         - "No"

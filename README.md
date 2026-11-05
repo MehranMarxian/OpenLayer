@@ -38,7 +38,11 @@
 - **Sixteen tools**, from text-to-image and editing by instruction through inpainting and background removal to
   multi-image composition and depth/line-art/normal passes, plus an experimental one that splits a
   flat picture back into layers.
-- **New in v0.40: remove, select, re-shoot.** Remove object takes a selected object out (LaMa for
+- **New in v0.41: the beta candidate.** No new tools. Live Painting now works on a starter install,
+  Workflow Health stops hiding working presets on current ComfyUI, the panel finds Comfy Desktop on
+  its port and says plainly when ComfyUI has no graphics card, and every preset is tested against
+  ComfyUI 0.44. Testers on Photoshop 2024, macOS and clean installs are what the beta waits on.
+- **In v0.40: remove, select, re-shoot.** Remove object takes a selected object out (LaMa for
   small things, LaMa + FLUX.2 Klein for a whole person), Select by Text turns a word into a live
   selection with SAM 3.1, and the experimental Camera Angle shows a layer from another camera
   position. Upscale gains SeedVR2, a 2x generative restorer, and results now land at the right size
@@ -57,7 +61,7 @@ a GPU with 8 GB VRAM or more (12 GB is what this project targets).
 OpenLayer is the panel inside Photoshop that talks to it — you work in Photoshop, ComfyUI does the
 generating in the background, and every result comes back as a layer.
 
-> **Alpha.** `v0.40.0-alpha` is a public testing checkpoint, not production software. It is stable
+> **Alpha.** `v0.41.0-alpha` is a public testing checkpoint, not production software. It is stable
 > enough to work with, and honest about where it stops — see [what works and what does
 > not](docs/known-limitations.md).
 
@@ -223,8 +227,8 @@ like `"Photoshop"` prints nothing and no error, which looks exactly like "nothin
 
 </details>
 
-Verified on Windows 11 with Photoshop 2025. **macOS and other Photoshop versions are unverified** —
-reports either way are welcome.
+Verified on Windows 11 with Photoshop 2025 and ComfyUI 0.44.0. **macOS and other Photoshop versions
+are unverified** — reports either way are welcome.
 
 ### 2. Start ComfyUI
 
