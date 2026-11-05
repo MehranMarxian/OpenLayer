@@ -46,6 +46,9 @@ Text to Image, the generation controller, the progress bar, cancel, import.
       `epicrealism_naturalSinRC1VAE.safetensors`, 512 × 512, a short prompt. **Generate**.
       **See:** progress moves, a preview appears in the panel and in OpenLayer Preview.
 - [ ] 1.2 **Import Result as New Layer** (Text to Image's own label; the other tools say **Import to Layers**). **See:** a new named layer in the document, at the right size.
+      In a new document with a transparent background, the empty Layer 1 disappears on this first
+      import. That is expected and not a finding: Photoshop's own File › Place Embedded does the same
+      to an empty starting layer without OpenLayer, and keeps it once it has pixels.
 - [ ] 1.3 **Generate** again and click **Cancel Generation** while it runs. **See:** "Generation
       cancelled", no layer added. Then **Generate** once more and it completes.
 - [ ] 1.4 Clear the prompt and **Generate**. **See:** a message that a prompt is needed, nothing sent.

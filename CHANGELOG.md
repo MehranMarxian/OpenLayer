@@ -50,7 +50,9 @@ testers on Photoshop 2024, on macOS and on a clean install.
   Photoshop 2024 or macOS; that is what the beta tester call asks for.
 - Upscaling a captured layer imports a full-resolution smart object that Photoshop places at 25%,
   so the layer is not visibly larger.
-- Importing the first result into a new document removes its empty Layer 1.
+- Importing the first result into a new document removes its empty Layer 1. Found after release
+  to be Photoshop's own behaviour: its File › Place Embedded does the same to an empty starting
+  layer without OpenLayer, and keeps the layer once it has pixels.
 - A "Prompt required" message stays on Text to Image after a prompt is loaded from the Prompt
   Wallet, until the next action.
 - No tool has been timed on a CPU-only ComfyUI, so the CPU-only message names the cause and what to
