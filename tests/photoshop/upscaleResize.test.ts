@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  createUpscaleNewDocumentPlan,
   createUpscaleResizePlan,
   formatUpscaleScale,
+  resolveUpscaleDocumentResolution,
   validateUpscaleResultDimensions
 } from "../../src/photoshop/upscaleResize";
 
@@ -84,5 +86,39 @@ describe("upscale scale formatting", () => {
   it("says unknown rather than 0x for a nonsense scale", () => {
     expect(formatUpscaleScale(0)).toBe("unknown scale");
     expect(formatUpscaleScale(Number.NaN)).toBe("unknown scale");
+  });
+});
+
+// G4 smoke run 2026-11-05, finding 2: a layer capture's 4x result was placed
+// into the artist's document, where "Resize Image During Place" shrank it to
+// 25%. It now opens as a document of its own at the result's true size.
+describe("upscale new-document plan (layer captures)", () => {
+  it("is exactly the result's size, so the place has nothing to shrink", () => {
+    expect(createUpscaleNewDocumentPlan({ width: 4096, height: 4096 })).toEqual({ width: 4096, height: 4096 });
+    expect(createUpscaleNewDocumentPlan({ width: 2048, height: 1536 })).toEqual({ width: 2048, height: 1536 });
+  });
+
+  it("rounds a fractional reading rather than making a document a pixel short", () => {
+    expect(createUpscaleNewDocumentPlan({ width: 4095.6, height: 4096.4 })).toEqual({ width: 4096, height: 4096 });
+  });
+
+  it("refuses a size it cannot use, so the import falls back to the floating layer", () => {
+    expect(createUpscaleNewDocumentPlan(null)).toBeNull();
+    expect(createUpscaleNewDocumentPlan({ width: 0, height: 4096 })).toBeNull();
+    expect(createUpscaleNewDocumentPlan({ width: 4096, height: -1 })).toBeNull();
+    expect(createUpscaleNewDocumentPlan({ width: Number.NaN, height: 4096 })).toBeNull();
+  });
+});
+
+describe("upscale new-document resolution", () => {
+  it("keeps the source document's resolution, which the placed PNG is stamped with", () => {
+    expect(resolveUpscaleDocumentResolution(240)).toBe(240);
+    expect(resolveUpscaleDocumentResolution(72)).toBe(72);
+  });
+
+  it("falls back to Photoshop's 72 ppi when the source reports none", () => {
+    expect(resolveUpscaleDocumentResolution(undefined)).toBe(72);
+    expect(resolveUpscaleDocumentResolution(0)).toBe(72);
+    expect(resolveUpscaleDocumentResolution(Number.NaN)).toBe(72);
   });
 });

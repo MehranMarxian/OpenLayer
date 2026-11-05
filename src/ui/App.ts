@@ -192,6 +192,7 @@ import {
   importImageAlignedToSelectionWithLayerMask,
   importOutpaintResultExpandingCanvas,
   importUpscaleResultResizingDocument,
+  importUpscaleResultAsNewDocument,
   readLiveSelection
 } from "../photoshop/photoshopAdapter";
 import {
@@ -232,6 +233,7 @@ import { bindPromptMemory } from "./promptMemory";
 import { bindPromptWallet, PROMPT_WALLET_TOOLS, PromptWalletTool } from "./promptWallet";
 import { bindPromptRequiredReset, PROMPT_REQUIRED_STATUS } from "./promptRequiredReset";
 import {
+  createUpscaleNewDocumentPlan,
   createUpscaleResizePlan,
   formatUpscaleScale,
   validateUpscaleResultDimensions
@@ -5328,7 +5330,37 @@ export function renderApp(rootElement: HTMLElement) {
           return;
         }
       } else if (importContext) {
-        resizeBlockedReason = "This result was upscaled from a layer capture, which carries no canvas relationship; importing it as a floating layer instead.";
+        // A layer capture opens as a document of its own at the result's true
+        // size: placed into theirs, Photoshop shrank it back to the layer it
+        // came from. See UpscaleNewDocumentPlan.
+        const documentPlan = createUpscaleNewDocumentPlan(await readImageDimensionsFromBlob(importResultImage.blob));
+
+        if (documentPlan) {
+          setUpscaleStatus(elements, "Opening the upscale result as a new document...", "idle");
+          const openedLayerName = await importUpscaleResultAsNewDocument({
+            blob: importResultImage.blob,
+            originatingDocument: importResultImage.originatingDocument,
+            plan: documentPlan,
+            layerName,
+            onProgress: (message) => {
+              setUpscaleStatus(elements, message, "idle");
+              setUpscaleDiagnostics(elements, message);
+            }
+          });
+          setUpscaleStatus(elements, `Opened as a new document: ${openedLayerName}`, "ready");
+          flashImported(elements.upscaleStatusText);
+          markHistoryImported(elements, historyEntries, importResultImage, openedLayerName);
+          const documentMetadataMessage = await writeMetadataForImportedResult(historyEntries, importResultImage, openedLayerName, (message) => {
+            setUpscaleDiagnostics(elements, message);
+          });
+          setUpscaleDiagnostics(
+            elements,
+            `Opened ${openedLayerName} as a new ${documentPlan.width} x ${documentPlan.height} document, because a layer capture has no canvas to resize. Your original document was not changed. ${documentMetadataMessage}`
+          );
+          return;
+        }
+
+        resizeBlockedReason = "The size of this upscale result could not be read, so it was imported as a floating layer instead of a new document.";
       } else {
         resizeBlockedReason = "This result predates document-resizing support; importing it as a floating layer.";
       }
