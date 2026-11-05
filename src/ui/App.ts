@@ -230,6 +230,7 @@ import { shouldRefreshToolModels } from "./setupInventoryChange";
 import { getComfyCheckDiagnostics, getComfyFoundStatus, getComfyOnlineStatus } from "./comfyCheckStatus";
 import { bindPromptMemory } from "./promptMemory";
 import { bindPromptWallet, PROMPT_WALLET_TOOLS, PromptWalletTool } from "./promptWallet";
+import { bindPromptRequiredReset, PROMPT_REQUIRED_STATUS } from "./promptRequiredReset";
 import {
   createUpscaleResizePlan,
   formatUpscaleScale,
@@ -2121,6 +2122,7 @@ export function renderApp(rootElement: HTMLElement) {
   bindAdvancedToggles(rootElement);
   bindPromptMemory(elements);
   const promptWallet = bindPromptWallet(elements, PROMPT_WALLET_TOOLS, setView);
+  bindPromptRequiredReset(elements);
   bindWelcomeOverlay(elements);
   bindToolWarnings(rootElement);
   bindStickyProgress(rootElement);
@@ -3448,7 +3450,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     if (!readTextareaValue(elements.prompt).trim()) {
       setTextToImageError(elements, getErrorMessage(createOpenLayerError("PROMPT_REQUIRED", "Enter a prompt before generating.")));
-      setTextToImageStatus(elements, "Prompt required.", "error");
+      setTextToImageStatus(elements, PROMPT_REQUIRED_STATUS, "error");
       return;
     }
 
@@ -3989,7 +3991,7 @@ export function renderApp(rootElement: HTMLElement) {
 
     if (!readTextareaValue(elements.imgPrompt).trim()) {
       setImageError(elements, getErrorMessage(createOpenLayerError("PROMPT_REQUIRED", "Enter a prompt before generating.")));
-      setImageStatus(elements, "Prompt required.", "error");
+      setImageStatus(elements, PROMPT_REQUIRED_STATUS, "error");
       return;
     }
 
@@ -5447,7 +5449,7 @@ export function renderApp(rootElement: HTMLElement) {
         elements,
         getErrorMessage(createOpenLayerError("PROMPT_REQUIRED", "Enter a prompt before generating Outpaint."))
       );
-      setOutpaintStatus(elements, "Prompt required.", "error");
+      setOutpaintStatus(elements, PROMPT_REQUIRED_STATUS, "error");
       return;
     }
 
@@ -5790,7 +5792,7 @@ export function renderApp(rootElement: HTMLElement) {
         elements,
         getErrorMessage(createOpenLayerError("PROMPT_REQUIRED", "Enter a prompt before generating Sketch to Image."))
       );
-      setSketchStatus(elements, "Prompt required.", "error");
+      setSketchStatus(elements, PROMPT_REQUIRED_STATUS, "error");
       return;
     }
 
@@ -6061,7 +6063,7 @@ export function renderApp(rootElement: HTMLElement) {
         elements,
         getErrorMessage(createOpenLayerError("PROMPT_REQUIRED", "Enter a prompt before generating Style Reference."))
       );
-      setStyleReferenceStatus(elements, "Prompt required.", "error");
+      setStyleReferenceStatus(elements, PROMPT_REQUIRED_STATUS, "error");
       return;
     }
 
@@ -6487,7 +6489,7 @@ export function renderApp(rootElement: HTMLElement) {
         elements,
         getErrorMessage(createOpenLayerError("PROMPT_REQUIRED", "Describe the picture these layers should become."))
       );
-      setMultiReferenceStatus(elements, "Prompt required.", "error");
+      setMultiReferenceStatus(elements, PROMPT_REQUIRED_STATUS, "error");
       return;
     }
 
