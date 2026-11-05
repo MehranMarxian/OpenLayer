@@ -10,8 +10,9 @@ body:
         generation misbehaves, use **Bug report** instead.
 
         Most setup failures so far have been one of three things: a model in a folder ComfyUI does not
-        read for that node, a port other than 8190, or the UXP Developer Tool pointed at the source
-        `manifest.json` rather than the built one. Settings > **Check Workflow Health** names missing
+        read for that node, a ComfyUI on a port the panel was not pointed at (Settings > **Find ComfyUI
+        Active Port** scans for it), or the UXP Developer Tool pointed at the source `manifest.json`
+        rather than the built one. Settings > **Check Workflow Health** names missing
         models and nodes directly.
 
   - type: dropdown
@@ -19,6 +20,7 @@ body:
     attributes:
       label: Where does it stop?
       options:
+        - Installing the .ccx (double-clicking does nothing, or Creative Cloud refuses it)
         - Unzipping or locating the plugin files
         - Loading the plugin in UXP Developer Tool
         - The panel loads but is blank or broken
