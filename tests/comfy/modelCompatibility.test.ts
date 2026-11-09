@@ -11,6 +11,18 @@ describe("model compatibility", () => {
     expect(detectCheckpointFamily("z_image_turbo_bf16.safetensors")).toBe("zImage");
   });
 
+  it("reads NitroFusion2's nf2 files as Z_image_Turbo, without claiming names that merely contain nf2", () => {
+    // NitroFusion2 is a Z_image_Turbo fine-tune; its files carry no "z_image".
+    // Read as Unknown, the NitroFusion2 preset would warn about its own model.
+    expect(detectCheckpointFamily("nf2-bf16.safetensors")).toBe("zImage");
+    expect(detectCheckpointFamily("nf2-Q8_0.gguf")).toBe("zImage");
+    expect(detectCheckpointFamily("NitroFusion2/nf2-bf16.safetensors")).toBe("zImage");
+    expect(detectCheckpointFamily("NitroFusion2-int8.safetensors")).toBe("zImage");
+
+    expect(detectCheckpointFamily("conf2-mix.safetensors")).toBe("unknown");
+    expect(detectCheckpointFamily("lnf2.safetensors")).toBe("unknown");
+  });
+
   it("keeps Flux.2 apart from Flux.1, whatever the filename spells it", () => {
     // Every one of these contains "flux", so the plain Flux test would claim
     // all of them without the more specific check running first. The families

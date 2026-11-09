@@ -351,13 +351,14 @@ Almost every preset is one of these. Install a stack once and every tool that us
 costs 12.3 GB, not 20.7 GB. `ae.safetensors` is shared by Z_image_Turbo and Flux Fill.
 
 <details>
-<summary><b>Text to Image</b> — Klein, Z-Image, Krea-2, or any checkpoint you own</summary>
+<summary><b>Text to Image</b> — Klein, Z-Image, NitroFusion2, Krea-2, or any checkpoint you own</summary>
 
 | Preset | Needs | Extra |
 | :--- | :--- | :--- |
 | Standard checkpoint | any SD 1.x / SDXL checkpoint you already have | — |
 | FLUX.2 Klein | **Klein stack** | — |
 | Z_image_Turbo | **Z_image_Turbo stack** | — |
+| NitroFusion2 | `nf2-bf16.safetensors` → `models/diffusion_models/` + the **Z_image_Turbo stack**'s `qwen_3_4b` and `ae` | +12.3 GB · Apache-2.0 · one step, a Z_image_Turbo fine-tune |
 | Krea-2 Turbo | **Krea-2 Turbo stack** | — |
 | Qwen-Image 2.1 | **Qwen-Image 2.1 stack** | research licence · the one preset with **Transparent Background** · native 2K |
 | Flux1-dev fp8 | `flux1-dev-fp8.safetensors` → `models/checkpoints/` (17.3 GB) | non-commercial licence |

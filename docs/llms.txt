@@ -33,7 +33,7 @@ First run: start with FLUX.2 Klein 4B (Apache-2.0, three files, 12.5 GB, no sign
 
 ## Supported models
 
-FLUX.2 Klein 4B (Apache-2.0), SeedVR2 3B for generative upscale (Apache-2.0), Qwen-Image 2.1, Qwen-Image-Layered, Krea-2 Turbo, Z-Image Turbo, Flux Fill, and Stable Diffusion 1.5 checkpoints with your own LoRAs. Qwen-Image 2.1 weights are licensed for research and evaluation only, and Flux Fill is non-commercial, so those presets are opt-in and labelled. Check each model's licence before commercial use.
+FLUX.2 Klein 4B (Apache-2.0), SeedVR2 3B for generative upscale (Apache-2.0), Qwen-Image 2.1, Qwen-Image-Layered, Krea-2 Turbo, Z-Image Turbo, NitroFusion2 (Apache-2.0, a one-step Z-Image Turbo fine-tune), Flux Fill, and Stable Diffusion 1.5 checkpoints with your own LoRAs. Qwen-Image 2.1 weights are licensed for research and evaluation only, and Flux Fill is non-commercial, so those presets are opt-in and labelled. Check each model's licence before commercial use.
 
 ## Links
 

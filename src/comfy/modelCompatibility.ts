@@ -30,6 +30,15 @@ export function detectCheckpointFamily(checkpointName: string): ModelFamily {
     return "zImage";
   }
 
+  // NitroFusion2 is a Z_image_Turbo fine-tune whose files are named nf2-*.
+  // Matched as a prefix rather than a substring: "nf2" is short enough to turn
+  // up inside unrelated names. ComfyUI lists files in subfolders as
+  // "folder/name", so the prefix is checked on the file name alone.
+  const fileName = normalized.slice(Math.max(normalized.lastIndexOf("/"), normalized.lastIndexOf("\\")) + 1);
+  if (fileName.startsWith("nf2-") || fileName.startsWith("nf2_") || normalized.includes("nitrofusion2")) {
+    return "zImage";
+  }
+
   // Must precede the plain "flux" test, which would otherwise swallow every
   // Flux.2 filename by substring. The two are not interchangeable: Flux.1 runs
   // through a plain KSampler, while Flux.2 needs the advanced sampler chain and

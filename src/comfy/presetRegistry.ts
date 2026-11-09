@@ -59,6 +59,10 @@ const COMFY_ORG_FLUX1_DEV_REPO = "https://huggingface.co/Comfy-Org/flux1-dev";
 const COMFY_ORG_FLUX2_DEV_REPO = "https://huggingface.co/Comfy-Org/flux2-dev";
 const CITY96_FLUX2_DEV_GGUF_REPO = "https://huggingface.co/city96/FLUX.2-dev-gguf";
 const COMFY_ORG_Z_IMAGE_TURBO_REPO = "https://huggingface.co/Comfy-Org/z_image_turbo";
+// NitroFusion2 is an Apache-2.0, ungated fine-tune of Z_image_Turbo, published by
+// its authors rather than repackaged by Comfy-Org, so the model URL points at
+// their repo. No licenseGate, for the same reason Klein has none.
+const CHENDY_NITROFUSION2_REPO = "https://huggingface.co/ChenDY/NitroFusion2";
 // Klein ships Apache-2.0 and ungated, unlike FLUX.1-dev and FLUX.2-dev, so
 // there is deliberately no licenseGate on the stack below -- the setup pack can
 // point straight at the file with no click-through.
@@ -384,6 +388,32 @@ const Z_IMAGE_TURBO_STACK = [
     downloadSizeBytes: 335304388,
     sha256: "afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38"
   }
+] as const;
+
+/**
+ * NitroFusion2 swaps only the diffusion model: it is Z_image_Turbo's own
+ * architecture (the bf16 file is byte-for-byte the same size) with
+ * adversarially distilled weights, so it reads the same qwen_3_4b encoder
+ * through CLIPLoader type lumina2 and decodes through the same ae VAE. The two
+ * shared entries are taken from Z_IMAGE_TURBO_STACK itself rather than copied,
+ * so the setup pack de-duplicates them and a user who already runs Z_image_Turbo
+ * downloads only the 12.3 GB model.
+ */
+const NITROFUSION2_STACK = [
+  {
+    kind: "diffusion-model-stack",
+    objectInfoNode: "UNETLoader",
+    inputName: "unet_name",
+    label: "NitroFusion2 diffusion model",
+    modelName: "nf2-bf16.safetensors",
+    setupHint: "Install nf2-bf16.safetensors where ComfyUI's UNETLoader can find it.",
+    downloadUrl: `${CHENDY_NITROFUSION2_REPO}/resolve/main/nf2-bf16.safetensors`,
+    sourcePageUrl: CHENDY_NITROFUSION2_REPO,
+    downloadSizeBytes: 12309866400,
+    sha256: "a1e11422d84c1986ba106f892eda86b955b752627ec902aefff1fb939c7ac19c"
+  },
+  Z_IMAGE_TURBO_STACK[1],
+  Z_IMAGE_TURBO_STACK[2]
 ] as const;
 
 /**
@@ -2586,6 +2616,30 @@ const Z_IMAGE_TURBO_TXT2IMG_CAPABILITY: WorkflowCapability = {
     showModelSelector: true,
     modelSelectorLabel: "Z_image_Turbo model",
     primaryActionLabel: "Generate"
+  }
+};
+
+const NITROFUSION2_TXT2IMG_CAPABILITY: WorkflowCapability = {
+  toolType: "txt2img",
+  loaderType: "diffusion-model-stack",
+  artistLabel: "Text to Image",
+  technicalLabel: "txt2img-nitrofusion2",
+  requiredPhotoshopInputs: [],
+  controls: ["prompt", "negativePrompt", "width", "height", "steps", "guidance", "seed"],
+  output: {
+    kind: "full-image",
+    size: "preset",
+    importBehavior: "new-layer"
+  },
+  uiHints: {
+    showModelSelector: true,
+    modelSelectorLabel: "NitroFusion2 model",
+    primaryActionLabel: "Generate",
+    // CFG 1 means the sampler never reads the negative prompt, so a field for
+    // it would only look like it does something.
+    hiddenControls: ["negativePrompt"],
+    experimentalNote:
+      "NitroFusion2 is a one-step version of Z_image_Turbo: 1 step at CFG 1, at 1024 x 1024. Keep steps at 1 or 2. More steps do not improve it; at 4 it starts to speckle. It is fastest when you re-roll the same prompt with a new seed, because ComfyUI keeps the prompt encoded."
   }
 };
 
@@ -5196,6 +5250,79 @@ export const WORKFLOW_PRESETS: WorkflowPresetDefinition[] = [
     ],
     compatibilityNote:
       "Z_image_Turbo is a diffusion model stack, not a checkpoint. OpenLayer loads it through UNETLoader, CLIPLoader, and VAELoader."
+  },
+  {
+    id: "txt2img-nitrofusion2",
+    label: "txt2img-nitrofusion2",
+    displayName: "NitroFusion2",
+    mode: "txt2img",
+    description: "One-step text-to-image preset for NitroFusion2, a distilled fine-tune of Z_image_Turbo.",
+    workflowFile: "workflows/api/txt2img-nitrofusion2.json",
+    status: "stable",
+    recommendedSettings: { steps: 1, cfg: 1, width: 1024, height: 1024 },
+    supportedModelFamilies: ["zImage"],
+    experimentalModelFamilies: ["unknown"],
+    modelSource: DIFFUSION_MODEL_SOURCE,
+    capability: NITROFUSION2_TXT2IMG_CAPABILITY,
+    modelStack: [...NITROFUSION2_STACK],
+    requiredModels: [...NITROFUSION2_STACK],
+    // The graph keeps the Z_image_Turbo graph's node ids, so its injection map
+    // is the same one; only the model file and sampler settings differ.
+    injections: Z_IMAGE_TURBO_TXT2IMG_INJECTIONS,
+    requiredNodes: [
+      {
+        id: Z_IMAGE_TURBO_TXT2IMG_NODES.diffusionModelLoader,
+        classType: "UNETLoader",
+        requiredInputs: ["unet_name", "weight_dtype"]
+      },
+      {
+        id: Z_IMAGE_TURBO_TXT2IMG_NODES.clipLoader,
+        classType: "CLIPLoader",
+        requiredInputs: ["clip_name", "type"]
+      },
+      {
+        id: Z_IMAGE_TURBO_TXT2IMG_NODES.vaeLoader,
+        classType: "VAELoader",
+        requiredInputs: ["vae_name"]
+      },
+      {
+        id: Z_IMAGE_TURBO_TXT2IMG_NODES.modelSampling,
+        classType: "ModelSamplingAuraFlow",
+        requiredInputs: ["model", "shift"]
+      },
+      {
+        id: Z_IMAGE_TURBO_TXT2IMG_NODES.positivePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: Z_IMAGE_TURBO_TXT2IMG_NODES.negativePrompt,
+        classType: "CLIPTextEncode",
+        requiredInputs: ["text", "clip"]
+      },
+      {
+        id: Z_IMAGE_TURBO_TXT2IMG_NODES.latentImage,
+        classType: "EmptySD3LatentImage",
+        requiredInputs: ["width", "height", "batch_size"]
+      },
+      {
+        id: Z_IMAGE_TURBO_TXT2IMG_NODES.sampler,
+        classType: "KSampler",
+        requiredInputs: ["model", "seed", "steps", "cfg", "sampler_name", "scheduler", "positive", "negative", "latent_image", "denoise"]
+      },
+      {
+        id: Z_IMAGE_TURBO_TXT2IMG_NODES.decode,
+        classType: "VAEDecode",
+        requiredInputs: ["samples", "vae"]
+      },
+      {
+        id: Z_IMAGE_TURBO_TXT2IMG_NODES.saveImage,
+        classType: "SaveImage",
+        requiredInputs: ["images"]
+      }
+    ],
+    compatibilityNote:
+      "txt2img-nitrofusion2 is the txt2img-z-image-turbo graph with three values changed, matching the authors' own one-step ComfyUI workflow: nf2-bf16.safetensors in UNETLoader, 1 step instead of 4, and euler instead of res_multistep, with the same ModelSamplingAuraFlow shift 3, CFG 1 and simple scheduler. Those values are the point of the preset rather than a tuning choice. On 2026-11-09, running NitroFusion2 through the Z_image_Turbo preset's own settings (4 steps, res_multistep) on six prompts added white splatter and speckle that the one-step run did not have, which is why the model is its own preset and not just a file picked in Z_image_Turbo. Measured on the same day on a 12 GB RTX 4070 Ti at 1024 x 1024: about 2.5 s against Z_image_Turbo's 5 s when only the seed changes, but 14 s against 17.5 s for a new prompt, because the 8 GB encoder and the 12.3 GB model do not fit on the card together and ComfyUI swaps them for every new prompt. The authors' two-step graph is not used: it needs their de-distillation LoRA switched on for the first step only, across two KSamplerAdvanced nodes, which OpenLayer's LoRA insertion cannot express. It declares no loraInsertion either: no Z_image_Turbo LoRA has been tried on the one-step weights, and the Z_image_Turbo preset stays the place for LoRAs until one has. GGUF quantisations exist but need the ComfyUI-GGUF loader and are not wired up here."
   },
   {
     id: "img2img-z-image-turbo",

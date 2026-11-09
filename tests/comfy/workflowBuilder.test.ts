@@ -1044,6 +1044,50 @@ describe("workflowBuilder", () => {
     expect(result.workflow["3"].inputs.seed).toBe(77);
   });
 
+  it("builds NitroFusion2 as the Z_image_Turbo graph with only its model and one-step sampler changed", async () => {
+    const result = await buildTxt2ImgWorkflow({
+      presetId: "txt2img-nitrofusion2",
+      prompt: "a shop sign that says FRESH BREAD",
+      negativePrompt: "",
+      checkpointName: "nf2-bf16.safetensors",
+      width: 1024,
+      height: 1024,
+      steps: 1,
+      cfg: 1,
+      seed: 1005
+    });
+    const zImage = await buildTxt2ImgWorkflow({
+      presetId: "txt2img-z-image-turbo",
+      prompt: "a shop sign that says FRESH BREAD",
+      negativePrompt: "",
+      checkpointName: "z_image_turbo_bf16.safetensors",
+      width: 1024,
+      height: 1024,
+      steps: 1,
+      cfg: 1,
+      seed: 1005
+    });
+
+    expect(result.preset.id).toBe("txt2img-nitrofusion2");
+    expect(result.workflow["20"].inputs.unet_name).toBe("nf2-bf16.safetensors");
+    expect(result.workflow["6"].inputs.text).toBe("a shop sign that says FRESH BREAD");
+    expect(result.workflow["3"].inputs.steps).toBe(1);
+    expect(result.workflow["3"].inputs.seed).toBe(1005);
+    // The authors' one-step operating point. res_multistep, which the Z-Image
+    // graph uses, is what speckled when NitroFusion2 was run through it.
+    expect(result.workflow["3"].inputs.sampler_name).toBe("euler");
+    expect(result.workflow["3"].inputs.scheduler).toBe("simple");
+    expect(result.workflow["23"].inputs.shift).toBe(3);
+    // Same encoder contract as Z_image_Turbo: lumina2, not Klein's flux2.
+    expect(result.workflow["21"].inputs).toEqual(zImage.workflow["21"].inputs);
+    expect(result.workflow["22"].inputs).toEqual(zImage.workflow["22"].inputs);
+
+    // Everything else is the Z-Image graph: same nodes, same wiring.
+    const shape = (workflow: ComfyWorkflow) =>
+      Object.entries(workflow).map(([id, node]) => `${id}:${node.class_type}`).sort();
+    expect(shape(result.workflow)).toEqual(shape(zImage.workflow));
+  });
+
   it("injects Z_image_Turbo image-to-image source and denoise", async () => {
     const result = await buildImg2ImgWorkflow({
       presetId: "img2img-z-image-turbo",

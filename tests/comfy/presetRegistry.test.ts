@@ -36,6 +36,7 @@ describe("presetRegistry", () => {
       "txt2img-flux1-dev-fp8",
       "txt2img-flux2-klein",
       "txt2img-z-image-turbo",
+      "txt2img-nitrofusion2",
       "txt2img-krea2-turbo",
       "txt2img-flux2-dev-gguf",
       "txt2img-qwen-image-21"
@@ -412,10 +413,41 @@ describe("presetRegistry", () => {
     }
   });
 
-  it("gives FLUX.2 Klein text-to-image its 1024 size, and no other preset a size", () => {
-    expect(getRecommendedPresetSettings("txt2img-flux2-klein")).toEqual({ steps: 4, cfg: 1, width: 1024, height: 1024 });
+  it("registers NitroFusion2 on Z_image_Turbo's encoder and VAE, so only the model is a new download", () => {
+    const nf2 = getWorkflowPreset("txt2img-nitrofusion2");
+    const zImage = getWorkflowPreset("txt2img-z-image-turbo");
 
-    for (const preset of listRunnableWorkflowPresets().filter((candidate) => candidate.id !== "txt2img-flux2-klein")) {
+    expect(nf2.mode).toBe("txt2img");
+    expect(nf2.modelSource.kind).toBe("diffusion-model-stack");
+    expect(nf2.supportedModelFamilies).toEqual(["zImage"]);
+    expect(nf2.requiredModels?.map((model) => model.modelName)).toEqual([
+      "nf2-bf16.safetensors",
+      "qwen_3_4b.safetensors",
+      "ae.safetensors"
+    ]);
+    // The same entries, not lookalikes, so the setup pack counts them once.
+    expect(nf2.requiredModels?.slice(1)).toEqual(zImage.requiredModels?.slice(1));
+
+    const model = nf2.requiredModels?.[0];
+    // Size and sha256 as published by ChenDY/NitroFusion2 and hashed locally
+    // from the downloaded file on 2026-11-09.
+    expect(model?.downloadUrl).toBe("https://huggingface.co/ChenDY/NitroFusion2/resolve/main/nf2-bf16.safetensors");
+    expect(model?.downloadSizeBytes).toBe(12309866400);
+    expect(model?.sha256).toBe("a1e11422d84c1986ba106f892eda86b955b752627ec902aefff1fb939c7ac19c");
+    // Apache-2.0 and ungated.
+    expect(model?.licenseGate).toBeUndefined();
+    // The one-step weights have never been tried with a Z_image_Turbo LoRA.
+    expect(nf2.loraInsertion).toBeUndefined();
+    expect(nf2.capability?.uiHints?.hiddenControls).toEqual(["negativePrompt"]);
+  });
+
+  it("gives FLUX.2 Klein and NitroFusion2 text-to-image their 1024 size, and no other preset a size", () => {
+    expect(getRecommendedPresetSettings("txt2img-flux2-klein")).toEqual({ steps: 4, cfg: 1, width: 1024, height: 1024 });
+    // One step is the model's operating point; at 4 it speckles (measured 2026-11-09).
+    expect(getRecommendedPresetSettings("txt2img-nitrofusion2")).toEqual({ steps: 1, cfg: 1, width: 1024, height: 1024 });
+
+    const sized = new Set(["txt2img-flux2-klein", "txt2img-nitrofusion2"]);
+    for (const preset of listRunnableWorkflowPresets().filter((candidate) => !sized.has(candidate.id))) {
       const recommended = getRecommendedPresetSettings(preset.id);
 
       expect(recommended.width, preset.id).toBeUndefined();

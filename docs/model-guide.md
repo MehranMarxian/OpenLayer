@@ -37,6 +37,7 @@ These are practical starter guidelines, not strict rules.
 | Inpaint / Flux Fill | Flux Fill Dev | Experimental `inpaint-flux-fill-basic`; not production-ready. `inpaint-flux-fill-cropstitch` uses the same files and adds the `comfyui-inpaint-cropandstitch` node pack. |
 | Outpaint / Canvas Expansion | Flux Fill Dev | Experimental `outpaint-flux-fill-basic` using `ImagePadForOutpaint`. |
 | Z_image_Turbo Text/Image | Z_image_Turbo | Experimental dedicated presets in v0.4.3-alpha. |
+| NitroFusion2 Text to Image | NitroFusion2 (a Z_image_Turbo fine-tune) | `txt2img-nitrofusion2`: 1 step, CFG 1, 1024 × 1024. Needs `nf2-bf16.safetensors` (12.3 GB, Apache-2.0, ungated) plus Z_image_Turbo's `qwen_3_4b` and `ae`. Keep steps at 1 or 2; at 4 it speckles. |
 | Prompt from Layer | Florence-2 PromptGen | Available for alpha testing through `prompt-from-layer-florence2` for describing captured Photoshop sources. |
 | Future Realtime Preview | To be tested | Likely needs a very fast dedicated workflow. |
 

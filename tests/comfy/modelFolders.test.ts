@@ -156,6 +156,7 @@ describe("required model inventory", () => {
         "diffusion_models/flux-2-klein-4b-fp8.safetensors",
         "diffusion_models/flux2-dev-Q4_K_M.gguf",
         "diffusion_models/krea2_turbo_fp8_scaled.safetensors",
+        "diffusion_models/nf2-bf16.safetensors",
         "diffusion_models/qwen_image_2.1_int8_convrot.safetensors",
         "diffusion_models/qwen_image_edit_2511_int8_convrot.safetensors",
         "diffusion_models/qwen_image_layered_fp8mixed.safetensors",
