@@ -564,6 +564,11 @@ those jobs, not become skills.
 
 The decisions Mehran most needs to make are first. My recommendation is in bold.
 
+**Status, 2026-11-16: Mehran approved decisions 1 to 5 as recommended.** Decisions 6 to 10 were not
+raised separately and stand as written until he says otherwise. That same day he installed
+Photoshop 28.0 and found the panel's coloured buttons drawn with a grey fill. That is G7's first
+finding, and it is investigated in its own document and PR, not here.
+
 1. **The fallback for testers who do not appear.** **Hold the beta for outside testers until
    2026-12-01. Then G5 and G7 may drop to Wanted, with honest release notes, and G6 may not.** The
    product lead and growth argued for tagging now, because a beta label is itself a recruiting
