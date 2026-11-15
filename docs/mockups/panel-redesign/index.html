@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenLayer panel redesign mockup (proposal, not shipped)</title>
+<style>
+/*
+  A clickable proposal for the OpenLayer panel, drawn in a browser.
+  It is NOT the plugin and proves nothing about UXP. Every rule below was
+  chosen to be buildable in UXP as CLAUDE.md and docs/ORCHESTRATION.md section 3
+  describe it:
+  - spacing uses margins, never flex `gap` (inert in the compact panel)
+  - hiding uses the hidden attribute / display:none, never visibility:hidden
+  - chips state their height and use half of it as the radius (trap 4)
+  - selected state uses data-selected, never aria-pressed (trap 3: compact
+    theme styles any button[aria-pressed] as a gold toggle)
+  - icons are the panel's own PNG files, never data-URI SVG
+  - pickers are native <select> elements
+  Colours are the real tokens from src/styles.css (--ol-*).
+*/
+:root{
+  --ol-bg:#2b2b2b; --ol-panel:#333; --ol-panel-soft:#292929; --ol-panel-raised:#383838;
+  --ol-input-bg:#202020; --ol-field-bg:#242424; --ol-line:#4a4a4a; --ol-line-soft:#3f3f3f;
+  --ol-text:#eee; --ol-muted:#bdbdbd; --ol-dim:#969696; --ol-accent:#d7b64b; --ol-accent-soft:#5b4b18;
+  --ol-success:#21c842; --ol-danger:#de5959; --ol-warning:#f59e0b; --ol-orange:#d97706; --ol-blue:#2563eb;
+  --font:"Source Sans Pro","Segoe UI",-apple-system,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#1d1d1d;color:var(--ol-text);font:13px/1.4 var(--font)}
+a{color:#d7dde6}
+.page{max-width:1240px;margin:0 auto;padding:20px}
+.page h1{font-size:20px;margin:0 0 4px}
+.page .lede{color:var(--ol-muted);margin:0 0 14px;max-width:880px}
+.tabs{margin:0 0 16px}
+.tabs button{background:#2a2a2a;color:var(--ol-text);border:1px solid var(--ol-line);border-radius:4px;height:28px;padding:0 12px;margin:0 6px 6px 0;font:inherit;cursor:pointer}
+.tabs button[data-selected="true"]{background:var(--ol-accent);color:#1d1d1d;border-color:var(--ol-accent);font-weight:600}
+.row{display:flex;align-items:flex-start;flex-wrap:wrap}
+.col{margin:0 22px 22px 0}
+.cap{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ol-dim);margin:0 0 6px}
+.notes{max-width:420px;color:var(--ol-muted);font-size:12.5px}
+.notes h3{color:var(--ol-text);font-size:13px;margin:0 0 6px}
+.notes ul{margin:0 0 12px;padding-left:18px}
+.notes li{margin:0 0 4px}
+.uxp{border-left:3px solid var(--ol-accent);background:#262626;padding:8px 10px;margin:0 0 12px}
+
+/* ---------- the panel ---------- */
+.panel{width:356px;min-height:620px;background:var(--ol-bg);border:1px solid #111;box-shadow:0 2px 10px rgba(0,0,0,.5);font-size:12px;position:relative}
+.ph{height:30px;background:#323232;border-bottom:1px solid #1a1a1a;display:flex;align-items:center;padding:0 8px;font-size:11px;color:var(--ol-muted)}
+.ph b{color:var(--ol-text);font-weight:600}
+.pbody{padding:10px}
+.topbar{display:flex;align-items:center;margin:0 0 10px}
+.topbar img{width:18px;height:18px;margin-right:6px}
+.topbar .name{font-weight:700;font-size:14px;margin-right:auto}
+.conn{height:22px;border-radius:11px;padding:0 9px;display:inline-flex;align-items:center;background:#203324;color:#9be3a9;font-size:11px;border:1px solid #2f5a37;cursor:pointer}
+.conn .dot{width:7px;height:7px;border-radius:4px;background:var(--ol-success);margin-right:6px}
+.conn.off{background:#3a2323;color:#f0b3b3;border-color:#6b3434}
+.conn.off .dot{background:var(--ol-danger)}
+.banner{background:#3a3220;border:1px solid #6b5a26;border-radius:5px;padding:9px 10px;margin:0 0 10px}
+.banner .t{font-weight:700;margin:0 0 3px}
+.banner .s{color:var(--ol-muted);margin:0 0 7px}
+.banner.err{background:#3a2323;border-color:#6b3434}
+.banner.info{background:#22303f;border-color:#34506b}
+.grp{margin:0 0 10px}
+.grp .gh{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--ol-dim);margin:0 0 5px;display:flex}
+.grp .gh .r{margin-left:auto;text-transform:none;letter-spacing:0}
+.cards{display:flex;flex-wrap:wrap;margin-right:-6px}
+.card{width:162px;height:52px;background:var(--ol-panel);border:1px solid var(--ol-line-soft);border-radius:5px;margin:0 6px 6px 0;padding:6px 7px;display:flex;align-items:center;cursor:pointer;position:relative}
+.card:hover{background:#3d3d3d;border-color:#555}
+.card img{width:24px;height:24px;margin-right:7px;flex:none;opacity:.92}
+.card .ct{font-weight:600;font-size:12px;line-height:1.15}
+.card .cs{color:var(--ol-dim);font-size:10.5px;line-height:1.2;margin-top:2px}
+.chip{display:inline-flex;align-items:center;height:16px;border-radius:8px;padding:0 6px;font-size:9.5px;font-weight:600;line-height:16px;vertical-align:middle}
+.chip.exp{background:#4a3a14;color:#f2c96b}
+.chip.need{background:#3b3b3b;color:#cfcfcf;border:1px solid #555;height:16px}
+.chip.free{background:#1f3a26;color:#8fe0a0}
+.chip.nc{background:#43301a;color:#f3b979}
+.chip.res{background:#45222a;color:#f2a3b4}
+.card .chip{position:absolute;top:4px;right:5px}
+.foot{display:flex;border-top:1px solid var(--ol-line-soft);padding-top:8px;margin-top:4px}
+.foot .fb{flex:1;text-align:center;color:var(--ol-muted);cursor:pointer;font-size:11px}
+.foot .fb img{width:18px;height:18px;display:block;margin:0 auto 2px}
+.more{color:var(--ol-dim);font-size:11px;cursor:pointer;margin:8px 0 0}
+.nav{display:flex;align-items:center;margin:0 0 10px}
+.back{height:24px;border:1px solid var(--ol-line);border-radius:4px;padding:0 8px;display:inline-flex;align-items:center;cursor:pointer;color:var(--ol-muted);margin-right:8px;background:#2d2d2d}
+.nav img{width:18px;height:18px;margin-right:6px}
+.nav .title{font-weight:700;font-size:14px}
+.sec{background:var(--ol-panel);border:1px solid var(--ol-line-soft);border-radius:5px;padding:9px;margin:0 0 8px}
+.lbl{font-weight:600;margin:0 0 4px;display:flex;align-items:center}
+.lbl .hint{margin-left:auto;font-weight:400;color:var(--ol-dim);font-size:11px}
+textarea,.inp,select{width:100%;background:var(--ol-input-bg);color:var(--ol-text);border:1px solid #3a3a3a;border-radius:4px;font:12px/1.35 var(--font)}
+textarea{height:64px;padding:6px;resize:none}
+select{height:26px;padding:0 6px}
+.inp{height:24px;padding:0 6px}
+.lookhint{color:var(--ol-muted);font-size:11px;margin:5px 0 0;line-height:1.35}
+.lookhint .chip{margin-right:4px}
+.seg{display:flex;margin:0}
+.seg div{flex:1;height:24px;line-height:22px;text-align:center;border:1px solid var(--ol-line);background:#2a2a2a;color:var(--ol-muted);cursor:pointer;font-size:11px;margin-right:-1px}
+.seg div:first-child{border-radius:4px 0 0 4px}
+.seg div:last-child{border-radius:0 4px 4px 0;margin-right:0}
+.seg div[data-selected="true"]{background:#4a4120;color:#ffe08a;border-color:#7a6a2a;position:relative}
+.btn{height:30px;border-radius:4px;border:1px solid var(--ol-line);background:#3a3a3a;color:var(--ol-text);font:600 12px var(--font);cursor:pointer;padding:0 10px}
+.btn.primary{background:var(--ol-orange);border-color:#b45309;color:#fff;width:100%;height:34px;font-size:13px}
+.btn.primary small{font-weight:400;opacity:.85;margin-left:6px}
+.btn.ghost{background:transparent}
+.btn.small{height:24px;font-size:11px;font-weight:600}
+.btn.blue{background:var(--ol-blue);border-color:#1d4ed8;color:#fff}
+.btn.wide{width:100%}
+.disc{color:var(--ol-dim);font-size:11px;cursor:pointer;margin:7px 0 0;user-select:none}
+.adv{margin-top:6px}
+.kv{display:flex;align-items:center;margin:0 0 5px}
+.kv span{width:120px;color:var(--ol-muted)}
+.kv .inp,.kv select{flex:1}
+.kv .dice{width:26px;height:24px;margin-left:5px;border:1px solid var(--ol-line);border-radius:4px;text-align:center;line-height:22px;cursor:pointer;background:#2d2d2d}
+.src{display:flex;align-items:center;background:var(--ol-panel-soft);border:1px dashed #555;border-radius:5px;padding:8px}
+.src .th{width:56px;height:56px;border-radius:3px;background:#1f1f1f;margin-right:9px;display:flex;align-items:center;justify-content:center;color:#666;font-size:10px;flex:none;overflow:hidden}
+.src .th.has{background:linear-gradient(135deg,#6d7b8a,#3f4a3c 60%,#c9b78a)}
+.src .t{font-weight:600}
+.src .m{color:var(--ol-dim);font-size:11px;margin-top:2px}
+.result{height:150px;border-radius:4px;background:linear-gradient(160deg,#5b6a7d 0%,#2c3540 45%,#c7a06a 100%);margin:0 0 8px;position:relative}
+.result .tag{position:absolute;left:6px;bottom:6px;background:rgba(0,0,0,.6);padding:2px 6px;border-radius:3px;font-size:10px}
+.status{color:var(--ol-muted);font-size:11px;margin:6px 0 0}
+.status b{color:#9be3a9}
+.err{background:#3a2323;border:1px solid #6b3434;border-radius:5px;padding:8px 9px;margin:0 0 8px}
+.err .t{font-weight:700;color:#ffd0d0;margin:0 0 3px}
+.err .s{color:#e6c2c2;font-size:11.5px;margin:0 0 7px}
+.ok{background:#1f3324;border:1px solid #2f5a37;border-radius:5px;padding:8px 9px;margin:0 0 8px}
+.steps{display:flex;margin:0 0 10px}
+.steps div{flex:1;height:4px;border-radius:2px;background:#444;margin-right:4px}
+.steps div:last-child{margin-right:0}
+.steps div[data-on="true"]{background:var(--ol-accent)}
+.big{font-size:15px;font-weight:700;margin:0 0 4px}
+.sub{color:var(--ol-muted);margin:0 0 10px}
+.check{display:flex;align-items:flex-start;margin:0 0 6px}
+.check i{font-style:normal;width:16px;height:16px;border-radius:8px;flex:none;margin:1px 7px 0 0;text-align:center;line-height:16px;font-size:10px;font-weight:700}
+.check i.y{background:#1f3a26;color:#8fe0a0}
+.check i.n{background:#3b3b3b;color:#aaa}
+.promptchips{margin:6px 0 0}
+.promptchips span{display:inline-block;height:20px;line-height:20px;border-radius:10px;padding:0 8px;background:#3a3a3a;border:1px solid #4d4d4d;margin:0 4px 4px 0;font-size:10.5px;cursor:pointer}
+.progress{height:4px;background:#444;border-radius:2px;overflow:hidden;margin:6px 0 0}
+.progress div{height:4px;width:62%;background:var(--ol-accent)}
+.today .pbody{font-size:12px}
+.today .lblt{font-weight:700;margin:8px 0 3px}
+.today select{color:#ccc}
+.strip{display:flex;margin:0 0 8px}
+.strip div{flex:1;height:58px;margin-right:5px;border-radius:3px;background:linear-gradient(160deg,#5b6a7d,#2c3540 50%,#c7a06a);border:2px solid transparent;cursor:pointer}
+.strip div:nth-child(2){filter:hue-rotate(25deg)}
+.strip div:nth-child(3){filter:hue-rotate(-30deg) brightness(.9)}
+.strip div:nth-child(4){filter:saturate(.5) brightness(1.1);margin-right:0}
+.strip div[data-selected="true"]{border-color:var(--ol-accent)}
+table.looks{border-collapse:collapse;width:100%;font-size:12px;margin:0 0 14px}
+table.looks th,table.looks td{border-bottom:1px solid #333;padding:5px 6px;text-align:left;vertical-align:top}
+table.looks th{color:var(--ol-dim);font-weight:600}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>OpenLayer panel: artist-first redesign (proposal)</h1>
+  <p class="lede">A clickable mockup that goes with <a href="../../plan-beta-and-beyond.md">docs/plan-beta-and-beyond.md</a>, section 4. It runs in a browser, so it proves nothing about UXP. The notes beside each panel name the UXP rule each choice respects. Each screen becomes its own small PR, one at a time, after the beta, and each waits for a real Photoshop screenshot. Click the cards, links and buttons inside the panels.</p>
+  <div class="tabs" id="tabs">
+    <button data-tab="home" data-selected="true">1. Home</button>
+    <button data-tab="first">2. First run</button>
+    <button data-tab="t2i">3. Text to Image</button>
+    <button data-tab="inpaint">4. Repaint and remove</button>
+    <button data-tab="states">5. Empty states and errors</button>
+    <button data-tab="looks">6. Looks, named by result</button>
+  </div>
+
+  <!-- ================= 1. HOME ================= -->
+  <section data-screen="home">
+    <div class="row">
+      <div class="col">
+        <div class="cap">Today (v0.41): one flat list</div>
+        <div class="panel today">
+          <div class="ph"><b>OpenLayer</b></div>
+          <div class="pbody">
+            <div style="font-weight:700;font-size:14px;margin:0 0 6px">OpenLayer</div>
+            <div style="color:var(--ol-muted);margin:0 0 8px">Status: <b style="color:#9be3a9">Ready</b></div>
+            <div class="grp"><div class="gh"><span>Generate</span></div>
+              <div class="cards" id="todayCards"></div>
+            </div>
+            <div class="grp"><div class="gh"><span>Workflow</span></div><div style="color:var(--ol-dim)">Workflow Presets, Workflow</div></div>
+            <div class="grp"><div class="gh"><span>Tools &amp; History</span></div><div style="color:var(--ol-dim)">Layer Tools, History, Prompt Wallet</div></div>
+            <div class="grp"><div class="gh"><span>Preferences</span></div><div style="color:var(--ol-dim)">Setup, Settings</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="cap">Proposed: grouped by what you want to do</div>
+        <div class="panel" id="homePanel">
+          <div class="ph"><b>OpenLayer</b></div>
+          <div class="pbody">
+            <div class="topbar"><img src="icons/openlayer-48.png" alt=""><span class="name">OpenLayer</span>
+              <span class="conn" title="ComfyUI 0.44 on 127.0.0.1:8188, RTX 4070 Ti 12 GB"><span class="dot"></span>Ready · 12 GB GPU</span></div>
+            <div class="banner" id="starterBanner">
+              <div class="t">Start here: one download, five tools</div>
+              <div class="s">FLUX.2 Klein 4B, 12.5 GB, free for client work (Apache-2.0). Runs Text to Image, Image to Image, Edit Image, Inpaint and Multi-Reference.</div>
+              <button class="btn small blue" data-go="first">Set up the starter</button>
+              <button class="btn small ghost" onclick="document.getElementById('starterBanner').hidden=true">Not now</button>
+            </div>
+            <div class="grp"><div class="gh"><span>Create</span></div>
+              <div class="cards">
+                <div class="card" data-go="t2i"><img src="icons/text-to-image.png" alt=""><div><div class="ct">Text to Image</div><div class="cs">A new layer from words</div></div></div>
+                <div class="card"><img src="icons/sketch-to-image.png" alt=""><div><div class="ct">Sketch to Image</div><div class="cs">Your drawing, rendered</div></div></div>
+                <div class="card"><img src="icons/live-painting.png" alt=""><div><div class="ct">Live Painting</div><div class="cs">Paint, see it update</div></div></div>
+                <div class="card"><span class="chip exp">Exp.</span><img src="icons/multi-reference.png" alt=""><div><div class="ct">Multi-Reference</div><div class="cs">Combine several layers</div></div></div>
+              </div>
+            </div>
+            <div class="grp"><div class="gh"><span>Change</span></div>
+              <div class="cards">
+                <div class="card"><img src="icons/edit-image.png" alt=""><div><div class="ct">Edit Image</div><div class="cs">Describe the change</div></div></div>
+                <div class="card"><img src="icons/image-to-image.png" alt=""><div><div class="ct">Image to Image</div><div class="cs">Restyle a layer</div></div></div>
+                <div class="card" data-go="inpaint"><img src="icons/inpaint.png" alt=""><div><div class="ct">Inpaint</div><div class="cs">Repaint or remove in a selection</div></div></div>
+                <div class="card"><span class="chip exp">Exp.</span><img src="icons/outpaint.png" alt=""><div><div class="ct">Outpaint</div><div class="cs">Extend the canvas</div></div></div>
+                <div class="card"><span class="chip exp">Exp.</span><img src="icons/camera-angle.png" alt=""><div><div class="ct">Camera Angle</div><div class="cs">Same scene, new viewpoint</div></div></div>
+                <div class="card"><img src="icons/style-reference.png" alt=""><div><div class="ct">Style Reference</div><div class="cs">Borrow mood and colour</div></div></div>
+              </div>
+            </div>
+            <div class="grp"><div class="gh"><span>Cut and select</span></div>
+              <div class="cards">
+                <div class="card"><img src="icons/remove-background.png" alt=""><div><div class="ct">Remove Background</div><div class="cs">Subject on its own layer</div></div></div>
+                <div class="card"><img src="icons/select-by-text.png" alt=""><div><div class="ct">Select by Text</div><div class="cs">Name it, get a selection</div></div></div>
+                <div class="card"><span class="chip exp">Exp.</span><img src="icons/unflatten.png" alt=""><div><div class="ct">Unflatten</div><div class="cs">Flat image to layers</div></div></div>
+                <div class="card"><img src="icons/layer-maps.png" alt=""><div><div class="ct">Layer Maps</div><div class="cs">Depth, line art, normals</div></div></div>
+              </div>
+            </div>
+            <div class="grp"><div class="gh"><span>Finish</span></div>
+              <div class="cards">
+                <div class="card"><img src="icons/upscale.png" alt=""><div><div class="ct">Upscale</div><div class="cs">4x sharp or 2x restore</div></div></div>
+                <div class="card"><img src="icons/prompt-from-layer.png" alt=""><div><div class="ct">Prompt from Layer</div><div class="cs">Describe a layer in words</div></div></div>
+              </div>
+            </div>
+            <div class="foot">
+              <div class="fb"><img src="icons/history.png" alt="">History</div>
+              <div class="fb"><img src="icons/prompt-wallet.png" alt="">Prompts</div>
+              <div class="fb" data-go="first"><img src="icons/workflow-presets.png" alt="">Setup</div>
+              <div class="fb"><img src="icons/settings.png" alt="">Settings</div>
+            </div>
+            <div class="more" onclick="toggle('homeMore',this,'For ComfyUI users')">▸ For ComfyUI users</div>
+            <div id="homeMore" hidden>
+              <div class="cards" style="margin-top:6px">
+                <div class="card"><img src="icons/workflow-presets.png" alt=""><div><div class="ct">Workflow Presets</div><div class="cs">Every preset and its files</div></div></div>
+                <div class="card"><img src="icons/workflow.png" alt=""><div><div class="ct">Custom Workflow</div><div class="cs">Check your own graph</div></div></div>
+                <div class="card"><img src="icons/layer-tools.png" alt=""><div><div class="ct">Layer Tools</div><div class="cs">Export layers and masks</div></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col notes">
+        <h3>What changes</h3>
+        <ul>
+          <li><b>Four groups by intent</b> (Create, Change, Cut and select, Finish) replace one 16-card "Generate" list. The order inside each group follows what artists reach for first.</li>
+          <li><b>Tool names stay.</b> README, llms.txt, the Exchange listing, videos and the Agent Bridge all use them, and ChatGPT quotes them. Only the subtitles change, to say what you get. "Workflow" becomes "Custom Workflow", because two different things were both called Workflow.</li>
+          <li><b>The connection is a chip in the top bar</b>, with the GPU size. "Status: Ready" on its own row is gone. Clicking the chip opens Settings › Check ComfyUI.</li>
+          <li><b>Start here is on Home, not hidden in Setup</b>, until the starter is installed or dismissed.</li>
+          <li><b>ComfyUI tools are folded under "For ComfyUI users"</b>, collapsed by default and remembered.</li>
+          <li>History, Prompts, Setup and Settings move to a footer row, so tools come first.</li>
+        </ul>
+        <div class="uxp"><b>UXP notes.</b> The 162 x 52 cards wrap with right and bottom margins, not <code>gap</code>. The Exp. chip is 16 px high with an 8 px radius. Icons are the existing <code>src/icons/tools/*.png</code>. The collapsed section uses the <code>hidden</code> attribute. New rules go under <code>.app-shell.theme-compact</code>, or the compact theme's <code>!important</code> rules win. Built from <code>HOME_TOOL_SECTIONS</code> in <code>appConstants.ts</code>, so it is data, not new markup.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 2. FIRST RUN ================= -->
+  <section data-screen="first" hidden>
+    <div class="row">
+      <div class="col">
+        <div class="cap">Proposed first run: three steps, one screen each</div>
+        <div class="panel">
+          <div class="ph"><b>OpenLayer</b></div>
+          <div class="pbody">
+            <div class="steps"><div data-on="true" id="s1"></div><div id="s2"></div><div id="s3"></div></div>
+
+            <div id="fr1">
+              <div class="big">1. Find ComfyUI</div>
+              <div class="sub">OpenLayer draws with a ComfyUI running on this computer. Nothing is uploaded.</div>
+              <div class="check"><i class="y">✓</i><div>Found ComfyUI 0.44 at 127.0.0.1:8188</div></div>
+              <div class="check"><i class="y">✓</i><div>Graphics card: 12 GB. Everything in the starter runs well.</div></div>
+              <div class="check"><i class="n">–</i><div>No image models yet. That is normal for a new install.</div></div>
+              <div style="margin-top:10px"><button class="btn wide blue" onclick="fr(2)">Continue</button></div>
+              <div class="disc" onclick="toggle('frNo',this,'ComfyUI is not found?')">▸ ComfyUI is not found?</div>
+              <div id="frNo" hidden class="lookhint">
+                Start ComfyUI the way you normally do, then press Try again. OpenLayer checks 8188 and 8000 (Comfy Desktop) and the usual ports. Do not have ComfyUI yet? Getting started walks through Comfy Desktop.<br>
+                <button class="btn small" style="margin-top:6px">Try again</button> <button class="btn small ghost">Open Getting started</button> <button class="btn small ghost">Enter the address</button>
+              </div>
+            </div>
+
+            <div id="fr2" hidden>
+              <div class="big">2. Get the starter</div>
+              <div class="sub">One download gives you five tools. You can add other looks later in Setup.</div>
+              <div class="sec">
+                <div class="lbl">FLUX.2 Klein 4B <span class="hint"><span class="chip free">Free for client work</span></span></div>
+                <div class="lookhint">3 files, 12.5 GB, into ComfyUI's models folder. Each file is checked against its published checksum. About 12 seconds per image on a 12 GB card.</div>
+                <div class="progress" id="dl" hidden><div></div></div>
+                <div class="status" id="dlText" hidden>Downloading 2 of 3 · 7.8 of 12.5 GB · Stop is safe, it resumes</div>
+              </div>
+              <button class="btn wide blue" onclick="document.getElementById('dl').hidden=false;document.getElementById('dlText').hidden=false;this.textContent='Downloading… (click to skip ahead)';this.onclick=function(){fr(3)}">Download 12.5 GB</button>
+              <div class="disc" onclick="fr(3)">I already have models: skip</div>
+            </div>
+
+            <div id="fr3" hidden>
+              <div class="big">3. Make your first layer</div>
+              <div class="sub">Pick an idea or write your own. The result lands in your document as a new layer.</div>
+              <textarea id="frPrompt">a lighthouse on a cliff at dusk, warm window light, painterly</textarea>
+              <div class="promptchips">
+                <span onclick="setP(this)">ceramic teapot, studio light, white background</span>
+                <span onclick="setP(this)">rainy neon street, film photo</span>
+                <span onclick="setP(this)">watercolor fox in snow</span>
+              </div>
+              <div style="margin-top:8px"><button class="btn primary" onclick="document.getElementById('frDone').hidden=false">Generate <small>about 12 s</small></button></div>
+              <div id="frDone" hidden>
+                <div class="result" style="margin-top:8px"><span class="tag">New layer: OpenLayer_Generated_1114</span></div>
+                <div class="ok"><b>Your first layer is in the document.</b><br><span style="color:var(--ol-muted)">Next, try one of these on it:</span>
+                  <div style="margin-top:6px"><button class="btn small" data-go="inpaint">Remove something</button> <button class="btn small">Edit Image</button> <button class="btn small">Remove Background</button></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col notes">
+        <h3>What changes</h3>
+        <ul>
+          <li><b>The welcome overlay becomes a three-step path</b> that ends with a layer in the document, not with "Continue". Today the path is spread across the overlay, Setup's Start here card and the Text to Image screen.</li>
+          <li><b>Step 1 says what it found in plain words</b>, including the graphics card size from <code>/system_stats</code> (the hardware advisor already reads it). CPU-only machines get the G3 message here.</li>
+          <li><b>Step 2 is the existing Start here download</b> (<code>starterKit.ts</code>), with its licence said as "free for client work" rather than "Apache-2.0".</li>
+          <li><b>Step 3 pre-fills a prompt</b> and offers three more as chips, so nobody stares at an empty box. It runs Text to Image on Klein at 1024, exactly as v0.39 does.</li>
+          <li><b>It ends with "next, try"</b> buttons that open tools with the new layer already captured.</li>
+          <li>The path is measured by the G6 tester: count clicks and minutes, and note where they stopped.</li>
+        </ul>
+        <div class="uxp"><b>UXP notes.</b> The step bars are fixed-height divs. Each step is a section shown with <code>hidden</code>. Chips are 20 px high with a 10 px radius. No new host calls: the import is the existing <code>importGeneratedImageAsLayer</code>. The panel cannot open a browser yet (<code>openExternal</code> has never been called), so "Open Getting started" is Copy Link until that spike is done.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 3. TEXT TO IMAGE ================= -->
+  <section data-screen="t2i" hidden>
+    <div class="row">
+      <div class="col">
+        <div class="cap">Today (from the v0.41 panel screenshot)</div>
+        <div class="panel today">
+          <div class="ph"><b>OpenLayer</b></div>
+          <div class="pbody">
+            <div class="nav"><div class="back">‹ Back to Tools</div><img src="icons/text-to-image.png" alt=""><span class="title">Text to Image</span></div>
+            <div class="sec">
+              <div class="lbl">Prompt</div>
+              <textarea>A cozy reading nook by a rain-streaked window at dusk, warm lamp light, a ginger cat asleep</textarea>
+              <div style="margin-top:6px"><button class="btn wide">Ask the Agent for a Prompt</button></div>
+              <div style="margin-top:6px"><button class="btn wide">Show Negative Prompt</button></div>
+              <div class="lblt">Workflow</div><select><option>txt2img-flux2-klein</option></select>
+              <div class="lblt">Model</div><select><option>flux-2-klein-4b-fp8.safetensors</option></select>
+              <div class="disc">– Advanced settings</div>
+              <div class="kv"><span>Width</span><input class="inp" value="1024"></div>
+              <div class="kv"><span>Height</span><input class="inp" value="1024"></div>
+              <div class="kv"><span>Steps</span><input class="inp" value="4"></div>
+              <div class="kv"><span>CFG</span><input class="inp" value="1"></div>
+              <div class="kv"><span>Seed</span><input class="inp" value="811353035..."></div>
+              <div style="margin-top:6px"><button class="btn primary">Generate</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="cap">Proposed: the look first, the knobs folded away</div>
+        <div class="panel">
+          <div class="ph"><b>OpenLayer</b></div>
+          <div class="pbody">
+            <div class="nav"><div class="back" data-go="home">‹ Tools</div><img src="icons/text-to-image.png" alt=""><span class="title">Text to Image</span></div>
+            <div class="sec">
+              <div class="lbl">Describe the image <span class="hint">Saved prompts ▾</span></div>
+              <textarea>A cozy reading nook by a rain-streaked window at dusk, warm lamp light, a ginger cat asleep on a knitted blanket</textarea>
+              <div class="disc" style="margin-top:4px">Improve my prompt · Ask the agent</div>
+            </div>
+            <div class="sec">
+              <div class="lbl">Look</div>
+              <select id="look" onchange="lookHint()">
+                <option value="klein">Fast, all-round (FLUX.2 Klein)</option>
+                <option value="zimage">Photoreal, quick (Z-Image Turbo)</option>
+                <option value="krea">Stylised, bold colour (Krea-2 Turbo)</option>
+                <option value="qwen">Lettering and transparency (Qwen-Image 2.1)</option>
+                <option value="sd15">Your own SD 1.5 checkpoint</option>
+              </select>
+              <div class="lookhint" id="lookHint"></div>
+              <div class="lbl" style="margin-top:9px">Shape</div>
+              <div class="seg" id="shape">
+                <div data-selected="true">Square</div><div>Portrait</div><div>Landscape</div><div>Canvas</div>
+              </div>
+            </div>
+            <button class="btn primary">Generate <small id="eta">about 12 s</small></button>
+            <div class="disc" onclick="toggle('adv',this,'More options: size, steps, seed, negative prompt, LoRA')">▸ More options: size, steps, seed, negative prompt, LoRA</div>
+            <div id="adv" class="adv" hidden>
+              <div class="sec">
+                <div class="kv"><span>Model file</span><select><option>flux-2-klein-4b-fp8.safetensors</option></select></div>
+                <div class="kv"><span>Width × Height</span><input class="inp" value="1024 × 1024"></div>
+                <div class="kv"><span>Steps</span><input class="inp" value="4"></div>
+                <div class="kv"><span>Prompt strength (CFG)</span><input class="inp" value="1"></div>
+                <div class="kv"><span>Seed</span><input class="inp" value="811353035"><span class="dice" title="New seed">⚄</span></div>
+                <div class="kv"><span>Avoid (negative)</span><input class="inp" placeholder="no effect at CFG 1"></div>
+                <div class="kv"><span>LoRA</span><select><option>None</option></select></div>
+                <div class="lookhint">Defaults come from the look. Change them and the look shows "custom".</div>
+              </div>
+            </div>
+            <div class="result" style="margin-top:8px"><span class="tag">Result · 1024 × 1024 · seed 811353035</span></div>
+            <div class="strip"><div data-selected="true"></div><div></div><div></div><div></div></div>
+            <div style="display:flex"><button class="btn blue" style="flex:1;margin-right:6px">Add as Layer</button><button class="btn" style="width:110px">Auto-add: Off</button></div>
+            <div class="status"><b>Ready.</b> Added OpenLayer_Generated_1114.</div>
+          </div>
+        </div>
+      </div>
+      <div class="col notes">
+        <h3>What changes</h3>
+        <ul>
+          <li><b>"Workflow" and "Model" become one "Look" picker</b>, named for what it is good at, with the model in brackets. The hint line underneath gives the licence in plain words, the speed on this machine and the download size if anything is missing.</li>
+          <li><b>The Model file picker moves into More options.</b> It shows only when the look has more than one installed file. That is the SD 1.5 case, where your own checkpoints live.</li>
+          <li><b>Shape chips replace typed Width and Height.</b> Canvas matches the open document. Numbers stay in More options.</li>
+          <li><b>More options is closed by default</b> and remembered per tool. CFG is relabelled "Prompt strength (CFG)", which keeps the term searchable.</li>
+          <li><b>Generate says how long it will take</b>, but only where a time was measured (for example Klein's 11.7 s at 1024 on a 4070 Ti). A look with no measurement shows no time rather than a guess.</li>
+          <li><b>A variations strip</b> appears once batch variations (P1) ship after the beta. Until then it is a single result.</li>
+          <li>"Import Result as New Layer" becomes "Add as Layer", and the same label is used on every tool. Today Text to Image's import button is labelled differently from every other tool's.</li>
+        </ul>
+        <div class="uxp"><b>UXP notes.</b> The Look picker is a native <code>&lt;select&gt;</code>, so the wheel-proof picker from #140/#141 applies. Option text comes from <code>displayName</code> plus a new <code>lookName</code> field in the registry. The shape control is divs with <code>data-selected</code>, because compact styles any <code>button[aria-pressed]</code> as a gold toggle. The hint is <code>textContent</code>: plain text, no backticks, no <code>--</code>. Pre-beta piece: show <code>displayName</code> instead of the preset id in all 11 Workflow dropdowns (see the plan, item B2).</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 4. INPAINT ================= -->
+  <section data-screen="inpaint" hidden>
+    <div class="row">
+      <div class="col">
+        <div class="cap">Proposed: Inpaint with Remove as a first-class choice</div>
+        <div class="panel">
+          <div class="ph"><b>OpenLayer</b></div>
+          <div class="pbody">
+            <div class="nav"><div class="back" data-go="home">‹ Tools</div><img src="icons/inpaint.png" alt=""><span class="title">Inpaint</span></div>
+            <div class="sec">
+              <div class="lbl">What to do in the selection</div>
+              <div class="seg" id="ipMode">
+                <div data-selected="true" onclick="ipMode('remove',this)">Remove it</div>
+                <div onclick="ipMode('replace',this)">Replace it</div>
+              </div>
+            </div>
+            <div class="sec">
+              <div class="lbl">Selection <span class="hint">updates when you capture</span></div>
+              <div class="src" id="ipSrcEmpty">
+                <div class="th">none</div>
+                <div><div class="t">Make a selection in Photoshop</div><div class="m">Lasso or Object Selection around what to change, then press Capture.</div></div>
+              </div>
+              <div class="src" id="ipSrc" hidden style="border-style:solid">
+                <div class="th has"></div>
+                <div><div class="t">Selection, 412 × 300</div><div class="m">From the visible canvas · mask ready</div></div>
+              </div>
+              <div style="margin-top:6px"><button class="btn wide" onclick="document.getElementById('ipSrcEmpty').hidden=true;document.getElementById('ipSrc').hidden=false">Capture Selection</button></div>
+            </div>
+            <div class="sec" id="ipRemove">
+              <div class="lbl">Size of the thing to remove</div>
+              <div class="seg"><div data-selected="true">Small object</div><div>Large, like a person</div></div>
+              <div class="lookhint">Small: LaMa, about 3 s, no prompt. Large: LaMa then Klein, about 16 s. Describe what should be there instead. <span class="chip free">Free for client work</span></div>
+            </div>
+            <div class="sec" id="ipReplace" hidden>
+              <div class="lbl">Describe what goes there</div>
+              <textarea>a wooden bench</textarea>
+              <div class="lbl" style="margin-top:8px">Look</div>
+              <select><option>Fast, all-round (FLUX.2 Klein)</option><option>Flux Fill (personal use only)</option><option>Your own SD 1.5 inpaint checkpoint</option></select>
+              <div class="lookhint"><span class="chip exp">Experimental</span> Needs the crop-and-stitch node pack. Setup shows whether you have it.</div>
+            </div>
+            <button class="btn primary">Remove <small>about 3 s</small></button>
+            <div class="disc">▸ More options: grow mask, feather, seed</div>
+          </div>
+        </div>
+      </div>
+      <div class="col notes">
+        <h3>What changes</h3>
+        <ul>
+          <li><b>Remove and Replace are two choices at the top</b>, not presets buried in a Workflow list. Remove object is the most-asked job in every Generative Fill comparison, and today it is a preset name inside Inpaint.</li>
+          <li><b>The empty state tells you what to do in Photoshop</b> ("make a selection, then Capture"). Today it says "None".</li>
+          <li><b>Experimental and node-pack needs are said where you pick</b>, not discovered after Generate.</li>
+          <li>The Generate button names the action ("Remove", "Replace") and its time.</li>
+        </ul>
+        <div class="uxp"><b>UXP notes.</b> No change to capture or import: invariants A1 to A3 and B1 stay where they are. Remove maps to the existing <code>inpaint-lama</code> and <code>inpaint-lama-klein</code> presets, so this is preset selection plus markup. The segmented control uses <code>data-selected</code>. One Photoshop smoke run (block 2) per PR.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 5. STATES ================= -->
+  <section data-screen="states" hidden>
+    <div class="row">
+      <div class="col">
+        <div class="cap">Errors: what happened, why, one button to fix it</div>
+        <div class="panel">
+          <div class="ph"><b>OpenLayer</b></div>
+          <div class="pbody">
+            <div class="topbar"><img src="icons/openlayer-48.png" alt=""><span class="name">OpenLayer</span><span class="conn off"><span class="dot"></span>Not connected</span></div>
+            <div class="err"><div class="t">ComfyUI is not answering</div><div class="s">OpenLayer looked at 127.0.0.1:8188 and 8000. Start ComfyUI, then try again. Your settings are kept.</div><button class="btn small">Try again</button> <button class="btn small ghost">Use another address</button></div>
+            <div class="err"><div class="t">The model is in the wrong folder</div><div class="s">flux-2-klein-4b-fp8.safetensors is in models/checkpoints. This look loads it from models/diffusion_models. Move the file, then press Check again.</div><button class="btn small">Copy the folder path</button> <button class="btn small ghost">Check again</button></div>
+            <div class="err"><div class="t">A ComfyUI add-on is missing</div><div class="s">Repaint with Klein needs the crop-and-stitch node pack (comfyui-inpaint-cropandstitch). Install it with ComfyUI-Manager and restart ComfyUI.</div><button class="btn small">Copy the pack name</button> <button class="btn small ghost">Use Remove instead</button></div>
+            <div class="banner info"><div class="t">This look is for research only</div><div class="s">Qwen-Image 2.1's licence allows research and evaluation, not commercial work. For client work, pick a look marked "Free for client work".</div><button class="btn small">I understand, use it</button> <button class="btn small ghost">Pick another look</button></div>
+            <div class="banner"><div class="t">ComfyUI is running on the processor only</div><div class="s">Text to Image with an SD 1.5 checkpoint works at 512 × 512, about half a minute at 4 steps. Larger models will be too slow to use.</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="cap">Empty states and needs-setup cards</div>
+        <div class="panel">
+          <div class="ph"><b>OpenLayer</b></div>
+          <div class="pbody">
+            <div class="grp"><div class="gh"><span>Change</span><span class="r">2 need setup</span></div>
+              <div class="cards">
+                <div class="card"><img src="icons/edit-image.png" alt=""><div><div class="ct">Edit Image</div><div class="cs">Describe the change</div></div></div>
+                <div class="card" style="opacity:.75"><span class="chip need">Setup</span><img src="icons/camera-angle.png" alt=""><div><div class="ct">Camera Angle</div><div class="cs">Needs 31 GB of files</div></div></div>
+                <div class="card" style="opacity:.75"><span class="chip need">Setup</span><img src="icons/outpaint.png" alt=""><div><div class="ct">Outpaint</div><div class="cs">Needs Flux Fill</div></div></div>
+              </div>
+            </div>
+            <div class="sec">
+              <div class="lbl">History</div>
+              <div class="lookhint">Nothing here yet. Every result you generate is kept here with its prompt, look and seed, so you can bring any of them back. They stay on this computer.</div>
+            </div>
+            <div class="sec">
+              <div class="lbl">Saved prompts</div>
+              <div class="lookhint">No saved prompts. Press the + beside any prompt box to keep it here.</div>
+            </div>
+            <div class="sec">
+              <div class="lbl">Remove Background</div>
+              <div class="src"><div class="th">none</div><div><div class="t">Pick the layer to cut out</div><div class="m">Select it in the Layers panel, then press Capture Layer.</div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col notes">
+        <h3>The rules these follow</h3>
+        <ul>
+          <li><b>Every error has three parts:</b> a title in plain words, one or two sentences saying why and what to do, and at least one button that does the next step. The E2 work in v0.38 already decodes ComfyUI's HTTP 400s; this extends the same pattern to every tool.</li>
+          <li><b>Never show a raw HTTP body, a node class, or a preset id</b> as the main message. Copy Diagnostics keeps them for bug reports.</li>
+          <li><b>Licence warnings are a choice, not a wall.</b> Research-only and non-commercial looks ask once per session and say what to pick instead.</li>
+          <li><b>A tool that needs files still shows its card</b>, greyed, with "Setup" and the size. Hiding it would hide what the plugin can do.</li>
+          <li><b>Empty states say what goes there and how to get it there.</b></li>
+        </ul>
+        <div class="uxp"><b>UXP notes.</b> All strings render through <code>textContent</code>: no markdown, no backticks, no <code>--</code>. Copy lives in <code>toolErrorMessages.ts</code>. Buttons that copy text use the existing Copy Link path, because <code>openExternal</code> is unproven.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 6. LOOKS ================= -->
+  <section data-screen="looks" hidden>
+    <div class="row">
+      <div class="col" style="max-width:780px">
+        <div class="cap">Presets named by what they are good at (draft names, for review)</div>
+        <table class="looks">
+          <tr><th>Tool</th><th>Preset id today</th><th>Shown today</th><th>Proposed look name</th><th>Licence badge</th></tr>
+          <tr><td>Text to Image</td><td>txt2img-flux2-klein</td><td>txt2img-flux2-klein</td><td>Fast, all-round (FLUX.2 Klein)</td><td><span class="chip free">Free for client work</span></td></tr>
+          <tr><td></td><td>txt2img-z-image-turbo</td><td>txt2img-z-image-turbo</td><td>Photoreal, quick (Z-Image Turbo)</td><td><span class="chip free">Free for client work</span></td></tr>
+          <tr><td></td><td>txt2img-krea2-turbo</td><td>txt2img-krea2-turbo</td><td>Stylised, bold colour (Krea-2 Turbo)</td><td><span class="chip need">Read the licence</span></td></tr>
+          <tr><td></td><td>txt2img-qwen-image-21</td><td>txt2img-qwen-image-21 (research licence)</td><td>Lettering and transparency (Qwen-Image 2.1)</td><td><span class="chip res">Research only</span></td></tr>
+          <tr><td></td><td>txt2img-flux1-dev-fp8</td><td>txt2img-flux1-dev-fp8</td><td>Detailed, slower (FLUX.1 dev)</td><td><span class="chip nc">Personal use only</span></td></tr>
+          <tr><td></td><td>txt2img-basic</td><td>txt2img-basic</td><td>Your own SD 1.5 checkpoint</td><td>depends on the file</td></tr>
+          <tr><td>Inpaint</td><td>inpaint-lama</td><td>inpaint-lama</td><td>Remove it, small object</td><td><span class="chip free">Free for client work</span></td></tr>
+          <tr><td></td><td>inpaint-lama-klein</td><td>inpaint-lama-klein</td><td>Remove it, large, like a person</td><td><span class="chip free">Free for client work</span></td></tr>
+          <tr><td></td><td>inpaint-flux2-klein</td><td>inpaint-flux2-klein</td><td>Replace it, fast (FLUX.2 Klein)</td><td><span class="chip free">Free for client work</span></td></tr>
+          <tr><td></td><td>inpaint-flux-fill-cropstitch</td><td>inpaint-flux-fill-cropstitch</td><td>Replace it, best blend (Flux Fill)</td><td><span class="chip nc">Personal use only</span></td></tr>
+          <tr><td>Upscale</td><td>upscale-basic</td><td>upscale-basic</td><td>Sharpen 4x, keeps every pixel honest</td><td>per model file</td></tr>
+          <tr><td></td><td>upscale-seedvr2-3b</td><td>upscale-seedvr2-3b</td><td>Restore 2x, invents fine detail</td><td><span class="chip free">Free for client work</span></td></tr>
+          <tr><td>Sketch to Image</td><td>sketch2img-zimage-fun-controlnet</td><td>sketch2img-zimage-fun-controlnet</td><td>Bold line art, photoreal (Z-Image)</td><td><span class="chip free">Free for client work</span></td></tr>
+          <tr><td></td><td>sketch2img-linecn-basic</td><td>sketch2img-linecn-basic</td><td>Clean line art (SD 1.5 LineArt)</td><td>depends on the file</td></tr>
+        </table>
+        <p class="notes" style="max-width:none">Badges, in plain words: <b>Free for client work</b> means Apache-2.0 or MIT. <b>Personal use only</b> means a non-commercial licence such as FLUX dev. <b>Research only</b> means the Qwen Research License. <b>Read the licence</b> means a custom licence OpenLayer does not summarise; Krea-2's card adds conditions on content filtering. Licences checked on the Hugging Face API on 2026-11-15: Klein 4B, Z-Image Turbo, Qwen-Image-Layered and Qwen-Image-Edit-2511 report apache-2.0, and Krea-2 Turbo reports "other". The look names are drafts. They need Mehran's eye and a side-by-side image per look before they ship, because a name like "photoreal" is a promise.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+var todayIcons=["text-to-image","image-to-image","edit-image","camera-angle","sketch-to-image","inpaint","outpaint","upscale","remove-background","select-by-text","layer-maps","prompt-from-layer","unflatten","live-painting","style-reference","multi-reference"];
+var todayNames=["Text to Image","Image to Image","Edit Image","Camera Angle","Sketch to Image","Inpaint","Outpaint","Upscale","Remove Background","Select by Text","Layer Maps","Prompt from Layer","Unflatten","Live Painting","Style Reference","Multi-Reference"];
+var tc=document.getElementById("todayCards");
+for(var i=0;i<todayIcons.length;i++){var d=document.createElement("div");d.className="card";d.style.height="40px";d.innerHTML='<img src="icons/'+todayIcons[i]+'.png" alt=""><div class="ct">'+todayNames[i]+'</div>';tc.appendChild(d);}
+function show(tab){
+  var s=document.querySelectorAll("[data-screen]");for(var i=0;i<s.length;i++){s[i].hidden=s[i].getAttribute("data-screen")!==tab;}
+  var b=document.querySelectorAll("#tabs button");for(var j=0;j<b.length;j++){b[j].setAttribute("data-selected",b[j].getAttribute("data-tab")===tab?"true":"false");}
+  window.scrollTo(0,0);
+}
+document.getElementById("tabs").addEventListener("click",function(e){var t=e.target.getAttribute("data-tab");if(t)show(t);});
+document.addEventListener("click",function(e){var el=e.target.closest("[data-go]");if(el){show(el.getAttribute("data-go"));}});
+function toggle(id,el,label){var n=document.getElementById(id);n.hidden=!n.hidden;el.textContent=(n.hidden?"▸ ":"▾ ")+label;}
+function fr(n){for(var i=1;i<=3;i++){document.getElementById("fr"+i).hidden=(i!==n);document.getElementById("s"+i).setAttribute("data-on",i<=n?"true":"false");}}
+function setP(el){document.getElementById("frPrompt").value=el.textContent;}
+var looks={
+  klein:['<span class="chip free">Free for client work</span> FLUX.2 Klein 4B. About 12 s at 1024 on this GPU. Installed.',"about 12 s"],
+  zimage:['<span class="chip free">Free for client work</span> Z-Image Turbo. About 5 s on a re-roll, longer on a new prompt. Installed.',"about 5 s"],
+  krea:['<span class="chip need">Read the licence</span> Krea-2 Turbo, Krea community licence. Installed. Time not measured yet.',""],
+  qwen:['<span class="chip res">Research only</span> Qwen-Image 2.1. Not for client work. About 20 s at 1024. Needs 3 files you download yourself after accepting the licence.',"about 20 s"],
+  sd15:['Uses the checkpoint you pick under More options. Licence depends on the file. Time not measured yet.',""]
+};
+function lookHint(){var v=document.getElementById("look").value;document.getElementById("lookHint").innerHTML=looks[v][0];document.getElementById("eta").textContent=looks[v][1];}
+lookHint();
+document.getElementById("shape").addEventListener("click",function(e){if(e.target.parentNode.id!=="shape")return;var k=this.children;for(var i=0;i<k.length;i++)k[i].setAttribute("data-selected",k[i]===e.target?"true":"false");});
+function ipMode(m,el){var k=el.parentNode.children;for(var i=0;i<k.length;i++)k[i].setAttribute("data-selected",k[i]===el?"true":"false");document.getElementById("ipRemove").hidden=m!=="remove";document.getElementById("ipReplace").hidden=m!=="replace";document.querySelector('[data-screen="inpaint"] .btn.primary').innerHTML=(m==="remove"?'Remove <small>about 3 s</small>':'Replace <small>about 12 s</small>');}
+</script>
+</body>
+</html>
