@@ -5,7 +5,7 @@ server. Solo author: Mehran Ahmadi (artist who codes, uses GitHub Desktop). Veri
 Windows 11 + Photoshop 2025; macOS is untested. Version lives in `package.json`.
 
 Read this first, then `docs/ORCHESTRATION.md` §2 (safety invariants) and §3 (CSS traps) before
-touching `src/photoshop/`, `generationController`, or `styles.css`. `docs/codebase-review.md` has
+touching `src/photoshop/`, `generationController`, or `styles.css`. `docs/Advisor.md` has the hard-decision rules for the beta critical path (native-button fix) and the post-beta spikes. `docs/codebase-review.md` has
 the latest ranked findings; `docs/roadmap.md` is the plan.
 
 ## How we work (permanent rules)
