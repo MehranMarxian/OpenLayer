@@ -69,12 +69,28 @@ Photoshop 28.
 | V13 | `getComputedStyle(...).getPropertyValue('--x')` and `var()` in computed values | Not resolved (empty, or "initial"): computed style cannot be used to test variables | console |
 | V14 | `window.matchMedia`, `eval` | Not available (`matchMedia` undefined; `eval` refused by the panel's content policy) | console |
 
-Not verified yet, and the component sheet must check each:
+Settled on the component sheet (U0, 2026-11-16), on Photoshop 28.0.0 (UXP 9.4.1) and Photoshop
+2025 26.1.0 (UXP 8.1.0), both themes. Evidence in [`ui-audit/sheet/`](ui-audit/sheet/).
 
-- Whether *stylesheet* `opacity` (not inline) draws. Six disabled-state rules rely on it.
-- Hover and focus states on div buttons.
-- How a native secondary `<button>` looks on Photoshop 2025 and 2024.
-- Whether the host variables exist on Photoshop 2024 and 2025.
+| # | Check | Photoshop 28 | Photoshop 2025 |
+|---|---|---|---|
+| S1 | Stylesheet `opacity: 0.3` on a div | **Not drawn** | **Not drawn** |
+| S2 | Inline `opacity: 0.3` on a div | Not drawn (V9) | **Not drawn** |
+| S3 | `rgba()` background | Drawn | Drawn |
+| S4 | `:hover` on a div button | Drawn | Drawn (once the floating panel was active) |
+| S5 | `:active` on a div button | Drawn | Drawn |
+| S6 | `:focus` on a div button, reached by Tab | Drawn | Drawn |
+| S7 | `:focus` after a mouse click on a div | Not focused | Not checked |
+| S8 | All 13 `--uxp-host-*` colour and size variables | Present: background `#525252`, border `#444444`, hover `#5a5a5a` | Present, same values |
+| S9 | `--uxp-host-text-color-secondary` | Draws the same as `text-color`, so it cannot mark a disabled state | Same |
+| S10 | Bare native `<button>` | Grey filled pill | White outlined pill, wider font; the two versions differ |
+| S11 | `<sp-button variant="secondary">` | White outlined pill | The same |
+| S12 | Native buttons with our classes | Grey face (V1) | Our colours, but a wider font that truncates labels ("Import Automatic…") and hides the "?" glyph of the info button |
+| S13 | `require('photoshop').app.version` from the panel | `undefined`; `require('uxp').host.version` gives `28.0.0` | not checked; `uxp.host` gives `26.1.0` |
+
+Consequences: opacity never dimmed anything on either version, so the `.is-coming-soon` cards and
+the six `opacity` disabled rules have never looked dimmed. Disabled states need explicit colours
+(rule 2). Not checked: Photoshop 2024, the three lighter Photoshop brightness levels, macOS.
 
 ## 3. Findings
 
