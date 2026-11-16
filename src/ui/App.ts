@@ -225,6 +225,7 @@ import {
 } from "../photoshop/modelFileDestination";
 import { setArtistControlsEnabled, syncArtistControls } from "./artistControls";
 import { setSeedDiceEnabled } from "./seedDice";
+import { refreshComponentSheet } from "./componentSheet";
 import { enhanceSelectAsPicker, PICKER_SYNC_EVENT } from "./wheelProofPicker";
 import { pickStarterDefault } from "./starterDefaults";
 import { shouldRefreshToolModels } from "./setupInventoryChange";
@@ -8436,6 +8437,11 @@ export function renderApp(rootElement: HTMLElement) {
     elements.historyView.hidden = currentView !== "history";
     elements.promptWalletView.hidden = currentView !== "prompt-wallet";
     elements.layerToolsView.hidden = currentView !== "layer-tools";
+    elements.componentSheetView.hidden = currentView !== "ui-sheet";
+
+    if (currentView === "ui-sheet") {
+      refreshComponentSheet(elements.componentSheetView, THEME_LABELS[readThemeSelection(elements)]);
+    }
 
     if (currentView === "settings") {
       void refreshDocumentStatus(elements);

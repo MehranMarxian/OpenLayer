@@ -7,6 +7,8 @@ import {
 import { NO_LORA_VALUE } from "../comfy/loraCompatibility";
 import { CAMERA_DIRECTIONS, CAMERA_DISTANCES, CAMERA_HEIGHTS, DEFAULT_CAMERA_ANGLE } from "../comfy/cameraAngle";
 import { createCameraAngleOptionsMarkup } from "./tools/cameraAngle";
+import { createButtonMarkup } from "./buttonMarkup";
+import { COMPONENT_SHEET_VIEW_ID, createComponentSheetPlaceholderMarkup } from "./componentSheet";
 import {
   APP_VERSION,
   DEFAULT_CFG,
@@ -95,6 +97,7 @@ export type AppElements = {
   promptWalletCount: HTMLElement;
   promptWalletBanner: HTMLElement;
   layerToolsView: HTMLElement;
+  componentSheetView: HTMLElement;
   exportLayerFileButton: HTMLElement;
   exportLayerComfyButton: HTMLElement;
   exportSelectionFileButton: HTMLElement;
@@ -740,6 +743,12 @@ export function createAppMarkup() {
           <div class="status-progress" id="settings-status-progress" hidden><span></span></div>
           <div class="diagnostics-line" id="settings-diagnostics-text">Diagnostics ready for v${APP_VERSION}.</div>
           <div class="error-message" id="settings-error-message" hidden></div>
+          ${createButtonMarkup({
+            label: "Open UI sheet",
+            id: "open-ui-sheet",
+            view: "ui-sheet",
+            title: "Every panel control in the current theme, for checking how Photoshop draws it"
+          })}
         </section>
 
         <section class="panel-section settings-panel diagnostic-section diagnostic-scroll-safe" aria-label="Hardware advisor">
@@ -798,6 +807,8 @@ export function createAppMarkup() {
           </div>
         </section>
       </section>
+
+${createComponentSheetPlaceholderMarkup()}
 
       <section class="generator-view" id="generator-view" aria-label="Text to Image" hidden>
         <div class="screen-nav">
@@ -2589,6 +2600,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     promptWalletCount: getElement<HTMLElement>(rootElement, "prompt-wallet-count"),
     promptWalletBanner: getElement<HTMLElement>(rootElement, "prompt-wallet-banner"),
     layerToolsView: getElement<HTMLElement>(rootElement, "layer-tools-view"),
+    componentSheetView: getElement<HTMLElement>(rootElement, COMPONENT_SHEET_VIEW_ID),
     exportLayerFileButton: getElement<HTMLElement>(rootElement, "export-layer-file"),
     exportLayerComfyButton: getElement<HTMLElement>(rootElement, "export-layer-comfy"),
     exportSelectionFileButton: getElement<HTMLElement>(rootElement, "export-selection-file"),
