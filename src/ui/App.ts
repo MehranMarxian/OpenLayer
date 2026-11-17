@@ -8619,7 +8619,7 @@ function updateTransparentBackgroundToggle(elements: AppElements, isEnabled: boo
 }
 
 function updateAutoImportToggle(elements: AppElements, isEnabled: boolean) {
-  elements.autoImportToggle.textContent = isEnabled ? "Auto Import On" : "Import Result Automatically";
+  elements.autoImportToggle.textContent = isEnabled ? "Auto Import On" : "Import Automatically";
   elements.autoImportToggle.setAttribute("aria-pressed", String(isEnabled));
   elements.autoImportToggle.classList.toggle("is-active", isEnabled);
 }

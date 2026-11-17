@@ -683,7 +683,7 @@ missing, and the folder it belongs in. For a custom workflow, node IDs need mapp
 Use an SD 1.x or SDXL checkpoint with `img2img-basic` first. SD3, SD3.5 and Flux checkpoints stay
 visible but are marked experimental for this preset — they usually need a dedicated preset.
 
-**Import Result as New Layer fails**
+**Import to Layers fails**
 
 Open a document in Photoshop before importing. OpenLayer imports into the *active* document.
 

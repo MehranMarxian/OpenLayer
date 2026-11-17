@@ -75,3 +75,30 @@ describe("Text to Image div buttons", () => {
     });
   }
 });
+
+/**
+ * Text to Image's Import used to say "Import Result as New Layer" while every
+ * other tool said "Import to Layers" (audit rule 7: one name per action). The
+ * long label also wrapped to two lines on Photoshop 2025. The panel button and
+ * the Preview panel's button must agree with each other and with every tool.
+ */
+describe("Text to Image Import label", () => {
+  it("matches every other tool's Import label, in the panel and the Preview panel", async () => {
+    const { IMPORT_TARGETS } = await import("../../src/ui/importBridge");
+    const panelLabel = render().querySelector<HTMLElement>("#import-result")!.textContent;
+    const previewLabels = new Set(Object.values(IMPORT_TARGETS).map((target) => target.label));
+
+    expect(panelLabel).toBe("Import to Layers");
+    expect([...previewLabels]).toEqual(["Import to Layers"]);
+  });
+});
+
+describe("Import Automatically label", () => {
+  it("is the same on every tool's auto-import toggle, Text to Image included", () => {
+    const toggles = [...render().querySelectorAll<HTMLElement>('[id$="auto-import-toggle"]')];
+    const labels = new Set(toggles.map((toggle) => toggle.textContent?.trim()));
+
+    expect(toggles.map((toggle) => toggle.id)).toContain("auto-import-toggle");
+    expect([...labels]).toEqual(["Import Automatically"]);
+  });
+});

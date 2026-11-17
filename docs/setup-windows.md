@@ -50,7 +50,7 @@ python main.py --listen 127.0.0.1 --port 8188
 3. Optional: open Settings and click `Detect GPU & Recommend Models`.
 4. Enter a prompt.
 5. Click `Generate`.
-6. After the preview appears, click `Import Result as New Layer`.
+6. After the preview appears, click `Import to Layers`.
 
 If generation fails, confirm the checkpoint name in `src/workflows/api/txt2img-basic.json` exists in your ComfyUI models folder.
 

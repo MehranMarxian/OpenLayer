@@ -917,7 +917,7 @@ ${createComponentSheetPlaceholderMarkup()}
           </div>
           <div class="import-actions">
             ${createButtonMarkup({
-              label: "Import Result as New Layer",
+              label: "Import to Layers",
               // Secondary plus button-import, not the "import" tone: that tone
               // adds button-import-blue, which this button has never had.
               className: "button-import",
@@ -925,7 +925,7 @@ ${createComponentSheetPlaceholderMarkup()}
               action: "import",
               disabled: true
             })}
-            <button class="button auto-import-toggle action-control" id="auto-import-toggle" data-openlayer-action="toggleAutoImport" type="button" aria-pressed="false">Import Result Automatically</button>
+            <button class="button auto-import-toggle action-control" id="auto-import-toggle" data-openlayer-action="toggleAutoImport" type="button" aria-pressed="false">Import Automatically</button>
           </div>
         </section>
 

@@ -49,7 +49,7 @@ import { PreviewPublication, PreviewToolId } from "./previewHub";
  * adding the flag to a tool means changing it here, in one place, on purpose.
  */
 export const IMPORT_TARGETS: Record<PreviewToolId, { label: string; hasAutoImport: boolean }> = {
-  "text-to-image": { label: "Import Result as New Layer", hasAutoImport: true },
+  "text-to-image": { label: "Import to Layers", hasAutoImport: true },
   "image-to-image": { label: "Import to Layers", hasAutoImport: true },
   "sketch-to-image": { label: "Import to Layers", hasAutoImport: false },
   inpaint: { label: "Import to Layers", hasAutoImport: false },

@@ -76,7 +76,7 @@ install through ComfyUI-Manager, and **Inpaint** and **Multi-Reference** are exp
 5. Optionally enter a negative prompt.
 6. Click `Generate`.
 7. Wait for the preview.
-8. Click `Import Result as New Layer`, or enable `Import Result Automatically` before generating.
+8. Click `Import to Layers`, or enable `Import Automatically` before generating.
 
 If ComfyUI is not found, open Settings and click `Find ComfyUI Active Port` or `Check ComfyUI`.
 
