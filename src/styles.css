@@ -7199,9 +7199,10 @@ body,
    the host adds its own inner padding that no computed style shows. Padding,
    not min-height, because the rule above makes Cancel display:block, where a
    min-height would leave the label at the top instead of centred. 16px line +
-   2 x 10px + 2 x 1px border = 38px, the Photoshop 2025 value; Photoshop 28
-   moves from 36px to 38px. Only the div arm: native Cancel buttons on the
-   other tools are untouched. */
+   2 x 10px + 2 x 1px border = 38px, measured on Photoshop 2025 in both themes.
+   On Photoshop 28 the same sum gives 38px against the native 36px; that is
+   calculated, not yet measured. Only the div arm: native Cancel buttons on
+   the other tools are untouched. */
 .app-shell.theme-compact div.cancel-generation-button {
   padding-top: 10px;
   padding-bottom: 10px;
