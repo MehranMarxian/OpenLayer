@@ -41,8 +41,27 @@ part the audit allows to slip, with a release note.
    buttons still draw correctly. This PR changes no markup.
 2. **Then swap screen by screen,** starting with the Generate path (Text to Image). One PR per
    area, the audit's U1a, U1b, U1c split.
-3. **Stop condition for each swap:** the Photoshop 2025 capture differs from the baseline in
-   anything but the button face, or a Tab then Enter or Space does not activate the control.
+3. **Stop condition for each swap:** something other than the button face moves in the
+   Photoshop 2025 capture and the two rules below do not explain it, or a Tab then Enter or
+   Space does not activate the control. The control must also be bound with
+   `bindActionControl`: the delegated action binding handles click only, so a div without it
+   is mouse-only (PR #186).
+4. **Heights: equal CSS does not give equal boxes** (amended 2026-11-17 after PR #186). A native
+   button draws taller than its CSS box, by a host-specific amount that no computed style shows.
+   Text to Image measured Cancel at 36 px on 28 and 38 px on 2025, against 30 px for the div.
+   So for each swap, measure main and branch with `getBoundingClientRect()` on both hosts. If
+   the div comes out shorter, pin the div arm only (padding, or `min-height` where the control
+   is not `display: block`) to the Photoshop 2025 native value, and say what that moves on 28.
+5. **Labels wrap; they are not clipped.** Decided by Mehran on 2026-11-17, on the advisor's
+   recommendation (audit rule 6). A native button clips a long label with its wider font on
+   2025 (S12); the div wraps it instead. Text to Image's "Import Result as New Layer" now
+   wraps to two lines on 2025 (row 36 to 42 px); on 28 it fits on one line at 174 px. Never
+   add `nowrap` or an ellipsis to imitate the native clip. A shorter label is a copy decision
+   for Mehran, not a CSS fix.
+
+**For U1b:** Text to Image's Import has no height pin, because its row-mate, the native Import
+Automatically toggle, holds the row at 34 px on 28 and 36 px on 2025. When that toggle becomes
+a div, measure the row again and pin it if it drops.
 
 ### Grep before each swap, and write the results in the PR
 
