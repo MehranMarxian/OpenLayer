@@ -1176,7 +1176,7 @@ ${createComponentSheetPlaceholderMarkup()}
             </div>
           </div>
           ${createButtonMarkup({ label: "Generate Sketch to Image", tone: "generate", wide: true, id: "generate-sketch", action: "generateSketch" })}
-          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
+          ${createButtonMarkup({ label: "Cancel Generation", tone: "cancel", wide: true, action: "cancelGeneration", hidden: true })}
         </section>
 
         <section class="generation-status-panel img2img-status-panel" aria-label="Sketch to Image status">

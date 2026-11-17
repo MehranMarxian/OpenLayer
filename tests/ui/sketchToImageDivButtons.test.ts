@@ -47,6 +47,17 @@ const EXPECTED: Expected[] = [
     action: "generateSketch",
     hidden: false,
     disabled: false
+  },
+  {
+    // No id on main: setBusy and setCancelGenerationVisible reach every tool's
+    // Cancel through the shared .cancel-generation-button class, and the key
+    // path is the delegated one, not bindActionControl.
+    name: "Cancel Generation",
+    find: (root) => root.querySelector<HTMLElement>("#generate-sketch")?.nextElementSibling as HTMLElement | null,
+    classes: ["button", "button-wide", "action-control", "cancel-generation-button"],
+    action: "cancelGeneration",
+    hidden: true,
+    disabled: false
   }
 ];
 
