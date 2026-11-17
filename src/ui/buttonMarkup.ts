@@ -11,12 +11,13 @@
  *
  * The div keeps everything the native tag gave for free, by hand:
  * - role="button" and tabindex="0" so it is announced and reachable by Tab.
- * - Enter and Space activate it ONLY if the element is bound with
- *   bindActionControl (appBindings.ts), which listens for both keys. The
- *   delegated binding (bindDelegatedActions, bindDocumentActions) listens for
- *   click alone: a native <button> turns Enter and Space into a click, a div
- *   does not. So before swapping a control, check that App.ts binds it with
- *   bindActionControl, or add a key path; otherwise it becomes mouse-only.
+ * - Enter and Space activate it through bindActionControl when App.ts binds
+ *   the control directly, and otherwise through the key path in
+ *   bindDelegatedActions (appBindings.ts), which covers any element with a
+ *   data-openlayer-action. A native <button> turns those keys into a click; a
+ *   div does not, which is why that key path exists. Controls with their own
+ *   click listeners and no data-openlayer-action (the buttons made in code)
+ *   are not covered and need their own key handling when swapped.
  * - Disabled is the is-disabled class plus aria-disabled="true" plus
  *   tabindex="-1", the same three things setActionDisabled writes at runtime,
  *   so a control can be born disabled and later enabled by the existing code.
