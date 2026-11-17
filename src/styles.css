@@ -7193,6 +7193,20 @@ body,
   margin-top: 8px !important;
 }
 
+/* The div button primitive's Cancel keeps the native button's height. A
+   native <button> draws taller than its CSS box: measured 38px on Photoshop
+   2025 and 36px on 28, against 30px for a div with the same classes, because
+   the host adds its own inner padding that no computed style shows. Padding,
+   not min-height, because the rule above makes Cancel display:block, where a
+   min-height would leave the label at the top instead of centred. 16px line +
+   2 x 10px + 2 x 1px border = 38px, the Photoshop 2025 value; Photoshop 28
+   moves from 36px to 38px. Only the div arm: native Cancel buttons on the
+   other tools are untouched. */
+.app-shell.theme-compact div.cancel-generation-button {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
 .app-shell.theme-compact .status-progress.is-active > span {
   animation: none !important;
 }
