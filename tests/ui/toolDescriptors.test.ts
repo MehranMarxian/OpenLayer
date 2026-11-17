@@ -287,13 +287,23 @@ describe("every action button is reachable", () => {
    */
   const selfManaged = new Set(["importLiveButton", "importLiveRefinedButton"]);
 
+  /**
+   * A native <button> or the div button primitive (src/ui/buttonMarkup.ts).
+   * Keyed on the tag alone, this filter would silently drop every button that
+   * moves to a div for Photoshop 28, and the gating test would pass on an
+   * empty list.
+   */
+  function isButtonControl(element: HTMLElement | undefined) {
+    return element?.tagName === "BUTTON" || element?.getAttribute("role") === "button";
+  }
+
   function actionButtonKeys(prefix: string) {
     const root = document.createElement("div");
     root.innerHTML = createAppMarkup();
     const elements = getAppElements(root) as unknown as Record<string, HTMLElement>;
 
     return Object.keys(elements).filter(
-      (key) => key.startsWith(prefix) && key.endsWith("Button") && elements[key]?.tagName === "BUTTON"
+      (key) => key.startsWith(prefix) && key.endsWith("Button") && isButtonControl(elements[key])
     );
   }
 

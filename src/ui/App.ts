@@ -335,6 +335,7 @@ import {
   bindWelcomeOverlay,
   createActionRunner,
   HistoryActionName,
+  isActionDisabled,
   setActionDisabled
 } from "./appBindings";
 import {
@@ -6295,7 +6296,7 @@ export function renderApp(rootElement: HTMLElement) {
       const target = event.target as HTMLElement | null;
       const button = target?.closest?.("[data-openlayer-reference-action]") as HTMLElement | null;
 
-      if (!button || (button as HTMLButtonElement).disabled) {
+      if (!button || (button as HTMLButtonElement).disabled || isActionDisabled(button)) {
         return;
       }
 
@@ -9617,7 +9618,7 @@ function bindReferenceListActions(
     const target = event.target as HTMLElement | null;
     const button = target?.closest?.("[data-openlayer-reference-action]") as HTMLElement | null;
 
-    if (!button || (button as HTMLButtonElement).disabled) {
+    if (!button || (button as HTMLButtonElement).disabled || isActionDisabled(button)) {
       return;
     }
 

@@ -823,7 +823,12 @@ function getEventElement(target: EventTarget | null) {
   return null;
 }
 
-function isActionDisabled(element: HTMLElement) {
+/**
+ * Whether a control is disabled the way setActionDisabled marks it: the class
+ * and ARIA, which work on any tag. Exported for click handlers that used to
+ * read the native `.disabled` property, which a div button does not have.
+ */
+export function isActionDisabled(element: HTMLElement) {
   return element.classList.contains("is-disabled") || element.getAttribute("aria-disabled") === "true";
 }
 

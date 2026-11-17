@@ -1309,7 +1309,8 @@ a:hover {
   font-weight: 700;
 }
 
-.reference-button:disabled {
+.reference-button:disabled,
+.reference-button.is-disabled {
   opacity: 0.4;
 }
 
@@ -7395,7 +7396,16 @@ body,
 /* #5: auto-import / experimental toggles read as buttons that fill gold
    when on. A modest radius (not a full pill) avoids stretched ellipses on
    wide full-width buttons. */
-.app-shell.theme-compact button[aria-pressed] {
+/* The div arm is for the div button primitive (src/ui/buttonMarkup.ts), which
+   Photoshop 28 needs because it paints its own grey face over a native
+   <button>. It is written `.theme-compact div.button[...]` rather than
+   `.app-shell.theme-compact div[...]` on purpose: the class anchor keeps a
+   bare aria-pressed from styling any div (trap 3 in docs/ORCHESTRATION.md),
+   and dropping `.app-shell` keeps the specificity at exactly (0,3,1), the
+   same as the native arm, so both tags win and lose against the same compact
+   !important rules. .theme-compact is only ever set on .app-shell. */
+.app-shell.theme-compact button[aria-pressed],
+.theme-compact div.button[aria-pressed] {
   border: 1px solid var(--ol-line) !important;
   border-radius: 7px !important;
   background: transparent !important;
@@ -7403,7 +7413,8 @@ body,
   font-weight: 650 !important;
 }
 
-.app-shell.theme-compact button[aria-pressed="true"] {
+.app-shell.theme-compact button[aria-pressed="true"],
+.theme-compact div.button[aria-pressed="true"] {
   border-color: rgba(255, 198, 41, 0.55) !important;
   background: rgba(255, 198, 41, 0.16) !important;
   color: var(--ol-gold) !important;
@@ -7416,7 +7427,8 @@ body,
    slice of a list you are looking at, and it should not shout. Overriding here
    rather than dropping the attribute keeps the state readable to a screen
    reader. */
-.app-shell.theme-compact button.setup-filter-chip[aria-pressed] {
+.app-shell.theme-compact button.setup-filter-chip[aria-pressed],
+.app-shell.theme-compact div.setup-filter-chip[aria-pressed] {
   box-sizing: border-box !important;
   width: auto !important;
   height: 22px !important;
@@ -7432,7 +7444,8 @@ body,
   line-height: 20px !important;
 }
 
-.app-shell.theme-compact button.setup-filter-chip[aria-pressed="true"] {
+.app-shell.theme-compact button.setup-filter-chip[aria-pressed="true"],
+.app-shell.theme-compact div.setup-filter-chip[aria-pressed="true"] {
   border-color: #6a6a6a !important;
   background: var(--ol-line) !important;
   color: var(--ol-text-soft) !important;
@@ -8028,7 +8041,9 @@ body,
    Import button has to read as unavailable at a glance, because the reason it is
    disabled (a run is active) is exactly when someone will jab at it. */
 .openlayer-preview-panel-import:disabled,
-.openlayer-preview-panel-import:disabled:hover {
+.openlayer-preview-panel-import:disabled:hover,
+.openlayer-preview-panel-import.is-disabled,
+.openlayer-preview-panel-import.is-disabled:hover {
   border-color: var(--ol-line-soft);
   background: var(--ol-surface-strong);
   color: #6f6f6f;
@@ -8647,8 +8662,13 @@ body.theme-artist,
 
    Centred with text-align + line-height, NOT flex, for the reason above the
    rule. line-height must stay equal to the content-box height: 16px box minus
-   two 1px borders is 14px. */
-.app-shell.theme-compact button.prompt-wallet-dot {
+   two 1px borders is 14px.
+
+   Every rule in this group names the tag, so each has a `div.` arm for the
+   div button primitive: same specificity and order, so the div draws exactly
+   as the native button does wherever the native one still draws. */
+.app-shell.theme-compact button.prompt-wallet-dot,
+.app-shell.theme-compact div.prompt-wallet-dot {
   display: inline-block !important;
   box-sizing: border-box !important;
   width: 16px !important;
@@ -8668,23 +8688,27 @@ body.theme-artist,
 /* `background-color` rather than the `background` shorthand, kept from the
    attempt above: the shorthand resets `background-clip`, and while nothing
    depends on that any more, the longhand is the safer habit in this file. */
-.app-shell.theme-compact button.prompt-wallet-save {
+.app-shell.theme-compact button.prompt-wallet-save,
+.app-shell.theme-compact div.prompt-wallet-save {
   border: 1px solid #3f8f5a !important;
   background-color: #2f7a49 !important;
   color: #eafff1 !important;
 }
 
-.app-shell.theme-compact button.prompt-wallet-save:hover:not(.is-disabled) {
+.app-shell.theme-compact button.prompt-wallet-save:hover:not(.is-disabled),
+.app-shell.theme-compact div.prompt-wallet-save:hover:not(.is-disabled) {
   background-color: #379055 !important;
 }
 
-.app-shell.theme-compact button.prompt-wallet-load {
+.app-shell.theme-compact button.prompt-wallet-load,
+.app-shell.theme-compact div.prompt-wallet-load {
   border: 1px solid #7c5fb8 !important;
   background-color: #6a4fa0 !important;
   color: #f2ecff !important;
 }
 
-.app-shell.theme-compact button.prompt-wallet-load:hover:not(.is-disabled) {
+.app-shell.theme-compact button.prompt-wallet-load:hover:not(.is-disabled),
+.app-shell.theme-compact div.prompt-wallet-load:hover:not(.is-disabled) {
   background-color: #7959b3 !important;
 }
 
@@ -8692,24 +8716,28 @@ body.theme-artist,
    the one that calls out to ComfyUI is not the same colour as the two that
    only touch local storage. Same circle as its siblings -- this is a
    secondary action on a prompt field, not a third Generate button. */
-.app-shell.theme-compact button.prompt-wallet-enhance {
+.app-shell.theme-compact button.prompt-wallet-enhance,
+.app-shell.theme-compact div.prompt-wallet-enhance {
   border: 1px solid #c08a2e !important;
   background-color: #a8761f !important;
   color: #fff6e6 !important;
 }
 
-.app-shell.theme-compact button.prompt-wallet-enhance:hover:not(.is-disabled) {
+.app-shell.theme-compact button.prompt-wallet-enhance:hover:not(.is-disabled),
+.app-shell.theme-compact div.prompt-wallet-enhance:hover:not(.is-disabled) {
   background-color: #bd8626 !important;
 }
 
 /* Held through the whole round trip, which is the one way this dot differs
    from the other two: they finish instantly, this one waits on a server. */
-.app-shell.theme-compact button.prompt-wallet-enhance.is-working {
+.app-shell.theme-compact button.prompt-wallet-enhance.is-working,
+.app-shell.theme-compact div.prompt-wallet-enhance.is-working {
   background-color: #6f4f16 !important;
   border-color: #8a6420 !important;
 }
 
-.app-shell.theme-compact button.prompt-wallet-dot.is-disabled {
+.app-shell.theme-compact button.prompt-wallet-dot.is-disabled,
+.app-shell.theme-compact div.prompt-wallet-dot.is-disabled {
   opacity: 0.4 !important;
   cursor: default !important;
 }
@@ -8732,13 +8760,15 @@ body.theme-artist,
 
 /* Use leads the row while picking, ahead of Copy/Pin/Delete -- it is the
    action the artist actually came here to take. */
-.app-shell.theme-compact button.prompt-wallet-use {
+.app-shell.theme-compact button.prompt-wallet-use,
+.app-shell.theme-compact div.prompt-wallet-use {
   border-color: #7c5fb8 !important;
   background: #6a4fa0 !important;
   color: #f2ecff !important;
 }
 
-.app-shell.theme-compact button.prompt-wallet-use:hover {
+.app-shell.theme-compact button.prompt-wallet-use:hover,
+.app-shell.theme-compact div.prompt-wallet-use:hover {
   background: #7959b3 !important;
 }
 
