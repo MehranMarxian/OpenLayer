@@ -893,7 +893,7 @@ ${createComponentSheetPlaceholderMarkup()}
               <input class="input input-compact" id="seed" type="text" inputmode="numeric" placeholder="Random" />
             </label>
           </div>
-          <button class="button button-primary button-generate button-wide action-control" id="generate" data-openlayer-action="generate" type="button">Generate</button>
+          ${createButtonMarkup({ label: "Generate", tone: "generate", wide: true, id: "generate", action: "generate" })}
           <button class="button button-wide action-control cancel-generation-button" id="cancel-generation" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
         </section>
 
