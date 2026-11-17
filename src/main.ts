@@ -1,6 +1,7 @@
 import { renderApp } from "./ui/App";
 import { renderPreviewPanel } from "./ui/previewPanel";
 import "./styles.css";
+import "./ui/componentSheet.css";
 
 /**
  * Panel bootstrap, bundle half.

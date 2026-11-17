@@ -69,12 +69,28 @@ Photoshop 28.
 | V13 | `getComputedStyle(...).getPropertyValue('--x')` and `var()` in computed values | Not resolved (empty, or "initial"): computed style cannot be used to test variables | console |
 | V14 | `window.matchMedia`, `eval` | Not available (`matchMedia` undefined; `eval` refused by the panel's content policy) | console |
 
-Not verified yet, and the component sheet must check each:
+Settled on the component sheet (U0, 2026-11-16), on Photoshop 28.0.0 (UXP 9.4.1) and Photoshop
+2025 26.1.0 (UXP 8.1.0), both themes. Evidence in [`ui-audit/sheet/`](ui-audit/sheet/).
 
-- Whether *stylesheet* `opacity` (not inline) draws. Six disabled-state rules rely on it.
-- Hover and focus states on div buttons.
-- How a native secondary `<button>` looks on Photoshop 2025 and 2024.
-- Whether the host variables exist on Photoshop 2024 and 2025.
+| # | Check | Photoshop 28 | Photoshop 2025 |
+|---|---|---|---|
+| S1 | Stylesheet `opacity: 0.3` on a div | **Not drawn** | **Not drawn** |
+| S2 | Inline `opacity: 0.3` on a div | Not drawn (V9) | **Not drawn** |
+| S3 | `rgba()` background | Drawn | Drawn |
+| S4 | `:hover` on a div button | Drawn | Drawn (once the floating panel was active) |
+| S5 | `:active` on a div button | Drawn | Drawn |
+| S6 | `:focus` on a div button, reached by Tab | Drawn | Drawn |
+| S7 | `:focus` after a mouse click on a div | Not focused | Not checked |
+| S8 | All 13 `--uxp-host-*` colour and size variables | Present: background `#525252`, border `#444444`, hover `#5a5a5a` | Present, same values |
+| S9 | `--uxp-host-text-color-secondary` | Draws the same as `text-color`, so it cannot mark a disabled state | Same |
+| S10 | Bare native `<button>` | Grey filled pill | White outlined pill, wider font; the two versions differ |
+| S11 | `<sp-button variant="secondary">` | White outlined pill | The same |
+| S12 | Native buttons with our classes | Grey face (V1) | Our colours, but a wider font that truncates labels ("Import Automatic…") and hides the "?" glyph of the info button |
+| S13 | `require('photoshop').app.version` from the panel | `undefined`; `require('uxp').host.version` gives `28.0.0` | not checked; `uxp.host` gives `26.1.0` |
+
+Consequences: opacity never dimmed anything on either version, so the `.is-coming-soon` cards and
+the six `opacity` disabled rules have never looked dimmed. Disabled states need explicit colours
+(rule 2). Not checked: Photoshop 2024, the three lighter Photoshop brightness levels, macOS.
 
 ## 3. Findings
 
@@ -134,8 +150,15 @@ Severity: **High** is broken or misleading on every screen; **Med** is visible a
 These are binding for every UI PR from now on. A mockup that breaks one is not reviewed.
 
 1. **No native `<button>` for anything we style.** Use the shared button primitive, a
-   `<div role="button" tabindex="0">` built by one markup helper. Native buttons are allowed only
-   as the deliberate "native secondary" variant, if U0 shows it looks right on 2024, 2025 and 28.
+   `<div role="button" tabindex="0">` built by one markup helper (`src/ui/buttonMarkup.ts`).
+   **Decided 2026-11-17 (Mehran, from the U0 sheet): there is no native secondary.** The bare
+   `<button>` draws differently on 2025 and 28 (S10). Secondary buttons are the div primitive styled
+   from the `--uxp-host-*` variables as a pill (height 24 px, radius 12 px), each variable with a
+   readable fallback colour. The disabled text colour is an explicit `rgba`, because
+   `text-color-secondary` draws the same as `text-color` (S9).
+   **When:** post-beta, with U4 and U5. The pill is a new colour and shape, and the pre-beta swaps
+   (U1a to U1c) change only the tag and the state colours, keeping today's look
+   ([Advisor notes](Advisor.md) §0).
 2. **State through classes and colours, never `opacity`.** Disabled, pressed and selected each have
    explicit colours (`rgba` is fine). Never use `aria-pressed` as a style hook (trap 3); use
    `data-state`.
@@ -143,10 +166,18 @@ These are binding for every UI PR from now on. A mockup that breaks one is not r
    states its height, and its radius is half of it (trap 4).
 4. **Colours only through tokens.** No hex in a component rule. The Adobe theme maps tokens to the
    `--uxp-host-*` variables, with fallbacks. Artist-Friendly Dark overrides tokens only.
-5. **Sizes on one scale.** Type is 11 / 12 / 14 px, Photoshop's own UI font size first. Controls
-   are 24 px (compact) and 32 px (primary action). Icons are 16 px inline and 24 px in Home rows.
-   Spacing is 4 / 8 / 12 / 16. The numbers are checked against Photoshop's own Layers and Properties
-   panels in a side-by-side capture on the sheet.
+5. **Sizes on one scale.** Type is 11 / 12 / 14 px, with 12 = `var(--uxp-host-font-size)`. Icons are
+   16 px inline and 24 px in Home rows. Spacing is 4 / 8 / 12 / 16. Control heights, **decided
+   2026-11-17 (Mehran)** from the U0 measurement (in this panel 1 CSS px = 1.22 screen px, and
+   Photoshop's own dropdown is about 18 CSS px on both 2025 and 28):
+
+   | | Compact Adobe Dark | Artist-Friendly Dark |
+   |---|---|---|
+   | Secondary buttons, toggles, pickers, fields | 20 px | 24 px |
+   | Primary actions (Generate, Import) | 28 px (today 34) | 32 px |
+
+   **When:** the new heights are a visual change, so they land in U5 (post-beta). The pre-beta
+   swaps (U1a to U1c) keep today's sizes and change only the tag and the state colours.
 6. **Every control works at the minimum width.** Text wraps rather than ellipsis-clipping a sentence.
 7. **One name per action across tools.** "Capture Layer", "Capture Canvas" and "Capture Selection",
    always in that order, always the same colours.
@@ -178,7 +209,7 @@ features.
 
 | # | Item | Size | When | Proof in Photoshop |
 |---|---|---|---|---|
-| **U0** | **Component sheet.** A hidden "UI sheet" view, opened from Settings › Diagnostics, that draws every component in every state in the current theme: primary, secondary (native and our own, side by side), danger, toggle off/on, chip off/on, disabled, focused, the disclosure, picker, text field, slider, status bar, warning and error box, a Photoshop-reference row. No tool code changes. It settles the "native secondary" question, V-test gaps and the size scale. | M | Pre-beta | Sheet captured in 28 and 2025 × 2 themes |
+| **U0** | **Component sheet** (PR #183). A hidden "UI sheet" view, opened from Settings › Status report › Open UI sheet, that draws every component in every state in the current theme: primary, secondary (native and our own, side by side), danger, toggle off/on, chip off/on, disabled, focused, the disclosure, picker, text field, slider, status bar, warning and error box, a Photoshop-reference row. No tool code changes. It settles the "native secondary" question, V-test gaps and the size scale. | M | Pre-beta | Sheet captured in 28 and 2025 × 2 themes |
 | **U1a** | **Button primitive + primary actions.** One markup helper that emits the div button. Convert every Generate, capture and import button, and the CSS selectors that name `button`. | M | Pre-beta | Blocks 0 to 2; each converted button on 28 and 2025 |
 | **U1b** | **Toggles, chips and disclosures** on the primitive, with `data-state` instead of `aria-pressed` styling (fixes R2, R3, R4) | M | Pre-beta | Setup filters, Import Automatically, Advanced settings, on 28 and 2025 |
 | **U1c** | **Buttons made in code**: Prompt Wallet, History, Setup rows, seed dice, Preview panel, Settings | M | Pre-beta | Blocks 4 and 0.5 (Preview panel) |

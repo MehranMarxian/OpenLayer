@@ -1,0 +1,270 @@
+/*
+ * The UI sheet's own layout and probes (src/ui/componentSheet.ts).
+ *
+ * Kept out of styles.css on purpose: every selector here starts with ui-sheet,
+ * so nothing in this file can reach a real screen, and deleting it removes the
+ * sheet's styling and nothing else. The production components drawn on the
+ * sheet are styled by styles.css exactly as they are everywhere else, which is
+ * the point of the sheet.
+ *
+ * UXP rules followed here (docs/ui-audit-ps28.md, section 4): margins instead
+ * of flex gap, explicit heights with half-height radii for pills, rgba instead
+ * of opacity. The only opacity in this file is the probe that tests it.
+ */
+
+.ui-sheet-row {
+  margin: 0 0 12px;
+}
+
+.ui-sheet-row-title {
+  margin: 0 0 4px;
+  color: var(--ol-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ui-sheet-cells {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  margin: 0 -4px;
+}
+
+.ui-sheet-cell {
+  box-sizing: border-box;
+  flex: 1 1 130px;
+  min-width: 0;
+  margin: 0 4px 6px;
+}
+
+.ui-sheet-cell-body {
+  min-width: 0;
+}
+
+.ui-sheet-caption {
+  margin-top: 3px;
+  color: var(--ol-muted-soft);
+  font-size: 10px;
+  line-height: 12px;
+}
+
+.ui-sheet-note {
+  margin-top: 2px;
+  color: var(--ol-dim);
+  font-size: 10px;
+  line-height: 13px;
+}
+
+.ui-sheet-info {
+  margin-top: 6px;
+}
+
+.ui-sheet-info-line {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 0 2px;
+  font-size: 11px;
+  line-height: 15px;
+}
+
+.ui-sheet-info-line strong {
+  margin-left: 8px;
+  text-align: right;
+}
+
+/* Secondary candidate: a div styled only from the host's own variables. */
+.ui-sheet-host-button {
+  box-sizing: border-box;
+  display: block;
+  height: 24px;
+  padding: 0 10px;
+  overflow: hidden;
+  border: 1px solid var(--uxp-host-border-color, #5a5a5a);
+  border-radius: 4px;
+  background-color: var(--uxp-host-background-color, #4c4c4c);
+  color: var(--uxp-host-text-color, #e0e0e0);
+  font-size: var(--uxp-host-font-size, 12px);
+  line-height: 22px;
+  text-align: center;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ui-sheet-host-button.is-pill {
+  border-radius: 12px;
+}
+
+.ui-sheet-host-button:hover:not(.is-disabled) {
+  border-color: var(--uxp-host-widget-hover-border-color, #6a6a6a);
+  background-color: var(--uxp-host-widget-hover-background-color, #5a5a5a);
+  color: var(--uxp-host-widget-hover-text-color, #ffffff);
+}
+
+.ui-sheet-host-button.is-disabled {
+  color: var(--uxp-host-text-color-secondary, #8c8c8c);
+  cursor: default;
+}
+
+/* Opacity probe: four strips of the Generate orange. */
+.ui-sheet-strip {
+  height: 16px;
+  border-radius: 2px;
+  background-color: #c97920;
+}
+
+.ui-sheet-probe-opacity {
+  opacity: 0.3;
+}
+
+.ui-sheet-probe-rgba {
+  background-color: rgba(201, 121, 32, 0.3);
+}
+
+/* Hover, focus and press probes. */
+.ui-sheet-probe-hover,
+.ui-sheet-probe-focus,
+.ui-sheet-probe-active {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  height: 24px;
+  border: 1px solid #6a6a6a;
+  border-radius: 4px;
+  background-color: #3a3a3a;
+  color: #eeeeee;
+  font-size: 12px;
+  line-height: 22px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.ui-sheet-probe-hover:hover {
+  border-color: #4caf50;
+  background-color: #2f7d32;
+}
+
+.ui-sheet-probe-focus:focus {
+  outline: none;
+  border-color: #4a90e2;
+  background-color: #1f3d66;
+}
+
+.ui-sheet-probe-active:active {
+  background-color: #111111;
+}
+
+/* Host variable swatches. Magenta is the fallback, so a missing variable shows. */
+.ui-sheet-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0 -3px;
+}
+
+.ui-sheet-swatch-cell {
+  width: 72px;
+  margin: 0 3px 6px;
+}
+
+.ui-sheet-swatch {
+  height: 20px;
+  border: 1px solid #1a1a1a;
+}
+
+.ui-sheet-host-background-color {
+  background-color: var(--uxp-host-background-color, #ff00ff);
+}
+
+.ui-sheet-host-border-color {
+  background-color: var(--uxp-host-border-color, #ff00ff);
+}
+
+.ui-sheet-host-widget-hover-background-color {
+  background-color: var(--uxp-host-widget-hover-background-color, #ff00ff);
+}
+
+.ui-sheet-host-widget-hover-border-color {
+  background-color: var(--uxp-host-widget-hover-border-color, #ff00ff);
+}
+
+.ui-sheet-host-text-sample {
+  height: 20px;
+  padding: 0 4px;
+  background-color: #2b2b2b;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 20px;
+}
+
+.ui-sheet-host-text-color {
+  color: var(--uxp-host-text-color, #ff00ff);
+}
+
+.ui-sheet-host-text-color-secondary {
+  color: var(--uxp-host-text-color-secondary, #ff00ff);
+}
+
+.ui-sheet-host-label-text-color {
+  color: var(--uxp-host-label-text-color, #ff00ff);
+}
+
+.ui-sheet-host-widget-hover-text-color {
+  color: var(--uxp-host-widget-hover-text-color, #ff00ff);
+}
+
+.ui-sheet-host-link-text-color {
+  color: var(--uxp-host-link-text-color, #ff00ff);
+}
+
+.ui-sheet-host-link-hover-text-color {
+  color: var(--uxp-host-link-hover-text-color, #ff00ff);
+}
+
+/* A missing size falls back to 30 px so it cannot pass for a real one. */
+.ui-sheet-host-fs {
+  font-size: var(--uxp-host-font-size, 30px);
+}
+
+.ui-sheet-host-fs-smaller {
+  font-size: var(--uxp-host-font-size-smaller, 30px);
+}
+
+.ui-sheet-host-fs-larger {
+  font-size: var(--uxp-host-font-size-larger, 30px);
+}
+
+/* Size scale samples. */
+.ui-sheet-type-sample {
+  margin: 0 0 2px;
+  color: var(--ol-text);
+}
+
+.ui-sheet-heights,
+.ui-sheet-icons,
+.ui-sheet-spacings {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.ui-sheet-height-cell {
+  margin: 0 6px 4px 0;
+}
+
+.ui-sheet-height-sample {
+  padding: 0 8px;
+  font-size: 11px;
+}
+
+.ui-sheet-icon-cell {
+  margin: 0 12px 4px 0;
+  text-align: center;
+}
+
+.ui-sheet-spacing-cell {
+  margin: 0 12px 4px 0;
+}
+
+.ui-sheet-spacing-bar {
+  height: 12px;
+  background-color: var(--ol-accent);
+}

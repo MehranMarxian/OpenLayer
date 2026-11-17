@@ -158,7 +158,9 @@ export type AppView =
   | "remove-background"
   | "select-by-text"
   | "camera-angle"
-  | "layer-maps";
+  | "layer-maps"
+  /** The hidden UI sheet, opened from Settings; see componentSheet.ts. */
+  | "ui-sheet";
 export type ToolCardStatus = "available" | "experimental" | "coming-soon";
 
 export type ToolCard = {
