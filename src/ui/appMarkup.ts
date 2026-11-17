@@ -893,8 +893,8 @@ ${createComponentSheetPlaceholderMarkup()}
               <input class="input input-compact" id="seed" type="text" inputmode="numeric" placeholder="Random" />
             </label>
           </div>
-          <button class="button button-primary button-generate button-wide action-control" id="generate" data-openlayer-action="generate" type="button">Generate</button>
-          <button class="button button-wide action-control cancel-generation-button" id="cancel-generation" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
+          ${createButtonMarkup({ label: "Generate", tone: "generate", wide: true, id: "generate", action: "generate" })}
+          ${createButtonMarkup({ label: "Cancel Generation", tone: "cancel", wide: true, id: "cancel-generation", action: "cancelGeneration", hidden: true })}
         </section>
 
         <section class="generation-status-panel" aria-label="Generation status">
@@ -916,7 +916,15 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="preview-empty">No result yet</span>
           </div>
           <div class="import-actions">
-            <button class="button button-import action-control is-disabled" id="import-result" data-openlayer-action="import" type="button" tabindex="-1" aria-disabled="true">Import Result as New Layer</button>
+            ${createButtonMarkup({
+              label: "Import Result as New Layer",
+              // Secondary plus button-import, not the "import" tone: that tone
+              // adds button-import-blue, which this button has never had.
+              className: "button-import",
+              id: "import-result",
+              action: "import",
+              disabled: true
+            })}
             <button class="button auto-import-toggle action-control" id="auto-import-toggle" data-openlayer-action="toggleAutoImport" type="button" aria-pressed="false">Import Result Automatically</button>
           </div>
         </section>
