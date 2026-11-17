@@ -156,6 +156,9 @@ These are binding for every UI PR from now on. A mockup that breaks one is not r
    from the `--uxp-host-*` variables as a pill (height 24 px, radius 12 px), each variable with a
    readable fallback colour. The disabled text colour is an explicit `rgba`, because
    `text-color-secondary` draws the same as `text-color` (S9).
+   **When:** post-beta, with U4 and U5. The pill is a new colour and shape, and the pre-beta swaps
+   (U1a to U1c) change only the tag and the state colours, keeping today's look
+   ([Advisor notes](Advisor.md) §0).
 2. **State through classes and colours, never `opacity`.** Disabled, pressed and selected each have
    explicit colours (`rgba` is fine). Never use `aria-pressed` as a style hook (trap 3); use
    `data-state`.
