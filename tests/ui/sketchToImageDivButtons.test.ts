@@ -58,6 +58,14 @@ const EXPECTED: Expected[] = [
     action: "cancelGeneration",
     hidden: true,
     disabled: false
+  },
+  {
+    name: "Import to Layers",
+    find: (root) => root.querySelector("#import-sketch-result"),
+    classes: ["button", "button-import", "button-import-blue", "action-control"],
+    action: "importSketch",
+    hidden: false,
+    disabled: true
   }
 ];
 

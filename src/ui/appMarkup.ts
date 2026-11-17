@@ -1198,7 +1198,7 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="preview-empty">No Sketch to Image result yet</span>
           </div>
           <div class="import-actions">
-            <button class="button button-import button-import-blue action-control is-disabled" id="import-sketch-result" data-openlayer-action="importSketch" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
+            ${createButtonMarkup({ label: "Import to Layers", tone: "import", id: "import-sketch-result", action: "importSketch", disabled: true })}
           </div>
         </section>
       </section>
