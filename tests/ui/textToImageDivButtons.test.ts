@@ -92,3 +92,13 @@ describe("Text to Image Import label", () => {
     expect([...previewLabels]).toEqual(["Import to Layers"]);
   });
 });
+
+describe("Import Automatically label", () => {
+  it("is the same on every tool's auto-import toggle, Text to Image included", () => {
+    const toggles = [...render().querySelectorAll<HTMLElement>('[id$="auto-import-toggle"]')];
+    const labels = new Set(toggles.map((toggle) => toggle.textContent?.trim()));
+
+    expect(toggles.map((toggle) => toggle.id)).toContain("auto-import-toggle");
+    expect([...labels]).toEqual(["Import Automatically"]);
+  });
+});

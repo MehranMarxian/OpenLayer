@@ -925,7 +925,7 @@ ${createComponentSheetPlaceholderMarkup()}
               action: "import",
               disabled: true
             })}
-            <button class="button auto-import-toggle action-control" id="auto-import-toggle" data-openlayer-action="toggleAutoImport" type="button" aria-pressed="false">Import Result Automatically</button>
+            <button class="button auto-import-toggle action-control" id="auto-import-toggle" data-openlayer-action="toggleAutoImport" type="button" aria-pressed="false">Import Automatically</button>
           </div>
         </section>
 
