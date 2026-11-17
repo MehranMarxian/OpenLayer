@@ -37,6 +37,13 @@ const EXPECTED: Expected[] = [
     action: "cancelGeneration",
     hidden: true,
     disabled: false
+  },
+  {
+    id: "import-result",
+    classes: ["button", "button-import", "action-control"],
+    action: "import",
+    hidden: false,
+    disabled: true
   }
 ];
 
