@@ -1175,7 +1175,7 @@ ${createComponentSheetPlaceholderMarkup()}
               <input class="input input-compact" id="sketch-seed" type="text" inputmode="numeric" placeholder="Random" />
             </div>
           </div>
-          <button class="button button-primary button-generate button-wide action-control" id="generate-sketch" data-openlayer-action="generateSketch" type="button">Generate Sketch to Image</button>
+          ${createButtonMarkup({ label: "Generate Sketch to Image", tone: "generate", wide: true, id: "generate-sketch", action: "generateSketch" })}
           <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
         </section>
 

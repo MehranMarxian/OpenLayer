@@ -39,6 +39,14 @@ const EXPECTED: Expected[] = [
     action: "captureSketchCanvasSource",
     hidden: false,
     disabled: false
+  },
+  {
+    name: "Generate Sketch to Image",
+    find: (root) => root.querySelector("#generate-sketch"),
+    classes: ["button", "button-primary", "button-generate", "button-wide", "action-control"],
+    action: "generateSketch",
+    hidden: false,
+    disabled: false
   }
 ];
 
