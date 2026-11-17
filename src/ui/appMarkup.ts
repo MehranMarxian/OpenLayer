@@ -1097,8 +1097,8 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="muted-label">LINECN input</span>
           </div>
           <div class="source-action-row" aria-label="Sketch source capture actions">
-            <button class="button source-action-button action-control" id="capture-sketch-source" data-openlayer-action="captureSketchSource" type="button">Capture Active Layer</button>
-            <button class="button source-action-button action-control" id="capture-sketch-canvas-source" data-openlayer-action="captureSketchCanvasSource" type="button">Capture Canvas</button>
+            ${createButtonMarkup({ label: "Capture Active Layer", tone: "capture", id: "capture-sketch-source", action: "captureSketchSource" })}
+            ${createButtonMarkup({ label: "Capture Canvas", tone: "capture", id: "capture-sketch-canvas-source", action: "captureSketchCanvasSource" })}
           </div>
           <div class="source-card">
             <div class="source-thumb-frame" id="sketch-source-preview-panel">
