@@ -894,7 +894,7 @@ ${createComponentSheetPlaceholderMarkup()}
             </label>
           </div>
           ${createButtonMarkup({ label: "Generate", tone: "generate", wide: true, id: "generate", action: "generate" })}
-          <button class="button button-wide action-control cancel-generation-button" id="cancel-generation" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
+          ${createButtonMarkup({ label: "Cancel Generation", tone: "cancel", wide: true, id: "cancel-generation", action: "cancelGeneration", hidden: true })}
         </section>
 
         <section class="generation-status-panel" aria-label="Generation status">

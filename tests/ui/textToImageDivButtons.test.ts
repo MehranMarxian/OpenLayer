@@ -30,6 +30,13 @@ const EXPECTED: Expected[] = [
     action: "generate",
     hidden: false,
     disabled: false
+  },
+  {
+    id: "cancel-generation",
+    classes: ["button", "button-wide", "action-control", "cancel-generation-button"],
+    action: "cancelGeneration",
+    hidden: true,
+    disabled: false
   }
 ];
 
