@@ -1,6 +1,7 @@
 # OpenLayer Release Checklist
 
-Use this checklist before publishing an OpenLayer alpha release.
+Use this checklist before publishing an OpenLayer release. Up to v0.41 releases were alphas,
+published as pre-releases; from v0.45 they are betas, published as normal releases.
 
 ## Local Verification
 
@@ -29,11 +30,13 @@ Still manual, because no test can judge them:
 
 - Confirm `CHANGELOG.md` has a section for this release and that every claim in it survives a
   reading of `git log <lasttag>..main` — not of the task list.
-- Confirm README's "New in `vX.Y.Z-alpha`" list describes *this* release, not the last one.
+- Confirm README's "New in vX.Y" list describes *this* release, not the last one.
   The test pins README's version numbers, not its prose.
-- Confirm the package name matches the release, for example `openlayer-v0.7.0-alpha.zip`.
+- Confirm the package name matches the release, for example `openlayer-v0.45.0-beta.zip`. The
+  stage suffix comes from `scripts/package.mjs`; `tests/scripts/versionConsistency.test.ts` names
+  it as `releaseStage`. Change both when the stage changes.
 
-## Public Alpha Truth Check
+## Public Truth Check
 
 - Confirm Inpaint/Repaint Selection is marked experimental.
 - Confirm Outpaint is marked experimental.
@@ -46,10 +49,11 @@ Still manual, because no test can judge them:
 
 ## GitHub Release
 
-- Create a git tag, for example `v0.7.0-alpha`.
-- Create a GitHub Release from the tag.
-- Mark the release as a pre-release.
-- Attach the package zip and `.ccx` from `packages/`.
+- Create an annotated git tag, for example `v0.45.0-beta`.
+- Create a GitHub Release from the tag. From the beta on, publish it as a **normal release, not a
+  pre-release**, so GitHub shows it as the current release.
+- Attach the package zip and `.ccx` from `packages/`, **and** `openlayer-latest.zip` and
+  `openlayer-latest.ccx` (see below).
 - Include known limitations in the release notes.
 - Include basic tester instructions for Photoshop, UXP Developer Tool, and ComfyUI on port `8188`.
 
@@ -72,6 +76,14 @@ gh release upload latest packages/openlayer-latest.zip packages/openlayer-latest
 
 If this step is skipped, the Download button silently keeps serving an old version — nothing will
 error, because the URL still resolves. There is no automated check for this yet.
+
+**From the beta on this changes.** A normal release is eligible to be "Latest", and the newest one
+created wins, so `releases/latest/download/openlayer-latest.ccx` resolves to **the release you just
+published**, not to the `latest` tag. Attach `openlayer-latest.zip` and `openlayer-latest.ccx` to
+every normal release itself, or the Download button returns a 404. Keep refreshing the `latest`
+tag's assets as well, because older links point at it by tag. After publishing, check that
+`https://github.com/MehranMarxian/OpenLayer/releases/latest` opens the new release and that the
+Download button's URL downloads a file.
 
 ## Manual Smoke Test
 
