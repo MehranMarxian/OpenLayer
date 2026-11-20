@@ -2522,28 +2522,38 @@ function createScreenIconMarkup(icon: ToolIconName, label: string) {
  * prefix so two tools' controls can never collide.
  */
 function createPromptWalletControlsMarkup(fieldId: string) {
-  return `<button
+  // Divs, not <button>s: on Photoshop 28 the host paints its own grey face over
+  // a native button, so each dot drew grey with its colour left only as a ring
+  // (docs/ui-audit-ps28.md, R1). role and tabindex replace what the native tag
+  // gave; Enter and Space come from activateOnEnterAndSpace where the click
+  // listeners are bound (promptWallet.ts, App.ts). tabindex stays 0 while
+  // disabled because the code that toggles is-disabled does not touch it, and
+  // every click listener already ignores a disabled dot.
+  return `<div
     class="prompt-wallet-dot prompt-wallet-save is-disabled"
     id="${fieldId}-wallet-save"
-    type="button"
+    role="button"
+    tabindex="0"
     aria-disabled="true"
     aria-label="Save this prompt to the Wallet"
     title="Save this prompt to the Wallet"
-  >+</button><button
+  >+</div><div
     class="prompt-wallet-dot prompt-wallet-load is-disabled"
     id="${fieldId}-wallet-load"
-    type="button"
+    role="button"
+    tabindex="0"
     aria-disabled="true"
     aria-label="Load a prompt from the Wallet"
     title="Load a prompt from the Wallet"
-  >↓</button><button
+  >↓</div><div
     class="prompt-wallet-dot prompt-wallet-enhance is-disabled"
     id="${fieldId}-wallet-enhance"
-    type="button"
+    role="button"
+    tabindex="0"
     aria-disabled="true"
     aria-label="Enhance this prompt"
     title="Enhance this prompt: expand it into a longer, more descriptive one"
-  >✦</button>`;
+  >✦</div>`;
 }
 
 function createInfoToggleMarkup(targetId: string) {
