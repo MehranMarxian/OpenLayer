@@ -6488,10 +6488,14 @@ a:hover {
   background: linear-gradient(#1f9349, var(--ol-green)) !important;
 }
 
+/* The space between thumbnail and text is the thumbnail's right margin, not
+   `gap`: flex gap is inert in the UXP compact panel, so with gap alone the
+   "None" / "Mask" frame touched its title on Photoshop 2025 and 28. gap is 0
+   so a browser (vite dev) does not draw the space twice. */
 .app-shell.theme-compact .source-card {
   display: flex !important;
   align-items: center !important;
-  gap: 9px !important;
+  gap: 0 !important;
   width: 100% !important;
   min-width: 0 !important;
   min-height: 58px !important;
@@ -6511,7 +6515,7 @@ a:hover {
   justify-content: center !important;
   width: 44px !important;
   height: 44px !important;
-  margin: 0 !important;
+  margin: 0 9px 0 0 !important;
   overflow: hidden !important;
   border: 1px solid var(--ol-border) !important;
   border-radius: 4px !important;
@@ -9065,19 +9069,25 @@ body.theme-artist,
   color: var(--ol-accent-bright);
 }
 
-/* Match the native dropdown as Photoshop draws it, measured from a capture of
-   the Workflow dropdown beside this one (Photoshop 2025, compact theme): the
-   native control is drawn about 7px in from its box on the left and about 6px
-   past it on the right, 26px tall as measured against this field, #444 with a
-   #363636 border, and its text is normal weight, 9px in. The text colour is
-   brighter than the native text's measured peak (#adadad) because thin strokes
-   never reach their full colour; #e2e2e2 matched its brightness in a capture. Photoshop paints the native control itself
-   and ignores most of the .select rules, which is why these values are taken
-   from pixels rather than from the stylesheet. */
+/* Match the native dropdown's look as Photoshop draws it, measured from a
+   capture of the Workflow dropdown beside this one (Photoshop 2025, compact
+   theme): 26px tall, #444 with a #363636 border, and its text is normal
+   weight, 9px in. The text colour is brighter than the native text's measured
+   peak (#adadad) because thin strokes never reach their full colour; #e2e2e2
+   matched its brightness in a capture. Photoshop paints the native control
+   itself and ignores most of the .select rules, which is why these values are
+   taken from pixels rather than from the stylesheet.
+
+   Its position is NOT copied from the native control any more. The picker
+   used to sit 7px in on the left and 9px past its box on the right, because
+   that is where the native dropdown drew itself. That put every dropdown out
+   of line with the buttons, cards and info boxes in the same section
+   (measured on Photoshop 28, 2026-11-20: field 33-355, picker 40-364). It now
+   fills its field exactly, like everything else in the column. */
 .app-shell .ol-picker {
-  width: auto;
-  margin-left: 7px;
-  margin-right: -9px;
+  width: 100%;
+  margin-left: 0;
+  margin-right: 0;
 }
 
 .app-shell .ol-picker-field,
@@ -9107,4 +9117,17 @@ body.theme-artist,
   /* The last two out-rank the compact theme's
      .compatibility-note.info-panel.is-warning { margin: 0 0 8px !important }. */
   margin-top: 6px !important;
+}
+
+/* UXP gives a <textarea> a default 8px left and right margin that a browser
+   does not (measured on Photoshop 28, 2026-11-20: Inpaint's prompt drew at
+   41-363 inside a 33-355 field, so it sat 8px right of the buttons and info
+   boxes above and below it and ran 8px past them on the right). Nothing in
+   this sheet ever reset it, because vite dev and jsdom report 0. Reset to 0
+   so prompt boxes share the section's column. The single-line inputs keep
+   theirs for now: the Seed field relies on its 8px to clear its label. */
+.app-shell.theme-compact textarea,
+.app-shell.theme-compact .textarea {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
 }
