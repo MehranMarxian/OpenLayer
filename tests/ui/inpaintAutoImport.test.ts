@@ -17,10 +17,14 @@ describe("inpaint auto import", () => {
   const markup = createAppMarkup();
 
   it("sits in the same import row as Import to Layers", () => {
-    const row = markup.match(/<div class="import-actions">[\s\S]*?import-inpaint-result[\s\S]*?<\/div>/);
+    // Read through the DOM, not a regex: the buttons are divs now, so the
+    // first </div> after the Import button is its own close tag.
+    const root = document.createElement("div");
+    root.innerHTML = markup;
+    const row = root.querySelector("#import-inpaint-result")?.closest(".import-actions");
 
     expect(row, "inpaint import-actions row not found").not.toBeNull();
-    expect(row![0]).toContain('id="inpaint-auto-import-toggle"');
+    expect(row!.querySelector("#inpaint-auto-import-toggle")).not.toBeNull();
   });
 
   it("dispatches the action App.ts registers", () => {
