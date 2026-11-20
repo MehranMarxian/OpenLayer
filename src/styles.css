@@ -98,6 +98,17 @@ body {
   overflow-y: auto;
 }
 
+/* Div buttons (src/ui/divButton.ts) get the box model a native <button> had.
+   A <button> is border-box by default; a div is content-box, so every div
+   button with a width or flex basis grew by its padding and border on
+   Photoshop 28 (Layer Tools' export pairs +16px and past the panel edge,
+   History rows +25px). Low specificity on purpose: any rule that sets
+   box-sizing itself still wins. The Preview panel is not inside .app-shell. */
+.app-shell div[role="button"],
+.openlayer-preview-panel div[role="button"] {
+  box-sizing: border-box;
+}
+
 button,
 input,
 select,
@@ -8081,6 +8092,36 @@ body,
   cursor: default;
 }
 
+/* Div-button pins for the Preview panel's three controls (Photoshop 28 fix,
+   src/ui/divButton.ts). The rules above draw small flat buttons; natively the
+   host added its own height (measured on 28: Import to Layers and Import
+   Automatically 34px, 1:1 32px tall and 73px wide), so the divs shrank to
+   26px and 24px. Pinned back to those heights; the shape stays the 3px
+   rectangle the rules ask for, which is how 2025 draws it. The pair also
+   relied on flex `gap`, inert here, so the second one gets a real margin.
+   Padding plus line height makes the height, because these are block-level
+   divs inside a flex row and centre their label by padding. */
+.openlayer-preview-panel div.openlayer-preview-panel-import,
+.openlayer-preview-panel div.openlayer-preview-panel-auto-import {
+  min-height: 34px;
+  padding: 8px 14px;
+  line-height: 16px;
+  font-weight: 650;
+  text-align: center;
+}
+
+.openlayer-preview-panel div.openlayer-preview-panel-import + div.openlayer-preview-panel-auto-import {
+  margin-left: 6px;
+}
+
+.openlayer-preview-panel div.openlayer-preview-panel-fit {
+  min-width: 73px;
+  min-height: 32px;
+  padding: 7px 12px;
+  line-height: 16px;
+  text-align: center;
+}
+
 .openlayer-preview-panel-import-status {
   overflow: hidden;
   flex: 1 1 auto;
@@ -8517,6 +8558,23 @@ body.theme-artist,
    sets beside aria-pressed, never on aria-pressed itself (trap 3). */
 .app-shell.theme-compact div.experimental-toggle.is-active {
   color: #ffe087 !important;
+}
+
+/* Button pairs that relied on flex `gap`, which is inert in the compact
+   panel: Layer Tools' Save As / Send to ComfyUI rows and Live Painting's
+   Refine Now / Auto Refine. Native buttons hid the missing gap behind their
+   host-drawn faces; the divs touched. An explicit margin instead. */
+.app-shell.theme-compact .layer-export-actions > div.button + div.button,
+.app-shell.theme-compact .live-refine-actions > div.button + div.button {
+  margin-left: 6px !important;
+}
+
+/* Live Painting's Refine row sat flush under Stop Live Session once both were
+   divs: the compact sheet zeroes every .panel-section child's margin with
+   !important, and the native buttons' host height had hidden that. (0,4,0)
+   beats the (0,3,0) zeroing rule. */
+.app-shell.theme-compact .panel-section > .live-refine-actions {
+  margin-top: 6px !important;
 }
 
 /* ==========================================================================
