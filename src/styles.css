@@ -8445,6 +8445,80 @@ body.theme-artist,
   margin-bottom: 8px !important;
 }
 
+/* The Transparent Background toggle sat flush under the Model picker. Its
+   wrapper is a direct child of .generator-panel, so the compact sheet's
+   `.generator-panel > * { margin: 0 !important }` zeroes it, and the toggle's
+   own 8px margin is only below it. Nothing put space above. 8px matches the
+   gap under Ask the Agent. Margin only, never display: the wrapper is hidden
+   with [hidden], which a display rule here would defeat. The ID outranks the
+   (0,3,0) zeroing rule; both sides are !important. Both themes, because the
+   zeroing rule is a compact rule and Artist-Friendly Dark carries it too. */
+.app-shell.theme-compact #transparent-background-field {
+  margin-top: 8px !important;
+}
+
+/* Div-button pins for Text to Image's secondary controls (Photoshop 28 fix).
+   A native <button> added host inner height and weight, so what the artist
+   saw was never exactly what the rules said. The div draws the rules
+   literally, so each control is pinned here to how it looked natively on
+   Photoshop 2025. Every selector names `div`, so a native button anywhere
+   else is untouched.
+
+   Ask the Agent: the later compact `#suggest-prompt` rule (26px, 11px, 600)
+   beats the Artist rule above at equal specificity. Natively that never
+   showed, because the host added its own height (32px measured on 28), and
+   on 2025 the two prompt buttons draw the same height and weight. Each theme
+   copies what Show Negative Prompt computes on Photoshop 28: Compact 30px
+   (5px/10px padding, 16px line), Artist 34px (7px/10px, 18px line), both
+   12px bold. (1,2,1) beats both (1,2,0) rules; the Artist rule comes second
+   at the same specificity, so it wins where both themes are on the shell. */
+.app-shell.theme-compact div#suggest-prompt {
+  min-height: 30px !important;
+  padding: 5px 10px !important;
+  font-size: var(--fs-sm) !important;
+  font-weight: 700 !important;
+  line-height: 16px !important;
+}
+
+.app-shell.theme-artist div#suggest-prompt {
+  min-height: 34px !important;
+  padding: 7px 10px !important;
+  line-height: 18px !important;
+}
+
+/* Roll: the native button measured 79px wide on Photoshop 28; the div sizes
+   to its label (46px). 2025's width is not measured; its capture shows the
+   same wider rectangle. */
+.app-shell.theme-artist div.seed-dice-button {
+  min-width: 79px;
+}
+
+/* Transparent Background: as a div it drew the older switch-row rules (left
+   label, an ::after track the host draws as a grey blob) under the newer
+   aria-pressed toggle look, a combination no host ever showed. It now draws
+   like the div toggle proved on the UI sheet: centred label, no track. On
+   and off come from the aria-pressed rules. Scoped to the div, so Image to
+   Image's native Experimental Checkpoints toggle keeps its rules. (0,3,1)
+   beats the (0,3,0) !important switch-row rules. */
+.app-shell.theme-compact div.experimental-toggle {
+  justify-content: center !important;
+  text-align: center !important;
+}
+
+.app-shell.theme-compact div.experimental-toggle::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* On: the aria-pressed rule colours the label var(--ol-gold), which is defined
+   nowhere, so on Photoshop 28 the label fell back to near-black on the gold
+   fill. This uses the light gold the base .experimental-toggle.is-active rule
+   already chose. Keyed on is-active, which updateTransparentBackgroundToggle
+   sets beside aria-pressed, never on aria-pressed itself (trap 3). */
+.app-shell.theme-compact div.experimental-toggle.is-active {
+  color: #ffe087 !important;
+}
+
 /* ==========================================================================
    First-run welcome overlay
    Fixed rather than absolute: .app-shell scrolls its own content

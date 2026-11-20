@@ -1,5 +1,6 @@
 import { AppElements } from "./appMarkup";
 import { AppView } from "./appConstants";
+import { activateOnEnterAndSpace } from "./keyActivation";
 import {
   setImageDiagnostics,
   setInpaintDiagnostics,
@@ -503,6 +504,8 @@ export function createPromptWallet(
     const loadButton = elements[tool.loadButton] as HTMLElement;
 
     positive.addEventListener("input", syncButtons);
+    activateOnEnterAndSpace(saveButton);
+    activateOnEnterAndSpace(loadButton);
 
     saveButton.addEventListener("click", () => {
       if (!saveButton.classList.contains("is-disabled")) {

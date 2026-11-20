@@ -828,9 +828,9 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="label">Prompt${createPromptWalletControlsMarkup("prompt")}</span>
             <textarea maxlength="10000" class="textarea" id="prompt" placeholder="Describe the image you want to generate..."></textarea>
           </label>
-          <button class="button action-control" id="suggest-prompt" data-openlayer-action="suggestPrompt" type="button">Ask the Agent for a Prompt</button>
+          ${createButtonMarkup({ label: "Ask the Agent for a Prompt", id: "suggest-prompt", action: "suggestPrompt" })}
           <section class="negative-prompt-section" aria-label="Negative prompt">
-            <button class="button disclosure-button action-control" id="negative-prompt-toggle" data-openlayer-action="toggleNegativePrompt" type="button">Show Negative Prompt</button>
+            ${createButtonMarkup({ label: "Show Negative Prompt", tone: "disclosure", id: "negative-prompt-toggle", action: "toggleNegativePrompt" })}
             <label class="field negative-prompt-field" id="negative-prompt-field" hidden>
               <span class="label">Negative prompt</span>
               <textarea maxlength="10000" class="textarea" id="negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
@@ -863,13 +863,16 @@ ${createComponentSheetPlaceholderMarkup()}
           </section>
           <!--
             Shown only for presets with a transparentOutput entry. The toggle
-            reuses the Image to Image "Experimental Checkpoints" button styling,
-            already verified in Photoshop, so this adds no CSS. The wrapper
-            carries [hidden] because the compact theme forces that button to
-            display:flex !important.
+            keeps the .experimental-toggle class it shares with Image to Image's
+            Experimental Checkpoints, but as a div it has its own pins in
+            styles.css (div.experimental-toggle: centred label, no switch track,
+            light-gold On label), because the div draws rules the native button
+            never showed. The wrapper carries [hidden] because the compact theme
+            forces that class to display:flex !important; its 8px top margin is
+            set by ID in styles.css.
           -->
           <div id="transparent-background-field" hidden>
-            <button class="button experimental-toggle action-control" id="transparent-background-toggle" data-openlayer-action="toggleTransparentBackground" type="button" aria-pressed="false">Transparent Background Off</button>
+            ${createButtonMarkup({ label: "Transparent Background Off", className: "experimental-toggle", id: "transparent-background-toggle", action: "toggleTransparentBackground", ariaPressed: false })}
           </div>
           <div class="settings-grid" aria-label="Generation settings">
             <label class="field">
@@ -2522,28 +2525,38 @@ function createScreenIconMarkup(icon: ToolIconName, label: string) {
  * prefix so two tools' controls can never collide.
  */
 function createPromptWalletControlsMarkup(fieldId: string) {
-  return `<button
+  // Divs, not <button>s: on Photoshop 28 the host paints its own grey face over
+  // a native button, so each dot drew grey with its colour left only as a ring
+  // (docs/ui-audit-ps28.md, R1). role and tabindex replace what the native tag
+  // gave; Enter and Space come from activateOnEnterAndSpace where the click
+  // listeners are bound (promptWallet.ts, App.ts). tabindex stays 0 while
+  // disabled because the code that toggles is-disabled does not touch it, and
+  // every click listener already ignores a disabled dot.
+  return `<div
     class="prompt-wallet-dot prompt-wallet-save is-disabled"
     id="${fieldId}-wallet-save"
-    type="button"
+    role="button"
+    tabindex="0"
     aria-disabled="true"
     aria-label="Save this prompt to the Wallet"
     title="Save this prompt to the Wallet"
-  >+</button><button
+  >+</div><div
     class="prompt-wallet-dot prompt-wallet-load is-disabled"
     id="${fieldId}-wallet-load"
-    type="button"
+    role="button"
+    tabindex="0"
     aria-disabled="true"
     aria-label="Load a prompt from the Wallet"
     title="Load a prompt from the Wallet"
-  >↓</button><button
+  >↓</div><div
     class="prompt-wallet-dot prompt-wallet-enhance is-disabled"
     id="${fieldId}-wallet-enhance"
-    type="button"
+    role="button"
+    tabindex="0"
     aria-disabled="true"
     aria-label="Enhance this prompt"
     title="Enhance this prompt: expand it into a longer, more descriptive one"
-  >✦</button>`;
+  >✦</div>`;
 }
 
 function createInfoToggleMarkup(targetId: string) {

@@ -390,6 +390,7 @@ import {
   RECOMMENDED_STYLE_REFERENCE_CHECKPOINT
 } from "./appConstants";
 import { AppElements, createAppMarkup, getAppElements } from "./appMarkup";
+import { activateOnEnterAndSpace } from "./keyActivation";
 import {
   applyDeterminateProgress,
   flashImported,
@@ -2360,6 +2361,7 @@ export function renderApp(rootElement: HTMLElement) {
   for (const walletTool of PROMPT_WALLET_TOOLS) {
     const enhanceButton = elements[walletTool.enhanceButton] as HTMLElement;
 
+    activateOnEnterAndSpace(enhanceButton);
     enhanceButton.addEventListener("click", () => {
       if (!enhanceButton.classList.contains("is-disabled")) {
         void handleEnhancePrompt(walletTool);

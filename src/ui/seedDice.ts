@@ -22,6 +22,8 @@
  * guard against.
  */
 
+import { activateOnEnterAndSpace } from "./keyActivation";
+
 const SEED_INPUT_IDS = ["seed", "img-seed", "sketch-seed", "inpaint-seed", "outpaint-seed"];
 
 /**
@@ -81,9 +83,15 @@ function build(input: HTMLInputElement): void {
   const row = doc.createElement("div");
   row.className = ROW_CLASS;
 
-  const button = doc.createElement("button");
-  button.type = "button";
+  // A div, not a <button>: on Photoshop 28 the host paints its own grey face
+  // over every native <button>, and the stylesheet's rounded border then
+  // draws on top of it, which reads as a doubled outline (docs/ui-audit-ps28.md,
+  // R1). The div draws only what the stylesheet says. It needs role, tabindex
+  // and a key path by hand, because the native tag gave those for free.
+  const button = doc.createElement("div");
   button.className = "seed-dice-button";
+  button.setAttribute("role", "button");
+  button.setAttribute("tabindex", "0");
   button.setAttribute("aria-label", "Roll a new seed");
   button.title = "Roll a new seed";
 
@@ -94,6 +102,7 @@ function build(input: HTMLInputElement): void {
   row.appendChild(input);
   row.appendChild(button);
 
+  activateOnEnterAndSpace(button);
   button.addEventListener("click", () => {
     input.value = String(rollSeed());
     dispatch(input, "input");
