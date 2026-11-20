@@ -32,17 +32,28 @@ const packageJson = JSON.parse(read("package.json")) as { version: string };
 const version = packageJson.version;
 
 /**
+ * The tag suffix of the current release. It is not stored in package.json
+ * (UXP wants a plain semver there), so it is named here and in
+ * `scripts/package.mjs`. Change both when the stage changes.
+ */
+const releaseStage = "beta";
+
+/**
  * Every OpenLayer version string in a file, as `0.15.0`.
  *
  * Deliberately narrow: the docs also carry Photoshop's `25.0.0` minimum and
  * ComfyUI versions, and matching those would make the check meaningless. An
- * OpenLayer version is always written with a `v` prefix (`v0.15.0-alpha`, the
+ * OpenLayer version is always written with a `v` prefix (`v0.45.0-beta`, the
  * release-tag URLs, the zip and ccx filenames) or as the bare quoted
  * `softwareVersion` in the landing page's JSON-LD.
  */
 function openLayerVersionsIn(source: string): string[] {
   const prefixed = [...source.matchAll(/v(\d+\.\d+\.\d+)/g)].map((match) => match[1]);
-  const softwareVersion = [...source.matchAll(/"(\d+\.\d+\.\d+)-alpha"/g)].map((match) => match[1]);
+  // Alpha up to v0.41, beta from v0.45: either suffix is a release stage, not
+  // part of the number, so a stale JSON-LD version is caught whichever it has.
+  const softwareVersion = [...source.matchAll(/"(\d+\.\d+\.\d+)-(?:alpha|beta)"/g)].map(
+    (match) => match[1]
+  );
 
   return [...prefixed, ...softwareVersion];
 }
@@ -105,9 +116,10 @@ describe("version consistency", () => {
     }
   );
 
-  it("carries the current version in README's alpha notice", () => {
-    // README states the current version in exactly one place now: the alpha
-    // notice beside the hero. Everything that used to carry a second copy has
+  it("carries the current version in README's release-stage notice", () => {
+    // README states the current version in exactly one place now: the
+    // release-stage notice beside the hero (the alpha notice until v0.41, the
+    // beta notice from v0.45). Everything that used to carry a second copy has
     // been deliberately removed rather than left to drift —
     //
     // - the `packages/openlayer-vX.Y.Z-alpha.zip` / `.ccx` filenames went when
@@ -122,6 +134,6 @@ describe("version consistency", () => {
     // number anywhere in the README, pin it here too.
     const readme = read("README.md");
 
-    expect(readme).toContain(`\`v${version}-alpha\` is a public testing checkpoint`);
+    expect(readme).toContain(`\`v${version}-${releaseStage}\` is`);
   });
 });
