@@ -71,6 +71,9 @@ describe("Text to Image secondary div buttons", () => {
       expect(dot.getAttribute("role")).toBe("button");
       expect(dot.getAttribute("tabindex")).toBe("0");
       expect(dot.getAttribute("aria-label")).toBeTruthy();
+      expect(dot.getAttribute("title")).toBeTruthy();
+      // Plain colour, no glyph: the tooltip says what each dot does.
+      expect(dot.textContent).toBe("");
       expect(
         ["prompt-wallet-save", "prompt-wallet-load", "prompt-wallet-enhance"].some((name) => dot.classList.contains(name))
       ).toBe(true);

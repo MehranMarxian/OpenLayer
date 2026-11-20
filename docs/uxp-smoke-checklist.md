@@ -83,7 +83,7 @@ The parts built element by element, which is where UXP's missing DOM methods bit
       buttons on a Missing row respond.
 - [ ] 4.2 Settings › **Check Workflow Health**. **See:** grouped health cards.
 - [ ] 4.3 On Text to Image, use the sliders and the seed dice. **See:** values change and snap.
-- [ ] 4.4 Prompt Wallet: save the current prompt with the green **+**, open the wallet, use the
+- [ ] 4.4 Prompt Wallet: save the current prompt with the green circle, open the wallet, use the
       saved entry. **See:** the prompt comes back into the field.
 - [ ] 4.5 Home › **History**. **See:** the generations from block 1 with their settings.
 - [ ] 4.6 Settings › change the theme and back. **See:** the panel restyles both times.

@@ -2532,6 +2532,9 @@ function createPromptWalletControlsMarkup(fieldId: string) {
   // listeners are bound (promptWallet.ts, App.ts). tabindex stays 0 while
   // disabled because the code that toggles is-disabled does not touch it, and
   // every click listener already ignores a disabled dot.
+  // No glyph inside: each dot is a plain colour, and the tooltip (title) and
+  // aria-label say what it does. Mehran's call on 2026-11-20; the +, down arrow
+  // and star read as clutter at 16 px.
   return `<div
     class="prompt-wallet-dot prompt-wallet-save is-disabled"
     id="${fieldId}-wallet-save"
@@ -2540,7 +2543,7 @@ function createPromptWalletControlsMarkup(fieldId: string) {
     aria-disabled="true"
     aria-label="Save this prompt to the Wallet"
     title="Save this prompt to the Wallet"
-  >+</div><div
+  ></div><div
     class="prompt-wallet-dot prompt-wallet-load is-disabled"
     id="${fieldId}-wallet-load"
     role="button"
@@ -2548,7 +2551,7 @@ function createPromptWalletControlsMarkup(fieldId: string) {
     aria-disabled="true"
     aria-label="Load a prompt from the Wallet"
     title="Load a prompt from the Wallet"
-  >↓</div><div
+  ></div><div
     class="prompt-wallet-dot prompt-wallet-enhance is-disabled"
     id="${fieldId}-wallet-enhance"
     role="button"
@@ -2556,7 +2559,7 @@ function createPromptWalletControlsMarkup(fieldId: string) {
     aria-disabled="true"
     aria-label="Enhance this prompt"
     title="Enhance this prompt: expand it into a longer, more descriptive one"
-  >✦</div>`;
+  ></div>`;
 }
 
 function createInfoToggleMarkup(targetId: string) {
