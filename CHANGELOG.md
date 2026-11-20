@@ -1,5 +1,49 @@
 # Changelog
 
+## v0.45.0-beta - 2026-11-20
+
+The first beta. No new tools: features stay frozen, and this release makes OpenLayer work on the
+newest Photoshop and fixes what the v0.41 smoke run found. It is published as a normal release, not
+a pre-release. What the beta had to pass, and where each item stands, is in
+[the beta gate](docs/beta-gate.md).
+
+### Fixed
+
+- **OpenLayer works on Photoshop 28.** Photoshop 28.0 (UXP 9.4.1, released 2026-11-10) paints its own
+  grey face over every native button, so Generate, the capture and import buttons and every other
+  button in the panel lost their colours, and some labels were cut short. Every button is now drawn by OpenLayer itself, keeps the size the native button had,
+  and answers Enter and Space from the keyboard. It looks the same on Photoshop 2025 and 28, and a
+  test fails if a native button comes back.
+- **Upscaling a captured layer gives you the full-size result.** It was placed into your document,
+  where Photoshop shrank it to fit, so a 4x result came back looking exactly like the layer it came
+  from. It now opens as a document of its own at the result's real size and your document's
+  resolution. Your document is not changed. Canvas captures work as before.
+- **A "Prompt required" error clears once the prompt has text.** Loading a prompt from the Prompt
+  Wallet, or typing one, left the error showing above a full prompt until the next Generate.
+- **The panel's column lines up.** Prompt boxes sat 8 px to the right of the column, because
+  Photoshop gives text boxes a side margin that a browser does not, and the dropdowns were offset
+  to copy where the old native dropdown drew. Both now share one left and right edge with the
+  buttons and cards. Source thumbnails have space before their text, and the Model picker no
+  longer touches Transparent Background.
+
+### Changed
+
+- **Text to Image uses the same button names as every other tool:** Import to Layers (was Import
+  Result as New Layer) and Import Automatically (was Import Result Automatically).
+- **The Prompt Wallet buttons are plain coloured dots**, with no sign inside. Hovering one says what
+  it does.
+- **[The beta gate](docs/beta-gate.md) has a line for the newest Photoshop** (G7).
+
+### Known limitations
+
+- Tested on Windows 11 with Photoshop 2025 and Photoshop 28, an RTX 4070 Ti (12 GB) and ComfyUI
+  0.44.0. Not run on macOS. Photoshop 2024 was last confirmed by a tester on v0.37.1.
+- Importing the first result into a new document removes its empty Layer 1. This is Photoshop's
+  own behaviour: File › Place Embedded does the same without OpenLayer.
+- No tool has been timed on a CPU-only ComfyUI, so the CPU-only message names the cause and what to
+  check rather than which tools stay usable.
+- The Adobe Exchange listing carries v0.37.0 and trails this release.
+
 ## v0.41.0-alpha - 2026-11-05
 
 The beta candidate. No new tools: features are frozen until the beta, and this release fixes what

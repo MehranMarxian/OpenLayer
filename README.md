@@ -38,7 +38,12 @@
 - **Sixteen tools**, from text-to-image and editing by instruction through inpainting and background removal to
   multi-image composition and depth/line-art/normal passes, plus an experimental one that splits a
   flat picture back into layers.
-- **New in v0.41: the beta candidate.** No new tools. Live Painting now works on a starter install,
+- **New in v0.45: the first beta.** No new tools. OpenLayer now works on Photoshop 28, which painted
+  every button in the panel grey over its colour; every button is now drawn by OpenLayer and
+  looks the same on Photoshop 2025 and 28. Upscaling a layer opens the result at full size, a stale
+  "Prompt required" error clears itself, and the prompt boxes and dropdowns line up with the rest of
+  the panel.
+- **In v0.41: the beta candidate.** No new tools. Live Painting now works on a starter install,
   Workflow Health stops hiding working presets on current ComfyUI, the panel finds Comfy Desktop on
   its port and says plainly when ComfyUI has no graphics card, and every preset is tested against
   ComfyUI 0.44. Testers on Photoshop 2024, macOS and clean installs are what the beta waits on.
@@ -61,8 +66,8 @@ a GPU with 8 GB VRAM or more (12 GB is what this project targets).
 OpenLayer is the panel inside Photoshop that talks to it — you work in Photoshop, ComfyUI does the
 generating in the background, and every result comes back as a layer.
 
-> **Alpha.** `v0.41.0-alpha` is a public testing checkpoint, not production software. It is stable
-> enough to work with, and honest about where it stops — see [what works and what does
+> **Beta.** `v0.45.0-beta` is the first beta: tested on Windows 11 with Photoshop 2025 and
+> Photoshop 28, not yet on macOS. It is stable enough to work with, and honest about where it stops — see [what works and what does
 > not](docs/known-limitations.md).
 
 ## The tools
@@ -199,7 +204,7 @@ You will also need the Adobe Creative Cloud desktop app, which is what installs 
 
 **Option A, Adobe Exchange:** open the [OpenLayer listing](https://exchange.adobe.com/apps/cc/1e827d3d) and click **Install**. Creative Cloud installs it and Photoshop lists it under **Plugins › OpenLayer**. The listing carries the version Adobe approved (v0.37.0) and can trail the latest GitHub release. It is not yet shown to visitors in the EU, so use Option B there.
 
-**Option B, the latest alpha:** use the **Download** button above, or grab
+**Option B, the latest beta:** use the **Download** button above, or grab
 [`openlayer-latest.ccx`](https://github.com/MehranMarxian/OpenLayer/releases/latest/download/openlayer-latest.ccx)
 directly, and **double-click it**. Creative Cloud installs the panel. Photoshop then lists it under
 **Plugins › OpenLayer**. Release notes for the version you just got are on the
