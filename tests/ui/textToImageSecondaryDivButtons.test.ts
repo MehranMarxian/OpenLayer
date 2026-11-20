@@ -135,6 +135,23 @@ describe("activateOnEnterAndSpace", () => {
     expect(onClick).toHaveBeenCalledTimes(2);
   });
 
+  it("cancels the click's default, so an enclosing <label> does not pass focus to its field", () => {
+    const label = document.createElement("label");
+    label.innerHTML = `<input id="field" type="text" /><div role="button" tabindex="0">Roll</div>`;
+    document.body.replaceChildren(label);
+    const control = label.querySelector<HTMLElement>("div")!;
+    const onClick = vi.fn();
+    control.addEventListener("click", onClick);
+    activateOnEnterAndSpace(control);
+
+    const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+    control.dispatchEvent(event);
+
+    expect(onClick).toHaveBeenCalledTimes(1);
+    expect(event.defaultPrevented).toBe(true);
+    expect(document.activeElement).not.toBe(label.querySelector("input"));
+  });
+
   it("ignores other keys, a field inside the control, and a disabled control", () => {
     const { element, onClick } = setup();
 

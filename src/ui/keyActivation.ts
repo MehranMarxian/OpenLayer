@@ -1,18 +1,25 @@
 /**
- * Enter and Space for a div button that is wired with its own click listener.
+ * What a native <button> did for free, for a div button that is wired with its
+ * own click listener.
  *
- * A native <button> turns Enter and Space into a click. The div button
- * primitive (buttonMarkup.ts) does not, and two existing key paths cover only
- * controls with a data-openlayer-action: bindActionControl and the delegated
- * path in bindDelegatedActions (appBindings.ts). Controls that listen for
- * click themselves, such as the seed Roll button and the Prompt Wallet dots,
- * get neither, so they would become mouse-only when they stop being a
- * <button>. This gives them the native behaviour back by turning the key into
- * a click, so the click listener stays the one place the action runs and its
- * own disabled check still applies.
+ * 1. Enter and Space. A native <button> turns them into a click. The div button
+ *    primitive (buttonMarkup.ts) does not, and the two existing key paths cover
+ *    only controls with a data-openlayer-action: bindActionControl and the
+ *    delegated path in bindDelegatedActions (appBindings.ts). Controls that
+ *    listen for click themselves, such as the seed Roll button and the Prompt
+ *    Wallet dots, get neither. The key becomes a click, so the click listener
+ *    stays the one place the action runs and keeps its own disabled check.
+ *    Only when the control itself has focus, never from a field inside it, and
+ *    never when it carries is-disabled.
  *
- * Only when the control itself has focus, never from a field inside it, and
- * never when it carries is-disabled.
+ * 2. Staying out of a <label>'s way. Roll and the dots sit inside a
+ *    `<label class="field">`. A click on a native button inside a label stays
+ *    on the button, because a button is interactive content. A click on a div
+ *    is passed on by the label to the field it labels. Measured on Photoshop
+ *    28: Enter on the div Roll rolled the seed, then focus jumped into the seed
+ *    input, so the next Space typed into it. Cancelling the click's default
+ *    stops the label's forwarding; the click listeners still run, since they
+ *    do not check defaultPrevented.
  */
 export function activateOnEnterAndSpace(element: HTMLElement) {
   element.addEventListener("keydown", (event) => {
@@ -27,5 +34,9 @@ export function activateOnEnterAndSpace(element: HTMLElement) {
     if (!element.classList.contains("is-disabled")) {
       element.click();
     }
+  });
+
+  element.addEventListener("click", (event) => {
+    event.preventDefault();
   });
 }
