@@ -6488,10 +6488,14 @@ a:hover {
   background: linear-gradient(#1f9349, var(--ol-green)) !important;
 }
 
+/* The space between thumbnail and text is the thumbnail's right margin, not
+   `gap`: flex gap is inert in the UXP compact panel, so with gap alone the
+   "None" / "Mask" frame touched its title on Photoshop 2025 and 28. gap is 0
+   so a browser (vite dev) does not draw the space twice. */
 .app-shell.theme-compact .source-card {
   display: flex !important;
   align-items: center !important;
-  gap: 9px !important;
+  gap: 0 !important;
   width: 100% !important;
   min-width: 0 !important;
   min-height: 58px !important;
@@ -6511,7 +6515,7 @@ a:hover {
   justify-content: center !important;
   width: 44px !important;
   height: 44px !important;
-  margin: 0 !important;
+  margin: 0 9px 0 0 !important;
   overflow: hidden !important;
   border: 1px solid var(--ol-border) !important;
   border-radius: 4px !important;
