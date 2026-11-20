@@ -4,7 +4,7 @@
 
 OpenLayer is for anyone who uses Photoshop and wants AI image generation without Adobe Firefly's generative credits or a hosted service: photographers, designers, digital artists, retouchers, and ComfyUI users who are tired of moving images between ComfyUI and Photoshop by hand. It works as a free, local alternative to Photoshop Generative Fill.
 
-It is alpha software. It is tested on Windows 11 with Photoshop 2025; macOS is untested.
+It is beta software. It is tested on Windows 11 with Photoshop 2025 and Photoshop 28; macOS is untested.
 
 Requirements: Photoshop 2024 or newer, a local ComfyUI server, and a GPU with 8 GB VRAM or more (12 GB recommended).
 

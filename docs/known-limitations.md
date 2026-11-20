@@ -1,6 +1,6 @@
 # What works, and what does not
 
-OpenLayer is an alpha. This page is the honest version of both halves — what is built and
+OpenLayer is a beta. This page is the honest version of both halves — what is built and
 tested, and where it stops. Nothing here is a bug report; these are the known edges.
 
 ## Working foundation

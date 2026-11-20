@@ -26,7 +26,7 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 const distDir = resolve(root, "dist");
 const packagesDir = resolve(root, "packages");
 const packageJson = JSON.parse(await readFile(resolve(root, "package.json"), "utf8"));
-const releaseLabel = process.env.OPENLAYER_RELEASE_LABEL ?? `v${packageJson.version}-alpha`;
+const releaseLabel = process.env.OPENLAYER_RELEASE_LABEL ?? `v${packageJson.version}-beta`;
 const zipPath = resolve(packagesDir, `openlayer-${releaseLabel}.zip`);
 
 /**
