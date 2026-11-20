@@ -8,7 +8,7 @@ user installs today.
 The beta is tagged when every **Required** line passes. **Wanted** lines go in the beta's release
 notes as known limitations if they are still open.
 
-Status is as of **2026-11-04, after v0.40.0-alpha**. Each PR that closes a line updates its row in
+Status is as of **2026-11-04, after v0.40.0-alpha**. G7 was added on 2026-11-20. Each PR that closes a line updates its row in
 the same change.
 
 ## Required
@@ -21,6 +21,7 @@ the same change.
 | G4 | **Passes the full smoke checklist on the release build.** All blocks of [the UXP smoke checklist](uxp-smoke-checklist.md) on the build that will be tagged, with a row in its Results table. | The Results table. | **Passed on 2026-11-05 on main at fd679fc** (footer 0.40.0, ComfyUI 0.44.0, Photoshop 2025): blocks 0 to 5, every step, with five findings recorded in the Results table. Run again on the exact build that is tagged if code changes before then. The first finding (Live Painting fails while Text to Image is on Klein, the default since v0.39) hits every new user, so fix it before the beta. Fixed in v0.41: Live Painting now picks an SD 1.5 checkpoint itself and leaves Text to Image alone. The third finding (a new document's empty Layer 1 disappears on the first import) is Photoshop's own behaviour, not OpenLayer's: on 2026-11-05 Photoshop's File › Place Embedded did the same with no plugin involved, and kept Layer 1 once it had pixels. Kept as is by the author's decision; smoke step 1.2 now says so. |
 | G5 | **Works on Photoshop 2024.** Someone other than the author runs blocks 0 to 2 of the smoke checklist on Photoshop 2024 with the beta candidate. | Their report, linked here. | **Open.** One tester confirmed the panel works on Photoshop 2024 with v0.37.1 ([issue 127](https://github.com/MehranMarxian/OpenLayer/issues/127)). Nothing newer has been run on 2024. |
 | G6 | **A first image on a clean install.** From an empty ComfyUI to a first layer by following [Getting started](getting-started.md), on a machine that is not the author's. | The tester's step count and any place they got stuck, linked here. | **Open.** v0.39 timed it at seven clicks on the author's machine only. |
+| G7 | **Works on the newest Photoshop.** Photoshop 28.0 (Photoshop 2027, UXP 9.4.1), released 2026-11-10, which is where most new installs land. | Blocks 0 to 2 of the smoke checklist on Photoshop 28 with the beta candidate, with a row in its Results table. The author has 28, so this does not need an outside tester. | **Open.** [The Photoshop 28 audit](ui-audit-ps28.md) found that 28 paints every native `<button>` grey, so every screen failed. PRs #185, #186, #189 and #191 (merged 2026-11-20) draw every button as a `div role="button"`, and a test now fails if a native button comes back. After #191 the author saw a clean panel on both Photoshop 2025 and 28. Blocks 0 to 2 have not been run on 28 yet. |
 
 ## Wanted
 
@@ -37,6 +38,8 @@ the same change.
    second ComfyUI, or an update of the shared one, which is the author's call.
 3. G4 on the build that includes all of the above.
 4. G5, G6 and W1 need outside testers, so recruit for them while 1 to 3 are being built.
+5. G7: the author runs blocks 0 to 2 on Photoshop 28 once the button fix is on `main` (done
+   2026-11-20), then G4 runs again on the build that is tagged.
 
 ## Not in the gate
 
