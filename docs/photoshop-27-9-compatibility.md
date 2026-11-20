@@ -73,3 +73,10 @@ that a passing run on an older Photoshop build doesn't confirm anything about 27
 
 If anything breaks, the file/line most likely responsible is probably in this list — say what you
 saw and where, and it's a fast fix rather than a fresh investigation.
+
+## Later versions
+
+- **Photoshop 28.0 (UXP 9.4.1), 2026-11-10.** It paints every native `<button>` grey, so every
+  OpenLayer button is now a `div role="button"` (PRs #185 to #191, merged 2026-11-20). What was
+  measured is in [the Photoshop 28 audit](ui-audit-ps28.md). Whether 28 passes is beta gate G7 in
+  [the beta gate](beta-gate.md).
