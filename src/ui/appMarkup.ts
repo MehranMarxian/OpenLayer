@@ -828,9 +828,9 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="label">Prompt${createPromptWalletControlsMarkup("prompt")}</span>
             <textarea maxlength="10000" class="textarea" id="prompt" placeholder="Describe the image you want to generate..."></textarea>
           </label>
-          <button class="button action-control" id="suggest-prompt" data-openlayer-action="suggestPrompt" type="button">Ask the Agent for a Prompt</button>
+          ${createButtonMarkup({ label: "Ask the Agent for a Prompt", id: "suggest-prompt", action: "suggestPrompt" })}
           <section class="negative-prompt-section" aria-label="Negative prompt">
-            <button class="button disclosure-button action-control" id="negative-prompt-toggle" data-openlayer-action="toggleNegativePrompt" type="button">Show Negative Prompt</button>
+            ${createButtonMarkup({ label: "Show Negative Prompt", tone: "disclosure", id: "negative-prompt-toggle", action: "toggleNegativePrompt" })}
             <label class="field negative-prompt-field" id="negative-prompt-field" hidden>
               <span class="label">Negative prompt</span>
               <textarea maxlength="10000" class="textarea" id="negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
@@ -869,7 +869,7 @@ ${createComponentSheetPlaceholderMarkup()}
             display:flex !important.
           -->
           <div id="transparent-background-field" hidden>
-            <button class="button experimental-toggle action-control" id="transparent-background-toggle" data-openlayer-action="toggleTransparentBackground" type="button" aria-pressed="false">Transparent Background Off</button>
+            ${createButtonMarkup({ label: "Transparent Background Off", className: "experimental-toggle", id: "transparent-background-toggle", action: "toggleTransparentBackground", ariaPressed: false })}
           </div>
           <div class="settings-grid" aria-label="Generation settings">
             <label class="field">

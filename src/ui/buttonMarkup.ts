@@ -76,6 +76,13 @@ export interface ButtonSpec {
   /** Tooltip, also used as the accessible name when the label is a glyph. */
   title?: string;
   hidden?: boolean;
+  /**
+   * aria-pressed for an on/off control that keeps a non-toggle tone because the
+   * stylesheet draws it from its own class (Transparent Background is an
+   * .experimental-toggle). Emitted as written, with no data-state; the code
+   * that flips the control already rewrites aria-pressed at runtime.
+   */
+  ariaPressed?: boolean;
 }
 
 const TONE_CLASSES: Record<ButtonTone, string> = {
@@ -166,6 +173,10 @@ export function createButtonMarkup(spec: ButtonSpec) {
     const state: ButtonState = spec.state ?? "off";
     attributes.push(`data-state="${state}"`);
     attributes.push(`aria-pressed="${state === "on" ? "true" : "false"}"`);
+  }
+
+  if (!STATEFUL_TONES.has(tone) && spec.ariaPressed !== undefined) {
+    attributes.push(`aria-pressed="${spec.ariaPressed ? "true" : "false"}"`);
   }
 
   if (spec.title) {
