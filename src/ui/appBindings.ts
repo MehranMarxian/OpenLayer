@@ -190,6 +190,41 @@ export function bindDelegatedActions(rootElement: HTMLElement, actionHandlers: A
     },
     true
   );
+
+  // Enter and Space for the div button primitive. A native <button> turns
+  // those keys into a click, which the listener above already handles
+  // (measured on Photoshop 2025: Enter on a native Cancel logged
+  // "cancelGeneration from document:click"). A div does not, so without this
+  // every action control reached only through this delegated binding would
+  // become mouse-only the moment it stops being a <button>.
+  // Bubble phase on purpose: a control bound directly with bindActionControl
+  // handles the key first and calls preventDefault, and is skipped here, so
+  // nothing runs twice.
+  rootElement.addEventListener("keydown", (event) => {
+    const key = (event as KeyboardEvent).key;
+
+    if ((key !== "Enter" && key !== " ") || event.defaultPrevented) {
+      return;
+    }
+
+    const target = getEventElement(event.target);
+    const actionElement = findActionElement(event.target, rootElement);
+
+    // Only when the focused element is the control itself (not a field inside
+    // one), and never for a native button, which already clicks.
+    if (!actionElement || actionElement !== target || actionElement.tagName === "BUTTON" || isActionDisabled(actionElement)) {
+      return;
+    }
+
+    const actionName = actionElement.getAttribute("data-openlayer-action") as ActionName | null;
+
+    if (!actionName || !(actionName in actionHandlers)) {
+      return;
+    }
+
+    event.preventDefault();
+    actionHandlers[actionName](`keyboard:${key === " " ? "space" : key}`);
+  });
 }
 
 export function bindDocumentActions(rootElement: HTMLElement, actionHandlers: ActionHandlers) {

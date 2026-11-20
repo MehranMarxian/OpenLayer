@@ -1097,8 +1097,8 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="muted-label">LINECN input</span>
           </div>
           <div class="source-action-row" aria-label="Sketch source capture actions">
-            <button class="button source-action-button action-control" id="capture-sketch-source" data-openlayer-action="captureSketchSource" type="button">Capture Active Layer</button>
-            <button class="button source-action-button action-control" id="capture-sketch-canvas-source" data-openlayer-action="captureSketchCanvasSource" type="button">Capture Canvas</button>
+            ${createButtonMarkup({ label: "Capture Active Layer", tone: "capture", id: "capture-sketch-source", action: "captureSketchSource" })}
+            ${createButtonMarkup({ label: "Capture Canvas", tone: "capture", id: "capture-sketch-canvas-source", action: "captureSketchCanvasSource" })}
           </div>
           <div class="source-card">
             <div class="source-thumb-frame" id="sketch-source-preview-panel">
@@ -1175,8 +1175,8 @@ ${createComponentSheetPlaceholderMarkup()}
               <input class="input input-compact" id="sketch-seed" type="text" inputmode="numeric" placeholder="Random" />
             </div>
           </div>
-          <button class="button button-primary button-generate button-wide action-control" id="generate-sketch" data-openlayer-action="generateSketch" type="button">Generate Sketch to Image</button>
-          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
+          ${createButtonMarkup({ label: "Generate Sketch to Image", tone: "generate", wide: true, id: "generate-sketch", action: "generateSketch" })}
+          ${createButtonMarkup({ label: "Cancel Generation", tone: "cancel", wide: true, action: "cancelGeneration", hidden: true })}
         </section>
 
         <section class="generation-status-panel img2img-status-panel" aria-label="Sketch to Image status">
@@ -1198,7 +1198,7 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="preview-empty">No Sketch to Image result yet</span>
           </div>
           <div class="import-actions">
-            <button class="button button-import button-import-blue action-control is-disabled" id="import-sketch-result" data-openlayer-action="importSketch" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
+            ${createButtonMarkup({ label: "Import to Layers", tone: "import", id: "import-sketch-result", action: "importSketch", disabled: true })}
           </div>
         </section>
       </section>
