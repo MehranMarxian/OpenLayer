@@ -8445,6 +8445,18 @@ body.theme-artist,
   margin-bottom: 8px !important;
 }
 
+/* The Transparent Background toggle sat flush under the Model picker. Its
+   wrapper is a direct child of .generator-panel, so the compact sheet's
+   `.generator-panel > * { margin: 0 !important }` zeroes it, and the toggle's
+   own 8px margin is only below it. Nothing put space above. 8px matches the
+   gap under Ask the Agent. Margin only, never display: the wrapper is hidden
+   with [hidden], which a display rule here would defeat. The ID outranks the
+   (0,3,0) zeroing rule; both sides are !important. Both themes, because the
+   zeroing rule is a compact rule and Artist-Friendly Dark carries it too. */
+.app-shell.theme-compact #transparent-background-field {
+  margin-top: 8px !important;
+}
+
 /* ==========================================================================
    First-run welcome overlay
    Fixed rather than absolute: .app-shell scrolls its own content
