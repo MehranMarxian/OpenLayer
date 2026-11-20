@@ -7215,8 +7215,9 @@ body,
    native Import Automatically toggle held the row at 36px; this keeps the row
    there once that toggle is a div too (U1b). min-height rather than padding,
    because these buttons are flex and centre their label. 36px is the 2025
-   value. On Photoshop 28, Text to Image's native import row measured 34px,
-   so 28 likely moves up about 2px; a lone Import on 28 is not yet measured.
+   value. On Photoshop 28 the native import rows measured 34px (Text to
+   Image's row, and Sketch to Image's lone Import), so on 28 this pin makes
+   them 2px taller: 36px, measured with getBoundingClientRect.
    Specificity (0,4,1) beats the (0,4,0) rule above; nothing here is
    !important. */
 .app-shell.theme-compact .import-actions div.button {
