@@ -38,6 +38,8 @@ a pre-release. What the beta had to pass, and where each item stands, is in
 
 - Tested on Windows 11 with Photoshop 2025 and Photoshop 28, an RTX 4070 Ti (12 GB) and ComfyUI
   0.44.0. Not run on macOS. Photoshop 2024 was last confirmed by a tester on v0.37.1.
+- A first image on a clean install, from an empty ComfyUI, has not yet been confirmed on a
+  machine other than the author's. That test is under way.
 - Importing the first result into a new document removes its empty Layer 1. This is Photoshop's
   own behaviour: File › Place Embedded does the same without OpenLayer.
 - No tool has been timed on a CPU-only ComfyUI, so the CPU-only message names the cause and what to
