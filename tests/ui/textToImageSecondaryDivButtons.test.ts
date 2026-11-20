@@ -15,7 +15,7 @@
  */
 import { describe, expect, it, vi } from "vitest";
 import { createAppMarkup } from "../../src/ui/appMarkup";
-import { activateOnEnterAndSpace } from "../../src/ui/keyActivation";
+import { activateOnEnterAndSpace } from "../../src/ui/divButton";
 import { setSeedDiceEnabled } from "../../src/ui/seedDice";
 
 function render() {

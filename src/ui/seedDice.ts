@@ -22,7 +22,7 @@
  * guard against.
  */
 
-import { activateOnEnterAndSpace } from "./keyActivation";
+import { activateOnEnterAndSpace } from "./divButton";
 
 const SEED_INPUT_IDS = ["seed", "img-seed", "sketch-seed", "inpaint-seed", "outpaint-seed"];
 

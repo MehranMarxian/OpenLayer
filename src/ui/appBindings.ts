@@ -1,4 +1,5 @@
 import { AppView, DEFAULT_SERVER_URL } from "./appConstants";
+import { createDivButton, isActionDisabled, setActionDisabled } from "./divButton";
 import { AppElements } from "./appMarkup";
 import {
   loadHasSeenWelcome,
@@ -501,8 +502,7 @@ export function bindToolWarnings(rootElement: HTMLElement) {
 
     warning.hidden = true;
 
-    const info = document.createElement("button");
-    info.type = "button";
+    const info = createDivButton(document, "");
     info.className = "tool-info-button";
     // "!" rather than "i": the round warning badge elsewhere in the panel
     // (compatibility-note.info-panel.is-warning) already uses "!" as its
@@ -662,8 +662,7 @@ export function bindAdvancedToggles(rootElement: HTMLElement) {
       continue;
     }
 
-    const toggle = document.createElement("button");
-    toggle.type = "button";
+    const toggle = createDivButton(document, "");
     toggle.className = "advanced-toggle";
     // Plain-text caret (UXP does not render triangle/emoji glyphs reliably).
 
@@ -863,12 +862,6 @@ function getEventElement(target: EventTarget | null) {
  * and ARIA, which work on any tag. Exported for click handlers that used to
  * read the native `.disabled` property, which a div button does not have.
  */
-export function isActionDisabled(element: HTMLElement) {
-  return element.classList.contains("is-disabled") || element.getAttribute("aria-disabled") === "true";
-}
-
-export function setActionDisabled(element: HTMLElement, isDisabled: boolean) {
-  element.classList.toggle("is-disabled", isDisabled);
-  element.setAttribute("aria-disabled", String(isDisabled));
-  element.setAttribute("tabindex", isDisabled ? "-1" : "0");
-}
+// Defined in divButton.ts so modules that must not import this file (the
+// Preview panel, the Prompt Wallet) share the same two definitions.
+export { isActionDisabled, setActionDisabled };
