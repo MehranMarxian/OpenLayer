@@ -17,7 +17,8 @@
  *   data-openlayer-action. A native <button> turns those keys into a click; a
  *   div does not, which is why that key path exists. Controls with their own
  *   click listeners and no data-openlayer-action (the buttons made in code)
- *   are not covered and need their own key handling when swapped.
+ *   are not covered: give them activateOnEnterAndSpace (keyActivation.ts),
+ *   which also stops an enclosing <label> from taking their focus.
  * - Disabled is the is-disabled class plus aria-disabled="true" plus
  *   tabindex="-1", the same three things setActionDisabled writes at runtime,
  *   so a control can be born disabled and later enabled by the existing code.

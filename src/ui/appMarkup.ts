@@ -863,10 +863,13 @@ ${createComponentSheetPlaceholderMarkup()}
           </section>
           <!--
             Shown only for presets with a transparentOutput entry. The toggle
-            reuses the Image to Image "Experimental Checkpoints" button styling,
-            already verified in Photoshop, so this adds no CSS. The wrapper
-            carries [hidden] because the compact theme forces that button to
-            display:flex !important.
+            keeps the .experimental-toggle class it shares with Image to Image's
+            Experimental Checkpoints, but as a div it has its own pins in
+            styles.css (div.experimental-toggle: centred label, no switch track,
+            light-gold On label), because the div draws rules the native button
+            never showed. The wrapper carries [hidden] because the compact theme
+            forces that class to display:flex !important; its 8px top margin is
+            set by ID in styles.css.
           -->
           <div id="transparent-background-field" hidden>
             ${createButtonMarkup({ label: "Transparent Background Off", className: "experimental-toggle", id: "transparent-background-toggle", action: "toggleTransparentBackground", ariaPressed: false })}

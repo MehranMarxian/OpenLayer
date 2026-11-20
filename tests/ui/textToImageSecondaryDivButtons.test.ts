@@ -147,9 +147,11 @@ describe("activateOnEnterAndSpace", () => {
     const event = new MouseEvent("click", { bubbles: true, cancelable: true });
     control.dispatchEvent(event);
 
+    // jsdom does not forward a label's click to its field, so a focus check
+    // here would pass with or without the fix (tried). The cancelled default
+    // is what stops the forwarding in Photoshop 28, so that is the pin.
     expect(onClick).toHaveBeenCalledTimes(1);
     expect(event.defaultPrevented).toBe(true);
-    expect(document.activeElement).not.toBe(label.querySelector("input"));
   });
 
   it("ignores other keys, a field inside the control, and a disabled control", () => {
