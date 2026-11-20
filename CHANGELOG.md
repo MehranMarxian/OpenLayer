@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.45.0-beta - 2026-11-20
+## v0.45.0-beta - 2026-11-21
 
 The first beta. No new tools: features stay frozen, and this release makes OpenLayer work on the
 newest Photoshop and fixes what the v0.41 smoke run found. It is published as a normal release, not
