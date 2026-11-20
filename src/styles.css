@@ -98,6 +98,17 @@ body {
   overflow-y: auto;
 }
 
+/* Div buttons (src/ui/divButton.ts) get the box model a native <button> had.
+   A <button> is border-box by default; a div is content-box, so every div
+   button with a width or flex basis grew by its padding and border on
+   Photoshop 28 (Layer Tools' export pairs +16px and past the panel edge,
+   History rows +25px). Low specificity on purpose: any rule that sets
+   box-sizing itself still wins. The Preview panel is not inside .app-shell. */
+.app-shell div[role="button"],
+.openlayer-preview-panel div[role="button"] {
+  box-sizing: border-box;
+}
+
 button,
 input,
 select,
@@ -8081,6 +8092,36 @@ body,
   cursor: default;
 }
 
+/* Div-button pins for the Preview panel's three controls (Photoshop 28 fix,
+   src/ui/divButton.ts). The rules above draw small flat buttons; natively the
+   host added its own height (measured on 28: Import to Layers and Import
+   Automatically 34px, 1:1 32px tall and 73px wide), so the divs shrank to
+   26px and 24px. Pinned back to those heights; the shape stays the 3px
+   rectangle the rules ask for, which is how 2025 draws it. The pair also
+   relied on flex `gap`, inert here, so the second one gets a real margin.
+   Padding plus line height makes the height, because these are block-level
+   divs inside a flex row and centre their label by padding. */
+.openlayer-preview-panel div.openlayer-preview-panel-import,
+.openlayer-preview-panel div.openlayer-preview-panel-auto-import {
+  min-height: 34px;
+  padding: 8px 14px;
+  line-height: 16px;
+  font-weight: 650;
+  text-align: center;
+}
+
+.openlayer-preview-panel div.openlayer-preview-panel-import + div.openlayer-preview-panel-auto-import {
+  margin-left: 6px;
+}
+
+.openlayer-preview-panel div.openlayer-preview-panel-fit {
+  min-width: 73px;
+  min-height: 32px;
+  padding: 7px 12px;
+  line-height: 16px;
+  text-align: center;
+}
+
 .openlayer-preview-panel-import-status {
   overflow: hidden;
   flex: 1 1 auto;
@@ -8443,6 +8484,97 @@ body.theme-artist,
 
 .app-shell.theme-artist #suggest-prompt {
   margin-bottom: 8px !important;
+}
+
+/* The Transparent Background toggle sat flush under the Model picker. Its
+   wrapper is a direct child of .generator-panel, so the compact sheet's
+   `.generator-panel > * { margin: 0 !important }` zeroes it, and the toggle's
+   own 8px margin is only below it. Nothing put space above. 8px matches the
+   gap under Ask the Agent. Margin only, never display: the wrapper is hidden
+   with [hidden], which a display rule here would defeat. The ID outranks the
+   (0,3,0) zeroing rule; both sides are !important. Both themes, because the
+   zeroing rule is a compact rule and Artist-Friendly Dark carries it too. */
+.app-shell.theme-compact #transparent-background-field {
+  margin-top: 8px !important;
+}
+
+/* Div-button pins for Text to Image's secondary controls (Photoshop 28 fix).
+   A native <button> added host inner height and weight, so what the artist
+   saw was never exactly what the rules said. The div draws the rules
+   literally, so each control is pinned here to how it looked natively on
+   Photoshop 2025. Every selector names `div`, so a native button anywhere
+   else is untouched.
+
+   Ask the Agent: the later compact `#suggest-prompt` rule (26px, 11px, 600)
+   beats the Artist rule above at equal specificity. Natively that never
+   showed, because the host added its own height (32px measured on 28), and
+   on 2025 the two prompt buttons draw the same height and weight. Each theme
+   copies what Show Negative Prompt computes on Photoshop 28: Compact 30px
+   (5px/10px padding, 16px line), Artist 34px (7px/10px, 18px line), both
+   12px bold. (1,2,1) beats both (1,2,0) rules; the Artist rule comes second
+   at the same specificity, so it wins where both themes are on the shell. */
+.app-shell.theme-compact div#suggest-prompt {
+  min-height: 30px !important;
+  padding: 5px 10px !important;
+  font-size: var(--fs-sm) !important;
+  font-weight: 700 !important;
+  line-height: 16px !important;
+}
+
+.app-shell.theme-artist div#suggest-prompt {
+  min-height: 34px !important;
+  padding: 7px 10px !important;
+  line-height: 18px !important;
+}
+
+/* Roll: the native button measured 79px wide on Photoshop 28; the div sizes
+   to its label (46px). 2025's width is not measured; its capture shows the
+   same wider rectangle. */
+.app-shell.theme-artist div.seed-dice-button {
+  min-width: 79px;
+}
+
+/* Transparent Background: as a div it drew the older switch-row rules (left
+   label, an ::after track the host draws as a grey blob) under the newer
+   aria-pressed toggle look, a combination no host ever showed. It now draws
+   like the div toggle proved on the UI sheet: centred label, no track. On
+   and off come from the aria-pressed rules. Scoped to the div, so Image to
+   Image's native Experimental Checkpoints toggle keeps its rules. (0,3,1)
+   beats the (0,3,0) !important switch-row rules. */
+.app-shell.theme-compact div.experimental-toggle {
+  justify-content: center !important;
+  text-align: center !important;
+}
+
+.app-shell.theme-compact div.experimental-toggle::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* On: the aria-pressed rule colours the label var(--ol-gold), which is defined
+   nowhere, so on Photoshop 28 the label fell back to near-black on the gold
+   fill. This uses the light gold the base .experimental-toggle.is-active rule
+   already chose. Keyed on is-active, which updateTransparentBackgroundToggle
+   sets beside aria-pressed, never on aria-pressed itself (trap 3). */
+.app-shell.theme-compact div.experimental-toggle.is-active {
+  color: #ffe087 !important;
+}
+
+/* Button pairs that relied on flex `gap`, which is inert in the compact
+   panel: Layer Tools' Save As / Send to ComfyUI rows and Live Painting's
+   Refine Now / Auto Refine. Native buttons hid the missing gap behind their
+   host-drawn faces; the divs touched. An explicit margin instead. */
+.app-shell.theme-compact .layer-export-actions > div.button + div.button,
+.app-shell.theme-compact .live-refine-actions > div.button + div.button {
+  margin-left: 6px !important;
+}
+
+/* Live Painting's Refine row sat flush under Stop Live Session once both were
+   divs: the compact sheet zeroes every .panel-section child's margin with
+   !important, and the native buttons' host height had hidden that. (0,4,0)
+   beats the (0,3,0) zeroing rule. */
+.app-shell.theme-compact .panel-section > .live-refine-actions {
+  margin-top: 6px !important;
 }
 
 /* ==========================================================================

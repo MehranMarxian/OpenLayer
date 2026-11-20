@@ -390,6 +390,7 @@ import {
   RECOMMENDED_STYLE_REFERENCE_CHECKPOINT
 } from "./appConstants";
 import { AppElements, createAppMarkup, getAppElements } from "./appMarkup";
+import { activateOnEnterAndSpace, createDivButton, installDivButtonBehaviour } from "./divButton";
 import {
   applyDeterminateProgress,
   flashImported,
@@ -632,6 +633,12 @@ async function readNativeFileSize(nativePath: string): Promise<number | null> {
 }
 
 export function renderApp(rootElement: HTMLElement) {
+  // The div buttons' Enter/Space, label and disabled-click behaviour
+  // (divButton.ts). On the document only, and before any binding: its
+  // disabled guard (capture) must run first, and its key and label listeners
+  // (bubble) must run last, after the root's own handlers have had the chance
+  // to claim the event, so a delegated control still logs "keyboard:Enter".
+  installDivButtonBehaviour(document);
   let currentView: AppView = "home";
   let isBusy = false;
   let busyTool: HistoryToolType | null = null;
@@ -2360,6 +2367,7 @@ export function renderApp(rootElement: HTMLElement) {
   for (const walletTool of PROMPT_WALLET_TOOLS) {
     const enhanceButton = elements[walletTool.enhanceButton] as HTMLElement;
 
+    activateOnEnterAndSpace(enhanceButton);
     enhanceButton.addEventListener("click", () => {
       if (!enhanceButton.classList.contains("is-disabled")) {
         void handleEnhancePrompt(walletTool);
@@ -6296,7 +6304,7 @@ export function renderApp(rootElement: HTMLElement) {
       const target = event.target as HTMLElement | null;
       const button = target?.closest?.("[data-openlayer-reference-action]") as HTMLElement | null;
 
-      if (!button || (button as HTMLButtonElement).disabled || isActionDisabled(button)) {
+      if (!button || isActionDisabled(button)) {
         return;
       }
 
@@ -9618,7 +9626,7 @@ function bindReferenceListActions(
     const target = event.target as HTMLElement | null;
     const button = target?.closest?.("[data-openlayer-reference-action]") as HTMLElement | null;
 
-    if (!button || (button as HTMLButtonElement).disabled || isActionDisabled(button)) {
+    if (!button || isActionDisabled(button)) {
       return;
     }
 
@@ -9647,13 +9655,12 @@ function createReferenceButton(
   referenceId: string,
   isDisabled: boolean
 ) {
-  const button = document.createElement("button");
+  const button = createDivButton(document, "");
   button.className = "button reference-button";
-  button.type = "button";
   button.textContent = label;
   button.setAttribute("data-openlayer-reference-action", action);
   button.setAttribute("data-openlayer-reference-id", referenceId);
-  button.disabled = isDisabled;
+  setActionDisabled(button, isDisabled);
   return button;
 }
 
@@ -10161,8 +10168,7 @@ function renderSetupFilters(
   container.innerHTML = "";
 
   for (const filter of filters) {
-    const chip = document.createElement("button");
-    chip.type = "button";
+    const chip = createDivButton(document, "");
     chip.className = `setup-filter-chip${filter.active ? " is-active" : ""}`;
     chip.textContent = filter.toolLabel;
     chip.setAttribute("aria-pressed", filter.active ? "true" : "false");
@@ -10487,14 +10493,13 @@ function createSetupRowElement(
     if (offer.kind === "offered") {
       // First in the row: it is the only action that finishes the job, and the
       // copy actions exist because it usually cannot be offered.
-      const installButton = document.createElement("button");
-      installButton.type = "button";
+      const installButton = createDivButton(document, "");
       installButton.className = "button setup-row-action is-install";
       // A model download is gigabytes over a home connection, so the row that
       // started one has to be able to stop it. The partial file is resumable,
       // which is what makes stopping safe to offer rather than a trap.
       installButton.textContent = isInstalling ? "Stop" : "Download";
-      installButton.disabled = install.busy && !isInstalling;
+      setActionDisabled(installButton, install.busy && !isInstalling);
       installButton.addEventListener("click", () => {
         if (isInstalling) install.onStop();
         else install.onRequest(row.key);
@@ -10503,8 +10508,7 @@ function createSetupRowElement(
     }
 
     for (const action of row.actions) {
-      const button = document.createElement("button");
-      button.type = "button";
+      const button = createDivButton(document, "");
       button.className = "button setup-row-action";
       button.textContent = action.label;
 
@@ -10577,8 +10581,7 @@ function renderStarterCard(
   actions.className = "setup-row-actions";
 
   for (const button of view.buttons) {
-    const element = document.createElement("button");
-    element.type = "button";
+    const element = createDivButton(document, "");
     element.className =
       button.action === "request" || button.action === "confirm"
         ? "button setup-row-action is-install"
@@ -10677,15 +10680,13 @@ function createInstallConfirmationElement(
   const actions = document.createElement("div");
   actions.className = "setup-row-actions";
 
-  const confirm = document.createElement("button");
-  confirm.type = "button";
+  const confirm = createDivButton(document, "");
   confirm.className = "button setup-row-action is-install";
   confirm.textContent = view.confirmLabel;
   confirm.addEventListener("click", () => install.onConfirm(item));
   actions.appendChild(confirm);
 
-  const cancel = document.createElement("button");
-  cancel.type = "button";
+  const cancel = createDivButton(document, "");
   cancel.className = "button setup-row-action";
   cancel.textContent = view.cancelLabel;
   cancel.addEventListener("click", () => install.onCancel());
@@ -10759,8 +10760,7 @@ function createWorkflowHealthCard(item: WorkflowHealthItem) {
   // more useful than the paragraph explaining it, and a row with an unread
   // detail block should still offer the way out.
   if (item.link) {
-    const openButton = document.createElement("button");
-    openButton.type = "button";
+    const openButton = createDivButton(document, "");
     openButton.className = "button setup-row-action is-open-external";
     openButton.textContent = item.link.label;
     openButton.setAttribute("data-openlayer-external", item.link.url);
@@ -10768,9 +10768,8 @@ function createWorkflowHealthCard(item: WorkflowHealthItem) {
   }
 
   if (item.detail) {
-    const toggle = document.createElement("button");
+    const toggle = createDivButton(document, "");
     toggle.className = "button diagnostic-detail-toggle";
-    toggle.type = "button";
     toggle.textContent = "Show details";
     row.appendChild(toggle);
 
@@ -11120,9 +11119,8 @@ function createMetadataBounds(bounds: OpenLayerLayerBounds | undefined): OpenLay
 }
 
 function createHistoryButton(label: string, action: HistoryActionName, historyId: string) {
-  const button = document.createElement("button");
+  const button = createDivButton(document, "");
   button.className = "button history-button";
-  button.type = "button";
   button.textContent = label;
   button.setAttribute("data-openlayer-history-action", action);
   button.setAttribute("data-openlayer-history-id", historyId);

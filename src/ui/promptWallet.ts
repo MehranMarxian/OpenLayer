@@ -1,5 +1,6 @@
 import { AppElements } from "./appMarkup";
 import { AppView } from "./appConstants";
+import { activateOnEnterAndSpace, createDivButton } from "./divButton";
 import {
   setImageDiagnostics,
   setInpaintDiagnostics,
@@ -353,8 +354,7 @@ export function createPromptWallet(
     actions.className = "history-actions";
 
     if (pickingFor) {
-      const useButton = document.createElement("button");
-      useButton.type = "button";
+      const useButton = createDivButton(document, "");
       useButton.className = "button history-button prompt-wallet-use";
       useButton.textContent = "Use";
       const tool = pickingFor;
@@ -362,8 +362,7 @@ export function createPromptWallet(
       actions.appendChild(useButton);
     }
 
-    const copyButton = document.createElement("button");
-    copyButton.type = "button";
+    const copyButton = createDivButton(document, "");
     copyButton.className = "button history-button";
     copyButton.textContent = "Copy";
     copyButton.addEventListener("click", () => {
@@ -375,8 +374,7 @@ export function createPromptWallet(
     });
     actions.appendChild(copyButton);
 
-    const pinButton = document.createElement("button");
-    pinButton.type = "button";
+    const pinButton = createDivButton(document, "");
     pinButton.className = "button history-button";
     pinButton.textContent = entry.pinned ? "Unpin" : "Pin";
     pinButton.addEventListener("click", () => {
@@ -385,8 +383,7 @@ export function createPromptWallet(
     });
     actions.appendChild(pinButton);
 
-    const deleteButton = document.createElement("button");
-    deleteButton.type = "button";
+    const deleteButton = createDivButton(document, "");
     deleteButton.className = "button history-button";
     deleteButton.textContent = "Delete";
     deleteButton.addEventListener("click", () => {
@@ -503,6 +500,8 @@ export function createPromptWallet(
     const loadButton = elements[tool.loadButton] as HTMLElement;
 
     positive.addEventListener("input", syncButtons);
+    activateOnEnterAndSpace(saveButton);
+    activateOnEnterAndSpace(loadButton);
 
     saveButton.addEventListener("click", () => {
       if (!saveButton.classList.contains("is-disabled")) {

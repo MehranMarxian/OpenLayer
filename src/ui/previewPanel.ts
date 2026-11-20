@@ -1,3 +1,4 @@
+import { createDivButton, installDivButtonBehaviour, setActionDisabled } from "./divButton";
 import { createObjectUrlRegistry } from "./objectUrlRegistry";
 import { createOwnedObjectUrl } from "./previewState";
 import {
@@ -71,6 +72,11 @@ export function renderPreviewPanel(
 
   rootElement.innerHTML = "";
   rootElement.classList.add("openlayer-preview-panel-root");
+  // The Preview panel's three controls are div buttons too (divButton.ts).
+  // Also on its own root, in case this panel's events do not reach the
+  // document; it has no delegated handlers that need to run first.
+  installDivButtonBehaviour(document);
+  installDivButtonBehaviour(rootElement);
 
   const shell = document.createElement("div");
   shell.className = "openlayer-preview-panel";
@@ -101,8 +107,7 @@ export function renderPreviewPanel(
     pinSelect.appendChild(option);
   }
 
-  const fitButton = document.createElement("button");
-  fitButton.type = "button";
+  const fitButton = createDivButton(document, "");
   fitButton.className = "openlayer-preview-panel-fit";
 
   header.appendChild(badge);
@@ -129,12 +134,10 @@ export function renderPreviewPanel(
   const actions = document.createElement("div");
   actions.className = "openlayer-preview-panel-actions";
 
-  const importButton = document.createElement("button");
-  importButton.type = "button";
+  const importButton = createDivButton(document, "");
   importButton.className = "openlayer-preview-panel-import";
 
-  const autoImportButton = document.createElement("button");
-  autoImportButton.type = "button";
+  const autoImportButton = createDivButton(document, "");
   autoImportButton.className = "openlayer-preview-panel-auto-import";
 
   // Import feedback belongs here, not only in the dashboard's status bar: the
@@ -204,7 +207,7 @@ export function renderPreviewPanel(
     const target = IMPORT_TARGETS[publication.toolId];
 
     importButton.textContent = target.label;
-    importButton.disabled = !affordance.enabled;
+    setActionDisabled(importButton, !affordance.enabled);
     importButton.title = affordance.reason;
 
     // A tool with no auto-import flag gets no toggle at all, rather than a

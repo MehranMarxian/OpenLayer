@@ -17,7 +17,8 @@
  *   data-openlayer-action. A native <button> turns those keys into a click; a
  *   div does not, which is why that key path exists. Controls with their own
  *   click listeners and no data-openlayer-action (the buttons made in code)
- *   are not covered and need their own key handling when swapped.
+ *   are not covered: give them activateOnEnterAndSpace (divButton.ts),
+ *   which also stops an enclosing <label> from taking their focus.
  * - Disabled is the is-disabled class plus aria-disabled="true" plus
  *   tabindex="-1", the same three things setActionDisabled writes at runtime,
  *   so a control can be born disabled and later enabled by the existing code.
@@ -76,6 +77,13 @@ export interface ButtonSpec {
   /** Tooltip, also used as the accessible name when the label is a glyph. */
   title?: string;
   hidden?: boolean;
+  /**
+   * aria-pressed for an on/off control that keeps a non-toggle tone because the
+   * stylesheet draws it from its own class (Transparent Background is an
+   * .experimental-toggle). Emitted as written, with no data-state; the code
+   * that flips the control already rewrites aria-pressed at runtime.
+   */
+  ariaPressed?: boolean;
 }
 
 const TONE_CLASSES: Record<ButtonTone, string> = {
@@ -166,6 +174,10 @@ export function createButtonMarkup(spec: ButtonSpec) {
     const state: ButtonState = spec.state ?? "off";
     attributes.push(`data-state="${state}"`);
     attributes.push(`aria-pressed="${state === "on" ? "true" : "false"}"`);
+  }
+
+  if (!STATEFUL_TONES.has(tone) && spec.ariaPressed !== undefined) {
+    attributes.push(`aria-pressed="${spec.ariaPressed ? "true" : "false"}"`);
   }
 
   if (spec.title) {

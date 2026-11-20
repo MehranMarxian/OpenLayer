@@ -60,9 +60,9 @@ export type AppElements = {
   welcomeStatusText: HTMLElement;
   welcomeManualRow: HTMLElement;
   welcomeServerUrlInput: HTMLInputElement;
-  welcomeRetryButton: HTMLButtonElement;
-  welcomeContinueButton: HTMLButtonElement;
-  welcomeSkipButton: HTMLButtonElement;
+  welcomeRetryButton: HTMLElement;
+  welcomeContinueButton: HTMLElement;
+  welcomeSkipButton: HTMLElement;
   homeView: HTMLElement;
   generatorView: HTMLElement;
   imageToImageView: HTMLElement;
@@ -78,7 +78,7 @@ export type AppElements = {
   setupTallies: HTMLElement;
   setupSummaryLine: HTMLElement;
   setupDownloadLine: HTMLElement;
-  setupCheck: HTMLButtonElement;
+  setupCheck: HTMLElement;
   setupStatusText: HTMLElement;
   setupStatusPill: HTMLElement;
   setupFilters: HTMLElement;
@@ -543,9 +543,9 @@ export function createAppMarkup() {
             <input class="input" id="welcome-server-url" type="text" placeholder="http://127.0.0.1:8188" />
           </div>
           <div class="welcome-actions">
-            <button class="button button-primary action-control" id="welcome-retry" type="button" hidden>Try again</button>
-            <button class="button button-primary action-control" id="welcome-continue" type="button" hidden>Continue</button>
-            <button class="button action-control" id="welcome-skip" type="button">Skip for now</button>
+            <div role="button" tabindex="0" class="button button-primary action-control" id="welcome-retry" hidden>Try again</div>
+            <div role="button" tabindex="0" class="button button-primary action-control" id="welcome-continue" hidden>Continue</div>
+            <div role="button" tabindex="0" class="button action-control" id="welcome-skip">Skip for now</div>
           </div>
           <p class="welcome-footnote">
             Not sure where to start? The <strong>Setup</strong> screen (under Preferences) lists everything the
@@ -579,8 +579,8 @@ export function createAppMarkup() {
             <span class="muted-label">Vision input</span>
           </div>
           <div class="source-action-row" aria-label="Prompt from Layer source capture actions">
-            <button class="button source-action-button action-control" id="capture-prompt-layer-source" data-openlayer-action="capturePromptLayerSource" type="button">Capture Active Layer</button>
-            <button class="button source-action-button action-control" id="capture-prompt-canvas-source" data-openlayer-action="capturePromptCanvasSource" type="button">Capture Canvas</button>
+            <div role="button" tabindex="0" class="button source-action-button action-control" id="capture-prompt-layer-source" data-openlayer-action="capturePromptLayerSource">Capture Active Layer</div>
+            <div role="button" tabindex="0" class="button source-action-button action-control" id="capture-prompt-canvas-source" data-openlayer-action="capturePromptCanvasSource">Capture Canvas</div>
           </div>
           <div class="source-card">
             <div class="source-thumb-frame" id="prompt-layer-source-preview-panel">
@@ -611,11 +611,11 @@ export function createAppMarkup() {
             </label>
           </div>
           <textarea maxlength="10000" class="textarea compact-textarea" id="prompt-layer-generated-text" placeholder="Generated prompt text will appear here..."></textarea>
-          <button class="button button-primary button-generate button-wide action-control" id="generate-prompt-from-layer" data-openlayer-action="generatePromptFromLayer" type="button">Generate Text from Layer</button>
-          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
+          <div role="button" tabindex="0" class="button button-primary button-generate button-wide action-control" id="generate-prompt-from-layer" data-openlayer-action="generatePromptFromLayer">Generate Text from Layer</div>
+          <div role="button" tabindex="0" class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" hidden>Cancel Generation</div>
           <div class="import-actions">
-            <button class="button action-control" id="copy-prompt-from-layer" data-openlayer-action="copyPromptFromLayer" type="button">Copy Prompt</button>
-            <button class="button action-control" id="send-prompt-to-text-to-image" data-openlayer-action="sendPromptToTextToImage" type="button">Send to Text to Image</button>
+            <div role="button" tabindex="0" class="button action-control" id="copy-prompt-from-layer" data-openlayer-action="copyPromptFromLayer">Copy Prompt</div>
+            <div role="button" tabindex="0" class="button action-control" id="send-prompt-to-text-to-image" data-openlayer-action="sendPromptToTextToImage">Send to Text to Image</div>
           </div>
         </section>
 
@@ -656,7 +656,7 @@ export function createAppMarkup() {
             <textarea maxlength="10000" class="textarea" id="live-prompt" placeholder="Describe what your painting should become..."></textarea>
           </label>
           <section class="negative-prompt-section" aria-label="Live Painting negative prompt">
-            <button class="button disclosure-button action-control" id="live-negative-prompt-toggle" data-openlayer-action="toggleLiveNegativePrompt" type="button">Show Negative Prompt</button>
+            <div role="button" tabindex="0" class="button disclosure-button action-control" id="live-negative-prompt-toggle" data-openlayer-action="toggleLiveNegativePrompt">Show Negative Prompt</div>
             <label class="field negative-prompt-field" id="live-negative-prompt-field" hidden>
               <span class="label">Negative prompt</span>
               <textarea maxlength="10000" class="textarea" id="live-negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
@@ -667,12 +667,12 @@ export function createAppMarkup() {
             <input class="input input-compact" id="live-denoise" type="number" min="0.2" max="0.95" step="0.05" value="0.6" />
           </label>
           <div class="live-session-actions">
-            <button class="button button-primary button-generate button-wide action-control" id="start-live-painting" data-openlayer-action="startLivePainting" type="button">Start Live Session</button>
-            <button class="button button-wide action-control" id="stop-live-painting" data-openlayer-action="stopLivePainting" type="button">Stop Live Session</button>
+            <div role="button" tabindex="0" class="button button-primary button-generate button-wide action-control" id="start-live-painting" data-openlayer-action="startLivePainting">Start Live Session</div>
+            <div role="button" tabindex="0" class="button button-wide action-control" id="stop-live-painting" data-openlayer-action="stopLivePainting">Stop Live Session</div>
           </div>
           <div class="live-refine-actions">
-            <button class="button action-control" id="refine-live-painting" data-openlayer-action="refineLivePainting" type="button">Refine Now</button>
-            <button class="button action-control" id="live-auto-refine-toggle" data-openlayer-action="toggleLiveAutoRefine" type="button" aria-pressed="false">Auto Refine on Pause</button>
+            <div role="button" tabindex="0" class="button action-control" id="refine-live-painting" data-openlayer-action="refineLivePainting">Refine Now</div>
+            <div role="button" tabindex="0" class="button action-control" id="live-auto-refine-toggle" data-openlayer-action="toggleLiveAutoRefine" aria-pressed="false">Auto Refine on Pause</div>
           </div>
         </section>
 
@@ -684,10 +684,10 @@ export function createAppMarkup() {
             <span class="preview-empty">Start a session, then paint a stroke</span>
           </div>
           <div class="import-actions">
-            <button class="button action-control" id="import-live-result" data-openlayer-action="importLiveResult" type="button">Import to Layers</button>
-            <button class="button action-control" id="live-auto-import-toggle" data-openlayer-action="toggleLiveAutoImport" type="button" aria-pressed="false">Import Automatically</button>
+            <div role="button" tabindex="0" class="button action-control" id="import-live-result" data-openlayer-action="importLiveResult">Import to Layers</div>
+            <div role="button" tabindex="0" class="button action-control" id="live-auto-import-toggle" data-openlayer-action="toggleLiveAutoImport" aria-pressed="false">Import Automatically</div>
           </div>
-          <button class="button live-refined-import-button action-control" id="import-live-refined" data-openlayer-action="importLiveRefined" type="button">Import Refined as Layer</button>
+          <div role="button" tabindex="0" class="button live-refined-import-button action-control" id="import-live-refined" data-openlayer-action="importLiveRefined">Import Refined as Layer</div>
           <div class="diagnostics-line live-hint">
             Import Automatically brings the latest live result into Photoshop as a new layer when you stop the session.
           </div>
@@ -721,13 +721,13 @@ export function createAppMarkup() {
             <input class="input" id="server-url" value="${DEFAULT_SERVER_URL}" placeholder="${DEFAULT_SERVER_URL}" />
           </label>
           <div class="settings-button-stack diagnostic-action-stack" aria-label="ComfyUI diagnostic actions">
-            <button class="button action-control" id="check-comfy" data-openlayer-action="check" type="button">Check ComfyUI</button>
-            <button class="button action-control" id="find-comfy-port" data-openlayer-action="findPort" type="button">Find ComfyUI Active Port</button>
-            <button class="button action-control" id="detect-gpu" data-openlayer-action="detectHardware" type="button">Detect GPU &amp; Recommend Models</button>
-            <button class="button action-control" id="check-workflow-health" data-openlayer-action="checkWorkflowHealth" type="button">Check Workflow Health</button>
-            <button class="button action-control" id="copy-diagnostics" data-openlayer-action="copyDiagnostics" type="button">Copy Diagnostics</button>
-            <button class="button action-control" id="save-settings" data-openlayer-action="saveSettings" type="button">Save Settings</button>
-            <button class="button action-control" id="reset-settings" data-openlayer-action="resetSettings" type="button">Reset Defaults</button>
+            <div role="button" tabindex="0" class="button action-control" id="check-comfy" data-openlayer-action="check">Check ComfyUI</div>
+            <div role="button" tabindex="0" class="button action-control" id="find-comfy-port" data-openlayer-action="findPort">Find ComfyUI Active Port</div>
+            <div role="button" tabindex="0" class="button action-control" id="detect-gpu" data-openlayer-action="detectHardware">Detect GPU &amp; Recommend Models</div>
+            <div role="button" tabindex="0" class="button action-control" id="check-workflow-health" data-openlayer-action="checkWorkflowHealth">Check Workflow Health</div>
+            <div role="button" tabindex="0" class="button action-control" id="copy-diagnostics" data-openlayer-action="copyDiagnostics">Copy Diagnostics</div>
+            <div role="button" tabindex="0" class="button action-control" id="save-settings" data-openlayer-action="saveSettings">Save Settings</div>
+            <div role="button" tabindex="0" class="button action-control" id="reset-settings" data-openlayer-action="resetSettings">Reset Defaults</div>
           </div>
           <textarea maxlength="10000" class="textarea compact-textarea diagnostics-report" id="settings-diagnostics-report" readonly hidden></textarea>
         </section>
@@ -828,9 +828,9 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="label">Prompt${createPromptWalletControlsMarkup("prompt")}</span>
             <textarea maxlength="10000" class="textarea" id="prompt" placeholder="Describe the image you want to generate..."></textarea>
           </label>
-          <button class="button action-control" id="suggest-prompt" data-openlayer-action="suggestPrompt" type="button">Ask the Agent for a Prompt</button>
+          ${createButtonMarkup({ label: "Ask the Agent for a Prompt", id: "suggest-prompt", action: "suggestPrompt" })}
           <section class="negative-prompt-section" aria-label="Negative prompt">
-            <button class="button disclosure-button action-control" id="negative-prompt-toggle" data-openlayer-action="toggleNegativePrompt" type="button">Show Negative Prompt</button>
+            ${createButtonMarkup({ label: "Show Negative Prompt", tone: "disclosure", id: "negative-prompt-toggle", action: "toggleNegativePrompt" })}
             <label class="field negative-prompt-field" id="negative-prompt-field" hidden>
               <span class="label">Negative prompt</span>
               <textarea maxlength="10000" class="textarea" id="negative-prompt" placeholder="Optional: describe what to avoid..."></textarea>
@@ -863,13 +863,16 @@ ${createComponentSheetPlaceholderMarkup()}
           </section>
           <!--
             Shown only for presets with a transparentOutput entry. The toggle
-            reuses the Image to Image "Experimental Checkpoints" button styling,
-            already verified in Photoshop, so this adds no CSS. The wrapper
-            carries [hidden] because the compact theme forces that button to
-            display:flex !important.
+            keeps the .experimental-toggle class it shares with Image to Image's
+            Experimental Checkpoints, but as a div it has its own pins in
+            styles.css (div.experimental-toggle: centred label, no switch track,
+            light-gold On label), because the div draws rules the native button
+            never showed. The wrapper carries [hidden] because the compact theme
+            forces that class to display:flex !important; its 8px top margin is
+            set by ID in styles.css.
           -->
           <div id="transparent-background-field" hidden>
-            <button class="button experimental-toggle action-control" id="transparent-background-toggle" data-openlayer-action="toggleTransparentBackground" type="button" aria-pressed="false">Transparent Background Off</button>
+            ${createButtonMarkup({ label: "Transparent Background Off", className: "experimental-toggle", id: "transparent-background-toggle", action: "toggleTransparentBackground", ariaPressed: false })}
           </div>
           <div class="settings-grid" aria-label="Generation settings">
             <label class="field">
@@ -925,7 +928,7 @@ ${createComponentSheetPlaceholderMarkup()}
               action: "import",
               disabled: true
             })}
-            <button class="button auto-import-toggle action-control" id="auto-import-toggle" data-openlayer-action="toggleAutoImport" type="button" aria-pressed="false">Import Automatically</button>
+            <div role="button" tabindex="0" class="button auto-import-toggle action-control" id="auto-import-toggle" data-openlayer-action="toggleAutoImport" aria-pressed="false">Import Automatically</div>
           </div>
         </section>
 
@@ -948,8 +951,8 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="muted-label">Input image</span>
           </div>
           <div class="source-action-row ol-capture-actions" aria-label="Source capture actions">
-            <button class="button source-action-button action-control" id="capture-image-source" data-openlayer-action="captureImageSource" type="button">Capture Active Layer</button>
-            <button class="button source-action-button action-control" id="capture-canvas-source" data-openlayer-action="captureCanvasSource" type="button">Capture Canvas</button>
+            <div role="button" tabindex="0" class="button source-action-button action-control" id="capture-image-source" data-openlayer-action="captureImageSource">Capture Active Layer</div>
+            <div role="button" tabindex="0" class="button source-action-button action-control" id="capture-canvas-source" data-openlayer-action="captureCanvasSource">Capture Canvas</div>
           </div>
           <!--
             Edit Image only, and only for presets that can edit a selection. The
@@ -959,7 +962,7 @@ ${createComponentSheetPlaceholderMarkup()}
           -->
           <div id="img-selection-capture-field" hidden>
             <div class="source-action-row" aria-label="Selection capture">
-              <button class="button source-action-button action-control" id="capture-image-selection" data-openlayer-action="captureImageSelection" type="button">Capture Selection</button>
+              <div role="button" tabindex="0" class="button source-action-button action-control" id="capture-image-selection" data-openlayer-action="captureImageSelection">Capture Selection</div>
             </div>
           </div>
           <!-- v0.37: reference layers inside an edit. Same [hidden]-on-a-plain-wrapper rule as above. -->
@@ -969,8 +972,8 @@ ${createComponentSheetPlaceholderMarkup()}
               <span class="muted-label" id="img-reference-count">None added</span>
             </div>
             <div class="source-action-row" aria-label="Reference capture actions">
-              <button class="button source-action-button action-control" id="add-edit-reference-layer" data-openlayer-action="addEditReferenceLayer" type="button">Add Active Layer</button>
-              <button class="button source-action-button action-control" id="add-edit-reference-canvas" data-openlayer-action="addEditReferenceCanvas" type="button">Add Canvas</button>
+              <div role="button" tabindex="0" class="button source-action-button action-control" id="add-edit-reference-layer" data-openlayer-action="addEditReferenceLayer">Add Active Layer</div>
+              <div role="button" tabindex="0" class="button source-action-button action-control" id="add-edit-reference-canvas" data-openlayer-action="addEditReferenceCanvas">Add Canvas</div>
             </div>
             <div class="reference-list" id="img-reference-list">
               <span class="source-empty">No reference layers yet</span>
@@ -1032,7 +1035,7 @@ ${createComponentSheetPlaceholderMarkup()}
             <div class="diagnostics-line" id="img-lora-note" hidden></div>
           </section>
           <div id="img-experimental-field">
-            <button class="button experimental-toggle action-control" id="experimental-checkpoint-toggle" data-openlayer-action="toggleExperimentalCheckpoints" type="button" aria-pressed="false">Experimental Checkpoints Off</button>
+            <div role="button" tabindex="0" class="button experimental-toggle action-control" id="experimental-checkpoint-toggle" data-openlayer-action="toggleExperimentalCheckpoints" aria-pressed="false">Experimental Checkpoints Off</div>
           </div>
           <div class="settings-grid img2img-settings-grid" aria-label="Image to Image settings">
             <div class="field ol-setting-row">
@@ -1052,8 +1055,8 @@ ${createComponentSheetPlaceholderMarkup()}
               <input class="input input-compact" id="img-seed" type="text" inputmode="numeric" placeholder="Random" />
             </div>
           </div>
-          <button class="button button-primary button-generate button-wide action-control" id="generate-img2img" data-openlayer-action="generateImg2Img" type="button">Generate Image to Image</button>
-          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
+          <div role="button" tabindex="0" class="button button-primary button-generate button-wide action-control" id="generate-img2img" data-openlayer-action="generateImg2Img">Generate Image to Image</div>
+          <div role="button" tabindex="0" class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" hidden>Cancel Generation</div>
         </section>
 
         <section class="generation-status-panel img2img-status-panel" aria-label="Image to Image status">
@@ -1075,8 +1078,8 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="preview-empty">No Image to Image result yet</span>
           </div>
           <div class="import-actions">
-            <button class="button button-import button-import-blue action-control is-disabled" id="import-img2img-result" data-openlayer-action="importImg2Img" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
-            <button class="button auto-import-toggle action-control" id="img2img-auto-import-toggle" data-openlayer-action="toggleImg2ImgAutoImport" type="button" aria-pressed="false">Import Automatically</button>
+            <div role="button" class="button button-import button-import-blue action-control is-disabled" id="import-img2img-result" data-openlayer-action="importImg2Img" tabindex="-1" aria-disabled="true">Import to Layers</div>
+            <div role="button" tabindex="0" class="button auto-import-toggle action-control" id="img2img-auto-import-toggle" data-openlayer-action="toggleImg2ImgAutoImport" aria-pressed="false">Import Automatically</div>
           </div>
         </section>
 
@@ -1218,8 +1221,8 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="muted-label">IPAdapter input</span>
           </div>
           <div class="source-action-row" aria-label="Style reference capture actions">
-            <button class="button source-action-button action-control" id="capture-style-reference-source" data-openlayer-action="captureStyleReferenceSource" type="button">Capture Active Layer</button>
-            <button class="button source-action-button action-control" id="capture-style-reference-canvas-source" data-openlayer-action="captureStyleReferenceCanvasSource" type="button">Capture Canvas</button>
+            <div role="button" tabindex="0" class="button source-action-button action-control" id="capture-style-reference-source" data-openlayer-action="captureStyleReferenceSource">Capture Active Layer</div>
+            <div role="button" tabindex="0" class="button source-action-button action-control" id="capture-style-reference-canvas-source" data-openlayer-action="captureStyleReferenceCanvasSource">Capture Canvas</div>
           </div>
           <div class="source-card">
             <div class="source-thumb-frame" id="style-reference-source-preview-panel">
@@ -1287,8 +1290,8 @@ ${createComponentSheetPlaceholderMarkup()}
               <input class="input input-compact" id="style-reference-seed" type="text" inputmode="numeric" placeholder="Random" />
             </div>
           </div>
-          <button class="button button-primary button-generate button-wide action-control" id="generate-style-reference" data-openlayer-action="generateStyleReference" type="button">Generate Style Reference</button>
-          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
+          <div role="button" tabindex="0" class="button button-primary button-generate button-wide action-control" id="generate-style-reference" data-openlayer-action="generateStyleReference">Generate Style Reference</div>
+          <div role="button" tabindex="0" class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" hidden>Cancel Generation</div>
         </section>
 
         <section class="generation-status-panel img2img-status-panel" aria-label="Style Reference status">
@@ -1310,7 +1313,7 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="preview-empty">No Style Reference result yet</span>
           </div>
           <div class="import-actions">
-            <button class="button button-import button-import-blue action-control is-disabled" id="import-style-reference-result" data-openlayer-action="importStyleReference" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
+            <div role="button" class="button button-import button-import-blue action-control is-disabled" id="import-style-reference-result" data-openlayer-action="importStyleReference" tabindex="-1" aria-disabled="true">Import to Layers</div>
           </div>
         </section>
       </section>
@@ -1330,8 +1333,8 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="muted-label" id="multi-reference-count">None captured</span>
           </div>
           <div class="source-action-row" aria-label="Reference capture actions">
-            <button class="button source-action-button action-control" id="add-multi-reference-layer" data-openlayer-action="addMultiReferenceLayer" type="button">Add Active Layer</button>
-            <button class="button source-action-button action-control" id="add-multi-reference-canvas" data-openlayer-action="addMultiReferenceCanvas" type="button">Add Canvas</button>
+            <div role="button" tabindex="0" class="button source-action-button action-control" id="add-multi-reference-layer" data-openlayer-action="addMultiReferenceLayer">Add Active Layer</div>
+            <div role="button" tabindex="0" class="button source-action-button action-control" id="add-multi-reference-canvas" data-openlayer-action="addMultiReferenceCanvas">Add Canvas</div>
           </div>
           <div class="reference-list" id="multi-reference-list">
             <span class="source-empty">No reference layers yet</span>
@@ -1388,8 +1391,8 @@ ${createComponentSheetPlaceholderMarkup()}
               <input class="input input-compact" id="multi-reference-seed" type="text" inputmode="numeric" placeholder="Random" />
             </div>
           </div>
-          <button class="button button-primary button-generate button-wide action-control" id="generate-multi-reference" data-openlayer-action="generateMultiReference" type="button">Compose</button>
-          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
+          <div role="button" tabindex="0" class="button button-primary button-generate button-wide action-control" id="generate-multi-reference" data-openlayer-action="generateMultiReference">Compose</div>
+          <div role="button" tabindex="0" class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" hidden>Cancel Generation</div>
         </section>
 
         <section class="generation-status-panel img2img-status-panel" aria-label="Multi-Reference status">
@@ -1411,7 +1414,7 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="preview-empty">No composition yet</span>
           </div>
           <div class="import-actions">
-            <button class="button button-import button-import-blue action-control is-disabled" id="import-multi-reference-result" data-openlayer-action="importMultiReference" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
+            <div role="button" class="button button-import button-import-blue action-control is-disabled" id="import-multi-reference-result" data-openlayer-action="importMultiReference" tabindex="-1" aria-disabled="true">Import to Layers</div>
           </div>
         </section>
       </section>
@@ -1431,8 +1434,8 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="muted-label">Layer or canvas</span>
           </div>
           <div class="source-action-row" aria-label="Source capture actions">
-            <button class="button source-action-button action-control" id="capture-unflatten-layer" data-openlayer-action="captureUnflattenLayer" type="button">Use Active Layer</button>
-            <button class="button source-action-button action-control" id="capture-unflatten-canvas" data-openlayer-action="captureUnflattenCanvas" type="button">Use Canvas</button>
+            <div role="button" tabindex="0" class="button source-action-button action-control" id="capture-unflatten-layer" data-openlayer-action="captureUnflattenLayer">Use Active Layer</div>
+            <div role="button" tabindex="0" class="button source-action-button action-control" id="capture-unflatten-canvas" data-openlayer-action="captureUnflattenCanvas">Use Canvas</div>
           </div>
           <div class="source-card">
             <div class="source-thumb-frame" id="unflatten-source-preview-panel">
@@ -1453,7 +1456,7 @@ ${createComponentSheetPlaceholderMarkup()}
           <div class="field img2img-field">
             <span class="label">Description${createPromptWalletControlsMarkup("unflatten-prompt")}</span>
             <textarea maxlength="10000" class="textarea compact-textarea" id="unflatten-prompt" placeholder="Describe what is already in the picture..."></textarea>
-            <button class="button source-action-button action-control" id="describe-unflatten-source" data-openlayer-action="describeUnflattenSource" type="button">Describe the source for me</button>
+            <div role="button" tabindex="0" class="button source-action-button action-control" id="describe-unflatten-source" data-openlayer-action="describeUnflattenSource">Describe the source for me</div>
             <div class="diagnostics-line unflatten-hint" id="unflatten-prompt-hint">Describe what is already there, not what you want changed. Needs a picture with something standing in front of something else -- a close-up that fills the frame comes back unseparated. Layers in front keep your own pixels and stay sharp; the background is repainted by the model at 640px, so it is softer. The cut edge comes from that 640px matte -- refine it with Select and Mask if you need a clean cut-out.</div>
           </div>
           <div class="field img2img-field">
@@ -1482,8 +1485,8 @@ ${createComponentSheetPlaceholderMarkup()}
               <input class="input input-compact" id="unflatten-seed" type="text" inputmode="numeric" placeholder="Random" />
             </div>
           </div>
-          <button class="button button-primary button-generate button-wide action-control" id="generate-unflatten" data-openlayer-action="generateUnflatten" type="button">Unflatten</button>
-          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
+          <div role="button" tabindex="0" class="button button-primary button-generate button-wide action-control" id="generate-unflatten" data-openlayer-action="generateUnflatten">Unflatten</div>
+          <div role="button" tabindex="0" class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" hidden>Cancel Generation</div>
         </section>
 
         <section class="generation-status-panel img2img-status-panel" aria-label="Unflatten status">
@@ -1505,7 +1508,7 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="preview-empty">No layers yet</span>
           </div>
           <div class="import-actions">
-            <button class="button button-import button-import-blue action-control is-disabled" id="import-unflatten-result" data-openlayer-action="importUnflatten" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
+            <div role="button" class="button button-import button-import-blue action-control is-disabled" id="import-unflatten-result" data-openlayer-action="importUnflatten" tabindex="-1" aria-disabled="true">Import to Layers</div>
           </div>
         </section>
       </section>
@@ -1526,8 +1529,8 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="muted-label">Photoshop selection</span>
           </div>
           <div class="source-action-row" aria-label="Selection capture actions">
-            <button class="button source-action-button action-control" id="capture-inpaint-selection" data-openlayer-action="captureInpaintSelection" type="button">Capture Visible</button>
-            <button class="button source-action-button action-control" id="capture-inpaint-active-layer" data-openlayer-action="captureInpaintActiveLayer" type="button">Capture Active Layer</button>
+            <div role="button" tabindex="0" class="button source-action-button action-control" id="capture-inpaint-selection" data-openlayer-action="captureInpaintSelection">Capture Visible</div>
+            <div role="button" tabindex="0" class="button source-action-button action-control" id="capture-inpaint-active-layer" data-openlayer-action="captureInpaintActiveLayer">Capture Active Layer</div>
           </div>
           <div class="source-card">
             <div class="source-thumb-frame" id="inpaint-source-preview-panel">
@@ -1597,8 +1600,8 @@ ${createComponentSheetPlaceholderMarkup()}
             </div>
           </div>
           <span class="compatibility-note" id="inpaint-locked-settings-note" hidden></span>
-          <button class="button button-primary button-generate button-wide action-control" id="generate-inpaint" data-openlayer-action="generateInpaint" type="button">Generate Inpaint</button>
-          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
+          <div role="button" tabindex="0" class="button button-primary button-generate button-wide action-control" id="generate-inpaint" data-openlayer-action="generateInpaint">Generate Inpaint</div>
+          <div role="button" tabindex="0" class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" hidden>Cancel Generation</div>
         </section>
 
         <section class="generation-status-panel img2img-status-panel" aria-label="Inpaint status">
@@ -1620,8 +1623,8 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="preview-empty">No Inpaint result yet</span>
           </div>
           <div class="import-actions">
-            <button class="button button-import button-import-blue action-control is-disabled" id="import-inpaint-result" data-openlayer-action="importInpaint" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
-            <button class="button auto-import-toggle action-control" id="inpaint-auto-import-toggle" data-openlayer-action="toggleInpaintAutoImport" type="button" aria-pressed="false">Import Automatically</button>
+            <div role="button" class="button button-import button-import-blue action-control is-disabled" id="import-inpaint-result" data-openlayer-action="importInpaint" tabindex="-1" aria-disabled="true">Import to Layers</div>
+            <div role="button" tabindex="0" class="button auto-import-toggle action-control" id="inpaint-auto-import-toggle" data-openlayer-action="toggleInpaintAutoImport" aria-pressed="false">Import Automatically</div>
           </div>
         </section>
       </section>
@@ -1642,8 +1645,8 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="muted-label">Flux Fill input</span>
           </div>
           <div class="source-action-row" aria-label="Outpaint source capture actions">
-            <button class="button source-action-button action-control" id="capture-outpaint-source" data-openlayer-action="captureOutpaintSource" type="button">Capture Active Layer</button>
-            <button class="button source-action-button action-control" id="capture-outpaint-canvas-source" data-openlayer-action="captureOutpaintCanvasSource" type="button">Capture Canvas</button>
+            <div role="button" tabindex="0" class="button source-action-button action-control" id="capture-outpaint-source" data-openlayer-action="captureOutpaintSource">Capture Active Layer</div>
+            <div role="button" tabindex="0" class="button source-action-button action-control" id="capture-outpaint-canvas-source" data-openlayer-action="captureOutpaintCanvasSource">Capture Canvas</div>
           </div>
           <div class="source-card">
             <div class="source-thumb-frame" id="outpaint-source-preview-panel">
@@ -1721,8 +1724,8 @@ ${createComponentSheetPlaceholderMarkup()}
               <input class="input input-compact" id="outpaint-feathering" type="number" min="0" max="256" step="1" value="${DEFAULT_OUTPAINT_FEATHERING}" />
             </div>
           </div>
-          <button class="button button-primary button-generate button-wide action-control" id="generate-outpaint" data-openlayer-action="generateOutpaint" type="button">Generate Outpaint</button>
-          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
+          <div role="button" tabindex="0" class="button button-primary button-generate button-wide action-control" id="generate-outpaint" data-openlayer-action="generateOutpaint">Generate Outpaint</div>
+          <div role="button" tabindex="0" class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" hidden>Cancel Generation</div>
         </section>
 
         <section class="generation-status-panel img2img-status-panel" aria-label="Outpaint status">
@@ -1744,7 +1747,7 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="preview-empty">No Outpaint result yet</span>
           </div>
           <div class="import-actions">
-            <button class="button button-import button-import-blue action-control is-disabled" id="import-outpaint-result" data-openlayer-action="importOutpaint" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
+            <div role="button" class="button button-import button-import-blue action-control is-disabled" id="import-outpaint-result" data-openlayer-action="importOutpaint" tabindex="-1" aria-disabled="true">Import to Layers</div>
           </div>
         </section>
       </section>
@@ -1768,8 +1771,8 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="muted-label">Pixel upscale input</span>
           </div>
           <div class="source-action-row" aria-label="Upscale source capture actions">
-            <button class="button source-action-button action-control" id="capture-upscale-source" data-openlayer-action="captureUpscaleSource" type="button">Capture Active Layer</button>
-            <button class="button source-action-button action-control" id="capture-upscale-canvas-source" data-openlayer-action="captureUpscaleCanvasSource" type="button">Capture Canvas</button>
+            <div role="button" tabindex="0" class="button source-action-button action-control" id="capture-upscale-source" data-openlayer-action="captureUpscaleSource">Capture Active Layer</div>
+            <div role="button" tabindex="0" class="button source-action-button action-control" id="capture-upscale-canvas-source" data-openlayer-action="captureUpscaleCanvasSource">Capture Canvas</div>
           </div>
           <div class="source-card">
             <div class="source-thumb-frame" id="upscale-source-preview-panel">
@@ -1803,8 +1806,8 @@ ${createComponentSheetPlaceholderMarkup()}
             </select>
             ${createInfoPanelMarkup("upscale-compatibility-note", "upscale-basic needs UpscaleModelLoader and ImageUpscaleWithModel in ComfyUI.")}
           </div>
-          <button class="button button-primary button-generate button-wide action-control" id="generate-upscale" data-openlayer-action="generateUpscale" type="button">Generate Upscale</button>
-          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
+          <div role="button" tabindex="0" class="button button-primary button-generate button-wide action-control" id="generate-upscale" data-openlayer-action="generateUpscale">Generate Upscale</div>
+          <div role="button" tabindex="0" class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" hidden>Cancel Generation</div>
         </section>
 
         <section class="generation-status-panel img2img-status-panel" aria-label="Upscale status">
@@ -1826,8 +1829,8 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="preview-empty">No Upscale result yet</span>
           </div>
           <div class="import-actions">
-            <button class="button button-import button-import-blue action-control is-disabled" id="import-upscale-result" data-openlayer-action="importUpscale" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
-            <button class="button auto-import-toggle action-control" id="upscale-auto-import-toggle" data-openlayer-action="toggleUpscaleAutoImport" type="button" aria-pressed="false">Import Automatically</button>
+            <div role="button" class="button button-import button-import-blue action-control is-disabled" id="import-upscale-result" data-openlayer-action="importUpscale" tabindex="-1" aria-disabled="true">Import to Layers</div>
+            <div role="button" tabindex="0" class="button auto-import-toggle action-control" id="upscale-auto-import-toggle" data-openlayer-action="toggleUpscaleAutoImport" aria-pressed="false">Import Automatically</div>
           </div>
         </section>
       </section>
@@ -1847,8 +1850,8 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="muted-label">Cutout input</span>
           </div>
           <div class="source-action-row" aria-label="Remove Background source capture actions">
-            <button class="button source-action-button action-control" id="capture-remove-background-source" data-openlayer-action="captureRemoveBackgroundSource" type="button">Capture Active Layer</button>
-            <button class="button source-action-button action-control" id="capture-remove-background-canvas-source" data-openlayer-action="captureRemoveBackgroundCanvasSource" type="button">Capture Canvas</button>
+            <div role="button" tabindex="0" class="button source-action-button action-control" id="capture-remove-background-source" data-openlayer-action="captureRemoveBackgroundSource">Capture Active Layer</div>
+            <div role="button" tabindex="0" class="button source-action-button action-control" id="capture-remove-background-canvas-source" data-openlayer-action="captureRemoveBackgroundCanvasSource">Capture Canvas</div>
           </div>
           <div class="source-card">
             <div class="source-thumb-frame" id="remove-background-source-preview-panel">
@@ -1879,8 +1882,8 @@ ${createComponentSheetPlaceholderMarkup()}
             </select>
             <div class="diagnostics-line remove-background-hint" id="remove-background-hint">Your layer comes back with the background erased and everything else untouched: the pixels are your own, at full resolution, with only an alpha channel added. No prompt, no checkpoint and no sampling, so it does not matter which image models you have installed.</div>
           </div>
-          <button class="button button-primary button-generate button-wide action-control" id="generate-remove-background" data-openlayer-action="generateRemoveBackground" type="button">Remove Background</button>
-          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
+          <div role="button" tabindex="0" class="button button-primary button-generate button-wide action-control" id="generate-remove-background" data-openlayer-action="generateRemoveBackground">Remove Background</div>
+          <div role="button" tabindex="0" class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" hidden>Cancel Generation</div>
         </section>
 
         <section class="generation-status-panel img2img-status-panel" aria-label="Remove Background status">
@@ -1902,8 +1905,8 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="preview-empty">No cutout yet</span>
           </div>
           <div class="import-actions">
-            <button class="button button-import button-import-blue action-control is-disabled" id="import-remove-background-result" data-openlayer-action="importRemoveBackground" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
-            <button class="button auto-import-toggle action-control" id="remove-background-auto-import-toggle" data-openlayer-action="toggleRemoveBackgroundAutoImport" type="button" aria-pressed="false">Import Automatically</button>
+            <div role="button" class="button button-import button-import-blue action-control is-disabled" id="import-remove-background-result" data-openlayer-action="importRemoveBackground" tabindex="-1" aria-disabled="true">Import to Layers</div>
+            <div role="button" tabindex="0" class="button auto-import-toggle action-control" id="remove-background-auto-import-toggle" data-openlayer-action="toggleRemoveBackgroundAutoImport" aria-pressed="false">Import Automatically</div>
           </div>
         </section>
       </section>
@@ -1923,8 +1926,8 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="muted-label">What to re-shoot</span>
           </div>
           <div class="source-action-row" aria-label="Camera Angle source capture actions">
-            <button class="button source-action-button action-control" id="capture-camera-angle-source" data-openlayer-action="captureCameraAngleSource" type="button">Capture Active Layer</button>
-            <button class="button source-action-button action-control" id="capture-camera-angle-canvas-source" data-openlayer-action="captureCameraAngleCanvasSource" type="button">Capture Canvas</button>
+            <div role="button" tabindex="0" class="button source-action-button action-control" id="capture-camera-angle-source" data-openlayer-action="captureCameraAngleSource">Capture Active Layer</div>
+            <div role="button" tabindex="0" class="button source-action-button action-control" id="capture-camera-angle-canvas-source" data-openlayer-action="captureCameraAngleCanvasSource">Capture Canvas</div>
           </div>
           <div class="source-card">
             <div class="source-thumb-frame" id="camera-angle-source-preview-panel">
@@ -1965,8 +1968,8 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="label">Seed</span>
             <input class="input input-compact" id="camera-angle-seed" type="text" inputmode="numeric" placeholder="Random" />
           </div>
-          <button class="button button-primary button-generate button-wide action-control" id="generate-camera-angle" data-openlayer-action="generateCameraAngle" type="button">Change Camera Angle</button>
-          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
+          <div role="button" tabindex="0" class="button button-primary button-generate button-wide action-control" id="generate-camera-angle" data-openlayer-action="generateCameraAngle">Change Camera Angle</div>
+          <div role="button" tabindex="0" class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" hidden>Cancel Generation</div>
         </section>
 
         <section class="generation-status-panel img2img-status-panel" aria-label="Camera Angle status">
@@ -1988,7 +1991,7 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="preview-empty">No new view yet</span>
           </div>
           <div class="import-actions">
-            <button class="button button-import button-import-blue action-control is-disabled" id="import-camera-angle-result" data-openlayer-action="importCameraAngle" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
+            <div role="button" class="button button-import button-import-blue action-control is-disabled" id="import-camera-angle-result" data-openlayer-action="importCameraAngle" tabindex="-1" aria-disabled="true">Import to Layers</div>
           </div>
         </section>
       </section>
@@ -2008,8 +2011,8 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="muted-label">What to search</span>
           </div>
           <div class="source-action-row" aria-label="Select by Text source capture actions">
-            <button class="button source-action-button action-control" id="capture-select-by-text-source" data-openlayer-action="captureSelectByTextSource" type="button">Capture Active Layer</button>
-            <button class="button source-action-button action-control" id="capture-select-by-text-canvas-source" data-openlayer-action="captureSelectByTextCanvasSource" type="button">Capture Canvas</button>
+            <div role="button" tabindex="0" class="button source-action-button action-control" id="capture-select-by-text-source" data-openlayer-action="captureSelectByTextSource">Capture Active Layer</div>
+            <div role="button" tabindex="0" class="button source-action-button action-control" id="capture-select-by-text-canvas-source" data-openlayer-action="captureSelectByTextCanvasSource">Capture Canvas</div>
           </div>
           <div class="source-card">
             <div class="source-thumb-frame" id="select-by-text-source-preview-panel">
@@ -2044,8 +2047,8 @@ ${createComponentSheetPlaceholderMarkup()}
               <option value="sam3.1_multiplex_fp16.safetensors">sam3.1_multiplex_fp16.safetensors</option>
             </select>
           </div>
-          <button class="button button-primary button-generate button-wide action-control" id="run-select-by-text" data-openlayer-action="runSelectByText" type="button">Select</button>
-          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
+          <div role="button" tabindex="0" class="button button-primary button-generate button-wide action-control" id="run-select-by-text" data-openlayer-action="runSelectByText">Select</div>
+          <div role="button" tabindex="0" class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" hidden>Cancel Generation</div>
         </section>
 
         <section class="generation-status-panel img2img-status-panel" aria-label="Select by Text status">
@@ -2074,8 +2077,8 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="muted-label">Map input</span>
           </div>
           <div class="source-action-row" aria-label="Layer Maps source capture actions">
-            <button class="button source-action-button action-control" id="capture-layer-maps-source" data-openlayer-action="captureLayerMapsSource" type="button">Capture Active Layer</button>
-            <button class="button source-action-button action-control" id="capture-layer-maps-canvas-source" data-openlayer-action="captureLayerMapsCanvasSource" type="button">Capture Canvas</button>
+            <div role="button" tabindex="0" class="button source-action-button action-control" id="capture-layer-maps-source" data-openlayer-action="captureLayerMapsSource">Capture Active Layer</div>
+            <div role="button" tabindex="0" class="button source-action-button action-control" id="capture-layer-maps-canvas-source" data-openlayer-action="captureLayerMapsCanvasSource">Capture Canvas</div>
           </div>
           <div class="source-card">
             <div class="source-thumb-frame" id="layer-maps-source-preview-panel">
@@ -2106,8 +2109,8 @@ ${createComponentSheetPlaceholderMarkup()}
             </select>
           </div>
           <div class="diagnostics-line layer-maps-hint" id="layer-maps-hint">The map comes back at your layer's exact size, so it sits straight over it.</div>
-          <button class="button button-primary button-generate button-wide action-control" id="generate-layer-maps" data-openlayer-action="generateLayerMaps" type="button">Generate Depth Map</button>
-          <button class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" type="button" hidden>Cancel Generation</button>
+          <div role="button" tabindex="0" class="button button-primary button-generate button-wide action-control" id="generate-layer-maps" data-openlayer-action="generateLayerMaps">Generate Depth Map</div>
+          <div role="button" tabindex="0" class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" hidden>Cancel Generation</div>
         </section>
 
         <section class="generation-status-panel img2img-status-panel" aria-label="Layer Maps status">
@@ -2129,8 +2132,8 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="preview-empty">No map yet</span>
           </div>
           <div class="import-actions">
-            <button class="button button-import button-import-blue action-control is-disabled" id="import-layer-maps-result" data-openlayer-action="importLayerMaps" type="button" tabindex="-1" aria-disabled="true">Import to Layers</button>
-            <button class="button auto-import-toggle action-control" id="layer-maps-auto-import-toggle" data-openlayer-action="toggleLayerMapsAutoImport" type="button" aria-pressed="false">Import Automatically</button>
+            <div role="button" class="button button-import button-import-blue action-control is-disabled" id="import-layer-maps-result" data-openlayer-action="importLayerMaps" tabindex="-1" aria-disabled="true">Import to Layers</div>
+            <div role="button" tabindex="0" class="button auto-import-toggle action-control" id="layer-maps-auto-import-toggle" data-openlayer-action="toggleLayerMapsAutoImport" aria-pressed="false">Import Automatically</div>
           </div>
         </section>
       </section>
@@ -2157,24 +2160,24 @@ ${createComponentSheetPlaceholderMarkup()}
           <div class="layer-export-row">
             <span class="label">Active layer</span>
             <div class="layer-export-actions">
-              <button class="button action-control" id="export-layer-file" data-openlayer-action="exportLayerToFile" type="button">Save As…</button>
-              <button class="button action-control" id="export-layer-comfy" data-openlayer-action="exportLayerToComfyUI" type="button">Send to ComfyUI</button>
+              <div role="button" tabindex="0" class="button action-control" id="export-layer-file" data-openlayer-action="exportLayerToFile">Save As…</div>
+              <div role="button" tabindex="0" class="button action-control" id="export-layer-comfy" data-openlayer-action="exportLayerToComfyUI">Send to ComfyUI</div>
             </div>
           </div>
 
           <div class="layer-export-row">
             <span class="label">Selection</span>
             <div class="layer-export-actions">
-              <button class="button action-control" id="export-selection-file" data-openlayer-action="exportSelectionToFile" type="button">Save As…</button>
-              <button class="button action-control" id="export-selection-comfy" data-openlayer-action="exportSelectionToComfyUI" type="button">Send to ComfyUI</button>
+              <div role="button" tabindex="0" class="button action-control" id="export-selection-file" data-openlayer-action="exportSelectionToFile">Save As…</div>
+              <div role="button" tabindex="0" class="button action-control" id="export-selection-comfy" data-openlayer-action="exportSelectionToComfyUI">Send to ComfyUI</div>
             </div>
           </div>
 
           <div class="layer-export-row">
             <span class="label">Selection mask</span>
             <div class="layer-export-actions">
-              <button class="button action-control" id="export-mask-file" data-openlayer-action="exportMaskToFile" type="button">Save As…</button>
-              <button class="button action-control" id="export-mask-comfy" data-openlayer-action="exportMaskToComfyUI" type="button">Send to ComfyUI</button>
+              <div role="button" tabindex="0" class="button action-control" id="export-mask-file" data-openlayer-action="exportMaskToFile">Save As…</div>
+              <div role="button" tabindex="0" class="button action-control" id="export-mask-comfy" data-openlayer-action="exportMaskToComfyUI">Send to ComfyUI</div>
             </div>
           </div>
         </section>
@@ -2214,7 +2217,7 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="label">Workflow JSON</span>
             <textarea maxlength="2000000" class="textarea compact-textarea" id="custom-workflow-input" placeholder="Paste the exported API workflow JSON here..."></textarea>
           </div>
-          <button class="button button-primary button-wide action-control" id="check-custom-workflow" data-openlayer-action="checkCustomWorkflow" type="button">Check This Workflow</button>
+          <div role="button" tabindex="0" class="button button-primary button-wide action-control" id="check-custom-workflow" data-openlayer-action="checkCustomWorkflow">Check This Workflow</div>
           <div class="status-bar" role="status">
             <span class="status-text" id="custom-workflow-status-text">Ready.</span>
             <span class="status-pill idle" id="custom-workflow-status-pill">Status</span>
@@ -2270,7 +2273,7 @@ ${createComponentSheetPlaceholderMarkup()}
             Open this screen to check what OpenLayer needs.
           </div>
           <div class="diagnostics-line setup-paragraph" id="setup-download-line"></div>
-          <button class="button action-control" id="setup-check" data-openlayer-action="checkSetup" type="button">Check Again</button>
+          <div role="button" tabindex="0" class="button action-control" id="setup-check" data-openlayer-action="checkSetup">Check Again</div>
           <div class="status-bar" role="status">
             <span class="status-text" id="setup-status-text">Setup ready.</span>
             <span class="status-pill idle" id="setup-status-pill">Status</span>
@@ -2306,7 +2309,7 @@ ${createComponentSheetPlaceholderMarkup()}
               <input class="input input-compact" id="agent-bridge-port" type="number" min="1" max="65535" step="1" value="${DEFAULT_AGENT_BRIDGE_PORT}" />
             </label>
           </div>
-          <button class="button action-control" id="agent-bridge-toggle" data-openlayer-action="toggleAgentBridge" type="button" aria-pressed="false">Turn Agent Bridge On</button>
+          <div role="button" tabindex="0" class="button action-control" id="agent-bridge-toggle" data-openlayer-action="toggleAgentBridge" aria-pressed="false">Turn Agent Bridge On</div>
           <div class="status-bar" role="status">
             <span class="status-text" id="agent-bridge-status-text">Agent Bridge is off.</span>
             <span class="status-pill idle" id="agent-bridge-status-pill">Status</span>
@@ -2329,7 +2332,7 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="muted-label">Current session</span>
           </div>
           <div class="history-list" id="history-list"></div>
-          <button class="button action-control" id="clear-history" data-openlayer-action="clearHistory" type="button">Clear History</button>
+          <div role="button" tabindex="0" class="button action-control" id="clear-history" data-openlayer-action="clearHistory">Clear History</div>
         </section>
       </section>
 
@@ -2522,41 +2525,50 @@ function createScreenIconMarkup(icon: ToolIconName, label: string) {
  * prefix so two tools' controls can never collide.
  */
 function createPromptWalletControlsMarkup(fieldId: string) {
-  return `<button
+  // Divs, not <button>s: on Photoshop 28 the host paints its own grey face over
+  // a native button, so each dot drew grey with its colour left only as a ring
+  // (docs/ui-audit-ps28.md, R1). role and tabindex replace what the native tag
+  // gave; Enter and Space come from activateOnEnterAndSpace where the click
+  // listeners are bound (promptWallet.ts, App.ts). tabindex stays 0 while
+  // disabled because the code that toggles is-disabled does not touch it, and
+  // every click listener already ignores a disabled dot.
+  return `<div
     class="prompt-wallet-dot prompt-wallet-save is-disabled"
     id="${fieldId}-wallet-save"
-    type="button"
+    role="button"
+    tabindex="0"
     aria-disabled="true"
     aria-label="Save this prompt to the Wallet"
     title="Save this prompt to the Wallet"
-  >+</button><button
+  >+</div><div
     class="prompt-wallet-dot prompt-wallet-load is-disabled"
     id="${fieldId}-wallet-load"
-    type="button"
+    role="button"
+    tabindex="0"
     aria-disabled="true"
     aria-label="Load a prompt from the Wallet"
     title="Load a prompt from the Wallet"
-  >↓</button><button
+  >↓</div><div
     class="prompt-wallet-dot prompt-wallet-enhance is-disabled"
     id="${fieldId}-wallet-enhance"
-    type="button"
+    role="button"
+    tabindex="0"
     aria-disabled="true"
     aria-label="Enhance this prompt"
     title="Enhance this prompt: expand it into a longer, more descriptive one"
-  >✦</button>`;
+  >✦</div>`;
 }
 
 function createInfoToggleMarkup(targetId: string) {
   return `
-    <button
+    <div role="button" tabindex="0"
       class="info-toggle"
-      type="button"
       aria-label="Show setup note"
       aria-expanded="false"
       aria-controls="${targetId}"
       data-openlayer-info-toggle="${targetId}"
       title="Show setup note"
-    ><span class="info-toggle-glyph" aria-hidden="true">?</span></button>
+    ><span class="info-toggle-glyph" aria-hidden="true">?</span></div>
   `;
 }
 
@@ -2571,9 +2583,9 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     welcomeStatusText: getElement<HTMLElement>(rootElement, "welcome-status-text"),
     welcomeManualRow: getElement<HTMLElement>(rootElement, "welcome-manual-row"),
     welcomeServerUrlInput: getElement<HTMLInputElement>(rootElement, "welcome-server-url"),
-    welcomeRetryButton: getElement<HTMLButtonElement>(rootElement, "welcome-retry"),
-    welcomeContinueButton: getElement<HTMLButtonElement>(rootElement, "welcome-continue"),
-    welcomeSkipButton: getElement<HTMLButtonElement>(rootElement, "welcome-skip"),
+    welcomeRetryButton: getElement<HTMLElement>(rootElement, "welcome-retry"),
+    welcomeContinueButton: getElement<HTMLElement>(rootElement, "welcome-continue"),
+    welcomeSkipButton: getElement<HTMLElement>(rootElement, "welcome-skip"),
     homeView: getElement<HTMLElement>(rootElement, "home-view"),
     generatorView: getElement<HTMLElement>(rootElement, "generator-view"),
     imageToImageView: getElement<HTMLElement>(rootElement, "image-to-image-view"),
@@ -2589,7 +2601,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     setupTallies: getElement<HTMLElement>(rootElement, "setup-tallies"),
     setupSummaryLine: getElement<HTMLElement>(rootElement, "setup-summary-line"),
     setupDownloadLine: getElement<HTMLElement>(rootElement, "setup-download-line"),
-    setupCheck: getElement<HTMLButtonElement>(rootElement, "setup-check"),
+    setupCheck: getElement<HTMLElement>(rootElement, "setup-check"),
     setupStatusText: getElement<HTMLElement>(rootElement, "setup-status-text"),
     setupStatusPill: getElement<HTMLElement>(rootElement, "setup-status-pill"),
     setupFilters: getElement<HTMLElement>(rootElement, "setup-filters"),
