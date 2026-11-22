@@ -4743,7 +4743,14 @@ a:hover {
 .app-shell.theme-compact #capture-outpaint-source,
 .app-shell.theme-compact #capture-upscale-source,
 .app-shell.theme-compact #capture-prompt-layer-source,
-.app-shell.theme-compact #capture-style-reference-source {
+.app-shell.theme-compact #capture-style-reference-source,
+.app-shell.theme-compact #capture-remove-background-source,
+.app-shell.theme-compact #capture-camera-angle-source,
+.app-shell.theme-compact #capture-select-by-text-source,
+.app-shell.theme-compact #capture-layer-maps-source,
+.app-shell.theme-compact #add-edit-reference-layer,
+.app-shell.theme-compact #add-multi-reference-layer,
+.app-shell.theme-compact #capture-unflatten-layer {
   border-color: var(--ol-blue-border);
   background: linear-gradient(#3377c3, var(--ol-blue));
   color: var(--ol-text);
@@ -4755,7 +4762,15 @@ a:hover {
 .app-shell.theme-compact #capture-outpaint-canvas-source,
 .app-shell.theme-compact #capture-upscale-canvas-source,
 .app-shell.theme-compact #capture-prompt-canvas-source,
-.app-shell.theme-compact #capture-style-reference-canvas-source {
+.app-shell.theme-compact #capture-style-reference-canvas-source,
+.app-shell.theme-compact #capture-remove-background-canvas-source,
+.app-shell.theme-compact #capture-camera-angle-canvas-source,
+.app-shell.theme-compact #capture-select-by-text-canvas-source,
+.app-shell.theme-compact #capture-layer-maps-canvas-source,
+.app-shell.theme-compact #capture-image-selection,
+.app-shell.theme-compact #add-edit-reference-canvas,
+.app-shell.theme-compact #add-multi-reference-canvas,
+.app-shell.theme-compact #capture-unflatten-canvas {
   border-color: var(--ol-green-border);
   background: linear-gradient(#278346, var(--ol-green));
   color: var(--ol-text);
@@ -5664,7 +5679,14 @@ a:hover {
 .app-shell.theme-compact #capture-outpaint-source,
 .app-shell.theme-compact #capture-upscale-source,
 .app-shell.theme-compact #capture-prompt-layer-source,
-.app-shell.theme-compact #capture-style-reference-source {
+.app-shell.theme-compact #capture-style-reference-source,
+.app-shell.theme-compact #capture-remove-background-source,
+.app-shell.theme-compact #capture-camera-angle-source,
+.app-shell.theme-compact #capture-select-by-text-source,
+.app-shell.theme-compact #capture-layer-maps-source,
+.app-shell.theme-compact #add-edit-reference-layer,
+.app-shell.theme-compact #add-multi-reference-layer,
+.app-shell.theme-compact #capture-unflatten-layer {
   border-color: #467fc3;
   background: linear-gradient(#3478c2, #2d68a8);
   color: var(--ol-text);
@@ -5676,7 +5698,15 @@ a:hover {
 .app-shell.theme-compact #capture-outpaint-canvas-source,
 .app-shell.theme-compact #capture-upscale-canvas-source,
 .app-shell.theme-compact #capture-prompt-canvas-source,
-.app-shell.theme-compact #capture-style-reference-canvas-source {
+.app-shell.theme-compact #capture-style-reference-canvas-source,
+.app-shell.theme-compact #capture-remove-background-canvas-source,
+.app-shell.theme-compact #capture-camera-angle-canvas-source,
+.app-shell.theme-compact #capture-select-by-text-canvas-source,
+.app-shell.theme-compact #capture-layer-maps-canvas-source,
+.app-shell.theme-compact #capture-image-selection,
+.app-shell.theme-compact #add-edit-reference-canvas,
+.app-shell.theme-compact #add-multi-reference-canvas,
+.app-shell.theme-compact #capture-unflatten-canvas {
   border-color: #2f8a4b;
   background: linear-gradient(#278243, #216d39);
   color: var(--ol-text);
@@ -6472,7 +6502,14 @@ a:hover {
 .app-shell.theme-compact #capture-outpaint-source,
 .app-shell.theme-compact #capture-upscale-source,
 .app-shell.theme-compact #capture-prompt-layer-source,
-.app-shell.theme-compact #capture-style-reference-source {
+.app-shell.theme-compact #capture-style-reference-source,
+.app-shell.theme-compact #capture-remove-background-source,
+.app-shell.theme-compact #capture-camera-angle-source,
+.app-shell.theme-compact #capture-select-by-text-source,
+.app-shell.theme-compact #capture-layer-maps-source,
+.app-shell.theme-compact #add-edit-reference-layer,
+.app-shell.theme-compact #add-multi-reference-layer,
+.app-shell.theme-compact #capture-unflatten-layer {
   border-color: rgba(80, 145, 245, 0.72) !important;
   background: linear-gradient(#2f70c8, var(--ol-blue)) !important;
 }
@@ -6483,7 +6520,15 @@ a:hover {
 .app-shell.theme-compact #capture-outpaint-canvas-source,
 .app-shell.theme-compact #capture-upscale-canvas-source,
 .app-shell.theme-compact #capture-prompt-canvas-source,
-.app-shell.theme-compact #capture-style-reference-canvas-source {
+.app-shell.theme-compact #capture-style-reference-canvas-source,
+.app-shell.theme-compact #capture-remove-background-canvas-source,
+.app-shell.theme-compact #capture-camera-angle-canvas-source,
+.app-shell.theme-compact #capture-select-by-text-canvas-source,
+.app-shell.theme-compact #capture-layer-maps-canvas-source,
+.app-shell.theme-compact #capture-image-selection,
+.app-shell.theme-compact #add-edit-reference-canvas,
+.app-shell.theme-compact #add-multi-reference-canvas,
+.app-shell.theme-compact #capture-unflatten-canvas {
   border-color: rgba(59, 180, 93, 0.72) !important;
   background: linear-gradient(#1f9349, var(--ol-green)) !important;
 }

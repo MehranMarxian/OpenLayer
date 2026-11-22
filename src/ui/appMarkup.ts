@@ -194,6 +194,7 @@ export type AppElements = {
   captureSketchCanvasButton: HTMLElement;
   generateSketchButton: HTMLElement;
   importSketchButton: HTMLElement;
+  sketchAutoImportToggle: HTMLElement;
   inpaintPrompt: HTMLTextAreaElement;
   inpaintPromptWalletSave: HTMLElement;
   inpaintPromptWalletLoad: HTMLElement;
@@ -230,6 +231,7 @@ export type AppElements = {
   captureOutpaintCanvasButton: HTMLElement;
   generateOutpaintButton: HTMLElement;
   importOutpaintButton: HTMLElement;
+  outpaintAutoImportToggle: HTMLElement;
   capturePromptLayerButton: HTMLElement;
   capturePromptCanvasButton: HTMLElement;
   generatePromptLayerButton: HTMLElement;
@@ -381,6 +383,7 @@ export type AppElements = {
   captureStyleReferenceCanvasButton: HTMLElement;
   generateStyleReferenceButton: HTMLElement;
   importStyleReferenceButton: HTMLElement;
+  styleReferenceAutoImportToggle: HTMLElement;
   styleReferenceStatusText: HTMLElement;
   styleReferenceStatusPill: HTMLElement;
   styleReferenceStatusProgress: HTMLElement;
@@ -406,11 +409,13 @@ export type AppElements = {
   addMultiReferenceCanvasButton: HTMLElement;
   generateMultiReferenceButton: HTMLElement;
   importMultiReferenceButton: HTMLElement;
+  multiReferenceAutoImportToggle: HTMLElement;
   describeUnflattenSourceButton: HTMLElement;
   captureUnflattenLayerButton: HTMLElement;
   captureUnflattenCanvasButton: HTMLElement;
   generateUnflattenButton: HTMLElement;
   importUnflattenButton: HTMLElement;
+  unflattenAutoImportToggle: HTMLElement;
   multiReferenceList: HTMLElement;
   multiReferenceCount: HTMLElement;
   multiReferenceStatusText: HTMLElement;
@@ -454,6 +459,7 @@ export type AppElements = {
   cameraAngleErrorMessage: HTMLElement;
   cameraAngleResultPreviewPanel: HTMLElement;
   importCameraAngleButton: HTMLElement;
+  cameraAngleAutoImportToggle: HTMLElement;
   removeBackgroundView: HTMLElement;
   captureRemoveBackgroundSourceButton: HTMLElement;
   captureRemoveBackgroundCanvasSourceButton: HTMLElement;
@@ -1202,6 +1208,7 @@ ${createComponentSheetPlaceholderMarkup()}
           </div>
           <div class="import-actions">
             ${createButtonMarkup({ label: "Import to Layers", tone: "import", id: "import-sketch-result", action: "importSketch", disabled: true })}
+            <div role="button" tabindex="0" class="button auto-import-toggle action-control" id="sketch-auto-import-toggle" data-openlayer-action="toggleSketchAutoImport" aria-pressed="false">Import Automatically</div>
           </div>
         </section>
       </section>
@@ -1314,6 +1321,7 @@ ${createComponentSheetPlaceholderMarkup()}
           </div>
           <div class="import-actions">
             <div role="button" class="button button-import button-import-blue action-control is-disabled" id="import-style-reference-result" data-openlayer-action="importStyleReference" tabindex="-1" aria-disabled="true">Import to Layers</div>
+            <div role="button" tabindex="0" class="button auto-import-toggle action-control" id="style-reference-auto-import-toggle" data-openlayer-action="toggleStyleReferenceAutoImport" aria-pressed="false">Import Automatically</div>
           </div>
         </section>
       </section>
@@ -1415,6 +1423,7 @@ ${createComponentSheetPlaceholderMarkup()}
           </div>
           <div class="import-actions">
             <div role="button" class="button button-import button-import-blue action-control is-disabled" id="import-multi-reference-result" data-openlayer-action="importMultiReference" tabindex="-1" aria-disabled="true">Import to Layers</div>
+            <div role="button" tabindex="0" class="button auto-import-toggle action-control" id="multi-reference-auto-import-toggle" data-openlayer-action="toggleMultiReferenceAutoImport" aria-pressed="false">Import Automatically</div>
           </div>
         </section>
       </section>
@@ -1509,6 +1518,7 @@ ${createComponentSheetPlaceholderMarkup()}
           </div>
           <div class="import-actions">
             <div role="button" class="button button-import button-import-blue action-control is-disabled" id="import-unflatten-result" data-openlayer-action="importUnflatten" tabindex="-1" aria-disabled="true">Import to Layers</div>
+            <div role="button" tabindex="0" class="button auto-import-toggle action-control" id="unflatten-auto-import-toggle" data-openlayer-action="toggleUnflattenAutoImport" aria-pressed="false">Import Automatically</div>
           </div>
         </section>
       </section>
@@ -1748,6 +1758,7 @@ ${createComponentSheetPlaceholderMarkup()}
           </div>
           <div class="import-actions">
             <div role="button" class="button button-import button-import-blue action-control is-disabled" id="import-outpaint-result" data-openlayer-action="importOutpaint" tabindex="-1" aria-disabled="true">Import to Layers</div>
+            <div role="button" tabindex="0" class="button auto-import-toggle action-control" id="outpaint-auto-import-toggle" data-openlayer-action="toggleOutpaintAutoImport" aria-pressed="false">Import Automatically</div>
           </div>
         </section>
       </section>
@@ -1992,6 +2003,7 @@ ${createComponentSheetPlaceholderMarkup()}
           </div>
           <div class="import-actions">
             <div role="button" class="button button-import button-import-blue action-control is-disabled" id="import-camera-angle-result" data-openlayer-action="importCameraAngle" tabindex="-1" aria-disabled="true">Import to Layers</div>
+            <div role="button" tabindex="0" class="button auto-import-toggle action-control" id="camera-angle-auto-import-toggle" data-openlayer-action="toggleCameraAngleAutoImport" aria-pressed="false">Import Automatically</div>
           </div>
         </section>
       </section>
@@ -2720,6 +2732,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     captureSketchCanvasButton: getElement<HTMLElement>(rootElement, "capture-sketch-canvas-source"),
     generateSketchButton: getElement<HTMLElement>(rootElement, "generate-sketch"),
     importSketchButton: getElement<HTMLElement>(rootElement, "import-sketch-result"),
+    sketchAutoImportToggle: getElement<HTMLElement>(rootElement, "sketch-auto-import-toggle"),
     inpaintPrompt: getElement<HTMLTextAreaElement>(rootElement, "inpaint-prompt"),
     inpaintPromptWalletSave: getElement<HTMLElement>(rootElement, "inpaint-prompt-wallet-save"),
     inpaintPromptWalletLoad: getElement<HTMLElement>(rootElement, "inpaint-prompt-wallet-load"),
@@ -2756,6 +2769,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     captureOutpaintCanvasButton: getElement<HTMLElement>(rootElement, "capture-outpaint-canvas-source"),
     generateOutpaintButton: getElement<HTMLElement>(rootElement, "generate-outpaint"),
     importOutpaintButton: getElement<HTMLElement>(rootElement, "import-outpaint-result"),
+    outpaintAutoImportToggle: getElement<HTMLElement>(rootElement, "outpaint-auto-import-toggle"),
     capturePromptLayerButton: getElement<HTMLElement>(rootElement, "capture-prompt-layer-source"),
     capturePromptCanvasButton: getElement<HTMLElement>(rootElement, "capture-prompt-canvas-source"),
     generatePromptLayerButton: getElement<HTMLElement>(rootElement, "generate-prompt-from-layer"),
@@ -2907,6 +2921,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     captureStyleReferenceCanvasButton: getElement<HTMLElement>(rootElement, "capture-style-reference-canvas-source"),
     generateStyleReferenceButton: getElement<HTMLElement>(rootElement, "generate-style-reference"),
     importStyleReferenceButton: getElement<HTMLElement>(rootElement, "import-style-reference-result"),
+    styleReferenceAutoImportToggle: getElement<HTMLElement>(rootElement, "style-reference-auto-import-toggle"),
     styleReferenceStatusText: getElement<HTMLElement>(rootElement, "style-reference-status-text"),
     styleReferenceStatusPill: getElement<HTMLElement>(rootElement, "style-reference-status-pill"),
     styleReferenceStatusProgress: getElement<HTMLElement>(rootElement, "style-reference-status-progress"),
@@ -2932,11 +2947,13 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     addMultiReferenceCanvasButton: getElement<HTMLElement>(rootElement, "add-multi-reference-canvas"),
     generateMultiReferenceButton: getElement<HTMLElement>(rootElement, "generate-multi-reference"),
     importMultiReferenceButton: getElement<HTMLElement>(rootElement, "import-multi-reference-result"),
+    multiReferenceAutoImportToggle: getElement<HTMLElement>(rootElement, "multi-reference-auto-import-toggle"),
     describeUnflattenSourceButton: getElement<HTMLElement>(rootElement, "describe-unflatten-source"),
     captureUnflattenLayerButton: getElement<HTMLElement>(rootElement, "capture-unflatten-layer"),
     captureUnflattenCanvasButton: getElement<HTMLElement>(rootElement, "capture-unflatten-canvas"),
     generateUnflattenButton: getElement<HTMLElement>(rootElement, "generate-unflatten"),
     importUnflattenButton: getElement<HTMLElement>(rootElement, "import-unflatten-result"),
+    unflattenAutoImportToggle: getElement<HTMLElement>(rootElement, "unflatten-auto-import-toggle"),
     multiReferenceList: getElement<HTMLElement>(rootElement, "multi-reference-list"),
     multiReferenceCount: getElement<HTMLElement>(rootElement, "multi-reference-count"),
     multiReferenceStatusText: getElement<HTMLElement>(rootElement, "multi-reference-status-text"),
@@ -2980,6 +2997,7 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     cameraAngleErrorMessage: getElement<HTMLElement>(rootElement, "camera-angle-error-message"),
     cameraAngleResultPreviewPanel: getElement<HTMLElement>(rootElement, "camera-angle-result-preview-panel"),
     importCameraAngleButton: getElement<HTMLElement>(rootElement, "import-camera-angle-result"),
+    cameraAngleAutoImportToggle: getElement<HTMLElement>(rootElement, "camera-angle-auto-import-toggle"),
     removeBackgroundView: getElement<HTMLElement>(rootElement, "remove-background-view"),
     captureRemoveBackgroundSourceButton: getElement<HTMLElement>(rootElement, "capture-remove-background-source"),
     captureRemoveBackgroundCanvasSourceButton: getElement<HTMLElement>(rootElement, "capture-remove-background-canvas-source"),
