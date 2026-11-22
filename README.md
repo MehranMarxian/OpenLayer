@@ -28,7 +28,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/v0200/dashboard-artist-dark-crop.webp" alt="The OpenLayer panel in Photoshop, Artist-Friendly Dark theme" width="300">
+  <img src="docs/assets/v045/dashboard.webp" alt="The OpenLayer panel in Photoshop listing every tool: Text to Image, Edit Image, Camera Angle, Inpaint, Remove Background, Select by Text and more" width="300">
 </p>
 
 - **Free, with no subscription.** No credits, no metering, no account, no upload quota.
