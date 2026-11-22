@@ -112,13 +112,73 @@ document as an ordinary layer. **Click any picture to see it full size.**
 <table>
   <tr>
     <td width="280" valign="top">
-      <a href="docs/assets/v060/text-to-image-photoshop.webp"><img src="docs/assets/v060/text-to-image-photoshop.webp" alt="OpenLayer generating an image inside Photoshop and importing it as a layer" width="260"></a>
+      <a href="docs/assets/v045/text-to-image.webp"><img src="docs/assets/v045/text-to-image.webp" alt="OpenLayer Text to Image in Photoshop with a generated fox teapot placed as a layer" width="260"></a>
     </td>
     <td valign="top">
       <b>Text to Image</b> — prompt in, layer out<br>
       Type what you want, press Generate, and the picture arrives in your open document as a new
-      named layer. Progress and preview stay beside the canvas the whole time.<br>
-      <sub>Recorded on an earlier build; the panel looks different now.</sub>
+      named layer. Progress and preview stay beside the canvas the whole time.
+    </td>
+  </tr>
+  <tr>
+    <td width="280" valign="top">
+      <a href="docs/assets/v045/edit-image.webp"><img src="docs/assets/v045/edit-image.webp" alt="Edit Image turning a red porcelain fox teapot into blue porcelain, as a new layer" width="260"></a>
+    </td>
+    <td valign="top">
+      <b>Edit Image</b> — describe the change<br>
+      The red teapot layer became blue porcelain with one sentence, and the result landed above it as
+      its own layer, so the original is still underneath.
+    </td>
+  </tr>
+  <tr>
+    <td width="280" valign="top">
+      <a href="docs/assets/v045/camera-angle.webp"><img src="docs/assets/v045/camera-angle.webp" alt="Camera Angle showing the blue fox teapot from a different viewpoint" width="260"></a>
+    </td>
+    <td valign="top">
+      <b>Camera Angle</b> ✦ — the same scene, another viewpoint<br>
+      Pick a direction, a height and a distance. The whole picture is redrawn from the new position,
+      so details change; the first run loads a large model and takes about a minute. Experimental.
+    </td>
+  </tr>
+  <tr>
+    <td width="280" valign="top">
+      <a href="docs/assets/v045/select-by-text.webp"><img src="docs/assets/v045/select-by-text.webp" alt="Select by Text selecting an armchair in a living room image" width="260"></a>
+    </td>
+    <td valign="top">
+      <b>Select by Text</b> — a word becomes a selection<br>
+      Type <code>armchair</code> and the chair is outlined as a live selection. The edges are hard;
+      feather them or use Select and Mask when you need a soft one.
+    </td>
+  </tr>
+  <tr>
+    <td width="280" valign="top">
+      <a href="docs/assets/v045/remove-object.webp"><img src="docs/assets/v045/remove-object.webp" alt="Remove object taking a large plant out of a living room image" width="260"></a>
+    </td>
+    <td valign="top">
+      <b>Remove object</b> (Inpaint) — take something out<br>
+      The plant is gone and the corner is filled in from its surroundings. Select the whole object
+      and a little around it. A tone shift can show at the edge of a large selection, so check
+      the border.
+    </td>
+  </tr>
+  <tr>
+    <td width="280" valign="top">
+      <a href="docs/assets/v045/remove-background.webp"><img src="docs/assets/v045/remove-background.webp" alt="Remove Background leaving the blue fox teapot on a transparent layer" width="260"></a>
+    </td>
+    <td valign="top">
+      <b>Remove Background</b> — subject on its own layer<br>
+      The teapot comes back on its own layer with real transparency, shown here on the
+      checkerboard with the layers below hidden.
+    </td>
+  </tr>
+  <tr>
+    <td width="280" valign="top">
+      <a href="docs/assets/v045/layer-maps.webp"><img src="docs/assets/v045/layer-maps.webp" alt="Layer Maps reading a depth map off a living room image" width="260"></a>
+    </td>
+    <td valign="top">
+      <b>Layer Maps</b> — read a depth map off a layer<br>
+      A depth pass at the layer's exact size, near is bright and far is dark. Line-art and normal
+      passes work the same way.
     </td>
   </tr>
   <tr>
