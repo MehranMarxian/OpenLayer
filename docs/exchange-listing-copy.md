@@ -187,6 +187,11 @@ OpenLayer has both regardless, so this is not a blocker either way.
 
 ## Version details  (max 1000, per submitted version)
 
+**For v0.45.0-beta (2026-11-21) paste `docs/exchange-assets/paste-version-details.txt` (618 chars),
+and for the reviewer note `docs/exchange-assets/paste-reviewer-note-v045.txt` (945 chars). The
+description is `docs/exchange-assets/paste-description.txt`, updated for the beta and the v0.40
+tools.** The block below is the v0.37.0 text, kept for the record.
+
 ```
 v0.37.0-alpha. Recent releases added Edit Image (change a layer by describing the change), Layer
 Maps (depth, line-art and normal passes as new layers), and opt-in Qwen-Image 2.1 presets for

@@ -1,5 +1,10 @@
 # Adobe Exchange Readiness Audit (v0.16.0-alpha)
 
+> **2026-11-21: v0.45.0-beta prepared for resubmission** as an update to the approved v0.37.0.
+> Paste-ready texts are in `docs/exchange-assets/` (`paste-description.txt`,
+> `paste-version-details.txt`, `paste-reviewer-note-v045.txt`); the package is
+> `openlayer-v0.45.0-beta.ccx` from the GitHub release.
+>
 > **SUBMITTED 2026-09-24** — v0.37.0-alpha, listing `1e827d3d`, publisher profile submitted the same
 > day. Windows only (Mac never tested), "manually publish later" chosen so launch day is ours.
 > Adobe aims to review within ~10 business days. The 27.9 cold-launch pass (B1) was **not** run

@@ -7,11 +7,13 @@ WHAT IT DOES
 - Text to Image — generate a new layer from a prompt
 - Image to Image — reinterpret the active layer with a prompt
 - Edit Image — change a layer by describing the change ("make the jacket red") while the rest of the picture stays where it is
+- Camera Angle (experimental) — see a layer from another viewpoint: pick a direction, a height and a distance
 - Sketch to Image — guide generation with your line art through a ControlNet
-- Inpaint (experimental) — repaint a selection in place
+- Inpaint (experimental) — repaint a selection in place, or remove the object in it
 - Outpaint (experimental) — extend canvas content beyond the edges
-- Upscale — enhance layers with local upscale models
+- Upscale — enlarge a layer 4x with an upscale model, or restore it 2x with SeedVR2
 - Remove Background — cut the subject onto its own layer with real alpha, in about two seconds, with no diffusion in the graph, so the pixels come back unchanged
+- Select by Text — name something ("backpack", "chair, table") and get it as a live selection
 - Layer Maps — read a depth, line-art or normal pass off any layer, returned at the layer's exact pixel size
 - Prompt from Layer — describe a layer back into editable prompt text
 - Multi-Reference (experimental) — compose one image from several reference layers
@@ -33,6 +35,6 @@ The plugin's Setup screen lists every model and custom node its presets use, whe
 
 STATUS
 
-OpenLayer is an alpha: a public testing checkpoint, not production software. It is stable enough to work with and candid about where it stops. Tools marked experimental above are labelled the same way in the panel itself. The full, current list of what works and what does not is at https://github.com/MehranMarxian/OpenLayer/blob/main/docs/known-limitations.md
+OpenLayer is a beta, tested on Windows 11 with Photoshop 2025 and Photoshop 2027 (28.0); macOS is untested. It is stable enough to work with and candid about where it stops. Tools marked experimental above are labelled the same way in the panel itself. The full, current list of what works and what does not is at https://github.com/MehranMarxian/OpenLayer/blob/main/docs/known-limitations.md
 
 Free and MIT-licensed. Source, issues, and discussion: https://github.com/MehranMarxian/OpenLayer
