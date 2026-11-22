@@ -225,5 +225,7 @@ describe("prompt-required registration", () => {
       tool.setStatus(elements, PROMPT_REQUIRED_STATUS, "error");
       expect((elements[tool.statusText] as HTMLElement).textContent).toBe(PROMPT_REQUIRED_STATUS);
     }
-  });
+    // Mounts the whole panel once per tool (about 0.4 s each, slower on CI), so
+    // the 5 s default is what it ran into as the panel grew.
+  }, 30_000);
 });
