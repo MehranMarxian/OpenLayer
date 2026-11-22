@@ -112,12 +112,23 @@ document as an ordinary layer. **Click any picture to see it full size.**
 <table>
   <tr>
     <td width="280" valign="top">
-      <a href="docs/assets/v045/text-to-image.webp"><img src="docs/assets/v045/text-to-image.webp" alt="OpenLayer Text to Image in Photoshop with a generated fox teapot placed as a layer" width="260"></a>
+      <a href="docs/assets/v060/text-to-image-photoshop.webp"><img src="docs/assets/v060/text-to-image-photoshop.webp" alt="Text to Image in a document: a comic-book style screaming man generated from a one-line prompt and placed as a new layer" width="260"></a>
     </td>
     <td valign="top">
       <b>Text to Image</b> — prompt in, layer out<br>
       Type what you want, press Generate, and the picture arrives in your open document as a new
       named layer. Progress and preview stay beside the canvas the whole time.
+    </td>
+  </tr>
+  <tr>
+    <td width="280" valign="top">
+      <a href="docs/assets/v045/image-to-image.webp"><img src="docs/assets/v045/image-to-image.webp" alt="Image to Image turning a flat cartoon fox layer into a detailed furry render, with both layers in the Layers panel" width="260"></a>
+    </td>
+    <td valign="top">
+      <b>Image to Image</b> — use a layer as the starting point<br>
+      A flat cartoon fox went in; the same fox came back with real fur, still curled on its cushion. The
+      pose and layout follow the source layer and the rendering is redone. <b>Denoise</b> sets how far the
+      result may wander from it. Shown with the Z-Image Turbo preset.
     </td>
   </tr>
   <tr>
@@ -142,23 +153,46 @@ document as an ordinary layer. **Click any picture to see it full size.**
   </tr>
   <tr>
     <td width="280" valign="top">
-      <a href="docs/assets/v045/select-by-text.webp"><img src="docs/assets/v045/select-by-text.webp" alt="Select by Text selecting an armchair in a living room image" width="260"></a>
+      <a href="docs/assets/v0200/sketch-to-image.webp"><img src="docs/assets/v0200/sketch-to-image.webp" alt="A white line drawing of a dog rendered as a finished illustration" width="260"></a>
     </td>
     <td valign="top">
-      <b>Select by Text</b> — a word becomes a selection<br>
-      Type <code>armchair</code> and the chair is outlined as a live selection. The edges are hard;
-      feather them or use Select and Mask when you need a soft one.
+      <b>Sketch to Image</b> — your drawing, finished<br>
+      The line drawing on the right goes in; the illustration comes out. Pose, ears and tail follow
+      your strokes exactly — the model only fills in the rest. Not only for line art: a shaded or
+      painted layer works too and keeps your shapes and values
+      (<a href="docs/assets/v0200/sketch-abstract.webp">painted example</a>).
     </td>
   </tr>
   <tr>
     <td width="280" valign="top">
-      <a href="docs/assets/v045/remove-object.webp"><img src="docs/assets/v045/remove-object.webp" alt="Remove object taking a large plant out of a living room image" width="260"></a>
+      <a href="docs/assets/v045/remove-object.webp"><img src="docs/assets/v045/remove-object.webp" alt="Inpaint removing a large plant from a living room image" width="260"></a>
     </td>
     <td valign="top">
-      <b>Remove object</b> (Inpaint) — take something out<br>
-      The plant is gone and the corner is filled in from its surroundings. Select the whole object
-      and a little around it. A tone shift can show at the edge of a large selection, so check
-      the border.
+      <b>Inpaint</b> — repaint a selection, or take something out<br>
+      Here the plant is gone and the corner is filled in from its surroundings. Select the whole
+      object and a little around it. A tone shift can show at the edge of a large selection, so
+      check the border.
+    </td>
+  </tr>
+  <tr>
+    <td width="280" valign="top">
+      <a href="docs/assets/v0200/outpaint.webp"><img src="docs/assets/v0200/outpaint.webp" alt="Outpaint extending a photographic interior beyond the original canvas" width="260"></a>
+    </td>
+    <td valign="top">
+      <b>Outpaint</b> ✦ — grow the canvas<br>
+      Enlarge the canvas in Photoshop, and the model paints what belongs in the new space.
+      Experimental — try it on a duplicate.
+    </td>
+  </tr>
+  <tr>
+    <td width="280" valign="top">
+      <a href="docs/assets/v060/upscale-photoshop.webp"><img src="docs/assets/v060/upscale-photoshop.webp" alt="Upscale result of a lizard-headed figure in a trench coat at full size, with each upscale kept as its own layer" width="260"></a>
+    </td>
+    <td valign="top">
+      <b>Upscale</b> — a bigger layer<br>
+      Enlarge a layer 4x with an upscale model, or restore it 2x with SeedVR2, which is generative
+      and can invent detail. Each result lands as its own layer.<br>
+      <sub>Recorded on an earlier build.</sub>
     </td>
   </tr>
   <tr>
@@ -173,6 +207,16 @@ document as an ordinary layer. **Click any picture to see it full size.**
   </tr>
   <tr>
     <td width="280" valign="top">
+      <a href="docs/assets/v045/select-by-text.webp"><img src="docs/assets/v045/select-by-text.webp" alt="Select by Text selecting an armchair in a living room image" width="260"></a>
+    </td>
+    <td valign="top">
+      <b>Select by Text</b> — a word becomes a selection<br>
+      Type <code>armchair</code> and the chair is outlined as a live selection. The edges are hard;
+      feather them or use Select and Mask when you need a soft one.
+    </td>
+  </tr>
+  <tr>
+    <td width="280" valign="top">
       <a href="docs/assets/v045/layer-maps.webp"><img src="docs/assets/v045/layer-maps.webp" alt="Layer Maps reading a depth map off a living room image" width="260"></a>
     </td>
     <td valign="top">
@@ -183,41 +227,13 @@ document as an ordinary layer. **Click any picture to see it full size.**
   </tr>
   <tr>
     <td width="280" valign="top">
-      <a href="docs/assets/v0200/sketch-to-image.webp"><img src="docs/assets/v0200/sketch-to-image.webp" alt="A white line drawing of a dog rendered as a finished illustration" width="260"></a>
+      <a href="docs/assets/v060/prompt-from-layer.webp"><img src="docs/assets/v060/prompt-from-layer.webp" alt="Prompt from Layer turning a portrait layer into a written prompt, with Copy Prompt and Send to Text to Image buttons" width="260"></a>
     </td>
     <td valign="top">
-      <b>Sketch to Image</b> — your drawing, finished<br>
-      The line drawing on the right goes in; the illustration comes out. Pose, ears and tail follow
-      your strokes exactly — the model only fills in the rest.
-    </td>
-  </tr>
-  <tr>
-    <td width="280" valign="top">
-      <a href="docs/assets/v0200/sketch-abstract.webp"><img src="docs/assets/v0200/sketch-abstract.webp" alt="An abstract painted face generated through Sketch to Image" width="260"></a>
-    </td>
-    <td valign="top">
-      <b>Sketch to Image</b> — from a painted source<br>
-      Not only for line art: give it a shaded or painted layer and it keeps your shapes and values.
-    </td>
-  </tr>
-  <tr>
-    <td width="280" valign="top">
-      <a href="docs/assets/v0200/live-painting.webp"><img src="docs/assets/v0200/live-painting.webp" alt="Live Painting turning a painted silhouette into a photographic eagle" width="260"></a>
-    </td>
-    <td valign="top">
-      <b>Live Painting</b> — paint rough, watch it render<br>
-      Brush a crude shape and the preview turns it into a photograph while you paint.
-      <b>Import Refined as Layer</b> keeps the one you like.
-    </td>
-  </tr>
-  <tr>
-    <td width="280" valign="top">
-      <a href="docs/assets/v0200/multi-reference.webp"><img src="docs/assets/v0200/multi-reference.webp" alt="A figure in a yellow raincoat composed into a neon-lit rainy street" width="260"></a>
-    </td>
-    <td valign="top">
-      <b>Multi-Reference</b> ✦ — several layers, one picture<br>
-      A street layer and a figure layer composed into one scene. Clothing, props, setting and light
-      carry across; <b>a specific person's face does not</b>, and the panel tells you so.
+      <b>Prompt from Layer</b> — describe a layer in words<br>
+      Capture a layer, pick a task, and get a written description back. <b>Copy Prompt</b> keeps it,
+      or <b>Send to Text to Image</b> starts a new picture from it.<br>
+      <sub>Recorded on an earlier build.</sub>
     </td>
   </tr>
   <tr>
@@ -235,12 +251,33 @@ document as an ordinary layer. **Click any picture to see it full size.**
   </tr>
   <tr>
     <td width="280" valign="top">
-      <a href="docs/assets/v0200/outpaint.webp"><img src="docs/assets/v0200/outpaint.webp" alt="Outpaint extending a photographic interior beyond the original canvas" width="260"></a>
+      <a href="docs/assets/v0200/live-painting.webp"><img src="docs/assets/v0200/live-painting.webp" alt="Live Painting turning a painted silhouette into a photographic eagle" width="260"></a>
     </td>
     <td valign="top">
-      <b>Outpaint</b> ✦ — grow the canvas<br>
-      Enlarge the canvas in Photoshop, and the model paints what belongs in the new space.
-      Experimental — try it on a duplicate.
+      <b>Live Painting</b> — paint rough, watch it render<br>
+      Brush a crude shape and the preview turns it into a photograph while you paint.
+      <b>Import Refined as Layer</b> keeps the one you like.
+    </td>
+  </tr>
+  <tr>
+    <td width="280" valign="top">
+      <a href="docs/assets/v045/style-reference.webp"><img src="docs/assets/v045/style-reference.webp" alt="Style Reference painting a lighthouse on a rocky coast in the terracotta and slate blue palette of a cartoon fox reference layer" width="260"></a>
+    </td>
+    <td valign="top">
+      <b>Style Reference</b> ✦ — borrow a layer's mood and colour<br>
+      The reference is the flat cartoon fox from the shot above; the prompt only says
+      <code>a lighthouse on a rocky coast at dusk, waves</code>. What carries across is mood and palette,
+      terracotta against slate blue, not the flat drawing style. Needs an SD 1.5 checkpoint. Experimental.
+    </td>
+  </tr>
+  <tr>
+    <td width="280" valign="top">
+      <a href="docs/assets/v0200/multi-reference.webp"><img src="docs/assets/v0200/multi-reference.webp" alt="A figure in a yellow raincoat composed into a neon-lit rainy street" width="260"></a>
+    </td>
+    <td valign="top">
+      <b>Multi-Reference</b> ✦ — several layers, one picture<br>
+      A street layer and a figure layer composed into one scene. Clothing, props, setting and light
+      carry across; <b>a specific person's face does not</b>, and the panel tells you so.
     </td>
   </tr>
 </table>
