@@ -28,7 +28,7 @@ import { createObjectUrlRegistry, ObjectUrlRegistry } from "./objectUrlRegistry"
 import { previewHub, PreviewPublicationKind, PreviewToolId } from "./previewHub";
 import { importBridge } from "./importBridge";
 import { agentBridge, createAgentChoiceField, createAgentToggleField } from "./agentBridge";
-import { readTextareaValue } from "./textareaValue";
+import { bindPlaceholderBleedRepair, readTextareaValue } from "./textareaValue";
 import { keepsPreferredModel, listModelOptionsForPreset, listUpscaleModelOptions, withoutSegmentationModels } from "./modelPreference";
 import { measureSelectionFraction, selectionEditStrength } from "../comfy/selectionEdit";
 import { decodeRgbaPng } from "../utils/png";
@@ -2131,6 +2131,8 @@ export function renderApp(rootElement: HTMLElement) {
   bindHistoryActions(rootElement, handleHistoryAction);
   bindExternalLinks(rootElement);
   bindAdvancedToggles(rootElement);
+  // Before bindPromptMemory: its undo history should record repaired text.
+  bindPlaceholderBleedRepair(rootElement);
   bindPromptMemory(elements);
   const promptWallet = bindPromptWallet(elements, PROMPT_WALLET_TOOLS, setView);
   bindPromptRequiredReset(elements);
