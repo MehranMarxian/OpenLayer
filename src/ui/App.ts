@@ -28,6 +28,7 @@ import { createObjectUrlRegistry, ObjectUrlRegistry } from "./objectUrlRegistry"
 import { previewHub, PreviewPublicationKind, PreviewToolId } from "./previewHub";
 import { importBridge } from "./importBridge";
 import { agentBridge, createAgentChoiceField, createAgentToggleField } from "./agentBridge";
+import { AUTO_IMPORT_TOOL_NAMES, createAutoImportFlags, type AutoImportTool } from "./autoImportFlags";
 import { readTextareaValue } from "./textareaValue";
 import { keepsPreferredModel, listModelOptionsForPreset, listUpscaleModelOptions, withoutSegmentationModels } from "./modelPreference";
 import { measureSelectionFraction, selectionEditStrength } from "../comfy/selectionEdit";
@@ -1579,6 +1580,16 @@ export function renderApp(rootElement: HTMLElement) {
   rootElement.innerHTML = createAppMarkup();
 
   const elements = getAppElements(rootElement);
+  // The Import Automatically switches for the tools that gained one after the
+  // first seven (those keep their hand-written flags above). See autoImportFlags.ts.
+  const autoImportFlags = createAutoImportFlags<AutoImportTool>({
+    "sketch-to-image": elements.sketchAutoImportToggle,
+    outpaint: elements.outpaintAutoImportToggle,
+    "style-reference": elements.styleReferenceAutoImportToggle,
+    "multi-reference": elements.multiReferenceAutoImportToggle,
+    unflatten: elements.unflattenAutoImportToggle,
+    "camera-angle": elements.cameraAngleAutoImportToggle
+  });
   // Every Workflow and Model dropdown moves off the native <select>, so the
   // mouse wheel cannot change a workflow or model mid-scroll (it did, silently,
   // in Photoshop). See wheelProofPicker.ts. The LoRA, theme and Prompt from
@@ -1967,6 +1978,12 @@ export function renderApp(rootElement: HTMLElement) {
     generateUpscale: createActionRunner(elements, "generateUpscale", handleGenerateUpscale),
     importUpscale: createActionRunner(elements, "importUpscale", handleImportUpscale),
     toggleUpscaleAutoImport: createActionRunner(elements, "toggleUpscaleAutoImport", handleToggleUpscaleAutoImport),
+    toggleSketchAutoImport: createActionRunner(elements, "toggleSketchAutoImport", () => handleToggleToolAutoImport("sketch-to-image")),
+    toggleOutpaintAutoImport: createActionRunner(elements, "toggleOutpaintAutoImport", () => handleToggleToolAutoImport("outpaint")),
+    toggleStyleReferenceAutoImport: createActionRunner(elements, "toggleStyleReferenceAutoImport", () => handleToggleToolAutoImport("style-reference")),
+    toggleMultiReferenceAutoImport: createActionRunner(elements, "toggleMultiReferenceAutoImport", () => handleToggleToolAutoImport("multi-reference")),
+    toggleUnflattenAutoImport: createActionRunner(elements, "toggleUnflattenAutoImport", () => handleToggleToolAutoImport("unflatten")),
+    toggleCameraAngleAutoImport: createActionRunner(elements, "toggleCameraAngleAutoImport", () => handleToggleToolAutoImport("camera-angle")),
     captureRemoveBackgroundSource: createActionRunner(elements, "captureRemoveBackgroundSource", handleCaptureRemoveBackgroundSource),
     captureRemoveBackgroundCanvasSource: createActionRunner(elements, "captureRemoveBackgroundCanvasSource", handleCaptureRemoveBackgroundCanvasSource),
     generateRemoveBackground: createActionRunner(elements, "generateRemoveBackground", handleGenerateRemoveBackground),
@@ -2082,6 +2099,12 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.generateUpscaleButton, actionHandlers.generateUpscale);
   bindActionControl(elements.importUpscaleButton, actionHandlers.importUpscale);
   bindActionControl(elements.upscaleAutoImportToggle, actionHandlers.toggleUpscaleAutoImport);
+  bindActionControl(elements.sketchAutoImportToggle, actionHandlers.toggleSketchAutoImport);
+  bindActionControl(elements.outpaintAutoImportToggle, actionHandlers.toggleOutpaintAutoImport);
+  bindActionControl(elements.styleReferenceAutoImportToggle, actionHandlers.toggleStyleReferenceAutoImport);
+  bindActionControl(elements.multiReferenceAutoImportToggle, actionHandlers.toggleMultiReferenceAutoImport);
+  bindActionControl(elements.unflattenAutoImportToggle, actionHandlers.toggleUnflattenAutoImport);
+  bindActionControl(elements.cameraAngleAutoImportToggle, actionHandlers.toggleCameraAngleAutoImport);
   bindActionControl(elements.captureRemoveBackgroundSourceButton, actionHandlers.captureRemoveBackgroundSource);
   bindActionControl(elements.captureRemoveBackgroundCanvasSourceButton, actionHandlers.captureRemoveBackgroundCanvasSource);
   bindActionControl(elements.generateRemoveBackgroundButton, actionHandlers.generateRemoveBackground);
@@ -2153,6 +2176,7 @@ export function renderApp(rootElement: HTMLElement) {
   updateAutoImportToggle(elements, importAutomatically);
   updateImg2ImgAutoImportToggle(elements, imageImportAutomatically);
   updateUpscaleAutoImportToggle(elements, upscaleImportAutomatically);
+  autoImportFlags.paintAll();
   updateRemoveBackgroundAutoImportToggle(elements, removeBackgroundImportAutomatically);
   updateInpaintAutoImportToggle(elements, inpaintImportAutomatically);
   updateExperimentalCheckpointToggle(elements, allowExperimentalCheckpoints);
@@ -3319,6 +3343,11 @@ export function renderApp(rootElement: HTMLElement) {
     updateUpscaleAutoImportToggle(elements, upscaleImportAutomatically);
     setUpscaleDiagnostics(elements, upscaleImportAutomatically ? "Upscale auto import is on." : "Upscale auto import is off.");
     syncImportBridge();
+  }
+
+  function handleToggleToolAutoImport(tool: AutoImportTool) {
+    const isOn = autoImportFlags.toggle(tool);
+    setGenerationToolDiagnostics(tool, `${AUTO_IMPORT_TOOL_NAMES[tool]} auto import is ${isOn ? "on" : "off"}.`);
   }
 
   function handleToggleExperimentalCheckpoints() {
@@ -4619,6 +4648,11 @@ export function renderApp(rootElement: HTMLElement) {
         elements,
         `Camera: ${angleLabel}. Seed used: ${settings.seed}. Source uploaded as ${sourceImageName}. Workflow: ${buildResult.preset.id}.`
       );
+
+      if (autoImportFlags.isOn("camera-angle")) {
+        setCameraAngleStatus(elements, "New view ready. Auto-importing...", "idle");
+        await handleImportCameraAngle();
+      }
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
         showGenerationCancelled("camera-angle");
@@ -5646,6 +5680,11 @@ export function renderApp(rootElement: HTMLElement) {
             : ""
         ].filter(Boolean).join(" ")
       );
+
+      if (autoImportFlags.isOn("outpaint")) {
+        setOutpaintStatus(elements, "Outpaint complete. Auto-importing...", "idle");
+        await handleImportOutpaint();
+      }
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
         showGenerationCancelled("outpaint");
@@ -5963,6 +6002,11 @@ export function renderApp(rootElement: HTMLElement) {
         elements,
         `Seed used: ${buildResult.seed}. Source uploaded as ${sourceImageName}. Workflow: ${buildResult.preset.id}.`
       );
+
+      if (autoImportFlags.isOn("sketch-to-image")) {
+        setSketchStatus(elements, "Sketch to Image complete. Auto-importing...", "idle");
+        await handleImportSketch();
+      }
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
         showGenerationCancelled("sketch-to-image");
@@ -6227,6 +6271,11 @@ export function renderApp(rootElement: HTMLElement) {
         elements,
         `Seed used: ${buildResult.seed}. Reference uploaded as ${sourceImageName}. Workflow: ${buildResult.preset.id}.`
       );
+
+      if (autoImportFlags.isOn("style-reference")) {
+        setStyleReferenceStatus(elements, "Style Reference complete. Auto-importing...", "idle");
+        await handleImportStyleReference();
+      }
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
         showGenerationCancelled("style-reference");
@@ -6653,6 +6702,11 @@ export function renderApp(rootElement: HTMLElement) {
           buildResult.preset.id === "multi-reference-flux2-klein" ? " Faces are re-imagined rather than reproduced." : ""
         }`
       );
+
+      if (autoImportFlags.isOn("multi-reference")) {
+        setMultiReferenceStatus(elements, "Composition complete. Auto-importing...", "idle");
+        await handleImportMultiReference();
+      }
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
         showGenerationCancelled("multi-reference");
@@ -6939,6 +6993,11 @@ export function renderApp(rootElement: HTMLElement) {
         elements,
         `${layerCount} layers plus the reassembled picture. The count is a ceiling: empty ones are left out on import, and a close-up cannot be separated at all. Seed used: ${buildResult.seed}. Workflow: ${buildResult.preset.id}.`
       );
+
+      if (autoImportFlags.isOn("unflatten")) {
+        setUnflattenStatus(elements, "Unflatten complete. Auto-importing...", "idle");
+        await handleImportUnflatten();
+      }
     } catch (caughtError) {
       if (isGenerationCancelledError(caughtError)) {
         showGenerationCancelled("unflatten");
