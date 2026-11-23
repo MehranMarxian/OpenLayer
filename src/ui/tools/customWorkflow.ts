@@ -2,6 +2,7 @@ import { isGenerationCancelledError } from "../../comfy/generationCancel";
 import {
   chooseResultNode,
   fitSize,
+  FoundTargets,
   ImageSlot,
   resolveTargets,
   ResolvedImageSlot,
@@ -266,6 +267,111 @@ export function describeResultChoice(workflow: ComfyWorkflow, choice: ResultChoi
   }
   if (choice.imageCount > 1) lines.push(`${picked} returned ${choice.imageCount} pictures. The first is used.`);
   return lines;
+}
+
+// ---------------------------------------------------------------------------
+// The screen (PR 3). Pure, so App.ts only copies these into elements.
+// ---------------------------------------------------------------------------
+
+/** The image picker's value for "send no layer" (TargetChoice.keepImages). Not a node id ComfyUI can produce. */
+export const KEEP_IMAGES_OPTION = "keep-workflow-images";
+
+export type PickerOption = Readonly<{ value: string; label: string }>;
+/** Options for one of the two static selects; the first option (value "") means automatic, or "choose" when nothing is. */
+export type TargetPicker = Readonly<{ options: readonly PickerOption[] }>;
+export type TargetPickers = Readonly<{ prompt: TargetPicker | null; image: TargetPicker | null }>;
+
+/**
+ * The two pickers for a workflow. The prompt picker is shown only when there
+ * is a choice to make (several candidates, or none automatic). The image
+ * picker is shown whenever the graph has a slot, because "Keep the workflow's
+ * own images" is always a choice (Mehran's call for v0.50).
+ */
+export function buildTargetPickers(found: FoundTargets): TargetPickers {
+  const promptCandidates = found.prompt.candidates;
+  const auto = found.prompt.auto;
+  const prompt: TargetPicker | null =
+    !promptCandidates.length || (auto !== null && promptCandidates.length <= 1)
+      ? null
+      : {
+          options: [
+            { value: "", label: auto === null ? "Choose a node..." : `Automatic: ${auto.map((c) => c.label).join(", ")}` },
+            ...promptCandidates.map((c) => ({ value: c.id, label: c.label }))
+          ]
+        };
+
+  const image: TargetPicker | null = found.image.length
+    ? {
+        options: [
+          { value: "", label: found.imageAuto ? `Automatic: ${found.imageAuto.label}` : "Choose a Load Image..." },
+          ...found.image.map((slot) => ({ value: slot.id, label: `${slot.label}, used as ${slot.role}` })),
+          { value: KEEP_IMAGES_OPTION, label: "Keep the workflow's own images" }
+        ]
+      }
+    : null;
+
+  return { prompt, image };
+}
+
+/** Same options, same order: the pickers on screen still describe this workflow. */
+export function pickerSignature(pickers: TargetPickers): string {
+  const values = (picker: TargetPicker | null) => (picker ? picker.options.map((option) => option.value) : null);
+  return JSON.stringify([values(pickers.prompt), values(pickers.image)]);
+}
+
+/** The two select values as the finder's choice. An empty value is "automatic". */
+export function readTargetChoice(promptValue: string, imageValue: string): TargetChoice {
+  return {
+    prompt: promptValue || undefined,
+    image: imageValue && imageValue !== KEEP_IMAGES_OPTION ? imageValue : undefined,
+    keepImages: imageValue === KEEP_IMAGES_OPTION
+  };
+}
+
+export type CustomRunView = Readonly<{
+  status: string;
+  tone: "idle" | "ready" | "error";
+  /** The Inputs summary after the run; empty keeps what is on screen. */
+  inputs: readonly string[];
+  /** Diagnostics line: what was imported and what was left out. */
+  diagnostics: string;
+  /** Error box text; empty hides it. */
+  error: string;
+  /** Which picker needs the artist before the next Run. */
+  needs: "prompt" | "image" | null;
+}>;
+
+/** What the screen shows for each outcome. */
+export function describeCustomRunOutcome<TResult>(outcome: CustomRunOutcome<TResult>): CustomRunView {
+  switch (outcome.kind) {
+    case "choose":
+      return {
+        status: outcome.choose === "prompt" ? "Choose where the prompt goes." : "Choose where the image goes.",
+        tone: "error",
+        inputs: [],
+        diagnostics:
+          outcome.choose === "prompt"
+            ? `Several nodes could take the prompt (${outcome.candidates.map((c) => c.label).join(", ")}). Pick one under Inputs, then click Run Workflow again.`
+            : `Several Load Image nodes could take the image (${outcome.candidates.map((c) => c.label).join(", ")}). Pick one under Inputs, or keep the workflow's own images, then click Run Workflow again.`,
+        error: "",
+        needs: outcome.choose
+      };
+    case "refused":
+      return { status: "Workflow not run.", tone: "error", inputs: [], diagnostics: "", error: outcome.message, needs: null };
+    case "failed":
+      return { status: "Workflow failed.", tone: "error", inputs: [], diagnostics: "", error: outcome.message, needs: null };
+    case "cancelled":
+      return { status: "Generation cancelled.", tone: "idle", inputs: [], diagnostics: "", error: "", needs: null };
+    case "done":
+      return {
+        status: "Workflow result ready.",
+        tone: "ready",
+        inputs: outcome.inputs,
+        diagnostics: outcome.output.length ? outcome.output.join(" ") : "Click Import to Layers to place the result.",
+        error: "",
+        needs: null
+      };
+  }
 }
 
 const NO_NEW_PICTURE =

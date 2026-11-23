@@ -2,17 +2,22 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { createGenerationCancelledError } from "../../src/comfy/generationCancel";
-import { fitSize, resolveTargets } from "../../src/comfy/customWorkflow/targets";
+import { findTargets, fitSize, resolveTargets } from "../../src/comfy/customWorkflow/targets";
 import { ComfyHistoryItem, ComfyWorkflow, GeneratedImageResult } from "../../src/comfy/types";
 import { explainWorkflowRejection, markExplainedRejection, parseComfyRejectionBody } from "../../src/comfy/workflowRejection";
 import { createGenerationController, GenerationPipelineMessages } from "../../src/ui/generationController";
 import {
+  buildTargetPickers,
   CUSTOM_WORKFLOW_WARNING,
   CustomRunDeps,
   CustomRunInput,
   describeCustomInputs,
+  describeCustomRunOutcome,
   findLocalRefusal,
+  KEEP_IMAGES_OPTION,
+  pickerSignature,
   prepareCustomWorkflow,
+  readTargetChoice,
   runCustomWorkflow
 } from "../../src/ui/tools/customWorkflow";
 import { createOpenLayerError } from "../../src/utils/errors";
@@ -413,5 +418,76 @@ describe("custom workflow run: the pure pieces", () => {
     for (const sentence of sentences) {
       expect(sentence).not.toMatch(/`|--|\*\*|Photoshop (layer|panel|plugin)/i);
     }
+  });
+});
+
+describe("custom workflow run: what the screen shows (PR 3)", () => {
+  it("offers the image picker whenever there is a slot, with Keep last", () => {
+    const one = buildTargetPickers(findTargets(ONE_REWARD));
+    expect(one.prompt).toBeNull(); // one prompt node, found automatically: nothing to choose
+    expect(one.image?.options).toStrictEqual([
+      { value: "", label: "Automatic: Load Image (#17)" },
+      { value: "17", label: "Load Image (#17), used as pixels" },
+      { value: KEEP_IMAGES_OPTION, label: "Keep the workflow's own images" }
+    ]);
+
+    const two = buildTargetPickers(findTargets(bundled("inpaint-basic")));
+    expect(two.image?.options[0]).toStrictEqual({ value: "", label: "Choose a Load Image..." });
+    expect(two.image?.options.map((o) => o.value)).toStrictEqual(["", "12", "10", KEEP_IMAGES_OPTION]);
+
+    expect(buildTargetPickers(findTargets(bundled("txt2img-basic"))).image).toBeNull();
+  });
+
+  it("offers the prompt picker when there is a choice to make, starting on the automatic pick", () => {
+    const sam = buildTargetPickers(findTargets(bundled("select-sam31")));
+    expect(sam.prompt?.options[0]).toStrictEqual({ value: "", label: "Choose a node..." });
+    expect(sam.prompt?.options.map((o) => o.value)).toStrictEqual(["", "12"]);
+
+    // Positive and negative encoders: the automatic pick is shown first, and
+    // the artist can still correct it on a graph the finder read wrong.
+    const txt = buildTargetPickers(findTargets(bundled("txt2img-basic")));
+    expect(txt.prompt?.options[0].label).toBe("Automatic: Positive Prompt (#6)");
+    expect(txt.prompt?.options.map((o) => o.value)).toStrictEqual(["", "6", "7"]);
+
+    // One text node, found automatically: nothing to choose.
+    expect(buildTargetPickers(findTargets(ONE_REWARD)).prompt).toBeNull();
+  });
+
+  it("reads the picks back as the finder's choice", () => {
+    expect(readTargetChoice("", "")).toStrictEqual({ prompt: undefined, image: undefined, keepImages: false });
+    expect(readTargetChoice("12", "10")).toStrictEqual({ prompt: "12", image: "10", keepImages: false });
+    expect(readTargetChoice("", KEEP_IMAGES_OPTION)).toStrictEqual({ prompt: undefined, image: undefined, keepImages: true });
+  });
+
+  it("tells two workflows' pickers apart even when node ids repeat", () => {
+    const a = pickerSignature(buildTargetPickers(findTargets(bundled("inpaint-basic"))));
+    const b = pickerSignature(buildTargetPickers(findTargets(bundled("inpaint-lama"))));
+    const c = pickerSignature(buildTargetPickers(findTargets(bundled("img2img-basic"))));
+    expect(a).not.toBe(c);
+    expect(a).toBe(pickerSignature(buildTargetPickers(findTargets(bundled("inpaint-basic")))));
+    expect(typeof b).toBe("string");
+  });
+
+  it("maps every outcome to a status, a tone and what needs the artist", () => {
+    expect(describeCustomRunOutcome({ kind: "choose", choose: "image", candidates: findTargets(bundled("inpaint-basic")).image })).toMatchObject({
+      status: "Choose where the image goes.",
+      tone: "error",
+      needs: "image"
+    });
+    expect(describeCustomRunOutcome({ kind: "refused", message: "No." })).toMatchObject({ tone: "error", error: "No.", needs: null });
+    expect(describeCustomRunOutcome({ kind: "failed", message: "Bad.", error: new Error("x") })).toMatchObject({ status: "Workflow failed.", error: "Bad." });
+    expect(describeCustomRunOutcome({ kind: "cancelled" })).toMatchObject({ status: "Generation cancelled.", tone: "idle" });
+    const done = describeCustomRunOutcome({
+      kind: "done",
+      result: {},
+      inputs: ["Prompt goes to: A (#1)."],
+      output: [],
+      submitted: {},
+      uploadedImageName: null,
+      seedsWritten: 1
+    });
+    expect(done).toMatchObject({ status: "Workflow result ready.", tone: "ready", inputs: ["Prompt goes to: A (#1)."] });
+    expect(done.diagnostics).toBe("Click Import to Layers to place the result.");
+    for (const view of [done]) expect(`${view.status} ${view.diagnostics}`).not.toMatch(/`|--/);
   });
 });
