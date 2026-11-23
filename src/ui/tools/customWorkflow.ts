@@ -184,6 +184,9 @@ export function describeCustomInputs(
     }
   } else if (!targets.image.length) {
     lines.push(context.source ? "This workflow takes no image, so the captured one is not sent." : "This workflow takes no image.");
+  } else if (context.source) {
+    // The artist picked "keep the workflow's own images" (TargetChoice.keepImages).
+    lines.push("The workflow keeps its own images, so the captured one is not sent.");
   }
 
   for (const slot of targets.image.filter((entry) => entry.source === "keep")) {

@@ -205,6 +205,27 @@ describe("target finder, OpenLayer additions", () => {
     expect(findTargets(upscale).prompt.auto).toStrictEqual([]);
   });
 
+  it("keepImages sends no layer, for one slot or several, and still asks about the prompt", () => {
+    const one = resolveTargets(PLAIN, { keepImages: true });
+    expect(one.ok && one.image.map((s) => [s.id, s.source])).toStrictEqual([["4", "keep"]]);
+
+    const two = clone(PLAIN);
+    two["8"] = { class_type: "LoadImage", inputs: { image: "b.png" } };
+    two["9"] = { class_type: "VAEEncode", inputs: { pixels: ["8", 0] } };
+    const kept = resolveTargets(two, { keepImages: true });
+    expect(kept.ok && kept.image.map((s) => s.source)).toStrictEqual(["keep", "keep"]);
+    // keepImages wins over a slot id sent with it.
+    const both = resolveTargets(two, { keepImages: true, image: "8" });
+    expect(both.ok && both.image.every((s) => s.source === "keep")).toBe(true);
+
+    const prompts = clone(PLAIN);
+    prompts["9"] = { class_type: "CLIPTextEncode", inputs: { text: "second" } };
+    prompts["7"].inputs.positive = ["10", 0];
+    prompts["10"] = { class_type: "ConditioningCombine", inputs: { conditioning_1: ["5", 0], conditioning_2: ["9", 0] } };
+    const asked = resolveTargets(prompts, { keepImages: true });
+    expect(!asked.ok && asked.choose).toBe("prompt");
+  });
+
   it("two marked image nodes are as ambiguous as two unmarked ones", () => {
     const two = clone(PLAIN);
     two["4"]._meta = { title: "OpenLayer A" };
