@@ -159,7 +159,10 @@ export const BUSY_ALWAYS_DISABLED_ACTIONS: readonly ActionElementKey[] = [
   "exportMaskFileButton",
   "exportMaskComfyButton",
   // No source gate: a workflow may take no image, or keep its own.
-  "runCustomWorkflowButton"
+  "runCustomWorkflowButton",
+  // Shares the run's status bar and error box, so it must not write into
+  // them while a run is reporting there.
+  "checkCustomWorkflowButton"
 ];
 
 // These actions were part of the old panel-wide busy lock. They deliberately

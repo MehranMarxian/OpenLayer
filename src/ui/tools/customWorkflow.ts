@@ -132,8 +132,28 @@ function labels(workflow: ComfyWorkflow, targets: readonly { id: string }[]): st
   return targets.map((target) => nodeLabel(workflow, target.id)).join(", ");
 }
 
+/**
+ * True when every prompt target's own text is empty. OpenLayer's preset
+ * graphs ship that way (the panel always writes the prompt), so a pasted copy
+ * with an empty prompt box would send an empty prompt.
+ */
+function ownPromptIsEmpty(workflow: ComfyWorkflow, targets: ResolvedTargetSet): boolean {
+  return targets.prompt.length > 0 && targets.prompt.every((target) => {
+    const own = workflow[target.id]?.inputs[target.key];
+    return typeof own !== "string" || !own.trim();
+  });
+}
+
 /** What stops the run before anything is sent; null when nothing does. */
-export function findLocalRefusal(workflow: ComfyWorkflow, targets: ResolvedTargetSet, source: CustomRunSource | null): string | null {
+export function findLocalRefusal(
+  workflow: ComfyWorkflow,
+  targets: ResolvedTargetSet,
+  source: CustomRunSource | null,
+  prompt = ""
+): string | null {
+  if (!prompt.trim() && ownPromptIsEmpty(workflow, targets)) {
+    return "Type a prompt first. This workflow's own prompt is empty.";
+  }
   const layerSlot = targets.image.find((slot) => slot.source === "layer");
   if (layerSlot && !source) {
     return `Capture a layer, the canvas or a selection first. This workflow sends it to ${nodeLabel(workflow, layerSlot.id)}.`;
@@ -160,7 +180,13 @@ export function describeCustomInputs(
 
   if (targets.prompt.length) {
     lines.push(`Prompt goes to: ${labels(workflow, targets.prompt)}.`);
-    if (!context.prompt.trim()) lines.push("The prompt box is empty, so the workflow's own prompt is used.");
+    if (!context.prompt.trim()) {
+      lines.push(
+        ownPromptIsEmpty(workflow, targets)
+          ? "The prompt box is empty, and so is the workflow's own prompt. Type a prompt."
+          : "The prompt box is empty, so the workflow's own prompt is used."
+      );
+    }
   } else {
     lines.push("This workflow has no prompt input, so the prompt box is not used.");
   }
@@ -276,8 +302,15 @@ export function describeResultChoice(workflow: ComfyWorkflow, choice: ResultChoi
 /** The image picker's value for "send no layer" (TargetChoice.keepImages). Not a node id ComfyUI can produce. */
 export const KEEP_IMAGES_OPTION = "keep-workflow-images";
 
+/**
+ * The first option of both pickers: automatic, or "choose" when nothing is.
+ * Not "": the panel's readSelectValue falls back to an option's label when its
+ * value is empty, which would read "Automatic: ..." as a pick.
+ */
+export const AUTO_TARGET_OPTION = "openlayer-automatic";
+
 export type PickerOption = Readonly<{ value: string; label: string }>;
-/** Options for one of the two static selects; the first option (value "") means automatic, or "choose" when nothing is. */
+/** Options for one of the two static selects; the first option (AUTO_TARGET_OPTION) means automatic, or "choose" when nothing is. */
 export type TargetPicker = Readonly<{ options: readonly PickerOption[] }>;
 export type TargetPickers = Readonly<{ prompt: TargetPicker | null; image: TargetPicker | null }>;
 
@@ -295,7 +328,7 @@ export function buildTargetPickers(found: FoundTargets): TargetPickers {
       ? null
       : {
           options: [
-            { value: "", label: auto === null ? "Choose a node..." : `Automatic: ${auto.map((c) => c.label).join(", ")}` },
+            { value: AUTO_TARGET_OPTION, label: auto === null ? "Choose a node..." : `Automatic: ${auto.map((c) => c.label).join(", ")}` },
             ...promptCandidates.map((c) => ({ value: c.id, label: c.label }))
           ]
         };
@@ -303,7 +336,7 @@ export function buildTargetPickers(found: FoundTargets): TargetPickers {
   const image: TargetPicker | null = found.image.length
     ? {
         options: [
-          { value: "", label: found.imageAuto ? `Automatic: ${found.imageAuto.label}` : "Choose a Load Image..." },
+          { value: AUTO_TARGET_OPTION, label: found.imageAuto ? `Automatic: ${found.imageAuto.label}` : "Choose a Load Image..." },
           ...found.image.map((slot) => ({ value: slot.id, label: `${slot.label}, used as ${slot.role}` })),
           { value: KEEP_IMAGES_OPTION, label: "Keep the workflow's own images" }
         ]
@@ -313,17 +346,26 @@ export function buildTargetPickers(found: FoundTargets): TargetPickers {
   return { prompt, image };
 }
 
-/** Same options, same order: the pickers on screen still describe this workflow. */
+/**
+ * Same options, same labels, same order: the pickers on screen still describe
+ * this workflow. Labels count because two graphs can share node ids and still
+ * be different graphs; a pick must not survive under a changed title.
+ */
 export function pickerSignature(pickers: TargetPickers): string {
-  const values = (picker: TargetPicker | null) => (picker ? picker.options.map((option) => option.value) : null);
-  return JSON.stringify([values(pickers.prompt), values(pickers.image)]);
+  const entries = (picker: TargetPicker | null) => (picker ? picker.options.map((option) => [option.value, option.label]) : null);
+  return JSON.stringify([entries(pickers.prompt), entries(pickers.image)]);
 }
 
-/** The two select values as the finder's choice. An empty value is "automatic". */
+/** True when the select holds a real pick, not the automatic first option. */
+export function isTargetPick(value: string): boolean {
+  return Boolean(value) && value !== AUTO_TARGET_OPTION;
+}
+
+/** The two select values as the finder's choice. AUTO_TARGET_OPTION (or nothing) is "automatic". */
 export function readTargetChoice(promptValue: string, imageValue: string): TargetChoice {
   return {
-    prompt: promptValue || undefined,
-    image: imageValue && imageValue !== KEEP_IMAGES_OPTION ? imageValue : undefined,
+    prompt: isTargetPick(promptValue) ? promptValue : undefined,
+    image: isTargetPick(imageValue) && imageValue !== KEEP_IMAGES_OPTION ? imageValue : undefined,
     keepImages: imageValue === KEEP_IMAGES_OPTION
   };
 }
@@ -396,7 +438,7 @@ export async function runCustomWorkflow<TResult>(
       : { kind: "choose", choose: "image", candidates: resolved.candidates };
   }
 
-  const refusal = findLocalRefusal(input.workflow, resolved, input.source);
+  const refusal = findLocalRefusal(input.workflow, resolved, input.source, input.prompt);
   if (refusal) return { kind: "refused", message: refusal };
 
   const inputs = describeCustomInputs(input.workflow, resolved, { prompt: input.prompt, source: input.source });

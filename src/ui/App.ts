@@ -271,10 +271,12 @@ import {
 import { decideSelectionOutcome, parseSelectionReport } from "./tools/selectByText";
 import { describeCameraAngle, readCameraAngleChoice } from "./tools/cameraAngle";
 import {
+  AUTO_TARGET_OPTION,
   buildTargetPickers,
   CustomRunSource,
   describeCustomInputs,
   describeCustomRunOutcome,
+  isTargetPick,
   pickerSignature,
   readTargetChoice,
   runCustomWorkflow,
@@ -7308,8 +7310,8 @@ export function renderApp(rootElement: HTMLElement) {
 
   function readCustomWorkflowChoice() {
     return readTargetChoice(
-      elements.customWorkflowPromptTargetField.hidden ? "" : readSelectValue(elements.customWorkflowPromptTarget),
-      elements.customWorkflowImageTargetField.hidden ? "" : readSelectValue(elements.customWorkflowImageTarget)
+      elements.customWorkflowPromptTargetField.hidden ? "" : readTargetPickerValue(elements.customWorkflowPromptTarget),
+      elements.customWorkflowImageTargetField.hidden ? "" : readTargetPickerValue(elements.customWorkflowImageTarget)
     );
   }
 
@@ -7427,8 +7429,8 @@ export function renderApp(rootElement: HTMLElement) {
     // could name a node in this one. If the options changed and the artist
     // had picked something, stop and let them look again.
     const hadPicks =
-      (!elements.customWorkflowPromptTargetField.hidden && readSelectValue(elements.customWorkflowPromptTarget) !== "") ||
-      (!elements.customWorkflowImageTargetField.hidden && readSelectValue(elements.customWorkflowImageTarget) !== "");
+      (!elements.customWorkflowPromptTargetField.hidden && isTargetPick(readTargetPickerValue(elements.customWorkflowPromptTarget))) ||
+      (!elements.customWorkflowImageTargetField.hidden && isTargetPick(readTargetPickerValue(elements.customWorkflowImageTarget)));
 
     if (refreshCustomWorkflowInputs(parsed.workflow) && hadPicks) {
       setCustomWorkflowStatus(elements, "The workflow changed, so the Inputs were reset.", "error");
@@ -7439,12 +7441,11 @@ export function renderApp(rootElement: HTMLElement) {
     const workflow = parsed.workflow;
     const choice = readCustomWorkflowChoice();
     const prompt = readTextareaValue(elements.customWorkflowPrompt);
-    const { settings, warnings } = validateCustomWorkflowSettings({ seed: elements.customWorkflowSeed.value });
+    const seedText = elements.customWorkflowSeed.value;
     const capturedSource = customWorkflowSource;
     const resolved = resolveTargets(workflow, choice);
     const usesSource = Boolean(capturedSource) && resolved.ok && resolved.image.some((slot) => slot.source === "layer");
 
-    setCustomWorkflowResult(null);
     busyTool = "custom-workflow";
     isBusy = true;
     syncBusy();
@@ -7453,6 +7454,9 @@ export function renderApp(rootElement: HTMLElement) {
     setCustomWorkflowStatus(elements, "Preparing workflow...", "idle");
 
     try {
+      // Inside the try: a seed that is not a whole number throws here, and
+      // lands in the error box like every other failure.
+      const { settings, warnings } = validateCustomWorkflowSettings({ seed: seedText });
       const importBounds = usesSource && capturedSource ? capturedSource.captureBounds ?? null : null;
       const client = new ComfyClient(elements.serverUrl.value);
 
@@ -7479,8 +7483,11 @@ export function renderApp(rootElement: HTMLElement) {
             }
           },
           uploadImage: (blob, filename) => client.uploadImage(blob, filename),
-          run: (preparedWorkflow, pickOutput) =>
-            generation.runPipeline({
+          run: (preparedWorkflow, pickOutput) => {
+            // Cleared only now: a Run that asks or is refused keeps the
+            // previous, possibly not yet imported, result.
+            setCustomWorkflowResult(null);
+            return generation.runPipeline({
               toolType: "custom-workflow",
               client,
               workflow: preparedWorkflow,
@@ -7516,7 +7523,8 @@ export function renderApp(rootElement: HTMLElement) {
                   experimental: true
                 });
               }
-            }),
+            });
+          },
           progress: (message) => {
             setCustomWorkflowStatus(elements, message, "idle");
             setCustomWorkflowProgressPreview(elements, message);
@@ -10778,7 +10786,7 @@ function renderWorkflowPresets(elements: AppElements) {
  */
 function fillTargetPicker(field: HTMLElement, select: HTMLSelectElement, picker: TargetPicker | null, reset: boolean) {
   field.hidden = !picker;
-  const previous = reset ? "" : readSelectValue(select);
+  const previous = reset ? AUTO_TARGET_OPTION : readTargetPickerValue(select);
 
   while (select.firstChild) {
     select.removeChild(select.firstChild);
@@ -10791,8 +10799,22 @@ function fillTargetPicker(field: HTMLElement, select: HTMLSelectElement, picker:
     select.appendChild(element);
   }
 
-  select.value = picker?.options.some((option) => option.value === previous) ? previous : "";
+  select.value = picker?.options.some((option) => option.value === previous) ? previous : AUTO_TARGET_OPTION;
   select.dispatchEvent(new Event(PICKER_SYNC_EVENT));
+}
+
+/**
+ * A target picker's value, never its label: readSelectValue falls back to an
+ * option's text, which here would read "Automatic: ..." as a node id.
+ */
+function readTargetPickerValue(select: HTMLSelectElement): string {
+  const direct = typeof select.value === "string" ? select.value.trim() : "";
+  if (direct) {
+    return direct;
+  }
+
+  const option = select.options?.[select.selectedIndex] ?? select.options?.[0];
+  return option?.value?.trim() ?? "";
 }
 
 function renderCustomWorkflowReport(elements: AppElements, report: CustomWorkflowReport) {

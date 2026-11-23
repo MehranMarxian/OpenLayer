@@ -150,8 +150,9 @@ describe("busy-state tables", () => {
     // v0.36.0 with Capture Selection; 41 after v0.35.0 removed the spike).
     // The per-feature breakdown that used to sit here had drifted two behind
     // the assertion, so it is not repeated; the list above is the record.
-    // 48 since v0.50 added Custom Workflow's Run and three captures.
-    expect(plainActions).toHaveLength(48);
+    // 49 since v0.50 added Custom Workflow's Run, its Check (now locked while
+    // busy, because it shares the run's status bar) and three captures.
+    expect(plainActions).toHaveLength(49);
     // 25 = 20, plus Layer Maps' Generate and Import, plus Select by Text's
     // Select (it has no Import: the selection is applied by the run), plus
     // Camera Angle's Generate and Import, plus Custom Workflow's Import (its
@@ -231,6 +232,7 @@ describe("busy-state tables", () => {
       "generateLayerMapsButton",
       "importLayerMapsButton",
       "runCustomWorkflowButton",
+      "checkCustomWorkflowButton",
       "importCustomWorkflowButton",
       "checkButton",
       "findPortButton",
