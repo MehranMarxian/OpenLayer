@@ -297,6 +297,61 @@ export type HistoryEntry = {
   outputs?: Record<string, { images?: HistoryImage[] } | undefined>;
 };
 
+export type ResultChoice = {
+  /** The output node whose first image is imported. */
+  nodeId: string;
+  tier: "saved" | "preview";
+  /** Placeable images that node returned; only the first is imported. */
+  imageCount: number;
+  /** Other nodes in the same tier that also returned an image. */
+  others: string[];
+  /** Nodes left out because they only show the workflow's own input image. */
+  skippedInputPreviews: string[];
+};
+
+/** True for a node whose every linked input comes straight from an image loader: a before view, not a result. */
+function showsOnlyAnInput(workflow: ComfyWorkflow, nodeId: string): boolean {
+  const links = Object.values(workflow[nodeId]?.inputs ?? {}).filter(isLink);
+  return links.length > 0 && links.every(([origin]) => /LoadImage/i.test(workflow[origin]?.class_type ?? ""));
+}
+
+/**
+ * OpenLayer addition. Which output node to import from: saved images first,
+ * previews last, as resultImages() orders them, and never a node that only
+ * shows the input. The stock OneReward template is why: its SaveImage is
+ * bypassed and one of its two previews is of the input image, so "first
+ * preview" would be the artist's own picture coming back.
+ *
+ * History lists outputs by node id (JavaScript orders integer keys
+ * ascending), not by execution order, so with several candidates the lowest
+ * id wins. `others` and `imageCount` let the panel say so. Null when nothing
+ * placeable is left.
+ */
+export function chooseResultNode(workflow: ComfyWorkflow, historyEntry: HistoryEntry): ResultChoice | null {
+  const saved: Array<{ nodeId: string; count: number }> = [];
+  const previews: Array<{ nodeId: string; count: number }> = [];
+  const skippedInputPreviews: string[] = [];
+  for (const [nodeId, output] of Object.entries(historyEntry.outputs ?? {})) {
+    const images = (output?.images ?? []).filter((image) => PLACEABLE.test(image.filename));
+    if (!images.length) continue;
+    if (showsOnlyAnInput(workflow, nodeId)) {
+      skippedInputPreviews.push(nodeId);
+      continue;
+    }
+    (images.some((image) => image.type === "output") ? saved : previews).push({ nodeId, count: images.length });
+  }
+  const tier = saved.length ? "saved" : "preview";
+  const pool = saved.length ? saved : previews;
+  if (!pool.length) return null;
+  return {
+    nodeId: pool[0].nodeId,
+    tier,
+    imageCount: pool[0].count,
+    others: pool.slice(1).map((entry) => entry.nodeId),
+    skippedInputPreviews
+  };
+}
+
 /** Images to place from a finished /history entry: saved images, else previews. */
 export function resultImages(historyEntry: HistoryEntry): HistoryImage[] {
   const saved: HistoryImage[] = [];

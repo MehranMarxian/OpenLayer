@@ -35,6 +35,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  chooseResultNode,
   findTargets,
   fitSize,
   FoundTargets,
@@ -210,6 +211,34 @@ describe("target finder, OpenLayer additions", () => {
     two["8"] = { class_type: "LoadImage", _meta: { title: "OpenLayer B" }, inputs: { image: "b.png" } };
     two["9"] = { class_type: "VAEEncode", inputs: { pixels: ["8", 0] } };
     expect(findTargets(two).imageAuto).toBeNull();
+  });
+
+  it("chooseResultNode: saved before previews, never a preview of the input, lowest id first with the rest named", () => {
+    const img = (filename: string, type: string) => ({ filename, subfolder: "", type });
+    const workflow: ComfyWorkflow = {
+      "1": { class_type: "LoadImage", inputs: { image: "in.png" } },
+      "2": { class_type: "PreviewImage", inputs: { images: ["1", 0] } },
+      "3": { class_type: "PreviewImage", inputs: { images: ["5", 0] } },
+      "4": { class_type: "SaveImage", inputs: { images: ["5", 0], filename_prefix: "a" } },
+      "5": { class_type: "VAEDecode", inputs: { samples: ["6", 0] } },
+      "7": { class_type: "SaveImage", inputs: { images: ["5", 0], filename_prefix: "b" } }
+    };
+    const outputs = {
+      "2": { images: [img("input.png", "temp")] },
+      "3": { images: [img("preview.png", "temp")] },
+      "4": { images: [img("a1.png", "output"), img("a2.png", "output"), img("clip.mp4", "output")] },
+      "7": { images: [img("b1.png", "output")] }
+    };
+    expect(chooseResultNode(workflow, { outputs })).toStrictEqual({ nodeId: "4", tier: "saved", imageCount: 2, others: ["7"], skippedInputPreviews: ["2"] });
+    expect(chooseResultNode(workflow, { outputs: { "2": outputs["2"], "3": outputs["3"] } })).toStrictEqual({
+      nodeId: "3",
+      tier: "preview",
+      imageCount: 1,
+      others: [],
+      skippedInputPreviews: ["2"]
+    });
+    expect(chooseResultNode(workflow, { outputs: { "2": outputs["2"] } })).toBeNull();
+    expect(chooseResultNode(workflow, { outputs: {} })).toBeNull();
   });
 
   it("roles sort naturally without Intl", () => {
