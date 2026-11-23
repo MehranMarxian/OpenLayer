@@ -1,0 +1,234 @@
+{
+  "17": {
+    "inputs": {
+      "image": "image_flux.1_fill_dev_OneReward_input_image.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.59"
+    }
+  },
+  "105": {
+    "inputs": {
+      "images": [
+        "108:8",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Preview Image",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.59"
+    }
+  },
+  "121": {
+    "inputs": {
+      "images": [
+        "17",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Preview Image",
+      "cnr_id": "comfy-core",
+      "ver": "0.4.0"
+    }
+  },
+  "108:26": {
+    "inputs": {
+      "guidance": 30,
+      "conditioning": [
+        "108:23",
+        0
+      ]
+    },
+    "class_type": "FluxGuidance",
+    "_meta": {
+      "title": "FluxGuidance",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.59"
+    }
+  },
+  "108:46": {
+    "inputs": {
+      "conditioning": [
+        "108:23",
+        0
+      ]
+    },
+    "class_type": "ConditioningZeroOut",
+    "_meta": {
+      "title": "Conditioning Zero Out",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.59"
+    }
+  },
+  "108:39": {
+    "inputs": {
+      "strength": 1,
+      "model": [
+        "108:100",
+        0
+      ]
+    },
+    "class_type": "DifferentialDiffusion",
+    "_meta": {
+      "title": "Differential Diffusion",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.59"
+    }
+  },
+  "108:8": {
+    "inputs": {
+      "samples": [
+        "108:3",
+        0
+      ],
+      "vae": [
+        "108:32",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.59"
+    }
+  },
+  "108:32": {
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.59"
+    }
+  },
+  "108:31": {
+    "inputs": {
+      "unet_name": "flux.1-fill-dev-OneReward-transformer_fp8.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load Diffusion Model",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.59"
+    }
+  },
+  "108:34": {
+    "inputs": {
+      "clip_name1": "clip_l.safetensors",
+      "clip_name2": "t5xxl_fp16.safetensors",
+      "type": "flux",
+      "device": "default"
+    },
+    "class_type": "DualCLIPLoader",
+    "_meta": {
+      "title": "Load CLIP (Dual)",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.59"
+    }
+  },
+  "108:23": {
+    "inputs": {
+      "text": "Remove the girl's hat\n",
+      "clip": [
+        "108:34",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Positive Prompt)",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.59"
+    }
+  },
+  "108:100": {
+    "inputs": {
+      "lora_name": "removal_timestep_alpha-2-1740.safetensors",
+      "strength_model": 1,
+      "model": [
+        "108:31",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "Load LoRA",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.59"
+    }
+  },
+  "108:38": {
+    "inputs": {
+      "noise_mask": true,
+      "positive": [
+        "108:26",
+        0
+      ],
+      "negative": [
+        "108:46",
+        0
+      ],
+      "vae": [
+        "108:32",
+        0
+      ],
+      "pixels": [
+        "17",
+        0
+      ],
+      "mask": [
+        "17",
+        1
+      ]
+    },
+    "class_type": "InpaintModelConditioning",
+    "_meta": {
+      "title": "InpaintModelConditioning",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.59"
+    }
+  },
+  "108:3": {
+    "inputs": {
+      "seed": 75154916226486,
+      "steps": 20,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 1,
+      "model": [
+        "108:39",
+        0
+      ],
+      "positive": [
+        "108:38",
+        0
+      ],
+      "negative": [
+        "108:38",
+        1
+      ],
+      "latent_image": [
+        "108:38",
+        2
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.59"
+    }
+  }
+}
