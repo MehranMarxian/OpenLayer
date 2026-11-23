@@ -171,6 +171,28 @@ describe("custom workflow run: end to end below the panel", () => {
     expect(chosen.submitted[0]["12"].inputs.image).toBe("openlayer-inpaint-mask.png");
   });
 
+  it("keeps the workflow's own image when the artist chooses to, even with one Load Image", async () => {
+    const kept = createHarness();
+    const outcome = await runCustomWorkflow(kept.deps, input({ workflow: ONE_REWARD, source: null, choice: { keepImages: true } }));
+    expect(outcome.kind).toBe("done");
+    expect(kept.calls).toStrictEqual(["online", "nodes", "submit"]); // nothing captured, nothing uploaded
+    expect(kept.submitted[0]["17"].inputs.image).toBe("image_flux.1_fill_dev_OneReward_input_image.png");
+    expect(outcome.kind === "done" && outcome.inputs).toContain(
+      "Load Image (#17) keeps its own image, image_flux.1_fill_dev_OneReward_input_image.png."
+    );
+
+    const captured = createHarness();
+    const withSource = await runCustomWorkflow(captured.deps, input({ workflow: ONE_REWARD, source: selection, choice: { keepImages: true } }));
+    expect(captured.calls).not.toContain("upload");
+    expect(withSource.kind === "done" && withSource.inputs).toContain("The workflow keeps its own images, so the captured one is not sent.");
+
+    // Two slots: keeping both skips the question instead of asking which one.
+    const both = createHarness();
+    const twoSlots = await runCustomWorkflow(both.deps, input({ workflow: bundled("inpaint-basic"), source: null, choice: { keepImages: true } }));
+    expect(twoSlots.kind).toBe("done");
+    expect(both.submitted[0]["10"].inputs.image).toBe(bundled("inpaint-basic")["10"].inputs.image);
+  });
+
   it("asks which node takes the prompt when text nodes feed no sampler", async () => {
     const { deps, calls } = createHarness();
     const outcome = await runCustomWorkflow(deps, input({ workflow: bundled("select-sam31") }));
