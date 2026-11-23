@@ -7416,6 +7416,8 @@ export function renderApp(rootElement: HTMLElement) {
     }
 
     setCustomWorkflowError(elements, "");
+    // The last run's hint would otherwise sit under this run's error.
+    setCustomWorkflowDiagnostics(elements, "");
     const parsed = parseCustomWorkflowText(readTextareaValue(elements.customWorkflowInput));
 
     if (!parsed.ok) {
