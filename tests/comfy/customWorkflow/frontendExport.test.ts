@@ -13,11 +13,18 @@ import { ComfyWorkflow } from "../../../src/comfy/types";
  * subgraph, a bypassed SaveImage and two previews. Provenance in
  * tests/fixtures/customWorkflow/README.md.
  *
- * Finding: 1.57.6 writes `cnr_id` and `ver` (the node pack and its version)
+ * Finding 1: 1.57.6 writes `cnr_id` and `ver` (the node pack and its version)
  * into every node's `_meta`; 1.53.10 did not, and neither does the converter.
- * ComfyUI does not read `_meta` when it executes, so the graph that runs is
- * identical. Everything else matches exactly: ids, classes, titles, every
- * input value and every link.
+ * ComfyUI 0.44.0's core reads `_meta` only for the node title in validation
+ * error messages (execution.py, validate_prompt), so the graph that runs is
+ * the same. Everything else matches exactly: ids, classes, titles, every input
+ * value and every link.
+ *
+ * Finding 2: 1.57.6 saves no `proxyWidgets`. Each widget promoted onto a
+ * subgraph node becomes a real subgraph input, and its value is kept in the
+ * subgraph node's own `widgets_values`, in input order. The converter reads
+ * that through its "older saves" branch, so values convert; `exposed()` finds
+ * nothing, which matters for v0.51's settings, not for v0.50.
  */
 const FIXTURES = resolve(__dirname, "../../fixtures/customWorkflow");
 const read = (path: string) => JSON.parse(readFileSync(resolve(FIXTURES, path), "utf8"));
@@ -56,6 +63,27 @@ describe("converter, exact values: frontend 1.57.6 export", () => {
     const template = read(`${NAME}.template.json`);
     expect(JSON.stringify(template)).not.toBe(JSON.stringify(read(`${NAME}.workflow.json`)));
     expect(convertUiWorkflow(template as UiWorkflow, DEFS, () => 0).prompt).toStrictEqual(withoutPackMeta(EXPORTED));
+  });
+
+  it("1.57.6 promotes widgets as subgraph inputs: values come from the subgraph node, exposed() is empty", () => {
+    const template = read(`${NAME}.template.json`) as UiWorkflow;
+    const saved = read(`${NAME}.workflow.json`) as UiWorkflow;
+    expect(JSON.stringify(saved)).not.toContain("proxyWidgets");
+    expect(convertUiWorkflow(template, DEFS, () => 0).exposed.map((e) => `${e.id}/${e.key}`)).toContain("108:23/text");
+    expect(convertUiWorkflow(saved, DEFS, () => 0).exposed).toStrictEqual([]);
+
+    // An artist's edit on the subgraph node is what converts, not the inner
+    // node's stale copy. (Whether the 1.57.6 frontend queues an edited value
+    // the same way was not checked against the live frontend.)
+    const edited = JSON.parse(JSON.stringify(saved)) as UiWorkflow;
+    const host = edited.nodes.find((node) => node.id === 108);
+    if (!host || !Array.isArray(host.widgets_values)) throw new Error("subgraph node 108 has no widget values");
+    expect(host.widgets_values.slice(0, 2)).toStrictEqual(["Remove the girl's hat\n", 75154916226486]);
+    host.widgets_values[0] = "a red scarf";
+    host.widgets_values[1] = 7;
+    const prompt = convertUiWorkflow(edited, DEFS, () => 0).prompt;
+    expect(prompt["108:23"].inputs.text).toBe("a red scarf");
+    expect(prompt["108:3"].inputs.seed).toBe(7);
   });
 
   it("the finder sends the prompt into the inpaint subgraph's encoder and the layer into the one Load Image", () => {

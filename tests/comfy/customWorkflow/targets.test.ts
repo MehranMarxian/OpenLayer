@@ -2,9 +2,29 @@
  * The unit cases in the first describe block are ported from Geekatplay
  * Photoshop Bridge, tests/workflow.test.js at commit da5c617
  * (https://github.com/GeekatplayStudio/ComfyUI-Photoshop), by Geekatplay Studio -
- * Vladimir Chopine (https://www.geekatplay.com). MIT License, Copyright (c) 2026
- * Geekatplay Studio - Vladimir Chopine; the full notice is in
- * tests/fixtures/customWorkflow/geekatplay/LICENSE and src/comfy/customWorkflow/targets.ts.
+ * Vladimir Chopine (https://www.geekatplay.com).
+ *
+ * MIT License
+ *
+ * Copyright (c) 2026 Geekatplay Studio - Vladimir Chopine
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
  *
  * Changed in the port: the "OpenLayer" title marker replaces Geekatplay's node
  * classes and "Photoshop" titles, an image slot is chosen like the prompt
@@ -263,19 +283,44 @@ const rows = WORKFLOW_PRESETS.map((preset) => {
 const count = (outcomes: Outcome[]) =>
   outcomes.reduce<Record<string, number>>((totals, outcome) => ({ ...totals, [outcome]: (totals[outcome] ?? 0) + 1 }), {});
 
+/**
+ * The 39 presets the v0.50 spike measured. The counts below pin that
+ * measurement.
+ */
+const SPIKE_PRESETS = [
+  "camera-angle-qwen-edit-2511", "edit-flux2-klein", "edit-qwen-image-21", "enhance-prompt-superprompt", "img2img-basic",
+  "img2img-flux2-klein", "img2img-krea2-turbo", "img2img-z-image-turbo", "inpaint-basic", "inpaint-flux-fill-basic",
+  "inpaint-flux-fill-cropstitch", "inpaint-flux2-klein", "inpaint-lama", "inpaint-lama-klein", "layer-maps-depth",
+  "layer-maps-lineart", "layer-maps-normal", "multi-reference-flux2-klein", "multi-reference-qwen-image-21",
+  "outpaint-flux-fill-basic", "prompt-from-layer-florence2", "remove-background-birefnet", "select-sam31",
+  "sketch2img-depth-basic", "sketch2img-linecn-basic", "sketch2img-scribble-basic", "sketch2img-zimage-fun-controlnet",
+  "sketch2img-zimage-fun-controlnet-full", "style-reference-sd15", "txt2img-basic", "txt2img-flux1-dev-fp8",
+  "txt2img-flux2-dev-gguf", "txt2img-flux2-klein", "txt2img-krea2-turbo", "txt2img-qwen-image-21", "txt2img-z-image-turbo",
+  "unflatten-qwen-layered", "upscale-basic", "upscale-seedvr2-3b"
+];
+
+// A preset added later is not part of this measurement: adding it is a
+// deliberate step (append its id), so an unrelated preset PR never fails here.
+const spikeRows = rows.filter((row) => SPIKE_PRESETS.includes(row.id));
+
 describe("finder against the registry: prompt node and source image of every bundled API graph", () => {
-  it("covers every preset", () => {
-    expect(rows).toHaveLength(39);
+  it("still has every preset the spike measured", () => {
+    expect(SPIKE_PRESETS.filter((id) => !rows.some((row) => row.id === id))).toStrictEqual([]);
+  });
+
+  it("is never silently wrong on the presets the spike measured", () => {
+    const wrong = spikeRows.filter((row) => row.prompt === "silently-wrong" || row.image === "silently-wrong" || row.prompt === "asked-not-offered" || row.image === "asked-not-offered");
+    expect(wrong.map((row) => `${row.id}: prompt ${row.prompt}, image ${row.image}`)).toStrictEqual([]);
   });
 
   it("no bundled graph carries the OpenLayer title marker, so this measures the structural ladder alone", () => {
-    const marked = rows.flatMap((row) => Object.entries(row.api).filter(([, node]) => /openlayer/i.test(node._meta?.title ?? "")));
+    const marked = spikeRows.flatMap((row) => Object.entries(row.api).filter(([, node]) => /openlayer/i.test(node._meta?.title ?? "")));
     expect(marked).toStrictEqual([]);
   });
 
   it("prompt: 29 correct, 2 asked, 8 without a prompt, none silently wrong", () => {
-    expect(count(rows.map((row) => row.prompt))).toStrictEqual({ correct: 29, asked: 2, "not-applicable": 8 });
-    const asked = rows.filter((row) => row.prompt === "asked");
+    expect(count(spikeRows.map((row) => row.prompt))).toStrictEqual({ correct: 29, asked: 2, "not-applicable": 8 });
+    const asked = spikeRows.filter((row) => row.prompt === "asked");
     expect(asked.map((row) => row.id)).toStrictEqual(["enhance-prompt-superprompt", "select-sam31"]);
     // Each has one text node and no sampler. Geekatplay's rule as written
     // returned an empty list here and dropped the prompt: 2 silently wrong.
@@ -283,8 +328,8 @@ describe("finder against the registry: prompt node and source image of every bun
   });
 
   it("source image: 28 correct, 3 asked, 8 without an image, none silently wrong", () => {
-    expect(count(rows.map((row) => row.image))).toStrictEqual({ correct: 28, asked: 3, "not-applicable": 8 });
-    expect(rows.filter((row) => row.image === "asked").map((row) => row.id)).toStrictEqual([
+    expect(count(spikeRows.map((row) => row.image))).toStrictEqual({ correct: 28, asked: 3, "not-applicable": 8 });
+    expect(spikeRows.filter((row) => row.image === "asked").map((row) => row.id)).toStrictEqual([
       "inpaint-basic",
       "inpaint-lama",
       "inpaint-lama-klein"
@@ -292,7 +337,7 @@ describe("finder against the registry: prompt node and source image of every bun
   });
 
   it("filling slot 0 instead of asking (the plan's PR 2 rule) would put the layer into inpaint-basic's mask loader", () => {
-    const wrong = rows.filter((row) => row.slotZeroIsSource === false).map((row) => row.id);
+    const wrong = spikeRows.filter((row) => row.slotZeroIsSource === false).map((row) => row.id);
     expect(wrong).toStrictEqual(["inpaint-basic"]);
   });
 });

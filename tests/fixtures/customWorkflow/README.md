@@ -50,3 +50,75 @@ Every choice list with a file-like entry (a model, LoRA or input image name,
 anything ending in an extension) is emptied, so no machine's files are recorded.
 Each spec keeps its shape and options. The spike checked that every graph
 converts to the same API graph with the full and with the emptied lists.
+
+A preset added later may use a class this file lacks; `sourceGraphs.test.ts`
+then lists and skips that graph. To record it, save a full `GET /object_info`
+to a file and run the script below (read-only against ComfyUI, Node 20+):
+
+```
+node record-raw.mjs <object_info.json> <repo root> <template.json> tests/fixtures/customWorkflow/object-info-raw.json
+```
+
+<details>
+<summary><code>record-raw.mjs</code>, the script that made this file</summary>
+
+```js
+import { readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+
+const [full, repo, template, out] = process.argv.slice(2);
+const objectInfo = JSON.parse(readFileSync(full, "utf8"));
+// The Discussion 179 graph's loaders; that graph itself is not committed.
+const need = new Set(["UnetLoaderGGUF", "DualCLIPLoaderGGUF"]);
+
+const addGraph = (workflow) => {
+  const subgraphIds = new Set((workflow.definitions?.subgraphs ?? []).map((s) => s.id));
+  const walk = (graph) => {
+    for (const node of graph.nodes ?? []) if (!subgraphIds.has(node.type)) need.add(node.type);
+    for (const sub of graph.definitions?.subgraphs ?? []) walk(sub);
+  };
+  walk(workflow);
+};
+const sourceDir = join(repo, "src/workflows/source");
+for (const file of readdirSync(sourceDir).filter((f) => f.endsWith(".workflow.json"))) {
+  addGraph(JSON.parse(readFileSync(join(sourceDir, file), "utf8")));
+}
+addGraph(JSON.parse(readFileSync(template, "utf8")));
+
+const FILE_LIKE = (v) => typeof v === "string" && /\.[a-z][a-z0-9_]{1,11}$/i.test(v);
+
+const stripSpec = (name, spec) => {
+  if (!Array.isArray(spec)) return spec;
+  const [type, opts] = spec;
+  const choices = Array.isArray(type) && type.some(FILE_LIKE) ? [] : type;
+  let options = opts;
+  if (opts && typeof opts === "object" && Array.isArray(opts.options)) {
+    options = { ...opts };
+    if (type === "COMFY_DYNAMICCOMBO_V3") {
+      options.options = opts.options.map((o) => ({ ...o, inputs: stripInputs(o.inputs) }));
+    } else if (opts.options.some(FILE_LIKE)) {
+      options.options = [];
+    }
+  }
+  return opts === undefined ? [choices] : [choices, options];
+};
+const stripInputs = (inputs) => {
+  if (!inputs) return inputs;
+  const result = { ...inputs };
+  for (const group of ["required", "optional"]) {
+    if (inputs[group]) {
+      result[group] = Object.fromEntries(Object.entries(inputs[group]).map(([k, s]) => [k, stripSpec(k, s)]));
+    }
+  }
+  return result;
+};
+
+const recorded = {};
+for (const cls of [...need].sort()) {
+  // Note and MarkdownNote are frontend-only and have no definition.
+  if (objectInfo[cls]) recorded[cls] = { ...objectInfo[cls], input: stripInputs(objectInfo[cls].input) };
+}
+writeFileSync(out, JSON.stringify(recorded, null, 1) + "\n");
+```
+
+</details>
