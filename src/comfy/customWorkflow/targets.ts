@@ -106,6 +106,12 @@ export type TargetChoice = {
   prompt?: string;
   /** Image slot id the artist picked for the layer. */
   image?: string;
+  /**
+   * The artist chose to send no layer: every image slot keeps the
+   * workflow's own picture. Mehran's call for v0.50: even a graph with one
+   * Load Image offers this, so it can run as it was exported.
+   */
+  keepImages?: boolean;
 };
 
 export type ResolvedImageSlot = ImageSlot & {
@@ -273,8 +279,8 @@ export function resolveTargets(api: ComfyWorkflow, choice: TargetChoice = {}, ro
   if (!prompt) return { ok: false, choose: "prompt", candidates: found.prompt.candidates, found };
 
   const chosenImage = choice.image ? found.image.find((slot) => slot.id === choice.image) : undefined;
-  const layerSlot = chosenImage ?? found.imageAuto;
-  if (found.image.length && !layerSlot) return { ok: false, choose: "image", candidates: found.image, found };
+  const layerSlot = choice.keepImages ? null : chosenImage ?? found.imageAuto;
+  if (found.image.length && !layerSlot && !choice.keepImages) return { ok: false, choose: "image", candidates: found.image, found };
 
   const image = found.image.map((slot): ResolvedImageSlot => ({ ...slot, source: slot === layerSlot ? "layer" : "keep" }));
   return { ok: true, image, prompt, found };
