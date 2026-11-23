@@ -31,7 +31,8 @@ describe("busy-state tables", () => {
       "remove-background",
       "select-by-text",
       "camera-angle",
-      "layer-maps"
+      "layer-maps",
+      "custom-workflow"
     ]);
     expect(fieldGroups.every((fields) => fields.length > 0)).toBe(true);
   });
@@ -99,6 +100,11 @@ describe("busy-state tables", () => {
       "cameraAngleSeed",
       "layerMapsModel",
       "layerMapsWorkflow",
+      "customWorkflowInput",
+      "customWorkflowPromptTarget",
+      "customWorkflowImageTarget",
+      "customWorkflowPrompt",
+      "customWorkflowSeed",
       "promptLayerNumBeams",
       "promptLayerGeneratedText",
       "styleReferencePrompt",
@@ -144,11 +150,13 @@ describe("busy-state tables", () => {
     // v0.36.0 with Capture Selection; 41 after v0.35.0 removed the spike).
     // The per-feature breakdown that used to sit here had drifted two behind
     // the assertion, so it is not repeated; the list above is the record.
-    expect(plainActions).toHaveLength(44);
+    // 48 since v0.50 added Custom Workflow's Run and three captures.
+    expect(plainActions).toHaveLength(48);
     // 25 = 20, plus Layer Maps' Generate and Import, plus Select by Text's
     // Select (it has no Import: the selection is applied by the run), plus
-    // Camera Angle's Generate and Import.
-    expect(BUSY_GATED_ACTIONS).toHaveLength(25);
+    // Camera Angle's Generate and Import, plus Custom Workflow's Import (its
+    // Run has no source gate: a workflow may take no image).
+    expect(BUSY_GATED_ACTIONS).toHaveLength(26);
     expect(new Set(allActions).size).toBe(allActions.length);
   });
 
@@ -181,7 +189,10 @@ describe("busy-state tables", () => {
       "addMultiReferenceLayerButton",
       "addMultiReferenceCanvasButton",
       "captureUnflattenLayerButton",
-      "captureUnflattenCanvasButton"
+      "captureUnflattenCanvasButton",
+      "captureCustomWorkflowLayerButton",
+      "captureCustomWorkflowCanvasButton",
+      "captureCustomWorkflowSelectionButton"
     ]));
   });
 
@@ -219,6 +230,8 @@ describe("busy-state tables", () => {
       "importCameraAngleButton",
       "generateLayerMapsButton",
       "importLayerMapsButton",
+      "runCustomWorkflowButton",
+      "importCustomWorkflowButton",
       "checkButton",
       "findPortButton",
       "detectHardwareButton",

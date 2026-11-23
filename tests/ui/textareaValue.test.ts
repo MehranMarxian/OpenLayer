@@ -9,6 +9,7 @@ import { caretAfterPlaceholderStrip, readTextareaValue, stripPlaceholderBleed } 
  */
 const TEXTAREA_ELEMENTS = [
   "customWorkflowInput",
+  "customWorkflowPrompt",
   "imgNegativePrompt",
   "imgPrompt",
   "inpaintNegativePrompt",

@@ -127,7 +127,13 @@ export type ActionName =
   | "captureUnflattenCanvas"
   | "generateUnflatten"
   | "importUnflatten"
-  | "checkCustomWorkflow";
+  | "checkCustomWorkflow"
+  | "captureCustomWorkflowLayer"
+  | "captureCustomWorkflowCanvas"
+  | "captureCustomWorkflowSelection"
+  | "runCustomWorkflow"
+  | "importCustomWorkflow"
+  | "toggleCustomWorkflowAutoImport";
 export type HistoryActionName = "preview" | "import" | "reuse";
 export type ActionRunner = (eventName: string) => void;
 export type ActionHandlers = Record<ActionName, ActionRunner>;

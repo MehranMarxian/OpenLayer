@@ -357,7 +357,7 @@ export function describeCustomRunOutcome<TResult>(outcome: CustomRunOutcome<TRes
         needs: outcome.choose
       };
     case "refused":
-      return { status: "Workflow not run.", tone: "error", inputs: [], diagnostics: "", error: outcome.message, needs: null };
+      return { status: "Workflow not run.", tone: "error", inputs: [], diagnostics: "Nothing was queued in ComfyUI.", error: outcome.message, needs: null };
     case "failed":
       return { status: "Workflow failed.", tone: "error", inputs: [], diagnostics: "", error: outcome.message, needs: null };
     case "cancelled":

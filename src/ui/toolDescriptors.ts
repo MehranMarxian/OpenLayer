@@ -124,7 +124,16 @@ export const BUSY_DISABLED_FIELD_GROUPS: Readonly<
   "camera-angle": ["cameraAngleDirection", "cameraAngleHeight", "cameraAngleDistance", "cameraAngleSeed"],
   // Same shape as Remove Background: a preprocessor has no prompt, seed or
   // sampler. The map-type select and the depth model select are the whole form.
-  "layer-maps": ["layerMapsWorkflow", "layerMapsModel"]
+  "layer-maps": ["layerMapsWorkflow", "layerMapsModel"],
+  // The pasted graph, the two target pickers, the prompt and the seed: what a
+  // run snapshots when it starts, so none of it may change under it.
+  "custom-workflow": [
+    "customWorkflowInput",
+    "customWorkflowPromptTarget",
+    "customWorkflowImageTarget",
+    "customWorkflowPrompt",
+    "customWorkflowSeed"
+  ]
 };
 
 // Actions that are unavailable during every operation. The two primary
@@ -148,7 +157,9 @@ export const BUSY_ALWAYS_DISABLED_ACTIONS: readonly ActionElementKey[] = [
   "exportSelectionFileButton",
   "exportSelectionComfyButton",
   "exportMaskFileButton",
-  "exportMaskComfyButton"
+  "exportMaskComfyButton",
+  // No source gate: a workflow may take no image, or keep its own.
+  "runCustomWorkflowButton"
 ];
 
 // These actions were part of the old panel-wide busy lock. They deliberately
@@ -182,7 +193,10 @@ export const BUSY_ALLOWED_ACTIONS: readonly ActionElementKey[] = [
   "addMultiReferenceLayerButton",
   "addMultiReferenceCanvasButton",
   "captureUnflattenLayerButton",
-  "captureUnflattenCanvasButton"
+  "captureUnflattenCanvasButton",
+  "captureCustomWorkflowLayerButton",
+  "captureCustomWorkflowCanvasButton",
+  "captureCustomWorkflowSelectionButton"
 ];
 
 // Tool state a gated button also needs before it can be enabled: generate
@@ -211,7 +225,8 @@ export type BusyGateName =
   | "cameraAngleSource"
   | "cameraAngleResult"
   | "layerMapsSource"
-  | "layerMapsResult";
+  | "layerMapsResult"
+  | "customWorkflowResult";
 
 export type BusyGatedAction = Readonly<{
   button: ActionElementKey;
@@ -248,5 +263,6 @@ export const BUSY_GATED_ACTIONS: readonly BusyGatedAction[] = [
   { button: "generateCameraAngleButton", gate: "cameraAngleSource" },
   { button: "importCameraAngleButton", gate: "cameraAngleResult" },
   { button: "generateLayerMapsButton", gate: "layerMapsSource" },
-  { button: "importLayerMapsButton", gate: "layerMapsResult" }
+  { button: "importLayerMapsButton", gate: "layerMapsResult" },
+  { button: "importCustomWorkflowButton", gate: "customWorkflowResult" }
 ];

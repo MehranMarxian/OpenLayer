@@ -12,7 +12,8 @@ export type HistoryToolType =
   | "remove-background"
   | "select-by-text"
   | "camera-angle"
-  | "layer-maps";
+  | "layer-maps"
+  | "custom-workflow";
 
 export type HistoryImportStatus = "not-imported" | "imported";
 
@@ -30,7 +31,8 @@ const TOOL_LABELS: Record<HistoryToolType, string> = {
   "remove-background": "Remove Background",
   "select-by-text": "Select by Text",
   "camera-angle": "Camera Angle",
-  "layer-maps": "Layer Maps"
+  "layer-maps": "Layer Maps",
+  "custom-workflow": "Custom Workflow"
 };
 
 export function formatHistoryToolLabel(toolType: HistoryToolType) {

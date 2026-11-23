@@ -474,7 +474,12 @@ describe("custom workflow run: what the screen shows (PR 3)", () => {
       tone: "error",
       needs: "image"
     });
-    expect(describeCustomRunOutcome({ kind: "refused", message: "No." })).toMatchObject({ tone: "error", error: "No.", needs: null });
+    expect(describeCustomRunOutcome({ kind: "refused", message: "No." })).toMatchObject({
+      tone: "error",
+      error: "No.",
+      diagnostics: "Nothing was queued in ComfyUI.",
+      needs: null
+    });
     expect(describeCustomRunOutcome({ kind: "failed", message: "Bad.", error: new Error("x") })).toMatchObject({ status: "Workflow failed.", error: "Bad." });
     expect(describeCustomRunOutcome({ kind: "cancelled" })).toMatchObject({ status: "Generation cancelled.", tone: "idle" });
     const done = describeCustomRunOutcome({

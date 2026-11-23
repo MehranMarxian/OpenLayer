@@ -12,7 +12,8 @@ export type OpenLayerMetadataToolType =
   | "remove-background"
   | "select-by-text"
   | "camera-angle"
-  | "layer-maps";
+  | "layer-maps"
+  | "custom-workflow";
 
 export type OpenLayerLayerBounds = {
   left: number;
@@ -277,6 +278,8 @@ function formatToolType(toolType: OpenLayerMetadataToolType) {
       return "Style Reference";
     case "multi-reference":
       return "Multi-Reference Composition";
+    case "custom-workflow":
+      return "Custom Workflow";
     default:
       return "OpenLayer";
   }

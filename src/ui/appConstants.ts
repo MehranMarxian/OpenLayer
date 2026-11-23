@@ -358,7 +358,7 @@ export const TOOL_CARDS: ToolCard[] = [
   {
     id: "workflow",
     title: "Workflow",
-    subtitle: "Check a custom ComfyUI graph against this server",
+    subtitle: "Run your own ComfyUI workflow",
     icon: "workflow",
     status: "available",
     view: "custom-workflow"

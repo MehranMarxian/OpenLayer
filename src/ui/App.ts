@@ -108,6 +108,7 @@ import {
   validateMultiReferenceSettings,
   validateUnflattenSettings,
   validateCameraAngleSettings,
+  validateCustomWorkflowSettings,
   validateStyleReferenceSettings
 } from "../comfy/settings";
 import {
@@ -168,7 +169,7 @@ import {
   getInstallOffer
 } from "./setupInstallModel";
 import type { WorkflowPhotoshopInputAvailability } from "../comfy/workflowCompatibility";
-import { GeneratedImageResult, GeneratedImageSet, WorkflowLoraSelection, WorkflowPresetDefinition } from "../comfy/types";
+import { ComfyWorkflow, GeneratedImageResult, GeneratedImageSet, WorkflowLoraSelection, WorkflowPresetDefinition } from "../comfy/types";
 import {
   NO_LORA_VALUE,
   formatLoraHintSuffix,
@@ -269,6 +270,17 @@ import {
 } from "./tools/layerTools";
 import { decideSelectionOutcome, parseSelectionReport } from "./tools/selectByText";
 import { describeCameraAngle, readCameraAngleChoice } from "./tools/cameraAngle";
+import {
+  buildTargetPickers,
+  CustomRunSource,
+  describeCustomInputs,
+  describeCustomRunOutcome,
+  pickerSignature,
+  readTargetChoice,
+  runCustomWorkflow,
+  TargetPicker
+} from "./tools/customWorkflow";
+import { findTargets, resolveTargets } from "../comfy/customWorkflow/targets";
 import { normalizeSelectionPrompt } from "../comfy/selectionPrompt";
 import {
   getFriendlyImageToImageErrorMessage,
@@ -418,6 +430,9 @@ import {
   setSelectByTextDiagnostics,
   setSelectByTextError,
   setCameraAngleStatus,
+  setCustomWorkflowStatus,
+  setCustomWorkflowDiagnostics,
+  setCustomWorkflowError,
   setCameraAngleDiagnostics,
   setCameraAngleError,
   setLayerMapsStatus,
@@ -690,6 +705,13 @@ export function renderApp(rootElement: HTMLElement) {
   // Where the captured layer sat, so the new view lands on it (the same
   // contract as removeBackgroundImportBounds).
   let cameraAngleImportBounds: NormalizedSelectionBounds | null = null;
+  // Custom Workflow (v0.50). A Capture Selection source carries the selection
+  // in selectionEdit, as Edit Image's does.
+  let customWorkflowSource: ImageSourceState | null = null;
+  let customWorkflowResult: AppGeneratedImageResult | null = null;
+  let customWorkflowImportBounds: NormalizedSelectionBounds | null = null;
+  // The options the two target pickers were last filled with (pickerSignature).
+  let customWorkflowPickerSignature: string | null = null;
   let styleReferenceSource: ImageSourceState | null = null;
   let styleReferenceResult: AppGeneratedImageResult | null = null;
   // An ordered list rather than a single source, which is the whole difference
@@ -794,7 +816,8 @@ export function renderApp(rootElement: HTMLElement) {
       cameraAngleSource,
       cameraAngleResult,
       layerMapsSource,
-      layerMapsResult
+      layerMapsResult,
+      customWorkflowResult
     });
     updateInpaintReferenceControlLock(elements, isBusy && busyTool === "inpaint");
     syncImportBridge();
@@ -1588,7 +1611,8 @@ export function renderApp(rootElement: HTMLElement) {
     "style-reference": elements.styleReferenceAutoImportToggle,
     "multi-reference": elements.multiReferenceAutoImportToggle,
     unflatten: elements.unflattenAutoImportToggle,
-    "camera-angle": elements.cameraAngleAutoImportToggle
+    "camera-angle": elements.cameraAngleAutoImportToggle,
+    "custom-workflow": elements.customWorkflowAutoImportToggle
   });
   // Every Workflow and Model dropdown moves off the native <select>, so the
   // mouse wheel cannot change a workflow or model mid-scroll (it did, silently,
@@ -1619,7 +1643,9 @@ export function renderApp(rootElement: HTMLElement) {
     elements.cameraAngleHeight,
     elements.cameraAngleDistance,
     elements.layerMapsWorkflow,
-    elements.layerMapsModel
+    elements.layerMapsModel,
+    elements.customWorkflowPromptTarget,
+    elements.customWorkflowImageTarget
   ]) {
     enhanceSelectAsPicker(select);
   }
@@ -1694,6 +1720,13 @@ export function renderApp(rootElement: HTMLElement) {
     emptyText: "No new view yet",
     resultAlt: "Generated Camera Angle preview",
     liveAlt: "Live ComfyUI Camera Angle preview"
+  });
+  const customWorkflowResultPanel = createResultPreviewPanel({
+    urls: objectUrls,
+    panel: elements.customWorkflowResultPreviewPanel,
+    emptyText: "No result yet",
+    resultAlt: "Custom workflow result preview",
+    liveAlt: "Live ComfyUI custom workflow preview"
   });
   const layerMapsResultPanel = createResultPreviewPanel({
     urls: objectUrls,
@@ -1795,6 +1828,15 @@ export function renderApp(rootElement: HTMLElement) {
     titleElement: elements.layerMapsSourceTitle,
     metaElement: elements.layerMapsSourceMeta,
     imageAlt: "Captured Photoshop source for Layer Maps"
+  });
+  const customWorkflowSourcePanel = createSourcePreviewPanel({
+    urls: objectUrls,
+    panel: elements.customWorkflowSourcePreviewPanel,
+    titleElement: elements.customWorkflowSourceTitle,
+    metaElement: elements.customWorkflowSourceMeta,
+    imageAlt: "Captured source for the custom workflow",
+    emptyTitle: "No image captured",
+    emptyMeta: "Not needed for a workflow that takes no image."
   });
   const styleReferenceSourcePanel = createSourcePreviewPanel({
     urls: objectUrls,
@@ -1996,6 +2038,12 @@ export function renderApp(rootElement: HTMLElement) {
     captureCameraAngleCanvasSource: createActionRunner(elements, "captureCameraAngleCanvasSource", handleCaptureCameraAngleCanvasSource),
     generateCameraAngle: createActionRunner(elements, "generateCameraAngle", handleGenerateCameraAngle),
     importCameraAngle: createActionRunner(elements, "importCameraAngle", handleImportCameraAngle),
+    captureCustomWorkflowLayer: createActionRunner(elements, "captureCustomWorkflowLayer", handleCaptureCustomWorkflowLayer),
+    captureCustomWorkflowCanvas: createActionRunner(elements, "captureCustomWorkflowCanvas", handleCaptureCustomWorkflowCanvas),
+    captureCustomWorkflowSelection: createActionRunner(elements, "captureCustomWorkflowSelection", handleCaptureCustomWorkflowSelection),
+    runCustomWorkflow: createActionRunner(elements, "runCustomWorkflow", handleRunCustomWorkflow),
+    importCustomWorkflow: createActionRunner(elements, "importCustomWorkflow", handleImportCustomWorkflow),
+    toggleCustomWorkflowAutoImport: createActionRunner(elements, "toggleCustomWorkflowAutoImport", () => handleToggleToolAutoImport("custom-workflow")),
     captureLayerMapsSource: createActionRunner(elements, "captureLayerMapsSource", handleCaptureLayerMapsSource),
     captureLayerMapsCanvasSource: createActionRunner(elements, "captureLayerMapsCanvasSource", handleCaptureLayerMapsCanvasSource),
     generateLayerMaps: createActionRunner(elements, "generateLayerMaps", handleGenerateLayerMaps),
@@ -2114,6 +2162,15 @@ export function renderApp(rootElement: HTMLElement) {
   bindActionControl(elements.captureCameraAngleCanvasSourceButton, actionHandlers.captureCameraAngleCanvasSource);
   bindActionControl(elements.generateCameraAngleButton, actionHandlers.generateCameraAngle);
   bindActionControl(elements.importCameraAngleButton, actionHandlers.importCameraAngle);
+  bindActionControl(elements.captureCustomWorkflowLayerButton, actionHandlers.captureCustomWorkflowLayer);
+  bindActionControl(elements.captureCustomWorkflowCanvasButton, actionHandlers.captureCustomWorkflowCanvas);
+  bindActionControl(elements.captureCustomWorkflowSelectionButton, actionHandlers.captureCustomWorkflowSelection);
+  bindActionControl(elements.runCustomWorkflowButton, actionHandlers.runCustomWorkflow);
+  bindActionControl(elements.importCustomWorkflowButton, actionHandlers.importCustomWorkflow);
+  bindActionControl(elements.customWorkflowAutoImportToggle, actionHandlers.toggleCustomWorkflowAutoImport);
+  // A pick changes what a Run would do, so the Inputs lines follow it.
+  elements.customWorkflowPromptTarget.addEventListener("change", () => refreshCustomWorkflowInputLinesOnly());
+  elements.customWorkflowImageTarget.addEventListener("change", () => refreshCustomWorkflowInputLinesOnly());
   bindActionControl(elements.inpaintAutoImportToggle, actionHandlers.toggleInpaintAutoImport);
   bindActionControl(elements.clearHistoryButton, actionHandlers.clearHistory);
   bindActionControl(elements.liveNegativePromptToggle, actionHandlers.toggleLiveNegativePrompt);
@@ -2201,6 +2258,8 @@ export function renderApp(rootElement: HTMLElement) {
   setRemoveBackgroundResult(null);
   setCameraAngleSource(null);
   setCameraAngleResult(null);
+  setCustomWorkflowSource(null);
+  setCustomWorkflowResult(null);
   updateLayerMapsAutoImportToggle(elements, layerMapsImportAutomatically);
   setLayerMapsSource(null);
   setLayerMapsResult(null);
@@ -3370,6 +3429,7 @@ export function renderApp(rootElement: HTMLElement) {
       case "sketch-to-image": sketchResultPanel.releaseLivePreviewUrl(); return;
       case "inpaint": inpaintResultPanel.releaseLivePreviewUrl(); return;
       case "outpaint": outpaintResultPanel.releaseLivePreviewUrl(); return;
+      case "custom-workflow": customWorkflowResultPanel.releaseLivePreviewUrl(); return;
       case "upscale": upscaleResultPanel.releaseLivePreviewUrl(); return;
       case "style-reference": styleReferenceResultPanel.releaseLivePreviewUrl(); return;
       case "multi-reference": multiReferenceResultPanel.releaseLivePreviewUrl(); return;
@@ -3409,6 +3469,12 @@ export function renderApp(rootElement: HTMLElement) {
       diagnostics: setCameraAngleDiagnostics,
       error: setCameraAngleError,
       progress: setCameraAngleProgressPreview
+    },
+    "custom-workflow": {
+      status: setCustomWorkflowStatus,
+      diagnostics: setCustomWorkflowDiagnostics,
+      error: setCustomWorkflowError,
+      progress: setCustomWorkflowProgressPreview
     },
     "layer-maps": {
       status: setLayerMapsStatus,
@@ -3674,6 +3740,13 @@ export function renderApp(rootElement: HTMLElement) {
     setStyleReferenceError(elements, "");
 
     switch (entry.toolType) {
+      case "custom-workflow":
+        setCustomWorkflowResult(entry.result);
+        // The position belongs to the run that made the newest result; a
+        // result reloaded from History is placed centred instead.
+        customWorkflowImportBounds = null;
+        setView("custom-workflow");
+        return;
       case "image-to-image":
         setImageResult(entry.result);
         setView(imageScreenViewForPreset(entry.workflowPreset));
@@ -3714,6 +3787,9 @@ export function renderApp(rootElement: HTMLElement) {
 
   async function importHistoryEntry(entry: HistoryEntry) {
     switch (entry.toolType) {
+      case "custom-workflow":
+        await handleImportCustomWorkflow();
+        return;
       case "image-to-image":
         await handleImportImg2Img();
         return;
@@ -3882,37 +3958,43 @@ export function renderApp(rootElement: HTMLElement) {
       progressMessage: "Capturing the Photoshop selection with some surrounding context...",
       statusMessage: "Capturing selection...",
       successMessage: "Selection captured. Only the selected area will change.",
-      capture: async () => {
-        const region = await captureSelectionForInpainting("visible-canvas");
-
-        if (!region.maskAvailable || !region.mask) {
-          throw createOpenLayerError(
-            "INPAINT_SOURCE_INVALID",
-            "Photoshop did not return a mask for this selection.",
-            region.maskMessage || "Make a selection with the Marquee or Lasso tool, then capture it again."
-          );
-        }
-
-        const mask = decodeRgbaPng(new Uint8Array(await region.mask.blob.arrayBuffer()));
-        const selectedFraction = measureSelectionFraction(mask.rgba);
-
-        return {
-          blob: region.blob,
-          filename: region.filename,
-          mimeType: region.mimeType,
-          width: region.width,
-          height: region.height,
-          sourceName: "Selection",
-          captureFormat: region.captureFormat,
-          originatingDocument: region.originatingDocument,
-          // The crop, not the selection: the result covers the crop and is
-          // transparent outside the feathered selection.
-          captureBounds: region.selection.contextBounds,
-          hasTransparency: false,
-          selectionEdit: { maskBlob: region.mask.blob, selectedFraction }
-        };
-      }
+      capture: captureSelectionWithMask
     });
+  }
+
+  /**
+   * The selection's context crop, with the selection itself as a mask. Shared
+   * by Edit Image's Capture Selection and Custom Workflow's.
+   */
+  async function captureSelectionWithMask(): Promise<ExportedSourceImage & Pick<ImageSourceState, "selectionEdit">> {
+    const region = await captureSelectionForInpainting("visible-canvas");
+
+    if (!region.maskAvailable || !region.mask) {
+      throw createOpenLayerError(
+        "INPAINT_SOURCE_INVALID",
+        "Photoshop did not return a mask for this selection.",
+        region.maskMessage || "Make a selection with the Marquee or Lasso tool, then capture it again."
+      );
+    }
+
+    const mask = decodeRgbaPng(new Uint8Array(await region.mask.blob.arrayBuffer()));
+    const selectedFraction = measureSelectionFraction(mask.rgba);
+
+    return {
+      blob: region.blob,
+      filename: region.filename,
+      mimeType: region.mimeType,
+      width: region.width,
+      height: region.height,
+      sourceName: "Selection",
+      captureFormat: region.captureFormat,
+      originatingDocument: region.originatingDocument,
+      // The crop, not the selection: the result covers the crop and is
+      // transparent outside the feathered selection.
+      captureBounds: region.selection.contextBounds,
+      hasTransparency: false,
+      selectionEdit: { maskBlob: region.mask.blob, selectedFraction }
+    };
   }
 
   /** References beside the edited layer: the preset's ceiling minus the layer itself. */
@@ -7146,29 +7228,25 @@ export function renderApp(rootElement: HTMLElement) {
   }
 
   /**
-   * Checks a workflow OpenLayer did not author against this ComfyUI.
-   *
-   * Deliberately read-only. It never submits the graph and never tries to work
-   * out where the panel's prompt or seed would go, because a wrong guess there
-   * yields a run that quietly ignores what the artist typed -- worse than
-   * saying nothing. What it can answer honestly is whether this server has the
-   * nodes, and that is the question that actually blocks people.
+   * Checks a pasted workflow against this ComfyUI and fills the Inputs
+   * section. Read-only: nothing is queued here; Run Workflow does that.
    */
   async function handleCheckCustomWorkflow() {
-    setCustomWorkflowStatus("Checking workflow...", "idle");
-    elements.customWorkflowError.hidden = true;
-    elements.customWorkflowError.textContent = "";
+    setCustomWorkflowStatus(elements, "Checking workflow...", "idle");
+    setCustomWorkflowError(elements, "");
     elements.customWorkflowSummary.textContent = "";
     elements.customWorkflowResults.innerHTML = "";
 
     const parsed = parseCustomWorkflowText(readTextareaValue(elements.customWorkflowInput));
 
     if (!parsed.ok) {
-      setCustomWorkflowStatus(parsed.reason, "error");
-      elements.customWorkflowError.textContent = parsed.hint ? `${parsed.reason} ${parsed.hint}` : parsed.reason;
-      elements.customWorkflowError.hidden = false;
+      hideCustomWorkflowInputs();
+      setCustomWorkflowStatus(elements, parsed.reason, "error");
+      setCustomWorkflowError(elements, parsed.hint ? `${parsed.reason} ${parsed.hint}` : parsed.reason);
       return;
     }
+
+    refreshCustomWorkflowInputs(parsed.workflow);
 
     try {
       const client = new ComfyClient(elements.serverUrl.value);
@@ -7195,23 +7273,354 @@ export function renderApp(rootElement: HTMLElement) {
       renderCustomWorkflowReport(elements, report);
       elements.customWorkflowSummary.textContent = report.summaryLine;
       setCustomWorkflowStatus(
+        elements,
         report.canRun ? "This ComfyUI can run that workflow." : "That workflow needs something first.",
         report.canRun ? "ready" : "error"
       );
     } catch (caughtError) {
-      setCustomWorkflowStatus("Could not reach ComfyUI.", "error");
-      elements.customWorkflowError.textContent = getErrorMessage(caughtError);
-      elements.customWorkflowError.hidden = false;
+      setCustomWorkflowStatus(elements, "Could not reach ComfyUI.", "error");
+      setCustomWorkflowError(elements, getErrorMessage(caughtError));
     }
   }
 
-  // Not a generation, so it writes its own bar rather than going through the
-  // generation status table -- the same reasoning Layer Tools and Setup use.
-  function setCustomWorkflowStatus(status: string, tone: StatusTone) {
-    elements.customWorkflowStatusText.textContent = status;
-    elements.customWorkflowStatusPill.textContent =
-      tone === "error" ? "Error" : tone === "ready" ? "Ready" : "Working";
-    elements.customWorkflowStatusPill.className = `status-pill ${tone === "idle" ? "working" : tone}`;
+  function hideCustomWorkflowInputs() {
+    elements.customWorkflowInputsSection.hidden = true;
+    customWorkflowPickerSignature = null;
+  }
+
+  /**
+   * Fills the two target pickers and the Inputs lines for this workflow, from
+   * the finder (src/comfy/customWorkflow/targets.ts). Keeps the artist's picks
+   * while the options are the same and resets them when they are not. Returns
+   * whether the options changed.
+   */
+  function refreshCustomWorkflowInputs(workflow: ComfyWorkflow): boolean {
+    const pickers = buildTargetPickers(findTargets(workflow));
+    const signature = pickerSignature(pickers);
+    const changed = signature !== customWorkflowPickerSignature;
+    fillTargetPicker(elements.customWorkflowPromptTargetField, elements.customWorkflowPromptTarget, pickers.prompt, changed);
+    fillTargetPicker(elements.customWorkflowImageTargetField, elements.customWorkflowImageTarget, pickers.image, changed);
+    customWorkflowPickerSignature = signature;
+    elements.customWorkflowInputsSection.hidden = false;
+    renderCustomWorkflowInputLines(describeCurrentCustomInputs(workflow));
+    return changed;
+  }
+
+  function readCustomWorkflowChoice() {
+    return readTargetChoice(
+      elements.customWorkflowPromptTargetField.hidden ? "" : readSelectValue(elements.customWorkflowPromptTarget),
+      elements.customWorkflowImageTargetField.hidden ? "" : readSelectValue(elements.customWorkflowImageTarget)
+    );
+  }
+
+  function toCustomRunSource(source: ImageSourceState): CustomRunSource {
+    return { blob: source.blob, filename: source.filename, selectionMask: source.selectionEdit?.maskBlob };
+  }
+
+  /** The Inputs lines for the current picks, prompt box and capture: what a Run would do now. */
+  function describeCurrentCustomInputs(workflow: ComfyWorkflow): string[] {
+    const resolved = resolveTargets(workflow, readCustomWorkflowChoice());
+
+    if (!resolved.ok) {
+      return [
+        resolved.choose === "prompt"
+          ? "Several nodes could take the prompt. Choose one below."
+          : "Several Load Image nodes could take the image. Choose one below, or keep the workflow's own images."
+      ];
+    }
+
+    return describeCustomInputs(workflow, resolved, {
+      prompt: readTextareaValue(elements.customWorkflowPrompt),
+      source: customWorkflowSource ? toCustomRunSource(customWorkflowSource) : null
+    });
+  }
+
+  function renderCustomWorkflowInputLines(lines: readonly string[]) {
+    const container = elements.customWorkflowInputsLines;
+
+    while (container.firstChild) {
+      container.removeChild(container.firstChild);
+    }
+
+    for (const line of lines) {
+      const row = document.createElement("div");
+      row.textContent = line;
+      container.appendChild(row);
+    }
+  }
+
+  /** After a pick or a capture: redraw the Inputs lines if the pasted text is still a workflow. */
+  function refreshCustomWorkflowInputLinesOnly() {
+    if (elements.customWorkflowInputsSection.hidden) {
+      return;
+    }
+
+    const parsed = parseCustomWorkflowText(readTextareaValue(elements.customWorkflowInput));
+
+    if (parsed.ok) {
+      renderCustomWorkflowInputLines(describeCurrentCustomInputs(parsed.workflow));
+    }
+  }
+
+  async function handleCaptureCustomWorkflowLayer() {
+    await captureCustomWorkflowSourceImage("Capturing active layer...", "Layer captured.", exportActiveLayerForImageToImage);
+  }
+
+  async function handleCaptureCustomWorkflowCanvas() {
+    await captureCustomWorkflowSourceImage("Capturing canvas...", "Canvas captured.", exportCanvasForImageToImage);
+  }
+
+  async function handleCaptureCustomWorkflowSelection() {
+    await captureCustomWorkflowSourceImage(
+      "Capturing selection...",
+      "Selection captured. It goes in as the image's mask where the workflow reads one.",
+      captureSelectionWithMask
+    );
+  }
+
+  async function captureCustomWorkflowSourceImage(
+    statusMessage: string,
+    successMessage: string,
+    capture: () => Promise<ExportedSourceImage & Pick<ImageSourceState, "selectionEdit">>
+  ) {
+    setCustomWorkflowError(elements, "");
+    setCustomWorkflowStatus(elements, statusMessage, "idle");
+
+    try {
+      const exportedSource = await capture();
+      setCustomWorkflowSource({ ...exportedSource, previewUrl: objectUrls.create(exportedSource.blob) });
+      setCustomWorkflowStatus(elements, successMessage, "ready");
+      setCustomWorkflowDiagnostics(elements, createSourceCaptureMessage(exportedSource, " for the workflow"));
+      refreshCustomWorkflowInputLinesOnly();
+    } catch (caughtError) {
+      setCustomWorkflowSource(null);
+      setCustomWorkflowStatus(elements, "Capture failed.", "error");
+      setCustomWorkflowError(elements, getErrorMessage(caughtError));
+    }
+  }
+
+  /**
+   * Runs the pasted workflow (src/ui/tools/customWorkflow.ts runCustomWorkflow)
+   * through the same pipeline as every other tool.
+   *
+   * Everything the run uses is read once, here, before the first await: the
+   * graph, the picks, the prompt, the seed and the captured image. What the
+   * Inputs section shows afterwards is the run's own description of what it
+   * sent, not a re-read of fields the artist may have changed meanwhile.
+   */
+  async function handleRunCustomWorkflow() {
+    if (blockRegularGenerationDuringLivePainting((message) => setCustomWorkflowStatus(elements, message, "error"))) {
+      return;
+    }
+
+    setCustomWorkflowError(elements, "");
+    const parsed = parseCustomWorkflowText(readTextareaValue(elements.customWorkflowInput));
+
+    if (!parsed.ok) {
+      hideCustomWorkflowInputs();
+      setCustomWorkflowStatus(elements, parsed.reason, "error");
+      setCustomWorkflowError(elements, parsed.hint ? `${parsed.reason} ${parsed.hint}` : parsed.reason);
+      return;
+    }
+
+    // Node ids repeat between graphs, so a pick made for another workflow
+    // could name a node in this one. If the options changed and the artist
+    // had picked something, stop and let them look again.
+    const hadPicks =
+      (!elements.customWorkflowPromptTargetField.hidden && readSelectValue(elements.customWorkflowPromptTarget) !== "") ||
+      (!elements.customWorkflowImageTargetField.hidden && readSelectValue(elements.customWorkflowImageTarget) !== "");
+
+    if (refreshCustomWorkflowInputs(parsed.workflow) && hadPicks) {
+      setCustomWorkflowStatus(elements, "The workflow changed, so the Inputs were reset.", "error");
+      setCustomWorkflowDiagnostics(elements, "Check where the prompt and image go under Inputs, then click Run Workflow again.");
+      return;
+    }
+
+    const workflow = parsed.workflow;
+    const choice = readCustomWorkflowChoice();
+    const prompt = readTextareaValue(elements.customWorkflowPrompt);
+    const { settings, warnings } = validateCustomWorkflowSettings({ seed: elements.customWorkflowSeed.value });
+    const capturedSource = customWorkflowSource;
+    const resolved = resolveTargets(workflow, choice);
+    const usesSource = Boolean(capturedSource) && resolved.ok && resolved.image.some((slot) => slot.source === "layer");
+
+    setCustomWorkflowResult(null);
+    busyTool = "custom-workflow";
+    isBusy = true;
+    syncBusy();
+    // No preview message yet: a run the finder or a refusal stops never
+    // reaches ComfyUI, and its preview must keep saying there is no result.
+    setCustomWorkflowStatus(elements, "Preparing workflow...", "idle");
+
+    try {
+      const importBounds = usesSource && capturedSource ? capturedSource.captureBounds ?? null : null;
+      const client = new ComfyClient(elements.serverUrl.value);
+
+      if (warnings.length > 0) {
+        setCustomWorkflowDiagnostics(elements, warnings.join(" "));
+      }
+
+      const outcome = await runCustomWorkflow<AppGeneratedImageResult>(
+        {
+          checkOnline: async () => {
+            await client.checkOnline();
+          },
+          getNodeAvailability: (classTypes) => client.getNodeAvailability(classTypes),
+          embedMask: async (blob, mask) => {
+            try {
+              const embedded = await createFluxFillEmbeddedMaskSource(blob, mask, "openlayer-custom-workflow-source.png");
+              return { blob: embedded.blob, filename: embedded.filename };
+            } catch (caughtError) {
+              throw createOpenLayerError(
+                "INPAINT_SOURCE_INVALID",
+                "Could not put the selection into the image as its mask. Capture the selection again.",
+                getTechnicalErrorDetails(caughtError)
+              );
+            }
+          },
+          uploadImage: (blob, filename) => client.uploadImage(blob, filename),
+          run: (preparedWorkflow, pickOutput) =>
+            generation.runPipeline({
+              toolType: "custom-workflow",
+              client,
+              workflow: preparedWorkflow,
+              // Bound to the document the image came from, or to the one open
+              // now when the workflow takes no image, as Text to Image does.
+              // Read here, after every refusal and check, not before them.
+              originatingDocument: usesSource && capturedSource ? capturedSource.originatingDocument : getActiveDocumentIdentity(),
+              ui: createPipelineUi("custom-workflow", elements.customWorkflowStatusProgress),
+              messages: {
+                submitStatus: "Submitting the workflow to ComfyUI...",
+                submitPreview: "Submitting the workflow to ComfyUI...",
+                generateStatus: "Running the workflow...",
+                generatePreview: "Running the workflow...",
+                retrieveStatus: "Retrieving the result...",
+                retrievePreview: "Retrieving the result...",
+                livePreview: "Live ComfyUI preview..."
+              },
+              retrieve: (promptId, history) =>
+                client.retrieveFirstOutputImage(promptId, history, { preferredNodeId: pickOutput(history ?? {}) }),
+              commit: (generatedResult) => {
+                setCustomWorkflowResult(generatedResult);
+                customWorkflowImportBounds = importBounds;
+                addHistoryEntry(elements, historyEntries, objectUrls, generatedResult, {
+                  prompt: prompt || "(the workflow's own prompt)",
+                  checkpointName: "Custom workflow",
+                  modelName: "Custom workflow",
+                  workflowPreset: "custom-workflow",
+                  toolType: "custom-workflow",
+                  seed: settings.seed,
+                  sizeLabel: "Custom workflow",
+                  dimensions: usesSource && capturedSource ? `${capturedSource.width} x ${capturedSource.height}` : "Workflow size",
+                  sourceMode: usesSource && capturedSource ? capturedSource.sourceName : "None",
+                  experimental: true
+                });
+              }
+            }),
+          progress: (message) => {
+            setCustomWorkflowStatus(elements, message, "idle");
+            setCustomWorkflowProgressPreview(elements, message);
+          }
+        },
+        { workflow, choice, prompt, seed: settings.seed, source: capturedSource ? toCustomRunSource(capturedSource) : null }
+      );
+
+      // The pipeline already reported a cancel on this screen.
+      if (outcome.kind === "cancelled") {
+        return;
+      }
+
+      const view = describeCustomRunOutcome(outcome);
+      setCustomWorkflowStatus(elements, view.status, view.tone);
+      setCustomWorkflowError(elements, view.error);
+
+      if (view.inputs.length > 0) {
+        renderCustomWorkflowInputLines(view.inputs);
+      }
+
+      if (outcome.kind === "refused" && outcome.report) {
+        renderCustomWorkflowReport(elements, outcome.report);
+        elements.customWorkflowSummary.textContent = outcome.report.summaryLine;
+      }
+
+      if (outcome.kind === "failed") {
+        setCustomWorkflowProgressPreview(elements, "Workflow failed.");
+        console.error("[OpenLayer] Custom workflow failed", getTechnicalErrorDetails(outcome.error));
+      }
+
+      if (view.diagnostics) {
+        setCustomWorkflowDiagnostics(
+          elements,
+          outcome.kind === "done" ? `${view.diagnostics} Seed used: ${settings.seed}.` : view.diagnostics
+        );
+      }
+
+      if (outcome.kind === "done") {
+        if (autoImportFlags.isOn("custom-workflow")) {
+          setCustomWorkflowStatus(elements, "Workflow result ready. Auto-importing...", "idle");
+          await handleImportCustomWorkflow();
+        }
+      }
+    } catch (caughtError) {
+      if (isGenerationCancelledError(caughtError)) {
+        showGenerationCancelled("custom-workflow");
+        return;
+      }
+
+      setCustomWorkflowStatus(elements, "Workflow failed.", "error");
+      setCustomWorkflowError(elements, getErrorMessage(caughtError));
+      console.error("[OpenLayer] Custom workflow failed", getTechnicalErrorDetails(caughtError));
+    } finally {
+      isBusy = false;
+      busyTool = null;
+      syncBusy();
+    }
+  }
+
+  /**
+   * Places the result as a new layer. A result from a captured image lands
+   * where that image was captured (the selection's context crop for Capture
+   * Selection, so the whole crop is covered, not only the selection); one from
+   * a workflow that took no image is centred. Never stretched: a result of
+   * another size keeps its own size.
+   */
+  async function handleImportCustomWorkflow() {
+    if (!customWorkflowResult) {
+      setCustomWorkflowError(elements, "Run the workflow before importing.");
+      return;
+    }
+
+    setCustomWorkflowError(elements, "");
+    setCustomWorkflowStatus(elements, "Importing the result...", "idle");
+
+    try {
+      const layerName = createLayerName("OpenLayer_Workflow");
+      const importedLayerName = await importGeneratedImageAsLayer({
+        blob: customWorkflowResult.blob,
+        originatingDocument: customWorkflowResult.originatingDocument,
+        layerName,
+        targetBounds: customWorkflowImportBounds ?? undefined,
+        onProgress: (message) => {
+          setCustomWorkflowStatus(elements, message, "idle");
+          setCustomWorkflowDiagnostics(elements, message);
+        }
+      });
+      setCustomWorkflowStatus(elements, `Imported layer: ${importedLayerName}`, "ready");
+      flashImported(elements.customWorkflowStatusText);
+      markHistoryImported(elements, historyEntries, customWorkflowResult, importedLayerName);
+      const metadataMessage = await writeMetadataForImportedResult(
+        historyEntries,
+        customWorkflowResult,
+        importedLayerName,
+        (message) => {
+          setCustomWorkflowDiagnostics(elements, message);
+        }
+      );
+      setCustomWorkflowDiagnostics(elements, `Layer created: ${importedLayerName}. ${metadataMessage}`);
+    } catch (caughtError) {
+      setCustomWorkflowStatus(elements, "Import failed.", "error");
+      setCustomWorkflowError(elements, getErrorMessage(caughtError));
+    }
   }
 
   async function handleCaptureInpaintSelection(sourceMode: InpaintSourceMode) {
@@ -8393,6 +8802,26 @@ export function renderApp(rootElement: HTMLElement) {
 
   function setCameraAngleProgressPreview(elements: AppElements, message: string, blob?: Blob) {
     cameraAngleResultPanel.showProgress(message, blob);
+  }
+
+  function setCustomWorkflowSource(nextSource: ImageSourceState | null) {
+    customWorkflowSource = nextSource;
+    customWorkflowSourcePanel.show(customWorkflowSource && {
+      previewUrl: customWorkflowSource.previewUrl,
+      title: customWorkflowSource.sourceName,
+      meta: createSourceMetaText(customWorkflowSource)
+    });
+    syncBusy();
+  }
+
+  function setCustomWorkflowResult(nextResult: AppGeneratedImageResult | null) {
+    customWorkflowResult = nextResult;
+    customWorkflowResultPanel.showResult(customWorkflowResult?.blob ?? null);
+    syncBusy();
+  }
+
+  function setCustomWorkflowProgressPreview(_elements: AppElements, message: string, blob?: Blob) {
+    customWorkflowResultPanel.showProgress(message, blob);
   }
 
   function setLayerMapsSource(nextSource: ImageSourceState | null) {
@@ -10341,6 +10770,31 @@ function renderWorkflowPresets(elements: AppElements) {
  * somebody else's file, which is exactly the input that must never be handled
  * as markup.
  */
+/**
+ * Refills one of the Custom Workflow target selects. Options are built with
+ * createElement and textContent: their labels are node titles from somebody
+ * else's file. Keeps the current pick when it is still offered and `reset` is
+ * false; the wheel-proof picker is told to redraw.
+ */
+function fillTargetPicker(field: HTMLElement, select: HTMLSelectElement, picker: TargetPicker | null, reset: boolean) {
+  field.hidden = !picker;
+  const previous = reset ? "" : readSelectValue(select);
+
+  while (select.firstChild) {
+    select.removeChild(select.firstChild);
+  }
+
+  for (const option of picker?.options ?? []) {
+    const element = document.createElement("option");
+    element.value = option.value;
+    element.textContent = option.label;
+    select.appendChild(element);
+  }
+
+  select.value = picker?.options.some((option) => option.value === previous) ? previous : "";
+  select.dispatchEvent(new Event(PICKER_SYNC_EVENT));
+}
+
 function renderCustomWorkflowReport(elements: AppElements, report: CustomWorkflowReport) {
   const container = elements.customWorkflowResults;
   container.innerHTML = "";
