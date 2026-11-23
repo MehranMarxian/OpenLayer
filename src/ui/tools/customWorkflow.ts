@@ -166,13 +166,18 @@ export function describeCustomInputs(
 
   const layerSlot = targets.image.find((slot) => slot.source === "layer");
   if (layerSlot) {
-    lines.push(`Image goes to: ${nodeLabel(workflow, layerSlot.id)}.`);
+    const slotLabel = nodeLabel(workflow, layerSlot.id);
+    lines.push(`Image goes to: ${slotLabel}.`);
+    // Only what OpenLayer does is stated. Whether the graph masks some other
+    // way (a second loader's own mask file, say) is the graph's business.
     const readsMask = readsLoaderMask(workflow, layerSlot.id);
-    if (context.source?.selectionMask) {
+    if (readsMask && workflow[layerSlot.id]?.class_type !== "LoadImage") {
+      lines.push(`${slotLabel} is not a core Load Image node, so it gets the picture only, never the selection as a mask.`);
+    } else if (context.source?.selectionMask) {
       lines.push(
-        sendsSelectionAsMask(workflow, layerSlot)
+        readsMask
           ? "The selection goes in as that image's mask."
-          : "This workflow does not read a mask from that image, so the whole captured area can change."
+          : "The selection is not sent as a mask, because this workflow does not read one from that image."
       );
     } else if (readsMask) {
       lines.push("This workflow reads a mask from that image. Capture a selection to say where it should change.");
@@ -318,6 +323,9 @@ export async function runCustomWorkflow<TResult>(
     });
     if (input.seed !== null && prepared.seedsWritten === 0) {
       inputs.push("This workflow has no seed input, so running it again unchanged may return the same picture.");
+    }
+    if (prepared.seedsWritten > 1) {
+      inputs.push(`The seed goes into all ${prepared.seedsWritten} seed inputs, so samplers that had different seeds now share one.`);
     }
     if (prepared.size) inputs.push(`Size: ${prepared.size.width} x ${prepared.size.height}.`);
 

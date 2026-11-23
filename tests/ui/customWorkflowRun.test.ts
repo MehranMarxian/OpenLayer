@@ -246,6 +246,34 @@ describe("custom workflow run: end to end below the panel", () => {
     expect(outcome.kind === "done" && outcome.output).toStrictEqual([]);
   });
 
+  it("embeds nothing for a loader that is not core LoadImage, even with a selection", async () => {
+    const workflow: ComfyWorkflow = {
+      ...bundled("img2img-basic"),
+      "10": { class_type: "LoadImageFromFolder", inputs: { image: "a.png" } },
+      "20": { class_type: "SetLatentNoiseMask", inputs: { samples: ["11", 0], mask: ["10", 1] } }
+    };
+    const history: ComfyHistoryItem = { outputs: { "9": { images: [image("x_00001_.png", "output")] } } };
+    const { deps, calls } = createHarness({ history });
+    const outcome = await runCustomWorkflow(deps, input({ workflow, source: selection }));
+    expect(outcome.kind).toBe("done");
+    expect(calls).not.toContain("embed");
+    expect(deps.uploadImage).toHaveBeenCalledWith(selection.blob, "openlayer-selection.png");
+  });
+
+  it("says so when one seed replaces several", async () => {
+    const workflow: ComfyWorkflow = {
+      ...bundled("txt2img-basic"),
+      "20": { class_type: "KSampler", inputs: { seed: 9, model: ["4", 0], positive: ["6", 0], negative: ["7", 0], latent_image: ["3", 0] } }
+    };
+    const history: ComfyHistoryItem = { outputs: { "9": { images: [image("x_00001_.png", "output")] } } };
+    const { deps } = createHarness({ history });
+    const outcome = await runCustomWorkflow(deps, input({ workflow, source: null }));
+    expect(outcome.kind === "done" && outcome.seedsWritten).toBe(2);
+    expect(outcome.kind === "done" && outcome.inputs).toContain(
+      "The seed goes into all 2 seed inputs, so samplers that had different seeds now share one."
+    );
+  });
+
   it("names the other outputs and the extra pictures of a batch", async () => {
     const history: ComfyHistoryItem = {
       outputs: {
@@ -302,8 +330,23 @@ describe("custom workflow run: the pure pieces", () => {
     const resolvedImg2img = resolveTargets(img2img);
     if (!resolvedImg2img.ok) throw new Error("expected targets");
     expect(describeCustomInputs(img2img, resolvedImg2img, { prompt: "x", source: selection })).toContain(
-      "This workflow does not read a mask from that image, so the whole captured area can change."
+      "The selection is not sent as a mask, because this workflow does not read one from that image."
     );
+
+    // A loader that is not core LoadImage: its output 1 is read, but nothing
+    // is embedded for it, and the summary says so whatever was captured.
+    const custom: ComfyWorkflow = {
+      "1": { class_type: "LoadImageFromFolder", _meta: { title: "Folder Loader" }, inputs: { image: "a.png" } },
+      "2": { class_type: "VAEEncode", inputs: { pixels: ["1", 0] } },
+      "3": { class_type: "SetLatentNoiseMask", inputs: { samples: ["2", 0], mask: ["1", 1] } }
+    };
+    const resolvedCustom = resolveTargets(custom);
+    if (!resolvedCustom.ok) throw new Error("expected targets");
+    for (const source of [selection, layer]) {
+      expect(describeCustomInputs(custom, resolvedCustom, { prompt: "", source })).toContain(
+        "Folder Loader (#1) is not a core Load Image node, so it gets the picture only, never the selection as a mask."
+      );
+    }
 
     const resolvedFill = resolveTargets(ONE_REWARD);
     if (!resolvedFill.ok) throw new Error("expected targets");
