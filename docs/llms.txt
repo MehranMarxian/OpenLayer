@@ -29,6 +29,7 @@ First run: start with FLUX.2 Klein 4B (Apache-2.0, three files, 12.5 GB, no sign
 - Unflatten (experimental): split one flat image into separate layers with transparency, using Qwen-Image-Layered
 - Live Painting: paint and watch the model respond in real time
 - Style Reference and Multi-Reference: borrow a reference layer's mood, or compose one image from several layers
+- Workflow: paste your own ComfyUI workflow (a normal save or an API export), check that this ComfyUI has its nodes, and run it with your prompt and layer; the result comes back as a layer (new in v0.50)
 - Agent Bridge (MCP): lets AI agents drive the panel's tools
 
 ## Supported models
