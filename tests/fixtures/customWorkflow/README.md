@@ -36,6 +36,28 @@ inpaint graph), which is not committed.
 Both exports were taken through the menu, and their SHA-256 was checked against
 the bytes the page produced.
 
+### The PR 4 gate (recorded 2026-11-24, same ComfyUI 0.44.0, frontend 1.57.6)
+
+- `*.edited.workflow.json` and `*.edited.api.json`: the same template, with
+  the prompt typed into the subgraph node's prompt box ("Replace the hat with a
+  red wool scarf") and its seed typed into the seed widget's value box
+  (424242), then File > Export and File > Export (API) from that state. Never
+  Run, nothing queued. The template was opened with the frontend's own
+  `app.loadGraphData` on `GET /templates/image_flux.1_fill_dev_OneReward.json`
+  (no image upload). Apart from the two edits, the save matches
+  `*.workflow.json` above, except for two empty Use Everywhere `extra` arrays.
+  The save keeps the old values on the inner nodes 23 and 3; the export queues
+  the new ones. SHA-256: `cefb636f...a07a2e19` (save), `24b3d315...17a01e2`
+  (API).
+- `z-image-proxy-host-edited.api.json`: what `app.graphToPrompt()` (the
+  function File > Export (API) calls) returned for
+  `src/workflows/source/txt2img-z-image-turbo.workflow.json` with the subgraph
+  node's prompt set to "HOST TEXT" and steps to 9, and the inner prompt node
+  set to "INNER TEXT" (the test makes the same edit). That save promotes its
+  inputs as `["-1", name]` proxy widgets, and 1.57.6 queues the subgraph
+  node's values. `cnr_id` and `ver` were removed from `_meta`, as the
+  converter does not write them.
+
 ## `object-info-raw.json`
 
 Raw `GET /object_info` entries from ComfyUI 0.44.0 on 2026-11-23, 74 classes:
