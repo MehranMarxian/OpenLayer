@@ -1,5 +1,45 @@
 # Changelog
 
+## v0.50.0-beta - 2026-11-24
+
+The second beta. Its headline is the one new feature the beta plan allowed: run your own ComfyUI
+workflow from the panel.
+
+### Added
+
+- **Run your own ComfyUI workflow.** The Workflow screen takes a workflow pasted from ComfyUI, either
+  a normal File > Save or File > Export, or File > Export (API). A normal save is converted with this
+  ComfyUI's own node definitions, including values edited on a subgraph node. Check This Workflow
+  says whether this ComfyUI has every node it needs. Run Workflow sends your prompt, seed and
+  captured layer, canvas or selection into it and brings the result back as a layer. When a graph
+  has more than one place the prompt or image could go, the panel asks instead of guessing, and
+  you can keep the workflow's own images. An empty prompt keeps the workflow's own prompt.
+- **Import Automatically on every tool with a result.** Sketch to Image, Outpaint, Style Reference,
+  Multi-Reference, Unflatten and Camera Angle now have it too.
+
+### Fixed
+
+- **A prompt box no longer keeps its placeholder as text.** After emptying a box and typing,
+  Photoshop could leave the grey hint in front of your words, so Select by Text searched for
+  "plantFor example: chair..." and found nothing.
+- **Every capture button has its colour.** Capture Active Layer is blue and Capture Canvas green on
+  Remove Background, Camera Angle, Select by Text, Layer Maps, Edit Image, Multi-Reference and
+  Unflatten, which drew them grey.
+
+### Changed
+
+- **Panel text no longer uses "Photoshop" as an adjective.** "No Photoshop document is open" now
+  reads "No document is open", and so on, in about 85 messages.
+
+### Known limitations
+
+- The Workflow screen is new and has been run on a small set of graphs. A workflow that needs
+  custom nodes needs them installed in ComfyUI; Check This Workflow names the missing ones.
+- Tested on Windows 11 with Photoshop 2025 and Photoshop 28, an RTX 4070 Ti (12 GB) and ComfyUI
+  0.44.0. Not run on macOS. Photoshop 2024 was last confirmed by a tester on v0.37.1.
+- A first image on a clean install has not yet been confirmed on a machine other than the author's.
+- The Adobe Exchange listing carries v0.37.0 and trails this release.
+
 ## v0.45.0-beta - 2026-11-21
 
 The first beta. No new tools: features stay frozen, and this release makes OpenLayer work on the

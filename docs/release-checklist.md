@@ -43,7 +43,7 @@ Still manual, because no test can judge them:
 - Confirm the landing page does not claim production-ready inpainting.
 - Confirm Flux Fill is described as experimental or setup-required.
 - Confirm Prompt from Layer is described as a Florence-2 text workflow that requires local custom nodes and model files.
-- Confirm custom workflow import is listed as future work.
+- Confirm the Workflow screen (run your own workflow, since v0.50) is described as new and lightly tested.
 - Confirm LoRA browser, batch variants, generative/tiled upscale, and persistent metadata are listed as future work.
 - Confirm CI limitations are clear: Photoshop, UXP, and ComfyUI integration tests are manual.
 

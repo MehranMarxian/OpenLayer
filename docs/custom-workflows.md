@@ -1,6 +1,10 @@
 # Custom ComfyUI Workflows
 
-OpenLayer does not yet include a visual custom workflow importer. For now, custom workflows are developer-mapped.
+Since v0.50 you can run your own workflow from the panel: open the Workflow screen, paste a ComfyUI
+workflow (File > Save, File > Export or File > Export (API)), click Check This Workflow, then Run
+Workflow. The panel asks where your prompt and image go when the graph offers a choice.
+
+The rest of this page is about the built-in presets, which are developer-mapped.
 
 ## Current Structure
 

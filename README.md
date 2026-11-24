@@ -38,7 +38,12 @@
 - **Sixteen tools**, from text-to-image and editing by instruction through inpainting and background removal to
   multi-image composition and depth/line-art/normal passes, plus an experimental one that splits a
   flat picture back into layers.
-- **New in v0.45: the first beta.** No new tools. OpenLayer now works on Photoshop 28, which painted
+- **New in v0.50: run your own ComfyUI workflow.** Paste a workflow on the Workflow screen, either a
+  normal File > Save or an API export. The panel checks that this ComfyUI has every node it needs,
+  asks where your prompt and image go when the graph has a choice, runs it, and brings the result
+  back as a layer. Every tool now has Import Automatically, every capture button keeps its colour,
+  and a prompt box no longer keeps its placeholder as text.
+- **In v0.45: the first beta.** No new tools. OpenLayer now works on Photoshop 28, which painted
   every button in the panel grey over its colour; every button is now drawn by OpenLayer and
   looks the same on Photoshop 2025 and 28. Upscaling a layer opens the result at full size, a stale
   "Prompt required" error clears itself, and the prompt boxes and dropdowns line up with the rest of
@@ -66,7 +71,7 @@ a GPU with 8 GB VRAM or more (12 GB is what this project targets).
 OpenLayer is the panel inside Photoshop that talks to it — you work in Photoshop, ComfyUI does the
 generating in the background, and every result comes back as a layer.
 
-> **Beta.** `v0.45.0-beta` is the first beta: tested on Windows 11 with Photoshop 2025 and
+> **Beta.** `v0.50.0-beta` is the second beta: tested on Windows 11 with Photoshop 2025 and
 > Photoshop 28, not yet on macOS. It is stable enough to work with, and honest about where it stops — see [what works and what does
 > not](docs/known-limitations.md).
 
@@ -777,7 +782,8 @@ are installed in ComfyUI and that the server URL in OpenLayer matches the runnin
 **Generate fails**
 
 Run **Settings › Check Workflow Health**. It names the exact model file or ComfyUI node that is
-missing, and the folder it belongs in. For a custom workflow, node IDs need mapping in
+missing, and the folder it belongs in. For your own workflow, paste it on the Workflow screen and click **Check This Workflow**: it
+names any node this ComfyUI is missing. To add a built-in preset, node IDs are mapped in
 `src/comfy/presetRegistry.ts` — see [custom workflows](docs/custom-workflows.md).
 
 **Image to Image fails with a model mismatch**
