@@ -1,14 +1,14 @@
+import { UiWorkflow } from "./customWorkflow/convert";
 import { ComfyWorkflow } from "./types";
 import { WorkflowNodeAvailability } from "./workflowCompatibility";
 
 /**
  * Checking somebody else's ComfyUI workflow against this ComfyUI.
  *
- * Validation only: this says whether a graph *could* run here, never runs it,
- * and never tries to guess how OpenLayer's prompt and seed would be injected
- * into it. Mapping injections is the genuinely hard half and is deliberately
- * not attempted -- a wrong guess there produces a graph that runs and silently
- * ignores what the artist typed, which is worse than no importer at all.
+ * This module says whether a graph *could* run here. Where the prompt and the
+ * image go is the target finder's job (customWorkflow/targets.ts), which asks
+ * instead of guessing; turning an editor save into a runnable graph is the
+ * converter's (customWorkflow/convert.ts, called from customWorkflow/load.ts).
  *
  * Pure functions over parsed JSON plus a node-availability map, so every branch
  * is testable without a server.
@@ -18,6 +18,7 @@ export type CustomWorkflowFormat = "api" | "ui" | "unknown";
 
 export type CustomWorkflowParseResult =
   | { ok: true; workflow: ComfyWorkflow; format: "api" }
+  | { ok: true; ui: UiWorkflow; format: "ui" }
   | { ok: false; format: CustomWorkflowFormat; reason: string; hint?: string };
 
 export type CustomWorkflowNodeStatus = "ok" | "missing-node" | "missing-inputs";
@@ -40,13 +41,12 @@ export type CustomWorkflowReport = {
 };
 
 /**
- * Turns pasted text into a runnable-shaped workflow, or explains why not.
+ * Turns pasted text into a workflow of either format, or explains why not.
  *
- * The UI-vs-API distinction earns its own branch because it is the mistake
- * everyone makes: ComfyUI's plain Save produces the editor graph, and only
- * "Export (API)" produces what the /prompt endpoint accepts. The two are both
- * valid JSON full of familiar node names, so without this the artist gets
- * "no nodes found" and no idea that they exported the wrong file.
+ * ComfyUI's Save and Export write the editor graph; Export (API) writes what
+ * the /prompt endpoint accepts. Until v0.50 the editor graph was refused here
+ * with a "wrong export" hint. It is now returned as `ui` for the converter
+ * (customWorkflow/load.ts), because that is the file artists actually have.
  */
 export function parseCustomWorkflowText(text: string): CustomWorkflowParseResult {
   const trimmed = text.trim();
@@ -71,12 +71,7 @@ export function parseCustomWorkflowText(text: string): CustomWorkflowParseResult
   const format = detectCustomWorkflowFormat(parsed);
 
   if (format === "ui") {
-    return {
-      ok: false,
-      format,
-      reason: "That is the ComfyUI editor file, not the API format OpenLayer runs.",
-      hint: "In ComfyUI use Workflow > Export (API) rather than Save, then paste that file here."
-    };
+    return { ok: true, ui: parsed as UiWorkflow, format };
   }
 
   if (format !== "api") {
@@ -84,7 +79,7 @@ export function parseCustomWorkflowText(text: string): CustomWorkflowParseResult
       ok: false,
       format,
       reason: "That JSON does not look like a ComfyUI workflow.",
-      hint: "An API workflow is an object of node ids, each with a class_type and an inputs object."
+      hint: "Paste a workflow saved from ComfyUI with File > Save or File > Export, or one from File > Export (API)."
     };
   }
 

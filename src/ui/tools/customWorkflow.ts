@@ -22,7 +22,8 @@ import { createOpenLayerError, getErrorMessage } from "../../utils/errors";
 /**
  * Custom Workflow run: everything that does not need the panel or Photoshop.
  *
- * v0.50 PR 2. An artist's own API-format graph (GUI saves arrive in PR 4) is
+ * v0.50 PR 2. An artist's own API-format graph (an editor save is converted
+ * first, in src/comfy/customWorkflow/load.ts, since PR 4) is
  * mapped with the target finder ported in PR 1, refused or asked about when it
  * cannot be mapped without guessing, checked against this ComfyUI, filled in
  * and run through the same generation pipeline as every other tool. The panel
@@ -161,7 +162,7 @@ export function findLocalRefusal(
   for (const slot of targets.image.filter((entry) => entry.source === "keep")) {
     const image = workflow[slot.id]?.inputs[slot.key];
     if (typeof image !== "string" || !image.trim()) {
-      return `${nodeLabel(workflow, slot.id)} has no image of its own. Choose it for the layer instead, or give it an image in ComfyUI and export the workflow again.`;
+      return `${nodeLabel(workflow, slot.id)} has no image of its own. Choose it for the layer instead, or give it an image in ComfyUI and save the workflow again.`;
     }
   }
   return null;

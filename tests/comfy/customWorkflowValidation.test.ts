@@ -41,24 +41,23 @@ describe("parseCustomWorkflowText", () => {
   });
 
   /**
-   * The regression this exists for is a support burden, not a crash: ComfyUI's
-   * plain Save writes the editor graph and only Export (API) writes what the
-   * /prompt endpoint takes. Both are JSON full of familiar node names, so
-   * without this branch the artist is told "no nodes found" about a file that
-   * plainly contains their nodes.
+   * Until v0.50 PR 4 this was refused with a "wrong export" hint, because
+   * ComfyUI's Save writes the editor graph and only Export (API) writes what
+   * /prompt takes. The editor graph is now handed to the converter
+   * (src/comfy/customWorkflow/load.ts), since it is the file artists have.
    */
-  it("tells an artist when they exported the editor file instead of the API one", () => {
-    const uiExport = JSON.stringify({
+  it("accepts an editor save as the ui format, for the converter", () => {
+    const uiSave = {
       last_node_id: 9,
       last_link_id: 12,
       nodes: [{ id: 4, type: "CheckpointLoaderSimple", widgets_values: ["model.safetensors"] }],
       links: []
-    });
-    const result = parseCustomWorkflowText(uiExport);
+    };
+    const result = parseCustomWorkflowText(JSON.stringify(uiSave));
 
-    expect(result.ok).toBe(false);
+    expect(result.ok).toBe(true);
     expect(result.format).toBe("ui");
-    expect(result.ok === false && result.hint).toContain("Export (API)");
+    expect(result.ok && result.format === "ui" && result.ui).toStrictEqual(uiSave);
   });
 
   it("rejects JSON that is not a workflow at all", () => {
