@@ -140,6 +140,11 @@ export function validateCameraAngleSettings(input: CameraAngleSettingsInput): Ca
   return { settings: { seed }, warnings };
 }
 
+/** A custom workflow takes only the seed from the panel; everything else is in the graph. */
+export function validateCustomWorkflowSettings(input: CameraAngleSettingsInput): CameraAngleSettingsValidation {
+  return validateCameraAngleSettings(input);
+}
+
 export function validateOutpaintSettings(input: OutpaintSettingsInput): OutpaintSettingsValidation {
   const { settings, warnings } = validateImageToImageSettings(input);
   const left = readIntegerInRange(input.left, "Left expansion", 0, 2048, warnings);

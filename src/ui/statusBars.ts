@@ -333,6 +333,17 @@ export function setCameraAngleStatus(elements: AppElements, status: string, tone
   );
 }
 
+export function setCustomWorkflowStatus(elements: AppElements, status: string, tone: StatusTone) {
+  applyToolStatus(
+    elements,
+    elements.customWorkflowStatusText,
+    elements.customWorkflowStatusPill,
+    elements.customWorkflowStatusProgress,
+    status,
+    tone
+  );
+}
+
 export function setLayerMapsStatus(elements: AppElements, status: string, tone: StatusTone) {
   applyToolStatus(
     elements,
@@ -437,6 +448,10 @@ export function setCameraAngleError(elements: AppElements, message: string) {
   applyToolError(elements.cameraAngleErrorMessage, message);
 }
 
+export function setCustomWorkflowError(elements: AppElements, message: string) {
+  applyToolError(elements.customWorkflowError, message);
+}
+
 export function setLayerMapsError(elements: AppElements, message: string) {
   applyToolError(elements.layerMapsErrorMessage, message);
 }
@@ -526,6 +541,11 @@ export function setSelectByTextDiagnostics(elements: AppElements, message: strin
 
 export function setCameraAngleDiagnostics(elements: AppElements, message: string) {
   elements.cameraAngleDiagnosticsText.textContent = message;
+  elements.settingsDiagnosticsText.textContent = message;
+}
+
+export function setCustomWorkflowDiagnostics(elements: AppElements, message: string) {
+  elements.customWorkflowDiagnosticsText.textContent = message;
   elements.settingsDiagnosticsText.textContent = message;
 }
 

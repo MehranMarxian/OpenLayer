@@ -98,7 +98,8 @@ const IMPORT_HANDLER: Record<AutoImportTool, string> = {
   "style-reference": "handleImportStyleReference",
   "multi-reference": "handleImportMultiReference",
   unflatten: "handleImportUnflatten",
-  "camera-angle": "handleImportCameraAngle"
+  "camera-angle": "handleImportCameraAngle",
+  "custom-workflow": "handleImportCustomWorkflow"
 };
 
 describe("Import Automatically in every tool's preview", () => {
@@ -110,8 +111,8 @@ describe("Import Automatically in every tool's preview", () => {
       [...row.querySelectorAll(".button")].some((button) => button.textContent?.trim() === "Import to Layers")
     );
 
-    // Twelve tools with a result preview, plus Live Painting.
-    expect(rows.length).toBe(13);
+    // Thirteen tools with a result preview (Custom Workflow since v0.50), plus Live Painting.
+    expect(rows.length).toBe(14);
 
     for (const row of rows) {
       const buttons = [...row.querySelectorAll(".button")];
@@ -134,7 +135,8 @@ describe("Import Automatically in every tool's preview", () => {
       "style-reference": { element: "styleReferenceAutoImportToggle", action: "toggleStyleReferenceAutoImport" },
       "multi-reference": { element: "multiReferenceAutoImportToggle", action: "toggleMultiReferenceAutoImport" },
       unflatten: { element: "unflattenAutoImportToggle", action: "toggleUnflattenAutoImport" },
-      "camera-angle": { element: "cameraAngleAutoImportToggle", action: "toggleCameraAngleAutoImport" }
+      "camera-angle": { element: "cameraAngleAutoImportToggle", action: "toggleCameraAngleAutoImport" },
+      "custom-workflow": { element: "customWorkflowAutoImportToggle", action: "toggleCustomWorkflowAutoImport" }
     };
 
     expect(Object.keys(map).sort()).toEqual(Object.keys(AUTO_IMPORT_TOOL_NAMES).sort());

@@ -7,6 +7,7 @@ import {
 import { NO_LORA_VALUE } from "../comfy/loraCompatibility";
 import { CAMERA_DIRECTIONS, CAMERA_DISTANCES, CAMERA_HEIGHTS, DEFAULT_CAMERA_ANGLE } from "../comfy/cameraAngle";
 import { createCameraAngleOptionsMarkup } from "./tools/cameraAngle";
+import { CUSTOM_WORKFLOW_WARNING } from "./tools/customWorkflow";
 import { createButtonMarkup } from "./buttonMarkup";
 import { COMPONENT_SHEET_VIEW_ID, createComponentSheetPlaceholderMarkup } from "./componentSheet";
 import {
@@ -527,6 +528,26 @@ export type AppElements = {
   customWorkflowSummary: HTMLElement;
   customWorkflowError: HTMLElement;
   customWorkflowResults: HTMLElement;
+  customWorkflowStatusProgress: HTMLElement;
+  customWorkflowDiagnosticsText: HTMLElement;
+  customWorkflowInputsSection: HTMLElement;
+  customWorkflowInputsLines: HTMLElement;
+  customWorkflowPromptTargetField: HTMLElement;
+  customWorkflowPromptTarget: HTMLSelectElement;
+  customWorkflowImageTargetField: HTMLElement;
+  customWorkflowImageTarget: HTMLSelectElement;
+  captureCustomWorkflowLayerButton: HTMLElement;
+  captureCustomWorkflowCanvasButton: HTMLElement;
+  captureCustomWorkflowSelectionButton: HTMLElement;
+  customWorkflowSourcePreviewPanel: HTMLElement;
+  customWorkflowSourceTitle: HTMLElement;
+  customWorkflowSourceMeta: HTMLElement;
+  customWorkflowPrompt: HTMLTextAreaElement;
+  customWorkflowSeed: HTMLInputElement;
+  runCustomWorkflowButton: HTMLElement;
+  customWorkflowResultPreviewPanel: HTMLElement;
+  importCustomWorkflowButton: HTMLElement;
+  customWorkflowAutoImportToggle: HTMLElement;
 };
 
 export function createAppMarkup() {
@@ -2215,30 +2236,104 @@ ${createComponentSheetPlaceholderMarkup()}
           </div>
         </div>
 
-        <section class="panel-section settings-panel diagnostic-section diagnostic-scroll-safe" aria-label="Check a custom workflow">
+        <section class="panel-section settings-panel diagnostic-section diagnostic-scroll-safe" aria-label="Your workflow">
           <div class="section-heading">
-            <span class="label">Check a custom workflow</span>
-            <span class="muted-label">Validate only</span>
+            <span class="label">Your workflow</span>
+            <span class="muted-label">Paste, check, run</span>
           </div>
           <div class="diagnostics-line setup-paragraph">
-            Paste a ComfyUI workflow to find out whether this ComfyUI could run it. In ComfyUI use
-            Workflow &gt; Export (API), not Save. Nothing is generated here and OpenLayer does not take
-            the graph over -- this reports what is installed and what is missing.
+            Paste a ComfyUI workflow saved with File &gt; Export (API) (Workflow &gt; Export (API) in older
+            ComfyUI), not Save. Check This Workflow says whether this ComfyUI has every node it needs. Run
+            Workflow sends your prompt and image into it and brings the result back.
           </div>
           <div class="field">
             <span class="label">Workflow JSON</span>
             <textarea maxlength="2000000" class="textarea compact-textarea" id="custom-workflow-input" placeholder="Paste the exported API workflow JSON here..."></textarea>
           </div>
-          <div role="button" tabindex="0" class="button button-primary button-wide action-control" id="check-custom-workflow" data-openlayer-action="checkCustomWorkflow">Check This Workflow</div>
+          <div role="button" tabindex="0" class="button button-wide action-control" id="check-custom-workflow" data-openlayer-action="checkCustomWorkflow">Check This Workflow</div>
+          <div class="diagnostics-line setup-paragraph" id="custom-workflow-summary"></div>
+        </section>
+
+        <div id="custom-workflow-results"></div>
+
+        <section class="panel-section generator-panel img2img-form-panel" id="custom-workflow-inputs-section" aria-label="Custom workflow inputs" hidden>
+          <div class="section-heading">
+            <span class="label">Inputs</span>
+            <span class="muted-label">Where your prompt and image go</span>
+          </div>
+          <div class="diagnostics-line setup-paragraph" id="custom-workflow-inputs-lines"></div>
+          <div class="field img2img-field" id="custom-workflow-prompt-target-field" hidden>
+            <span class="label">Prompt goes to</span>
+            <select class="select" id="custom-workflow-prompt-target"></select>
+          </div>
+          <div class="field img2img-field" id="custom-workflow-image-target-field" hidden>
+            <span class="label">Image goes to</span>
+            <select class="select" id="custom-workflow-image-target"></select>
+          </div>
+        </section>
+
+        <section class="panel-section generator-panel source-panel" aria-label="Custom workflow source">
+          <div class="section-heading">
+            <span class="label">Image</span>
+            <span class="muted-label">What the workflow gets</span>
+          </div>
+          <div class="source-action-row" aria-label="Custom workflow source capture actions">
+            <div role="button" tabindex="0" class="button source-action-button action-control" id="capture-custom-workflow-layer" data-openlayer-action="captureCustomWorkflowLayer">Capture Active Layer</div>
+            <div role="button" tabindex="0" class="button source-action-button action-control" id="capture-custom-workflow-canvas" data-openlayer-action="captureCustomWorkflowCanvas">Capture Canvas</div>
+            <div role="button" tabindex="0" class="button source-action-button action-control" id="capture-custom-workflow-selection" data-openlayer-action="captureCustomWorkflowSelection">Capture Selection</div>
+          </div>
+          <div class="source-card">
+            <div class="source-thumb-frame" id="custom-workflow-source-preview-panel">
+              <span class="source-empty">None</span>
+            </div>
+            <div class="source-card-body">
+              <span class="source-title" id="custom-workflow-source-title">No image captured</span>
+              <span class="source-card-meta" id="custom-workflow-source-meta">Not needed for a workflow that takes no image.</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel-section generator-panel img2img-form-panel" aria-label="Custom workflow settings">
+          <div class="section-heading">
+            <span class="label">Run</span>
+            <span class="muted-label">Prompt and seed</span>
+          </div>
+          <div class="field img2img-field">
+            <span class="label">Prompt</span>
+            <textarea maxlength="4000" class="textarea compact-textarea" id="custom-workflow-prompt" placeholder="Leave empty to keep the workflow's own prompt..."></textarea>
+          </div>
+          <div class="field settings-seed">
+            <span class="label">Seed</span>
+            <input class="input input-compact" id="custom-workflow-seed" type="text" inputmode="numeric" placeholder="Random" />
+          </div>
+          <div role="button" tabindex="0" class="button button-primary button-generate button-wide action-control" id="run-custom-workflow" data-openlayer-action="runCustomWorkflow">Run Workflow</div>
+          <div role="button" tabindex="0" class="button button-wide action-control cancel-generation-button" data-openlayer-action="cancelGeneration" hidden>Cancel Generation</div>
+          <div class="diagnostics-line setup-paragraph" id="custom-workflow-warning">${CUSTOM_WORKFLOW_WARNING}</div>
+        </section>
+
+        <section class="generation-status-panel img2img-status-panel" aria-label="Custom workflow status">
           <div class="status-bar" role="status">
             <span class="status-text" id="custom-workflow-status-text">Ready.</span>
             <span class="status-pill idle" id="custom-workflow-status-pill">Status</span>
           </div>
-          <div class="diagnostics-line setup-paragraph" id="custom-workflow-summary"></div>
+          <div class="status-progress" id="custom-workflow-status-progress" hidden><span></span></div>
+          <div class="diagnostics-line" id="custom-workflow-diagnostics-text">Paste a workflow, then click Check This Workflow or Run Workflow.</div>
           <div class="error-message" id="custom-workflow-error" hidden></div>
         </section>
 
-        <div id="custom-workflow-results"></div>
+        <section class="panel-section result-panel img2img-result-panel" aria-label="Custom workflow result">
+          <div class="section-heading">
+            <span class="label">Result preview</span>
+            <span class="muted-label">The workflow's picture</span>
+          </div>
+          <div class="preview-panel" id="custom-workflow-result-preview-panel">
+            <span class="preview-empty">No result yet</span>
+          </div>
+          <div class="import-actions">
+            <div role="button" class="button button-import button-import-blue action-control is-disabled" id="import-custom-workflow-result" data-openlayer-action="importCustomWorkflow" tabindex="-1" aria-disabled="true">Import to Layers</div>
+            <div role="button" tabindex="0" class="button auto-import-toggle action-control" id="custom-workflow-auto-import-toggle" data-openlayer-action="toggleCustomWorkflowAutoImport" aria-pressed="false">Import Automatically</div>
+          </div>
+        </section>
       </section>
 
       <section class="workflow-presets-view setup-view" id="workflow-presets-view" aria-label="Workflow Presets" hidden>
@@ -3063,7 +3158,27 @@ export function getAppElements(rootElement: HTMLElement): AppElements {
     customWorkflowStatusPill: getElement<HTMLElement>(rootElement, "custom-workflow-status-pill"),
     customWorkflowSummary: getElement<HTMLElement>(rootElement, "custom-workflow-summary"),
     customWorkflowError: getElement<HTMLElement>(rootElement, "custom-workflow-error"),
-    customWorkflowResults: getElement<HTMLElement>(rootElement, "custom-workflow-results")
+    customWorkflowResults: getElement<HTMLElement>(rootElement, "custom-workflow-results"),
+    customWorkflowStatusProgress: getElement<HTMLElement>(rootElement, "custom-workflow-status-progress"),
+    customWorkflowDiagnosticsText: getElement<HTMLElement>(rootElement, "custom-workflow-diagnostics-text"),
+    customWorkflowInputsSection: getElement<HTMLElement>(rootElement, "custom-workflow-inputs-section"),
+    customWorkflowInputsLines: getElement<HTMLElement>(rootElement, "custom-workflow-inputs-lines"),
+    customWorkflowPromptTargetField: getElement<HTMLElement>(rootElement, "custom-workflow-prompt-target-field"),
+    customWorkflowPromptTarget: getElement<HTMLSelectElement>(rootElement, "custom-workflow-prompt-target"),
+    customWorkflowImageTargetField: getElement<HTMLElement>(rootElement, "custom-workflow-image-target-field"),
+    customWorkflowImageTarget: getElement<HTMLSelectElement>(rootElement, "custom-workflow-image-target"),
+    captureCustomWorkflowLayerButton: getElement<HTMLElement>(rootElement, "capture-custom-workflow-layer"),
+    captureCustomWorkflowCanvasButton: getElement<HTMLElement>(rootElement, "capture-custom-workflow-canvas"),
+    captureCustomWorkflowSelectionButton: getElement<HTMLElement>(rootElement, "capture-custom-workflow-selection"),
+    customWorkflowSourcePreviewPanel: getElement<HTMLElement>(rootElement, "custom-workflow-source-preview-panel"),
+    customWorkflowSourceTitle: getElement<HTMLElement>(rootElement, "custom-workflow-source-title"),
+    customWorkflowSourceMeta: getElement<HTMLElement>(rootElement, "custom-workflow-source-meta"),
+    customWorkflowPrompt: getElement<HTMLTextAreaElement>(rootElement, "custom-workflow-prompt"),
+    customWorkflowSeed: getElement<HTMLInputElement>(rootElement, "custom-workflow-seed"),
+    runCustomWorkflowButton: getElement<HTMLElement>(rootElement, "run-custom-workflow"),
+    customWorkflowResultPreviewPanel: getElement<HTMLElement>(rootElement, "custom-workflow-result-preview-panel"),
+    importCustomWorkflowButton: getElement<HTMLElement>(rootElement, "import-custom-workflow-result"),
+    customWorkflowAutoImportToggle: getElement<HTMLElement>(rootElement, "custom-workflow-auto-import-toggle")
   };
 }
 

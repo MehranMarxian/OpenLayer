@@ -2,6 +2,7 @@ import { isGenerationCancelledError } from "../../comfy/generationCancel";
 import {
   chooseResultNode,
   fitSize,
+  FoundTargets,
   ImageSlot,
   resolveTargets,
   ResolvedImageSlot,
@@ -131,8 +132,28 @@ function labels(workflow: ComfyWorkflow, targets: readonly { id: string }[]): st
   return targets.map((target) => nodeLabel(workflow, target.id)).join(", ");
 }
 
+/**
+ * True when every prompt target's own text is empty. OpenLayer's preset
+ * graphs ship that way (the panel always writes the prompt), so a pasted copy
+ * with an empty prompt box would send an empty prompt.
+ */
+function ownPromptIsEmpty(workflow: ComfyWorkflow, targets: ResolvedTargetSet): boolean {
+  return targets.prompt.length > 0 && targets.prompt.every((target) => {
+    const own = workflow[target.id]?.inputs[target.key];
+    return typeof own !== "string" || !own.trim();
+  });
+}
+
 /** What stops the run before anything is sent; null when nothing does. */
-export function findLocalRefusal(workflow: ComfyWorkflow, targets: ResolvedTargetSet, source: CustomRunSource | null): string | null {
+export function findLocalRefusal(
+  workflow: ComfyWorkflow,
+  targets: ResolvedTargetSet,
+  source: CustomRunSource | null,
+  prompt = ""
+): string | null {
+  if (!prompt.trim() && ownPromptIsEmpty(workflow, targets)) {
+    return "Type a prompt first. This workflow's own prompt is empty.";
+  }
   const layerSlot = targets.image.find((slot) => slot.source === "layer");
   if (layerSlot && !source) {
     return `Capture a layer, the canvas or a selection first. This workflow sends it to ${nodeLabel(workflow, layerSlot.id)}.`;
@@ -159,7 +180,13 @@ export function describeCustomInputs(
 
   if (targets.prompt.length) {
     lines.push(`Prompt goes to: ${labels(workflow, targets.prompt)}.`);
-    if (!context.prompt.trim()) lines.push("The prompt box is empty, so the workflow's own prompt is used.");
+    if (!context.prompt.trim()) {
+      lines.push(
+        ownPromptIsEmpty(workflow, targets)
+          ? "The prompt box is empty, and so is the workflow's own prompt. Type a prompt."
+          : "The prompt box is empty, so the workflow's own prompt is used."
+      );
+    }
   } else {
     lines.push("This workflow has no prompt input, so the prompt box is not used.");
   }
@@ -268,6 +295,127 @@ export function describeResultChoice(workflow: ComfyWorkflow, choice: ResultChoi
   return lines;
 }
 
+// ---------------------------------------------------------------------------
+// The screen (PR 3). Pure, so App.ts only copies these into elements.
+// ---------------------------------------------------------------------------
+
+/** The image picker's value for "send no layer" (TargetChoice.keepImages). Not a node id ComfyUI can produce. */
+export const KEEP_IMAGES_OPTION = "keep-workflow-images";
+
+/**
+ * The first option of both pickers: automatic, or "choose" when nothing is.
+ * Not "": the panel's readSelectValue falls back to an option's label when its
+ * value is empty, which would read "Automatic: ..." as a pick.
+ */
+export const AUTO_TARGET_OPTION = "openlayer-automatic";
+
+export type PickerOption = Readonly<{ value: string; label: string }>;
+/** Options for one of the two static selects; the first option (AUTO_TARGET_OPTION) means automatic, or "choose" when nothing is. */
+export type TargetPicker = Readonly<{ options: readonly PickerOption[] }>;
+export type TargetPickers = Readonly<{ prompt: TargetPicker | null; image: TargetPicker | null }>;
+
+/**
+ * The two pickers for a workflow. The prompt picker is shown only when there
+ * is a choice to make (several candidates, or none automatic). The image
+ * picker is shown whenever the graph has a slot, because "Keep the workflow's
+ * own images" is always a choice (Mehran's call for v0.50).
+ */
+export function buildTargetPickers(found: FoundTargets): TargetPickers {
+  const promptCandidates = found.prompt.candidates;
+  const auto = found.prompt.auto;
+  const prompt: TargetPicker | null =
+    !promptCandidates.length || (auto !== null && promptCandidates.length <= 1)
+      ? null
+      : {
+          options: [
+            { value: AUTO_TARGET_OPTION, label: auto === null ? "Choose a node..." : `Automatic: ${auto.map((c) => c.label).join(", ")}` },
+            ...promptCandidates.map((c) => ({ value: c.id, label: c.label }))
+          ]
+        };
+
+  const image: TargetPicker | null = found.image.length
+    ? {
+        options: [
+          { value: AUTO_TARGET_OPTION, label: found.imageAuto ? `Automatic: ${found.imageAuto.label}` : "Choose a Load Image..." },
+          ...found.image.map((slot) => ({ value: slot.id, label: `${slot.label}, used as ${slot.role}` })),
+          { value: KEEP_IMAGES_OPTION, label: "Keep the workflow's own images" }
+        ]
+      }
+    : null;
+
+  return { prompt, image };
+}
+
+/**
+ * Same options, same labels, same order: the pickers on screen still describe
+ * this workflow. Labels count because two graphs can share node ids and still
+ * be different graphs; a pick must not survive under a changed title.
+ */
+export function pickerSignature(pickers: TargetPickers): string {
+  const entries = (picker: TargetPicker | null) => (picker ? picker.options.map((option) => [option.value, option.label]) : null);
+  return JSON.stringify([entries(pickers.prompt), entries(pickers.image)]);
+}
+
+/** True when the select holds a real pick, not the automatic first option. */
+export function isTargetPick(value: string): boolean {
+  return Boolean(value) && value !== AUTO_TARGET_OPTION;
+}
+
+/** The two select values as the finder's choice. AUTO_TARGET_OPTION (or nothing) is "automatic". */
+export function readTargetChoice(promptValue: string, imageValue: string): TargetChoice {
+  return {
+    prompt: isTargetPick(promptValue) ? promptValue : undefined,
+    image: isTargetPick(imageValue) && imageValue !== KEEP_IMAGES_OPTION ? imageValue : undefined,
+    keepImages: imageValue === KEEP_IMAGES_OPTION
+  };
+}
+
+export type CustomRunView = Readonly<{
+  status: string;
+  tone: "idle" | "ready" | "error";
+  /** The Inputs summary after the run; empty keeps what is on screen. */
+  inputs: readonly string[];
+  /** Diagnostics line: what was imported and what was left out. */
+  diagnostics: string;
+  /** Error box text; empty hides it. */
+  error: string;
+  /** Which picker needs the artist before the next Run. */
+  needs: "prompt" | "image" | null;
+}>;
+
+/** What the screen shows for each outcome. */
+export function describeCustomRunOutcome<TResult>(outcome: CustomRunOutcome<TResult>): CustomRunView {
+  switch (outcome.kind) {
+    case "choose":
+      return {
+        status: outcome.choose === "prompt" ? "Choose where the prompt goes." : "Choose where the image goes.",
+        tone: "error",
+        inputs: [],
+        diagnostics:
+          outcome.choose === "prompt"
+            ? `Several nodes could take the prompt (${outcome.candidates.map((c) => c.label).join(", ")}). Pick one under Inputs, then click Run Workflow again.`
+            : `Several Load Image nodes could take the image (${outcome.candidates.map((c) => c.label).join(", ")}). Pick one under Inputs, or keep the workflow's own images, then click Run Workflow again.`,
+        error: "",
+        needs: outcome.choose
+      };
+    case "refused":
+      return { status: "Workflow not run.", tone: "error", inputs: [], diagnostics: "Nothing was queued in ComfyUI.", error: outcome.message, needs: null };
+    case "failed":
+      return { status: "Workflow failed.", tone: "error", inputs: [], diagnostics: "", error: outcome.message, needs: null };
+    case "cancelled":
+      return { status: "Generation cancelled.", tone: "idle", inputs: [], diagnostics: "", error: "", needs: null };
+    case "done":
+      return {
+        status: "Workflow result ready.",
+        tone: "ready",
+        inputs: outcome.inputs,
+        diagnostics: outcome.output.length ? outcome.output.join(" ") : "Click Import to Layers to place the result.",
+        error: "",
+        needs: null
+      };
+  }
+}
+
 const NO_NEW_PICTURE =
   "This workflow returned no new picture to import. It needs a Save Image or Preview Image node that shows a result, not the input.";
 
@@ -290,7 +438,7 @@ export async function runCustomWorkflow<TResult>(
       : { kind: "choose", choose: "image", candidates: resolved.candidates };
   }
 
-  const refusal = findLocalRefusal(input.workflow, resolved, input.source);
+  const refusal = findLocalRefusal(input.workflow, resolved, input.source, input.prompt);
   if (refusal) return { kind: "refused", message: refusal };
 
   const inputs = describeCustomInputs(input.workflow, resolved, { prompt: input.prompt, source: input.source });

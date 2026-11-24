@@ -30,7 +30,8 @@ export const AUTO_IMPORT_TOOL_NAMES = {
   "style-reference": "Style Reference",
   "multi-reference": "Multi-Reference",
   unflatten: "Unflatten",
-  "camera-angle": "Camera Angle"
+  "camera-angle": "Camera Angle",
+  "custom-workflow": "Custom Workflow"
 } as const;
 
 export type AutoImportTool = keyof typeof AUTO_IMPORT_TOOL_NAMES;
