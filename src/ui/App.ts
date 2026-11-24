@@ -7241,6 +7241,7 @@ export function renderApp(rootElement: HTMLElement) {
   async function handleCheckCustomWorkflow() {
     setCustomWorkflowStatus(elements, "Checking workflow...", "idle");
     setCustomWorkflowError(elements, "");
+    setCustomWorkflowDiagnostics(elements, "");
     elements.customWorkflowSummary.textContent = "";
     elements.customWorkflowResults.innerHTML = "";
 
