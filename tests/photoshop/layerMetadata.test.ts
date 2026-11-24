@@ -19,6 +19,6 @@ describe("Photoshop layer metadata writer", () => {
     expect(result.status).toBe("unsupported");
     expect(result.summary).toContain("txt2img-basic");
     expect(result.message).toContain("session history");
-    expect(messages).toEqual(["Checking Photoshop layer metadata support..."]);
+    expect(messages).toEqual(["Checking layer metadata support..."]);
   });
 });

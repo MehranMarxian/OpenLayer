@@ -25,7 +25,7 @@ export function createInpaintSourceModeWarning(mode: InpaintSourceMode, activeLa
     return "Visible Canvas mode includes visible OpenLayer result layers. Hide previous OpenLayer result layers or use Active Layer mode for a cleaner source.";
   }
 
-  return "Visible Canvas mode includes all visible Photoshop layers in the selected context.";
+  return "Visible Canvas mode includes all visible layers in the selected context.";
 }
 
 export function createInpaintSourceModeDiagnostic(input: InpaintSourceModeDiagnosticInput) {
@@ -40,7 +40,7 @@ export function chooseInpaintImportMode(input: InpaintImportDecisionInput) {
   if (input.hasMask && input.canUseNativeLayerMask) {
     return {
       useNativeLayerMask: true,
-      message: "Native Photoshop layer mask import will be attempted."
+      message: "Native layer mask import will be attempted."
     };
   }
 
@@ -53,7 +53,7 @@ export function chooseInpaintImportMode(input: InpaintImportDecisionInput) {
 
   return {
     useNativeLayerMask: false,
-    message: "Native Photoshop layer mask import is unavailable. OpenLayer will use aligned context fallback."
+    message: "Native layer mask import is unavailable. OpenLayer will use aligned context fallback."
   };
 }
 

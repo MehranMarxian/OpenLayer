@@ -829,7 +829,7 @@ export function createAppMarkup() {
             <div><span>Server URL</span><strong id="settings-url-value">${DEFAULT_SERVER_URL}</strong></div>
             <div><span>Checkpoint count</span><strong id="settings-checkpoint-count">Fallback list</strong></div>
             <div><span>Last checkpoint</span><strong id="settings-last-checkpoint">Not checked</strong></div>
-            <div><span>Photoshop document</span><strong id="settings-document-status">Not checked</strong></div>
+            <div><span>Document</span><strong id="settings-document-status">Not checked</strong></div>
             <div><span>Workflow readiness</span><strong id="settings-workflow-readiness">Not checked</strong></div>
           </div>
         </section>
@@ -1557,7 +1557,7 @@ ${createComponentSheetPlaceholderMarkup()}
         <section class="panel-section generator-panel source-panel" aria-label="Inpaint selection source">
           <div class="section-heading">
             <span class="label">Selection source</span>
-            <span class="muted-label">Photoshop selection</span>
+            <span class="muted-label">Selection</span>
           </div>
           <div class="source-action-row" aria-label="Selection capture actions">
             <div role="button" tabindex="0" class="button source-action-button action-control" id="capture-inpaint-selection" data-openlayer-action="captureInpaintSelection">Capture Visible</div>
@@ -1569,7 +1569,7 @@ ${createComponentSheetPlaceholderMarkup()}
             </div>
             <div class="source-card-body">
               <span class="source-title" id="inpaint-source-title">No selection captured</span>
-              <span class="source-card-meta" id="inpaint-source-meta">Make a Photoshop selection first.</span>
+              <span class="source-card-meta" id="inpaint-source-meta">Make a selection first.</span>
             </div>
           </div>
           <div class="source-card">
@@ -1610,7 +1610,7 @@ ${createComponentSheetPlaceholderMarkup()}
             <select class="select" id="inpaint-checkpoint">
               ${FALLBACK_CHECKPOINTS.map((checkpoint) => `<option value="${checkpoint}">${checkpoint}</option>`).join("")}
             </select>
-            ${createInfoPanelMarkup("inpaint-compatibility-note", "Capture a Photoshop selection, then generate; the result imports with your exact selection as a layer mask.")}
+            ${createInfoPanelMarkup("inpaint-compatibility-note", "Capture a selection, then generate; the result imports with your exact selection as a layer mask.")}
           </div>
           <div class="settings-grid img2img-settings-grid" aria-label="Inpaint settings">
             <div class="field">
@@ -1641,7 +1641,7 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="status-pill idle" id="inpaint-status-pill">Status</span>
           </div>
           <div class="status-progress" id="inpaint-status-progress" hidden><span></span></div>
-          <div class="diagnostics-line" id="inpaint-diagnostics-text">Capture a Photoshop selection to prepare inpainting.</div>
+          <div class="diagnostics-line" id="inpaint-diagnostics-text">Capture a selection to prepare inpainting.</div>
           <div class="error-message" id="inpaint-error-message" hidden></div>
         </section>
 

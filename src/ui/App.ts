@@ -1771,65 +1771,65 @@ export function renderApp(rootElement: HTMLElement) {
     panel: elements.imageSourcePreviewPanel,
     titleElement: elements.imageSourceTitle,
     metaElement: elements.imageSourceMeta,
-    imageAlt: "Captured active Photoshop layer"
+    imageAlt: "Captured active layer"
   });
   const sketchSourcePanel = createSourcePreviewPanel({
     urls: objectUrls,
     panel: elements.sketchSourcePreviewPanel,
     titleElement: elements.sketchSourceTitle,
     metaElement: elements.sketchSourceMeta,
-    imageAlt: "Captured Photoshop source for Sketch to Image"
+    imageAlt: "Captured source for Sketch to Image"
   });
   const inpaintSourcePanel = createSourcePreviewPanel({
     urls: objectUrls,
     panel: elements.inpaintSourcePreviewPanel,
     titleElement: elements.inpaintSourceTitle,
     metaElement: elements.inpaintSourceMeta,
-    imageAlt: "Captured Photoshop selection for Inpaint",
+    imageAlt: "Captured selection for Inpaint",
     emptyTitle: "No selection captured",
-    emptyMeta: "Make a Photoshop selection first."
+    emptyMeta: "Make a selection first."
   });
   const outpaintSourcePanel = createSourcePreviewPanel({
     urls: objectUrls,
     panel: elements.outpaintSourcePreviewPanel,
     titleElement: elements.outpaintSourceTitle,
     metaElement: elements.outpaintSourceMeta,
-    imageAlt: "Captured Photoshop source for Outpaint"
+    imageAlt: "Captured source for Outpaint"
   });
   const upscaleSourcePanel = createSourcePreviewPanel({
     urls: objectUrls,
     panel: elements.upscaleSourcePreviewPanel,
     titleElement: elements.upscaleSourceTitle,
     metaElement: elements.upscaleSourceMeta,
-    imageAlt: "Captured Photoshop source for Upscale"
+    imageAlt: "Captured source for Upscale"
   });
   const removeBackgroundSourcePanel = createSourcePreviewPanel({
     urls: objectUrls,
     panel: elements.removeBackgroundSourcePreviewPanel,
     titleElement: elements.removeBackgroundSourceTitle,
     metaElement: elements.removeBackgroundSourceMeta,
-    imageAlt: "Captured Photoshop source for Remove Background"
+    imageAlt: "Captured source for Remove Background"
   });
   const cameraAngleSourcePanel = createSourcePreviewPanel({
     urls: objectUrls,
     panel: elements.cameraAngleSourcePreviewPanel,
     titleElement: elements.cameraAngleSourceTitle,
     metaElement: elements.cameraAngleSourceMeta,
-    imageAlt: "Captured Photoshop source for Camera Angle"
+    imageAlt: "Captured source for Camera Angle"
   });
   const selectByTextSourcePanel = createSourcePreviewPanel({
     urls: objectUrls,
     panel: elements.selectByTextSourcePreviewPanel,
     titleElement: elements.selectByTextSourceTitle,
     metaElement: elements.selectByTextSourceMeta,
-    imageAlt: "Captured Photoshop source for Select by Text"
+    imageAlt: "Captured source for Select by Text"
   });
   const layerMapsSourcePanel = createSourcePreviewPanel({
     urls: objectUrls,
     panel: elements.layerMapsSourcePreviewPanel,
     titleElement: elements.layerMapsSourceTitle,
     metaElement: elements.layerMapsSourceMeta,
-    imageAlt: "Captured Photoshop source for Layer Maps"
+    imageAlt: "Captured source for Layer Maps"
   });
   const customWorkflowSourcePanel = createSourcePreviewPanel({
     urls: objectUrls,
@@ -1845,14 +1845,14 @@ export function renderApp(rootElement: HTMLElement) {
     panel: elements.styleReferenceSourcePreviewPanel,
     titleElement: elements.styleReferenceSourceTitle,
     metaElement: elements.styleReferenceSourceMeta,
-    imageAlt: "Captured Photoshop source for Style Reference"
+    imageAlt: "Captured source for Style Reference"
   });
   const unflattenSourcePanel = createSourcePreviewPanel({
     urls: objectUrls,
     panel: elements.unflattenSourcePreviewPanel,
     titleElement: elements.unflattenSourceTitle,
     metaElement: elements.unflattenSourceMeta,
-    imageAlt: "Captured Photoshop source for Unflatten"
+    imageAlt: "Captured source for Unflatten"
   });
   const agentConnection = createAgentConnection({
     bridge: agentBridge,
@@ -1865,7 +1865,7 @@ export function renderApp(rootElement: HTMLElement) {
     panel: elements.promptLayerSourcePreviewPanel,
     titleElement: elements.promptLayerSourceTitle,
     metaElement: elements.promptLayerSourceMeta,
-    imageAlt: "Captured Photoshop source for Prompt from Layer"
+    imageAlt: "Captured source for Prompt from Layer"
   });
   const inpaintMaskUrl = createOwnedObjectUrl(objectUrls);
   const generation = createGenerationController({
@@ -1975,10 +1975,10 @@ export function renderApp(rootElement: HTMLElement) {
     captureCanvasSource: createActionRunner(elements, "captureCanvasSource", handleCaptureCanvasSource),
     captureImageSelection: createActionRunner(elements, "captureImageSelection", handleCaptureImageSelection),
     addEditReferenceLayer: createActionRunner(elements, "addEditReferenceLayer", () =>
-      addEditReference(exportActiveLayerForImageToImage, "Capturing active Photoshop layer as a reference...")
+      addEditReference(exportActiveLayerForImageToImage, "Capturing active layer as a reference...")
     ),
     addEditReferenceCanvas: createActionRunner(elements, "addEditReferenceCanvas", () =>
-      addEditReference(exportCanvasForImageToImage, "Capturing Photoshop canvas as a reference...")
+      addEditReference(exportCanvasForImageToImage, "Capturing canvas as a reference...")
     ),
     toggleExperimentalCheckpoints: createActionRunner(
       elements,
@@ -3939,7 +3939,7 @@ export function renderApp(rootElement: HTMLElement) {
 
   async function handleCaptureImageSource() {
     await captureImageToImageSource({
-      progressMessage: "Capturing active Photoshop layer...",
+      progressMessage: "Capturing active layer...",
       statusMessage: "Capturing active layer...",
       successMessage: "Source layer captured.",
       capture: exportActiveLayerForImageToImage
@@ -3948,7 +3948,7 @@ export function renderApp(rootElement: HTMLElement) {
 
   async function handleCaptureCanvasSource() {
     await captureImageToImageSource({
-      progressMessage: "Capturing Photoshop canvas...",
+      progressMessage: "Capturing canvas...",
       statusMessage: "Capturing canvas...",
       successMessage: "Canvas captured.",
       capture: exportCanvasForImageToImage
@@ -3957,7 +3957,7 @@ export function renderApp(rootElement: HTMLElement) {
 
   async function handleCaptureImageSelection() {
     await captureImageToImageSource({
-      progressMessage: "Capturing the Photoshop selection with some surrounding context...",
+      progressMessage: "Capturing the selection with some surrounding context...",
       statusMessage: "Capturing selection...",
       successMessage: "Selection captured. Only the selected area will change.",
       capture: captureSelectionWithMask
@@ -4103,7 +4103,7 @@ export function renderApp(rootElement: HTMLElement) {
     setImageDiagnostics(elements, `Image to Image generate pressed at ${new Date().toLocaleTimeString()}.`);
 
     if (!imageSource) {
-      setImageError(elements, "Capture the active Photoshop layer before generating Image to Image.");
+      setImageError(elements, "Capture the active layer before generating Image to Image.");
       setImageStatus(elements, "Source required.", "error");
       setImageDiagnostics(
         elements,
@@ -4359,7 +4359,7 @@ export function renderApp(rootElement: HTMLElement) {
 
   async function handleCaptureUpscaleSource() {
     await captureUpscaleSourceImage({
-      progressMessage: "Capturing active Photoshop layer for Upscale...",
+      progressMessage: "Capturing active layer for Upscale...",
       statusMessage: "Capturing active layer...",
       successMessage: "Upscale source captured.",
       capture: exportActiveLayerForImageToImage,
@@ -4369,7 +4369,7 @@ export function renderApp(rootElement: HTMLElement) {
 
   async function handleCaptureUpscaleCanvasSource() {
     await captureUpscaleSourceImage({
-      progressMessage: "Capturing Photoshop canvas for Upscale...",
+      progressMessage: "Capturing canvas for Upscale...",
       statusMessage: "Capturing canvas...",
       successMessage: "Upscale canvas captured.",
       capture: exportCanvasForImageToImage,
@@ -4418,7 +4418,7 @@ export function renderApp(rootElement: HTMLElement) {
 
   async function handleCaptureRemoveBackgroundSource() {
     await captureRemoveBackgroundSourceImage({
-      progressMessage: "Capturing active Photoshop layer for Remove Background...",
+      progressMessage: "Capturing active layer for Remove Background...",
       statusMessage: "Capturing active layer...",
       successMessage: "Source captured.",
       capture: exportActiveLayerForImageToImage
@@ -4427,7 +4427,7 @@ export function renderApp(rootElement: HTMLElement) {
 
   async function handleCaptureRemoveBackgroundCanvasSource() {
     await captureRemoveBackgroundSourceImage({
-      progressMessage: "Capturing Photoshop canvas for Remove Background...",
+      progressMessage: "Capturing canvas for Remove Background...",
       statusMessage: "Capturing canvas...",
       successMessage: "Canvas captured.",
       capture: exportCanvasForImageToImage
@@ -4485,7 +4485,7 @@ export function renderApp(rootElement: HTMLElement) {
     }
 
     if (!removeBackgroundSource) {
-      setRemoveBackgroundError(elements, "Capture the active Photoshop layer or canvas before removing its background.");
+      setRemoveBackgroundError(elements, "Capture the active layer or canvas before removing its background.");
       setRemoveBackgroundStatus(elements, "Source required.", "error");
       return;
     }
@@ -4641,7 +4641,7 @@ export function renderApp(rootElement: HTMLElement) {
     }
 
     if (!cameraAngleSource) {
-      setCameraAngleError(elements, "Capture the active Photoshop layer or canvas before changing the camera angle.");
+      setCameraAngleError(elements, "Capture the active layer or canvas before changing the camera angle.");
       setCameraAngleStatus(elements, "Source required.", "error");
       return;
     }
@@ -4847,7 +4847,7 @@ export function renderApp(rootElement: HTMLElement) {
     }
 
     if (!selectByTextSource) {
-      setSelectByTextError(elements, "Capture the active Photoshop layer or canvas before selecting.");
+      setSelectByTextError(elements, "Capture the active layer or canvas before selecting.");
       setSelectByTextStatus(elements, "Source required.", "error");
       return;
     }
@@ -5014,7 +5014,7 @@ export function renderApp(rootElement: HTMLElement) {
 
   async function handleCaptureLayerMapsSource() {
     await captureLayerMapsSourceImage({
-      progressMessage: "Capturing active Photoshop layer for Layer Maps...",
+      progressMessage: "Capturing active layer for Layer Maps...",
       statusMessage: "Capturing active layer...",
       successMessage: "Source captured.",
       capture: exportActiveLayerForImageToImage
@@ -5023,7 +5023,7 @@ export function renderApp(rootElement: HTMLElement) {
 
   async function handleCaptureLayerMapsCanvasSource() {
     await captureLayerMapsSourceImage({
-      progressMessage: "Capturing Photoshop canvas for Layer Maps...",
+      progressMessage: "Capturing canvas for Layer Maps...",
       statusMessage: "Capturing canvas...",
       successMessage: "Canvas captured.",
       capture: exportCanvasForImageToImage
@@ -5102,7 +5102,7 @@ export function renderApp(rootElement: HTMLElement) {
     }
 
     if (!layerMapsSource) {
-      setLayerMapsError(elements, "Capture the active Photoshop layer or canvas before reading a map from it.");
+      setLayerMapsError(elements, "Capture the active layer or canvas before reading a map from it.");
       setLayerMapsStatus(elements, "Source required.", "error");
       return;
     }
@@ -5256,7 +5256,7 @@ export function renderApp(rootElement: HTMLElement) {
     setUpscaleDiagnostics(elements, `Upscale generate pressed at ${new Date().toLocaleTimeString()}.`);
 
     if (!upscaleSource) {
-      setUpscaleError(elements, "Capture the active Photoshop layer or canvas before upscaling.");
+      setUpscaleError(elements, "Capture the active layer or canvas before upscaling.");
       setUpscaleStatus(elements, "Source required.", "error");
       setUpscaleDiagnostics(
         elements,
@@ -5528,7 +5528,7 @@ export function renderApp(rootElement: HTMLElement) {
 
   async function handleCaptureOutpaintSource() {
     await captureOutpaintSourceImage({
-      progressMessage: "Capturing active Photoshop layer for Outpaint...",
+      progressMessage: "Capturing active layer for Outpaint...",
       statusMessage: "Capturing active layer...",
       successMessage: "Outpaint source captured.",
       captureKind: "layer",
@@ -5538,7 +5538,7 @@ export function renderApp(rootElement: HTMLElement) {
 
   async function handleCaptureOutpaintCanvasSource() {
     await captureOutpaintSourceImage({
-      progressMessage: "Capturing Photoshop canvas for Outpaint...",
+      progressMessage: "Capturing canvas for Outpaint...",
       statusMessage: "Capturing canvas...",
       successMessage: "Outpaint canvas captured.",
       captureKind: "canvas",
@@ -5593,7 +5593,7 @@ export function renderApp(rootElement: HTMLElement) {
     setOutpaintDiagnostics(elements, `Outpaint generate pressed at ${new Date().toLocaleTimeString()}.`);
 
     if (!outpaintSource) {
-      setOutpaintError(elements, "Capture the active Photoshop layer or canvas before generating Outpaint.");
+      setOutpaintError(elements, "Capture the active layer or canvas before generating Outpaint.");
       setOutpaintStatus(elements, "Source required.", "error");
       setOutpaintDiagnostics(
         elements,
@@ -5880,7 +5880,7 @@ export function renderApp(rootElement: HTMLElement) {
 
   async function handleCaptureSketchSource() {
     await captureSketchToImageSource({
-      progressMessage: "Capturing active Photoshop layer for Sketch to Image...",
+      progressMessage: "Capturing active layer for Sketch to Image...",
       statusMessage: "Capturing active layer...",
       successMessage: "Sketch source captured.",
       capture: exportActiveLayerForImageToImage
@@ -5889,7 +5889,7 @@ export function renderApp(rootElement: HTMLElement) {
 
   async function handleCaptureSketchCanvasSource() {
     await captureSketchToImageSource({
-      progressMessage: "Capturing Photoshop canvas for Sketch to Image...",
+      progressMessage: "Capturing canvas for Sketch to Image...",
       statusMessage: "Capturing canvas...",
       successMessage: "Sketch canvas captured.",
       capture: exportCanvasForImageToImage
@@ -5941,7 +5941,7 @@ export function renderApp(rootElement: HTMLElement) {
     setSketchDiagnostics(elements, `Sketch to Image generate pressed at ${new Date().toLocaleTimeString()}.`);
 
     if (!sketchSource) {
-      setSketchError(elements, "Capture the active Photoshop layer or canvas before generating Sketch to Image.");
+      setSketchError(elements, "Capture the active layer or canvas before generating Sketch to Image.");
       setSketchStatus(elements, "Source required.", "error");
       setSketchDiagnostics(
         elements,
@@ -6156,7 +6156,7 @@ export function renderApp(rootElement: HTMLElement) {
 
   async function handleCaptureStyleReferenceSource() {
     await captureStyleReferenceSourceImage({
-      progressMessage: "Capturing active Photoshop layer for Style Reference...",
+      progressMessage: "Capturing active layer for Style Reference...",
       statusMessage: "Capturing active layer...",
       successMessage: "Style reference captured.",
       capture: exportActiveLayerForImageToImage
@@ -6165,7 +6165,7 @@ export function renderApp(rootElement: HTMLElement) {
 
   async function handleCaptureStyleReferenceCanvasSource() {
     await captureStyleReferenceSourceImage({
-      progressMessage: "Capturing Photoshop canvas for Style Reference...",
+      progressMessage: "Capturing canvas for Style Reference...",
       statusMessage: "Capturing canvas...",
       successMessage: "Style reference canvas captured.",
       capture: exportCanvasForImageToImage
@@ -6217,7 +6217,7 @@ export function renderApp(rootElement: HTMLElement) {
     setStyleReferenceDiagnostics(elements, `Style Reference generate pressed at ${new Date().toLocaleTimeString()}.`);
 
     if (!styleReferenceSource) {
-      setStyleReferenceError(elements, "Capture the active Photoshop layer or canvas as a style reference before generating.");
+      setStyleReferenceError(elements, "Capture the active layer or canvas as a style reference before generating.");
       setStyleReferenceStatus(elements, "Reference required.", "error");
       setStyleReferenceDiagnostics(
         elements,
@@ -6470,7 +6470,7 @@ export function renderApp(rootElement: HTMLElement) {
 
   async function handleAddMultiReferenceLayer() {
     await addMultiReferenceSource({
-      progressMessage: "Capturing active Photoshop layer as a reference...",
+      progressMessage: "Capturing active layer as a reference...",
       statusMessage: "Capturing active layer...",
       capture: exportActiveLayerForImageToImage
     });
@@ -6478,7 +6478,7 @@ export function renderApp(rootElement: HTMLElement) {
 
   async function handleAddMultiReferenceCanvas() {
     await addMultiReferenceSource({
-      progressMessage: "Capturing Photoshop canvas as a reference...",
+      progressMessage: "Capturing canvas as a reference...",
       statusMessage: "Capturing canvas...",
       capture: exportCanvasForImageToImage
     });
@@ -6812,7 +6812,7 @@ export function renderApp(rootElement: HTMLElement) {
 
   async function handleCaptureUnflattenLayer() {
     await captureUnflattenSourceImage({
-      progressMessage: "Capturing active Photoshop layer for Unflatten...",
+      progressMessage: "Capturing active layer for Unflatten...",
       statusMessage: "Capturing layer...",
       successMessage: "Layer captured.",
       capture: exportActiveLayerForImageToImage
@@ -6821,7 +6821,7 @@ export function renderApp(rootElement: HTMLElement) {
 
   async function handleCaptureUnflattenCanvas() {
     await captureUnflattenSourceImage({
-      progressMessage: "Capturing Photoshop canvas for Unflatten...",
+      progressMessage: "Capturing canvas for Unflatten...",
       statusMessage: "Capturing canvas...",
       successMessage: "Canvas captured.",
       capture: exportCanvasForImageToImage
@@ -7635,7 +7635,7 @@ export function renderApp(rootElement: HTMLElement) {
 
   async function handleCaptureInpaintSelection(sourceMode: InpaintSourceMode) {
     const sourceModeLabel = getInpaintSourceModeLabel(sourceMode);
-    setInpaintDiagnostics(elements, `Capturing Photoshop selection from ${sourceModeLabel}...`);
+    setInpaintDiagnostics(elements, `Capturing selection from ${sourceModeLabel}...`);
     setInpaintError(elements, "");
     setInpaintStatus(elements, `Capturing ${sourceModeLabel} selection...`, "idle");
     busyTool = "inpaint";
@@ -8015,7 +8015,7 @@ export function renderApp(rootElement: HTMLElement) {
               maskPolarity: "white-repaints",
               contextBounds: createMetadataBounds(submittedSource.selection.contextBounds),
               outputKind: "selection context",
-              importMode: "Photoshop layer mask with aligned fallback"
+              importMode: "layer mask with aligned fallback"
             })
           ].filter(Boolean).join(" ")
         });
@@ -8118,10 +8118,10 @@ export function renderApp(rootElement: HTMLElement) {
         elements,
         `Importing into ${importResultImage.originatingDocument?.name || "the originating document"}...`
       );
-      setInpaintStatus(elements, "Importing with Photoshop layer mask...", "idle");
+      setInpaintStatus(elements, "Importing with layer mask...", "idle");
       setInpaintDiagnostics(
         elements,
-        "Applying the exact saved Photoshop selection mask."
+        "Applying the exact saved selection mask."
       );
 
       const importResult = await importImageAlignedToSelectionWithLayerMask({
@@ -8177,7 +8177,7 @@ export function renderApp(rootElement: HTMLElement) {
 
   async function handleCapturePromptLayerSource() {
     await capturePromptFromLayerSource({
-      progressMessage: "Capturing active Photoshop layer for Prompt from Layer...",
+      progressMessage: "Capturing active layer for Prompt from Layer...",
       statusMessage: "Capturing active layer...",
       successMessage: "Layer captured.",
       capture: exportActiveLayerForImageToImage
@@ -8186,7 +8186,7 @@ export function renderApp(rootElement: HTMLElement) {
 
   async function handleCapturePromptCanvasSource() {
     await capturePromptFromLayerSource({
-      progressMessage: "Capturing Photoshop canvas for Prompt from Layer...",
+      progressMessage: "Capturing canvas for Prompt from Layer...",
       statusMessage: "Capturing canvas...",
       successMessage: "Canvas captured.",
       capture: exportCanvasForImageToImage
@@ -8701,7 +8701,7 @@ export function renderApp(rootElement: HTMLElement) {
       renderPreviewImage(
         elements.inpaintMaskPreviewPanel,
         inpaintMaskUrl.createFrom(inpaintSource.mask.blob),
-        "Captured Photoshop selection mask"
+        "Captured selection mask"
       );
       elements.inpaintMaskMeta.textContent = `${inpaintSource.mask.width} x ${inpaintSource.mask.height} | PNG/lossless mask`;
     } else {

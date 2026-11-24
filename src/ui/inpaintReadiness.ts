@@ -90,7 +90,7 @@ export function evaluateInpaintReadiness(input: InpaintReadinessInput): InpaintR
   if (!source || source.blob.size === 0) {
     return blocked(
       "source-missing",
-      "Make a Photoshop selection, then click Capture Selection before generating Inpaint.",
+      "Make a selection, then click Capture Selection before generating Inpaint.",
       warnings
     );
   }
@@ -98,7 +98,7 @@ export function evaluateInpaintReadiness(input: InpaintReadinessInput): InpaintR
   if (!source.originatingDocument) {
     return blocked(
       "origin-document-missing",
-      "This captured selection is not linked to a Photoshop document, so OpenLayer will not generate from it. Capture the selection again while the intended document is active.",
+      "This captured selection is not linked to a document, so OpenLayer will not generate from it. Capture the selection again while the intended document is active.",
       warnings
     );
   }

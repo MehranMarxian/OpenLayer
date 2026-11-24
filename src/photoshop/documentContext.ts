@@ -45,7 +45,7 @@ export function validateDocumentImportContext(
       ok: false,
       reason: "missing-origin",
       message:
-        "This result is not linked to an originating Photoshop document, so OpenLayer will not import it. Generate it again while the intended document is active."
+        "This result is not linked to an originating document, so OpenLayer will not import it. Generate it again while the intended document is active."
     };
   }
 
