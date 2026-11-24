@@ -176,14 +176,14 @@ export async function tryCreateTransparentInpaintResultBlob(
     return {
       blob: null,
       status: "timed-out",
-      message: "Transparent mask compositing timed out in Photoshop UXP. Aligned context fallback used."
+      message: "Transparent mask compositing timed out in Photoshop. Aligned context fallback used."
     };
   }
 
   return {
     blob: null,
     status: "skipped",
-    message: "Transparent mask compositing skipped or unavailable in Photoshop UXP. Aligned context fallback used."
+    message: "Transparent mask compositing skipped or unavailable in Photoshop. Aligned context fallback used."
   };
 }
 

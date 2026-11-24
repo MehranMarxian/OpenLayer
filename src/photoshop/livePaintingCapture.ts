@@ -64,7 +64,7 @@ export async function captureCanvasForLivePainting(maxDimension = 512): Promise<
   if (!document || typeof document.id !== "number") {
     throw createOpenLayerError(
       "PHOTOSHOP_NO_DOCUMENT",
-      "Open a Photoshop document before starting a Live Painting session."
+      "Open a document before starting a Live Painting session."
     );
   }
 

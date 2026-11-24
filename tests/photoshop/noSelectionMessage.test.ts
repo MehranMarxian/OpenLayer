@@ -13,17 +13,17 @@ import {
 describe("no-selection message", () => {
   it("keeps Inpaint's original sentence when no caller is named", () => {
     expect(createNoSelectionMessage()).toBe(
-      "No active Photoshop selection was found. Make a selection before using Inpaint."
+      "No active selection was found. Make a selection before using Inpaint."
     );
     expect(DEFAULT_SELECTION_REQUESTER).toBe("using Inpaint");
   });
 
   it("names the caller so the message matches what the artist did", () => {
     expect(createNoSelectionMessage("exporting a selection")).toBe(
-      "No active Photoshop selection was found. Make a selection before exporting a selection."
+      "No active selection was found. Make a selection before exporting a selection."
     );
     expect(createNoSelectionMessage("exporting a selection mask")).toBe(
-      "No active Photoshop selection was found. Make a selection before exporting a selection mask."
+      "No active selection was found. Make a selection before exporting a selection mask."
     );
   });
 

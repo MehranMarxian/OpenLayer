@@ -264,7 +264,7 @@ function createSetupNextStep(
       return "This preset needs a validated OpenLayer API workflow JSON before it can run.";
     case "setup-required":
       return primaryIssue?.code === "PHOTOSHOP_INPUT_MISSING"
-        ? "Capture the required Photoshop source first, then try again."
+        ? "Capture the required source first, then try again."
         : "Review the preset setup requirements before running it.";
     default:
       return "";

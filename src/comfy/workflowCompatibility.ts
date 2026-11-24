@@ -297,11 +297,11 @@ function formatPhotoshopRequirement(requirement: WorkflowPhotoshopInputRequireme
 function formatPhotoshopInput(inputKind: WorkflowPhotoshopInputKind) {
   switch (inputKind) {
     case "active-layer":
-      return "an active Photoshop layer";
+      return "an active layer";
     case "canvas":
       return "a captured canvas";
     case "selection":
-      return "a Photoshop selection";
+      return "a selection";
     case "selection-mask":
       return "a selection mask";
     default:

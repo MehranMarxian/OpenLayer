@@ -183,7 +183,7 @@ const PLATE_SOLID_ALPHA_FLOOR = 128;
 export const DEFAULT_SELECTION_REQUESTER = "using Inpaint";
 
 export function createNoSelectionMessage(requestedBy: string = DEFAULT_SELECTION_REQUESTER) {
-  return `No active Photoshop selection was found. Make a selection before ${requestedBy}.`;
+  return `No active selection was found. Make a selection before ${requestedBy}.`;
 }
 
 export function assertCaptureSizeWithinLimit(width: number, height: number) {
@@ -363,7 +363,7 @@ export async function importGeneratedImageAsLayer(
   } catch (caughtError) {
     throw createOpenLayerError(
       "PHOTOSHOP_IMPORT_FAILED",
-      `Could not import the generated image as a Photoshop layer. ${getErrorMessage(caughtError)}`
+      `Could not import the generated image as a layer. ${getErrorMessage(caughtError)}`
     );
   } finally {
     // placeEvent has already read the file by the time executeAsModal returns
@@ -385,7 +385,7 @@ export async function exportActiveLayerForImageToImage(): Promise<ExportedSource
         if (!activeLayer) {
           throw createOpenLayerError(
             "PHOTOSHOP_EXPORT_FAILED",
-            "No active Photoshop layer was found. Select a pixel or smart object layer before using Image to Image."
+            "No active layer was found. Select a pixel or smart object layer before using Image to Image."
           );
         }
 
@@ -427,7 +427,7 @@ export async function exportActiveLayerForImageToImage(): Promise<ExportedSource
   } catch (caughtError) {
     throw createOpenLayerError(
       "PHOTOSHOP_EXPORT_FAILED",
-      `Could not capture the active Photoshop layer for image-to-image. ${getErrorMessage(caughtError)}`
+      `Could not capture the active layer for image-to-image. ${getErrorMessage(caughtError)}`
     );
   }
 }
@@ -484,7 +484,7 @@ export async function exportCanvasForImageToImage(): Promise<ExportedSourceImage
   } catch (caughtError) {
     throw createOpenLayerError(
       "PHOTOSHOP_EXPORT_FAILED",
-      `Could not capture the Photoshop canvas for image-to-image. ${getErrorMessage(caughtError)}`
+      `Could not capture the canvas for image-to-image. ${getErrorMessage(caughtError)}`
     );
   }
 }
@@ -504,7 +504,7 @@ export async function getActiveSelectionInfo(): Promise<ActiveSelectionInfo> {
 
     throw createOpenLayerError(
       "PHOTOSHOP_NO_SELECTION",
-      "No active Photoshop selection was found. Make a selection before using Inpaint.",
+      "No active selection was found. Make a selection before using Inpaint.",
       getErrorMessage(caughtError)
     );
   }
@@ -559,7 +559,7 @@ export async function captureSelectionForInpainting(
         if (sourceMode === "active-layer" && typeof activeLayer?.id !== "number") {
           throw createOpenLayerError(
             "PHOTOSHOP_EXPORT_FAILED",
-            "No active Photoshop layer was found for Inpaint Active Layer capture.",
+            "No active layer was found for Inpaint Active Layer capture.",
             "Select the layer you want OpenLayer to use as the Inpaint source."
           );
         }
@@ -627,7 +627,7 @@ export async function captureSelectionForInpainting(
 
     throw createOpenLayerError(
       "PHOTOSHOP_EXPORT_FAILED",
-      `Could not capture the active Photoshop selection for inpainting. ${getErrorMessage(caughtError)}`
+      `Could not capture the active selection for inpainting. ${getErrorMessage(caughtError)}`
     );
   }
 }
@@ -664,7 +664,7 @@ export async function importImageAlignedToSelectionWithLayerMask(
     const token = await uxp.storage.localFileSystem.createSessionToken(file);
     const maskToken = await uxp.storage.localFileSystem.createSessionToken(maskFile);
     let maskApplied = false;
-    const maskMessage = "Imported with the exact saved Photoshop selection as a layer mask.";
+    const maskMessage = "Imported with the exact saved selection as a layer mask.";
 
     options.onProgress?.("Placing inpaint patch into the active document...");
     await photoshop.core.executeAsModal(
@@ -1027,7 +1027,7 @@ export async function exportActiveLayerAsPNG(): Promise<ExportedSourceImage> {
         if (!activeLayer) {
           throw createOpenLayerError(
             "PHOTOSHOP_EXPORT_FAILED",
-            "No active Photoshop layer was found. Select a pixel or smart object layer before exporting."
+            "No active layer was found. Select a pixel or smart object layer before exporting."
           );
         }
 
@@ -1059,7 +1059,7 @@ export async function exportActiveLayerAsPNG(): Promise<ExportedSourceImage> {
   } catch (caughtError) {
     throw createOpenLayerError(
       "PHOTOSHOP_EXPORT_FAILED",
-      `Could not export the active Photoshop layer. ${getErrorMessage(caughtError)}`
+      `Could not export the active layer. ${getErrorMessage(caughtError)}`
     );
   }
 }
@@ -1113,7 +1113,7 @@ export async function exportSelectionAsPNG(): Promise<ExportedSourceImage> {
 
     throw createOpenLayerError(
       "PHOTOSHOP_EXPORT_FAILED",
-      `Could not export the active Photoshop selection. ${getErrorMessage(caughtError)}`
+      `Could not export the active selection. ${getErrorMessage(caughtError)}`
     );
   }
 }
@@ -1144,7 +1144,7 @@ export async function exportSelectionMask(): Promise<SelectionMaskExport> {
 
     throw createOpenLayerError(
       "PHOTOSHOP_EXPORT_FAILED",
-      `Could not export the active Photoshop selection mask. ${getErrorMessage(caughtError)}`
+      `Could not export the active selection mask. ${getErrorMessage(caughtError)}`
     );
   }
 }
@@ -2381,7 +2381,7 @@ async function readActiveSelectionInfo(
     documentName: document.title ?? document.name ?? "active document",
     originatingDocument: readDocumentIdentity(document),
     maskAvailable: false,
-    maskMessage: "Capture Selection will try to export a PNG/lossless mask from the active Photoshop selection."
+    maskMessage: "Capture Selection will try to export a PNG/lossless mask from the active selection."
   };
 }
 
@@ -2747,7 +2747,7 @@ async function restoreSelectionSnapshot(
   }
 
   if (!snapshot.channel || !document.selection?.load) {
-    throw new Error("The saved Photoshop selection channel is unavailable.");
+    throw new Error("The saved selection channel is unavailable.");
   }
 
   await document.selection.load(snapshot.channel);
@@ -2802,7 +2802,7 @@ async function getSelectionDescriptor(photoshop: PhotoshopModule) {
   } catch (caughtError) {
     throw createOpenLayerError(
       "PHOTOSHOP_NO_SELECTION",
-      "No active Photoshop selection was found. Make a selection before using Inpaint.",
+      "No active selection was found. Make a selection before using Inpaint.",
       getErrorMessage(caughtError)
     );
   }
@@ -2862,7 +2862,7 @@ function getActiveDocument() {
   if (!document) {
     throw createOpenLayerError(
       "PHOTOSHOP_NO_DOCUMENT",
-      "No Photoshop document is open. Open a document before importing a result."
+      "No document is open. Open a document before importing a result."
     );
   }
 
@@ -3230,7 +3230,7 @@ function getImagingApi(photoshop: PhotoshopModule) {
   if (!imaging?.getPixels) {
     throw createOpenLayerError(
       "PHOTOSHOP_EXPORT_FAILED",
-      "This Photoshop UXP environment does not expose the Imaging API needed to capture a source image.",
+      "This version of Photoshop does not expose the Imaging API needed to capture a source image.",
       "OpenLayer uses photoshop.imaging.getPixels() and raw imageData.getData() for PNG source capture."
     );
   }

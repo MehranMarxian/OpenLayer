@@ -107,7 +107,7 @@ describe("running a layer export", () => {
   it("reports a capture failure using the adapter's own wording", async () => {
     const dependencies = createDependencies({
       capture: async () => {
-        throw new Error("No active Photoshop selection was found. Make a selection before exporting a selection.");
+        throw new Error("No active selection was found. Make a selection before exporting a selection.");
       }
     });
 
@@ -115,7 +115,7 @@ describe("running a layer export", () => {
 
     expect(result.status).toBe("error");
     expect(result.message).toBe(
-      "No active Photoshop selection was found. Make a selection before exporting a selection."
+      "No active selection was found. Make a selection before exporting a selection."
     );
   });
 
