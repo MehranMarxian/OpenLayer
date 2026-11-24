@@ -245,17 +245,53 @@ describe("refusals", () => {
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.reason).toBe("That workflow needs nodes this ComfyUI does not have.");
+    // The class the conversion stopped on comes first (the Save Image path
+    // reaches the decoder first); the rest are only "not in the node list".
+    expect(result.reason).toBe("That workflow needs a node this ComfyUI does not have.");
     expect(result.hint).toBe(
-      "Not installed: ShiftSamplerPlus (from comfyui-example-pack), TiledDecodeX (from someone/tiled-decode). Install the node packs that provide them (ComfyUI Manager can find missing nodes), restart ComfyUI, then check again."
+      "Not installed: TiledDecodeX (from someone/tiled-decode). Also not in this ComfyUI's node list: ShiftSamplerPlus (from comfyui-example-pack). Install the node pack that provides it (ComfyUI Manager can find missing nodes), restart ComfyUI, then check again."
     );
     expect(result.missing).toStrictEqual([
-      { classType: "ShiftSamplerPlus", pack: "comfyui-example-pack" },
-      { classType: "TiledDecodeX", pack: "someone/tiled-decode" }
+      { classType: "TiledDecodeX", pack: "someone/tiled-decode" },
+      { classType: "ShiftSamplerPlus", pack: "comfyui-example-pack" }
     ]);
     expect(calls).toStrictEqual(["online", "defs"]); // GET only; nothing submitted
     expectPlainText(result.reason);
     expectPlainText(result.hint ?? "");
+  });
+
+  it("refuses a missing one-input node the graph needs, instead of passing it through like a reroute", async () => {
+    // Geekatplay's rule passed any unknown one-input node through. For a model
+    // patch that runs a different graph; only reroute-like nodes pass now.
+    const ui = zImage();
+    const sampling = ui.definitions?.subgraphs?.[0].nodes?.find((node) => node.type === "ModelSamplingAuraFlow");
+    if (!sampling) throw new Error("fixture changed");
+    sampling.type = "ShiftSamplerPlus";
+    const result = await loadCustomWorkflowText(JSON.stringify(ui), createLoadDeps().deps);
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.hint).toContain("Not installed: ShiftSamplerPlus.");
+
+    // A custom reroute (wildcard slots) still passes through.
+    const rerouted = zImage();
+    const inner = rerouted.definitions?.subgraphs?.[0].nodes?.find((node) => node.type === "ModelSamplingAuraFlow");
+    if (!inner || !inner.inputs?.[0] || !inner.outputs?.[0]) throw new Error("fixture changed");
+    inner.type = "Fast Reroute (example)";
+    inner.inputs[0].type = "*";
+    inner.outputs[0].type = "*";
+    const loaded = await loadOk(JSON.stringify(rerouted));
+    expect(loaded.workflow["76:69"].inputs.model).toStrictEqual(["76:66", 0]);
+    expect(loaded.notes.join(" ")).toContain("Left out: Fast Reroute (example).");
+  });
+
+  it("a conversion failure that is not a missing node is said as it is", async () => {
+    const ui = zImage();
+    ui.nodes.push({ id: 600, type: "GetNode", mode: 0, widgets_values: ["nowhere"], inputs: [], outputs: [{ type: "IMAGE", links: [900] }] });
+    const save = ui.nodes.find((node) => node.id === 9);
+    if (!save?.inputs?.[0]) throw new Error("fixture changed");
+    save.inputs[0].link = 900;
+    ui.links = [[900, 600, 0, 9, 0, "IMAGE"]];
+    const result = await loadCustomWorkflowText(JSON.stringify(ui), createLoadDeps().deps);
+    expect(result).toMatchObject({ ok: false, reason: "OpenLayer could not read that saved workflow.", hint: 'Get node "nowhere" has no matching Set node.' });
   });
 
   it("a missing node nothing depends on is left out and named on the Inputs lines", async () => {
@@ -263,7 +299,7 @@ describe("refusals", () => {
     ui.nodes.push({ id: 500, type: "Image Comparer (rgthree)", mode: 0, inputs: [], outputs: [], properties: { cnr_id: "rgthree-comfy" } });
     const loaded = await loadOk(JSON.stringify(ui));
     expect(loaded.notes).toContain(
-      "Left out: Image Comparer (rgthree) (from rgthree-comfy). This ComfyUI does not have it, and the workflow was converted without it."
+      "Left out: Image Comparer (rgthree) (from rgthree-comfy). It is not in this ComfyUI's node list, and nothing the workflow runs needs it."
     );
     expect(Object.values(loaded.workflow).map((node) => node.class_type)).not.toContain("Image Comparer (rgthree)");
   });

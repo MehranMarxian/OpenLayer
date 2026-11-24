@@ -1,3 +1,4 @@
+import { getErrorMessage } from "../../utils/errors";
 import { ComfyWorkflow } from "../types";
 import { parseCustomWorkflowText } from "../customWorkflowValidation";
 import {
@@ -30,10 +31,13 @@ import { imageRoles } from "./targets";
  *   audio-recording nodes. The converter refuses them too, but only after
  *   it has their definitions; an artist should not wait on ComfyUI to hear
  *   that a file can never be read.
- * - After the definitions: every class this ComfyUI does not have, named
- *   with its node pack where the save records one. The converter stops at
- *   the first missing class something depends on; the artist needs the
- *   whole list to install once.
+ * - After the definitions: a class the graph needs and this ComfyUI does not
+ *   have, named with its node pack where the save records one. The converter
+ *   stops at the first; the other classes missing from this ComfyUI's node
+ *   list are named after it, so the artist can install once. They are only
+ *   "also not in the node list": some (editor-only nodes such as labels) are
+ *   never in /object_info even when installed.
+ * - Any other conversion failure is refused with the converter's reason.
  *
  * Every string reaches the panel through textContent: plain text, no
  * backticks, no markdown, no double hyphens.
@@ -123,8 +127,8 @@ export function describeSkipped(ui: UiWorkflow, skipped: readonly string[]): str
   if (!skipped.length) return null;
   const names = describeMissing([...skipped].sort().map((classType) => ({ classType, pack: nodePackOf(ui, classType) })));
   return skipped.length === 1
-    ? `Left out: ${names}. This ComfyUI does not have it, and the workflow was converted without it.`
-    : `Left out: ${names}. This ComfyUI does not have them, and the workflow was converted without them.`;
+    ? `Left out: ${names}. It is not in this ComfyUI's node list, and nothing the workflow runs needs it.`
+    : `Left out: ${names}. They are not in this ComfyUI's node list, and nothing the workflow runs needs them.`;
 }
 
 /**
@@ -170,16 +174,24 @@ export async function loadCustomWorkflowText(
   try {
     converted = convertUiWorkflow(ui, defs, random);
   } catch (error) {
-    if (!(error instanceof ConversionError)) throw error;
-    if (missing.length) {
+    if (error instanceof ConversionError && error.code === "missing-node" && error.classType) {
+      const needed = { classType: error.classType, pack: nodePackOf(ui, error.classType) };
+      const others = missing.filter((entry) => entry.classType !== needed.classType);
+      const also = others.length ? ` Also not in this ComfyUI's node list: ${describeMissing(others)}.` : "";
       return {
         ok: false,
-        reason: missing.length === 1 ? "That workflow needs a node this ComfyUI does not have." : "That workflow needs nodes this ComfyUI does not have.",
-        hint: `Not installed: ${describeMissing(missing)}. Install the node packs that provide them (ComfyUI Manager can find missing nodes), restart ComfyUI, then check again.`,
-        missing
+        reason: "That workflow needs a node this ComfyUI does not have.",
+        hint: `Not installed: ${describeMissing([needed])}.${also} Install the node pack that provides it (ComfyUI Manager can find missing nodes), restart ComfyUI, then check again.`,
+        missing: [needed, ...others]
       };
     }
-    return { ok: false, reason: "OpenLayer could not read that saved workflow.", hint: error.message };
+    // A circular link, a Get node with no Set, or a save this converter does
+    // not understand: said as it is, never as "Could not reach ComfyUI".
+    return {
+      ok: false,
+      reason: "OpenLayer could not read that saved workflow.",
+      hint: error instanceof ConversionError ? error.message : `The conversion stopped: ${getErrorMessage(error)}`
+    };
   }
 
   const notes = ["Read from a saved ComfyUI workflow and converted for this ComfyUI."];

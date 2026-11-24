@@ -226,6 +226,16 @@ export function isFrontendOnlyNodeType(type: string): boolean {
   return FRONTEND_ONLY.has(type);
 }
 
+/**
+ * An unknown node the converter may pass through: a wildcard ("*") input or
+ * output, as every reroute has, or "Reroute" in its type. Anything else
+ * unknown that the graph depends on is a missing node.
+ */
+function isRerouteLike(node: UiNode): boolean {
+  const wildcard = (type: string | undefined) => type === "*" || type === "";
+  return /reroute/i.test(node.type) || wildcard(node.inputs?.[0]?.type) || wildcard(node.outputs?.[0]?.type);
+}
+
 /** False for muted (never runs) and bypassed (passes its input through) nodes. */
 export function isActiveNodeMode(mode: number | undefined): boolean {
   return mode !== MUTED && mode !== BYPASSED;
@@ -233,8 +243,17 @@ export function isActiveNodeMode(mode: number | undefined): boolean {
 
 const PRIMITIVES = new Set(["PrimitiveInt", "PrimitiveFloat", "PrimitiveBoolean", "PrimitiveString", "PrimitiveStringMultiline"]);
 
+/**
+ * `code` and `classType` are OpenLayer additions: the panel names every
+ * missing class only when the conversion really stopped on one, and keeps
+ * other failures (a circular link, a Get node with no Set) as they are.
+ */
 export class ConversionError extends Error {
-  constructor(message: string) {
+  constructor(
+    message: string,
+    readonly code: "missing-node" | "other" = "other",
+    readonly classType?: string
+  ) {
     super(message);
     this.name = "ConversionError";
   }
@@ -542,7 +561,13 @@ class Converter {
 
   private def(dto: Dto): ObjectInfoNodeDef {
     const def = this.defs[dto.node.type];
-    if (!def) throw new ConversionError(`Node "${dto.node.title ?? dto.node.type}" (${dto.node.type}) is not installed on this ComfyUI.`);
+    if (!def) {
+      throw new ConversionError(
+        `Node "${dto.node.title ?? dto.node.type}" (${dto.node.type}) is not installed on this ComfyUI.`,
+        "missing-node",
+        dto.node.type
+      );
+    }
     return def;
   }
 
@@ -682,8 +707,12 @@ class Converter {
       if (node.type !== "PrimitiveNode") this.def(dto); // not a reroute-like node: report it as missing
       return undefined;
     }
-    if (node.inputs.length === 1) return this.resolveInput(dto, 0, visited, type); // Reroute and reroute-like nodes
-    this.def(dto); // throws: a node with several inputs that this server does not know
+    // Reroute and reroute-like nodes. OpenLayer narrowed Geekatplay's rule
+    // ("any unknown node with one input") to nodes that look like a reroute:
+    // a missing model patch such as ModelSamplingAuraFlow also has one input,
+    // and passing it through ran a different graph with only a note.
+    if (node.inputs.length === 1 && isRerouteLike(node)) return this.resolveInput(dto, 0, visited, type);
+    this.def(dto); // throws: a node this server does not know, and the graph needs its output
     return undefined;
   }
 
