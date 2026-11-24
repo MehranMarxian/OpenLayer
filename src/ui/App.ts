@@ -169,7 +169,7 @@ import {
   getInstallOffer
 } from "./setupInstallModel";
 import type { WorkflowPhotoshopInputAvailability } from "../comfy/workflowCompatibility";
-import { ComfyWorkflow, GeneratedImageResult, GeneratedImageSet, WorkflowLoraSelection, WorkflowPresetDefinition } from "../comfy/types";
+import { GeneratedImageResult, GeneratedImageSet, WorkflowLoraSelection, WorkflowPresetDefinition } from "../comfy/types";
 import {
   NO_LORA_VALUE,
   formatLoraHintSuffix,
@@ -283,6 +283,7 @@ import {
   TargetPicker
 } from "./tools/customWorkflow";
 import { findTargets, resolveTargets } from "../comfy/customWorkflow/targets";
+import { CustomWorkflowLoadDeps, LoadedCustomWorkflow, loadCustomWorkflowText } from "../comfy/customWorkflow/load";
 import { normalizeSelectionPrompt } from "../comfy/selectionPrompt";
 import {
   getFriendlyImageToImageErrorMessage,
@@ -714,6 +715,10 @@ export function renderApp(rootElement: HTMLElement) {
   let customWorkflowImportBounds: NormalizedSelectionBounds | null = null;
   // The options the two target pickers were last filled with (pickerSignature).
   let customWorkflowPickerSignature: string | null = null;
+  // The last Check or Run's graph, keyed by the pasted text, so a pick or a
+  // capture can redraw the Inputs lines without converting an editor save
+  // (which needs ComfyUI) again.
+  let customWorkflowLoaded: { text: string; loaded: LoadedCustomWorkflow } | null = null;
   let styleReferenceSource: ImageSourceState | null = null;
   let styleReferenceResult: AppGeneratedImageResult | null = null;
   // An ordered list rather than a single source, which is the whole difference
@@ -7236,25 +7241,30 @@ export function renderApp(rootElement: HTMLElement) {
   async function handleCheckCustomWorkflow() {
     setCustomWorkflowStatus(elements, "Checking workflow...", "idle");
     setCustomWorkflowError(elements, "");
+    setCustomWorkflowDiagnostics(elements, "");
     elements.customWorkflowSummary.textContent = "";
     elements.customWorkflowResults.innerHTML = "";
 
-    const parsed = parseCustomWorkflowText(readTextareaValue(elements.customWorkflowInput));
-
-    if (!parsed.ok) {
-      hideCustomWorkflowInputs();
-      setCustomWorkflowStatus(elements, parsed.reason, "error");
-      setCustomWorkflowError(elements, parsed.hint ? `${parsed.reason} ${parsed.hint}` : parsed.reason);
-      return;
-    }
-
-    refreshCustomWorkflowInputs(parsed.workflow);
+    const text = readTextareaValue(elements.customWorkflowInput);
 
     try {
       const client = new ComfyClient(elements.serverUrl.value);
+      // An editor save is converted here with this ComfyUI's definitions, so
+      // what is checked is the graph Run would send.
+      const loadResult = await loadCustomWorkflowText(text, createCustomWorkflowLoadDeps(client));
+
+      if (!loadResult.ok) {
+        hideCustomWorkflowInputs();
+        setCustomWorkflowStatus(elements, loadResult.reason, "error");
+        setCustomWorkflowError(elements, loadResult.hint ? `${loadResult.reason} ${loadResult.hint}` : loadResult.reason);
+        return;
+      }
+
+      const loaded = loadResult.loaded;
+      refreshCustomWorkflowInputs(text, loaded);
       await client.checkOnline();
 
-      const classTypes = listCustomWorkflowClassTypes(parsed.workflow);
+      const classTypes = listCustomWorkflowClassTypes(loaded.workflow);
       const availability = await client.getNodeAvailability(classTypes);
 
       // A server that stopped answering mid-check looks identical to a server
@@ -7270,7 +7280,7 @@ export function renderApp(rootElement: HTMLElement) {
         await client.checkOnline();
       }
 
-      const report = evaluateCustomWorkflow(parsed.workflow, availability);
+      const report = evaluateCustomWorkflow(loaded.workflow, availability);
 
       renderCustomWorkflowReport(elements, report);
       elements.customWorkflowSummary.textContent = report.summaryLine;
@@ -7288,6 +7298,16 @@ export function renderApp(rootElement: HTMLElement) {
   function hideCustomWorkflowInputs() {
     elements.customWorkflowInputsSection.hidden = true;
     customWorkflowPickerSignature = null;
+    customWorkflowLoaded = null;
+  }
+
+  function createCustomWorkflowLoadDeps(client: ComfyClient): CustomWorkflowLoadDeps {
+    return {
+      checkOnline: async () => {
+        await client.checkOnline();
+      },
+      getRawNodeDefinitions: (classTypes) => client.getRawNodeDefinitions(classTypes)
+    };
   }
 
   /**
@@ -7296,15 +7316,16 @@ export function renderApp(rootElement: HTMLElement) {
    * while the options are the same and resets them when they are not. Returns
    * whether the options changed.
    */
-  function refreshCustomWorkflowInputs(workflow: ComfyWorkflow): boolean {
-    const pickers = buildTargetPickers(findTargets(workflow));
+  function refreshCustomWorkflowInputs(text: string, loaded: LoadedCustomWorkflow): boolean {
+    customWorkflowLoaded = { text, loaded };
+    const pickers = buildTargetPickers(findTargets(loaded.workflow, loaded.roles));
     const signature = pickerSignature(pickers);
     const changed = signature !== customWorkflowPickerSignature;
     fillTargetPicker(elements.customWorkflowPromptTargetField, elements.customWorkflowPromptTarget, pickers.prompt, changed);
     fillTargetPicker(elements.customWorkflowImageTargetField, elements.customWorkflowImageTarget, pickers.image, changed);
     customWorkflowPickerSignature = signature;
     elements.customWorkflowInputsSection.hidden = false;
-    renderCustomWorkflowInputLines(describeCurrentCustomInputs(workflow));
+    renderCustomWorkflowInputLines(describeCurrentCustomInputs(loaded));
     return changed;
   }
 
@@ -7320,21 +7341,26 @@ export function renderApp(rootElement: HTMLElement) {
   }
 
   /** The Inputs lines for the current picks, prompt box and capture: what a Run would do now. */
-  function describeCurrentCustomInputs(workflow: ComfyWorkflow): string[] {
-    const resolved = resolveTargets(workflow, readCustomWorkflowChoice());
+  function describeCurrentCustomInputs(loaded: LoadedCustomWorkflow): string[] {
+    const { workflow, roles, notes } = loaded;
+    const resolved = resolveTargets(workflow, readCustomWorkflowChoice(), roles);
 
     if (!resolved.ok) {
       return [
+        ...notes,
         resolved.choose === "prompt"
           ? "Several nodes could take the prompt. Choose one below."
           : "Several Load Image nodes could take the image. Choose one below, or keep the workflow's own images."
       ];
     }
 
-    return describeCustomInputs(workflow, resolved, {
-      prompt: readTextareaValue(elements.customWorkflowPrompt),
-      source: customWorkflowSource ? toCustomRunSource(customWorkflowSource) : null
-    });
+    return [
+      ...notes,
+      ...describeCustomInputs(workflow, resolved, {
+        prompt: readTextareaValue(elements.customWorkflowPrompt),
+        source: customWorkflowSource ? toCustomRunSource(customWorkflowSource) : null
+      })
+    ];
   }
 
   function renderCustomWorkflowInputLines(lines: readonly string[]) {
@@ -7357,10 +7383,19 @@ export function renderApp(rootElement: HTMLElement) {
       return;
     }
 
-    const parsed = parseCustomWorkflowText(readTextareaValue(elements.customWorkflowInput));
+    const text = readTextareaValue(elements.customWorkflowInput);
 
-    if (parsed.ok) {
-      renderCustomWorkflowInputLines(describeCurrentCustomInputs(parsed.workflow));
+    // An editor save needs ComfyUI to convert, so only the last Check or Run
+    // of this exact text is reused; an API export is read again for free.
+    if (customWorkflowLoaded && customWorkflowLoaded.text === text) {
+      renderCustomWorkflowInputLines(describeCurrentCustomInputs(customWorkflowLoaded.loaded));
+      return;
+    }
+
+    const parsed = parseCustomWorkflowText(text);
+
+    if (parsed.ok && parsed.format === "api") {
+      renderCustomWorkflowInputLines(describeCurrentCustomInputs({ workflow: parsed.workflow, format: "api", roles: {}, notes: [] }));
     }
   }
 
@@ -7418,36 +7453,21 @@ export function renderApp(rootElement: HTMLElement) {
     setCustomWorkflowError(elements, "");
     // The last run's hint would otherwise sit under this run's error.
     setCustomWorkflowDiagnostics(elements, "");
-    const parsed = parseCustomWorkflowText(readTextareaValue(elements.customWorkflowInput));
-
-    if (!parsed.ok) {
-      hideCustomWorkflowInputs();
-      setCustomWorkflowStatus(elements, parsed.reason, "error");
-      setCustomWorkflowError(elements, parsed.hint ? `${parsed.reason} ${parsed.hint}` : parsed.reason);
-      return;
-    }
 
     // Node ids repeat between graphs, so a pick made for another workflow
     // could name a node in this one. If the options changed and the artist
-    // had picked something, stop and let them look again.
+    // had picked something, the run stops below and lets them look again.
+    const text = readTextareaValue(elements.customWorkflowInput);
     const hadPicks =
       (!elements.customWorkflowPromptTargetField.hidden && isTargetPick(readTargetPickerValue(elements.customWorkflowPromptTarget))) ||
       (!elements.customWorkflowImageTargetField.hidden && isTargetPick(readTargetPickerValue(elements.customWorkflowImageTarget)));
-
-    if (refreshCustomWorkflowInputs(parsed.workflow) && hadPicks) {
-      setCustomWorkflowStatus(elements, "The workflow changed, so the Inputs were reset.", "error");
-      setCustomWorkflowDiagnostics(elements, "Check where the prompt and image go under Inputs, then click Run Workflow again.");
-      return;
-    }
-
-    const workflow = parsed.workflow;
     const choice = readCustomWorkflowChoice();
     const prompt = readTextareaValue(elements.customWorkflowPrompt);
     const seedText = elements.customWorkflowSeed.value;
     const capturedSource = customWorkflowSource;
-    const resolved = resolveTargets(workflow, choice);
-    const usesSource = Boolean(capturedSource) && resolved.ok && resolved.image.some((slot) => slot.source === "layer");
 
+    // Busy before the first await: an editor save is converted with this
+    // ComfyUI's definitions, and a second click must not start a second run.
     busyTool = "custom-workflow";
     isBusy = true;
     syncBusy();
@@ -7457,10 +7477,35 @@ export function renderApp(rootElement: HTMLElement) {
 
     try {
       // Inside the try: a seed that is not a whole number throws here, and
-      // lands in the error box like every other failure.
+      // lands in the error box like every other failure. Before the
+      // conversion, so a typo costs no request.
       const { settings, warnings } = validateCustomWorkflowSettings({ seed: seedText });
-      const importBounds = usesSource && capturedSource ? capturedSource.captureBounds ?? null : null;
       const client = new ComfyClient(elements.serverUrl.value);
+      // Converted again on every Run, not taken from the last Check: the
+      // save's dynamic prompts are drawn per run, as ComfyUI's own queue does,
+      // and the node definitions may have changed since.
+      const loadResult = await loadCustomWorkflowText(text, createCustomWorkflowLoadDeps(client));
+
+      if (!loadResult.ok) {
+        hideCustomWorkflowInputs();
+        setCustomWorkflowStatus(elements, loadResult.reason, "error");
+        setCustomWorkflowError(elements, loadResult.hint ? `${loadResult.reason} ${loadResult.hint}` : loadResult.reason);
+        setCustomWorkflowDiagnostics(elements, "Nothing was queued in ComfyUI.");
+        return;
+      }
+
+      const loaded = loadResult.loaded;
+
+      if (refreshCustomWorkflowInputs(text, loaded) && hadPicks) {
+        setCustomWorkflowStatus(elements, "The workflow changed, so the Inputs were reset.", "error");
+        setCustomWorkflowDiagnostics(elements, "Check where the prompt and image go under Inputs, then click Run Workflow again.");
+        return;
+      }
+
+      const workflow = loaded.workflow;
+      const resolved = resolveTargets(workflow, choice, loaded.roles);
+      const usesSource = Boolean(capturedSource) && resolved.ok && resolved.image.some((slot) => slot.source === "layer");
+      const importBounds = usesSource && capturedSource ? capturedSource.captureBounds ?? null : null;
 
       if (warnings.length > 0) {
         setCustomWorkflowDiagnostics(elements, warnings.join(" "));
@@ -7532,7 +7577,14 @@ export function renderApp(rootElement: HTMLElement) {
             setCustomWorkflowProgressPreview(elements, message);
           }
         },
-        { workflow, choice, prompt, seed: settings.seed, source: capturedSource ? toCustomRunSource(capturedSource) : null }
+        {
+          workflow,
+          choice,
+          roles: loaded.roles,
+          prompt,
+          seed: settings.seed,
+          source: capturedSource ? toCustomRunSource(capturedSource) : null
+        }
       );
 
       // The pipeline already reported a cancel on this screen.
@@ -7545,7 +7597,7 @@ export function renderApp(rootElement: HTMLElement) {
       setCustomWorkflowError(elements, view.error);
 
       if (view.inputs.length > 0) {
-        renderCustomWorkflowInputLines(view.inputs);
+        renderCustomWorkflowInputLines([...loaded.notes, ...view.inputs]);
       }
 
       if (outcome.kind === "refused" && outcome.report) {

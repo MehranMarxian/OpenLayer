@@ -2242,13 +2242,13 @@ ${createComponentSheetPlaceholderMarkup()}
             <span class="muted-label">Paste, check, run</span>
           </div>
           <div class="diagnostics-line setup-paragraph">
-            Paste a ComfyUI workflow saved with File &gt; Export (API) (Workflow &gt; Export (API) in older
-            ComfyUI), not Save. Check This Workflow says whether this ComfyUI has every node it needs. Run
+            Paste a ComfyUI workflow: one saved with File &gt; Save or File &gt; Export, or one from
+            File &gt; Export (API). Check This Workflow says whether this ComfyUI has every node it needs. Run
             Workflow sends your prompt and image into it and brings the result back.
           </div>
           <div class="field">
             <span class="label">Workflow JSON</span>
-            <textarea maxlength="2000000" class="textarea compact-textarea" id="custom-workflow-input" placeholder="Paste the exported API workflow JSON here..."></textarea>
+            <textarea maxlength="2000000" class="textarea compact-textarea" id="custom-workflow-input" placeholder="Paste a saved or exported ComfyUI workflow here..."></textarea>
           </div>
           <div role="button" tabindex="0" class="button button-wide action-control" id="check-custom-workflow" data-openlayer-action="checkCustomWorkflow">Check This Workflow</div>
           <div class="diagnostics-line setup-paragraph" id="custom-workflow-summary"></div>

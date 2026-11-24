@@ -14,6 +14,7 @@ import {
   WorkflowPresetDefinition
 } from "./types";
 import type { WorkflowNodeAvailability } from "./workflowCompatibility";
+import type { ObjectInfoNodeDef } from "./customWorkflow/convert";
 import {
   createRequiredModelSelectionKey,
   formatMissingRequiredModelMessage,
@@ -319,6 +320,28 @@ export class ComfyClient {
     }
 
     return availability;
+  }
+
+  /**
+   * The raw `/object_info` entry of each class, as the editor-save converter
+   * needs it (input_order and widget options included). GET only, one class
+   * per request. A class ComfyUI does not know answers 200 with an empty body
+   * and is left out. Unlike getNodeAvailability, a failed request throws: a
+   * server that stopped answering must not read as "node not installed".
+   */
+  async getRawNodeDefinitions(classTypes: readonly string[]): Promise<Record<string, ObjectInfoNodeDef>> {
+    const definitions: Record<string, ObjectInfoNodeDef> = {};
+
+    for (const classType of classTypes) {
+      const objectInfo = (await this.getObjectInfo(classType)) as unknown as Record<string, ObjectInfoNodeDef | undefined>;
+      const definition = objectInfo[classType];
+
+      if (definition && typeof definition === "object") {
+        definitions[classType] = definition;
+      }
+    }
+
+    return definitions;
   }
 
   async getCheckpointNames(): Promise<string[]> {

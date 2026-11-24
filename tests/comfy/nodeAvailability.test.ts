@@ -52,4 +52,27 @@ describe("node availability", () => {
     expect(crop?.requiredInputs).toContain("mask");
     expect(createWorkflowHealthItem(preset, { availableNodes }).state).not.toBe("missing-node");
   });
+
+  it("returns raw definitions for the editor-save converter, leaving unknown classes out", async () => {
+    stubInpaintCrop();
+    const requested: string[] = [];
+    const stubbed = globalThis.fetch;
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+      requested.push(`${init?.method ?? "GET"} ${url}`);
+      return stubbed(url, init);
+    });
+    const defs = await new ComfyClient("http://127.0.0.1:8188").getRawNodeDefinitions(["InpaintCropImproved", "Image Comparer (rgthree)"]);
+
+    expect(defs).toEqual({ InpaintCropImproved: { input: { required: { image: ["IMAGE"] }, optional: { mask: ["MASK"] } } } });
+    // GET only, class names encoded.
+    expect(requested).toEqual([
+      "GET http://127.0.0.1:8188/object_info/InpaintCropImproved",
+      "GET http://127.0.0.1:8188/object_info/Image%20Comparer%20(rgthree)"
+    ]);
+  });
+
+  it("throws when a definition request fails, instead of calling the class missing", async () => {
+    vi.stubGlobal("fetch", async () => new Response("", { status: 500 }));
+    await expect(new ComfyClient("http://127.0.0.1:8188").getRawNodeDefinitions(["KSampler"])).rejects.toThrow();
+  });
 });

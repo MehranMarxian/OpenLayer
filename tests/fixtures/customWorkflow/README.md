@@ -36,6 +36,33 @@ inpaint graph), which is not committed.
 Both exports were taken through the menu, and their SHA-256 was checked against
 the bytes the page produced.
 
+### The PR 4 gate (recorded 2026-11-24, same ComfyUI 0.44.0, frontend 1.57.6)
+
+- `*.edited.workflow.json` and `*.edited.api.json`: the same template, with
+  the prompt typed into the subgraph node's prompt box ("Replace the hat with a
+  red wool scarf") and its seed typed into the seed widget's value box
+  (424242), then File > Export and File > Export (API) from that state. Never
+  Run, nothing queued. The template was opened with the frontend's own
+  `app.loadGraphData` on `GET /templates/image_flux.1_fill_dev_OneReward.json`
+  (no image upload). Apart from the two edits, the save matches
+  `*.workflow.json` above, except for two empty Use Everywhere `extra` arrays
+  in the subgraph definitions and the top-level `extra` (canvas position) and
+  `id`. The save keeps the old values on the inner nodes 23 and 3; the export
+  queues the new ones. The bytes the page produced went straight to disk.
+  SHA-256 at capture (LF line endings):
+  - save: `cefb636f690640f9aa44acd1e08bb483ad205e455853940b54aaa4c6e07a2e19`
+  - API: `24b3d3151eee5f8b6a295e7afb212482e5d7497e66dac2801b5aeab6e17a01e2`
+- `z-image-proxy-host-edited.api.json`: what `app.graphToPrompt()` (the
+  function File > Export (API) calls) returned for
+  `src/workflows/source/txt2img-z-image-turbo.workflow.json` with the subgraph
+  node's prompt set to "HOST TEXT" and steps to 9, and the inner prompt node
+  set to "INNER TEXT" (the test makes the same edit). That save promotes its
+  inputs as `["-1", name]` proxy widgets, and 1.57.6 queues the subgraph
+  node's values. `cnr_id` and `ver` were removed from `_meta`, as the
+  converter does not write them. Unlike the two files above, this one was not
+  captured as bytes: it was copied from the page's JSON output by hand, so
+  only its values, not its formatting, are the frontend's.
+
 ## `object-info-raw.json`
 
 Raw `GET /object_info` entries from ComfyUI 0.44.0 on 2026-11-23, 74 classes:

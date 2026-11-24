@@ -73,8 +73,8 @@ describe("converter, exact values: frontend 1.57.6 export", () => {
     expect(convertUiWorkflow(saved, DEFS, () => 0).exposed).toStrictEqual([]);
 
     // An artist's edit on the subgraph node is what converts, not the inner
-    // node's stale copy. (Whether the 1.57.6 frontend queues an edited value
-    // the same way was not checked against the live frontend.)
+    // node's stale copy. That the 1.57.6 frontend queues the edit the same way
+    // is the PR 4 gate at the end of this file, on a real edited export.
     const edited = JSON.parse(JSON.stringify(saved)) as UiWorkflow;
     const host = edited.nodes.find((node) => node.id === 108);
     if (!host || !Array.isArray(host.widgets_values)) throw new Error("subgraph node 108 has no widget values");
@@ -112,5 +112,58 @@ describe("the Discussion 179 graph's GGUF loaders", () => {
         _meta: { title: "DualCLIPLoader (GGUF)" }
       }
     });
+  });
+});
+
+describe("v0.50 PR 4 gate: frontend 1.57.6 queues an edited promoted value the way the converter reads it", () => {
+  // Recorded 2026-11-24 (README): the OneReward template, prompt and seed
+  // typed on the subgraph node, then File > Export and File > Export (API).
+  const save = read(`${NAME}.edited.workflow.json`) as UiWorkflow;
+  const exported = read(`${NAME}.edited.api.json`) as ComfyWorkflow;
+
+  it("the edited save keeps stale copies inside the subgraph, and the export queues the edits", () => {
+    const host = save.nodes.find((node) => node.id === 108);
+    const inner = save.definitions?.subgraphs?.find((sub) => sub.id === host?.type)?.nodes ?? [];
+    expect(Array.isArray(host?.widgets_values) && host.widgets_values.slice(0, 2)).toStrictEqual(["Replace the hat with a red wool scarf", 424242]);
+    expect(inner.find((node) => node.id === 23)?.widgets_values).toStrictEqual(["Remove the girl's hat\n"]);
+    expect(Array.isArray(inner.find((node) => node.id === 3)?.widgets_values) && (inner.find((node) => node.id === 3)?.widgets_values as unknown[])[0]).toBe(75154916226486);
+
+    expect(exported["108:23"].inputs.text).toBe("Replace the hat with a red wool scarf");
+    expect(exported["108:3"].inputs.seed).toBe(424242);
+  });
+
+  it("GO: the converted save equals the API export on every node, _meta pack keys aside", () => {
+    const converted = convertUiWorkflow(save, DEFS, () => 0);
+    expect(converted.skipped).toStrictEqual([]);
+    expect(converted.prompt).toStrictEqual(withoutPackMeta(exported));
+  });
+
+  it("a save that promotes subgraph inputs as [\"-1\", name] sends the subgraph node's value, as 1.57.6 does", () => {
+    // The bundled z-image source save uses this layout (frontend 1.38). Here
+    // its two copies are made to differ; the frontend's own graphToPrompt
+    // output for exactly this edit is the fixture.
+    const ui = JSON.parse(readFileSync(resolve(__dirname, "../../../src/workflows/source/txt2img-z-image-turbo.workflow.json"), "utf8")) as UiWorkflow;
+    const host = ui.nodes.find((node) => node.id === 76);
+    if (!host || !Array.isArray(host.widgets_values)) throw new Error("subgraph node 76 has no widget values");
+    host.widgets_values[0] = "HOST TEXT";
+    host.widgets_values[3] = 9;
+    const inner67 = ui.definitions?.subgraphs?.[0].nodes?.find((node) => node.id === 67);
+    if (!inner67) throw new Error("no inner node 67");
+    inner67.widgets_values = ["INNER TEXT"];
+
+    const frontend = read("frontend-1.57.6/z-image-proxy-host-edited.api.json") as ComfyWorkflow;
+    const converted = convertUiWorkflow(ui, DEFS, () => 0).prompt;
+
+    expect(converted["76:67"].inputs.text).toBe("HOST TEXT");
+    expect(converted["76:69"].inputs.steps).toBe(9);
+    // One deliberate difference: 1.57.6 queues seed null for the direct
+    // ["69", "seed"] proxy (its host slot is null), which ComfyUI would
+    // reject. The converter keeps the inner seed, and the panel writes its
+    // own seed over it anyway.
+    expect(frontend["76:69"].inputs.seed).toBeNull();
+    expect(converted["76:69"].inputs.seed).toBe(770044821593082);
+    const frontendWithInnerSeed = JSON.parse(JSON.stringify(frontend)) as ComfyWorkflow;
+    frontendWithInnerSeed["76:69"].inputs.seed = 770044821593082;
+    expect(converted).toStrictEqual(frontendWithInnerSeed);
   });
 });

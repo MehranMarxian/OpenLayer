@@ -39,7 +39,9 @@
  * JavaScript would have thrown a TypeError on an impossible lookup now throw a
  * ConversionError that says so. It is pure (no fetch, no host calls), so the
  * spike tests in tests/comfy/customWorkflow/ exercise every branch without a
- * server. Nothing in the panel calls it yet: v0.50 PR 4 wires it in.
+ * server. The Workflow screen calls it through customWorkflow/load.ts (v0.50
+ * PR 4), which also refuses group nodes and 3D or webcam nodes before any
+ * request, and names every missing class.
  *
  * Mirrors frontend 1.53. The spike checks it against a fresh 1.57.6 export too;
  * a future frontend can still change the widget layout under it, which is why
@@ -200,10 +202,58 @@ const UNCONVERTIBLE = new Set([
 // Frontend-only nodes that are never part of a prompt, so leaving them out is not worth reporting.
 const FRONTEND_ONLY = new Set(["Note", "MarkdownNote", "Reroute", "PrimitiveNode", "SetNode", "GetNode"]);
 
+// OpenLayer: the refusals below are also checked before any request
+// (src/comfy/customWorkflow/load.ts), so their wording lives here, once.
+// Geekatplay's said "register a Workflow > Export (API) file", which is
+// their panel's verb and ComfyUI's old menu name.
+
+/** Why a saved workflow with legacy group nodes is refused. */
+export const LEGACY_GROUP_NODES_MESSAGE =
+  "This workflow uses legacy group nodes, which OpenLayer cannot read from a saved workflow. In ComfyUI, convert them to subgraphs and save again, or paste a File > Export (API) file instead.";
+
+/** Why a saved workflow with a 3D, webcam or audio-recording node is refused. */
+export function unconvertibleNodeMessage(type: string): string {
+  return `${type} cannot be read from a saved workflow, because ComfyUI's editor adds settings to it that the file does not hold. Paste a File > Export (API) file instead.`;
+}
+
+/** Core nodes whose editor widgets cannot be rebuilt from /object_info (3D, webcam, audio recording). */
+export function isUnconvertibleNodeType(type: string): boolean {
+  return UNCONVERTIBLE.has(type);
+}
+
+/** Notes, reroutes, primitives and Set/Get nodes: never sent to ComfyUI, so never looked up. */
+export function isFrontendOnlyNodeType(type: string): boolean {
+  return FRONTEND_ONLY.has(type);
+}
+
+/**
+ * An unknown node the converter may pass through: a wildcard ("*") input or
+ * output, as every reroute has, or "Reroute" in its type. Anything else
+ * unknown that the graph depends on is a missing node.
+ */
+function isRerouteLike(node: UiNode): boolean {
+  const wildcard = (type: string | undefined) => type === "*" || type === "";
+  return /reroute/i.test(node.type) || wildcard(node.inputs?.[0]?.type) || wildcard(node.outputs?.[0]?.type);
+}
+
+/** False for muted (never runs) and bypassed (passes its input through) nodes. */
+export function isActiveNodeMode(mode: number | undefined): boolean {
+  return mode !== MUTED && mode !== BYPASSED;
+}
+
 const PRIMITIVES = new Set(["PrimitiveInt", "PrimitiveFloat", "PrimitiveBoolean", "PrimitiveString", "PrimitiveStringMultiline"]);
 
+/**
+ * `code` and `classType` are OpenLayer additions: the panel names every
+ * missing class only when the conversion really stopped on one, and keeps
+ * other failures (a circular link, a Get node with no Set) as they are.
+ */
 export class ConversionError extends Error {
-  constructor(message: string) {
+  constructor(
+    message: string,
+    readonly code: "missing-node" | "other" = "other",
+    readonly classType?: string
+  ) {
     super(message);
     this.name = "ConversionError";
   }
@@ -511,7 +561,13 @@ class Converter {
 
   private def(dto: Dto): ObjectInfoNodeDef {
     const def = this.defs[dto.node.type];
-    if (!def) throw new ConversionError(`Node "${dto.node.title ?? dto.node.type}" (${dto.node.type}) is not installed on this ComfyUI server.`);
+    if (!def) {
+      throw new ConversionError(
+        `Node "${dto.node.title ?? dto.node.type}" (${dto.node.type}) is not installed on this ComfyUI.`,
+        "missing-node",
+        dto.node.type
+      );
+    }
     return def;
   }
 
@@ -538,7 +594,7 @@ class Converter {
   private widgetInputs(dto: Dto): Record<string, unknown> {
     this.def(dto);
     if (UNCONVERTIBLE.has(dto.node.type)) {
-      throw new ConversionError(`${dto.node.type} cannot be read from a regular workflow file. Register a Workflow > Export (API) file instead.`);
+      throw new ConversionError(unconvertibleNodeMessage(dto.node.type));
     }
     const inputs: Record<string, unknown> = {};
     for (const [widget, value] of this.widgetValues(dto.node)) {
@@ -582,6 +638,20 @@ class Converter {
     const sub = host.subgraph as Graph;
     const proxies = proxyWidgets(host.node);
     if (proxies) {
+      // OpenLayer addition, not in Geekatplay's convert.js. Some saves (the
+      // bundled txt2img-z-image-turbo source, frontend 1.38) promote a
+      // subgraph *input* as ["-1", inputName]. Its value sits on the subgraph
+      // node, at that entry's index in widgets_values, and frontend 1.57.6
+      // queues that value, not the inner node's copy: checked on 2026-11-24
+      // with app.graphToPrompt() on a save whose two copies differ
+      // (tests/fixtures/customWorkflow/frontend-1.57.6/z-image-proxy-host-edited.api.json).
+      // Without this branch the inner, possibly stale, copy was sent.
+      const subInput = sub.data.inputs?.[inputIndex];
+      const index = subInput ? proxies.findIndex(([id, widget]) => String(id) === "-1" && widget === subInput.name) : -1;
+      const values = host.node.widgets_values;
+      if (index !== -1 && Array.isArray(values) && index < values.length && values[index] != null) {
+        return { widgetValue: values[index] };
+      }
       // The promoted widget is an inner widget fed by this input; its value is sent as is.
       for (const link of sub.links.values()) {
         if (link.origin_id !== SUBGRAPH_INPUT || link.origin_slot !== inputIndex) continue;
@@ -637,8 +707,12 @@ class Converter {
       if (node.type !== "PrimitiveNode") this.def(dto); // not a reroute-like node: report it as missing
       return undefined;
     }
-    if (node.inputs.length === 1) return this.resolveInput(dto, 0, visited, type); // Reroute and reroute-like nodes
-    this.def(dto); // throws: a node with several inputs that this server does not know
+    // Reroute and reroute-like nodes. OpenLayer narrowed Geekatplay's rule
+    // ("any unknown node with one input") to nodes that look like a reroute:
+    // a missing model patch such as ModelSamplingAuraFlow also has one input,
+    // and passing it through ran a different graph with only a note.
+    if (node.inputs.length === 1 && isRerouteLike(node)) return this.resolveInput(dto, 0, visited, type);
+    this.def(dto); // throws: a node this server does not know, and the graph needs its output
     return undefined;
   }
 
@@ -745,7 +819,7 @@ export function uiNodeTypes(ui: UiWorkflow): string[] {
  */
 export function convertUiWorkflow(ui: UiWorkflow, defs: ObjectInfo, random: () => number = Math.random): ConvertResult {
   if (ui.extra?.groupNodes && Object.keys(ui.extra.groupNodes).length) {
-    throw new ConversionError("This workflow uses legacy group nodes. Convert them to subgraphs in ComfyUI, or register a Workflow > Export (API) file.");
+    throw new ConversionError(LEGACY_GROUP_NODES_MESSAGE);
   }
   const converter = new Converter(ui, defs, random);
   const prompt = converter.convert();

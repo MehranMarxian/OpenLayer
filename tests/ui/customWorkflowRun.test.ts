@@ -423,7 +423,7 @@ describe("custom workflow run: the pure pieces", () => {
     const resolvedEmpty = resolveTargets(empty, { image: "10" });
     if (!resolvedEmpty.ok) throw new Error("expected targets");
     expect(findLocalRefusal(empty, resolvedEmpty, layer)).toBe(
-      "Load Inpaint Mask (#12) has no image of its own. Choose it for the layer instead, or give it an image in ComfyUI and export the workflow again."
+      "Load Inpaint Mask (#12) has no image of its own. Choose it for the layer instead, or give it an image in ComfyUI and save the workflow again."
     );
   });
 
